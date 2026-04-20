@@ -315,24 +315,23 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           onLongPress: destination.onLongPress,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
+          child: SizedBox(
             width: appNavigationBarPrimaryButtonSize,
             height: appNavigationBarPrimaryButtonSize,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.25),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.25),
+                ),
               ),
-            ),
-            child: IconTheme(
-              data: IconThemeData(
-                color: foreground,
-                size: 24,
+              child: IconTheme(
+                data: IconThemeData(
+                  color: foreground,
+                  size: 24,
+                ),
+                child: Center(child: icon),
               ),
-              child: Center(child: icon),
             ),
           ),
         ),

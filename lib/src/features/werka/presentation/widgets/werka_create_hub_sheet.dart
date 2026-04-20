@@ -95,8 +95,20 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       AppMotion.m3ExpressiveFastSpatial;
   static final SpringDescription _effectsSpring =
       AppMotion.m3ExpressiveFastEffects;
+  static final SpringDescription _spatialSpringClose =
+      SpringDescription.withDampingRatio(
+    mass: 1.0,
+    stiffness: 2100.0,
+    ratio: 0.6,
+  );
+  static final SpringDescription _effectsSpringClose =
+      SpringDescription.withDampingRatio(
+    mass: 1.0,
+    stiffness: 4500.0,
+    ratio: 1.0,
+  );
   static const Duration _openDuration = Duration(milliseconds: 280);
-  static const Duration _closeDuration = Duration(milliseconds: 210);
+  static const Duration _closeDuration = Duration(milliseconds: 280);
 
   /// Wider than [0,1] so [SpringSimulation] can overshoot (M3 Expressive spatial).
   static const double _spatialLower = -0.08;
@@ -112,7 +124,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   late final AnimationController _effectsController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 220),
-    reverseDuration: const Duration(milliseconds: 180),
+    reverseDuration: const Duration(milliseconds: 220),
   );
   late final ShapeBorderTween _fabShapeTween = ShapeBorderTween(
     begin: RoundedRectangleBorder(
@@ -156,14 +168,19 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       return;
     }
 
+    final SpringDescription spatialSpring =
+        open ? _spatialSpring : _spatialSpringClose;
+    final SpringDescription effectsSpring =
+        open ? _effectsSpring : _effectsSpringClose;
+
     final spatialFuture = _animateWithSpring(
       controller: _spatialController,
-      spring: _spatialSpring,
+      spring: spatialSpring,
       target: target,
     );
     final effectsFuture = _animateWithSpring(
       controller: _effectsController,
-      spring: _effectsSpring,
+      spring: effectsSpring,
       target: target,
     );
 
@@ -315,6 +332,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
                   key: const ValueKey('werka-hub-toggle-button'),
                   spatialAnimation: _spatialController,
                   effectsAnimation: _effectsController,
+                  targetOpen: _targetOpen,
                   onTap: () => _setOpen(!_targetOpen),
                   closedSize: _fabClosedSize,
                   openSize: _fabOpenSize,
@@ -488,6 +506,7 @@ class _WerkaMorphFabButton extends StatelessWidget {
     super.key,
     required this.spatialAnimation,
     required this.effectsAnimation,
+    required this.targetOpen,
     required this.onTap,
     required this.closedSize,
     required this.openSize,
@@ -496,6 +515,7 @@ class _WerkaMorphFabButton extends StatelessWidget {
 
   final Animation<double> spatialAnimation;
   final Animation<double> effectsAnimation;
+  final bool targetOpen;
   final VoidCallback onTap;
   final double closedSize;
   final double openSize;
@@ -512,18 +532,19 @@ class _WerkaMorphFabButton extends StatelessWidget {
         final double raw = spatialAnimation.value;
         final double morphT = _m3SpatialLerpT(raw);
         final double iconT = effectsAnimation.value.clamp(0.0, 1.0);
-        final double shapeAndColorT = raw.clamp(0.0, 1.0);
+        final double colorT = raw.clamp(0.0, 1.0);
+        final double shapeT = _shapeMorphT(raw, targetOpen);
         final double buttonSize = _lerpDouble(closedSize, openSize, morphT);
-        final ShapeBorder shape = shapeTween.lerp(shapeAndColorT)!;
+        final ShapeBorder shape = shapeTween.lerp(shapeT)!;
         final Color containerColor = Color.lerp(
           scheme.primaryContainer,
           scheme.primary,
-          shapeAndColorT,
+          colorT,
         )!;
         final Color foregroundColor = Color.lerp(
           scheme.onPrimaryContainer,
           scheme.onPrimary,
-          shapeAndColorT,
+          colorT,
         )!;
         const double iconSize = 24.0;
 
@@ -582,6 +603,14 @@ double _lerpDouble(double begin, double end, double t) =>
 
 /// Spatial spring may exceed 0–1; allow extrapolation for size (Expressive overshoot).
 double _m3SpatialLerpT(double v) => v.clamp(-0.06, 1.18);
+
+double _shapeMorphT(double raw, bool targetOpen) {
+  final double t = raw.clamp(0.0, 1.0);
+  if (targetOpen) {
+    return t;
+  }
+  return t * t;
+}
 
 /// Same stagger windows as before [Interval], but driven by raw spatial spring value.
 double _hubStaggerSpatialT(double v, int row) {
