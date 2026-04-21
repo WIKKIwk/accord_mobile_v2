@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/app_navigation_bar.dart';
+import '../../../../core/widgets/dock_gesture_overlay.dart';
+import '../../../../core/widgets/dock_system_bottom_inset.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/material.dart';
 
@@ -297,9 +299,9 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
         : Colors.black.withValues(alpha: 0.34);
 
     final viewMetrics = MediaQueryData.fromView(View.of(context));
-    final double systemBottomInset = math.max(
-      viewMetrics.viewPadding.bottom,
-      viewMetrics.systemGestureInsets.bottom,
+    final double systemBottomInset = dockLayoutBottomInset(
+      viewMetrics,
+      thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
     );
     const double dockHeight = 60.0;
     final double toggleBottom = appNavigationBarPrimaryButtonBottom(

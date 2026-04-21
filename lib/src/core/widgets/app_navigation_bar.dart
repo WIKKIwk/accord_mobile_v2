@@ -1,6 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+
+import 'dock_gesture_overlay.dart';
+import 'dock_system_bottom_inset.dart';
 
 const double appNavigationBarHeight = 80.0;
 const double appNavigationBarPrimaryButtonSize = 80.0;
@@ -65,9 +66,9 @@ class AppNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final MediaQueryData viewMetrics =
         MediaQueryData.fromView(View.of(context));
-    final double systemBottomInset = math.max(
-      viewMetrics.viewPadding.bottom,
-      viewMetrics.systemGestureInsets.bottom,
+    final double systemBottomInset = dockLayoutBottomInset(
+      viewMetrics,
+      thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
     );
 
     if (destinations.isEmpty) {
@@ -336,7 +337,13 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
                   color: foreground,
                   size: 24,
                 ),
-                child: Center(child: icon),
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: icon,
+                  ),
+                ),
               ),
             ),
           ),

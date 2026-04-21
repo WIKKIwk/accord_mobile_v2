@@ -1,3 +1,4 @@
+import '../core/widgets/dock_gesture_overlay.dart';
 import '../core/theme/app_theme.dart';
 import '../core/app_preview.dart';
 import '../core/localization/app_localizations.dart';
@@ -69,9 +70,11 @@ class ErpnextStockMobileApp extends StatelessWidget {
               value: overlayStyle,
               child: current,
             );
-            final wrapped = NetworkRequirementRuntime(
-              child: NotificationRuntime(
-                child: AppLockGate(child: current),
+            final wrapped = DockGestureOverlay(
+              child: NetworkRequirementRuntime(
+                child: NotificationRuntime(
+                  child: AppLockGate(child: current),
+                ),
               ),
             );
             return Localizations.override(

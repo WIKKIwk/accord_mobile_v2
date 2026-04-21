@@ -31,6 +31,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private var nativeDockHost: NativeDockHostView? = null
     private var nativeDockBridge: NativeDockChannelBridge? = null
+    private var systemNavigationModeChannel: SystemNavigationModeChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +50,10 @@ class MainActivity : FlutterFragmentActivity() {
                     onLongPress = { id -> nativeDockBridge?.sendLongPress(id) },
                 )
             },
+        )
+        systemNavigationModeChannel = SystemNavigationModeChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            this,
         )
     }
 
