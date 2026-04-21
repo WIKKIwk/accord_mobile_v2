@@ -114,15 +114,23 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
     stiffness: 700.0,
     ratio: 1.0,
   );
+  /// FAB circle ↔ rounded rect: slightly under-damped for settle bounce.
+  static final SpringDescription _fabMorphSpring =
+      SpringDescription.withDampingRatio(
+    mass: 0.55,
+    stiffness: 2350.0,
+    ratio: 0.72,
+  );
+  static final SpringDescription _fabMorphSpringClose = _fabMorphSpring;
   static const Duration _openDuration = Duration(milliseconds: 1080);
   static const Duration _closeDuration = Duration(milliseconds: 1080);
-
-  /// FAB shape (corners → circle) is curve-snapped, not sprung, so rounding is ~imperceptible.
-  static const Duration _fabMorphSnapDuration = Duration(milliseconds: 64);
 
   /// Wider than [0,1] so [SpringSimulation] can overshoot (M3 Expressive spatial).
   static const double _spatialLower = -0.08;
   static const double _spatialUpper = 1.22;
+
+  static const double _fabMorphLower = -0.05;
+  static const double _fabMorphUpper = 1.14;
 
   /// Drives hub pill width + stagger only.
   late final AnimationController _spatialController = AnimationController(
@@ -137,8 +145,8 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
     vsync: this,
     duration: _openDuration,
     reverseDuration: _closeDuration,
-    lowerBound: 0.0,
-    upperBound: 1.0,
+    lowerBound: _fabMorphLower,
+    upperBound: _fabMorphUpper,
   );
   late final AnimationController _effectsController = AnimationController(
     vsync: this,
@@ -195,13 +203,19 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
         open ? _spatialSpring : _spatialSpringClose;
     final SpringDescription effectsSpring =
         open ? _effectsSpring : _effectsSpringClose;
+    final SpringDescription fabMorphSpring =
+        open ? _fabMorphSpring : _fabMorphSpringClose;
 
     final spatialFuture = _animateWithSpring(
       controller: _spatialController,
       spring: spatialSpring,
       target: target,
     );
-    final fabMorphFuture = _animateFabMorphSnap(target);
+    final fabMorphFuture = _animateWithSpring(
+      controller: _fabMorphController,
+      spring: fabMorphSpring,
+      target: target,
+    );
     final effectsFuture = _animateWithSpring(
       controller: _effectsController,
       spring: effectsSpring,
@@ -242,15 +256,6 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       controller.velocity,
     )..tolerance = const Tolerance(distance: 0.001, velocity: 0.001);
     return controller.animateWith(simulation);
-  }
-
-  /// Short fixed duration so corner rounding is not visible as a ~1s “morph”.
-  TickerFuture _animateFabMorphSnap(double target) {
-    return _fabMorphController.animateTo(
-      target,
-      duration: _fabMorphSnapDuration,
-      curve: Curves.easeOutCubic,
-    );
   }
 
   List<_WerkaHubAction> _actions(BuildContext context) {
@@ -370,7 +375,6 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
                   key: const ValueKey('werka-hub-toggle-button'),
                   fabMorphAnimation: _fabMorphController,
                   effectsAnimation: _effectsController,
-                  targetOpen: _targetOpen,
                   onTap: () => _setOpen(!_targetOpen),
                   closedSize: _fabClosedSize,
                   openSize: _fabOpenSize,
@@ -547,7 +551,6 @@ class _WerkaMorphFabButton extends StatelessWidget {
     super.key,
     required this.fabMorphAnimation,
     required this.effectsAnimation,
-    required this.targetOpen,
     required this.onTap,
     required this.closedSize,
     required this.openSize,
@@ -556,7 +559,6 @@ class _WerkaMorphFabButton extends StatelessWidget {
 
   final Animation<double> fabMorphAnimation;
   final Animation<double> effectsAnimation;
-  final bool targetOpen;
   final VoidCallback onTap;
   final double closedSize;
   final double openSize;
@@ -575,7 +577,9 @@ class _WerkaMorphFabButton extends StatelessWidget {
         final double iconT = effectsAnimation.value.clamp(0.0, 1.0);
         final double stableT = v.clamp(0.0, 1.0);
         final double colorT = stableT;
-        final double shapeT = _shapeMorphT(stableT, targetOpen);
+        // Shape must track the same morph as size (clamp to 1): no t² / sync lag
+        // or corners keep animating after the button already looks circular.
+        final double shapeT = morphT.clamp(0.0, 1.0);
         final double buttonSize = _lerpDouble(closedSize, openSize, morphT);
         final ShapeBorder shape = shapeTween.lerp(shapeT)!;
         final Color containerColor = Color.lerp(
@@ -645,14 +649,6 @@ double _lerpDouble(double begin, double end, double t) =>
 
 /// Spring value may exceed 0–1; clamp for expressive overshoot (hub width + FAB size).
 double _m3SpatialLerpT(double v) => v.clamp(-0.06, 1.18);
-
-double _shapeMorphT(double raw, bool targetOpen) {
-  final double t = raw.clamp(0.0, 1.0);
-  if (targetOpen) {
-    return t;
-  }
-  return t * t;
-}
 
 /// Same stagger windows as [_buildEffectsStagger], driven by raw spatial [v].
 ///
