@@ -92,30 +92,30 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   static const double _stackTrailingInset = 16.0;
   static final SpringDescription _spatialSpring =
       SpringDescription.withDampingRatio(
-    mass: 1.72,
-    stiffness: 60.0,
+    mass: 1.18,
+    stiffness: 230.0,
     ratio: 0.88,
   );
   static final SpringDescription _effectsSpring =
       SpringDescription.withDampingRatio(
-    mass: 1.58,
-    stiffness: 140.0,
+    mass: 1.12,
+    stiffness: 500.0,
     ratio: 1.0,
   );
   static final SpringDescription _spatialSpringClose =
       SpringDescription.withDampingRatio(
-    mass: 1.58,
-    stiffness: 110.0,
+    mass: 1.2,
+    stiffness: 400.0,
     ratio: 0.82,
   );
   static final SpringDescription _effectsSpringClose =
       SpringDescription.withDampingRatio(
-    mass: 1.42,
-    stiffness: 260.0,
+    mass: 1.08,
+    stiffness: 700.0,
     ratio: 1.0,
   );
-  static const Duration _openDuration = Duration(milliseconds: 2000);
-  static const Duration _closeDuration = Duration(milliseconds: 2000);
+  static const Duration _openDuration = Duration(milliseconds: 1080);
+  static const Duration _closeDuration = Duration(milliseconds: 1080);
 
   /// Wider than [0,1] so [SpringSimulation] can overshoot (M3 Expressive spatial).
   static const double _spatialLower = -0.08;
@@ -130,8 +130,8 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   );
   late final AnimationController _effectsController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1520),
-    reverseDuration: const Duration(milliseconds: 1520),
+    duration: const Duration(milliseconds: 860),
+    reverseDuration: const Duration(milliseconds: 860),
   );
   late final ShapeBorderTween _fabShapeTween = ShapeBorderTween(
     begin: RoundedRectangleBorder(
@@ -366,7 +366,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
     Animation<double> parent,
   ) {
     final int order = action.staggerOrder;
-    final double start = (order * 0.30).clamp(0.0, 0.76);
+    final double start = (order * 0.20).clamp(0.0, 0.76);
     final double end = (start + 0.56).clamp(0.0, 1.0);
     return CurvedAnimation(
       parent: parent,
@@ -624,7 +624,7 @@ double _lerpDouble(double begin, double end, double t) =>
 double _m3SpatialLerpT(double v) => v.clamp(-0.06, 1.18);
 
 /// ~0.5–0.55: lower = FAB shape/size completes earlier in the spring.
-const double _fabMorphSpatialSpan = 0.28;
+const double _fabMorphSpatialSpan = 0.48;
 
 /// Maps spatial progress so FAB circle ↔ rounded-rect morph finishes before hub rows
 /// (hub items still use raw [v] via [_hubStaggerSpatialT]).
@@ -644,7 +644,7 @@ double _shapeMorphT(double raw, bool targetOpen) {
 /// Grow is linear for most of the window; the last segment is a short sine hump so
 /// each row gets a visible overshoot when *that* row finishes, not only the last.
 double _hubStaggerSpatialT(double v, int staggerOrder) {
-  final double start = (staggerOrder * 0.30).clamp(0.0, 0.76);
+  final double start = (staggerOrder * 0.20).clamp(0.0, 0.76);
   final double end = (start + 0.56).clamp(0.0, 1.0);
   if (v <= start) {
     return 0.0;
