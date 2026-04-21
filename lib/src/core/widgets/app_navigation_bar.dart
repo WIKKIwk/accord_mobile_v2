@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 const double appNavigationBarHeight = 80.0;
 const double appNavigationBarPrimaryButtonSize = 80.0;
+/// Default dock plus / primary action (80×80). Lower = sharper corners.
+const double appNavigationBarPrimaryButtonBorderRadius = 22.0;
 const double appNavigationBarPrimaryButtonGap = 44.0;
 const double appNavigationBarPrimaryButtonLift = 10.0;
 
@@ -308,11 +310,13 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
         elevation: 8,
         shadowColor: scheme.primary.withValues(alpha: 0.28),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius:
+              BorderRadius.circular(appNavigationBarPrimaryButtonBorderRadius),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius:
+              BorderRadius.circular(appNavigationBarPrimaryButtonBorderRadius),
           onTap: onTap,
           onLongPress: destination.onLongPress,
           child: SizedBox(
@@ -320,7 +324,9 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
             height: appNavigationBarPrimaryButtonSize,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(
+                  appNavigationBarPrimaryButtonBorderRadius,
+                ),
                 border: Border.all(
                   color: scheme.outlineVariant.withValues(alpha: 0.25),
                 ),

@@ -117,16 +117,28 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   static const Duration _openDuration = Duration(milliseconds: 1080);
   static const Duration _closeDuration = Duration(milliseconds: 1080);
 
+  /// FAB shape (corners → circle) is curve-snapped, not sprung, so rounding is ~imperceptible.
+  static const Duration _fabMorphSnapDuration = Duration(milliseconds: 64);
+
   /// Wider than [0,1] so [SpringSimulation] can overshoot (M3 Expressive spatial).
   static const double _spatialLower = -0.08;
   static const double _spatialUpper = 1.22;
 
+  /// Drives hub pill width + stagger only.
   late final AnimationController _spatialController = AnimationController(
     vsync: this,
     duration: _openDuration,
     reverseDuration: _closeDuration,
     lowerBound: _spatialLower,
     upperBound: _spatialUpper,
+  );
+  /// Drives FAB shape/size/color independently from [_spatialController].
+  late final AnimationController _fabMorphController = AnimationController(
+    vsync: this,
+    duration: _openDuration,
+    reverseDuration: _closeDuration,
+    lowerBound: 0.0,
+    upperBound: 1.0,
   );
   late final AnimationController _effectsController = AnimationController(
     vsync: this,
@@ -135,7 +147,9 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   );
   late final ShapeBorderTween _fabShapeTween = ShapeBorderTween(
     begin: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(
+        appNavigationBarPrimaryButtonBorderRadius,
+      ),
     ),
     end: const CircleBorder(),
   );
@@ -156,6 +170,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
     _werkaCreateHubOverlayEntry = null;
     werkaCreateHubMenuOpen.value = false;
     _spatialController.dispose();
+    _fabMorphController.dispose();
     _effectsController.dispose();
     super.dispose();
   }
@@ -168,6 +183,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
 
     final double target = open ? 1.0 : 0.0;
     if ((_spatialController.value - target).abs() < 0.001 &&
+        (_fabMorphController.value - target).abs() < 0.001 &&
         (_effectsController.value - target).abs() < 0.001) {
       if (!open) {
         widget.onClose();
@@ -185,6 +201,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       spring: spatialSpring,
       target: target,
     );
+    final fabMorphFuture = _animateFabMorphSnap(target);
     final effectsFuture = _animateWithSpring(
       controller: _effectsController,
       spring: effectsSpring,
@@ -197,6 +214,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
           try {
             await Future.wait<void>([
               spatialFuture.orCancel,
+              fabMorphFuture.orCancel,
               effectsFuture.orCancel,
             ]);
           } on TickerCanceled {
@@ -224,6 +242,15 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       controller.velocity,
     )..tolerance = const Tolerance(distance: 0.001, velocity: 0.001);
     return controller.animateWith(simulation);
+  }
+
+  /// Short fixed duration so corner rounding is not visible as a ~1s “morph”.
+  TickerFuture _animateFabMorphSnap(double target) {
+    return _fabMorphController.animateTo(
+      target,
+      duration: _fabMorphSnapDuration,
+      curve: Curves.easeOutCubic,
+    );
   }
 
   List<_WerkaHubAction> _actions(BuildContext context) {
@@ -328,13 +355,10 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
           ),
           AnimatedBuilder(
             animation:
-                Listenable.merge([_spatialController, _effectsController]),
+                Listenable.merge([_fabMorphController, _effectsController]),
             builder: (context, _) {
-              final double rawForFab =
-                  _spatialController.value.clamp(0.0, 1.0);
-              final double progress = _m3SpatialLerpT(
-                _fabSpatialMorphDriver(rawForFab),
-              );
+              final double progress =
+                  _m3SpatialLerpT(_fabMorphController.value);
               final double currentButtonSize =
                   _lerpDouble(_fabClosedSize, _fabOpenSize, progress);
               final double anchoredBottom =
@@ -344,7 +368,7 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
                 bottom: anchoredBottom,
                 child: _WerkaMorphFabButton(
                   key: const ValueKey('werka-hub-toggle-button'),
-                  spatialAnimation: _spatialController,
+                  fabMorphAnimation: _fabMorphController,
                   effectsAnimation: _effectsController,
                   targetOpen: _targetOpen,
                   onTap: () => _setOpen(!_targetOpen),
@@ -521,7 +545,7 @@ class _WerkaHubActionPill extends StatelessWidget {
 class _WerkaMorphFabButton extends StatelessWidget {
   const _WerkaMorphFabButton({
     super.key,
-    required this.spatialAnimation,
+    required this.fabMorphAnimation,
     required this.effectsAnimation,
     required this.targetOpen,
     required this.onTap,
@@ -530,7 +554,7 @@ class _WerkaMorphFabButton extends StatelessWidget {
     required this.shapeTween,
   });
 
-  final Animation<double> spatialAnimation;
+  final Animation<double> fabMorphAnimation;
   final Animation<double> effectsAnimation;
   final bool targetOpen;
   final VoidCallback onTap;
@@ -544,15 +568,14 @@ class _WerkaMorphFabButton extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([spatialAnimation, effectsAnimation]),
+      animation: Listenable.merge([fabMorphAnimation, effectsAnimation]),
       builder: (context, child) {
-        final double raw = spatialAnimation.value;
-        final double rawForFab = raw.clamp(0.0, 1.0);
-        final double fabMorph = _fabSpatialMorphDriver(rawForFab);
-        final double morphT = _m3SpatialLerpT(fabMorph);
+        final double v = fabMorphAnimation.value;
+        final double morphT = _m3SpatialLerpT(v);
         final double iconT = effectsAnimation.value.clamp(0.0, 1.0);
-        final double colorT = fabMorph;
-        final double shapeT = _shapeMorphT(fabMorph, targetOpen);
+        final double stableT = v.clamp(0.0, 1.0);
+        final double colorT = stableT;
+        final double shapeT = _shapeMorphT(stableT, targetOpen);
         final double buttonSize = _lerpDouble(closedSize, openSize, morphT);
         final ShapeBorder shape = shapeTween.lerp(shapeT)!;
         final Color containerColor = Color.lerp(
@@ -620,16 +643,8 @@ class _WerkaMorphFabButton extends StatelessWidget {
 double _lerpDouble(double begin, double end, double t) =>
     begin + ((end - begin) * t);
 
-/// Spatial spring may exceed 0–1; allow extrapolation for size (Expressive overshoot).
+/// Spring value may exceed 0–1; clamp for expressive overshoot (hub width + FAB size).
 double _m3SpatialLerpT(double v) => v.clamp(-0.06, 1.18);
-
-/// ~0.5–0.55: lower = FAB shape/size completes earlier in the spring.
-const double _fabMorphSpatialSpan = 0.48;
-
-/// Maps spatial progress so FAB circle ↔ rounded-rect morph finishes before hub rows
-/// (hub items still use raw [v] via [_hubStaggerSpatialT]).
-double _fabSpatialMorphDriver(double raw) =>
-    (raw / _fabMorphSpatialSpan).clamp(0.0, 1.0);
 
 double _shapeMorphT(double raw, bool targetOpen) {
   final double t = raw.clamp(0.0, 1.0);
