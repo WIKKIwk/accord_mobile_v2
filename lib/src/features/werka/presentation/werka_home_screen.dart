@@ -235,6 +235,18 @@ class _WerkaHomeDrawer extends StatelessWidget {
   }
 }
 
+/// Segment shakli: tepada faqat **yuqori** yumaloqlar (1‑rasm), o‘rtada **to‘rt tomon**
+/// yumaloq (2‑rasm), pastda faqat **pastki** yumaloqlar (1‑rasmni pastga qaratsa).
+enum _WerkaSummarySegmentSlot {
+  top,
+  middle,
+  bottom,
+}
+
+/// MD3 Lists guidelines — **Gaps & dividers**:
+/// «Use gaps for contained lists» / «Use segmented gaps and filled list items to define
+/// a list group»; dividerlar ko‘pincha **uncontained** ro‘yxatlar uchun.
+/// Manba: [m3.material.io/components/lists/guidelines](https://m3.material.io/components/lists/guidelines)
 class _WerkaSummaryList extends StatelessWidget {
   const _WerkaSummaryList({
     required this.summary,
@@ -242,65 +254,103 @@ class _WerkaSummaryList extends StatelessWidget {
 
   final WerkaHomeSummary summary;
 
+  /// Segmentlar orasidagi vertikal bo‘shliq (contained / segmented gap).
+  static const double _segmentGap = 2;
+  static const double _segmentRadius = 18;
+  static const double _segmentMiddleRadius = 6;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return SmoothAppear(
-      child: Column(
-        children: [
-          _WerkaSummaryListTile(
-            label: context.l10n.pendingStatus,
-            value: summary.pendingCount.toString(),
-            highlighted: true,
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.werkaStatusBreakdown,
-              arguments: WerkaStatusKind.pending,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _WerkaSummarySegmentCard(
+              slot: _WerkaSummarySegmentSlot.top,
+              cornerRadius: _segmentRadius,
+              label: context.l10n.pendingStatus,
+              value: summary.pendingCount.toString(),
+              highlighted: true,
+              onTap: () => Navigator.of(context).pushNamed(
+                AppRoutes.werkaStatusBreakdown,
+                arguments: WerkaStatusKind.pending,
+              ),
             ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            indent: 16,
-            endIndent: 16,
-            color: scheme.outlineVariant.withValues(alpha: 0.45),
-          ),
-          _WerkaSummaryListTile(
-            label: context.l10n.confirmedStatus,
-            value: summary.confirmedCount.toString(),
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.werkaStatusBreakdown,
-              arguments: WerkaStatusKind.confirmed,
+            const SizedBox(height: _segmentGap),
+            _WerkaSummarySegmentCard(
+              slot: _WerkaSummarySegmentSlot.middle,
+              cornerRadius: _segmentMiddleRadius,
+              label: context.l10n.confirmedStatus,
+              value: summary.confirmedCount.toString(),
+              highlighted: false,
+              onTap: () => Navigator.of(context).pushNamed(
+                AppRoutes.werkaStatusBreakdown,
+                arguments: WerkaStatusKind.confirmed,
+              ),
             ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            indent: 16,
-            endIndent: 16,
-            color: scheme.outlineVariant.withValues(alpha: 0.45),
-          ),
-          _WerkaSummaryListTile(
-            label: context.l10n.returnedStatus,
-            value: summary.returnedCount.toString(),
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.werkaStatusBreakdown,
-              arguments: WerkaStatusKind.returned,
+            const SizedBox(height: _segmentGap),
+            _WerkaSummarySegmentCard(
+              slot: _WerkaSummarySegmentSlot.bottom,
+              cornerRadius: _segmentRadius,
+              label: context.l10n.returnedStatus,
+              value: summary.returnedCount.toString(),
+              highlighted: false,
+              onTap: () => Navigator.of(context).pushNamed(
+                AppRoutes.werkaStatusBreakdown,
+                arguments: WerkaStatusKind.returned,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _WerkaSummaryListTile extends StatelessWidget {
-  const _WerkaSummaryListTile({
+/// Segmentlar oralig‘ida bir-biriga mos mikro‑yumaloqlik (tepa kartaning pastki va
+/// past kartaning **yuqori** burchaklari — bir xil radius, teskaricha).
+const Radius _werkaSummarySegmentJoinMicro = Radius.circular(6);
+
+BorderRadius _borderRadiusForSegmentSlot(
+  _WerkaSummarySegmentSlot slot,
+  double r,
+) {
+  final Radius radius = Radius.circular(r);
+  switch (slot) {
+    case _WerkaSummarySegmentSlot.top:
+      return BorderRadius.only(
+        topLeft: radius,
+        topRight: radius,
+        bottomLeft: _werkaSummarySegmentJoinMicro,
+        bottomRight: _werkaSummarySegmentJoinMicro,
+      );
+    case _WerkaSummarySegmentSlot.middle:
+      return BorderRadius.all(radius);
+    case _WerkaSummarySegmentSlot.bottom:
+      return BorderRadius.only(
+        topLeft: _werkaSummarySegmentJoinMicro,
+        topRight: _werkaSummarySegmentJoinMicro,
+        bottomLeft: radius,
+        bottomRight: radius,
+      );
+  }
+}
+
+/// Bitta **to‘ldirilgan** list elementi — segmentlar bir-biriga ulanmaydi (faqat gap).
+class _WerkaSummarySegmentCard extends StatelessWidget {
+  const _WerkaSummarySegmentCard({
+    required this.slot,
+    required this.cornerRadius,
     required this.label,
     required this.value,
     required this.onTap,
     this.highlighted = false,
   });
 
+  final _WerkaSummarySegmentSlot slot;
+  final double cornerRadius;
   final String label;
   final String value;
   final VoidCallback onTap;
@@ -310,49 +360,80 @@ class _WerkaSummaryListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final BorderRadius radius =
+        _borderRadiusForSegmentSlot(slot, cornerRadius);
+    final Color bg = highlighted
+        ? scheme.secondaryContainer
+        : scheme.surfaceContainerHighest;
+    final Color fg = highlighted
+        ? scheme.onSecondaryContainer
+        : scheme.onSurface;
+    final Color accent =
+        highlighted ? scheme.primary : scheme.onSurfaceVariant;
+
     return Material(
       color: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.38),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 16, 8, 14),
-          child: Row(
-            children: [
-              if (highlighted) ...[
-                Container(
-                  width: 4,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: BorderRadius.circular(999),
+        borderRadius: radius,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: radius,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+            child: Row(
+              children: [
+                if (highlighted) ...[
+                  Container(
+                    width: 4,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: scheme.primary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontSize: 18.5,
+                      fontWeight: FontWeight.w700,
+                      color: fg,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Text(
-                  label,
+                const SizedBox(width: 16),
+                Text(
+                  value,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontSize: 18.5,
                     fontWeight: FontWeight.w700,
+                    color: fg,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontSize: 18.5,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: accent,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
