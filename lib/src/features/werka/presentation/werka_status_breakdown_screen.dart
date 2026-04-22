@@ -227,9 +227,9 @@ class _WerkaBreakdownSegmentTile extends StatelessWidget {
                     entry.supplierName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      height: 1.22,
+                      height: 1.18,
                       color: scheme.onSurface,
                     ),
                   ),
