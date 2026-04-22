@@ -86,6 +86,7 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -113,7 +114,7 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Column(
@@ -129,15 +130,15 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
                     Divider(
                       height: 1,
                       thickness: 1,
-                      indent: 12,
-                      endIndent: 12,
+                      indent: 0,
+                      endIndent: 0,
                       color: scheme.outlineVariant.withValues(alpha: 0.55),
                     ),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Column(
@@ -209,8 +210,9 @@ class _WerkaDeliveryInfoRow extends StatelessWidget {
             width: 108,
             child: Text(
               label,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: theme.textTheme.bodyLarge?.copyWith(
                 color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -221,7 +223,7 @@ class _WerkaDeliveryInfoRow extends StatelessWidget {
               child: Text(
                 value,
                 textAlign: TextAlign.right,
-                style: theme.textTheme.titleMedium,
+                style: theme.textTheme.titleMedium?.copyWith(height: 1.25),
               ),
             ),
           ),
