@@ -2,6 +2,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/search/search_normalizer.dart';
 import '../../../../core/widgets/app_loading_indicator.dart';
+import '../../../../core/widgets/m3_segmented_list.dart';
 import 'werka_ai_search_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -218,12 +219,9 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.7),
-                ),
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,108 +304,59 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                                 ),
                               ),
                             )
-                          : Material(
-                              color: scheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(24),
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: visibleItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = visibleItems[index];
-                                  final subtitle =
-                                      widget.itemSubtitle(item).trim();
-                                  final isFirst = index == 0;
-                                  final isLast =
-                                      index == visibleItems.length - 1;
-
-                                  return ClipRect(
-                                    child: AnimatedSize(
-                                      duration: AppMotion.slow,
-                                      curve: AppMotion.emphasizedDecelerate,
-                                      alignment: Alignment.topCenter,
-                                      child: AnimatedOpacity(
-                                        duration: AppMotion.medium,
-                                        curve: AppMotion.standardDecelerate,
-                                        opacity: 1,
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.only(
-                                                  topLeft: Radius.circular(
-                                                    isFirst ? 24 : 0,
-                                                  ),
-                                                  topRight: Radius.circular(
-                                                    isFirst ? 24 : 0,
-                                                  ),
-                                                  bottomLeft: Radius.circular(
-                                                    isLast ? 24 : 0,
-                                                  ),
-                                                  bottomRight: Radius.circular(
-                                                    isLast ? 24 : 0,
-                                                  ),
-                                                ),
-                                                onTap: () =>
-                                                    widget.onSelected(item),
-                                                child: Padding(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 18,
-                                                    vertical: 16,
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        widget.itemTitle(item),
-                                                        style: theme.textTheme
-                                                            .titleLarge
-                                                            ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                        ),
-                                                      ),
-                                                      if (subtitle
-                                                          .isNotEmpty) ...[
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        Text(
-                                                          subtitle,
-                                                          style: theme.textTheme
-                                                              .bodySmall
-                                                              ?.copyWith(
-                                                            color: scheme
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            if (!isLast)
-                                              Divider(
-                                                height: 1,
-                                                thickness: 1,
-                                                indent: 18,
-                                                endIndent: 18,
-                                                color: scheme.outlineVariant
-                                                    .withValues(alpha: 0.5),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: visibleItems.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(
+                                height: M3SegmentedListGeometry.gap,
                               ),
+                              itemBuilder: (context, index) {
+                                final item = visibleItems[index];
+                                final subtitle = widget.itemSubtitle(item).trim();
+                                final slot = M3SegmentedListGeometry
+                                    .standaloneListSlotForIndex(
+                                  index,
+                                  visibleItems.length,
+                                );
+                                final cornerRadius = M3SegmentedListGeometry
+                                    .cornerRadiusForSlot(slot);
+
+                                return M3SegmentFilledSurface(
+                                  slot: slot,
+                                  cornerRadius: cornerRadius,
+                                  onTap: () => widget.onSelected(item),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 16,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.itemTitle(item),
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        if (subtitle.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            subtitle,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                     ),
                   ],
@@ -898,19 +847,12 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
       );
     } else {
       final sortedItems = _sortedItems();
-      body = Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(24),
-        child: ListView.separated(
+      body = ListView.separated(
           controller: _scrollController,
           shrinkWrap: true,
           itemCount: sortedItems.length + (_loadingMore ? 1 : 0),
-          separatorBuilder: (context, index) => Divider(
-            height: 1,
-            thickness: 1,
-            indent: 18,
-            endIndent: 18,
-            color: scheme.outlineVariant.withValues(alpha: 0.5),
+          separatorBuilder: (context, index) => const SizedBox(
+            height: M3SegmentedListGeometry.gap,
           ),
           itemBuilder: (context, index) {
             if (index >= sortedItems.length) {
@@ -921,50 +863,46 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
             }
             final item = sortedItems[index];
             final subtitle = widget.itemSubtitle(item).trim();
-            final isFirst = index == 0;
-            final isLast = index == sortedItems.length - 1;
+            final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
+              index,
+              sortedItems.length,
+            );
+            final cornerRadius =
+                M3SegmentedListGeometry.cornerRadiusForSlot(slot);
 
-            return SizedBox(
-              width: double.infinity,
-              child: InkWell(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(isFirst ? 24 : 0),
-                  topRight: Radius.circular(isFirst ? 24 : 0),
-                  bottomLeft: Radius.circular(isLast ? 24 : 0),
-                  bottomRight: Radius.circular(isLast ? 24 : 0),
+            return M3SegmentFilledSurface(
+              slot: slot,
+              cornerRadius: cornerRadius,
+              onTap: () => widget.onSelected(item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
                 ),
-                onTap: () => widget.onSelected(item),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.itemTitle(item),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        widget.itemTitle(item),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
                       ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
             );
           },
-        ),
-      );
+        );
     }
 
     return AnimatedPadding(
@@ -987,12 +925,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.7),
-                ),
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,

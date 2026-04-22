@@ -9,6 +9,7 @@ import '../../../core/search/search_activity_store.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/m3_segmented_list.dart';
 import '../../../core/widgets/native_back_button.dart';
 import '../../../core/widgets/shared_header_title.dart';
 import '../../shared/models/app_models.dart';
@@ -497,27 +498,36 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hasSavedLines = _drafts.isNotEmpty;
+    final pickerButtonStyle = FilledButton.styleFrom(
+      backgroundColor: scheme.surfaceContainerHigh,
+      foregroundColor: scheme.onSurface,
+      disabledBackgroundColor: scheme.surfaceContainer,
+      disabledForegroundColor: scheme.onSurfaceVariant,
+      elevation: 0,
+      minimumSize: const Size.fromHeight(58),
+      alignment: Alignment.centerLeft,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+    );
 
     return AppShell(
       title: l10n.batchDispatchTitle,
       subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       leading: NativeBackButtonSlot(
         onPressed: () => Navigator.of(context).maybePop(),
       ),
       bottom: const WerkaDock(activeTab: null),
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 24),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
         children: [
-          Card.filled(
-            margin: EdgeInsets.zero,
-            color: scheme.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-              side: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.7),
-              ),
-            ),
+          M3SegmentFilledSurface(
+            slot: M3SegmentVerticalSlot.top,
+            cornerRadius: M3SegmentedListGeometry.cornerLarge,
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -528,12 +538,6 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                     style: theme.textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    l10n.batchDispatchDescription,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
                   if (_previewMode) ...[
                     const SizedBox(height: 10),
                     Container(
@@ -596,11 +600,24 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: FilledButton.tonal(
+                          style: pickerButtonStyle,
                           onPressed: _pickItem,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(_selectedItem?.name ?? l10n.selectItem),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _selectedItem?.name ?? l10n.selectItem,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 20,
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -620,13 +637,24 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: FilledButton.tonal(
+                          style: pickerButtonStyle,
                           onPressed: _pickCustomer,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              _selectedCustomer?.name ?? l10n.selectCustomer,
-                            ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _selectedCustomer?.name ?? l10n.selectCustomer,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 20,
+                              ),
+                            ],
                           ),
                         ),
                       ),
