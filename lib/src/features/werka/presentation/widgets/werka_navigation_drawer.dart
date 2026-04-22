@@ -23,7 +23,7 @@ class WerkaNavigationDrawer extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         selectedIndex: selectedIndex,
         tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-        onDestinationSelected: (index) {
+        onDestinationSelected: (index) async {
           if (index == selectedIndex) {
             Navigator.of(context).pop();
             return;
@@ -35,6 +35,10 @@ class WerkaNavigationDrawer extends StatelessWidget {
             _ => AppRoutes.profile,
           };
           Navigator.of(context).pop();
+          await Future<void>.delayed(const Duration(milliseconds: 220));
+          if (!context.mounted) {
+            return;
+          }
           onNavigate(route);
         },
         header: Padding(
