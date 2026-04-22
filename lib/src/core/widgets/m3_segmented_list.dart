@@ -16,7 +16,7 @@ enum M3SegmentVerticalSlot {
 /// «Use gaps for contained lists» / «Use segmented gaps and filled list items».
 /// Manba: [m3.material.io/components/lists/guidelines](https://m3.material.io/components/lists/guidelines)
 ///
-/// Bu `M3SegmentOutlineSurface` va qo‘lda qurilgan `Column` + gap bilan
+/// Bu `M3SegmentFilledSurface` va qo‘lda qurilgan `Column` + gap bilan
 /// bir xil vizual tilni boshqa ekranlarda qayta ishlatish uchun **geometriya SDK** sifatida
 /// ajratilgan.
 abstract final class M3SegmentedListGeometry {
@@ -93,13 +93,13 @@ abstract final class M3SegmentedListGeometry {
   }
 }
 
-/// MD3 contained list elementi: fon + engil `outlineVariant` chegarasi, ixtiyoriy bosilish.
+/// MD3 contained list elementi: faqat **to‘ldirilgan fon** (chegara chizig‘i yo‘q), ixtiyoriy bosilish.
 ///
 /// **Qorong‘i temada** kontent odatda asosiy [ColorScheme.surface]ga yaqin — shuning uchun
 /// [surfaceContainerLow] (yuqori zinapoyadan pastroq). **Yorug‘ temada** konteynerlar
 /// odatda [surface]dan to‘qroq — [surfaceContainerHighest] ishlatiladi.
-class M3SegmentOutlineSurface extends StatelessWidget {
-  const M3SegmentOutlineSurface({
+class M3SegmentFilledSurface extends StatelessWidget {
+  const M3SegmentFilledSurface({
     super.key,
     required this.slot,
     required this.cornerRadius,
@@ -136,13 +136,7 @@ class M3SegmentOutlineSurface extends StatelessWidget {
       elevation: 0,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.38),
-          width: 1,
-        ),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: onTap != null
           ? InkWell(onTap: onTap, borderRadius: radius, child: ink)
@@ -153,7 +147,7 @@ class M3SegmentOutlineSurface extends StatelessWidget {
 
 /// Bir nechta [children] orasiga [M3SegmentedListGeometry.gap] qo‘yilgan [Column].
 ///
-/// Faqat **vizual spacing**; har bir child o‘z slot borderini o‘zi beradi.
+/// Faqat **vizual spacing**; har bir child o‘z slot shaklini o‘zi beradi.
 class M3SegmentSpacedColumn extends StatelessWidget {
   const M3SegmentSpacedColumn({
     super.key,

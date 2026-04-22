@@ -4,7 +4,25 @@ import '../native_back_button_bridge.dart';
 import '../native_dock_bridge.dart';
 import 'app_loading_indicator.dart';
 import 'shared_header_title.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+
+/// Vertikal ro‘yxat pastki chekka yaqinlashganda dock ustidagi scrim uchun **0–1**.
+///
+/// [AppShell.bottomDockFadeStrength] bilan ishlatiladi; qisqa ro‘yxatda (`maxScrollExtent`
+/// juda kichik) fade yo‘q — kontent baribir pastga «tushmaydi».
+double dockFadeStrengthFromScrollMetrics(
+  ScrollMetrics m, {
+  double bandPx = 112,
+  double minScrollExtentForFade = 28,
+}) {
+  if (m.axis != Axis.vertical) return 0;
+  if (!m.hasContentDimensions) return 0;
+  final maxExtent = m.maxScrollExtent;
+  if (maxExtent < minScrollExtentForFade) return 0;
+  final remaining = (maxExtent - m.pixels).clamp(0.0, bandPx);
+  return 1.0 - remaining / bandPx;
+}
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -16,6 +34,7 @@ class AppShell extends StatefulWidget {
     this.actions,
     this.drawer,
     this.bottom,
+    this.bottomDockFadeStrength,
     this.contentPadding = const EdgeInsets.fromLTRB(4, 0, 6, 0),
     this.bottomPadding = EdgeInsets.zero,
     this.animateOnEnter = true,
@@ -32,6 +51,8 @@ class AppShell extends StatefulWidget {
   final List<Widget>? actions;
   final Widget? drawer;
   final Widget? bottom;
+  /// Pastki dock ustidagi yumshoq scrim: **0** yo‘q, **1** to‘liq. `null` — scrim chizilmaydi.
+  final ValueListenable<double>? bottomDockFadeStrength;
   final EdgeInsets contentPadding;
   final EdgeInsets bottomPadding;
   final bool animateOnEnter;
@@ -316,29 +337,45 @@ class _AppShellState extends State<AppShell>
               fit: StackFit.expand,
               children: [
                 widget.child,
-                if (widget.bottom != null)
+                if (widget.bottom != null &&
+                    widget.bottomDockFadeStrength != null)
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
                     child: IgnorePointer(
-                      child: SizedBox(
-                        height: 72 + MediaQuery.viewPaddingOf(context).bottom,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                // "List pastga kirib ketgandek" — chrome rangi tomonga yumshoq fade.
-                                (theme.navigationBarTheme.backgroundColor ??
-                                        theme.colorScheme.surfaceContainer)
-                                    .withValues(alpha: 0.92),
-                              ],
+                      child: AnimatedBuilder(
+                        animation: widget.bottomDockFadeStrength!,
+                        builder: (context, _) {
+                          final fade = widget.bottomDockFadeStrength!.value
+                              .clamp(0.0, 1.0);
+                          if (fade <= 0.002) {
+                            return const SizedBox.shrink();
+                          }
+                          final Color chrome =
+                              theme.navigationBarTheme.backgroundColor ??
+                                  theme.colorScheme.surfaceContainer;
+                          // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
+                          final peakAlpha = 0.26 * fade;
+                          return SizedBox(
+                            height: 72 +
+                                MediaQuery.viewPaddingOf(context).bottom,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  stops: const [0.0, 0.5, 1.0],
+                                  colors: [
+                                    Colors.transparent,
+                                    chrome.withValues(alpha: peakAlpha * 0.35),
+                                    chrome.withValues(alpha: peakAlpha),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),

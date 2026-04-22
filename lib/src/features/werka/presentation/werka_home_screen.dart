@@ -3,6 +3,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/refresh_hub.dart';
 import '../../../core/widgets/app_loading_indicator.dart';
 import '../../../core/widgets/app_retry_state.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/widgets/m3_segmented_list.dart';
 import '../../../core/widgets/motion_widgets.dart';
 import '../../../core/widgets/app_shell.dart';
@@ -23,6 +24,7 @@ class WerkaHomeScreen extends StatefulWidget {
 class _WerkaHomeScreenState extends State<WerkaHomeScreen>
     with WidgetsBindingObserver {
   int _refreshVersion = 0;
+  final ValueNotifier<double> _bottomDockFadeStrength = ValueNotifier(0);
 
   @override
   void initState() {
@@ -36,7 +38,25 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     RefreshHub.instance.removeListener(_handlePushRefresh);
+    _bottomDockFadeStrength.dispose();
     super.dispose();
+  }
+
+  bool _onDockScrollRelated(Notification notification) {
+    ScrollMetrics? metrics;
+    if (notification is ScrollMetricsNotification) {
+      metrics = notification.metrics;
+    } else if (notification is ScrollNotification) {
+      metrics = notification.metrics;
+    }
+    if (metrics == null) {
+      return false;
+    }
+    final next = dockFadeStrengthFromScrollMetrics(metrics);
+    if ((next - _bottomDockFadeStrength.value).abs() > 0.008) {
+      _bottomDockFadeStrength.value = next;
+    }
+    return false;
   }
 
   void _handlePushRefresh() {
@@ -88,51 +108,55 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
       nativeTitleTextStyle: titleStyle,
       drawer: _WerkaHomeDrawer(onNavigate: _openDrawerRoute),
       bottom: const WerkaDock(activeTab: WerkaDockTab.home),
+      bottomDockFadeStrength: _bottomDockFadeStrength,
       contentPadding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          Expanded(
-            child: AnimatedBuilder(
-              animation: WerkaStore.instance,
-              builder: (context, _) {
-                final store = WerkaStore.instance;
-                if (store.loadingHome && !store.loadedHome) {
-                  return const Center(child: AppLoadingIndicator());
-                }
-                if (store.homeError != null && !store.loadedHome) {
+      child: NotificationListener<Notification>(
+        onNotification: _onDockScrollRelated,
+        child: Column(
+          children: [
+            Expanded(
+              child: AnimatedBuilder(
+                animation: WerkaStore.instance,
+                builder: (context, _) {
+                  final store = WerkaStore.instance;
+                  if (store.loadingHome && !store.loadedHome) {
+                    return const Center(child: AppLoadingIndicator());
+                  }
+                  if (store.homeError != null && !store.loadedHome) {
+                    return AppRefreshIndicator(
+                      onRefresh: _reload,
+                      allowRefreshOnShortContent: true,
+                      child: ListView(
+                        physics: const TopRefreshScrollPhysics(),
+                        children: [
+                          AppRetryState(onRetry: _reload),
+                        ],
+                      ),
+                    );
+                  }
+                  final currentSummary = store.summary;
+                  final pendingItems = store.pendingItems;
+
                   return AppRefreshIndicator(
                     onRefresh: _reload,
                     allowRefreshOnShortContent: true,
                     child: ListView(
                       physics: const TopRefreshScrollPhysics(),
+                      padding: EdgeInsets.only(bottom: bottomPadding),
                       children: [
-                        AppRetryState(onRetry: _reload),
+                        const SizedBox(height: 4),
+                        _WerkaSummaryList(summary: currentSummary),
+                        if (pendingItems.isNotEmpty) const SizedBox(height: 16),
+                        if (pendingItems.isNotEmpty)
+                          _WerkaPendingSection(items: pendingItems),
                       ],
                     ),
                   );
-                }
-                final currentSummary = store.summary;
-                final pendingItems = store.pendingItems;
-
-                return AppRefreshIndicator(
-                  onRefresh: _reload,
-                  allowRefreshOnShortContent: true,
-                  child: ListView(
-                    physics: const TopRefreshScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: bottomPadding),
-                    children: [
-                      const SizedBox(height: 4),
-                      _WerkaSummaryList(summary: currentSummary),
-                      if (pendingItems.isNotEmpty) const SizedBox(height: 16),
-                      if (pendingItems.isNotEmpty)
-                        _WerkaPendingSection(items: pendingItems),
-                    ],
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -326,13 +350,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
       elevation: 0,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.38),
-          width: 1,
-        ),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -391,7 +409,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
   }
 }
 
-class _WerkaPendingSection extends StatelessWidget {
+class _WerkaPendingSection extends StatefulWidget {
   const _WerkaPendingSection({
     required this.items,
   });
@@ -399,36 +417,93 @@ class _WerkaPendingSection extends StatelessWidget {
   final List<DispatchRecord> items;
 
   @override
+  State<_WerkaPendingSection> createState() => _WerkaPendingSectionState();
+}
+
+class _WerkaPendingSectionState extends State<_WerkaPendingSection> {
+  /// Yopiq holatda pastdagi kartalar **build** qilinmaydi.
+  late bool _itemsExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemsExpanded = WerkaStore.instance.homePendingListExpanded;
+  }
+
+  void _toggleExpanded() {
+    setState(() => _itemsExpanded = !_itemsExpanded);
+    WerkaStore.instance.setHomePendingListExpanded(_itemsExpanded);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final n = items.length;
+    final scheme = theme.colorScheme;
+    final n = widget.items.length;
 
     return SmoothAppear(
       delay: const Duration(milliseconds: 90),
       offset: const Offset(0, 18),
-      child: M3SegmentSpacedColumn(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        children: [
-          M3SegmentOutlineSurface(
-            slot: M3SegmentVerticalSlot.top,
-            cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
-              M3SegmentVerticalSlot.top,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Text(
-                context.l10n.inProgressItemsTitle,
-                style: theme.textTheme.titleLarge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            M3SegmentFilledSurface(
+              slot: M3SegmentVerticalSlot.top,
+              cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
+                M3SegmentVerticalSlot.top,
+              ),
+              onTap: _toggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.inProgressItemsTitle,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                    ),
+                    Icon(
+                      _itemsExpanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 28,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          for (int index = 0; index < n; index++)
-            _WerkaPendingItemTile(
-              record: items[index],
-              index: index,
-              itemCount: n,
+            AnimatedSize(
+              duration: AppMotion.medium,
+              curve: AppMotion.smooth,
+              alignment: Alignment.topCenter,
+              child: _itemsExpanded
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: M3SegmentedListGeometry.gap),
+                        for (int index = 0; index < n; index++) ...[
+                          if (index > 0)
+                            const SizedBox(
+                              height: M3SegmentedListGeometry.gap,
+                            ),
+                          _WerkaPendingItemTile(
+                            record: widget.items[index],
+                            index: index,
+                            itemCount: n,
+                          ),
+                        ],
+                      ],
+                    )
+                  : const SizedBox.shrink(),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -460,7 +535,7 @@ class _WerkaPendingItemTile extends StatelessWidget {
           arguments: record,
         );
 
-    return M3SegmentOutlineSurface(
+    return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: r,
       onTap: navigate,

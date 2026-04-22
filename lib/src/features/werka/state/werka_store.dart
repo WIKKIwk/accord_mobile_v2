@@ -33,6 +33,9 @@ class WerkaStore extends ChangeNotifier {
   List<DispatchRecord> _pendingItems = const <DispatchRecord>[];
   List<DispatchRecord> _historyItems = const <DispatchRecord>[];
 
+  /// Home «Jarayondagi mahsulotlar» bo‘limi ochiq/yopiq — sahifadan chiqib kirguncha xotirada.
+  bool _homePendingListExpanded = true;
+
   bool get loadingHome => _loadingHome;
   bool get loadingHistory => _loadingHistory;
   bool get loadedHome => _loadedHome;
@@ -50,6 +53,13 @@ class WerkaStore extends ChangeNotifier {
 
   List<DispatchRecord> get pendingItems =>
       WerkaRuntimeStore.instance.applyPendingItems(_pendingItems);
+
+  bool get homePendingListExpanded => _homePendingListExpanded;
+
+  void setHomePendingListExpanded(bool value) {
+    _homePendingListExpanded = value;
+  }
+
   List<DispatchRecord> get historyItems => _historyItems;
   List<WerkaStatusBreakdownEntry> breakdownItems(WerkaStatusKind kind) =>
       kind == WerkaStatusKind.pending

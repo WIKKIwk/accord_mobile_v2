@@ -35,6 +35,7 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
   int _refreshVersion = 0;
   double _cardStretch = 0.0;
   double _cardPull = 0.0;
+  final ValueNotifier<double> _bottomDockFadeStrength = ValueNotifier(0);
 
   @override
   void initState() {
@@ -115,7 +116,15 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
     WidgetsBinding.instance.removeObserver(this);
     WerkaNotificationStore.instance.removeListener(_handleStoreChanged);
     RefreshHub.instance.removeListener(_handlePushRefresh);
+    _bottomDockFadeStrength.dispose();
     super.dispose();
+  }
+
+  void _syncBottomDockFade(ScrollMetrics metrics) {
+    final next = dockFadeStrengthFromScrollMetrics(metrics);
+    if ((next - _bottomDockFadeStrength.value).abs() > 0.008) {
+      _bottomDockFadeStrength.value = next;
+    }
   }
 
   void _handlePushRefresh() {
@@ -223,6 +232,8 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
+    _syncBottomDockFade(notification.metrics);
+
     if (notification is OverscrollNotification) {
       final isAtBottom = notification.metrics.extentAfter <= 0.0;
       if (isAtBottom &&
@@ -264,9 +275,15 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
         ),
       ],
       bottom: const WerkaDock(activeTab: WerkaDockTab.notifications),
-      child: AnimatedBuilder(
-        animation: WerkaNotificationStore.instance,
-        builder: (context, _) {
+      bottomDockFadeStrength: _bottomDockFadeStrength,
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (ScrollMetricsNotification n) {
+          _syncBottomDockFade(n.metrics);
+          return false;
+        },
+        child: AnimatedBuilder(
+          animation: WerkaNotificationStore.instance,
+          builder: (context, _) {
           final store = WerkaNotificationStore.instance;
           final hidden = NotificationHiddenStore.instance.hiddenIdsForProfile(
             AppSession.instance.profile,
@@ -363,6 +380,7 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
             ),
           );
         },
+        ),
       ),
     );
   }
