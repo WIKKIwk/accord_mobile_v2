@@ -134,9 +134,11 @@ class _WerkaArchivePeriodSegmentTile extends StatelessWidget {
       slot: slot,
       cornerRadius: r,
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: Row(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 66),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Row(
           children: [
             Expanded(
               child: Text(
@@ -150,6 +152,7 @@ class _WerkaArchivePeriodSegmentTile extends StatelessWidget {
               color: scheme.onSurfaceVariant,
             ),
           ],
+        ),
         ),
       ),
     );

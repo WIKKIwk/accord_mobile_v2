@@ -97,9 +97,11 @@ class _WerkaArchiveSegmentTile extends StatelessWidget {
       slot: slot,
       cornerRadius: r,
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: Row(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 66),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Row(
           children: [
             Icon(
               icon,
@@ -119,6 +121,7 @@ class _WerkaArchiveSegmentTile extends StatelessWidget {
               color: scheme.onSurfaceVariant,
             ),
           ],
+        ),
         ),
       ),
     );

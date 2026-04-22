@@ -232,8 +232,8 @@ class _AppShellState extends State<AppShell>
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 0,
-              toolbarHeight: widget.subtitle.trim().isNotEmpty ? 56 : 40,
-              titleSpacing: 20,
+              toolbarHeight: 50,
+              titleSpacing: 0,
               centerTitle: false,
               bottom: widget.appBarBottomLoading
                   ? PreferredSize(

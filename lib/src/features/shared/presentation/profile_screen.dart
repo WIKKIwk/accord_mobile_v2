@@ -17,6 +17,7 @@ import '../../admin/presentation/widgets/admin_dock.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../customer/presentation/widgets/customer_dock.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
+import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -357,7 +358,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         return AppShell(
           title: l10n.profileTitle,
           subtitle: '',
+          nativeTopBar: true,
           animateOnEnter: role != UserRole.customer,
+          drawer: role == UserRole.werka
+              ? WerkaNavigationDrawer(
+                  selectedIndex: 3,
+                  onNavigate: _openWerkaDrawerRoute,
+                )
+              : null,
           bottom: role == UserRole.supplier
               ? const SupplierDock(activeTab: null, showPrimaryFab: false)
               : role == UserRole.werka
@@ -376,8 +384,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
                   child: SmoothAppear(
                     delay: const Duration(milliseconds: 20),
-                    child: _ProfilePanel(
-                      child: Column(
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
@@ -597,7 +604,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                             onChanged: (value) => _toggleBiometric(value),
                           ),
                         ],
-                      ),
                     ),
                   ),
                 ),
@@ -614,6 +620,18 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     );
+  }
+
+  void _openWerkaDrawerRoute(String route) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        route,
+        (route) => false,
+      );
+    });
   }
 }
 
@@ -1194,7 +1212,6 @@ class _ThemeIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.actionSurface(context),
           shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.cardBorder(context)),
         ),
         alignment: Alignment.center,
         child: AnimatedSwitcher(

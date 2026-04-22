@@ -73,16 +73,13 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
     if (!mounted) {
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
     final hidden = NotificationHiddenStore.instance.hiddenIdsForProfile(
       AppSession.instance.profile,
     );
     final visibleItems =
         current.where((item) => !hidden.contains(item.id)).toList();
     if (visibleItems.isEmpty) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(context.l10n.noNotifications)),
-      );
+      _showTopInfoBanner(context.l10n.noNotifications);
       return;
     }
 
@@ -109,6 +106,32 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
     }
     setState(() {
       _highlightedUnreadIds.clear();
+    });
+  }
+
+  void _showTopInfoBanner(String message) {
+    if (!mounted) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+        content: Text(message),
+        contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+        forceActionsBelow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        actions: const [SizedBox.shrink()],
+      ),
+    );
+    Future<void>.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) {
+        return;
+      }
+      messenger.hideCurrentMaterialBanner();
     });
   }
 

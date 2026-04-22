@@ -12,7 +12,7 @@ import '../../../core/widgets/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/werka_store.dart';
 import 'widgets/werka_dock.dart';
-import 'widgets/werka_create_hub_sheet.dart';
+import 'widgets/werka_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
 class WerkaHomeScreen extends StatefulWidget {
@@ -103,7 +103,10 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      drawer: _WerkaHomeDrawer(onNavigate: _openDrawerRoute),
+      drawer: WerkaNavigationDrawer(
+        selectedIndex: 0,
+        onNavigate: _openDrawerRoute,
+      ),
       bottom: const WerkaDock(activeTab: WerkaDockTab.home),
       bottomDockFadeStrength: _bottomDockFadeStrength,
       contentPadding: EdgeInsets.zero,
@@ -154,101 +157,6 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _WerkaHomeDrawer extends StatelessWidget {
-  const _WerkaHomeDrawer({
-    required this.onNavigate,
-  });
-
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final onSurfaceVariant = scheme.onSurfaceVariant;
-    const selectedIndex = 0;
-    return SizedBox(
-      width: 272,
-      child: NavigationDrawer(
-        backgroundColor: scheme.surfaceContainerLow,
-        indicatorColor: scheme.secondaryContainer,
-        surfaceTintColor: Colors.transparent,
-        selectedIndex: selectedIndex,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-        onDestinationSelected: (index) {
-          if (index == 0) {
-            Navigator.of(context).pop();
-            return;
-          }
-          if (index == 1) {
-            Navigator.of(context).pop();
-            onNavigate(AppRoutes.werkaNotifications);
-            return;
-          }
-          if (index == 2) {
-            Navigator.of(context).pop();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) {
-                return;
-              }
-              showWerkaCreateHubSheet(context);
-            });
-            return;
-          }
-          if (index == 3) {
-            Navigator.of(context).pop();
-            onNavigate(AppRoutes.werkaArchive);
-            return;
-          }
-          if (index == 4) {
-            Navigator.of(context).pop();
-            onNavigate(AppRoutes.profile);
-          }
-        },
-        header: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Bo‘limlar',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-              ),
-          ),
-        ),
-        children: [
-          const NavigationDrawerDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: Text('Uy'),
-          ),
-          const NavigationDrawerDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications_rounded),
-            label: Text('Bildirish'),
-          ),
-          const NavigationDrawerDestination(
-            icon: Icon(Icons.add_rounded),
-            selectedIcon: Icon(Icons.add_rounded),
-            label: Text('Yangi'),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.archive_outlined),
-            selectedIcon: const Icon(Icons.archive_rounded),
-            label: Text(context.l10n.archiveTitle),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.person_outline_rounded),
-            selectedIcon: const Icon(Icons.person_rounded),
-            label: Text(context.l10n.profileTitle),
-          ),
-        ],
       ),
     );
   }
@@ -347,9 +255,11 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
             color: bg,
             borderRadius: radius,
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-            child: Row(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 66),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+              child: Row(
               children: [
                 Expanded(
                   child: Text(
@@ -377,6 +287,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
                   color: accent,
                 ),
               ],
+            ),
             ),
           ),
         ),
