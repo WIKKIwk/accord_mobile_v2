@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/native_back_button.dart';
 import '../../shared/models/app_models.dart';
+import 'werka_customer_issue_prefill.dart';
 import 'werka_success_screen.dart';
 import 'widgets/m3_picker_sheet.dart';
 import 'widgets/werka_dock.dart';
@@ -36,24 +37,36 @@ class _WerkaCustomerIssueCustomerScreenState
   CustomerDirectoryEntry? _selectedCustomer;
   SupplierItem? _selectedItem;
   bool _submitting = false;
+  bool _qrPrefillActive = false;
+  bool _prefillCustomerLoading = false;
+  int _prefillCustomerGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     if (widget.prefill != null) {
       final prefill = widget.prefill!;
-      _selectedCustomer = CustomerDirectoryEntry(
-        ref: prefill.customerRef,
-        name: prefill.customerName,
-        phone: '',
-      );
+      _qrPrefillActive = prefill.hasSource;
+      if (prefill.hasCustomer) {
+        _selectedCustomer = CustomerDirectoryEntry(
+          ref: prefill.customerRef,
+          name: prefill.customerName,
+          phone: '',
+        );
+      }
       _selectedItem = SupplierItem(
         code: prefill.itemCode,
-        name: prefill.itemName,
+        name: prefill.itemName.trim().isEmpty
+            ? prefill.itemCode
+            : prefill.itemName,
         uom: prefill.uom,
-        warehouse: '',
+        warehouse: prefill.warehouse,
       );
       _qtyController.text = _formatQty(prefill.qty);
+      if (_selectedCustomer == null) {
+        _prefillCustomerLoading = true;
+        _loadPreferredCustomerForPrefill();
+      }
     }
   }
 
@@ -111,9 +124,47 @@ class _WerkaCustomerIssueCustomerScreenState
     }
   }
 
+  Future<void> _loadPreferredCustomerForPrefill() async {
+    final item = _selectedItem;
+    if (item == null) {
+      return;
+    }
+    final generation = ++_prefillCustomerGeneration;
+    try {
+      final customers = await MobileApi.instance.werkaCustomersForItem(
+        itemCode: item.code,
+        itemName: item.name,
+        limit: 200,
+        offset: 0,
+      );
+      final preferred = preferPrimaryCustomer<CustomerDirectoryEntry>(
+        customers,
+        customerName: (item) => item.name,
+      );
+      if (!mounted ||
+          generation != _prefillCustomerGeneration ||
+          _selectedCustomer != null ||
+          _selectedItem?.code != item.code) {
+        return;
+      }
+      setState(() {
+        _selectedCustomer = preferred;
+        _prefillCustomerLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _prefillCustomerGeneration) {
+        return;
+      }
+      setState(() => _prefillCustomerLoading = false);
+    }
+  }
+
   void _clearSelectedItem() {
     setState(() {
       _selectedItem = null;
+      _qrPrefillActive = false;
+      _prefillCustomerLoading = false;
+      _prefillCustomerGeneration++;
       _qtyController.clear();
     });
   }
@@ -121,6 +172,8 @@ class _WerkaCustomerIssueCustomerScreenState
   void _clearSelectedCustomer() {
     setState(() {
       _selectedCustomer = null;
+      _prefillCustomerLoading = false;
+      _prefillCustomerGeneration++;
     });
   }
 
@@ -161,6 +214,8 @@ class _WerkaCustomerIssueCustomerScreenState
     }
     setState(() {
       _selectedCustomer = picked;
+      _prefillCustomerLoading = false;
+      _prefillCustomerGeneration++;
     });
   }
 
@@ -201,7 +256,12 @@ class _WerkaCustomerIssueCustomerScreenState
       if (!mounted || picked == null) {
         return;
       }
-      setState(() => _selectedItem = picked);
+      setState(() {
+        _selectedItem = picked;
+        _qrPrefillActive = false;
+        _prefillCustomerLoading = false;
+        _prefillCustomerGeneration++;
+      });
       return;
     }
 
@@ -241,6 +301,9 @@ class _WerkaCustomerIssueCustomerScreenState
     setState(() {
       _selectedCustomer = preferredCustomer;
       _selectedItem = _itemFromOption(picked);
+      _qrPrefillActive = false;
+      _prefillCustomerLoading = false;
+      _prefillCustomerGeneration++;
     });
   }
 
@@ -420,6 +483,11 @@ class _WerkaCustomerIssueCustomerScreenState
     final scheme = theme.colorScheme;
     final canSubmit =
         _selectedCustomer != null && _selectedItem != null && !_submitting;
+    final customerLabel = _selectedCustomer?.name ??
+        (_prefillCustomerLoading
+            ? 'Customer tanlanmoqda...'
+            : l10n.selectCustomer);
+    final source = widget.prefill;
     final pickerButtonStyle = FilledButton.styleFrom(
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
@@ -479,6 +547,12 @@ class _WerkaCustomerIssueCustomerScreenState
                     l10n.customerIssueTitle,
                     style: theme.textTheme.headlineMedium,
                   ),
+                  if (_qrPrefillActive &&
+                      source != null &&
+                      source.hasSource) ...[
+                    const SizedBox(height: 12),
+                    _QrPrefillBanner(prefill: source),
+                  ],
                   const SizedBox(height: 18),
                   Text(l10n.itemLabel, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 6),
@@ -529,17 +603,25 @@ class _WerkaCustomerIssueCustomerScreenState
                             children: [
                               Expanded(
                                 child: Text(
-                                  _selectedCustomer?.name ??
-                                      l10n.selectCustomer,
+                                  customerLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 20,
-                              ),
+                              if (_prefillCustomerLoading)
+                                const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 20,
+                                ),
                             ],
                           ),
                         ),
@@ -598,20 +680,60 @@ class _WerkaCustomerIssueCustomerScreenState
   }
 }
 
-class WerkaCustomerIssuePrefillArgs {
-  const WerkaCustomerIssuePrefillArgs({
-    required this.customerRef,
-    required this.customerName,
-    required this.itemCode,
-    required this.itemName,
-    required this.qty,
-    required this.uom,
-  });
+class _QrPrefillBanner extends StatelessWidget {
+  const _QrPrefillBanner({required this.prefill});
 
-  final String customerRef;
-  final String customerName;
-  final String itemCode;
-  final String itemName;
-  final double qty;
-  final String uom;
+  final WerkaCustomerIssuePrefillArgs prefill;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final sourceLabel = prefill.sourceStockEntryName.trim().isNotEmpty
+        ? prefill.sourceStockEntryName.trim()
+        : prefill.sourceBarcode.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.qr_code_2_rounded,
+            color: scheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'QR orqali to‘ldirildi',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (sourceLabel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    sourceLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onPrimaryContainer.withValues(alpha: 0.78),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

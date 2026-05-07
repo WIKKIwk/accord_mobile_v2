@@ -5,6 +5,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/stock_entry_lookup.dart';
+import 'werka_customer_issue_prefill.dart';
 import 'package:flutter/material.dart';
 
 class WerkaStockEntryLookupArgs {
@@ -149,6 +150,22 @@ class _WerkaStockEntryLookupScreenState
             formatQty: _formatQty,
             docStatusLabel: _docStatusLabel,
             warehouseText: _warehouseText,
+            onCreateCustomerIssue: (entry) {
+              Navigator.of(context).pushNamed(
+                AppRoutes.werkaCustomerIssueCustomer,
+                arguments: WerkaCustomerIssuePrefillArgs(
+                  itemCode: entry.itemCode,
+                  itemName: entry.itemName,
+                  qty: entry.qty,
+                  uom: entry.uom.trim().isEmpty ? entry.stockUOM : entry.uom,
+                  warehouse: entry.targetWarehouse,
+                  sourceStockEntryName: entry.stockEntryName,
+                  sourceBarcode: entry.barcode.trim().isEmpty
+                      ? lookup.barcode
+                      : entry.barcode,
+                ),
+              );
+            },
           );
         },
       ),
@@ -350,6 +367,7 @@ class _ResultView extends StatelessWidget {
     required this.formatQty,
     required this.docStatusLabel,
     required this.warehouseText,
+    required this.onCreateCustomerIssue,
   });
 
   final StockEntryBarcodeLookup lookup;
@@ -357,6 +375,7 @@ class _ResultView extends StatelessWidget {
   final String Function(double value) formatQty;
   final String Function(int value) docStatusLabel;
   final String Function(String source, String target) warehouseText;
+  final void Function(StockEntryBarcodeEntry entry) onCreateCustomerIssue;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +466,7 @@ class _ResultView extends StatelessWidget {
             formatQty: formatQty,
             docStatusLabel: docStatusLabel,
             warehouseText: warehouseText,
+            onCreateCustomerIssue: onCreateCustomerIssue,
           ),
           if (index != lookup.entries.length - 1) const SizedBox(height: 12),
         ],
@@ -483,12 +503,18 @@ class _LookupEntryCard extends StatelessWidget {
     required this.formatQty,
     required this.docStatusLabel,
     required this.warehouseText,
+    required this.onCreateCustomerIssue,
   });
 
   final StockEntryBarcodeEntry entry;
   final String Function(double value) formatQty;
   final String Function(int value) docStatusLabel;
   final String Function(String source, String target) warehouseText;
+  final void Function(StockEntryBarcodeEntry entry) onCreateCustomerIssue;
+
+  bool get _canCreateCustomerIssue {
+    return entry.itemCode.trim().isNotEmpty && entry.qty > 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -609,6 +635,17 @@ class _LookupEntryCard extends StatelessWidget {
               'Line ${entry.lineIndex}',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _canCreateCustomerIssue
+                    ? () => onCreateCustomerIssue(entry)
+                    : null,
+                icon: const Icon(Icons.local_shipping_outlined),
+                label: const Text('Customerga jo‘natish'),
               ),
             ),
           ],

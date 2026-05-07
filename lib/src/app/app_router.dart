@@ -47,8 +47,10 @@ import '../features/werka/presentation/werka_home_screen.dart';
 import '../features/werka/presentation/werka_batch_dispatch_screen.dart';
 import '../features/werka/presentation/werka_create_hub_screen.dart';
 import '../features/werka/presentation/werka_customer_issue_customer_screen.dart';
+import '../features/werka/presentation/werka_customer_issue_prefill.dart';
 import '../features/werka/presentation/werka_customer_delivery_detail_screen.dart';
 import '../features/werka/presentation/werka_notifications_screen.dart';
+import '../features/werka/presentation/werka_archive_batch_qr_lookup_screen.dart';
 import '../features/werka/presentation/werka_stock_entry_lookup_screen.dart';
 import '../features/werka/presentation/werka_stock_entry_qr_scan_screen.dart';
 import '../features/werka/presentation/werka_unannounced_supplier_screen.dart';
@@ -83,6 +85,8 @@ class AppRoutes {
   static const String werkaUnannouncedSupplier = '/werka-unannounced-supplier';
   static const String werkaStockEntryQrScan = '/werka-stock-entry-qr-scan';
   static const String werkaStockEntryLookup = '/werka-stock-entry-lookup';
+  static const String werkaArchiveBatchQrLookup =
+      '/werka-archive-batch-qr-lookup';
   static const String werkaNotifications = '/werka-notifications';
   static const String werkaArchive = '/werka-archive';
   static const String werkaArchiveSentHub = '/werka-archive-sent-hub';
@@ -169,6 +173,7 @@ class AppRouter {
     AppRoutes.werkaUnannouncedSupplier,
     AppRoutes.werkaStockEntryQrScan,
     AppRoutes.werkaStockEntryLookup,
+    AppRoutes.werkaArchiveBatchQrLookup,
     AppRoutes.adminSettings,
     AppRoutes.adminSupplierCreate,
     AppRoutes.adminCustomerCreate,
@@ -273,6 +278,13 @@ class AppRouter {
         return _buildRoute(
           settings,
           WerkaStockEntryLookupScreen(args: args),
+        );
+      case AppRoutes.werkaArchiveBatchQrLookup:
+        final WerkaArchiveBatchQrLookupArgs args =
+            settings.arguments as WerkaArchiveBatchQrLookupArgs;
+        return _buildRoute(
+          settings,
+          WerkaArchiveBatchQrLookupScreen(args: args),
         );
       case AppRoutes.werkaNotifications:
         return _buildRoute(settings, const WerkaNotificationsScreen());

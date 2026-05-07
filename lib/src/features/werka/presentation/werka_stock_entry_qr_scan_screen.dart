@@ -8,6 +8,8 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/stock_entry_lookup.dart';
+import 'werka_archive_batch_qr.dart';
+import 'werka_archive_batch_qr_lookup_screen.dart';
 import 'werka_stock_entry_lookup_screen.dart';
 
 class WerkaStockEntryQrScanScreen extends StatefulWidget {
@@ -102,6 +104,23 @@ class _WerkaStockEntryQrScanScreenState
     }
 
     final rawValue = _firstBarcodeValue(capture);
+    final archivePayload = WerkaArchiveBatchQrPayload.tryParse(rawValue);
+    if (archivePayload != null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _processing = true;
+        _statusText = 'Batch QR o‘qildi...';
+      });
+      await _stopScanner();
+      await Navigator.of(context).pushReplacementNamed(
+        AppRoutes.werkaArchiveBatchQrLookup,
+        arguments: WerkaArchiveBatchQrLookupArgs(payload: archivePayload),
+      );
+      return;
+    }
+
     final lookupBarcode = _extractLookupBarcode(rawValue);
     if (lookupBarcode == null || lookupBarcode.isEmpty) {
       if (!mounted) {
