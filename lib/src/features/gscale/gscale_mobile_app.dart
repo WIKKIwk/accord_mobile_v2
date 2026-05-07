@@ -1802,7 +1802,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   hasConfiguredERP
                       ? (_erpSetupExpanded
                           ? 'Sozlamani yashirish'
-                          : 'Sozlamani ko‘rsatish')
+                          : 'Sozlamalar')
                       : 'ERP sozlamalari',
                 ),
               ),
@@ -1818,7 +1818,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   ),
                   onPressed: _erpSetupLoading ? null : _clearERPSetup,
                   icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('ERP ni tozalash'),
+                  label: const Text('Tozalash'),
                 ),
               ),
             ],

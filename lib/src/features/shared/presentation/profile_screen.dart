@@ -892,7 +892,7 @@ class _ThemePreferenceRow extends StatelessWidget {
                         ),
                         _ThemeSelectionOption(
                           index: 6,
-                          itemCount: 7,
+                          itemCount: 12,
                           title: l10n.themeOceanLabel,
                           active: variant == AppThemeVariant.ocean,
                           swatches: const [
@@ -902,6 +902,76 @@ class _ThemePreferenceRow extends StatelessWidget {
                           ],
                           onTap: () =>
                               Navigator.of(context).pop(AppThemeVariant.ocean),
+                        ),
+                        _ThemeSelectionOption(
+                          index: 7,
+                          itemCount: 12,
+                          title: l10n.themeBingsuLabel,
+                          active: variant == AppThemeVariant.bingsu,
+                          swatches: const [
+                            Color(0xFFE5DFE5),
+                            Color(0xFF8E7381),
+                            Color(0xFF4A3E45),
+                            Color(0xFFF2F0F2),
+                          ],
+                          onTap: () =>
+                              Navigator.of(context).pop(AppThemeVariant.bingsu),
+                        ),
+                        _ThemeSelectionOption(
+                          index: 8,
+                          itemCount: 12,
+                          title: l10n.themeBlissLabel,
+                          active: variant == AppThemeVariant.bliss,
+                          swatches: const [
+                            Color(0xFFFFFFFF),
+                            Color(0xFFEFD9CE),
+                            Color(0xFF635A5A),
+                            Color(0xFFFCFAF9),
+                          ],
+                          onTap: () =>
+                              Navigator.of(context).pop(AppThemeVariant.bliss),
+                        ),
+                        _ThemeSelectionOption(
+                          index: 9,
+                          itemCount: 12,
+                          title: l10n.themeDollarLabel,
+                          active: variant == AppThemeVariant.dollar,
+                          swatches: const [
+                            Color(0xFF5E635E),
+                            Color(0xFF7A8B7A),
+                            Color(0xFF96A176),
+                            Color(0xFF4A4F4A),
+                          ],
+                          onTap: () =>
+                              Navigator.of(context).pop(AppThemeVariant.dollar),
+                        ),
+                        _ThemeSelectionOption(
+                          index: 10,
+                          itemCount: 12,
+                          title: l10n.themeFleuristeLabel,
+                          active: variant == AppThemeVariant.fleuriste,
+                          swatches: const [
+                            Color(0xFF0A140F),
+                            Color(0xFF4A5F58),
+                            Color(0xFF633F4D),
+                            Color(0xFF0D1A14),
+                          ],
+                          onTap: () => Navigator.of(context)
+                              .pop(AppThemeVariant.fleuriste),
+                        ),
+                        _ThemeSelectionOption(
+                          index: 11,
+                          itemCount: 12,
+                          title: l10n.themePaleNimbusLabel,
+                          active: variant == AppThemeVariant.paleNimbus,
+                          swatches: const [
+                            Color(0xFFFFFFE3),
+                            Color(0xFFA3FFD1),
+                            Color(0xFFFFA3A3),
+                            Color(0xFFFFFFF0),
+                          ],
+                          onTap: () => Navigator.of(context)
+                              .pop(AppThemeVariant.paleNimbus),
                         ),
                       ],
                     ),
@@ -957,7 +1027,24 @@ class _ThemePreferenceRow extends StatelessWidget {
                                   ? l10n.themeSlateLabel
                                   : variant == AppThemeVariant.ocean
                                       ? l10n.themeOceanLabel
-                                      : l10n.themeEarthLabel,
+                                      : variant == AppThemeVariant.bingsu
+                                          ? l10n.themeBingsuLabel
+                                          : variant == AppThemeVariant.bliss
+                                              ? l10n.themeBlissLabel
+                                              : variant ==
+                                                      AppThemeVariant.dollar
+                                                  ? l10n.themeDollarLabel
+                                                  : variant ==
+                                                          AppThemeVariant
+                                                              .fleuriste
+                                                      ? l10n.themeFleuristeLabel
+                                                      : variant ==
+                                                              AppThemeVariant
+                                                                  .paleNimbus
+                                                          ? l10n
+                                                              .themePaleNimbusLabel
+                                                          : l10n
+                                                              .themeEarthLabel,
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),

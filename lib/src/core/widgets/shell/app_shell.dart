@@ -414,7 +414,7 @@ class _AppShellState extends State<AppShell>
                           }
                           final Color chrome =
                               theme.navigationBarTheme.backgroundColor ??
-                                  theme.colorScheme.surfaceContainer;
+                                  theme.colorScheme.surface;
                           // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
                           final peakAlpha = 0.26 * fade;
                           return SizedBox(

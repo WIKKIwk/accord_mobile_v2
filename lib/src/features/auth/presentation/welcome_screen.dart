@@ -501,6 +501,43 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 active: currentVariant == AppThemeVariant.ocean,
                 onTap: () => Navigator.of(context).pop(AppThemeVariant.ocean),
               ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themeBingsuLabel,
+                swatches: _themeSwatches(AppThemeVariant.bingsu),
+                active: currentVariant == AppThemeVariant.bingsu,
+                onTap: () => Navigator.of(context).pop(AppThemeVariant.bingsu),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themeBlissLabel,
+                swatches: _themeSwatches(AppThemeVariant.bliss),
+                active: currentVariant == AppThemeVariant.bliss,
+                onTap: () => Navigator.of(context).pop(AppThemeVariant.bliss),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themeDollarLabel,
+                swatches: _themeSwatches(AppThemeVariant.dollar),
+                active: currentVariant == AppThemeVariant.dollar,
+                onTap: () => Navigator.of(context).pop(AppThemeVariant.dollar),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themeFleuristeLabel,
+                swatches: _themeSwatches(AppThemeVariant.fleuriste),
+                active: currentVariant == AppThemeVariant.fleuriste,
+                onTap: () =>
+                    Navigator.of(context).pop(AppThemeVariant.fleuriste),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themePaleNimbusLabel,
+                swatches: _themeSwatches(AppThemeVariant.paleNimbus),
+                active: currentVariant == AppThemeVariant.paleNimbus,
+                onTap: () =>
+                    Navigator.of(context).pop(AppThemeVariant.paleNimbus),
+              ),
             ],
           ),
         );
@@ -529,6 +566,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       AppThemeVariant.lavender => l10n.themeLavenderLabel,
       AppThemeVariant.slate => l10n.themeSlateLabel,
       AppThemeVariant.ocean => l10n.themeOceanLabel,
+      AppThemeVariant.bingsu => l10n.themeBingsuLabel,
+      AppThemeVariant.bliss => l10n.themeBlissLabel,
+      AppThemeVariant.dollar => l10n.themeDollarLabel,
+      AppThemeVariant.fleuriste => l10n.themeFleuristeLabel,
+      AppThemeVariant.paleNimbus => l10n.themePaleNimbusLabel,
     };
   }
 }
@@ -1575,6 +1617,36 @@ List<Color> _themeSwatches(AppThemeVariant variant) {
         Color(0xFF1C4D8D),
         Color(0xFF4988C4),
         Color(0xFFBDE8F5),
+      ],
+    AppThemeVariant.bingsu => const [
+        Color(0xFFE5DFE5),
+        Color(0xFF8E7381),
+        Color(0xFF4A3E45),
+        Color(0xFFF2F0F2),
+      ],
+    AppThemeVariant.bliss => const [
+        Color(0xFFFFFFFF),
+        Color(0xFFEFD9CE),
+        Color(0xFF635A5A),
+        Color(0xFFFCFAF9),
+      ],
+    AppThemeVariant.dollar => const [
+        Color(0xFF5E635E),
+        Color(0xFF7A8B7A),
+        Color(0xFF96A176),
+        Color(0xFF4A4F4A),
+      ],
+    AppThemeVariant.fleuriste => const [
+        Color(0xFF0A140F),
+        Color(0xFF4A5F58),
+        Color(0xFF633F4D),
+        Color(0xFF0D1A14),
+      ],
+    AppThemeVariant.paleNimbus => const [
+        Color(0xFFFFFFE3),
+        Color(0xFFA3FFD1),
+        Color(0xFFFFA3A3),
+        Color(0xFFFFFFF0),
       ],
   };
 }

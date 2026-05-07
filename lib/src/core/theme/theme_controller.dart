@@ -9,6 +9,11 @@ enum AppThemeVariant {
   lavender,
   slate,
   ocean,
+  bingsu,
+  bliss,
+  dollar,
+  fleuriste,
+  paleNimbus,
 }
 
 class ThemeController extends ChangeNotifier {
@@ -42,7 +47,17 @@ class ThemeController extends ChangeNotifier {
                         ? AppThemeVariant.slate
                         : savedVariant == 'ocean'
                             ? AppThemeVariant.ocean
-                            : AppThemeVariant.earthy;
+                            : savedVariant == 'bingsu'
+                                ? AppThemeVariant.bingsu
+                                : savedVariant == 'bliss'
+                                    ? AppThemeVariant.bliss
+                                    : savedVariant == 'dollar'
+                                        ? AppThemeVariant.dollar
+                                        : savedVariant == 'fleuriste'
+                                            ? AppThemeVariant.fleuriste
+                                            : savedVariant == 'pale_nimbus'
+                                                ? AppThemeVariant.paleNimbus
+                                                : AppThemeVariant.earthy;
     notifyListeners();
   }
 
@@ -78,7 +93,19 @@ class ThemeController extends ChangeNotifier {
                           ? 'slate'
                           : nextVariant == AppThemeVariant.ocean
                               ? 'ocean'
-                              : 'earthy',
+                              : nextVariant == AppThemeVariant.bingsu
+                                  ? 'bingsu'
+                                  : nextVariant == AppThemeVariant.bliss
+                                      ? 'bliss'
+                                      : nextVariant == AppThemeVariant.dollar
+                                          ? 'dollar'
+                                          : nextVariant ==
+                                                  AppThemeVariant.fleuriste
+                                              ? 'fleuriste'
+                                              : nextVariant ==
+                                                      AppThemeVariant.paleNimbus
+                                                  ? 'pale_nimbus'
+                                                  : 'earthy',
     );
   }
 }

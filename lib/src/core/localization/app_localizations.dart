@@ -115,6 +115,12 @@ class AppLocalizations {
   String get themeLavenderLabel => _t('Lavanda', 'Lavender', 'Лаванда');
   String get themeSlateLabel => _t('Tutun', 'Slate', 'Сланец');
   String get themeOceanLabel => _t('Dengiz', 'Ocean', 'Океан');
+  String get themeBingsuLabel => _t('Bingsu', 'Bingsu', 'Bingsu');
+  String get themeBlissLabel => _t('Bliss', 'Bliss', 'Bliss');
+  String get themeDollarLabel => _t('Dollar', 'Dollar', 'Dollar');
+  String get themeFleuristeLabel => _t('Fleuriste', 'Fleuriste', 'Fleuriste');
+  String get themePaleNimbusLabel =>
+      _t('Pale Nimbus', 'Pale Nimbus', 'Pale Nimbus');
   String get uzbek => _t('O‘zbekcha', 'Uzbek', 'Узбекский');
   String get english => _t('English', 'English', 'Английский');
   String get russian => _t('Ruscha', 'Russian', 'Русский');
