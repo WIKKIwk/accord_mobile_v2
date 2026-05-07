@@ -2308,7 +2308,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 16),
         _PickerField(
           icon: Icons.search_rounded,
           label: 'Mahsulot tanlang',
@@ -2316,7 +2316,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           subtitle: null,
           onTap: batchRunning ? null : _openItemPicker,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 14),
         if (defaultMode) ...[
           if (defaultWarehouse.isEmpty)
             Text(
@@ -2352,7 +2352,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             ),
           ],
         ],
-        const SizedBox(height: 28),
+        const SizedBox(height: 18),
         Text(
           'Babina',
           style: theme.textTheme.titleMedium?.copyWith(
@@ -2407,7 +2407,15 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               suffixText: 'kg',
               hintText: '0.78',
               errorText: babinaInvalid ? 'Masalan: 0.78' : null,
-              border: const OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -2618,9 +2626,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 onPressed:
                     batchRunning && !_batchActionLoading ? _stopBatch : null,
                 icon: const Icon(Icons.stop_rounded),
-                label: Text(_batchActionLoading
-                    ? 'To‘xtatilmoqda...'
-                    : 'Partiyani to‘xtatish'),
+                label: Text(
+                    _batchActionLoading ? 'To‘xtatilmoqda...' : 'To‘xtatish'),
               ),
             ),
             const SizedBox(width: 10),
@@ -2642,9 +2649,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     : _startBatch,
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(
-                  _batchActionLoading
-                      ? 'Boshlanmoqda...'
-                      : 'Partiyani boshlash',
+                  _batchActionLoading ? 'Boshlanmoqda...' : 'Boshlash',
                 ),
               ),
             ),
