@@ -173,7 +173,7 @@ class _WerkaArchiveYearlyCalendarScreenState
     return RefreshIndicator(
       onRefresh: _loadYears,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
+        padding: EdgeInsets.fromLTRB(9, 4, 9, bottomPadding),
         children: [
           Card.filled(
             margin: EdgeInsets.zero,

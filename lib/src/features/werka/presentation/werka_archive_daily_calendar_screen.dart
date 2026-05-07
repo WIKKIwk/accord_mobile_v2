@@ -201,7 +201,7 @@ class _WerkaArchiveDailyCalendarScreenState
     return RefreshIndicator(
       onRefresh: _loadMonth,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
+        padding: EdgeInsets.fromLTRB(9, 4, 9, bottomPadding),
         children: [
           Card.filled(
             margin: EdgeInsets.zero,

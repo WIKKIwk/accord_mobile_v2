@@ -94,7 +94,7 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
                   child: M3SegmentFilledSurface(
                     slot: M3SegmentVerticalSlot.top,
                     cornerRadius: M3SegmentedListGeometry.cornerLarge,
@@ -123,7 +123,7 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
               padding: EdgeInsets.fromLTRB(0, 4, 0, bottomListPadding),
               children: [
                 M3SegmentSpacedColumn(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
                   children: [
                     for (int index = 0; index < n; index++)
                       _WerkaStatusDetailSegmentTile(

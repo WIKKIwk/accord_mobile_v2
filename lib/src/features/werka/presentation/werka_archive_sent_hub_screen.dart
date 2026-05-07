@@ -297,7 +297,7 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
     return RefreshIndicator(
       onRefresh: _loadCurrent,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 110),
+        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
         children: [
           _SentArchiveExpandableCard(
             title: l10n.archiveDailyTitle,

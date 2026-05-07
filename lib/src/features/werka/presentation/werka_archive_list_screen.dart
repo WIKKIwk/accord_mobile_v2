@@ -388,7 +388,7 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     final data = _data;
     if (data == null || data.items.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 110),
+        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
         children: [
           if (showDailyFilter) ...[
             _DailyFilterCard(
@@ -425,7 +425,7 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 110),
+        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
         children: [
           if (showDailyFilter) ...[
             _DailyFilterCard(

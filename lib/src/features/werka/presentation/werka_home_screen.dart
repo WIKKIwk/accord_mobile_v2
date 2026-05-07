@@ -215,7 +215,7 @@ class _WerkaSummaryList extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmoothAppear(
       child: M3SegmentSpacedColumn(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 9),
         children: [
           _WerkaSummarySegmentCard(
             slot: M3SegmentVerticalSlot.top,
@@ -374,7 +374,7 @@ class _WerkaPendingSectionState extends State<_WerkaPendingSection> {
       delay: const Duration(milliseconds: 90),
       offset: const Offset(0, 18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 9),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

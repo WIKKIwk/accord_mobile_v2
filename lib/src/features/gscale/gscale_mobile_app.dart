@@ -1005,7 +1005,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (context) => _WarehousePickerSheet(
-        title: 'Default ombor tanlang',
+        title: 'Standart ombor tanlang',
         queryHint: 'Ombor qidiring',
         emptyText: 'Ombor topilmadi.',
         initialWarehouse: MobileWarehouse(warehouse: _currentDefaultWarehouse),
@@ -1031,7 +1031,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     }
     if (mode == 'default' && defaultWarehouse.trim().isEmpty) {
       setState(() {
-        _warehouseSetupError = 'Default ombor tanlang';
+        _warehouseSetupError = 'Standart ombor tanlang';
         _warehouseSetupExpanded = true;
       });
       return;
@@ -1060,7 +1060,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             payload['message'],
             fallback: _text(
               payload['error'],
-              fallback: 'Warehouse setup failed',
+              fallback: 'Ombor sozlamalari muvaffaqiyatsiz',
             ),
           ),
         );
@@ -1080,7 +1080,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         _warehouseSetupLoading = false;
       });
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Warehouse setup saqlandi')),
+        const SnackBar(content: Text('Ombor sozlamalari saqlandi')),
       );
     } catch (error) {
       if (!mounted) {
@@ -1411,10 +1411,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Batch QR print'),
+          title: const Text('Partiya QR chop etish'),
           content: Text(
             [
-              'Shu batch uchun QR print qilamizmi?',
+              'Shu partiya uchun QR chop etamizmi?',
               '',
               'Mahsulot: ${itemName.isEmpty ? '-' : itemName}',
               'Jami: $qtyText',
@@ -1468,19 +1468,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       if (response.statusCode < 200 || response.statusCode > 299) {
         final payload = jsonDecode(response.body) as Map<String, dynamic>;
         throw Exception(
-          _text(payload['error'], fallback: 'Archive print failed'),
+          _text(payload['error'], fallback: 'Arxiv chop etish muvaffaqiyatsiz'),
         );
       }
       if (!mounted) {
         return;
       }
       final displayName =
-          session.displayItemName.isEmpty ? 'Batch' : session.displayItemName;
+          session.displayItemName.isEmpty ? 'Partiya' : session.displayItemName;
       setState(() {
         _archivePrintLoadingSessionId = '';
       });
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text('$displayName uchun QR print yuborildi')),
+        SnackBar(content: Text('$displayName uchun QR chop etish yuborildi')),
       );
     } catch (error) {
       if (!mounted) {
@@ -1518,7 +1518,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         throw Exception(
           _text(
             payload['message'],
-            fallback: _text(payload['error'], fallback: 'ERP setup failed'),
+            fallback: _text(payload['error'],
+                fallback: 'ERP sozlamalari muvaffaqiyatsiz'),
           ),
         );
       }
@@ -1537,7 +1538,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       });
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('ERP setup saqlandi')));
+      )?.showSnackBar(
+        const SnackBar(content: Text('ERP sozlamalari saqlandi')),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -1580,7 +1583,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       });
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('ERP setup tozalandi')));
+      )?.showSnackBar(
+        const SnackBar(content: Text('ERP sozlamalari tozalandi')),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -1618,7 +1623,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           leading: IconButton(
             onPressed: widget.onChangeServer,
             icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: 'Change server',
+            tooltip: 'Serverni o‘zgartirish',
           ),
           title: Text(server.handshake.serverName),
           actions: [
@@ -1670,12 +1675,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           },
           destinations: const [
             AppNavigationDestination(
-              label: 'Control',
+              label: 'Boshqaruv',
               icon: Icon(Icons.tune_outlined),
               selectedIcon: Icon(Icons.tune),
             ),
             AppNavigationDestination(
-              label: 'Archive',
+              label: 'Arxiv',
               icon: Icon(Icons.archive_outlined),
               selectedIcon: Icon(Icons.archive),
             ),
@@ -1719,20 +1724,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ),
         ],
         const SizedBox(height: 22),
-        _SectionLabel(title: 'ERP setup', subtitle: ''),
+        _SectionLabel(title: 'ERP sozlamalari', subtitle: ''),
         const SizedBox(height: 12),
         _MiniIconRow(
           icon: Icons.key_outlined,
           text: _erpWriteConfigured
-              ? 'ERP write configured'
-              : 'ERP write not configured',
+              ? 'ERP yozuvi ulangan'
+              : 'ERP yozuvi ulanmagan',
         ),
         const SizedBox(height: 12),
         _MiniIconRow(
           icon: Icons.storage_outlined,
           text: _erpReadConfigured
-              ? 'Catalog service linked'
-              : 'Catalog service topilmadi',
+              ? 'Katalog xizmati ulangan'
+              : 'Katalog xizmati topilmadi',
         ),
         if (_erpConfiguredUrl.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -1765,8 +1770,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 ),
                 label: Text(
                   hasConfiguredERP
-                      ? (_erpSetupExpanded ? 'Hide setup' : 'Show setup')
-                      : 'ERP setup',
+                      ? (_erpSetupExpanded
+                          ? 'Sozlamani yashirish'
+                          : 'Sozlamani ko‘rsatish')
+                      : 'ERP sozlamalari',
                 ),
               ),
             ),
@@ -1781,7 +1788,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   ),
                   onPressed: _erpSetupLoading ? null : _clearERPSetup,
                   icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('Clear ERP'),
+                  label: const Text('ERP ni tozalash'),
                 ),
               ),
             ],
@@ -1792,29 +1799,77 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           TextField(
             controller: _erpUrlController,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'ERP URL',
+            decoration: InputDecoration(
+              labelText: 'ERP manzili',
               hintText: 'http://localhost:8000',
-              prefixIcon: Icon(Icons.link_rounded),
+              prefixIcon: const Icon(Icons.link_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.primary,
+                  width: 1.4,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _erpApiKeyController,
-            decoration: const InputDecoration(
-              labelText: 'ERP API key',
+            decoration: InputDecoration(
+              labelText: 'ERP API kaliti',
               hintText: 'API key',
-              prefixIcon: Icon(Icons.vpn_key_outlined),
+              prefixIcon: const Icon(Icons.vpn_key_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.primary,
+                  width: 1.4,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _erpApiSecretController,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'ERP API secret',
+            decoration: InputDecoration(
+              labelText: 'ERP API siri',
               hintText: 'API secret',
-              prefixIcon: Icon(Icons.password_rounded),
+              prefixIcon: const Icon(Icons.password_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.primary,
+                  width: 1.4,
+                ),
+              ),
             ),
           ),
         ],
@@ -1826,7 +1881,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ),
         ],
         const SizedBox(height: 28),
-        _SectionLabel(title: 'Warehouse setup', subtitle: ''),
+        _SectionLabel(title: 'Ombor sozlamalari', subtitle: ''),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -1844,7 +1899,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                         ),
                       );
                     },
-              label: const Text('Manual'),
+              label: const Text('Qo‘lda'),
             ),
             FilterChip(
               selected: _warehouseMode == 'default',
@@ -1853,7 +1908,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   : (_) {
                       unawaited(_openDefaultWarehousePicker());
                     },
-              label: const Text('Default'),
+              label: const Text('Standart'),
             ),
           ],
         ),
@@ -1871,7 +1926,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Default warehouse: $defaultWarehouse',
+                    'Standart ombor: $defaultWarehouse',
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -1881,14 +1936,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                       : () {
                           unawaited(_openDefaultWarehousePicker());
                         },
-                  child: const Text('Change'),
+                  child: const Text('O‘zgartirish'),
                 ),
               ],
             ),
         ] else if (defaultWarehouse.isNotEmpty) ...[
           _MiniIconRow(
             icon: Icons.bookmark_outline,
-            text: 'Stored default: $defaultWarehouse',
+            text: 'Saqlangan standart: $defaultWarehouse',
           ),
         ],
         if (_warehouseSetupError.isNotEmpty) ...[
@@ -1914,7 +1969,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: FilledButton.icon(
+              child: FilledButton(
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1924,8 +1979,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                         (!_erpSetupExpanded && hasConfiguredERP))
                     ? null
                     : _submitERPSetup,
-                icon: const Icon(Icons.save_outlined),
-                label: Text(_erpSetupLoading ? 'Saving...' : 'Save ERP'),
+                child: const Icon(Icons.save_outlined),
               ),
             ),
             const SizedBox(width: 10),
@@ -1965,7 +2019,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Archive',
+                    'Arxiv',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -1985,7 +2039,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               onPressed:
                   _archiveLoading ? null : () => unawaited(_refreshArchive()),
               icon: const Icon(Icons.refresh_rounded),
-              tooltip: 'Refresh archive',
+              tooltip: 'Arxivni yangilash',
             ),
           ],
         ),
@@ -2003,7 +2057,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         const SizedBox(height: 18),
         if (sessions.isEmpty && !_archiveLoading) ...[
           Text(
-            "Archive hali bo'sh.",
+            "Arxiv hali bo'sh.",
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -2226,7 +2280,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           children: [
             Expanded(
               child: _MetricSummary(
-                title: 'Live kg',
+                title: 'Joriy kg',
                 value: _snapshot.scaleValue,
                 caption: _snapshot.scaleCaption,
                 icon: Icons.scale_outlined,
@@ -2255,8 +2309,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ],
         ),
         const SizedBox(height: 28),
-        _SectionLabel(title: 'Item selection', subtitle: ''),
-        const SizedBox(height: 8),
         _PickerField(
           icon: Icons.search_rounded,
           label: 'Mahsulot tanlang',
@@ -2265,8 +2317,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           onTap: batchRunning ? null : _openItemPicker,
         ),
         const SizedBox(height: 28),
-        _SectionLabel(title: 'Warehouse selection', subtitle: ''),
-        const SizedBox(height: 8),
         if (defaultMode) ...[
           if (defaultWarehouse.isEmpty)
             Text(
@@ -2276,12 +2326,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           else
             _MiniIconRow(
               icon: Icons.flag_rounded,
-              text: 'Default warehouse: $defaultWarehouse',
+              text: 'Standart ombor: $defaultWarehouse',
             ),
         ] else if (selectedProduct == null) ...[
           const SizedBox(height: 10),
           Text(
-            'Item tanlang, keyin warehouse chiqadi.',
+            'Avval mahsulot tanlang, keyin ombor chiqadi.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -2371,12 +2421,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               segments: const [
                 ButtonSegment<String>(
                   value: 'scale',
-                  label: Text('Scale kg'),
+                  label: Text('Tarozidan kg'),
                   icon: Icon(Icons.scale_outlined),
                 ),
                 ButtonSegment<String>(
                   value: 'manual',
-                  label: Text('Manual kg'),
+                  label: Text('Qo‘lda kg'),
                   icon: Icon(Icons.edit_note_rounded),
                 ),
               ],
@@ -2412,7 +2462,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     ],
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
-                      labelText: 'Manual brutto kg',
+                      labelText: 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
                       errorText:
@@ -2430,7 +2480,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   height: 56,
                   width: 56,
                   child: IconButton.filled(
-                    tooltip: 'Print',
+                    tooltip: 'Chop etish',
                     onPressed: batchRunning &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
@@ -2453,7 +2503,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           if (_manualPrintLoading) ...[
             const SizedBox(height: 6),
             Text(
-              'Print yuborilmoqda...',
+              'Chop etish yuborilmoqda...',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -2468,7 +2518,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,
           title: Text(
-            'Batch actions',
+            'Partiya amallari',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -2515,7 +2565,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               const SizedBox(height: 8),
               _MiniIconRow(
                 icon: Icons.info_outline_rounded,
-                text: 'GoDEX label-only chop qiladi, RFID encode qilmaydi.',
+                text: 'GoDEX faqat yorliq chop etadi, RFID kodlamaydi.',
               ),
             ],
             const SizedBox(height: 10),
@@ -2532,7 +2582,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     ),
                     ButtonSegment<String>(
                       value: 'label',
-                      label: Text('Label only'),
+                      label: Text('Faqat yorliq'),
                       icon: Icon(Icons.local_printshop_outlined),
                     ),
                   ],
@@ -2568,7 +2618,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 onPressed:
                     batchRunning && !_batchActionLoading ? _stopBatch : null,
                 icon: const Icon(Icons.stop_rounded),
-                label: Text(_batchActionLoading ? 'Stopping...' : 'Batch Stop'),
+                label: Text(_batchActionLoading
+                    ? 'To‘xtatilmoqda...'
+                    : 'Partiyani to‘xtatish'),
               ),
             ),
             const SizedBox(width: 10),
@@ -2590,7 +2642,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     : _startBatch,
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(
-                  _batchActionLoading ? 'Starting...' : 'Batch Start',
+                  _batchActionLoading
+                      ? 'Boshlanmoqda...'
+                      : 'Partiyani boshlash',
                 ),
               ),
             ),
@@ -2674,12 +2728,28 @@ class _PickerField extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(8),
       child: InputDecorator(
         decoration: InputDecoration(
           prefixIcon: Icon(icon),
           suffixIcon: const Icon(Icons.expand_more_rounded),
           labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: scheme.outlineVariant,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: scheme.primary,
+              width: 1.4,
+            ),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2860,7 +2930,7 @@ class _ServerHeaderCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  connected ? 'Connected' : 'Selected server',
+                  connected ? 'Ulangan' : 'Tanlangan server',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: connected
                         ? scheme.onSecondaryContainer
@@ -3184,9 +3254,25 @@ class _ItemPickerSheetState extends State<_ItemPickerSheet> {
                     controller: _controller,
                     autofocus: true,
                     onChanged: (_) => _scheduleSearch(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Mahsulot qidiring',
-                      prefixIcon: Icon(Icons.search_rounded),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: scheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: scheme.primary,
+                          width: 1.4,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -3389,6 +3475,22 @@ class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
                     decoration: InputDecoration(
                       hintText: widget.queryHint,
                       prefixIcon: const Icon(Icons.search_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: scheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: scheme.primary,
+                          width: 1.4,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -3484,7 +3586,7 @@ class _ScanningState extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Text(
-            'Scanning...',
+            'Qidirilmoqda...',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -3510,20 +3612,21 @@ class _EmptyServerState extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'No servers',
+            'Server topilmadi',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Pull down to refresh or add address.',
+            'Yangilash uchun pastga torting yoki manzil qo‘shing.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: onManualAdd, child: const Text('Add address')),
+          TextButton(
+              onPressed: onManualAdd, child: const Text('Manzil qo‘shish')),
         ],
       ),
     );
@@ -3581,7 +3684,7 @@ class _ServerCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                'Connect',
+                'Ulanish',
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w700,
@@ -3675,14 +3778,14 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
     if (endpoint == null) {
       setState(() {
         _checking = false;
-        _errorText = 'Address format is invalid';
+        _errorText = 'Manzil formati noto‘g‘ri';
       });
       return;
     }
     if (_shouldSkipDiscoveryHost(endpoint.host)) {
       setState(() {
         _checking = false;
-        _errorText = 'Use Wi-Fi server address, not localhost';
+        _errorText = 'Localhost emas, Wi‑Fi server manzilini kiriting';
       });
       return;
     }
@@ -3699,7 +3802,7 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
     if (server == null) {
       setState(() {
         _checking = false;
-        _errorText = 'Handshake failed for this server';
+        _errorText = 'Bu server bilan qo‘shilish muvaffaqiyatsiz';
       });
       return;
     }
@@ -3719,14 +3822,14 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Add server',
+            'Server qo‘shish',
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            'Example: 192.168.1.12:39117',
+            'Masalan: 192.168.1.12:39117',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
@@ -3735,10 +3838,25 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
           TextField(
             controller: _controller,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'Server address',
+            decoration: InputDecoration(
+              labelText: 'Server manzili',
               hintText: 'http://192.168.1.12:39117',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: scheme.primary,
+                  width: 1.4,
+                ),
+              ),
             ),
             onSubmitted: (_) => _submit(),
           ),
@@ -3750,7 +3868,7 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
           FilledButton.icon(
             onPressed: _checking ? null : _submit,
             icon: const Icon(Icons.link_rounded),
-            label: Text(_checking ? 'Checking...' : 'Connect to server'),
+            label: Text(_checking ? 'Tekshirilmoqda...' : 'Serverga ulanish'),
           ),
         ],
       ),
@@ -3782,7 +3900,7 @@ class _StatusGrid extends StatelessWidget {
         ),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
         _StatusRow(
-          title: 'Batch',
+          title: 'Partiya',
           value: snapshot.batchValue,
           caption: snapshot.batchCaption,
           icon: Icons.inventory_2_outlined,
@@ -3954,9 +4072,9 @@ class MonitorSnapshot {
       zebraValue: 'Idle',
       zebraCaption: 'Printer state',
       batchValue: 'Stopped',
-      batchCaption: 'Workflow',
-      bridgeValue: 'Ready',
-      bridgeCaption: 'Shared state',
+      batchCaption: 'Ish oqimi',
+      bridgeValue: 'Tayyor',
+      bridgeCaption: 'Umumiy holat',
       serverLabel: 'API: idle',
       monitorLabel: 'Scale, Zebra, batch va print request holati',
       printerLabel: 'ulanmagan',
@@ -4029,14 +4147,15 @@ class MonitorSnapshot {
       scaleConnectionLabel: scaleConnectionLabel,
       zebraValue: zebraVerify.toUpperCase(),
       zebraCaption: zebraAction,
-      batchValue: batchActive ? 'Active' : 'Stopped',
-      batchCaption: batchItem.isEmpty ? 'Workflow' : batchItem,
-      bridgeValue: printStatus == 'idle' ? 'Ready' : printStatus,
-      bridgeCaption: _text(printRequest['epc'], fallback: 'Shared state'),
+      batchValue: batchActive ? 'Faol' : 'To‘xtagan',
+      batchCaption: batchItem.isEmpty ? 'Ish oqimi' : batchItem,
+      bridgeValue: printStatus == 'idle' ? 'Tayyor' : printStatus,
+      bridgeCaption: _text(printRequest['epc'], fallback: 'Umumiy holat'),
       serverLabel: _text(json['ok'], fallback: 'unknown') == 'true'
-          ? 'API: online'
-          : 'API: offline',
-      monitorLabel: batchItem.isEmpty ? 'No active batch' : 'Batch: $batchItem',
+          ? 'API: onlayn'
+          : 'API: oflayn',
+      monitorLabel:
+          batchItem.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $batchItem',
       printerLabel: printerConnected ? printerLabel : 'ulanmagan',
       printerKind: printerConnected ? printerKind : '',
       printerState: derivePrinterState(
@@ -4079,12 +4198,13 @@ class MonitorSnapshot {
       scaleConnectionLabel: scaleConnectionLabel,
       zebraValue: zebraValue,
       zebraCaption: zebraCaption,
-      batchValue: batch.active ? 'Active' : 'Stopped',
-      batchCaption: itemName.isEmpty ? 'Workflow' : itemName,
+      batchValue: batch.active ? 'Faol' : 'To‘xtagan',
+      batchCaption: itemName.isEmpty ? 'Ish oqimi' : itemName,
       bridgeValue: bridgeValue,
       bridgeCaption: bridgeCaption,
       serverLabel: serverLabel,
-      monitorLabel: itemName.isEmpty ? 'No active batch' : 'Batch: $itemName',
+      monitorLabel:
+          itemName.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $itemName',
       printerLabel: printerLabel,
       printerKind: printerKind,
       printerState: printerState,

@@ -372,7 +372,7 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
                       children: [
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 9),
                             child: M3SegmentFilledSurface(
                               slot: M3SegmentVerticalSlot.top,
                               cornerRadius: M3SegmentedListGeometry.cornerLarge,
@@ -459,7 +459,7 @@ class _WerkaNotificationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = items.length;
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9),
       children: [
         for (int index = 0; index < n; index++)
           _WerkaNotificationSegmentTile(
