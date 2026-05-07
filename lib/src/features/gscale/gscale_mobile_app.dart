@@ -476,6 +476,36 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     });
   }
 
+  ButtonStyle _segmentStyle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ButtonStyle(
+      padding: const MaterialStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: MaterialStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      side: MaterialStatePropertyAll(
+        BorderSide(color: scheme.outlineVariant, width: 1),
+      ),
+      backgroundColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
+          return scheme.primaryContainer;
+        }
+        return scheme.surfaceContainerHighest.withValues(alpha: 0.22);
+      }),
+      foregroundColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
+          return scheme.onPrimaryContainer;
+        }
+        return scheme.onSurfaceVariant;
+      }),
+    );
+  }
+
   Future<void> _loadControlDraftPreferences() async {
     final draft = await loadOperatorControlDraft();
     if (!mounted || _snapshot.batchActive) {
@@ -2363,6 +2393,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         Row(
           children: [
             SegmentedButton<bool>(
+              style: _segmentStyle(context),
               segments: const [
                 ButtonSegment<bool>(
                   value: false,
@@ -2426,6 +2457,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           child: Opacity(
             opacity: printerLocked ? 0.6 : 1,
             child: SegmentedButton<String>(
+              style: _segmentStyle(context),
               segments: const [
                 ButtonSegment<String>(
                   value: 'scale',
@@ -2537,6 +2569,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               child: Opacity(
                 opacity: printerLocked ? 0.6 : 1,
                 child: SegmentedButton<String>(
+                  style: _segmentStyle(context),
                   segments: const [
                     ButtonSegment<String>(
                       value: 'zebra',
@@ -2582,6 +2615,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               child: Opacity(
                 opacity: modeLocked || selectedPrinter == 'godex' ? 0.6 : 1,
                 child: SegmentedButton<String>(
+                  style: _segmentStyle(context),
                   segments: const [
                     ButtonSegment<String>(
                       value: 'rfid',
