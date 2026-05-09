@@ -36,10 +36,6 @@ const _configuredApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: _defaultWifiServerAddress,
 );
-const _m3Surface = Color(0xFFF4EEFF);
-const _m3Container = Color(0xFFDCD6F7);
-const _m3Accent = Color(0xFFA6B1E1);
-const _m3Primary = Color(0xFF424874);
 
 bool get previewEnabled {
   if (kReleaseMode) {
@@ -346,27 +342,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       TextEditingController();
   final TextEditingController _babinaWeightController = TextEditingController();
   final TextEditingController _manualQtyController = TextEditingController();
-  final TextEditingController _warehouseSearchController =
-      TextEditingController();
-  final FocusNode _warehouseSearchFocusNode = FocusNode();
   StreamSubscription<String>? _streamSubscription;
   int _streamGeneration = 0;
   int _selectedSection = 0;
-  Timer? _warehouseSearchDebounce;
 
   bool _manualLoading = false;
   bool _manualPrintLoading = false;
   bool _requestInFlight = false;
-  bool _warehousesLoading = false;
   bool _batchActionLoading = false;
   bool _erpSetupLoading = false;
   bool _warehouseSetupLoading = false;
   bool _archiveLoading = false;
   String _archivePrintLoadingSessionId = '';
-  bool _connected = false;
   bool _erpSetupExpanded = false;
-  bool _warehouseSetupExpanded = false;
-  String _statusText = 'idle';
   String _errorText = '';
   String _warehousesError = '';
   String _erpSetupError = '';
@@ -382,7 +370,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   String _quantitySource = 'scale';
   bool _babinaEnabled = false;
   MonitorSnapshot _snapshot = MonitorSnapshot.empty();
-  List<MobileWarehouse> _warehouses = const [];
   List<MobileArchiveSession> _archiveSessions = const [];
   MobileItem? _selectedItem;
   MobileWarehouse? _selectedWarehouse;
@@ -395,10 +382,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   @override
   void initState() {
     super.initState();
-    _warehouseSearchController.addListener(_scheduleWarehouseSearch);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
-    _warehouseSearchFocusNode.addListener(_handleSearchFocusChanged);
     _snapshot = MonitorSnapshot.empty().copyWithLatency(
       widget.server.latencyMs,
     );
@@ -410,7 +395,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   @override
   void dispose() {
-    _warehouseSearchDebounce?.cancel();
     _pingTimer?.cancel();
     _printerStatusTimer?.cancel();
     _controlPrefsDebounce?.cancel();
@@ -420,18 +404,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     _defaultWarehouseController.dispose();
     _babinaWeightController.dispose();
     _manualQtyController.dispose();
-    _warehouseSearchController.dispose();
-    _warehouseSearchFocusNode.dispose();
     _stopLiveStream();
     _client.close();
     super.dispose();
-  }
-
-  void _handleSearchFocusChanged() {
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
   }
 
   void _startLiveStream() {
@@ -540,8 +515,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       });
     });
 
-    if (_selectedItem != null) {
-      unawaited(_loadWarehouses(itemCode: _selectedItem!.itemCode));
+    if (_selectedItem != null && _selectedWarehouse != null) {
+      unawaited(_validateSelectedWarehouse(itemCode: _selectedItem!.itemCode));
     }
   }
 
@@ -582,7 +557,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       }
       setState(() {
         _snapshot = _snapshot.copyWithLatency(stopwatch.elapsedMilliseconds);
-        _connected = true;
       });
     } catch (_) {
       return;
@@ -592,19 +566,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Future<void> _runLiveStream(int generation) async {
     while (mounted && generation == _streamGeneration) {
       try {
-        if (mounted) {
-          setState(() {
-            _statusText = _connected ? 'reconnecting' : 'connecting';
-          });
-        }
         await _connectLiveStreamOnce(generation);
       } catch (error) {
         if (!mounted || generation != _streamGeneration) {
           return;
         }
         setState(() {
-          _connected = false;
-          _statusText = 'offline';
           _errorText = error.toString();
         });
       }
@@ -650,16 +617,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           final payload = jsonDecode(payloadText) as Map<String, dynamic>;
           if (payload.containsKey('error') && payload['ok'] != true) {
             setState(() {
-              _connected = false;
-              _statusText = 'offline';
               _errorText = payload['error'].toString();
             });
             return;
           }
           setState(() {
             _applySnapshot(MonitorSnapshot.fromJson(payload));
-            _connected = true;
-            _statusText = 'live';
             _errorText = '';
           });
           unawaited(_refreshSetupStatus());
@@ -698,7 +661,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       setState(() {
         _manualLoading = true;
         _errorText = '';
-        _statusText = 'refreshing';
       });
     }
 
@@ -725,8 +687,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       if (mounted) {
         setState(() {
           _applySnapshot(MonitorSnapshot.fromJson(payload));
-          _connected = true;
-          _statusText = 'connected';
           _errorText = '';
         });
       }
@@ -734,8 +694,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _connected = false;
-          _statusText = 'offline';
           _errorText = error.toString();
         });
       }
@@ -785,9 +743,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             _defaultWarehouseController.text.trim() ==
                 previousDefaultWarehouse) {
           _defaultWarehouseController.text = _defaultWarehouse;
-        }
-        if (_warehouseMode == 'default' && _defaultWarehouse.trim().isEmpty) {
-          _warehouseSetupExpanded = true;
         }
       });
     } catch (_) {
@@ -900,27 +855,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     ).replace(queryParameters: filtered.isEmpty ? null : filtered);
   }
 
-  void _scheduleWarehouseSearch() {
-    if (_selectedItem == null) {
-      return;
-    }
-    _warehouseSearchDebounce?.cancel();
-    final query = _warehouseSearchController.text.trim();
-    if (query.isEmpty) {
-      setState(() {
-        _warehouses = const [];
-        _warehousesLoading = false;
-        _warehousesError = '';
-      });
-      return;
-    }
-    _warehouseSearchDebounce = Timer(const Duration(milliseconds: 220), () {
-      unawaited(
-        _loadWarehouses(itemCode: _selectedItem!.itemCode, query: query),
-      );
-    });
-  }
-
   Future<List<MobileItem>> _fetchItems({String query = ''}) async {
     final response = await _client
         .get(_apiUri('/v1/mobile/items', {'query': query, 'limit': '12'}))
@@ -970,56 +904,32 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     return rawWarehouses.map(MobileWarehouse.fromJson).toList(growable: false);
   }
 
-  Future<void> _loadWarehouses({
-    required String itemCode,
-    String query = '',
-  }) async {
-    if (!mounted) {
+  Future<void> _validateSelectedWarehouse({required String itemCode}) async {
+    final selectedWarehouse = _selectedWarehouse;
+    if (!mounted || selectedWarehouse == null || itemCode.trim().isEmpty) {
       return;
     }
     setState(() {
-      _warehousesLoading = true;
       _warehousesError = '';
     });
     try {
-      final response = await _client
-          .get(
-            _apiUri(
-              '/v1/mobile/items/${Uri.encodeComponent(itemCode)}/warehouses',
-              {'query': query, 'limit': '12'},
-            ),
-          )
-          .timeout(const Duration(seconds: 3));
-      if (response.statusCode < 200 || response.statusCode > 299) {
-        throw Exception('warehouses ${response.statusCode}');
-      }
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-      final rawWarehouses =
-          (payload['warehouses'] as List?)?.cast<Map<String, dynamic>>() ??
-              const [];
-      final warehouses =
-          rawWarehouses.map(MobileWarehouse.fromJson).toList(growable: false);
+      final warehouses = await _fetchWarehouses(itemCode: itemCode);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _warehouses = warehouses;
-        _warehousesLoading = false;
-        if (_selectedWarehouse != null &&
-            warehouses.every(
-              (warehouse) =>
-                  warehouse.warehouse != _selectedWarehouse!.warehouse,
-            ) &&
-            !_snapshot.batchActive) {
+      if (!_snapshot.batchActive &&
+          warehouses.every(
+            (warehouse) => warehouse.warehouse != selectedWarehouse.warehouse,
+          )) {
+        setState(() {
           _selectedWarehouse = null;
-        }
-      });
+        });
+      }
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _warehousesLoading = false;
         _warehousesError = error.toString();
       });
     }
@@ -1062,7 +972,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (mode == 'default' && defaultWarehouse.trim().isEmpty) {
       setState(() {
         _warehouseSetupError = 'Standart ombor tanlang';
-        _warehouseSetupExpanded = true;
       });
       return;
     }
@@ -1105,7 +1014,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 : 'manual';
         _defaultWarehouse = _text(payload['default_warehouse']);
         _defaultWarehouseController.text = _defaultWarehouse;
-        _warehouseSetupExpanded = false;
         _selectedWarehouse = null;
         _warehouseSetupLoading = false;
       });
@@ -1123,15 +1031,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     }
   }
 
-  Future<void> _selectItem(MobileItem item) async {
+  void _selectItem(MobileItem item) {
     setState(() {
       _selectedItem = item;
       _selectedWarehouse = null;
-      _warehouses = const [];
-      _warehouseSearchController.clear();
+      _warehousesError = '';
     });
     _scheduleSaveControlPrefs();
-    await _loadWarehouses(itemCode: item.itemCode);
   }
 
   Future<void> _openItemPicker() async {
@@ -1151,7 +1057,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (item == null) {
       return;
     }
-    await _selectItem(item);
+    _selectItem(item);
   }
 
   Future<void> _openWarehousePicker() async {
@@ -1625,13 +1531,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         _erpSetupError = error.toString();
       });
     }
-  }
-
-  Future<void> _submitWarehouseSetup() async {
-    await _persistWarehouseSetup(
-      mode: _warehouseMode == 'default' ? 'default' : 'manual',
-      defaultWarehouse: _defaultWarehouseController.text.trim(),
-    );
   }
 
   @override
@@ -2902,177 +2801,6 @@ class _MiniIconRow extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _ServerHeaderCard extends StatelessWidget {
-  const _ServerHeaderCard({
-    required this.connected,
-    required this.statusText,
-    required this.displayName,
-    required this.endpoint,
-    required this.role,
-    required this.serverRef,
-    required this.latencyMs,
-  });
-
-  final bool connected;
-  final String statusText;
-  final String displayName;
-  final String endpoint;
-  final String role;
-  final String serverRef;
-  final int latencyMs;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: connected
-                      ? scheme.secondaryContainer
-                      : scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  connected ? 'Ulangan' : 'Tanlangan server',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: connected
-                        ? scheme.onSecondaryContainer
-                        : scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                statusText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            displayName,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            endpoint,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text(role.toUpperCase())),
-              Chip(label: Text(serverRef)),
-              if (latencyMs > 0) Chip(label: Text('$latencyMs ms')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LiveMetricCard extends StatelessWidget {
-  const _LiveMetricCard({
-    required this.title,
-    required this.value,
-    required this.caption,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String caption;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: scheme.primary, size: 20),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            caption,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ItemOptionTile extends StatelessWidget {
   const _ItemOptionTile({
     required this.item,
@@ -3911,163 +3639,6 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatusGrid extends StatelessWidget {
-  const _StatusGrid({required this.snapshot});
-
-  final MonitorSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _StatusRow(
-          title: 'Scale',
-          value: snapshot.scaleValue,
-          caption: snapshot.scaleCaption,
-          icon: Icons.scale_outlined,
-        ),
-        Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        _StatusRow(
-          title: 'Zebra',
-          value: snapshot.zebraValue,
-          caption: snapshot.zebraCaption,
-          icon: Icons.print_outlined,
-        ),
-        Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        _StatusRow(
-          title: 'Partiya',
-          value: snapshot.batchValue,
-          caption: snapshot.batchCaption,
-          icon: Icons.inventory_2_outlined,
-        ),
-        Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        _StatusRow(
-          title: 'Bridge',
-          value: snapshot.bridgeValue,
-          caption: snapshot.bridgeCaption,
-          icon: Icons.sync_outlined,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.title,
-    required this.value,
-    required this.caption,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String caption;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: scheme.primary, size: 20),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.05,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  caption,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodoRow extends StatelessWidget {
-  const _TodoRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: scheme.onSecondaryContainer),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

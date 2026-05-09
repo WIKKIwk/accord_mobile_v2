@@ -105,8 +105,10 @@ Use bounded pumps or test a narrower login widget instead of waiting for the ent
 
 Severity: Medium
 
-Current behavior:
-Analyzer reports unused fields, methods, and widgets in `gscale_mobile_app.dart`.
+Status: Fixed in working tree. Stale GScale constants, old warehouse search/cache state, unused status flags, and unused card/status widgets were removed.
+
+Previous behavior:
+Analyzer reported unused fields, methods, and widgets in `gscale_mobile_app.dart`.
 
 Examples:
 - `_warehousesLoading`
