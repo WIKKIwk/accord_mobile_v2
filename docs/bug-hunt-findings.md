@@ -131,17 +131,16 @@ Remove unused code in small steps after confirming no hidden workflow still depe
 
 Severity: Low to Medium
 
-Current behavior:
-When an unsupported QR is detected, the scanner keeps running and can repeatedly show the same snackbar if the QR remains in view.
+Status: Not applicable for the current deployment. The app is only used for the single supported QR flow, so unsupported QR spam is not a real production path here.
 
 Risk:
-Poor user experience in real scanning conditions.
+Poor user experience only if the app is later reused for mixed QR scanning.
 
 Relevant file:
 - `lib/src/features/werka/presentation/werka_stock_entry_qr_scan_screen.dart`
 
 Suggested direction:
-Throttle unsupported QR feedback, or temporarily pause detection after an unsupported scan.
+No action needed for the current closed QR workflow.
 
 ## 8. GScale uses deprecated Flutter APIs
 
