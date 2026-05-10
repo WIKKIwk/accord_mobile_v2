@@ -29,9 +29,12 @@ class PinCodeEditor extends StatefulWidget {
 }
 
 class _PinCodeEditorState extends State<PinCodeEditor> {
+  static const Duration _glyphInsertKeepAlive = Duration(milliseconds: 1500);
+
   final math.Random _random = math.Random();
   int _animateTick = 0;
-  int? _insertingIndex;
+  final Set<int> _insertingIndices = <int>{};
+  final Map<int, int> _insertTicks = <int, int>{};
   int? _deletingIndex;
   _PinShapeKind? _deletingShape;
   List<_PinShapeKind> _shapeCycle = const [];
@@ -70,16 +73,29 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
         _shapeCycle = _generateUniqueShapes();
       }
       _animateTick += 1;
-      _insertingIndex = value.length - 1;
+      final insertIndex = value.length - 1;
+      final insertTick = _animateTick;
+      _insertingIndices.add(insertIndex);
+      _insertTicks[insertIndex] = insertTick;
       _deletingIndex = null;
       _deletingShape = null;
+      Timer(_glyphInsertKeepAlive, () {
+        if (!mounted || _insertTicks[insertIndex] != insertTick) {
+          return;
+        }
+        setState(() {
+          _insertingIndices.remove(insertIndex);
+          _insertTicks.remove(insertIndex);
+        });
+      });
     } else if (value.length < _lastValue.length) {
       _animateTick += 1;
       _deletingIndex = _lastValue.length - 1;
       if (_deletingIndex! >= 0 && _deletingIndex! < _shapeCycle.length) {
         _deletingShape = _shapeCycle[_deletingIndex!];
       }
-      _insertingIndex = null;
+      _insertingIndices.removeWhere((index) => index >= value.length);
+      _insertTicks.removeWhere((index, _) => index >= value.length);
       final deleteTick = _animateTick;
       Timer(const Duration(milliseconds: 320), () {
         if (!mounted || _animateTick != deleteTick) {
@@ -92,6 +108,8 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
       });
       if (value.isEmpty) {
         _shapeCycle = const [];
+        _insertingIndices.clear();
+        _insertTicks.clear();
       }
     }
     _lastValue = value;
@@ -142,7 +160,8 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
         Center(
           child: _PinIndicatorRow(
             length: widget.controller.text.length,
-            insertingIndex: _insertingIndex,
+            insertingIndices: _insertingIndices,
+            insertTicks: _insertTicks,
             deletingIndex: _deletingIndex,
             deletingShape: _deletingShape,
             shapeCycle: _shapeCycle,
@@ -209,7 +228,8 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
 class _PinIndicatorRow extends StatelessWidget {
   const _PinIndicatorRow({
     required this.length,
-    required this.insertingIndex,
+    required this.insertingIndices,
+    required this.insertTicks,
     required this.deletingIndex,
     required this.deletingShape,
     required this.shapeCycle,
@@ -217,7 +237,8 @@ class _PinIndicatorRow extends StatelessWidget {
   });
 
   final int length;
-  final int? insertingIndex;
+  final Set<int> insertingIndices;
+  final Map<int, int> insertTicks;
   final int? deletingIndex;
   final _PinShapeKind? deletingShape;
   final List<_PinShapeKind> shapeCycle;
@@ -231,7 +252,8 @@ class _PinIndicatorRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: List<Widget>.generate(4, (index) {
           final filled = index < length;
-          final motion = filled && insertingIndex == index
+          final inserting = filled && insertingIndices.contains(index);
+          final motion = inserting
               ? _PinGlyphMotion.insert
               : (!filled && deletingIndex == index)
                   ? _PinGlyphMotion.delete
@@ -244,7 +266,7 @@ class _PinIndicatorRow extends StatelessWidget {
             child: _PinGlyph(
               filled: filled,
               motion: motion,
-              animateTick: animateTick,
+              animateTick: inserting ? (insertTicks[index] ?? 0) : animateTick,
               variant: index,
               shapeKind: shapeKind,
             ),
@@ -507,7 +529,7 @@ class _PinGlyphInsertMotionState extends State<_PinGlyphInsertMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1550),
+    duration: const Duration(milliseconds: 1350),
   );
   Timer? _startTimer;
 
