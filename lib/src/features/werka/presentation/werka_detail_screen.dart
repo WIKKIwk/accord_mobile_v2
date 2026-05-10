@@ -3,7 +3,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../../core/widgets/navigation/native_back_button.dart';
+import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/werka_dock.dart';
@@ -165,7 +165,6 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
     final textTheme = theme.textTheme;
     final scheme = theme.colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 168.0;
-    useNativeNavigationTitle(context, 'Qabul qilish');
     final detailRows = <({String label, String value})>[
       (label: 'Supplier', value: widget.record.supplierName),
       (
@@ -178,200 +177,193 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
             '${widget.record.sentQty.toStringAsFixed(2)} ${widget.record.uom}',
       ),
     ];
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: AppTheme.shellStart(context),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            const NativeNavigationTitleHeader(title: 'Qabul qilish'),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(24, 4, 24, bottomPadding),
-                children: [
-                  Text(
-                    widget.record.itemName,
-                    style: textTheme.displaySmall?.copyWith(
-                      fontSize: 36,
-                      height: 1.06,
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  for (int index = 0; index < detailRows.length; index++) ...[
-                    _WerkaDetailInfoRow(
-                      label: detailRows[index].label,
-                      value: detailRows[index].value,
-                    ),
-                    if (index != detailRows.length - 1)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+    return AppShell(
+      title: 'Qabul qilish',
+      subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      bottom: const WerkaDock(activeTab: WerkaDockTab.home),
+      contentPadding: EdgeInsets.zero,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(24, 4, 24, bottomPadding),
+        children: [
+          Text(
+            widget.record.itemName,
+            style: textTheme.displaySmall?.copyWith(
+              fontSize: 36,
+              height: 1.06,
+            ),
+          ),
+          const SizedBox(height: 26),
+          for (int index = 0; index < detailRows.length; index++) ...[
+            _WerkaDetailInfoRow(
+              label: detailRows[index].label,
+              value: detailRows[index].value,
+            ),
+            if (index != detailRows.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+          ],
+          const SizedBox(height: 34),
+          Text(
+            'Qabul qilingan',
+            style: textTheme.titleMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+            ),
+            style: _quantityTextStyle(textTheme),
+            readOnly: fullReturnMode,
+            decoration: _quantityInputDecoration(
+              scheme: scheme,
+              hintText: '0',
+              suffixText: widget.record.uom,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: _outlinedActionStyle(scheme),
+              onPressed: () {
+                setState(() {
+                  fullReturnMode = !fullReturnMode;
+                  if (fullReturnMode) {
+                    _acceptedQtyBeforeFullReturn = controller.text;
+                    controller.text = '0';
+                    showReturnFields = false;
+                    returnedController.clear();
+                  } else {
+                    controller.text = _acceptedQtyBeforeFullReturn ??
+                        widget.record.sentQty.toStringAsFixed(0);
+                    showReturnFields = false;
+                  }
+                });
+              },
+              child: Text(
+                fullReturnMode
+                    ? 'Hammasini qaytarish tanlangan'
+                    : 'Hammasini qaytarish',
+              ),
+            ),
+          ),
+          if (fullReturnMode) ...[
+            const SizedBox(height: 28),
+            Text(
+              'Sabab',
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            ..._returnReasons.map(
+              (reason) => InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  setState(() => returnReason = reason);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        returnReason == reason
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 22,
                       ),
-                  ],
-                  const SizedBox(height: 34),
-                  Text(
-                    'Qabul qilingan',
-                    style: textTheme.titleMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: controller,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    style: _quantityTextStyle(textTheme),
-                    readOnly: fullReturnMode,
-                    decoration: _quantityInputDecoration(
-                      scheme: scheme,
-                      hintText: '0',
-                      suffixText: widget.record.uom,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      style: _outlinedActionStyle(scheme),
-                      onPressed: () {
-                        setState(() {
-                          fullReturnMode = !fullReturnMode;
-                          if (fullReturnMode) {
-                            _acceptedQtyBeforeFullReturn = controller.text;
-                            controller.text = '0';
-                            showReturnFields = false;
-                            returnedController.clear();
-                          } else {
-                            controller.text = _acceptedQtyBeforeFullReturn ??
-                                widget.record.sentQty.toStringAsFixed(0);
-                            showReturnFields = false;
-                          }
-                        });
-                      },
-                      child: Text(
-                        fullReturnMode
-                            ? 'Hammasini qaytarish tanlangan'
-                            : 'Hammasini qaytarish',
-                      ),
-                    ),
-                  ),
-                  if (fullReturnMode) ...[
-                    const SizedBox(height: 28),
-                    Text(
-                      'Sabab',
-                      style: textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    ..._returnReasons.map(
-                      (reason) => InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          setState(() => returnReason = reason);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            children: [
-                              Icon(
-                                returnReason == reason
-                                    ? Icons.check_circle_rounded
-                                    : Icons.radio_button_unchecked_rounded,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  reason,
-                                  style: textTheme.bodyLarge,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          reason,
+                          style: textTheme.bodyLarge,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: returnCommentController,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: _detailInputDecoration(
-                        scheme: scheme,
-                        labelText: 'Izoh',
-                        hintText: 'Ixtiyoriy izoh',
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: returnCommentController,
+              minLines: 3,
+              maxLines: 5,
+              decoration: _detailInputDecoration(
+                scheme: scheme,
+                labelText: 'Izoh',
+                hintText: 'Ixtiyoriy izoh',
+              ),
+            ),
+          ] else if (showReturnFields) ...[
+            const SizedBox(height: 28),
+            TextField(
+              controller: returnedController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: _quantityTextStyle(textTheme),
+              decoration: _quantityInputDecoration(
+                scheme: scheme,
+                labelText: 'Qaytarilayotgan',
+                hintText: '0',
+                suffixText: widget.record.uom,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Sabab',
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            ..._returnReasons.map(
+              (reason) => InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  setState(() => returnReason = reason);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        returnReason == reason
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 22,
                       ),
-                    ),
-                  ] else if (showReturnFields) ...[
-                    const SizedBox(height: 28),
-                    TextField(
-                      controller: returnedController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      style: _quantityTextStyle(textTheme),
-                      decoration: _quantityInputDecoration(
-                        scheme: scheme,
-                        labelText: 'Qaytarilayotgan',
-                        hintText: '0',
-                        suffixText: widget.record.uom,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Sabab',
-                      style: textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    ..._returnReasons.map(
-                      (reason) => InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          setState(() => returnReason = reason);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            children: [
-                              Icon(
-                                returnReason == reason
-                                    ? Icons.check_circle_rounded
-                                    : Icons.radio_button_unchecked_rounded,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  reason,
-                                  style: textTheme.bodyLarge,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          reason,
+                          style: textTheme.bodyLarge,
                         ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: _filledActionStyle(scheme),
-                      onPressed: submitting ? null : _submit,
-                      child: Text(
-                        submitting ? 'Saqlanmoqda...' : 'Yakunlash',
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
-        ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: _filledActionStyle(scheme),
+              onPressed: submitting ? null : _submit,
+              child: Text(
+                submitting ? 'Saqlanmoqda...' : 'Yakunlash',
+              ),
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: const WerkaDock(activeTab: WerkaDockTab.home),
     );
   }
 
