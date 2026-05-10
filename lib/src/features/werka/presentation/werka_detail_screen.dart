@@ -243,7 +243,16 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
             hintText: '',
           ),
           const SizedBox(height: 24),
+          _ReceiptActionGroup(
+            fullReturnMode: fullReturnMode,
+            submitting: submitting,
+            scheme: scheme,
+            textTheme: textTheme,
+            onReturnPressed: _toggleFullReturnMode,
+            onSubmitPressed: _submit,
+          ),
           if (fullReturnMode) ...[
+            const SizedBox(height: 28),
             Text(
               'Sabab',
               style: textTheme.titleMedium,
@@ -334,15 +343,6 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
               ),
             ),
           ],
-          SizedBox(height: fullReturnMode || showReturnFields ? 28 : 0),
-          _ReceiptActionGroup(
-            fullReturnMode: fullReturnMode,
-            submitting: submitting,
-            scheme: scheme,
-            textTheme: textTheme,
-            onReturnPressed: _toggleFullReturnMode,
-            onSubmitPressed: _submit,
-          ),
         ],
       ),
     );
@@ -402,11 +402,25 @@ class _ReceiptActionGroup extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
+            flex: 5,
+            child: _ReceiptActionSegment(
+              label: submitting ? 'Saqlanmoqda...' : 'Yakunlash',
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
+              borderColor: scheme.primary,
+              borderRadius: BorderRadius.circular(999),
+              textStyle: labelStyle,
+              onTap: submitting ? null : onSubmitPressed,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
             flex: 7,
             child: _ReceiptActionSegment(
               label: fullReturnMode
                   ? 'Qaytarish tanlangan'
                   : 'Hammasini qaytarish',
+              icon: Icons.keyboard_arrow_down_rounded,
               backgroundColor: fullReturnMode
                   ? scheme.secondaryContainer
                   : scheme.surfaceContainerHigh,
@@ -414,28 +428,9 @@ class _ReceiptActionGroup extends StatelessWidget {
                   ? scheme.onSecondaryContainer
                   : scheme.onSurface,
               borderColor: scheme.outlineVariant,
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(18),
-                right: Radius.circular(6),
-              ),
+              borderRadius: BorderRadius.circular(999),
               textStyle: labelStyle,
               onTap: submitting ? null : onReturnPressed,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            flex: 5,
-            child: _ReceiptActionSegment(
-              label: submitting ? 'Saqlanmoqda...' : 'Yakunlash',
-              backgroundColor: scheme.primary,
-              foregroundColor: scheme.onPrimary,
-              borderColor: scheme.primary,
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(6),
-                right: Radius.circular(18),
-              ),
-              textStyle: labelStyle,
-              onTap: submitting ? null : onSubmitPressed,
             ),
           ),
         ],
@@ -452,6 +447,7 @@ class _ReceiptActionSegment extends StatelessWidget {
     required this.borderColor,
     required this.borderRadius,
     required this.onTap,
+    this.icon,
     this.textStyle,
   });
 
@@ -461,6 +457,7 @@ class _ReceiptActionSegment extends StatelessWidget {
   final Color borderColor;
   final BorderRadius borderRadius;
   final VoidCallback? onTap;
+  final IconData? icon;
   final TextStyle? textStyle;
 
   @override
@@ -482,12 +479,24 @@ class _ReceiptActionSegment extends StatelessWidget {
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: textStyle?.copyWith(color: foregroundColor),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: textStyle?.copyWith(color: foregroundColor),
+                    ),
+                  ),
+                  if (icon != null) ...[
+                    const SizedBox(width: 4),
+                    Icon(icon, size: 19, color: foregroundColor),
+                  ],
+                ],
               ),
             ),
           ),
