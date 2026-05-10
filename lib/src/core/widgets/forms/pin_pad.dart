@@ -507,7 +507,7 @@ class _PinGlyphInsertMotionState extends State<_PinGlyphInsertMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1800),
+    duration: const Duration(milliseconds: 1550),
   );
   Timer? _startTimer;
 
