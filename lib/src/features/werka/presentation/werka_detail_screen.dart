@@ -185,7 +185,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
       bottom: const WerkaDock(activeTab: WerkaDockTab.home),
       contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(24, 4, 24, bottomPadding),
+        padding: EdgeInsets.fromLTRB(24, 18, 24, bottomPadding),
         children: [
           Text(
             widget.record.itemName,
