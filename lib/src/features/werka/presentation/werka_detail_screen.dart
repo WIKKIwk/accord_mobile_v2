@@ -433,7 +433,8 @@ class _QuantityFieldRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(
+        SizedBox(
+          width: 176,
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
