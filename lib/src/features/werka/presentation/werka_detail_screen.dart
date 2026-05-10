@@ -189,9 +189,12 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
         children: [
           Text(
             widget.record.itemName,
-            style: textTheme.displaySmall?.copyWith(
-              fontSize: 36,
-              height: 1.06,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.headlineSmall?.copyWith(
+              fontSize: 24,
+              height: 1.08,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 26),
