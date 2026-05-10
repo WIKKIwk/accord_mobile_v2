@@ -14,6 +14,7 @@ enum AppThemeVariant {
   dollar,
   fleuriste,
   paleNimbus,
+  blackEdition,
 }
 
 class ThemeController extends ChangeNotifier {
@@ -35,29 +36,7 @@ class ThemeController extends ChangeNotifier {
     final saved = prefs.getString(prefsKey);
     final savedVariant = prefs.getString(variantPrefsKey);
     _themeMode = saved == 'light' ? ThemeMode.light : ThemeMode.dark;
-    _variant = savedVariant == 'classic'
-        ? AppThemeVariant.classic
-        : savedVariant == 'blush'
-            ? AppThemeVariant.blush
-            : savedVariant == 'moss'
-                ? AppThemeVariant.moss
-                : savedVariant == 'lavender'
-                    ? AppThemeVariant.lavender
-                    : savedVariant == 'slate'
-                        ? AppThemeVariant.slate
-                        : savedVariant == 'ocean'
-                            ? AppThemeVariant.ocean
-                            : savedVariant == 'bingsu'
-                                ? AppThemeVariant.bingsu
-                                : savedVariant == 'bliss'
-                                    ? AppThemeVariant.bliss
-                                    : savedVariant == 'dollar'
-                                        ? AppThemeVariant.dollar
-                                        : savedVariant == 'fleuriste'
-                                            ? AppThemeVariant.fleuriste
-                                            : savedVariant == 'pale_nimbus'
-                                                ? AppThemeVariant.paleNimbus
-                                                : AppThemeVariant.earthy;
+    _variant = _variantFromPrefs(savedVariant);
     notifyListeners();
   }
 
@@ -81,31 +60,43 @@ class ThemeController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       variantPrefsKey,
-      nextVariant == AppThemeVariant.classic
-          ? 'classic'
-          : nextVariant == AppThemeVariant.blush
-              ? 'blush'
-              : nextVariant == AppThemeVariant.moss
-                  ? 'moss'
-                  : nextVariant == AppThemeVariant.lavender
-                      ? 'lavender'
-                      : nextVariant == AppThemeVariant.slate
-                          ? 'slate'
-                          : nextVariant == AppThemeVariant.ocean
-                              ? 'ocean'
-                              : nextVariant == AppThemeVariant.bingsu
-                                  ? 'bingsu'
-                                  : nextVariant == AppThemeVariant.bliss
-                                      ? 'bliss'
-                                      : nextVariant == AppThemeVariant.dollar
-                                          ? 'dollar'
-                                          : nextVariant ==
-                                                  AppThemeVariant.fleuriste
-                                              ? 'fleuriste'
-                                              : nextVariant ==
-                                                      AppThemeVariant.paleNimbus
-                                                  ? 'pale_nimbus'
-                                                  : 'earthy',
+      _variantToPrefs(nextVariant),
     );
+  }
+
+  static AppThemeVariant _variantFromPrefs(String? value) {
+    return switch (value) {
+      'classic' => AppThemeVariant.classic,
+      'blush' => AppThemeVariant.blush,
+      'moss' => AppThemeVariant.moss,
+      'lavender' => AppThemeVariant.lavender,
+      'slate' => AppThemeVariant.slate,
+      'ocean' => AppThemeVariant.ocean,
+      'bingsu' => AppThemeVariant.bingsu,
+      'bliss' => AppThemeVariant.bliss,
+      'dollar' => AppThemeVariant.dollar,
+      'fleuriste' => AppThemeVariant.fleuriste,
+      'pale_nimbus' => AppThemeVariant.paleNimbus,
+      'black_edition' => AppThemeVariant.blackEdition,
+      _ => AppThemeVariant.earthy,
+    };
+  }
+
+  static String _variantToPrefs(AppThemeVariant variant) {
+    return switch (variant) {
+      AppThemeVariant.classic => 'classic',
+      AppThemeVariant.earthy => 'earthy',
+      AppThemeVariant.blush => 'blush',
+      AppThemeVariant.moss => 'moss',
+      AppThemeVariant.lavender => 'lavender',
+      AppThemeVariant.slate => 'slate',
+      AppThemeVariant.ocean => 'ocean',
+      AppThemeVariant.bingsu => 'bingsu',
+      AppThemeVariant.bliss => 'bliss',
+      AppThemeVariant.dollar => 'dollar',
+      AppThemeVariant.fleuriste => 'fleuriste',
+      AppThemeVariant.paleNimbus => 'pale_nimbus',
+      AppThemeVariant.blackEdition => 'black_edition',
+    };
   }
 }

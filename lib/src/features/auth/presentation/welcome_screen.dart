@@ -496,6 +496,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ),
               const SizedBox(height: 10),
               _ThemeSelectionOption(
+                title: l10n.themeBlackEditionLabel,
+                swatches: _themeSwatches(AppThemeVariant.blackEdition),
+                active: currentVariant == AppThemeVariant.blackEdition,
+                onTap: () =>
+                    Navigator.of(context).pop(AppThemeVariant.blackEdition),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
                 title: l10n.themeOceanLabel,
                 swatches: _themeSwatches(AppThemeVariant.ocean),
                 active: currentVariant == AppThemeVariant.ocean,
@@ -571,6 +579,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       AppThemeVariant.dollar => l10n.themeDollarLabel,
       AppThemeVariant.fleuriste => l10n.themeFleuristeLabel,
       AppThemeVariant.paleNimbus => l10n.themePaleNimbusLabel,
+      AppThemeVariant.blackEdition => l10n.themeBlackEditionLabel,
     };
   }
 }
@@ -1612,6 +1621,12 @@ List<Color> _themeSwatches(AppThemeVariant variant) {
         Color(0xFF30364F),
         Color(0xFFACBAC4),
         Color(0xFFE1D9BC),
+      ],
+    AppThemeVariant.blackEdition => const [
+        Color(0xFF000000),
+        Color(0xFF0D0F10),
+        Color(0xFF202427),
+        Color(0xFFAEB4BA),
       ],
     AppThemeVariant.ocean => const [
         Color(0xFF1C4D8D),
