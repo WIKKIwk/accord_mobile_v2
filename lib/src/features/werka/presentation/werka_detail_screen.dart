@@ -408,12 +408,15 @@ class _ReceiptActionGroup extends StatelessWidget {
               backgroundColor: scheme.primary,
               foregroundColor: scheme.onPrimary,
               borderColor: scheme.primary,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(999),
+                right: Radius.circular(2),
+              ),
               textStyle: labelStyle,
               onTap: submitting ? null : onSubmitPressed,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           Expanded(
             flex: 7,
             child: _ReceiptActionSegment(
@@ -428,7 +431,10 @@ class _ReceiptActionGroup extends StatelessWidget {
                   ? scheme.onSecondaryContainer
                   : scheme.onSurface,
               borderColor: scheme.outlineVariant,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(2),
+                right: Radius.circular(999),
+              ),
               textStyle: labelStyle,
               onTap: submitting ? null : onReturnPressed,
             ),
