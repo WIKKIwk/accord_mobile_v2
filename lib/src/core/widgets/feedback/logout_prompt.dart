@@ -14,6 +14,8 @@ Future<void> showLogoutPrompt(BuildContext context) async {
     cancelLabel: l10n.no,
     confirmLabel: l10n.yes,
     blurBackground: true,
+    dialogRadius: 22,
+    buttonRadius: 14,
   );
   if (confirmed != true) {
     return;

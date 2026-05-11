@@ -10,6 +10,8 @@ Future<bool?> showM3ConfirmDialog({
   required String confirmLabel,
   bool destructive = false,
   bool blurBackground = false,
+  double dialogRadius = 28,
+  double buttonRadius = 20,
 }) {
   return showDialog<bool>(
     context: context,
@@ -17,23 +19,29 @@ Future<bool?> showM3ConfirmDialog({
     builder: (dialogContext) {
       final theme = Theme.of(dialogContext);
       final scheme = theme.colorScheme;
-      final confirmStyle = destructive
-          ? FilledButton.styleFrom(
-              backgroundColor: scheme.errorContainer,
-              foregroundColor: scheme.onErrorContainer,
-            )
-          : null;
+      final confirmStyle = FilledButton.styleFrom(
+        backgroundColor:
+            destructive ? scheme.errorContainer : scheme.surfaceContainerHigh,
+        foregroundColor:
+            destructive ? scheme.onErrorContainer : scheme.onSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(buttonRadius),
+        ),
+      );
       final cancelStyle = OutlinedButton.styleFrom(
         backgroundColor: scheme.surfaceContainerLow,
         foregroundColor: scheme.onSurface,
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.95)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(buttonRadius),
+        ),
       );
 
       Widget dialog = Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         backgroundColor: scheme.surfaceContainerHigh,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(dialogRadius),
           side: BorderSide(
             color: scheme.outlineVariant.withValues(alpha: 0.65),
           ),
