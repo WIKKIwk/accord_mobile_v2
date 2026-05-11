@@ -298,7 +298,7 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
     return RefreshIndicator(
       onRefresh: _loadCurrent,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(9, 4, 9, 110),
+        padding: const EdgeInsets.fromLTRB(9, 10, 9, 110),
         children: [
           _SentArchiveExpandableCard(
             title: l10n.archiveDailyTitle,
@@ -306,19 +306,25 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
             actionLabel: l10n.archiveSelectDateAction,
             open: _dailyOpen,
             topGap: 0,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(10),
+              bottomRight: Radius.circular(10),
+            ),
             onToggle: () => _toggleSection(WerkaArchivePeriod.daily),
             child: _buildDailyPanel(context),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           _SentArchiveExpandableCard(
             title: l10n.archiveMonthlyTitle,
             value: _selectedMonthLabel(context),
-            actionLabel: l10n.archiveSelectMonthAction,
+            actionLabel: l10n.archiveSelectDateAction,
             open: _monthlyOpen,
             onToggle: () => _toggleSection(WerkaArchivePeriod.monthly),
             child: _buildMonthlyPanel(context),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           _SentArchiveExpandableCard(
             title: l10n.archiveYearlyTitle,
             value: _selectedYearLabel(),
@@ -500,6 +506,7 @@ class _SentArchiveExpandableCard extends StatelessWidget {
     required this.actionLabel,
     required this.open,
     this.topGap = 14,
+    this.borderRadius = const BorderRadius.all(Radius.circular(14)),
     required this.onToggle,
     required this.child,
   });
@@ -509,6 +516,7 @@ class _SentArchiveExpandableCard extends StatelessWidget {
   final String actionLabel;
   final bool open;
   final double topGap;
+  final BorderRadius borderRadius;
   final VoidCallback onToggle;
   final Widget child;
 
@@ -522,7 +530,7 @@ class _SentArchiveExpandableCard extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: borderRadius,
             border: Border.all(
               color: scheme.outlineVariant.withValues(alpha: 0.40),
             ),

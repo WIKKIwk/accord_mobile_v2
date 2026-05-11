@@ -1,8 +1,8 @@
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/navigation/native_back_button.dart';
 import '../../shared/models/app_models.dart';
 import 'werka_archive_list_screen.dart';
@@ -76,30 +76,34 @@ class WerkaArchivePeriodScreen extends StatelessWidget {
       bottom: const WerkaDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
+        padding: EdgeInsets.fromLTRB(0, 20, 0, bottomPadding),
         children: [
-          M3SegmentSpacedColumn(
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9),
-            children: [
-              _WerkaArchivePeriodSegmentTile(
-                index: 0,
-                itemCount: _entryCount,
-                title: l10n.archiveDailyTitle,
-                onTap: () => _openList(context, WerkaArchivePeriod.daily),
-              ),
-              _WerkaArchivePeriodSegmentTile(
-                index: 1,
-                itemCount: _entryCount,
-                title: l10n.archiveMonthlyTitle,
-                onTap: () => _openList(context, WerkaArchivePeriod.monthly),
-              ),
-              _WerkaArchivePeriodSegmentTile(
-                index: 2,
-                itemCount: _entryCount,
-                title: l10n.archiveYearlyTitle,
-                onTap: () => _openList(context, WerkaArchivePeriod.yearly),
-              ),
-            ],
+            child: Column(
+              children: [
+                _WerkaArchivePeriodSegmentTile(
+                  index: 0,
+                  itemCount: _entryCount,
+                  title: l10n.archiveDailyTitle,
+                  onTap: () => _openList(context, WerkaArchivePeriod.daily),
+                ),
+                const SizedBox(height: 0),
+                _WerkaArchivePeriodSegmentTile(
+                  index: 1,
+                  itemCount: _entryCount,
+                  title: l10n.archiveMonthlyTitle,
+                  onTap: () => _openList(context, WerkaArchivePeriod.monthly),
+                ),
+                const SizedBox(height: 0),
+                _WerkaArchivePeriodSegmentTile(
+                  index: 2,
+                  itemCount: _entryCount,
+                  title: l10n.archiveYearlyTitle,
+                  onTap: () => _openList(context, WerkaArchivePeriod.yearly),
+                ),
+              ],
+            ),
           ),
         ],
       ),
