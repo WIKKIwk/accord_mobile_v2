@@ -526,6 +526,37 @@ class _ProfileScreenState extends State<ProfileScreen>
                           decoration: InputDecoration(
                             labelText: l10n.nicknameLabel,
                             hintText: l10n.nicknameHint,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.error,
+                                width: 1.5,
+                              ),
+                            ),
                           ),
                         ),
                         if (_hasProfileChanges) ...[
@@ -1417,7 +1448,7 @@ class _ProfileActionButton extends StatelessWidget {
               onPressed: onPressed,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text(label),
@@ -1426,7 +1457,7 @@ class _ProfileActionButton extends StatelessWidget {
               onPressed: onPressed,
               style: OutlinedButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text(label),

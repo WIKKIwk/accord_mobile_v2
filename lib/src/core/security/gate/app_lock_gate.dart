@@ -191,6 +191,21 @@ class _PinUnlockOverlayState extends State<_PinUnlockOverlay> {
   final TextEditingController _pinController = TextEditingController();
   String? _error;
   bool _unlocking = false;
+  bool _initialBiometricRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _initialBiometricRequested) {
+        return;
+      }
+      _initialBiometricRequested = true;
+      if (SecurityController.instance.biometricEnabledForCurrentUser) {
+        _unlockWithBiometric();
+      }
+    });
+  }
 
   @override
   void dispose() {
