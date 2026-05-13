@@ -21,9 +21,9 @@ Future<bool?> showM3ConfirmDialog({
       final scheme = theme.colorScheme;
       final confirmStyle = FilledButton.styleFrom(
         backgroundColor:
-            destructive ? scheme.errorContainer : scheme.surfaceContainerHigh,
+            destructive ? scheme.errorContainer : scheme.primaryContainer,
         foregroundColor:
-            destructive ? scheme.onErrorContainer : scheme.onSurface,
+            destructive ? scheme.onErrorContainer : scheme.onPrimaryContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(buttonRadius),
         ),
