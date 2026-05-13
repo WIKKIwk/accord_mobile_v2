@@ -497,12 +497,11 @@ class _WerkaNotificationSegmentTile extends StatelessWidget {
   }
 
   String _metricLine(DispatchRecord record) {
-    final sent =
-        '${record.sentQty.toStringAsFixed(0)} ${record.uom} jo‘natildi';
-    if (record.acceptedQty > 0) {
-      return '$sent • ${record.acceptedQty.toStringAsFixed(0)} ${record.uom} qabul';
+    final expected = '${record.sentQty.toStringAsFixed(0)} ${record.uom}';
+    if (record.acceptedQty <= 0) {
+      return '$expected qabul kutmoqda';
     }
-    return sent;
+    return '${record.acceptedQty.toStringAsFixed(0)} ${record.uom} qabul qilindi • $expected kutilgan';
   }
 
   @override

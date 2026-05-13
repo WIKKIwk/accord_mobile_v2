@@ -8,11 +8,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
-        home: AppShell(
+        home: const AppShell(
           title: 'Werka',
           subtitle: '',
           nativeTopBar: true,
-          child: const SizedBox.expand(),
+          child: SizedBox.expand(),
         ),
       ),
     );
@@ -28,17 +28,17 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
-        home: AppShell(
+        home: const AppShell(
           title: 'Werka',
           subtitle: '',
-          drawer: const SizedBox(
+          drawer: SizedBox(
             width: 280,
             child: ColoredBox(
               color: Colors.white,
               child: Text('Drawer content'),
             ),
           ),
-          child: const SizedBox.expand(),
+          child: SizedBox.expand(),
         ),
       ),
     );
