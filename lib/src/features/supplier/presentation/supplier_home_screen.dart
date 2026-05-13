@@ -1,17 +1,17 @@
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/notifications/store/notification_unread_store.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
-import '../../../core/theme/app_motion.dart';
-import '../../../core/session/session.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/supplier_store.dart';
 import 'widgets/supplier_dock.dart';
+import 'widgets/supplier_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
 class SupplierHomeScreen extends StatefulWidget {
@@ -63,50 +63,29 @@ class _SupplierHomeScreenState extends State<SupplierHomeScreen>
     await SupplierStore.instance.refreshAll();
   }
 
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AppShell(
       title: context.l10n.supplierRoleName,
       subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: SupplierNavigationDrawer(
+        selectedIndex: 0,
+        onNavigate: _openDrawerRoute,
+      ),
       preferNativeTitle: true,
-      actions: [
-        AnimatedBuilder(
-          animation: NotificationUnreadStore.instance,
-          builder: (context, _) {
-            final showBadge =
-                NotificationUnreadStore.instance.hasUnreadForProfile(
-              AppSession.instance.profile,
-            );
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton.filledTonal(
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.supplierNotifications,
-                  ),
-                  icon: const Icon(Icons.notifications_none_rounded),
-                ),
-                if (showBadge)
-                  Positioned(
-                    right: 9,
-                    top: 9,
-                    child: Container(
-                      height: 9,
-                      width: 9,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE53935),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
       bottom: const SupplierDock(activeTab: SupplierDockTab.home),
-      contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
+      contentPadding: EdgeInsets.zero,
       child: AnimatedBuilder(
         animation: SupplierStore.instance,
         builder: (context, _) {
@@ -143,10 +122,8 @@ class _SupplierHomeScreenState extends State<SupplierHomeScreen>
               physics: const TopRefreshScrollPhysics(),
               padding: EdgeInsets.only(bottom: bottomPadding),
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _SupplierSummaryCard(summary: current),
-                ),
+                const SizedBox(height: 4),
+                _SupplierSummaryCard(summary: current),
                 if (pendingItems.isNotEmpty) const SizedBox(height: 16),
                 if (pendingItems.isNotEmpty)
                   Padding(
@@ -171,163 +148,119 @@ class _SupplierSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return SmoothAppear(
-      child: Card.filled(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Column(
-          children: [
-            _SupplierSummaryRow(
-              label: context.l10n.pendingStatus,
-              value: summary.pendingCount.toString(),
-              highlighted: true,
-              isFirst: true,
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.supplierStatusBreakdown,
-                arguments: SupplierStatusKind.pending,
-              ),
+      child: M3SegmentSpacedColumn(
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        children: [
+          _SupplierSummarySegmentCard(
+            slot: M3SegmentVerticalSlot.top,
+            cornerRadius: M3SegmentedListGeometry.cornerLarge,
+            label: context.l10n.pendingStatus,
+            value: summary.pendingCount.toString(),
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRoutes.supplierStatusBreakdown,
+              arguments: SupplierStatusKind.pending,
             ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              indent: 18,
-              endIndent: 18,
-              color: scheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+          _SupplierSummarySegmentCard(
+            slot: M3SegmentVerticalSlot.middle,
+            cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+            label: context.l10n.submittedStatus,
+            value: summary.submittedCount.toString(),
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRoutes.supplierStatusBreakdown,
+              arguments: SupplierStatusKind.submitted,
             ),
-            _SupplierSummaryRow(
-              label: context.l10n.submittedStatus,
-              value: summary.submittedCount.toString(),
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.supplierStatusBreakdown,
-                arguments: SupplierStatusKind.submitted,
-              ),
+          ),
+          _SupplierSummarySegmentCard(
+            slot: M3SegmentVerticalSlot.bottom,
+            cornerRadius: M3SegmentedListGeometry.cornerLarge,
+            label: context.l10n.returnedStatus,
+            value: summary.returnedCount.toString(),
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRoutes.supplierStatusBreakdown,
+              arguments: SupplierStatusKind.returned,
             ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              indent: 18,
-              endIndent: 18,
-              color: scheme.outlineVariant.withValues(alpha: 0.55),
-            ),
-            _SupplierSummaryRow(
-              label: context.l10n.returnedStatus,
-              value: summary.returnedCount.toString(),
-              isLast: true,
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.supplierStatusBreakdown,
-                arguments: SupplierStatusKind.returned,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SupplierSummaryRow extends StatelessWidget {
-  const _SupplierSummaryRow({
+class _SupplierSummarySegmentCard extends StatelessWidget {
+  const _SupplierSummarySegmentCard({
+    required this.slot,
+    required this.cornerRadius,
     required this.label,
     required this.value,
     required this.onTap,
-    this.highlighted = false,
-    this.isFirst = false,
-    this.isLast = false,
   });
 
+  final M3SegmentVerticalSlot slot;
+  final double cornerRadius;
   final String label;
   final String value;
   final VoidCallback onTap;
-  final bool highlighted;
-  final bool isFirst;
-  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final borderRadius = BorderRadius.only(
-      topLeft: Radius.circular(isFirst ? 28 : 0),
-      topRight: Radius.circular(isFirst ? 28 : 0),
-      bottomLeft: Radius.circular(isLast ? 28 : 0),
-      bottomRight: Radius.circular(isLast ? 28 : 0),
-    );
-    return PressableScale(
-      onTap: onTap,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: borderRadius,
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.medium,
-            curve: AppMotion.smooth,
-            color: highlighted ? scheme.surfaceContainer : Colors.transparent,
+    final BorderRadius radius =
+        M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
+    final Color bg = switch (theme.brightness) {
+      Brightness.dark => scheme.surfaceContainerLow,
+      Brightness.light => scheme.surfaceContainerHighest,
+    };
+    final Color foreground = scheme.onSurface;
+    final Color accent = scheme.onSurfaceVariant;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: radius,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 66),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
               child: Row(
                 children: [
                   Expanded(
-                    child: Row(
-                      children: [
-                        if (highlighted) ...[
-                          Container(
-                            width: 4,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        Text(label, style: theme.textTheme.titleMedium),
-                      ],
-                    ),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: onTap,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(44, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.medium,
-                      switchInCurve: AppMotion.smooth,
-                      switchOutCurve: AppMotion.smooth,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.12),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        value,
-                        key: ValueKey<String>(value),
+                    child: Text(
+                      label,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 18.5,
+                        fontWeight: FontWeight.w700,
+                        color: foreground,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 16),
+                  Text(
+                    value,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontSize: 18.5,
+                      fontWeight: FontWeight.w700,
+                      color: foreground,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 22,
-                    color: scheme.onSurfaceVariant,
+                    color: accent,
                   ),
                 ],
               ),

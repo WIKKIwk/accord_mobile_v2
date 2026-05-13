@@ -16,7 +16,9 @@ import '../data/profile_avatar_cache.dart';
 import '../models/app_models.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
+import '../../supplier/presentation/widgets/supplier_navigation_drawer.dart';
 import '../../customer/presentation/widgets/customer_dock.dart';
+import '../../customer/presentation/widgets/customer_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:io';
@@ -365,7 +367,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                   selectedIndex: 3,
                   onNavigate: _openWerkaDrawerRoute,
                 )
-              : null,
+              : role == UserRole.supplier
+                  ? SupplierNavigationDrawer(
+                      selectedIndex: 3,
+                      onNavigate: _openSupplierDrawerRoute,
+                    )
+                  : role == UserRole.customer
+                      ? CustomerNavigationDrawer(
+                          selectedIndex: 2,
+                          onNavigate: _openCustomerDrawerRoute,
+                        )
+                      : null,
           bottom: role == UserRole.supplier
               ? const SupplierDock(activeTab: null, showPrimaryFab: false)
               : role == UserRole.werka
@@ -653,6 +665,22 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _openWerkaDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
+  void _openSupplierDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
+  void _openCustomerDrawerRoute(String route) {
     final current = ModalRoute.of(context)?.settings.name;
     if (current == route) {
       return;

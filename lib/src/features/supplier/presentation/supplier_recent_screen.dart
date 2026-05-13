@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -10,6 +11,7 @@ import '../../shared/models/app_models.dart';
 import '../state/supplier_store.dart';
 import 'supplier_qty_screen.dart';
 import 'widgets/supplier_dock.dart';
+import 'widgets/supplier_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
 class SupplierRecentScreen extends StatefulWidget {
@@ -62,6 +64,14 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
     await SupplierStore.instance.refreshHistory();
   }
 
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification is OverscrollNotification) {
       final isAtBottom = notification.metrics.extentAfter <= 0.0;
@@ -95,6 +105,12 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
     return AppShell(
       title: context.l10n.recentTitle,
       subtitle: context.l10n.recentSubtitle,
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: SupplierNavigationDrawer(
+        selectedIndex: 2,
+        onNavigate: _openDrawerRoute,
+      ),
       bottom: const SupplierDock(activeTab: SupplierDockTab.recent),
       child: AnimatedBuilder(
         animation: SupplierStore.instance,

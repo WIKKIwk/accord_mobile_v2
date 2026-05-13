@@ -5,6 +5,7 @@ import '../../../core/notifications/store/notification_unread_store.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -14,6 +15,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/customer_store.dart';
 import 'widgets/customer_dock.dart';
+import 'widgets/customer_navigation_drawer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -137,6 +139,14 @@ class _CustomerNotificationsScreenState
     setState(() {
       _highlightedUnreadIds.clear();
     });
+  }
+
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   Future<void> _syncFromStore() async {
@@ -301,6 +311,12 @@ class _CustomerNotificationsScreenState
     return AppShell(
       title: context.l10n.notificationsTitle,
       subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: CustomerNavigationDrawer(
+        selectedIndex: 1,
+        onNavigate: _openDrawerRoute,
+      ),
       animateOnEnter: false,
       contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
       actions: [

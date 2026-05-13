@@ -2,6 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -10,6 +11,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/customer_store.dart';
 import 'widgets/customer_dock.dart';
+import 'widgets/customer_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -79,6 +81,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     await _reload();
   }
 
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -131,6 +141,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     return AppShell(
       title: context.l10n.customerRoleName,
       subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: CustomerNavigationDrawer(
+        selectedIndex: 0,
+        onNavigate: _openDrawerRoute,
+      ),
       animateOnEnter: false,
       preferNativeTitle: true,
       contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
