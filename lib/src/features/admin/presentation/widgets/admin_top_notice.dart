@@ -18,12 +18,8 @@ void showAdminTopNotice(
     MaterialBanner(
       leading: Icon(icon),
       content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () => messenger.hideCurrentMaterialBanner(),
-          child: const Text('OK'),
-        ),
-      ],
+      actions: const [SizedBox.shrink()],
+      minActionBarHeight: 0,
     ),
   );
   _currentAdminTopNotice = controller;
