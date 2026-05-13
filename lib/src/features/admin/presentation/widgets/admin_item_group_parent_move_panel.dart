@@ -1,6 +1,7 @@
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/widgets/display/common_widgets.dart';
 import '../../../shared/models/app_models.dart';
+import 'admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 class AdminItemGroupParentMovePanel extends StatefulWidget {
@@ -23,7 +24,6 @@ class _AdminItemGroupParentMovePanelState
   String? groupName;
   String? parentName;
   bool submitting = false;
-  AdminItemGroup? movedGroup;
 
   List<String> get movableGroups => widget.groups
       .map((group) => group.trim())
@@ -71,13 +71,8 @@ class _AdminItemGroupParentMovePanelState
       if (!mounted) {
         return;
       }
-      setState(() => movedGroup = moved);
       widget.onMoved(moved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${moved.itemGroupName} parenti yangilandi'),
-        ),
-      );
+      showAdminTopNotice(context, '${moved.itemGroupName} parenti yangilandi');
     } catch (error) {
       if (!mounted) {
         return;
@@ -112,14 +107,6 @@ class _AdminItemGroupParentMovePanelState
             'Mavjud groupni boshqa parent ostiga o‘tkazish uchun ishlatiladi.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (movedGroup != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              '${movedGroup!.itemGroupName} • parent: '
-              '${movedGroup!.parentItemGroup}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
             key: ValueKey('move-group-${groupName ?? ''}-${movable.length}'),

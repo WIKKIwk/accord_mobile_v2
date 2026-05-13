@@ -1,10 +1,10 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/display/common_widgets.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_item_group_parent_move_panel.dart';
+import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 class AdminItemGroupCreateScreen extends StatefulWidget {
@@ -24,7 +24,6 @@ class _AdminItemGroupCreateScreenState
   bool saving = false;
   bool isGroup = true;
   bool parentMenuOpen = false;
-  AdminItemGroup? createdGroup;
 
   @override
   void initState() {
@@ -117,14 +116,11 @@ class _AdminItemGroupCreateScreenState
         return;
       }
       setState(() {
-        createdGroup = group;
         _addOptimisticParentGroup(group);
         _refreshParentGroups();
       });
       name.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Item Group yaratildi: ${group.name}')),
-      );
+      showAdminTopNotice(context, 'Item Group yaratildi: ${group.name}');
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -149,26 +145,6 @@ class _AdminItemGroupCreateScreenState
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
         children: [
-          if (createdGroup != null) ...[
-            SoftCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Yaratildi',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${createdGroup!.itemGroupName} • parent: '
-                    '${createdGroup!.parentItemGroup}',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
           TextField(
             controller: name,
             decoration: const InputDecoration(labelText: 'Group nomi'),
