@@ -144,6 +144,7 @@ class _AdminItemGroupCreateScreenState
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      contentPadding: EdgeInsets.zero,
       child: DefaultTabController(
         length: 2,
         child: Column(
