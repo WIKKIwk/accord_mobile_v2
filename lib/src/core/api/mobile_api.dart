@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'admin/mobile_api_admin.dart';
+part 'admin/mobile_api_admin_item_groups.dart';
 part 'auth/mobile_api_auth_profile.dart';
 part 'customer/mobile_api_customer.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';

@@ -4,6 +4,7 @@ import '../../../core/widgets/display/common_widgets.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_item_group_parent_move_panel.dart';
 import 'package:flutter/material.dart';
 
 class AdminItemGroupCreateScreen extends StatefulWidget {
@@ -60,6 +61,23 @@ class _AdminItemGroupCreateScreenState
     itemGroupsFuture = _loadParentGroups();
   }
 
+  void _addOptimisticParentGroup(AdminItemGroup group) {
+    if (!group.isGroup) {
+      return;
+    }
+    optimisticParentGroups.add(group.name);
+    if (group.itemGroupName != group.name) {
+      optimisticParentGroups.add(group.itemGroupName);
+    }
+  }
+
+  void _handleMoved(AdminItemGroup group) {
+    setState(() {
+      _addOptimisticParentGroup(group);
+      _refreshParentGroups();
+    });
+  }
+
   void _toggleParentMenu(bool open) {
     if (parentMenuOpen == open) {
       return;
@@ -100,12 +118,7 @@ class _AdminItemGroupCreateScreenState
       }
       setState(() {
         createdGroup = group;
-        if (group.isGroup) {
-          optimisticParentGroups.add(group.name);
-          if (group.itemGroupName != group.name) {
-            optimisticParentGroups.add(group.itemGroupName);
-          }
-        }
+        _addOptimisticParentGroup(group);
         _refreshParentGroups();
       });
       name.clear();
@@ -232,6 +245,22 @@ class _AdminItemGroupCreateScreenState
                 saving ? 'Yaratilmoqda...' : 'Item Group yaratish',
               ),
             ),
+          ),
+          const SizedBox(height: 18),
+          FutureBuilder<List<String>>(
+            future: itemGroupsFuture,
+            builder: (context, snapshot) {
+              final groups = snapshot.data ?? const <String>[];
+              if (snapshot.connectionState != ConnectionState.done ||
+                  snapshot.hasError ||
+                  groups.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return AdminItemGroupParentMovePanel(
+                groups: groups,
+                onMoved: _handleMoved,
+              );
+            },
           ),
         ],
       ),
