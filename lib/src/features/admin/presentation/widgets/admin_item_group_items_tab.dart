@@ -1,145 +1,225 @@
 import '../../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
-class AdminItemGroupItemsTab extends StatelessWidget {
+typedef ItemGroupItemsLoader = Future<List<SupplierItem>> Function(
+  String group,
+);
+
+class AdminItemGroupItemsTab extends StatefulWidget {
   const AdminItemGroupItemsTab({
     super.key,
-    required this.itemsFuture,
+    required this.itemGroupsFuture,
     required this.selectedGroup,
     required this.onSelectGroup,
+    required this.loadItems,
   });
 
-  final Future<List<SupplierItem>> itemsFuture;
+  final Future<List<String>> itemGroupsFuture;
   final String? selectedGroup;
   final ValueChanged<String> onSelectGroup;
+  final ItemGroupItemsLoader loadItems;
+
+  @override
+  State<AdminItemGroupItemsTab> createState() => _AdminItemGroupItemsTabState();
+}
+
+class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
+  String? _loadedGroup;
+  Future<List<SupplierItem>>? _itemsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncSelectedGroup();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminItemGroupItemsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedGroup != widget.selectedGroup ||
+        oldWidget.loadItems != widget.loadItems) {
+      _syncSelectedGroup();
+    }
+  }
+
+  void _syncSelectedGroup() {
+    final group = widget.selectedGroup?.trim();
+    if (group == null || group.isEmpty || group == _loadedGroup) {
+      return;
+    }
+    _loadedGroup = group;
+    _itemsFuture = widget.loadItems(group);
+  }
+
+  Future<void> _refreshItems() async {
+    final group = widget.selectedGroup?.trim();
+    if (group == null || group.isEmpty) {
+      return;
+    }
+    final future = widget.loadItems(group);
+    setState(() {
+      _loadedGroup = group;
+      _itemsFuture = future;
+    });
+    await future;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<SupplierItem>>(
-      future: itemsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'Group itemlari yuklanmadi',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+    final selected = widget.selectedGroup?.trim();
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
+    return RefreshIndicator(
+      onRefresh: _refreshItems,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Group itemlari',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-            ),
-          );
-        }
-
-        final grouped = _groupItems(snapshot.data ?? const []);
-        final groups = grouped.keys.toList()
-          ..sort((left, right) => left.toLowerCase().compareTo(
-                right.toLowerCase(),
-              ));
-        final selected = _activeGroup(groups, selectedGroup);
-        final items =
-            selected == null ? const <SupplierItem>[] : grouped[selected]!;
-        final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
-
-        return ListView(
-          padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            Text(
-              'Group itemlari',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Groupni tanlang, ichidagi mahsulotlar alohida ko‘rinadi.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 14),
-            if (groups.isEmpty)
-              const _EmptyItems()
-            else ...[
-              _GroupSelector(
-                groups: groups,
-                grouped: grouped,
-                selectedGroup: selected,
-                onSelectGroup: onSelectGroup,
-              ),
-              const SizedBox(height: 14),
-              _SelectedGroupItems(
-                group: selected!,
-                items: items,
+              IconButton.filledTonal(
+                onPressed:
+                    selected == null || selected.isEmpty ? null : _refreshItems,
+                icon: const Icon(Icons.refresh_rounded),
               ),
             ],
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Group tanlanganda mahsulotlar lazy load bilan yuklanadi.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 14),
+          FutureBuilder<List<String>>(
+            future: widget.itemGroupsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const LinearProgressIndicator();
+              }
+              if (snapshot.hasError) {
+                return const _NoticeCard(text: 'Grouplar yuklanmadi');
+              }
+              return _GroupSelector(
+                groups: _displayGroups(
+                  snapshot.data ?? const <String>[],
+                  selected,
+                ),
+                selectedGroup: selected,
+                onSelectGroup: widget.onSelectGroup,
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          _ItemsBody(
+            selectedGroup: selected,
+            loadedGroup: _loadedGroup,
+            itemsFuture: _itemsFuture,
+          ),
+        ],
+      ),
     );
   }
 }
 
-Map<String, List<SupplierItem>> _groupItems(List<SupplierItem> items) {
-  final grouped = <String, List<SupplierItem>>{};
-  for (final item in items) {
-    final group = item.itemGroup.trim();
-    if (group.isEmpty) {
+List<String> _displayGroups(List<String> groups, String? selectedGroup) {
+  final seen = <String>{};
+  final result = <String>[];
+  final selected = selectedGroup?.trim();
+  if (selected != null && selected.isNotEmpty && seen.add(selected)) {
+    result.add(selected);
+  }
+  for (final group in groups) {
+    final trimmed = group.trim();
+    if (trimmed.isEmpty || !seen.add(trimmed)) {
       continue;
     }
-    grouped.putIfAbsent(group, () => <SupplierItem>[]).add(item);
+    result.add(trimmed);
   }
-  for (final entry in grouped.entries) {
-    entry.value.sort((left, right) {
-      final nameOrder = left.name.toLowerCase().compareTo(
-            right.name.toLowerCase(),
-          );
-      if (nameOrder != 0) {
-        return nameOrder;
-      }
-      return left.code.toLowerCase().compareTo(right.code.toLowerCase());
-    });
-  }
-  return grouped;
-}
-
-String? _activeGroup(List<String> groups, String? selectedGroup) {
-  final selected = selectedGroup?.trim();
-  if (selected != null && selected.isNotEmpty && groups.contains(selected)) {
-    return selected;
-  }
-  if (groups.isEmpty) {
-    return null;
-  }
-  return groups.first;
+  return result;
 }
 
 class _GroupSelector extends StatelessWidget {
   const _GroupSelector({
     required this.groups,
-    required this.grouped,
     required this.selectedGroup,
     required this.onSelectGroup,
   });
 
   final List<String> groups;
-  final Map<String, List<SupplierItem>> grouped;
   final String? selectedGroup;
   final ValueChanged<String> onSelectGroup;
 
   @override
   Widget build(BuildContext context) {
+    if (groups.isEmpty) {
+      return const _NoticeCard(text: 'Group topilmadi');
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         for (final group in groups)
           ChoiceChip(
-            label: Text('$group (${grouped[group]?.length ?? 0})'),
+            label: Text(group),
             selected: group == selectedGroup,
             onSelected: (_) => onSelectGroup(group),
           ),
       ],
+    );
+  }
+}
+
+class _ItemsBody extends StatelessWidget {
+  const _ItemsBody({
+    required this.selectedGroup,
+    required this.loadedGroup,
+    required this.itemsFuture,
+  });
+
+  final String? selectedGroup;
+  final String? loadedGroup;
+  final Future<List<SupplierItem>>? itemsFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = selectedGroup?.trim();
+    if (selected == null || selected.isEmpty) {
+      return const _NoticeCard(
+        text: 'Tree’dan group uchun Show ni bosing yoki group tanlang',
+      );
+    }
+    if (loadedGroup != selected || itemsFuture == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    return FutureBuilder<List<SupplierItem>>(
+      future: itemsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return const _NoticeCard(text: 'Group itemlari yuklanmadi');
+        }
+        return _SelectedGroupItems(
+          group: selected,
+          items: snapshot.data ?? const <SupplierItem>[],
+        );
+      },
     );
   }
 }
@@ -168,10 +248,7 @@ class _SelectedGroupItems extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(
-                  Icons.inventory_2_rounded,
-                  color: colorScheme.primary,
-                ),
+                Icon(Icons.inventory_2_rounded, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -298,15 +375,24 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-class _EmptyItems extends StatelessWidget {
-  const _EmptyItems();
+class _NoticeCard extends StatelessWidget {
+  const _NoticeCard({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
       child: Text(
-        'Item topilmadi',
+        text,
         style: Theme.of(context).textTheme.bodyMedium,
         textAlign: TextAlign.center,
       ),

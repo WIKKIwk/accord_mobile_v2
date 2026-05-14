@@ -36,16 +36,6 @@ class _AdminItemGroupTreePanelState extends State<AdminItemGroupTreePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Item Group tree',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Parent va child guruhlarni ERPNext tree tartibida ko‘rsatadi.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 14),
         for (int index = 0; index < nodes.length; index++) ...[
           _TreeNodeCard(
             node: nodes[index],
