@@ -542,213 +542,203 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
       bottom: const WerkaDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
         children: [
-          M3SegmentFilledSurface(
-            slot: M3SegmentVerticalSlot.top,
-            cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.batchDispatchTitle,
-                    style: theme.textTheme.headlineMedium,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.batchDispatchTitle,
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              if (_previewMode) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  const SizedBox(height: 8),
-                  if (_previewMode) ...[
-                    const SizedBox(height: 10),
+                  decoration: BoxDecoration(
+                    color: scheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Preview mode',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onTertiaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+              if (hasSavedLines) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: scheme.tertiaryContainer,
+                        color: scheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        'Preview mode',
+                        l10n.batchDraftCountLabel(_drafts.length),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 10),
+                    Tooltip(
+                      message: l10n.batchViewListAction,
+                      child: IconButton.filledTonal(
+                        onPressed: _openReview,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(40, 40),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.list_alt_rounded, size: 20),
+                      ),
+                    ),
                   ],
-                  if (hasSavedLines) ...[
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            l10n.batchDraftCountLabel(_drafts.length),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                ),
+              ],
+              const SizedBox(height: 18),
+              Text(l10n.itemLabel, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonal(
+                      style: pickerButtonStyle,
+                      onPressed: _pickItem,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedItem?.name ?? l10n.selectItem,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Tooltip(
-                          message: l10n.batchViewListAction,
-                          child: IconButton.filledTonal(
-                            onPressed: _openReview,
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            icon: const Icon(Icons.list_alt_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 20,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  Text(l10n.itemLabel, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.tonal(
-                          style: pickerButtonStyle,
-                          onPressed: _pickItem,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedItem?.name ?? l10n.selectItem,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (_selectedItem != null) ...[
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
-                          tooltip: 'Clear item',
-                          onPressed: _clearSelectedItem,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(l10n.customerLabel, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.tonal(
-                          style: pickerButtonStyle,
-                          onPressed: _pickCustomer,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedCustomer?.name ??
-                                      l10n.selectCustomer,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (_selectedCustomer != null) ...[
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
-                          tooltip: 'Clear customer',
-                          onPressed: _clearSelectedCustomer,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (_selectedCustomer != null &&
-                      _selectedItem == null &&
-                      _selectedCustomer!.phone.trim().isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    Text(
-                      _selectedCustomer!.phone,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                   if (_selectedItem != null) ...[
-                    const SizedBox(height: 14),
-                    Text(l10n.amountLabel, style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _qtyController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                      decoration: qtyInputDecoration,
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  if (!hasSavedLines)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed:
-                            _hasCurrentValidLine ? _saveCurrentLine : null,
-                        child: Text(l10n.nextItemAction),
-                      ),
-                    )
-                  else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed:
-                                _hasCurrentValidLine ? _saveCurrentLine : null,
-                            child: Text(l10n.addAnotherAction),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: _hasCurrentValidLine
-                                ? () => _openReview(saveCurrentLine: true)
-                                : _drafts.length >= 2
-                                    ? () => _openReview()
-                                    : null,
-                            child: Text(l10n.confirmTitle),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: 'Clear item',
+                      onPressed: _clearSelectedItem,
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ],
               ),
-            ),
+              const SizedBox(height: 14),
+              Text(l10n.customerLabel, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonal(
+                      style: pickerButtonStyle,
+                      onPressed: _pickCustomer,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedCustomer?.name ?? l10n.selectCustomer,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_selectedCustomer != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: 'Clear customer',
+                      onPressed: _clearSelectedCustomer,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ],
+              ),
+              if (_selectedCustomer != null &&
+                  _selectedItem == null &&
+                  _selectedCustomer!.phone.trim().isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  _selectedCustomer!.phone,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (_selectedItem != null) ...[
+                const SizedBox(height: 14),
+                Text(l10n.amountLabel, style: theme.textTheme.bodySmall),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _qtyController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  decoration: qtyInputDecoration,
+                ),
+              ],
+              const SizedBox(height: 18),
+              if (!hasSavedLines)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _hasCurrentValidLine ? _saveCurrentLine : null,
+                    child: Text(l10n.nextItemAction),
+                  ),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed:
+                            _hasCurrentValidLine ? _saveCurrentLine : null,
+                        child: Text(l10n.addAnotherAction),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _hasCurrentValidLine
+                            ? () => _openReview(saveCurrentLine: true)
+                            : _drafts.length >= 2
+                                ? () => _openReview()
+                                : null,
+                        child: Text(l10n.confirmTitle),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
         ],
       ),
