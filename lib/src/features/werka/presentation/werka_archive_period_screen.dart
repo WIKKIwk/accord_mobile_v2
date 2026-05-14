@@ -76,7 +76,7 @@ class WerkaArchivePeriodScreen extends StatelessWidget {
       bottom: const WerkaDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(0, 20, 0, bottomPadding),
+        padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9),
@@ -88,14 +88,14 @@ class WerkaArchivePeriodScreen extends StatelessWidget {
                   title: l10n.archiveDailyTitle,
                   onTap: () => _openList(context, WerkaArchivePeriod.daily),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: M3SegmentedListGeometry.gap),
                 _WerkaArchivePeriodSegmentTile(
                   index: 1,
                   itemCount: _entryCount,
                   title: l10n.archiveMonthlyTitle,
                   onTap: () => _openList(context, WerkaArchivePeriod.monthly),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: M3SegmentedListGeometry.gap),
                 _WerkaArchivePeriodSegmentTile(
                   index: 2,
                   itemCount: _entryCount,
