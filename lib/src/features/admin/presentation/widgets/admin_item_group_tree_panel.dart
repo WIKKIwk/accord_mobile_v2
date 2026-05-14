@@ -1,7 +1,7 @@
 import '../../models/admin_item_group_tree_entry.dart';
 import 'package:flutter/material.dart';
 
-class AdminItemGroupTreePanel extends StatelessWidget {
+class AdminItemGroupTreePanel extends StatefulWidget {
   const AdminItemGroupTreePanel({
     super.key,
     required this.entries,
@@ -10,8 +10,24 @@ class AdminItemGroupTreePanel extends StatelessWidget {
   final List<AdminItemGroupTreeEntry> entries;
 
   @override
+  State<AdminItemGroupTreePanel> createState() =>
+      _AdminItemGroupTreePanelState();
+}
+
+class _AdminItemGroupTreePanelState extends State<AdminItemGroupTreePanel> {
+  final Set<String> _expandedNames = {};
+
+  void _toggle(String name) {
+    setState(() {
+      if (!_expandedNames.add(name)) {
+        _expandedNames.remove(name);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final nodes = _buildNodes(entries);
+    final nodes = _buildNodes(widget.entries);
     if (nodes.isEmpty) {
       return const _EmptyTree();
     }
@@ -29,7 +45,12 @@ class AdminItemGroupTreePanel extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         for (int index = 0; index < nodes.length; index++) ...[
-          _TreeNodeCard(node: nodes[index], depth: 0),
+          _TreeNodeCard(
+            node: nodes[index],
+            depth: 0,
+            expandedNames: _expandedNames,
+            onToggle: _toggle,
+          ),
           if (index != nodes.length - 1) const SizedBox(height: 10),
         ],
       ],
@@ -71,15 +92,20 @@ class _TreeNodeCard extends StatelessWidget {
   const _TreeNodeCard({
     required this.node,
     required this.depth,
+    required this.expandedNames,
+    required this.onToggle,
   });
 
   final _TreeNode node;
   final int depth;
+  final Set<String> expandedNames;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final hasChildren = node.children.isNotEmpty;
+    final isExpanded = expandedNames.contains(node.entry.name);
     final title = node.entry.itemGroupName.isEmpty
         ? node.entry.name
         : node.entry.itemGroupName;
@@ -97,82 +123,108 @@ class _TreeNodeCard extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: hasChildren
-                        ? colorScheme.primaryContainer
-                        : colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    hasChildren
-                        ? Icons.account_tree_rounded
-                        : Icons.label_outline_rounded,
-                    size: 20,
-                    color: hasChildren
-                        ? colorScheme.onPrimaryContainer
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasChildren ? () => onToggle(node.entry.name) : null,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: hasChildren
+                            ? colorScheme.primaryContainer
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        hasChildren
+                            ? Icons.folder_rounded
+                            : Icons.label_outline_rounded,
+                        size: 20,
+                        color: hasChildren
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                    _TreeBadge(
+                      label: hasChildren
+                          ? '${node.children.length} child'
+                          : 'leaf',
+                      filled: hasChildren,
+                    ),
+                    if (hasChildren) ...[
+                      const SizedBox(width: 6),
+                      AnimatedRotation(
+                        duration: const Duration(milliseconds: 180),
+                        turns: isExpanded ? 0.25 : 0,
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
-                _TreeBadge(
-                  label: hasChildren ? '${node.children.length} child' : 'leaf',
-                  filled: hasChildren,
-                ),
-              ],
-            ),
-            if (hasChildren) ...[
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 2,
-                    height: (node.children.length * 58).toDouble(),
-                    constraints: const BoxConstraints(minHeight: 34),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        for (int index = 0;
-                            index < node.children.length;
-                            index++) ...[
-                          _TreeNodeCard(
-                            node: node.children[index],
-                            depth: depth + 1,
-                          ),
-                          if (index != node.children.length - 1)
-                            const SizedBox(height: 8),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
               ),
-            ],
+            ),
+            ClipRect(
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: hasChildren && isExpanded
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 10, left: 17),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.42,
+                                ),
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Column(
+                            children: [
+                              for (int index = 0;
+                                  index < node.children.length;
+                                  index++) ...[
+                                _TreeNodeCard(
+                                  node: node.children[index],
+                                  depth: depth + 1,
+                                  expandedNames: expandedNames,
+                                  onToggle: onToggle,
+                                ),
+                                if (index != node.children.length - 1)
+                                  const SizedBox(height: 8),
+                              ],
+                            ],
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
           ],
         ),
       ),
