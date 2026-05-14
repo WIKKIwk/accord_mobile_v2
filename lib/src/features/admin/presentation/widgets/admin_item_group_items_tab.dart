@@ -1,8 +1,11 @@
 import '../../../shared/models/app_models.dart';
+import 'admin_item_group_selected_items.dart';
 import 'package:flutter/material.dart';
 
 typedef ItemGroupItemsLoader = Future<List<SupplierItem>> Function(
   String group,
+  int limit,
+  int offset,
 );
 
 class AdminItemGroupItemsTab extends StatefulWidget {
@@ -11,25 +14,34 @@ class AdminItemGroupItemsTab extends StatefulWidget {
     required this.itemGroupsFuture,
     required this.selectedGroup,
     required this.onSelectGroup,
-    required this.loadItems,
+    required this.loadItemsPage,
   });
 
   final Future<List<String>> itemGroupsFuture;
   final String? selectedGroup;
   final ValueChanged<String> onSelectGroup;
-  final ItemGroupItemsLoader loadItems;
+  final ItemGroupItemsLoader loadItemsPage;
 
   @override
   State<AdminItemGroupItemsTab> createState() => _AdminItemGroupItemsTabState();
 }
 
 class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
+  static const int _pageSize = 40;
+  static const double _loadMoreExtent = 420;
+
+  final ScrollController _scrollController = ScrollController();
   String? _loadedGroup;
-  Future<List<SupplierItem>>? _itemsFuture;
+  List<SupplierItem> _items = const <SupplierItem>[];
+  bool _initialLoading = false;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _syncSelectedGroup();
   }
 
@@ -37,18 +49,30 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
   void didUpdateWidget(covariant AdminItemGroupItemsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedGroup != widget.selectedGroup ||
-        oldWidget.loadItems != widget.loadItems) {
+        oldWidget.loadItemsPage != widget.loadItemsPage) {
       _syncSelectedGroup();
     }
   }
 
+  @override
+  void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _syncSelectedGroup() {
     final group = widget.selectedGroup?.trim();
-    if (group == null || group.isEmpty || group == _loadedGroup) {
+    if (group == null || group.isEmpty) {
+      if (_loadedGroup != null || _items.isNotEmpty) {
+        setState(_clearItems);
+      }
       return;
     }
-    _loadedGroup = group;
-    _itemsFuture = widget.loadItems(group);
+    if (group == _loadedGroup) {
+      return;
+    }
+    _loadFirstPage(group);
   }
 
   Future<void> _refreshItems() async {
@@ -56,12 +80,81 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
     if (group == null || group.isEmpty) {
       return;
     }
-    final future = widget.loadItems(group);
+    await _loadFirstPage(group);
+  }
+
+  void _clearItems() {
+    _loadedGroup = null;
+    _items = const <SupplierItem>[];
+    _initialLoading = false;
+    _loadingMore = false;
+    _hasMore = false;
+    _error = null;
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients || !_hasMore) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.extentAfter <= _loadMoreExtent) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadFirstPage(String group) async {
     setState(() {
       _loadedGroup = group;
-      _itemsFuture = future;
+      _items = const <SupplierItem>[];
+      _initialLoading = true;
+      _loadingMore = false;
+      _hasMore = false;
+      _error = null;
     });
-    await future;
+    await _fetchPage(group: group, offset: 0, replace: true);
+  }
+
+  Future<void> _loadNextPage() async {
+    final group = _loadedGroup?.trim();
+    if (group == null ||
+        group.isEmpty ||
+        _initialLoading ||
+        _loadingMore ||
+        !_hasMore) {
+      return;
+    }
+    setState(() => _loadingMore = true);
+    await _fetchPage(group: group, offset: _items.length, replace: false);
+  }
+
+  Future<void> _fetchPage({
+    required String group,
+    required int offset,
+    required bool replace,
+  }) async {
+    try {
+      final page = await widget.loadItemsPage(group, _pageSize, offset);
+      if (!mounted || _loadedGroup != group) {
+        return;
+      }
+      setState(() {
+        _items = replace ? page : <SupplierItem>[..._items, ...page];
+        _initialLoading = false;
+        _loadingMore = false;
+        _hasMore = page.length == _pageSize;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted || _loadedGroup != group) {
+        return;
+      }
+      setState(() {
+        _initialLoading = false;
+        _loadingMore = false;
+        _hasMore = false;
+        _error = error;
+      });
+    }
   }
 
   @override
@@ -71,6 +164,7 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
     return RefreshIndicator(
       onRefresh: _refreshItems,
       child: ListView(
+        controller: _scrollController,
         padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -118,7 +212,14 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
           _ItemsBody(
             selectedGroup: selected,
             loadedGroup: _loadedGroup,
-            itemsFuture: _itemsFuture,
+            items: _items,
+            initialLoading: _initialLoading,
+            loadingMore: _loadingMore,
+            hasMore: _hasMore,
+            error: _error,
+            onRetry: selected == null || selected.isEmpty
+                ? null
+                : () => _loadFirstPage(selected),
           ),
         ],
       ),
@@ -178,12 +279,22 @@ class _ItemsBody extends StatelessWidget {
   const _ItemsBody({
     required this.selectedGroup,
     required this.loadedGroup,
-    required this.itemsFuture,
+    required this.items,
+    required this.initialLoading,
+    required this.loadingMore,
+    required this.hasMore,
+    required this.error,
+    required this.onRetry,
   });
 
   final String? selectedGroup;
   final String? loadedGroup;
-  final Future<List<SupplierItem>>? itemsFuture;
+  final List<SupplierItem> items;
+  final bool initialLoading;
+  final bool loadingMore;
+  final bool hasMore;
+  final Object? error;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +304,7 @@ class _ItemsBody extends StatelessWidget {
         text: 'Tree’dan group uchun Show ni bosing yoki group tanlang',
       );
     }
-    if (loadedGroup != selected || itemsFuture == null) {
+    if (loadedGroup != selected || initialLoading) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -201,184 +312,34 @@ class _ItemsBody extends StatelessWidget {
         ),
       );
     }
-    return FutureBuilder<List<SupplierItem>>(
-      future: itemsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return const _NoticeCard(text: 'Group itemlari yuklanmadi');
-        }
-        return _SelectedGroupItems(
-          group: selected,
-          items: snapshot.data ?? const <SupplierItem>[],
-        );
-      },
-    );
-  }
-}
-
-class _SelectedGroupItems extends StatelessWidget {
-  const _SelectedGroupItems({
-    required this.group,
-    required this.items,
-  });
-
-  final String group;
-  final List<SupplierItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(Icons.inventory_2_rounded, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    group,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                _CountBadge(count: items.length),
-              ],
-            ),
-          ),
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Text(
-                'Bu groupda mahsulot yo‘q',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            )
-          else
-            for (int index = 0; index < items.length; index++) ...[
-              _ItemTile(item: items[index]),
-              if (index != items.length - 1)
-                Divider(
-                  height: 1,
-                  indent: 12,
-                  endIndent: 12,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-                ),
-            ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ItemTile extends StatelessWidget {
-  const _ItemTile({required this.item});
-
-  final SupplierItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final title = item.name.trim().isEmpty ? item.code : item.name;
-    final subtitleParts = <String>[
-      if (item.code.trim().isNotEmpty) item.code.trim(),
-      if (item.uom.trim().isNotEmpty) item.uom.trim(),
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.category_rounded,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                if (subtitleParts.isNotEmpty)
-                  Text(
-                    subtitleParts.join(' • '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$count item',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
-            ),
-      ),
+    if (error != null && items.isEmpty) {
+      return _NoticeCard(
+        text: 'Group itemlari yuklanmadi',
+        actionText: 'Qayta urinish',
+        onAction: onRetry,
+      );
+    }
+    return AdminItemGroupSelectedItems(
+      group: selected,
+      items: items,
+      loadingMore: loadingMore,
+      hasMore: hasMore,
+      pageError: error,
+      onRetry: onRetry,
     );
   }
 }
 
 class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.text});
+  const _NoticeCard({
+    required this.text,
+    this.actionText,
+    this.onAction,
+  });
 
   final String text;
+  final String? actionText;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -391,10 +352,22 @@ class _NoticeCard extends StatelessWidget {
           color: Theme.of(context).colorScheme.outlineVariant,
         ),
       ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.bodyMedium,
-        textAlign: TextAlign.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          if (actionText != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: onAction,
+              child: Text(actionText!),
+            ),
+          ],
+        ],
       ),
     );
   }

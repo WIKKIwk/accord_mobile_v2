@@ -215,8 +215,12 @@ class _AdminItemGroupCreateScreenState
                     itemGroupsFuture: itemGroupsFuture,
                     selectedGroup: selectedItemGroup,
                     onSelectGroup: _selectItemGroupForItems,
-                    loadItems: (group) =>
-                        MobileApi.instance.adminItems(group: group),
+                    loadItemsPage: (group, limit, offset) =>
+                        MobileApi.instance.adminItemsPage(
+                      group: group,
+                      limit: limit,
+                      offset: offset,
+                    ),
                   ),
                 ],
               ),
