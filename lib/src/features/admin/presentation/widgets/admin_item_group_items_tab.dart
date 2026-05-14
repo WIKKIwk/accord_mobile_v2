@@ -260,17 +260,91 @@ class _GroupSelector extends StatelessWidget {
     if (groups.isEmpty) {
       return const _NoticeCard(text: 'Group topilmadi');
     }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final group in groups)
-          ChoiceChip(
-            label: Text(group),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant),
+        ),
+      ),
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return _GroupTabButton(
+            group: group,
             selected: group == selectedGroup,
-            onSelected: (_) => onSelectGroup(group),
+            onTap: () => onSelectGroup(group),
+          );
+        },
+        separatorBuilder: (_, index) => const SizedBox(width: 4),
+        itemCount: groups.length,
+      ),
+    );
+  }
+}
+
+class _GroupTabButton extends StatelessWidget {
+  const _GroupTabButton({
+    required this.group,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String group;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground =
+        selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 88),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      group,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: foreground,
+                            fontWeight:
+                                selected ? FontWeight.w800 : FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  width: selected ? 48 : 0,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }
