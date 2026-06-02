@@ -58,7 +58,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(warehouseIcon);
     await tester.pumpAndSettle();
-    expect(find.text('Ombor tanlash'), findsOneWidget);
+    expect(find.text('Location tanlash'), findsOneWidget);
 
     await tester.tap(find.text('Xomashyo ombori - DEMO').last);
     await tester.pumpAndSettle();
