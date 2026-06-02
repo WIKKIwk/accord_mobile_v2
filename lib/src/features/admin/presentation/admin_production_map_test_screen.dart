@@ -781,7 +781,6 @@ class _AdminProductionMapTestScreenState
             title: 'Ombor tanlash',
             hintText: 'Ombor qidiring',
             pageSize: 50,
-            cacheKey: 'production-map:warehouses',
             loadPage: (query, offset, limit) async {
               final warehouses = await MobileApi.instance.adminWarehouses(
                 query: query,
