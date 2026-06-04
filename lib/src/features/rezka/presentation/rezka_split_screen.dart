@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../gscale/gscale_mobile_app.dart'
+    show DiscoveredServer, DiscoveryResult, discoverServers, driverUrlForRs;
 import '../../shared/models/app_models.dart';
 
 class RezkaSplitScreen extends StatefulWidget {
@@ -22,13 +25,31 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       TextEditingController(text: 'http://gscale.local:39117');
   final _printerController = TextEditingController(text: 'godex');
   final _printModeController = TextEditingController(text: 'label');
+  final _printerDiscoveryClient = http.Client();
   final List<_RezkaOutputDraft> _outputs = [];
   RezkaSourceEntry? _source;
+  DiscoveryResult? _printerDiscovery;
+  DiscoveredServer? _selectedPrinterServer;
+  Timer? _printerDiscoveryTimer;
+  String? _printerDiscoveryError;
   bool _loadingSource = false;
   bool _submitting = false;
+  bool _discoveringPrinters = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshPrinterDiscovery());
+    _printerDiscoveryTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshPrinterDiscovery(background: true),
+    );
+  }
 
   @override
   void dispose() {
+    _printerDiscoveryTimer?.cancel();
+    _printerDiscoveryClient.close();
     _barcodeController.dispose();
     _reasonController.dispose();
     _driverUrlController.dispose();
@@ -38,6 +59,62 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       output.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _refreshPrinterDiscovery({bool background = false}) async {
+    if (_discoveringPrinters) {
+      return;
+    }
+    if (!background && mounted) {
+      setState(() {
+        _discoveringPrinters = true;
+        _printerDiscoveryError = null;
+      });
+    } else {
+      _discoveringPrinters = true;
+    }
+    try {
+      final result = await discoverServers(_printerDiscoveryClient);
+      if (!mounted) {
+        return;
+      }
+      final selected = _selectPrinterServer(result.servers);
+      setState(() {
+        _printerDiscovery = result;
+        _selectedPrinterServer = selected;
+        _printerDiscoveryError = null;
+        if (selected != null) {
+          _driverUrlController.text = driverUrlForRs(selected);
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (!background) {
+        setState(() => _printerDiscoveryError = error.toString());
+      }
+    } finally {
+      _discoveringPrinters = false;
+      if (mounted && !background) {
+        setState(() {});
+      }
+    }
+  }
+
+  DiscoveredServer? _selectPrinterServer(List<DiscoveredServer> servers) {
+    if (servers.isEmpty) {
+      return _selectedPrinterServer;
+    }
+    final current = _selectedPrinterServer;
+    if (current != null) {
+      for (final server in servers) {
+        if (server.discoveryKey == current.discoveryKey) {
+          return server;
+        }
+      }
+    }
+    return servers.first;
   }
 
   Future<void> _scan() async {
@@ -132,6 +209,15 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       return;
     }
     final outputs = <RezkaSplitOutputRequest>[];
+    final driverUrl = _driverUrlController.text.trim();
+    final printer = _printerController.text.trim();
+    final printMode = _printModeController.text.trim();
+    if (driverUrl.isEmpty || printer.isEmpty || printMode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Printer sozlamasi to‘liq emas.')),
+      );
+      return;
+    }
     for (final output in _outputs) {
       final qty = double.tryParse(output.qtyController.text.trim()) ?? 0;
       if (output.itemCode.trim().isEmpty ||
@@ -163,9 +249,9 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
           sourceStockEntry: source.stockEntryName,
           sourceLineIndex: source.lineIndex,
           reason: _reasonController.text,
-          driverUrl: _driverUrlController.text,
-          printer: _printerController.text,
-          printMode: _printModeController.text,
+          driverUrl: driverUrl,
+          printer: printer,
+          printMode: printMode,
           outputs: outputs,
         ),
       );
@@ -259,6 +345,15 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                 : const Icon(Icons.search_rounded),
             label: const Text('QR ni tekshirish'),
           ),
+          const SizedBox(height: 12),
+          _PrinterDiscoveryCard(
+            server: _selectedPrinterServer,
+            result: _printerDiscovery,
+            driverUrl: _driverUrlController.text,
+            error: _printerDiscoveryError,
+            discovering: _discoveringPrinters,
+            onRefresh: () => _refreshPrinterDiscovery(),
+          ),
           if (source != null) ...[
             const SizedBox(height: 16),
             _SourceCard(source: source),
@@ -336,6 +431,108 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _PrinterDiscoveryCard extends StatelessWidget {
+  const _PrinterDiscoveryCard({
+    required this.server,
+    required this.result,
+    required this.driverUrl,
+    required this.error,
+    required this.discovering,
+    required this.onRefresh,
+  });
+
+  final DiscoveredServer? server;
+  final DiscoveryResult? result;
+  final String driverUrl;
+  final String? error;
+  final bool discovering;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selected = server;
+    final serverCount = result?.servers.length ?? 0;
+    final title = selected == null
+        ? discovering
+            ? 'Printer qidirilmoqda'
+            : 'Printer fallback'
+        : selected.handshake.displayName.trim().isEmpty
+            ? selected.endpoint.label
+            : selected.handshake.displayName;
+    final subtitle = selected == null
+        ? driverUrl
+        : '${selected.endpoint.label} • ${selected.latencyMs} ms';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              child: discovering
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.print_rounded),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (selected != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      driverUrl,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                  if (error != null && error!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      error!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ] else if (serverCount > 1) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '$serverCount ta printer server topildi',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: discovering ? null : onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
       ),
     );
   }
