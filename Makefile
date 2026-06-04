@@ -1,11 +1,15 @@
+HOST_OS := $(shell uname -s)
 API_URL ?= https://core.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:8081
+ifeq ($(HOST_OS),Darwin)
+JDK_HOME ?= /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+else
 JDK_HOME ?= /usr/lib/jvm/java-17-openjdk
+endif
 APK_NAME ?= accord.apk
 ERP_ROOT ?= ../../erpnext_n1/erp
 MOCK_DIR ?= /tmp/accord_mobile_mock
 RUST_BACKEND_ROOT ?= ../accord_mobile_server_rs
-HOST_OS := $(shell uname -s)
 
 ifeq ($(HOST_OS),Darwin)
 RUN_DEVICE ?= chrome
