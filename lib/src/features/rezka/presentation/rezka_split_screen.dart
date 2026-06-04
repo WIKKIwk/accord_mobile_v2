@@ -183,6 +183,43 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     });
   }
 
+  void _addRemainderOutput(RezkaSourceEntry source, double remainder) {
+    final output = _RezkaOutputDraft.fromSource(source);
+    output.qtyController.text = remainder.gscale;
+    setState(() => _outputs.add(output));
+  }
+
+  bool _validateOutputTotal(RezkaSourceEntry source, List<double> quantities) {
+    final total = quantities.fold<double>(0, (sum, qty) => sum + qty);
+    final diff = source.qty - total;
+    if (diff.abs() <= 0.0001) {
+      return true;
+    }
+    if (diff > 0) {
+      _addRemainderOutput(source, diff);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Bo‘linayotgan mahsulot ${source.qty.gscale} ${source.uom}. '
+            'Siz yozgan bo‘laklar jami ${total.gscale} ${source.uom}. '
+            '${diff.gscale} ${source.uom} kam. Qolganini yangi bo‘lakka ochdim, mahsulotini tanlang.',
+          ),
+        ),
+      );
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Bo‘laklar jami ${total.gscale} ${source.uom} bo‘lib ketdi. '
+          'Asl mahsulot ${source.qty.gscale} ${source.uom}. '
+          '${(-diff).gscale} ${source.uom} ortiq yozilgan.',
+        ),
+      ),
+    );
+    return false;
+  }
+
   Future<void> _pickItem(_RezkaOutputDraft output) async {
     final item = await showModalBottomSheet<SupplierItem>(
       context: context,
@@ -219,6 +256,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       );
       return;
     }
+    final quantities = <double>[];
     for (final output in _outputs) {
       final qty = double.tryParse(output.qtyController.text.trim()) ?? 0;
       if (output.itemCode.trim().isEmpty ||
@@ -230,6 +268,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         );
         return;
       }
+      quantities.add(qty);
       outputs.add(
         RezkaSplitOutputRequest(
           itemCode: output.itemCode,
@@ -242,6 +281,9 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
           reason: output.reasonController.text,
         ),
       );
+    }
+    if (!_validateOutputTotal(source, quantities)) {
+      return;
     }
     setState(() => _submitting = true);
     try {
@@ -267,7 +309,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       );
     } catch (error) {
       if (mounted) {
-        _showError(error);
+        _showRezkaSubmitError(error);
       }
     } finally {
       if (mounted) {
@@ -281,6 +323,43 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         error is MobileApiException ? error.message : error.toString();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showRezkaSubmitError(Object error) {
+    final message =
+        error is MobileApiException ? error.message : error.toString();
+    final parsed = RegExp(
+      r'output_total_must_equal_source_qty:([0-9.]+)!=([0-9.]+)',
+    ).firstMatch(message);
+    if (parsed == null) {
+      _showError(error);
+      return;
+    }
+    final total = double.tryParse(parsed.group(1) ?? '') ?? 0;
+    final sourceQty = double.tryParse(parsed.group(2) ?? '') ?? 0;
+    final diff = sourceQty - total;
+    final source = _source;
+    if (source != null && diff > 0.0001) {
+      _addRemainderOutput(source, diff);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Bo‘linayotgan mahsulot ${sourceQty.gscale} ${source.uom}. '
+            'Bo‘laklar jami ${total.gscale} ${source.uom}. '
+            '${diff.gscale} ${source.uom} kam. Qolganini yangi bo‘lakka ochdim.',
+          ),
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Bo‘laklar jami ${total.gscale}, asl mahsulot ${sourceQty.gscale}. '
+          'Miqdorlarni teng qilib yozing.',
+        ),
+      ),
     );
   }
 
@@ -733,6 +812,8 @@ class _RezkaItemPickerSheet extends StatefulWidget {
 class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
   final _queryController = TextEditingController();
   Future<List<SupplierItem>>? _future;
+  Timer? _debounce;
+  int _searchGeneration = 0;
 
   @override
   void initState() {
@@ -742,19 +823,34 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _queryController.dispose();
     super.dispose();
   }
 
-  Future<List<SupplierItem>> _load() {
+  Future<List<SupplierItem>> _load({String? query}) {
     return MobileApi.instance.gscaleItemsPage(
-      query: _queryController.text,
+      query: query ?? _queryController.text,
       limit: 30,
     );
   }
 
-  void _search() {
-    setState(() => _future = _load());
+  void _search({Duration delay = Duration.zero}) {
+    _debounce?.cancel();
+    final query = _queryController.text;
+    final generation = ++_searchGeneration;
+    void run() {
+      if (!mounted || generation != _searchGeneration) {
+        return;
+      }
+      setState(() => _future = _load(query: query));
+    }
+
+    if (delay == Duration.zero) {
+      run();
+      return;
+    }
+    _debounce = Timer(delay, run);
   }
 
   @override
@@ -772,6 +868,8 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
             TextField(
               controller: _queryController,
               textInputAction: TextInputAction.search,
+              onChanged: (_) =>
+                  _search(delay: const Duration(milliseconds: 220)),
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
                 labelText: 'ERPNext item qidirish',
