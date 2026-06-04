@@ -80,4 +80,20 @@ void main() {
 
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isTrue);
   });
+
+  test('rezka split route opens with rezka capability', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Rezka operator',
+      legalName: '',
+      ref: 'rezka',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['rezka.split.manage'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.rezkaSplit), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
+  });
 }

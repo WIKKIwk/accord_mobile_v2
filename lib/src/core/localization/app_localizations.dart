@@ -842,6 +842,12 @@ class AppLocalizations {
           'RPS batch manage',
           'Управление batch RPS',
         );
+      case 'rezka.split.manage':
+        return _t(
+          'Rezka bo‘lishni boshqarish',
+          'Rezka split manage',
+          'Управление резкой',
+        );
       default:
         return fallback;
     }

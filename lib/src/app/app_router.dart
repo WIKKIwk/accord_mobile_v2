@@ -24,6 +24,7 @@ import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
+import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
 import '../features/shared/presentation/pin_setup_confirm_screen.dart';
 import '../features/shared/presentation/pin_setup_entry_screen.dart';
@@ -136,6 +137,7 @@ class AppRoutes {
   static const String adminSupplierItemsAdd = '/admin-supplier-items-add';
   static const String adminWerka = '/admin-werka';
   static const String gscaleMode = '/gscale-mode';
+  static const String rezkaSplit = '/rezka-split';
 }
 
 class AppRouter {
@@ -464,6 +466,8 @@ class AppRouter {
         return _buildRoute(settings, const AdminWerkaScreen());
       case AppRoutes.gscaleMode:
         return _buildRoute(settings, const GScaleModeScreen());
+      case AppRoutes.rezkaSplit:
+        return _buildRoute(settings, const RezkaSplitScreen());
       default:
         return _buildRoute(settings, const LoginScreen());
     }
@@ -534,6 +538,7 @@ class AppRouter {
       'gscale.print',
       'rps.batch.manage',
     },
+    AppRoutes.rezkaSplit: {'rezka.split.manage'},
     AppRoutes.adminHome: {
       'admin.access',
       'role.capability.read',
@@ -556,6 +561,7 @@ class AppRouter {
       'admin.activity.read',
       'werka.code.manage',
       'production.map.manage',
+      'rezka.split.manage',
     },
     AppRoutes.adminActivity: {'admin.activity.read'},
     AppRoutes.adminCreateHub: {

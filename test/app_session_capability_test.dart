@@ -111,6 +111,25 @@ void main() {
     expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isTrue);
   });
 
+  test('rezka capability opens rezka split screen', () async {
+    await AppSession.instance.setSession(
+      token: 'token',
+      profile: const SessionProfile(
+        role: UserRole.customer,
+        displayName: 'Rezka operator',
+        legalName: '',
+        ref: 'rezka',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['rezka.split.manage'],
+      ),
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.rezkaSplit);
+    expect(AppSession.instance.profile?.accessRole, isNull);
+    expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isTrue);
+  });
+
   test('empty capability profile falls back to default role access', () {
     const profile = SessionProfile(
       role: UserRole.werka,

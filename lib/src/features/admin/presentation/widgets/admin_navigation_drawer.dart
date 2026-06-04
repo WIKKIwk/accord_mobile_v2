@@ -183,6 +183,13 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.gscaleMode,
       push: true,
     ),
+    const _AdminDrawerDestination(
+      icon: Icons.content_cut_rounded,
+      selectedIcon: Icons.content_cut_rounded,
+      label: 'Rezka',
+      routeName: AppRoutes.rezkaSplit,
+      push: true,
+    ),
   ];
   return candidates
       .where((destination) => AppRouter.canOpenRoute(destination.routeName))

@@ -58,6 +58,9 @@ class AppSession {
     ])) {
       return '/admin-home';
     }
+    if (profile.hasCapability('rezka.split.manage')) {
+      return '/rezka-split';
+    }
     if (profile.hasAnyCapability(const [
       'gscale.print',
       'gscale.catalog.read',

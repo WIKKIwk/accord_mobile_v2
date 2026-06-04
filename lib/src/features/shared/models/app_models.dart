@@ -977,6 +977,7 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
         'gscale.catalog.read',
         'gscale.print',
         'rps.batch.manage',
+        'rezka.split.manage',
       ];
   }
 }
