@@ -30,7 +30,6 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   RezkaSourceEntry? _source;
   DiscoveryResult? _printerDiscovery;
   DiscoveredServer? _selectedPrinterServer;
-  Timer? _printerDiscoveryTimer;
   String? _printerDiscoveryError;
   bool _loadingSource = false;
   bool _submitting = false;
@@ -40,15 +39,10 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   void initState() {
     super.initState();
     unawaited(_refreshPrinterDiscovery());
-    _printerDiscoveryTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _refreshPrinterDiscovery(background: true),
-    );
   }
 
   @override
   void dispose() {
-    _printerDiscoveryTimer?.cancel();
     _printerDiscoveryClient.close();
     _barcodeController.dispose();
     _reasonController.dispose();
@@ -115,6 +109,13 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       }
     }
     return servers.first;
+  }
+
+  void _setPrinterServer(DiscoveredServer server) {
+    setState(() {
+      _selectedPrinterServer = server;
+      _driverUrlController.text = driverUrlForRs(server);
+    });
   }
 
   Future<void> _scan() async {
@@ -238,6 +239,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
               ? source.uom
               : output.uomController.text.trim(),
           targetWarehouse: output.warehouseController.text.trim(),
+          reason: output.reasonController.text,
         ),
       );
     }
@@ -353,6 +355,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             error: _printerDiscoveryError,
             discovering: _discoveringPrinters,
             onRefresh: () => _refreshPrinterDiscovery(),
+            onSelectServer: _setPrinterServer,
           ),
           if (source != null) ...[
             const SizedBox(height: 16),
@@ -444,6 +447,7 @@ class _PrinterDiscoveryCard extends StatelessWidget {
     required this.error,
     required this.discovering,
     required this.onRefresh,
+    required this.onSelectServer,
   });
 
   final DiscoveredServer? server;
@@ -452,11 +456,13 @@ class _PrinterDiscoveryCard extends StatelessWidget {
   final String? error;
   final bool discovering;
   final VoidCallback onRefresh;
+  final ValueChanged<DiscoveredServer> onSelectServer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selected = server;
+    final servers = result?.servers ?? const <DiscoveredServer>[];
     final serverCount = result?.servers.length ?? 0;
     final title = selected == null
         ? discovering
@@ -469,70 +475,126 @@ class _PrinterDiscoveryCard extends StatelessWidget {
         ? driverUrl
         : '${selected.endpoint.label} • ${selected.latencyMs} ms';
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
+      child: ExpansionTile(
+        tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 6, 6),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        leading: CircleAvatar(
+          child: discovering
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.print_rounded),
+        ),
+        title: Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              child: discovering
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.print_rounded),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (selected != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      driverUrl,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                  if (error != null && error!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      error!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                      ),
-                    ),
-                  ] else if (serverCount > 1) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '$serverCount ta printer server topildi',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ],
+            if (selected != null)
+              Text(
+                driverUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
               ),
-            ),
-            IconButton(
-              onPressed: discovering ? null : onRefresh,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
+            if (error != null && error!.trim().isNotEmpty)
+              Text(
+                error!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              )
+            else if (serverCount > 1)
+              Text(
+                '$serverCount ta printer server topildi',
+                style: theme.textTheme.bodySmall,
+              ),
           ],
         ),
+        controlAffinity: ListTileControlAffinity.trailing,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Printer serverlar',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: discovering ? null : onRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Yangilash'),
+              ),
+            ],
+          ),
+          if (servers.isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Topilmadi. Fallback ishlatiladi: $driverUrl',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
+          else
+            SizedBox(
+              height: servers.length == 1 ? 64 : 148,
+              child: ListView.separated(
+                itemCount: servers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final item = servers[index];
+                  final selectedItem =
+                      selected?.discoveryKey == item.discoveryKey;
+                  final itemTitle = item.handshake.displayName.trim().isEmpty
+                      ? item.endpoint.label
+                      : item.handshake.displayName;
+                  return ListTile(
+                    dense: true,
+                    minVerticalPadding: 4,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    tileColor: selectedItem
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest,
+                    leading: Icon(
+                      selectedItem
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                    ),
+                    title: Text(
+                      itemTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${item.endpoint.label} • ${item.latencyMs} ms',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => onSelectServer(item),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -643,6 +705,16 @@ class _OutputCard extends StatelessWidget {
             TextField(
               controller: output.warehouseController,
               decoration: const InputDecoration(labelText: 'Location'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: output.reasonController,
+              minLines: 1,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Bo‘lak sababi',
+                alignLabelWithHint: true,
+              ),
             ),
           ],
         ),
@@ -830,6 +902,7 @@ class _RezkaOutputDraft {
     required this.uomController,
     required this.qtyController,
     required this.warehouseController,
+    required this.reasonController,
   });
 
   factory _RezkaOutputDraft.fromSource(RezkaSourceEntry source) {
@@ -839,6 +912,7 @@ class _RezkaOutputDraft {
       ),
       qtyController: TextEditingController(),
       warehouseController: TextEditingController(text: source.warehouse),
+      reasonController: TextEditingController(),
     );
   }
 
@@ -847,11 +921,13 @@ class _RezkaOutputDraft {
   final TextEditingController uomController;
   final TextEditingController qtyController;
   final TextEditingController warehouseController;
+  final TextEditingController reasonController;
 
   void dispose() {
     uomController.dispose();
     qtyController.dispose();
     warehouseController.dispose();
+    reasonController.dispose();
   }
 }
 
