@@ -708,16 +708,22 @@ class _PrinterDiscoveryCard extends StatelessWidget {
     final selected = server;
     final servers = result?.servers ?? const <DiscoveredServer>[];
     final serverCount = result?.servers.length ?? 0;
+    final activity = selected?.handshake.printActivity;
+    final isBusy = activity?.busy ?? false;
     final title = selected == null
         ? discovering
             ? 'Printer qidirilmoqda'
             : 'Printer fallback'
-        : selected.handshake.displayName.trim().isEmpty
-            ? selected.endpoint.label
-            : selected.handshake.displayName;
+        : isBusy
+            ? 'Printer band'
+            : selected.handshake.displayName.trim().isEmpty
+                ? selected.endpoint.label
+                : selected.handshake.displayName;
     final subtitle = selected == null
         ? driverUrl
-        : '${selected.endpoint.label} • ${selected.latencyMs} ms';
+        : isBusy
+            ? activity!.displayDetail
+            : '${selected.endpoint.label} • ${selected.latencyMs} ms';
     return Card(
       child: Theme(
         data: theme.copyWith(
@@ -736,7 +742,8 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.print_rounded),
+                : Icon(
+                    isBusy ? Icons.hourglass_top_rounded : Icons.print_rounded),
           ),
           title: Text(
             title,
@@ -764,6 +771,13 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                   error!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                )
+              else if (isBusy)
+                Text(
+                  'Boshqa mobile print tugagandan keyin qayta urinadi',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.error,
                   ),
@@ -813,9 +827,12 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                     final item = servers[index];
                     final selectedItem =
                         selected?.discoveryKey == item.discoveryKey;
-                    final itemTitle = item.handshake.displayName.trim().isEmpty
-                        ? item.endpoint.label
-                        : item.handshake.displayName;
+                    final itemBusy = item.handshake.isBusy;
+                    final itemTitle = itemBusy
+                        ? 'Band'
+                        : item.handshake.displayName.trim().isEmpty
+                            ? item.endpoint.label
+                            : item.handshake.displayName;
                     return ListTile(
                       dense: true,
                       minVerticalPadding: 4,
@@ -837,7 +854,9 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${item.endpoint.label} • ${item.latencyMs} ms',
+                        itemBusy
+                            ? item.handshake.printActivity.displayDetail
+                            : '${item.endpoint.label} • ${item.latencyMs} ms',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

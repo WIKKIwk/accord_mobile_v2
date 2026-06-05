@@ -4303,14 +4303,21 @@ class ServerHandshake {
     required this.displayName,
     required this.role,
     required this.serverRef,
+    this.printActivity = const PrinterServerActivity.idle(),
   });
 
   factory ServerHandshake.fromJson(Map<String, dynamic> json) {
+    final activityJson =
+        (json['print_activity'] as Map?)?.cast<String, dynamic>();
+    final activity = activityJson == null
+        ? PrinterServerActivity.fromBusyFlag(json['busy'])
+        : PrinterServerActivity.fromJson(activityJson);
     return ServerHandshake(
       serverName: _text(json['server_name'], fallback: 'gscale-zebra'),
       displayName: _text(json['display_name'], fallback: 'Operator'),
       role: _text(json['role'], fallback: 'operator'),
       serverRef: _text(json['server_ref'], fallback: 'unknown'),
+      printActivity: activity,
     );
   }
 
@@ -4318,6 +4325,86 @@ class ServerHandshake {
   final String displayName;
   final String role;
   final String serverRef;
+  final PrinterServerActivity printActivity;
+
+  bool get isBusy => printActivity.busy;
+}
+
+class PrinterServerActivity {
+  const PrinterServerActivity({
+    required this.busy,
+    required this.status,
+    required this.label,
+    required this.detail,
+    required this.itemCode,
+    required this.itemName,
+    required this.printer,
+  });
+
+  const PrinterServerActivity.idle()
+      : busy = false,
+        status = 'idle',
+        label = "Bo'sh",
+        detail = '',
+        itemCode = '',
+        itemName = '',
+        printer = '';
+
+  factory PrinterServerActivity.fromBusyFlag(Object? value) {
+    final busy = _boolValue(value);
+    if (!busy) {
+      return const PrinterServerActivity.idle();
+    }
+    return const PrinterServerActivity(
+      busy: true,
+      status: 'printing',
+      label: 'Band',
+      detail: "Printer server boshqa mobile print so'rovi bilan band.",
+      itemCode: '',
+      itemName: '',
+      printer: '',
+    );
+  }
+
+  factory PrinterServerActivity.fromJson(Map<String, dynamic> json) {
+    final busy = _boolValue(json['busy']);
+    if (!busy) {
+      return const PrinterServerActivity.idle();
+    }
+    return PrinterServerActivity(
+      busy: true,
+      status: _text(json['status'], fallback: 'printing'),
+      label: _text(json['label'], fallback: 'Band'),
+      detail: _text(
+        json['detail'],
+        fallback: "Printer server boshqa mobile print so'rovi bilan band.",
+      ),
+      itemCode: _text(json['item_code']),
+      itemName: _text(json['item_name']),
+      printer: _text(json['printer']),
+    );
+  }
+
+  final bool busy;
+  final String status;
+  final String label;
+  final String detail;
+  final String itemCode;
+  final String itemName;
+  final String printer;
+
+  String get displayDetail {
+    if (!busy) {
+      return '';
+    }
+    final item = itemName.trim().isNotEmpty ? itemName : itemCode;
+    if (item.trim().isNotEmpty) {
+      return 'Band: $item print qilinyapti';
+    }
+    return detail.trim().isEmpty
+        ? 'Band: boshqa mobile print qilmoqda'
+        : detail;
+  }
 }
 
 Future<DiscoveryResult> discoverServersFast(
@@ -4653,6 +4740,11 @@ Future<DiscoveredServer?> probeServer(
       return null;
     }
 
+    final activityJson =
+        (health['print_activity'] as Map?)?.cast<String, dynamic>();
+    final activity = activityJson == null
+        ? PrinterServerActivity.fromBusyFlag(health['busy'])
+        : PrinterServerActivity.fromJson(activityJson);
     stopwatch.stop();
     return DiscoveredServer(
       endpoint: endpoint,
@@ -4661,6 +4753,7 @@ Future<DiscoveredServer?> probeServer(
         displayName: 'Operator',
         role: 'operator',
         serverRef: 'legacy-healthz',
+        printActivity: activity,
       ),
       latencyMs: stopwatch.elapsedMilliseconds,
     );
@@ -4722,6 +4815,14 @@ int? _intValue(Object? value) {
     return value;
   }
   return int.tryParse(_text(value));
+}
+
+bool _boolValue(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  final text = _text(value).toLowerCase();
+  return text == 'true' || text == '1' || text == 'yes';
 }
 
 ServerEndpoint? parseServerEndpoint(String raw) {

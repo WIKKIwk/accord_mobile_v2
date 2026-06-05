@@ -99,6 +99,29 @@ void main() {
 
     expect(driverUrlForRs(server), 'http://192.168.1.114:39117');
   });
+
+  test('ServerHandshake keeps printer busy activity from driver', () {
+    final handshake = ServerHandshake.fromJson(const {
+      'server_name': 'rp-scale',
+      'display_name': 'RP Scale',
+      'role': 'operator',
+      'server_ref': 'rps-1',
+      'busy': true,
+      'print_activity': {
+        'busy': true,
+        'status': 'printing',
+        'label': 'Band',
+        'detail': "Printer server boshqa mobile print so'rovi bilan band.",
+        'item_code': 'ITEM-1',
+        'item_name': 'Green Tea',
+        'printer': 'godex',
+      },
+    });
+
+    expect(handshake.isBusy, true);
+    expect(handshake.printActivity.status, 'printing');
+    expect(handshake.printActivity.itemCode, 'ITEM-1');
+  });
 }
 
 DiscoveredServer _server(String host, String serverRef, {int latencyMs = 1}) {
