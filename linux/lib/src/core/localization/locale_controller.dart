@@ -1,0 +1,40 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class LocaleController extends ChangeNotifier {
+  LocaleController._();
+
+  static final LocaleController instance = LocaleController._();
+  static const String prefsKey = 'app_locale_code';
+
+  Locale _locale = const Locale('uz');
+  bool _hasExplicitSelection = false;
+
+  Locale get locale => _locale;
+  bool get isUzbek => _locale.languageCode == 'uz';
+  bool get hasExplicitSelection => _hasExplicitSelection;
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(prefsKey);
+    _hasExplicitSelection = saved != null;
+    _locale = saved == 'en'
+        ? const Locale('en')
+        : saved == 'ru'
+            ? const Locale('ru')
+            : const Locale('uz');
+    notifyListeners();
+  }
+
+  Future<void> setLocale(Locale nextLocale) async {
+    if (_hasExplicitSelection &&
+        _locale.languageCode == nextLocale.languageCode) {
+      return;
+    }
+    _hasExplicitSelection = true;
+    _locale = nextLocale;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(prefsKey, nextLocale.languageCode);
+  }
+}

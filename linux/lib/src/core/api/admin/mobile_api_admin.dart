@@ -1,0 +1,637 @@
+part of '../mobile_api.dart';
+
+extension MobileApiAdmin on MobileApi {
+  String get baseUrl => MobileApi.baseUrl;
+
+  Future<AdminSettings> adminSettings() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.adminSettings;
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/settings'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin settings failed');
+    }
+    return AdminSettings.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSettings> updateAdminSettings(AdminSettings settings) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/settings'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(settings.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin settings update failed');
+    }
+    return AdminSettings.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSettings> adminRegenerateWerkaCode() async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/werka/code/regenerate'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin werka code regenerate failed');
+    }
+    return AdminSettings.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<DispatchRecord>> adminActivity() async {
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/activity'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin activity failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<AdminCapability>> adminCapabilities() async {
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/capabilities'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin capabilities failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => AdminCapability.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<AdminRoleDefinition>> adminRoles() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.roles;
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/roles'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin roles failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) =>
+            AdminRoleDefinition.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ProductionMapSaved>> adminProductionMaps() async {
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin production maps failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+            (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ProductionMapSaved> adminSaveProductionMap(
+    ProductionMapDefinition map,
+  ) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(map.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin production map save failed');
+    }
+    return ProductionMapSaved.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<ProductionMapRunResult> adminRunProductionMap(
+    ProductionMapRunRequest input,
+  ) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/run'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(input.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin production map run failed');
+    }
+    return ProductionMapRunResult.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminRoleDefinition> adminUpsertRole(
+    AdminRoleDefinition role,
+  ) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/roles'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(role.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin role save failed');
+    }
+    return AdminRoleDefinition.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminRoleAssignment>> adminRoleAssignments() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.roleAssignments;
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/role-assignments'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin role assignments failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) =>
+            AdminRoleAssignment.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AdminRoleAssignment> adminUpsertRoleAssignment(
+    AdminRoleAssignment assignment,
+  ) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/role-assignments'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(assignment.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin role assignment save failed');
+    }
+    return AdminRoleAssignment.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSuppliersPage> adminSuppliersPage() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminSuppliersPage(
+        summary: TestModeDemoData.supplierSummary,
+        suppliers: TestModeDemoData.suppliers,
+        customers: TestModeDemoData.customers,
+        settings: TestModeDemoData.adminSettings,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin suppliers page failed');
+    }
+    return AdminSuppliersPage.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminSupplier>> adminSuppliers({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.supplierPage(limit: limit, offset: offset);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/list').replace(
+          queryParameters: {
+            if (limit > 0) 'limit': '$limit',
+            if (offset > 0) 'offset': '$offset',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin suppliers failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => AdminSupplier.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AdminSupplierSummary> adminSupplierSummary() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.supplierSummary;
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/summary'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier summary failed');
+    }
+    return AdminSupplierSummary.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminSupplier>> adminInactiveSuppliers() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return const <AdminSupplier>[];
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/inactive'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin inactive suppliers failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => AdminSupplier.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AdminSupplierDetail> adminSupplierDetail(String ref) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.supplierDetail(ref);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/detail')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier detail failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminCustomerDetail(String ref) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.customerDetail(ref);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers/detail')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customer detail failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminUpdateCustomerPhone({
+    required String ref,
+    required String phone,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers/phone')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'phone': phone}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customer phone update failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminRegenerateCustomerCode(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers/code/regenerate')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customer code regenerate failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> adminRemoveCustomer(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.delete(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers/remove')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customer remove failed');
+    }
+  }
+
+  Future<AdminSupplier> adminCreateSupplier({
+    required String name,
+    required String phone,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'name': name,
+          'phone': phone,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier create failed');
+    }
+    return AdminSupplier.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<CustomerDirectoryEntry> adminCreateCustomer({
+    required String name,
+    required String phone,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'name': name,
+          'phone': phone,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customer create failed');
+    }
+    return CustomerDirectoryEntry.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<CustomerDirectoryEntry>> adminCustomers({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.customerPage(limit: limit, offset: offset);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/customers/list').replace(
+          queryParameters: {
+            if (limit > 0) 'limit': '$limit',
+            if (offset > 0) 'offset': '$offset',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin customers failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+          (item) => CustomerDirectoryEntry.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<AdminSupplierDetail> adminSetSupplierBlocked({
+    required String ref,
+    required bool blocked,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/status')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'blocked': blocked}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier status failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSupplierDetail> adminUpdateSupplierPhone({
+    required String ref,
+    required String phone,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/phone')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'phone': phone}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier phone update failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSupplierDetail> adminRegenerateSupplierCode(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/code/regenerate')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier code regenerate failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSupplierDetail> adminUpdateSupplierItems({
+    required String ref,
+    required List<String> itemCodes,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'item_codes': itemCodes}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier item update failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<SupplierItem>> adminAssignedSupplierItems(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/assigned')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin assigned supplier items failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AdminSupplierDetail> adminAssignSupplierItem({
+    required String ref,
+    required String itemCode,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/add')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'item_code': itemCode}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin assign supplier item failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSupplierDetail> adminRemoveSupplierItem({
+    required String ref,
+    required String itemCode,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.delete(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/remove')
+            .replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin remove supplier item failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> adminRemoveSupplier(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.delete(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/remove')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier remove failed');
+    }
+  }
+
+  Future<AdminSupplierDetail> adminRestoreSupplier(String ref) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/restore')
+            .replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin supplier restore failed');
+    }
+    return AdminSupplierDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+}
