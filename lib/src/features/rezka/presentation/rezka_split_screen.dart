@@ -636,126 +636,135 @@ class _PrinterDiscoveryCard extends StatelessWidget {
         ? driverUrl
         : '${selected.endpoint.label} • ${selected.latencyMs} ms';
     return Card(
-      child: ExpansionTile(
-        tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 6, 6),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        leading: CircleAvatar(
-          child: discovering
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.print_rounded),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
+      child: Theme(
+        data: theme.copyWith(
+          dividerColor: Colors.transparent,
+          expansionTileTheme: theme.expansionTileTheme.copyWith(
+            shape: const Border(),
+            collapsedShape: const Border(),
           ),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        child: ExpansionTile(
+          tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 6, 6),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: CircleAvatar(
+            child: discovering
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print_rounded),
+          ),
+          title: Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
-            if (selected != null)
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                driverUrl,
+                subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
               ),
-            if (error != null && error!.trim().isNotEmpty)
-              Text(
-                error!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+              if (selected != null)
+                Text(
+                  driverUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+              if (error != null && error!.trim().isNotEmpty)
+                Text(
+                  error!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                )
+              else if (serverCount > 1)
+                Text(
+                  '$serverCount ta printer server topildi',
+                  style: theme.textTheme.bodySmall,
+                ),
+            ],
+          ),
+          controlAffinity: ListTileControlAffinity.trailing,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Printer serverlar',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: discovering ? null : onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Yangilash'),
+                ),
+              ],
+            ),
+            if (servers.isEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Topilmadi. Fallback ishlatiladi: $driverUrl',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               )
-            else if (serverCount > 1)
-              Text(
-                '$serverCount ta printer server topildi',
-                style: theme.textTheme.bodySmall,
+            else
+              SizedBox(
+                height: servers.length == 1 ? 64 : 148,
+                child: ListView.separated(
+                  itemCount: servers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final item = servers[index];
+                    final selectedItem =
+                        selected?.discoveryKey == item.discoveryKey;
+                    final itemTitle = item.handshake.displayName.trim().isEmpty
+                        ? item.endpoint.label
+                        : item.handshake.displayName;
+                    return ListTile(
+                      dense: true,
+                      minVerticalPadding: 4,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      tileColor: selectedItem
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerHighest,
+                      leading: Icon(
+                        selectedItem
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                      ),
+                      title: Text(
+                        itemTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${item.endpoint.label} • ${item.latencyMs} ms',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => onSelectServer(item),
+                    );
+                  },
+                ),
               ),
           ],
         ),
-        controlAffinity: ListTileControlAffinity.trailing,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Printer serverlar',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: discovering ? null : onRefresh,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Yangilash'),
-              ),
-            ],
-          ),
-          if (servers.isEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Topilmadi. Fallback ishlatiladi: $driverUrl',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          else
-            SizedBox(
-              height: servers.length == 1 ? 64 : 148,
-              child: ListView.separated(
-                itemCount: servers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  final item = servers[index];
-                  final selectedItem =
-                      selected?.discoveryKey == item.discoveryKey;
-                  final itemTitle = item.handshake.displayName.trim().isEmpty
-                      ? item.endpoint.label
-                      : item.handshake.displayName;
-                  return ListTile(
-                    dense: true,
-                    minVerticalPadding: 4,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: selectedItem
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest,
-                    leading: Icon(
-                      selectedItem
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                    ),
-                    title: Text(
-                      itemTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      '${item.endpoint.label} • ${item.latencyMs} ms',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => onSelectServer(item),
-                  );
-                },
-              ),
-            ),
-        ],
       ),
     );
   }
