@@ -9,7 +9,17 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../gscale/gscale_mobile_app.dart'
-    show DiscoveredServer, DiscoveryResult, discoverServers, driverUrlForRs;
+    show
+        DiscoveredServer,
+        DiscoveryResult,
+        ServerEndpoint,
+        discoverServers,
+        discoverServersFast,
+        driverUrlForRs,
+        loadCachedDiscoveredServers,
+        loadLastUsedServer,
+        mergeDiscoveryResults,
+        saveCachedDiscoveredServers;
 import '../../shared/models/app_models.dart';
 
 const _rezkaScrapWarehouse = 'brak - ombori - A';
@@ -43,6 +53,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_seedCachedPrinterServers());
     unawaited(_refreshPrinterDiscovery());
   }
 
@@ -60,6 +71,24 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     super.dispose();
   }
 
+  Future<void> _seedCachedPrinterServers() async {
+    final cachedServers = await loadCachedDiscoveredServers();
+    if (!mounted || cachedServers.isEmpty || _printerDiscovery != null) {
+      return;
+    }
+    final selected = _selectPrinterServer(cachedServers);
+    setState(() {
+      _printerDiscovery = DiscoveryResult(
+        servers: cachedServers,
+        candidateCount: cachedServers.length,
+      );
+      _selectedPrinterServer = selected;
+      if (selected != null) {
+        _driverUrlController.text = driverUrlForRs(selected);
+      }
+    });
+  }
+
   Future<void> _refreshPrinterDiscovery({bool background = false}) async {
     if (_discoveringPrinters) {
       return;
@@ -73,19 +102,32 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       _discoveringPrinters = true;
     }
     try {
-      final result = await discoverServers(_printerDiscoveryClient);
+      final preferredEndpoint = await loadLastUsedServer();
+      final result = await discoverServersFast(
+        _printerDiscoveryClient,
+        preferredEndpoint: preferredEndpoint,
+      );
       if (!mounted) {
         return;
       }
-      final selected = _selectPrinterServer(result.servers);
+      final mergedResult = mergeDiscoveryResults(
+        current: _printerDiscovery,
+        next: result,
+        keepCurrentWhenNextEmpty: true,
+      );
+      final selected = _selectPrinterServer(mergedResult.servers);
       setState(() {
-        _printerDiscovery = result;
+        _printerDiscovery = mergedResult;
         _selectedPrinterServer = selected;
         _printerDiscoveryError = null;
         if (selected != null) {
           _driverUrlController.text = driverUrlForRs(selected);
         }
       });
+      if (result.servers.isNotEmpty) {
+        unawaited(saveCachedDiscoveredServers(result.servers));
+      }
+      unawaited(_finishPrinterDiscovery(preferredEndpoint));
     } catch (error) {
       if (!mounted) {
         return;
@@ -99,6 +141,36 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         setState(() {});
       }
     }
+  }
+
+  Future<void> _finishPrinterDiscovery(
+      ServerEndpoint? preferredEndpoint) async {
+    try {
+      final result = await discoverServers(
+        _printerDiscoveryClient,
+        preferredEndpoint: preferredEndpoint,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (result.servers.isEmpty) {
+        return;
+      }
+      final mergedResult = mergeDiscoveryResults(
+        current: _printerDiscovery,
+        next: result,
+        keepCurrentWhenNextEmpty: false,
+      );
+      final selected = _selectPrinterServer(mergedResult.servers);
+      setState(() {
+        _printerDiscovery = mergedResult;
+        _selectedPrinterServer = selected;
+        if (selected != null) {
+          _driverUrlController.text = driverUrlForRs(selected);
+        }
+      });
+      await saveCachedDiscoveredServers(result.servers);
+    } catch (_) {}
   }
 
   DiscoveredServer? _selectPrinterServer(List<DiscoveredServer> servers) {
