@@ -198,8 +198,9 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     if (scrap) {
       output.itemCode = source.itemCode;
       output.itemName = source.itemName;
+      output.printQr = false;
       output.warehouseController.text = _rezkaScrapWarehouse;
-      output.reasonController.text = 'Brak mahsulot';
+      output.reasonController.text = 'Atxot / brak mahsulot';
     }
     setState(() => _outputs.add(output));
   }
@@ -335,26 +336,36 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     final quantities = <double>[];
     for (final output in _outputs) {
       final qty = double.tryParse(output.qtyController.text.trim()) ?? 0;
-      if (output.itemCode.trim().isEmpty ||
+      final itemCode = output.itemCode.trim().isEmpty && !output.printQr
+          ? source.itemCode
+          : output.itemCode;
+      final itemName = output.itemName.trim().isEmpty && !output.printQr
+          ? source.itemName
+          : output.itemName;
+      if ((output.printQr && itemCode.trim().isEmpty) ||
           qty <= 0 ||
           output.warehouseController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Har bir bo‘lakda item, qty va location bo‘lsin.')),
+            content: Text(
+              'QR chiqadigan bo‘lakda mahsulot, qty va location bo‘lsin. Atxotda qty va location yetarli.',
+            ),
+          ),
         );
         return;
       }
       quantities.add(qty);
       outputs.add(
         RezkaSplitOutputRequest(
-          itemCode: output.itemCode,
-          itemName: output.itemName,
+          itemCode: itemCode,
+          itemName: itemName,
           qty: qty,
           uom: output.uomController.text.trim().isEmpty
               ? source.uom
               : output.uomController.text.trim(),
           targetWarehouse: output.warehouseController.text.trim(),
           reason: output.reasonController.text,
+          printQr: output.printQr,
         ),
       );
     }
@@ -819,9 +830,11 @@ class _OutputCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final itemLabel = output.itemCode.trim().isEmpty
-        ? 'Mahsulot tanlang'
-        : '${output.itemName} (${output.itemCode})';
+    final itemLabel = output.printQr
+        ? output.itemCode.trim().isEmpty
+            ? 'Mahsulot tanlang'
+            : '${output.itemName} (${output.itemCode})'
+        : 'Atxot: QR chiqarilmaydi';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -833,7 +846,9 @@ class _OutputCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Bo‘lak ${index + 1}',
+                    output.printQr
+                        ? 'Bo‘lak ${index + 1}'
+                        : 'Atxot ${index + 1}',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -846,11 +861,20 @@ class _OutputCard extends StatelessWidget {
                   ),
               ],
             ),
-            OutlinedButton.icon(
-              onPressed: onPickItem,
-              icon: const Icon(Icons.inventory_2_outlined),
-              label: Text(itemLabel, overflow: TextOverflow.ellipsis),
-            ),
+            if (output.printQr)
+              OutlinedButton.icon(
+                onPressed: onPickItem,
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: Text(itemLabel, overflow: TextOverflow.ellipsis),
+              )
+            else
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.do_not_disturb_on_outlined),
+                title: Text(itemLabel),
+                subtitle: const Text('Mahsulot tanlash shart emas'),
+              ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -1107,6 +1131,7 @@ class _RezkaOutputDraft {
 
   String itemCode = '';
   String itemName = '';
+  bool printQr = true;
   final TextEditingController uomController;
   final TextEditingController qtyController;
   final TextEditingController warehouseController;

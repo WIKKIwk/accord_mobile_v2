@@ -156,6 +156,7 @@ class RezkaSplitOutputRequest {
     required this.uom,
     required this.targetWarehouse,
     required this.reason,
+    this.printQr = true,
   });
 
   final String itemCode;
@@ -164,6 +165,7 @@ class RezkaSplitOutputRequest {
   final String uom;
   final String targetWarehouse;
   final String reason;
+  final bool printQr;
 
   Map<String, dynamic> toJson() {
     return {
@@ -173,6 +175,7 @@ class RezkaSplitOutputRequest {
       'uom': uom.trim(),
       'target_warehouse': targetWarehouse.trim(),
       'reason': reason.trim(),
+      'print_qr': printQr,
     };
   }
 }
@@ -218,6 +221,7 @@ class RezkaOutputLabel {
     required this.uom,
     required this.warehouse,
     required this.reason,
+    required this.printQr,
   });
 
   factory RezkaOutputLabel.fromJson(Map<String, dynamic> json) {
@@ -229,6 +233,7 @@ class RezkaOutputLabel {
       uom: _rezkaText(json['uom']),
       warehouse: _rezkaText(json['warehouse']),
       reason: _rezkaText(json['reason']),
+      printQr: json['print_qr'] != false,
     );
   }
 
@@ -239,6 +244,7 @@ class RezkaOutputLabel {
   final String uom;
   final String warehouse;
   final String reason;
+  final bool printQr;
 }
 
 Map<String, dynamic> _rezkaDecodeObject(String body) {
