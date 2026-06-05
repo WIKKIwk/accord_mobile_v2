@@ -23,6 +23,9 @@ class AdminSummaryCard extends StatelessWidget {
     this.titleMaxLines = 2,
     this.subtitleMaxLines = 2,
     this.valueMaxLines = 1,
+    this.elevation = 0,
+    this.shadowColor,
+    this.surfaceTintColor,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -44,6 +47,9 @@ class AdminSummaryCard extends StatelessWidget {
   final int titleMaxLines;
   final int subtitleMaxLines;
   final int valueMaxLines;
+  final double elevation;
+  final Color? shadowColor;
+  final Color? surfaceTintColor;
 
   @override
   Widget build(BuildContext context) {
@@ -139,10 +145,13 @@ class AdminSummaryCard extends StatelessWidget {
     );
 
     return Material(
-      color: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
+      color: bg,
+      elevation: elevation,
+      shadowColor: shadowColor ??
+          (elevation > 0
+              ? scheme.shadow.withValues(alpha: 0.16)
+              : Colors.transparent),
+      surfaceTintColor: surfaceTintColor ?? Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: onTap != null

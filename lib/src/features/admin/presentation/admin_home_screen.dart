@@ -353,6 +353,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: 'Jami users',
           value: summary.totalSuppliers.toString(),
           onTap: onTapTotal,
+          elevation: 2,
         ),
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.middle,
@@ -360,6 +361,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: 'Faol users',
           value: summary.activeSuppliers.toString(),
           onTap: onTapActive,
+          elevation: 2,
         ),
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.bottom,
@@ -367,6 +369,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: 'Bloklangan users',
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
+          elevation: 2,
         ),
       ],
     );
