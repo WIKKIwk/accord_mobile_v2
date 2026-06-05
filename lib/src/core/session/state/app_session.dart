@@ -16,6 +16,7 @@ class AppSession {
   WerkaHomeData? werkaHomeBootstrap;
 
   bool get isLoggedIn => token != null && profile != null;
+  bool get isTestModeSession => token == 'test-mode-token';
   String get homeRoute {
     if (!isLoggedIn) {
       return '/';

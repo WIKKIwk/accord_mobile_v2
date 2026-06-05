@@ -54,10 +54,12 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       return;
     }
 
-    try {
-      await MobileApi.instance.profile().timeout(const Duration(seconds: 2));
-    } catch (_) {
-      // Keep existing local session on transient network/backend failures.
+    if (!AppSession.instance.isTestModeSession) {
+      try {
+        await MobileApi.instance.profile().timeout(const Duration(seconds: 2));
+      } catch (_) {
+        // Keep existing local session on transient network/backend failures.
+      }
     }
 
     if (!mounted) {

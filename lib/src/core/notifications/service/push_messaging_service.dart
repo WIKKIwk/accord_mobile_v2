@@ -148,9 +148,10 @@ class PushMessagingService {
     );
     if (!_supportsRemotePush ||
         !_shouldInitializePushOnThisDevice ||
-        !AppSession.instance.isLoggedIn) {
+        !AppSession.instance.isLoggedIn ||
+        AppSession.instance.isTestModeSession) {
       debugPrint(
-        'push sync skipped: unsupported platform, simulator, or not logged in',
+        'push sync skipped: unsupported platform, simulator, not logged in, or test mode',
       );
       return;
     }
@@ -185,9 +186,10 @@ class PushMessagingService {
   Future<void> unregisterCurrentToken() async {
     if (!_supportsRemotePush ||
         !_shouldInitializePushOnThisDevice ||
-        !AppSession.instance.isLoggedIn) {
+        !AppSession.instance.isLoggedIn ||
+        AppSession.instance.isTestModeSession) {
       debugPrint(
-        'push unregister skipped: unsupported platform, simulator, or not logged in',
+        'push unregister skipped: unsupported platform, simulator, not logged in, or test mode',
       );
       return;
     }
