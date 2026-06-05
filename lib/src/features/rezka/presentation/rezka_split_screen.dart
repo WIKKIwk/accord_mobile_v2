@@ -11,6 +11,10 @@ import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, DiscoveryResult, discoverServers, driverUrlForRs;
 import '../../shared/models/app_models.dart';
 
+const _rezkaScrapWarehouse = 'brak - ombori - A';
+
+enum _RezkaRemainderAction { forgot, scrap }
+
 class RezkaSplitScreen extends StatefulWidget {
   const RezkaSplitScreen({super.key});
 
@@ -183,29 +187,50 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     });
   }
 
-  void _addRemainderOutput(RezkaSourceEntry source, double remainder) {
+  void _addRemainderOutput(
+    RezkaSourceEntry source,
+    double remainder, {
+    bool scrap = false,
+  }) {
     final output = _RezkaOutputDraft.fromSource(source);
     output.qtyController.text = remainder.gscale;
+    if (scrap) {
+      output.itemCode = source.itemCode;
+      output.itemName = source.itemName;
+      output.warehouseController.text = _rezkaScrapWarehouse;
+      output.reasonController.text = 'Brak mahsulot';
+    }
     setState(() => _outputs.add(output));
   }
 
-  bool _validateOutputTotal(RezkaSourceEntry source, List<double> quantities) {
+  Future<bool> _validateOutputTotal(
+    RezkaSourceEntry source,
+    List<double> quantities,
+  ) async {
     final total = quantities.fold<double>(0, (sum, qty) => sum + qty);
     final diff = source.qty - total;
     if (diff.abs() <= 0.0001) {
       return true;
     }
     if (diff > 0) {
-      _addRemainderOutput(source, diff);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Bo‘linayotgan mahsulot ${source.qty.gscale} ${source.uom}. '
-            'Siz yozgan bo‘laklar jami ${total.gscale} ${source.uom}. '
-            '${diff.gscale} ${source.uom} kam. Qolganini yangi bo‘lakka ochdim, mahsulotini tanlang.',
-          ),
-        ),
+      final action = await _askRemainderAction(
+        source: source,
+        total: total,
+        remainder: diff,
       );
+      if (!mounted || action == null) {
+        return false;
+      }
+      _addRemainderOutput(
+        source,
+        diff,
+        scrap: action == _RezkaRemainderAction.scrap,
+      );
+      final message = action == _RezkaRemainderAction.scrap
+          ? 'Qoldiq ${diff.gscale} ${source.uom} brak sifatida $_rezkaScrapWarehouse omborga yozildi.'
+          : 'Qoldiq ${diff.gscale} ${source.uom} yangi bo‘lakka ochildi, mahsulotini tanlang.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
       return false;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -218,6 +243,56 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       ),
     );
     return false;
+  }
+
+  Future<_RezkaRemainderAction?> _askRemainderAction({
+    required RezkaSourceEntry source,
+    required double total,
+    required double remainder,
+  }) {
+    return showDialog<_RezkaRemainderAction>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Miqdor yetmayapti'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Bo‘linayotgan mahsulot ${source.qty.gscale} ${source.uom}. '
+                'Siz kiritgan bo‘laklar jami ${total.gscale} ${source.uom}. '
+                '${remainder.gscale} ${source.uom} qoldi. Xato qildingizmi?',
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(_RezkaRemainderAction.forgot),
+                  child: const Text('Unutibman'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: () =>
+                      Navigator.of(context).pop(_RezkaRemainderAction.scrap),
+                  icon: const Icon(Icons.report_problem_outlined),
+                  label: const Text('Brak mahsulot'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Bekor qilish'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _pickItem(_RezkaOutputDraft output) async {
@@ -282,7 +357,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         ),
       );
     }
-    if (!_validateOutputTotal(source, quantities)) {
+    if (!await _validateOutputTotal(source, quantities)) {
       return;
     }
     setState(() => _submitting = true);
