@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, DiscoveryResult, discoverServers, driverUrlForRs;
@@ -472,8 +473,14 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     final theme = Theme.of(context);
     final source = _source;
     return AppShell(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
       title: 'Rezka',
       subtitle: 'Mahsulotni bo‘lish',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         children: [
