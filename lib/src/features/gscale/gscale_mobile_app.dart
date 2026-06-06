@@ -4306,6 +4306,9 @@ String driverUrlForRs(DiscoveredServer server) {
   if (ref == '5070' || name == 'rp-scale-5070') {
     return 'http://100.117.62.18:39117';
   }
+  if (ref == 'rp-scale-godex-2' || name == 'rp-scale-godex-2') {
+    return 'http://100.117.62.18:${server.endpoint.port}';
+  }
   return server.endpoint.baseUrl;
 }
 

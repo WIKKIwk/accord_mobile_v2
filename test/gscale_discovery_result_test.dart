@@ -100,6 +100,12 @@ void main() {
     expect(driverUrlForRs(server), 'http://192.168.1.114:39117');
   });
 
+  test('driverUrlForRs maps godex 2 LAN endpoint to Tailscale mini-pc', () {
+    final server = _server('192.168.0.100', 'rp-scale-godex-2', port: 41257);
+
+    expect(driverUrlForRs(server), 'http://100.117.62.18:41257');
+  });
+
   test('printTargetLabel includes server ref and port', () {
     final server = _server('100.117.62.18', 'rp-scale-godex-2');
 
@@ -130,12 +136,17 @@ void main() {
   });
 }
 
-DiscoveredServer _server(String host, String serverRef, {int latencyMs = 1}) {
+DiscoveredServer _server(
+  String host,
+  String serverRef, {
+  int latencyMs = 1,
+  int port = 39117,
+}) {
   return DiscoveredServer(
     endpoint: ServerEndpoint(
       host: host,
-      port: 39117,
-      baseUrl: 'http://$host:39117',
+      port: port,
+      baseUrl: 'http://$host:$port',
     ),
     handshake: ServerHandshake(
       serverName: 'gscale',
