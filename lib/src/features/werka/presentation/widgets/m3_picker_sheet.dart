@@ -428,7 +428,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final bool showScanIcon;
   final String? cacheKey;
   final String Function(String query)? emptyActionLabel;
-  final Future<T> Function(String query)? onEmptyAction;
+  final Future<T?> Function(String query)? onEmptyAction;
 
   @override
   State<M3AsyncPickerSheet<T>> createState() => _M3AsyncPickerSheetState<T>();
@@ -842,6 +842,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     try {
       final item = await action(query);
       if (!mounted) {
+        return;
+      }
+      if (item == null) {
         return;
       }
       widget.onSelected(item);

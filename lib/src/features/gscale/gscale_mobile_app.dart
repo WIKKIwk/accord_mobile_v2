@@ -15,6 +15,7 @@ import '../../core/localization/locale_controller.dart';
 import '../../core/session/session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
+import '../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../core/widgets/navigation/native_back_button.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
 import '../shared/models/app_models.dart';
@@ -1166,9 +1167,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         true;
   }
 
-  Future<SupplierItem> _createCatalogItemFromSearch(String query) {
+  Future<SupplierItem?> _createCatalogItemFromSearch(String query) async {
     final value = query.trim();
-    final item = MobileApi.instance.adminCreateItem(
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Mahsulot qo‘shish',
+      message: '$value mahsulotini ERPNext katalogiga qo‘shaymi?',
+      cancelLabel: 'Yo‘q',
+      confirmLabel: 'Ha',
+    );
+    if (confirmed != true || !mounted) {
+      return null;
+    }
+    final item = await MobileApi.instance.adminCreateItem(
       code: value,
       name: value,
       uom: 'Kg',
