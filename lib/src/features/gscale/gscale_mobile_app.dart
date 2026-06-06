@@ -1424,7 +1424,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   void _showPrintSuccess(GScaleMaterialReceiptPrintResponse response) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(buildPrintSuccessMessage(response)),
+        content: Text(
+          buildPrintSuccessMessage(
+            response,
+            serverLabel: printTargetLabel(widget.server),
+          ),
+        ),
       ),
     );
   }
@@ -2128,7 +2133,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     BuildContext context,
     ThemeData theme,
     ColorScheme scheme,
-    DiscoveredServer _,
+    DiscoveredServer server,
   ) {
     final selectedProduct = _selectedItem;
     final selectedWarehouse = _selectedWarehouse;
@@ -2201,6 +2206,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     _MiniIconRow(
                       icon: Icons.scale_outlined,
                       text: _snapshot.scaleConnectionLabel,
+                    ),
+                    const SizedBox(height: 8),
+                    _MiniIconRow(
+                      icon: Icons.link_rounded,
+                      text: printTargetLabel(server),
                     ),
                   ],
                 ),
@@ -3885,15 +3895,20 @@ String formatCompactKg(double value) {
   return text;
 }
 
-String buildPrintSuccessMessage(GScaleMaterialReceiptPrintResponse response) {
+String buildPrintSuccessMessage(
+  GScaleMaterialReceiptPrintResponse response, {
+  String serverLabel = '',
+}) {
   final qty =
       formatCompactKg(response.netQty > 0 ? response.netQty : response.qty);
   final status = response.status.trim().toLowerCase();
+  final target = serverLabel.trim();
+  final targetText = target.isEmpty ? '' : ' • $target';
   if (status == 'printed') {
-    return 'Printerga yuborildi • netto $qty ${response.unit}';
+    return 'Printerga yuborildi$targetText • netto $qty ${response.unit}';
   }
   final draft = response.draftName.isEmpty ? 'draft' : response.draftName;
-  return '$draft submit qilindi • netto $qty ${response.unit}';
+  return '$draft submit qilindi$targetText • netto $qty ${response.unit}';
 }
 
 String buildRsBatchErpErrorMessage(String detail) {
@@ -4292,6 +4307,14 @@ String driverUrlForRs(DiscoveredServer server) {
     return 'http://100.117.62.18:39117';
   }
   return server.endpoint.baseUrl;
+}
+
+String printTargetLabel(DiscoveredServer server) {
+  final ref = server.handshake.serverRef.trim();
+  final name = server.handshake.serverName.trim();
+  final serverName = ref.isNotEmpty && ref != 'unknown' ? ref : name;
+  final label = serverName.isEmpty ? server.endpoint.label : serverName;
+  return '$label @ ${server.endpoint.port}';
 }
 
 class ServerEndpoint {

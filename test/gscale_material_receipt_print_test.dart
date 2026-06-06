@@ -51,6 +51,11 @@ void main() {
       buildPrintSuccessMessage(response),
       'Printerga yuborildi • netto 2.5 kg',
     );
+    expect(
+      buildPrintSuccessMessage(response,
+          serverLabel: 'rp-scale-godex-2 @ 41257'),
+      'Printerga yuborildi • rp-scale-godex-2 @ 41257 • netto 2.5 kg',
+    );
   });
 
   test('rps batch start request matches RS contract', () {

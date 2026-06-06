@@ -100,6 +100,12 @@ void main() {
     expect(driverUrlForRs(server), 'http://192.168.1.114:39117');
   });
 
+  test('printTargetLabel includes server ref and port', () {
+    final server = _server('100.117.62.18', 'rp-scale-godex-2');
+
+    expect(printTargetLabel(server), 'rp-scale-godex-2 @ 39117');
+  });
+
   test('ServerHandshake keeps printer busy activity from driver', () {
     final handshake = ServerHandshake.fromJson(const {
       'server_name': 'rp-scale',
