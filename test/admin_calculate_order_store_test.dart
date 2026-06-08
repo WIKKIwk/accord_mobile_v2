@@ -25,6 +25,8 @@ void main() {
     expect(store.templates.single.widthMm, 630);
     expect(store.templates.single.materialDisplay, isEmpty);
     expect(store.templates.single.imageId, 'img-1');
+    expect(store.templates.single.customerRef, 'CUST-001');
+    expect(store.templates.single.itemCode, 'ITEM-001');
     expect(
         jsonEncode(store.templates.single.toJson()), isNot(contains('"kg"')));
 
@@ -85,7 +87,9 @@ CalculateOrderTemplate _copyWithServerFields(
     name: template.name,
     savedAt: DateTime.utc(2026, 6, 8, 12),
     orderNumber: template.orderNumber,
+    customerRef: template.customerRef,
     customer: template.customer,
+    itemCode: template.itemCode,
     product: template.product,
     status: template.status,
     materialDisplay: '',
@@ -117,7 +121,9 @@ CalculateOrderTemplate _template({
     name: name,
     savedAt: DateTime.utc(2026, 6, 8, 11),
     orderNumber: 'ORD-1',
+    customerRef: 'CUST-001',
     customer: 'Mijoz',
+    itemCode: 'ITEM-001',
     product: 'cpp / 20 mikron / 600',
     status: 'Ready',
     materialDisplay: '',

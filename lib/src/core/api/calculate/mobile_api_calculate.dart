@@ -313,7 +313,9 @@ class CalculateOrderTemplate {
     required this.name,
     required this.savedAt,
     required this.orderNumber,
+    required this.customerRef,
     required this.customer,
+    required this.itemCode,
     required this.product,
     required this.status,
     required this.materialDisplay,
@@ -341,7 +343,9 @@ class CalculateOrderTemplate {
       name: _calculateText(json['name']),
       savedAt: _calculateDate(json['saved_at']),
       orderNumber: _calculateText(json['order_number']),
+      customerRef: _calculateText(json['customer_ref']),
       customer: _calculateText(json['customer']),
+      itemCode: _calculateText(json['item_code']),
       product: _calculateText(json['product']),
       status: _calculateText(json['status']),
       materialDisplay: _calculateText(json['material_display']),
@@ -368,7 +372,9 @@ class CalculateOrderTemplate {
   final String name;
   final DateTime savedAt;
   final String orderNumber;
+  final String customerRef;
   final String customer;
+  final String itemCode;
   final String product;
   final String status;
   final String materialDisplay;
@@ -396,7 +402,9 @@ class CalculateOrderTemplate {
       if (savedAt.millisecondsSinceEpoch > 0)
         'saved_at': savedAt.toUtc().toIso8601String(),
       'order_number': orderNumber.trim(),
+      'customer_ref': customerRef.trim(),
       'customer': customer.trim(),
+      'item_code': itemCode.trim(),
       'product': product.trim(),
       'status': status.trim(),
       'material_display': materialDisplay.trim(),

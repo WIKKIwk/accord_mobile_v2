@@ -440,6 +440,7 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<List<CustomerDirectoryEntry>> adminCustomers({
+    String query = '',
     int limit = 20,
     int offset = 0,
   }) async {
@@ -450,6 +451,7 @@ extension MobileApiAdmin on MobileApi {
       () => http.get(
         Uri.parse('$baseUrl/v1/mobile/admin/customers/list').replace(
           queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
             if (limit > 0) 'limit': '$limit',
             if (offset > 0) 'offset': '$offset',
           },

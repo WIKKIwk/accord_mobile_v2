@@ -4,6 +4,8 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../shared/models/app_models.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../state/calculate_order_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -43,6 +45,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _thirdMicron = TextEditingController();
   final _note = TextEditingController();
 
+  String _customerRef = '';
+  String _itemCode = '';
   bool _openingRoute = false;
   bool _calculating = false;
   bool _uploadingImage = false;
@@ -86,7 +90,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     _orderName.text = template.name;
+    _customerRef = template.customerRef;
     _customer.text = template.customer;
+    _itemCode = template.itemCode;
     _product.text = template.product;
     _status.text = template.status;
     _imageId = template.imageId;
@@ -128,6 +134,87 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     await Navigator.of(context).pushNamed(AppRoutes.adminCalculateOrders);
   }
 
+  Future<void> _openCustomerPicker() async {
+    final picked = await showModalBottomSheet<CustomerDirectoryEntry>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<CustomerDirectoryEntry>(
+          title: 'Mijoz tanlang',
+          hintText: 'Mijoz qidiring',
+          pageSize: 50,
+          cacheKey: 'calculate:customers',
+          loadPage: (query, offset, limit) {
+            return MobileApi.instance.adminCustomers(
+              query: query,
+              offset: offset,
+              limit: limit,
+            );
+          },
+          itemTitle: (item) => item.name.trim().isEmpty ? item.ref : item.name,
+          itemSubtitle: (item) {
+            final phone = item.phone.trim();
+            return phone.isEmpty ? item.ref : '${item.ref} • $phone';
+          },
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _customerRef = picked.ref;
+      _customer.text =
+          picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
+    });
+  }
+
+  Future<void> _openProductPicker() async {
+    final picked = await showModalBottomSheet<SupplierItem>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<SupplierItem>(
+          title: 'Mahsulot tanlang',
+          hintText: 'Mahsulot qidiring',
+          pageSize: 80,
+          cacheKey: 'calculate:items',
+          loadPage: (query, offset, limit) {
+            return MobileApi.instance.gscaleItemsPage(
+              query: query,
+              offset: offset,
+              limit: limit,
+            );
+          },
+          itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,
+          itemSubtitle: (item) => item.code,
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _itemCode = picked.code;
+      _product.text =
+          picked.name.trim().isEmpty ? picked.code : picked.name.trim();
+    });
+  }
+
   Future<void> _saveTemplate() async {
     final error = _templateValidationError();
     if (error != null) {
@@ -139,7 +226,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       name: _orderName.text.trim(),
       savedAt: DateTime.now().toUtc(),
       orderNumber: '',
+      customerRef: _customerRef,
       customer: _customer.text.trim(),
+      itemCode: _itemCode,
       product: _product.text.trim(),
       status: _status.text.trim(),
       materialDisplay: '',
@@ -188,6 +277,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _calculate() async {
+    if (_product.text.trim().isEmpty) {
+      showAdminTopNotice(context, 'Mahsulot tanlang');
+      return;
+    }
     if (!(_formKey.currentState?.validate() ?? false)) {
       showAdminTopNotice(context, 'Majburiy maydonlarni to‘ldiring');
       return;
@@ -339,14 +432,18 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               label: 'Zakaz nomi',
             ),
             const _SectionHeader(title: 'Buyurtma'),
-            _TextInput(
-              controller: _customer,
+            _PickerInput(
               label: 'Mijoz',
+              value: _customer.text,
+              subtitle: _customerRef,
+              onTap: _openCustomerPicker,
             ),
-            _TextInput(
-              controller: _product,
+            _PickerInput(
               label: 'Mahsulot',
+              value: _product.text,
+              subtitle: _itemCode,
               required: true,
+              onTap: _openProductPicker,
             ),
             _TextInput(
               controller: _status,
@@ -588,6 +685,97 @@ class _SectionHeader extends StatelessWidget {
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
+      ),
+    );
+  }
+}
+
+class _PickerInput extends StatelessWidget {
+  const _PickerInput({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.subtitle = '',
+    this.required = false,
+  });
+
+  final String label;
+  final String value;
+  final String subtitle;
+  final bool required;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final displayValue = value.trim();
+    final displaySubtitle = subtitle.trim();
+    final empty = displayValue.isEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: required && empty ? scheme.error : scheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: required && empty
+                            ? scheme.error
+                            : scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      empty ? '$label tanlang' : displayValue,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color:
+                            empty ? scheme.onSurfaceVariant : scheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (displaySubtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        displaySubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
