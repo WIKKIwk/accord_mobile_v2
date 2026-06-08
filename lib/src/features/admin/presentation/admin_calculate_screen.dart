@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,6 +10,7 @@ import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AdminCalculateScreen extends StatefulWidget {
   const AdminCalculateScreen({
@@ -23,12 +26,11 @@ class AdminCalculateScreen extends StatefulWidget {
 
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   final _orderName = TextEditingController();
-  final _orderNumber = TextEditingController();
   final _customer = TextEditingController();
   final _product = TextEditingController();
   final _status = TextEditingController();
-  final _color = TextEditingController();
   final _kg = TextEditingController();
   final _widthMm = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
@@ -43,6 +45,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   bool _openingRoute = false;
   bool _calculating = false;
+  bool _uploadingImage = false;
+  String _imageId = '';
+  String _imageName = '';
+  String _imageMime = '';
+  String _imageUrl = '';
+  String _imageLocalPath = '';
+  int _imageSizeBytes = 0;
   CalculateResponse? _result;
   String _error = '';
 
@@ -55,11 +64,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   void dispose() {
     _orderName.dispose();
-    _orderNumber.dispose();
     _customer.dispose();
     _product.dispose();
     _status.dispose();
-    _color.dispose();
     _kg.dispose();
     _widthMm.dispose();
     _wastePercent.dispose();
@@ -79,11 +86,15 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     _orderName.text = template.name;
-    _orderNumber.text = template.orderNumber;
     _customer.text = template.customer;
     _product.text = template.product;
     _status.text = template.status;
-    _color.text = template.color;
+    _imageId = template.imageId;
+    _imageName = template.imageName;
+    _imageMime = template.imageMime;
+    _imageSizeBytes = template.imageSizeBytes;
+    _imageUrl = template.imageUrl;
+    _imageLocalPath = '';
     _kg.clear();
     _widthMm.text = _fmtInput(template.widthMm);
     _wastePercent.text = _fmtInput(template.wastePercent);
@@ -127,12 +138,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       id: '',
       name: _orderName.text.trim(),
       savedAt: DateTime.now().toUtc(),
-      orderNumber: _orderNumber.text.trim(),
+      orderNumber: '',
       customer: _customer.text.trim(),
       product: _product.text.trim(),
       status: _status.text.trim(),
       materialDisplay: '',
-      color: _color.text.trim(),
+      color: '',
+      imageId: _imageId,
+      imageName: _imageName,
+      imageMime: _imageMime,
+      imageSizeBytes: _imageSizeBytes,
+      imageUrl: _imageUrl,
       widthMm: _parseRequiredDouble(_widthMm.text),
       wastePercent: _parseRequiredDouble(_wastePercent.text),
       rollCount: _parseOptionalDouble(_rollCount.text),
@@ -183,12 +199,12 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     try {
       final result = await MobileApi.instance.calculate(
         CalculateRequest(
-          orderNumber: _orderNumber.text,
+          orderNumber: '',
           customer: _customer.text,
           product: _product.text,
           status: _status.text,
           materialDisplay: '',
-          color: _color.text,
+          color: '',
           kg: _parseRequiredDouble(_kg.text),
           widthMm: _parseRequiredDouble(_widthMm.text),
           wastePercent: _parseRequiredDouble(_wastePercent.text),
@@ -230,6 +246,63 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1800,
+      maxHeight: 1800,
+      imageQuality: 84,
+    );
+    if (picked == null) {
+      return;
+    }
+    setState(() {
+      _uploadingImage = true;
+      _imageLocalPath = picked.path;
+      _error = '';
+    });
+    try {
+      final image = await MobileApi.instance.uploadCalculateOrderImage(
+        bytes: await picked.readAsBytes(),
+        filename: picked.name,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _imageId = image.imageId;
+        _imageName = image.imageName;
+        _imageMime = image.imageMime;
+        _imageSizeBytes = image.imageSizeBytes;
+        _imageUrl = image.imageUrl;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _imageLocalPath = '';
+        _error = error is MobileApiException ? error.message : error.toString();
+      });
+      showAdminTopNotice(context, 'Rasm yuklashda xatolik');
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingImage = false);
+      }
+    }
+  }
+
+  void _clearImage() {
+    setState(() {
+      _imageId = '';
+      _imageName = '';
+      _imageMime = '';
+      _imageSizeBytes = 0;
+      _imageUrl = '';
+      _imageLocalPath = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -267,10 +340,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
             const _SectionHeader(title: 'Buyurtma'),
             _TextInput(
-              controller: _orderNumber,
-              label: 'Buyurtma raqami',
-            ),
-            _TextInput(
               controller: _customer,
               label: 'Mijoz',
             ),
@@ -283,9 +352,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               controller: _status,
               label: 'Status',
             ),
-            _TextInput(
-              controller: _color,
-              label: 'Rang',
+            _ImageUploadInput(
+              localPath: _imageLocalPath,
+              imageUrl: _imageUrl,
+              imageName: _imageName,
+              imageSizeBytes: _imageSizeBytes,
+              uploading: _uploadingImage,
+              onPick: _pickImage,
+              onClear: _clearImage,
             ),
             const SizedBox(height: 18),
             const _SectionHeader(title: 'Hisob'),
@@ -519,6 +593,172 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _ImageUploadInput extends StatelessWidget {
+  const _ImageUploadInput({
+    required this.localPath,
+    required this.imageUrl,
+    required this.imageName,
+    required this.imageSizeBytes,
+    required this.uploading,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String localPath;
+  final String imageUrl;
+  final String imageName;
+  final int imageSizeBytes;
+  final bool uploading;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasImage = localPath.trim().isNotEmpty || imageUrl.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: uploading ? null : onPick,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 104),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: _ImagePreview(
+                    localPath: localPath,
+                    imageUrl: imageUrl,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rang rasmi',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hasImage
+                          ? (imageName.trim().isEmpty
+                              ? 'Rasm tanlangan'
+                              : imageName.trim())
+                          : 'Rasm tanlash',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (imageSizeBytes > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatBytes(imageSizeBytes),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    if (uploading) ...[
+                      const SizedBox(height: 10),
+                      const LinearProgressIndicator(minHeight: 3),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (hasImage)
+                IconButton(
+                  onPressed: uploading ? null : onClear,
+                  icon: const Icon(Icons.close_rounded),
+                )
+              else
+                Icon(
+                  Icons.upload_file_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImagePreview extends StatelessWidget {
+  const _ImagePreview({
+    required this.localPath,
+    required this.imageUrl,
+  });
+
+  final String localPath;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (localPath.trim().isNotEmpty) {
+      return Image.file(
+        File(localPath),
+        fit: BoxFit.cover,
+      );
+    }
+    if (imageUrl.trim().isNotEmpty) {
+      final token = _sessionToken();
+      return Image.network(
+        MobileApi.instance.calculateOrderImageUrl(imageUrl),
+        headers: token.isEmpty ? null : {'Authorization': 'Bearer $token'},
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _ImagePlaceholder(color: scheme.primary),
+      );
+    }
+    return _ImagePlaceholder(color: scheme.onSurfaceVariant);
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.image_outlined,
+        color: color,
+      ),
+    );
+  }
+}
+
+String _sessionToken() {
+  try {
+    return MobileApi.instance.requireToken();
+  } catch (_) {
+    return '';
+  }
+}
+
 class _LayerInputs extends StatelessWidget {
   const _LayerInputs({
     required this.material,
@@ -733,6 +973,16 @@ double? _parseOptionalDouble(String value) {
     return null;
   }
   return double.parse(normalized);
+}
+
+String _formatBytes(int value) {
+  if (value >= 1024 * 1024) {
+    return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  if (value >= 1024) {
+    return '${(value / 1024).toStringAsFixed(1)} KB';
+  }
+  return '$value B';
 }
 
 String _fmt(double value) {

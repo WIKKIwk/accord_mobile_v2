@@ -24,6 +24,7 @@ void main() {
     expect(store.templates.single.name, 'CPP 600');
     expect(store.templates.single.widthMm, 630);
     expect(store.templates.single.materialDisplay, isEmpty);
+    expect(store.templates.single.imageId, 'img-1');
     expect(
         jsonEncode(store.templates.single.toJson()), isNot(contains('"kg"')));
 
@@ -89,6 +90,11 @@ CalculateOrderTemplate _copyWithServerFields(
     status: template.status,
     materialDisplay: '',
     color: template.color,
+    imageId: template.imageId,
+    imageName: template.imageName,
+    imageMime: template.imageMime,
+    imageSizeBytes: template.imageSizeBytes,
+    imageUrl: template.imageUrl,
     widthMm: template.widthMm,
     wastePercent: template.wastePercent,
     rollCount: template.rollCount,
@@ -116,6 +122,11 @@ CalculateOrderTemplate _template({
     status: 'Ready',
     materialDisplay: '',
     color: 'oq',
+    imageId: 'img-1',
+    imageName: 'rang.jpg',
+    imageMime: 'image/jpeg',
+    imageSizeBytes: 1234,
+    imageUrl: '/v1/mobile/calculate/orders/image/view?id=img-1',
     widthMm: widthMm,
     wastePercent: 3,
     rollCount: 7,

@@ -104,6 +104,48 @@ extension MobileApiCalculate on MobileApi {
       );
     }
   }
+
+  Future<CalculateOrderImage> uploadCalculateOrderImage({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders/image'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'image/jpeg'
+          ..['x-file-name'] = filename,
+        body: bytes,
+      ),
+    );
+    final payload = _calculateDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code:
+            _calculateText(payload['error'], fallback: 'calculate_image_save'),
+        message: _calculateText(
+          payload['detail'],
+          fallback: 'Calculate image save failed',
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    final raw = payload['image'];
+    return CalculateOrderImage.fromJson(
+      raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
+    );
+  }
+
+  String calculateOrderImageUrl(String imageUrl) {
+    final value = imageUrl.trim();
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    if (value.startsWith('/')) {
+      return '${MobileApi.baseUrl}$value';
+    }
+    return value;
+  }
 }
 
 class CalculateRequest {
@@ -276,6 +318,11 @@ class CalculateOrderTemplate {
     required this.status,
     required this.materialDisplay,
     required this.color,
+    required this.imageId,
+    required this.imageName,
+    required this.imageMime,
+    required this.imageSizeBytes,
+    required this.imageUrl,
     required this.widthMm,
     required this.wastePercent,
     required this.rollCount,
@@ -299,6 +346,11 @@ class CalculateOrderTemplate {
       status: _calculateText(json['status']),
       materialDisplay: _calculateText(json['material_display']),
       color: _calculateText(json['color']),
+      imageId: _calculateText(json['image_id']),
+      imageName: _calculateText(json['image_name']),
+      imageMime: _calculateText(json['image_mime']),
+      imageSizeBytes: _calculateInt(json['image_size_bytes']),
+      imageUrl: _calculateText(json['image_url']),
       widthMm: _calculateNumber(json['width_mm']),
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       rollCount: _calculateOptionalNumber(json['roll_count']),
@@ -321,6 +373,11 @@ class CalculateOrderTemplate {
   final String status;
   final String materialDisplay;
   final String color;
+  final String imageId;
+  final String imageName;
+  final String imageMime;
+  final int imageSizeBytes;
+  final String imageUrl;
   final double widthMm;
   final double wastePercent;
   final double? rollCount;
@@ -344,6 +401,11 @@ class CalculateOrderTemplate {
       'status': status.trim(),
       'material_display': materialDisplay.trim(),
       'color': color.trim(),
+      'image_id': imageId.trim(),
+      'image_name': imageName.trim(),
+      'image_mime': imageMime.trim(),
+      'image_size_bytes': imageSizeBytes,
+      'image_url': imageUrl.trim(),
       'width_mm': widthMm,
       'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
@@ -356,6 +418,32 @@ class CalculateOrderTemplate {
       'note': note.trim(),
     };
   }
+}
+
+class CalculateOrderImage {
+  const CalculateOrderImage({
+    required this.imageId,
+    required this.imageName,
+    required this.imageMime,
+    required this.imageSizeBytes,
+    required this.imageUrl,
+  });
+
+  factory CalculateOrderImage.fromJson(Map<String, dynamic> json) {
+    return CalculateOrderImage(
+      imageId: _calculateText(json['image_id']),
+      imageName: _calculateText(json['image_name']),
+      imageMime: _calculateText(json['image_mime']),
+      imageSizeBytes: _calculateInt(json['image_size_bytes']),
+      imageUrl: _calculateText(json['image_url']),
+    );
+  }
+
+  final String imageId;
+  final String imageName;
+  final String imageMime;
+  final int imageSizeBytes;
+  final String imageUrl;
 }
 
 Map<String, dynamic> _calculateDecodeObject(String body) {
@@ -382,6 +470,16 @@ double? _calculateOptionalNumber(Object? value) {
     return value.toDouble();
   }
   return double.tryParse(text);
+}
+
+int _calculateInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 String _calculateText(Object? value, {String fallback = ''}) {
