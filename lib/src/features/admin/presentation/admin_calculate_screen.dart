@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'calculate_product_picker_loader.dart';
 import '../state/calculate_order_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -173,6 +174,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _customerRef = picked.ref;
       _customer.text =
           picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
+      _itemCode = '';
+      _product.clear();
     });
   }
 
@@ -191,12 +194,19 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           pageSize: 80,
-          cacheKey: 'calculate:items',
+          supportingText:
+              _customer.text.trim().isEmpty ? null : _customer.text.trim(),
+          cacheKey: _customerRef.trim().isEmpty
+              ? 'calculate:items'
+              : 'calculate:customer-items:${_customerRef.trim()}',
           loadPage: (query, offset, limit) {
-            return MobileApi.instance.gscaleItemsPage(
+            return loadCalculateProductPickerPage(
+              customerRef: _customerRef,
               query: query,
               offset: offset,
               limit: limit,
+              customerItems: MobileApi.instance.werkaCustomerItems,
+              allItems: MobileApi.instance.gscaleItemsPage,
             );
           },
           itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,
