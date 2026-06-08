@@ -8,10 +8,12 @@ class AdminNavigationDrawer extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onNavigate,
+    this.selectedRouteName,
   });
 
   final int selectedIndex;
   final ValueChanged<String> onNavigate;
+  final String? selectedRouteName;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +21,8 @@ class AdminNavigationDrawer extends StatelessWidget {
     final onSurfaceVariant = scheme.onSurfaceVariant;
     final l10n = context.l10n;
     final destinations = _visibleAdminDrawerDestinations(context);
-    final selectedRoute = _routeForLegacyIndex(selectedIndex);
+    final selectedRoute =
+        selectedRouteName ?? _routeForLegacyIndex(selectedIndex);
     final effectiveSelectedIndex = destinations.indexWhere(
       (destination) => destination.routeName == selectedRoute,
     );
@@ -156,6 +159,12 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       selectedIcon: Icons.history_rounded,
       label: l10n.adminActivityTitle,
       routeName: AppRoutes.adminActivity,
+    ),
+    const _AdminDrawerDestination(
+      icon: Icons.calculate_outlined,
+      selectedIcon: Icons.calculate_rounded,
+      label: 'Calculate',
+      routeName: AppRoutes.adminCalculate,
     ),
     _AdminDrawerDestination(
       icon: Icons.admin_panel_settings_outlined,

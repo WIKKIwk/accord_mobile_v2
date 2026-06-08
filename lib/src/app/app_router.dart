@@ -5,6 +5,7 @@ import '../features/customer/presentation/customer_home_screen.dart';
 import '../features/customer/presentation/customer_notifications_screen.dart';
 import '../features/customer/presentation/customer_status_detail_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
+import '../features/admin/presentation/admin_calculate_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
 import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
@@ -119,6 +120,7 @@ class AppRoutes {
   static const String pinSetupConfirm = '/pin-setup-confirm';
   static const String adminHome = '/admin-home';
   static const String adminActivity = '/admin-activity';
+  static const String adminCalculate = '/admin-calculate';
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
   static const String adminRoles = '/admin-roles';
@@ -150,6 +152,7 @@ class AppRouter {
     AppRoutes.werkaArchive,
     AppRoutes.adminHome,
     AppRoutes.adminActivity,
+    AppRoutes.adminCalculate,
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
@@ -191,6 +194,7 @@ class AppRouter {
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
+    AppRoutes.adminCalculate,
     AppRoutes.adminSupplierCreate,
     AppRoutes.adminCustomerCreate,
     AppRoutes.adminCustomerDetail,
@@ -414,6 +418,8 @@ class AppRouter {
         return _buildRoute(settings, const AdminHomeScreen());
       case AppRoutes.adminActivity:
         return _buildRoute(settings, const AdminActivityScreen());
+      case AppRoutes.adminCalculate:
+        return _buildRoute(settings, const AdminCalculateScreen());
       case AppRoutes.adminCreateHub:
         return _buildRoute(settings, const AdminCreateHubScreen());
       case AppRoutes.adminSettings:
@@ -564,6 +570,10 @@ class AppRouter {
       'rezka.split.manage',
     },
     AppRoutes.adminActivity: {'admin.activity.read'},
+    AppRoutes.adminCalculate: {
+      'admin.access',
+      'production.map.manage',
+    },
     AppRoutes.adminCreateHub: {
       'catalog.item.create',
       'catalog.item_group.manage',
