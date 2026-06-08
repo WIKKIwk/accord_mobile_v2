@@ -25,6 +25,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _color = TextEditingController();
   final _kg = TextEditingController();
   final _widthMm = TextEditingController();
+  final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();
   final _firstMaterial = TextEditingController();
   final _firstMicron = TextEditingController();
@@ -49,6 +50,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _color.dispose();
     _kg.dispose();
     _widthMm.dispose();
+    _wastePercent.dispose();
     _rollCount.dispose();
     _firstMaterial.dispose();
     _firstMicron.dispose();
@@ -95,6 +97,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           color: _color.text,
           kg: _parseRequiredDouble(_kg.text),
           widthMm: _parseRequiredDouble(_widthMm.text),
+          wastePercent: _parseRequiredDouble(_wastePercent.text),
           rollCount: _parseOptionalDouble(_rollCount.text),
           firstLayer: CalculateLayerInput(
             material: _firstMaterial.text,
@@ -194,6 +197,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               suffixText: 'mm',
               required: true,
             ),
+            _NumberInput(
+              controller: _wastePercent,
+              label: 'Atxod foiz',
+              suffixText: '%',
+              required: true,
+              allowZero: true,
+            ),
             _IntegerInput(
               controller: _rollCount,
               label: 'Val soni',
@@ -276,7 +286,11 @@ class _ResultPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           for (var i = 0; i < response.results.length; i++) ...[
-            _ResultVariant(index: i, result: response.results[i]),
+            _ResultVariant(
+              index: i,
+              result: response.results[i],
+              wastePercent: response.wastePercent,
+            ),
             if (i != response.results.length - 1) const SizedBox(height: 12),
           ],
         ],
@@ -289,10 +303,12 @@ class _ResultVariant extends StatelessWidget {
   const _ResultVariant({
     required this.index,
     required this.result,
+    required this.wastePercent,
   });
 
   final int index;
   final CalculateResult result;
+  final double wastePercent;
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +327,10 @@ class _ResultVariant extends StatelessWidget {
         _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
         _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm)} sm'),
         _ResultRow(label: 'Base', value: _fmt(result.baseLength)),
-        _ResultRow(label: 'Atxod 5%', value: _fmt(result.wasteLength)),
+        _ResultRow(
+          label: 'Atxod ${_fmt(wastePercent)}%',
+          value: _fmt(result.wasteLength),
+        ),
         const Divider(height: 18),
         _ResultRow(
           label: 'Yakuniy uzunlik',
@@ -475,12 +494,14 @@ class _NumberInput extends StatelessWidget {
     required this.label,
     required this.suffixText,
     this.required = false,
+    this.allowZero = false,
   });
 
   final TextEditingController controller;
   final String label;
   final String suffixText;
   final bool required;
+  final bool allowZero;
 
   @override
   Widget build(BuildContext context) {
@@ -497,7 +518,11 @@ class _NumberInput extends StatelessWidget {
           labelText: label,
           suffixText: suffixText,
         ),
-        validator: required ? _requiredPositiveNumber : _optionalPositiveNumber,
+        validator: required
+            ? (allowZero ? _requiredNonNegativeNumber : _requiredPositiveNumber)
+            : (allowZero
+                ? _optionalNonNegativeNumber
+                : _optionalPositiveNumber),
       ),
     );
   }
@@ -550,6 +575,14 @@ String? _requiredPositiveNumber(String? value) {
   return _optionalPositiveNumber(value);
 }
 
+String? _requiredNonNegativeNumber(String? value) {
+  final requiredError = _requiredText(value);
+  if (requiredError != null) {
+    return requiredError;
+  }
+  return _optionalNonNegativeNumber(value);
+}
+
 String? _optionalPositiveNumber(String? value) {
   final normalized = value?.trim().replaceAll(',', '.') ?? '';
   if (normalized.isEmpty) {
@@ -557,6 +590,18 @@ String? _optionalPositiveNumber(String? value) {
   }
   final parsed = double.tryParse(normalized);
   if (parsed == null || parsed <= 0) {
+    return 'Noto‘g‘ri';
+  }
+  return null;
+}
+
+String? _optionalNonNegativeNumber(String? value) {
+  final normalized = value?.trim().replaceAll(',', '.') ?? '';
+  if (normalized.isEmpty) {
+    return null;
+  }
+  final parsed = double.tryParse(normalized);
+  if (parsed == null || parsed < 0) {
     return 'Noto‘g‘ri';
   }
   return null;

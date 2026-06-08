@@ -38,6 +38,7 @@ class CalculateRequest {
     this.color = '',
     required this.kg,
     required this.widthMm,
+    this.wastePercent = 5,
     this.rollCount,
     required this.firstLayer,
     required this.secondLayer,
@@ -53,6 +54,7 @@ class CalculateRequest {
   final String color;
   final double kg;
   final double widthMm;
+  final double wastePercent;
   final double? rollCount;
   final CalculateLayerInput firstLayer;
   final CalculateLayerInput secondLayer;
@@ -70,6 +72,7 @@ class CalculateRequest {
       if (color.trim().isNotEmpty) 'color': color.trim(),
       'kg': kg,
       'width_mm': widthMm,
+      'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
       'first_layer': firstLayer.toJson(),
       'second_layer': secondLayer.toJson(),
@@ -103,6 +106,7 @@ class CalculateResponse {
     required this.ok,
     required this.kg,
     required this.widthMm,
+    required this.wastePercent,
     required this.layers,
     required this.results,
   });
@@ -120,6 +124,7 @@ class CalculateResponse {
       ok: json['ok'] == true,
       kg: _calculateNumber(json['kg']),
       widthMm: _calculateNumber(json['width_mm']),
+      wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       layers: layers,
       results: results,
     );
@@ -128,6 +133,7 @@ class CalculateResponse {
   final bool ok;
   final double kg;
   final double widthMm;
+  final double wastePercent;
   final List<CalculateLayer> layers;
   final List<CalculateResult> results;
 }
@@ -189,11 +195,11 @@ Map<String, dynamic> _calculateDecodeObject(String body) {
   }
 }
 
-double _calculateNumber(Object? value) {
+double _calculateNumber(Object? value, {double fallback = 0}) {
   if (value is num) {
     return value.toDouble();
   }
-  return double.tryParse(value?.toString() ?? '') ?? 0;
+  return double.tryParse(value?.toString() ?? '') ?? fallback;
 }
 
 String _calculateText(Object? value, {String fallback = ''}) {
