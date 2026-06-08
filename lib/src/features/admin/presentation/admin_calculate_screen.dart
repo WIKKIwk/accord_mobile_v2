@@ -28,7 +28,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _customer = TextEditingController();
   final _product = TextEditingController();
   final _status = TextEditingController();
-  final _material = TextEditingController();
   final _color = TextEditingController();
   final _kg = TextEditingController();
   final _widthMm = TextEditingController();
@@ -60,7 +59,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _customer.dispose();
     _product.dispose();
     _status.dispose();
-    _material.dispose();
     _color.dispose();
     _kg.dispose();
     _widthMm.dispose();
@@ -85,7 +83,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _customer.text = template.customer;
     _product.text = template.product;
     _status.text = template.status;
-    _material.text = template.materialDisplay;
     _color.text = template.color;
     _kg.clear();
     _widthMm.text = _fmtInput(template.widthMm);
@@ -134,7 +131,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       customer: _customer.text.trim(),
       product: _product.text.trim(),
       status: _status.text.trim(),
-      materialDisplay: _material.text.trim(),
+      materialDisplay: '',
       color: _color.text.trim(),
       widthMm: _parseRequiredDouble(_widthMm.text),
       wastePercent: _parseRequiredDouble(_wastePercent.text),
@@ -190,7 +187,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           customer: _customer.text,
           product: _product.text,
           status: _status.text,
-          materialDisplay: _material.text,
+          materialDisplay: '',
           color: _color.text,
           kg: _parseRequiredDouble(_kg.text),
           widthMm: _parseRequiredDouble(_widthMm.text),
@@ -285,10 +282,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             _TextInput(
               controller: _status,
               label: 'Status',
-            ),
-            _TextInput(
-              controller: _material,
-              label: 'Material yozuvi',
             ),
             _TextInput(
               controller: _color,

@@ -23,6 +23,7 @@ void main() {
     expect(store.templates, hasLength(1));
     expect(store.templates.single.name, 'CPP 600');
     expect(store.templates.single.widthMm, 630);
+    expect(store.templates.single.materialDisplay, isEmpty);
     expect(
         jsonEncode(store.templates.single.toJson()), isNot(contains('"kg"')));
 
@@ -86,7 +87,7 @@ CalculateOrderTemplate _copyWithServerFields(
     customer: template.customer,
     product: template.product,
     status: template.status,
-    materialDisplay: template.materialDisplay,
+    materialDisplay: '',
     color: template.color,
     widthMm: template.widthMm,
     wastePercent: template.wastePercent,
@@ -113,7 +114,7 @@ CalculateOrderTemplate _template({
     customer: 'Mijoz',
     product: 'cpp / 20 mikron / 600',
     status: 'Ready',
-    materialDisplay: 'pet 12 / pe oq 30',
+    materialDisplay: '',
     color: 'oq',
     widthMm: widthMm,
     wastePercent: 3,
