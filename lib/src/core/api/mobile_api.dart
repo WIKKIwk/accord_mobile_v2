@@ -19,6 +19,7 @@ part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
 part 'auth/mobile_api_auth_profile.dart';
+part 'calculate/mobile_api_calculate.dart';
 part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
 part 'rezka/mobile_api_rezka.dart';

@@ -1,4 +1,5 @@
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import 'widgets/admin_dock.dart';
@@ -34,6 +35,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _note = TextEditingController();
 
   bool _openingRoute = false;
+  bool _calculating = false;
+  CalculateResponse? _result;
+  String _error = '';
 
   @override
   void dispose() {
@@ -71,12 +75,62 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     );
   }
 
-  void _validateInput() {
+  Future<void> _calculate() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       showAdminTopNotice(context, 'Majburiy maydonlarni to‘ldiring');
       return;
     }
-    showAdminTopNotice(context, 'Maʼlumotlar tayyor');
+    setState(() {
+      _calculating = true;
+      _error = '';
+    });
+    try {
+      final result = await MobileApi.instance.calculate(
+        CalculateRequest(
+          orderNumber: _orderNumber.text,
+          customer: _customer.text,
+          product: _product.text,
+          status: _status.text,
+          materialDisplay: _material.text,
+          color: _color.text,
+          kg: _parseRequiredDouble(_kg.text),
+          widthMm: _parseRequiredDouble(_widthMm.text),
+          rollCount: _parseOptionalDouble(_rollCount.text),
+          firstLayer: CalculateLayerInput(
+            material: _firstMaterial.text,
+            micron: _firstMicron.text,
+          ),
+          secondLayer: CalculateLayerInput(
+            material: _secondMaterial.text,
+            micron: _secondMicron.text,
+          ),
+          thirdLayer: CalculateLayerInput(
+            material: _thirdMaterial.text,
+            micron: _thirdMicron.text,
+          ),
+          note: _note.text,
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _result = result;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error is MobileApiException ? error.message : error.toString();
+        _result = null;
+      });
+      showAdminTopNotice(context, 'Hisoblashda xatolik');
+    } finally {
+      if (mounted) {
+        setState(() => _calculating = false);
+      }
+    }
   }
 
   @override
@@ -173,15 +227,151 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
             const SizedBox(height: 22),
             FilledButton.icon(
-              onPressed: _validateInput,
+              onPressed: _calculating ? null : _calculate,
               icon: const Icon(Icons.calculate_outlined),
-              label: const Text('Hisoblash'),
+              label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
             ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ErrorPanel(message: _error),
+            ],
+            if (_result != null) ...[
+              const SizedBox(height: 18),
+              _ResultPanel(response: _result!),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ResultPanel extends StatelessWidget {
+  const _ResultPanel({required this.response});
+
+  final CalculateResponse response;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Natija',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < response.results.length; i++) ...[
+            _ResultVariant(index: i, result: response.results[i]),
+            if (i != response.results.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultVariant extends StatelessWidget {
+  const _ResultVariant({
+    required this.index,
+    required this.result,
+  });
+
+  final int index;
+  final CalculateResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = index == 0 ? 'Asosiy' : 'Variant ${index + 1}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
+        _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm)} sm'),
+        _ResultRow(label: 'Base', value: _fmt(result.baseLength)),
+        _ResultRow(label: 'Atxod 5%', value: _fmt(result.wasteLength)),
+        const Divider(height: 18),
+        _ResultRow(
+          label: 'Yakuniy uzunlik',
+          value: _fmt(result.roundedLength),
+          emphasized: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _ResultRow extends StatelessWidget {
+  const _ResultRow({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = emphasized
+        ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)
+        : theme.textTheme.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(value, style: style),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorPanel extends StatelessWidget {
+  const _ErrorPanel({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: scheme.onErrorContainer,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -382,4 +572,23 @@ String? _optionalPositiveInteger(String? value) {
     return 'Noto‘g‘ri';
   }
   return null;
+}
+
+double _parseRequiredDouble(String value) {
+  return double.parse(value.trim().replaceAll(',', '.'));
+}
+
+double? _parseOptionalDouble(String value) {
+  final normalized = value.trim().replaceAll(',', '.');
+  if (normalized.isEmpty) {
+    return null;
+  }
+  return double.parse(normalized);
+}
+
+String _fmt(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+  return value.toStringAsFixed(2);
 }
