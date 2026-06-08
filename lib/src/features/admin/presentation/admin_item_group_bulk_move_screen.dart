@@ -301,7 +301,7 @@ class _AdminItemGroupBulkMoveScreenState
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         contentPadding: EdgeInsets.zero,
         bottom: _AdminDockWithScrollTop(
-          activeTab: AdminDockTab.home,
+          activeTab: AdminDockTab.products,
           visible: _showScrollTopButton,
           onScrollTop: _scrollToTop,
         ),
