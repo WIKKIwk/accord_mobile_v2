@@ -614,6 +614,7 @@ class AppLocalizations {
   String get adminDrawerSections => _t('Bo‘limlar', 'Sections', 'Разделы');
   String get adminHomeNavTitle => _t('Uy', 'Home', 'Главная');
   String get adminUsersTitle => _t('Foydalanuvchilar', 'Users', 'Пользователи');
+  String get adminWorkersNavTitle => _t('Ishchilar', 'Workers', 'Сотрудники');
   String get adminProductsTitle => _t('Mahsulotlar', 'Products', 'Товары');
   String get adminRolesTitle => _t('Rollar', 'Roles', 'Роли');
   String get adminRolesAssignTab => _t('Biriktirish', 'Assign', 'Назначить');

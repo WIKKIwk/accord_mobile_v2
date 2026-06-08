@@ -35,7 +35,7 @@ class AdminDock extends StatelessWidget {
       AppLocalizations,
     );
     final homeLabel = l10n?.adminHomeNavTitle ?? 'Uy';
-    final usersLabel = l10n?.adminUsersTitle ?? 'Foydalanuvchilar';
+    final usersLabel = l10n?.adminWorkersNavTitle ?? 'Ishchilar';
     final productsLabel = l10n?.adminProductsTitle ?? 'Mahsulotlar';
     final createLabel = l10n?.adminCreateTitle ?? 'Yangi';
     final activityLabel = l10n?.adminActivityNavTitle ?? 'Faoliyat';
