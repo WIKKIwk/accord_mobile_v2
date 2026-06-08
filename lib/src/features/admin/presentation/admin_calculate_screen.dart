@@ -142,7 +142,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
             _IntegerInput(
               controller: _rollCount,
-              label: 'Rulon soni',
+              label: 'Val soni',
               suffixText: 'ta',
             ),
             const SizedBox(height: 18),
