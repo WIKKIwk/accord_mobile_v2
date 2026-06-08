@@ -1,64 +1,104 @@
 import 'dart:convert';
 
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/state/calculate_order_store.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    AppSession.instance.profile = const SessionProfile(
-      role: UserRole.admin,
-      displayName: 'Admin',
-      legalName: 'Admin',
-      ref: 'ADMIN-001',
-      phone: '',
-      avatarUrl: '',
-    );
-  });
+  test('loads and mutates calculate orders through the server client',
+      () async {
+    final client = _FakeCalculateOrderTemplateClient();
+    final store = CalculateOrderTemplateStore(client: client);
 
-  tearDown(() {
-    AppSession.instance.profile = null;
-  });
-
-  test('upserts calculate orders for the current profile without kg', () async {
-    final store = CalculateOrderTemplateStore();
     await store.load();
+    expect(client.listCalls, 1);
+    expect(store.templates, isEmpty);
 
     await store.upsert(_template(name: 'CPP 600', widthMm: 530));
     await store.upsert(_template(name: 'CPP 600', widthMm: 630));
 
+    expect(client.upsertCalls, 2);
+    expect(client.listCalls, 3);
     expect(store.templates, hasLength(1));
     expect(store.templates.single.name, 'CPP 600');
     expect(store.templates.single.widthMm, 630);
+    expect(
+        jsonEncode(store.templates.single.toJson()), isNot(contains('"kg"')));
 
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('admin_calculate_orders_v1')!;
-    expect(raw, isNot(contains('"kg"')));
-    expect(jsonDecode(raw), isA<Map<String, dynamic>>());
-  });
+    await store.delete(store.templates.single.id);
 
-  test('keeps calculate orders isolated per profile', () async {
-    final store = CalculateOrderTemplateStore();
-    await store.load();
-    await store.upsert(_template(name: 'Admin order'));
-
-    AppSession.instance.profile = const SessionProfile(
-      role: UserRole.admin,
-      displayName: 'Second',
-      legalName: 'Second',
-      ref: 'ADMIN-002',
-      phone: '',
-      avatarUrl: '',
-    );
-    await store.load(force: true);
-
+    expect(client.deleteCalls, 1);
     expect(store.templates, isEmpty);
   });
+}
+
+class _FakeCalculateOrderTemplateClient
+    implements CalculateOrderTemplateClient {
+  final List<CalculateOrderTemplate> _templates = [];
+  int listCalls = 0;
+  int upsertCalls = 0;
+  int deleteCalls = 0;
+
+  @override
+  Future<List<CalculateOrderTemplate>> listTemplates() async {
+    listCalls++;
+    return List<CalculateOrderTemplate>.from(_templates);
+  }
+
+  @override
+  Future<CalculateOrderTemplate> upsertTemplate(
+    CalculateOrderTemplate template,
+  ) async {
+    upsertCalls++;
+    final normalizedName = template.name.trim().toLowerCase();
+    final index = _templates.indexWhere(
+      (item) => item.name.trim().toLowerCase() == normalizedName,
+    );
+    final saved = _copyWithServerFields(
+      template,
+      id: index >= 0 ? _templates[index].id : 'template-$upsertCalls',
+    );
+    if (index >= 0) {
+      _templates[index] = saved;
+    } else {
+      _templates.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> deleteTemplate(String id) async {
+    deleteCalls++;
+    _templates.removeWhere((template) => template.id == id);
+  }
+}
+
+CalculateOrderTemplate _copyWithServerFields(
+  CalculateOrderTemplate template, {
+  required String id,
+}) {
+  return CalculateOrderTemplate(
+    id: id,
+    name: template.name,
+    savedAt: DateTime.utc(2026, 6, 8, 12),
+    orderNumber: template.orderNumber,
+    customer: template.customer,
+    product: template.product,
+    status: template.status,
+    materialDisplay: template.materialDisplay,
+    color: template.color,
+    widthMm: template.widthMm,
+    wastePercent: template.wastePercent,
+    rollCount: template.rollCount,
+    firstLayerMaterial: template.firstLayerMaterial,
+    firstLayerMicron: template.firstLayerMicron,
+    secondLayerMaterial: template.secondLayerMaterial,
+    secondLayerMicron: template.secondLayerMicron,
+    thirdLayerMaterial: template.thirdLayerMaterial,
+    thirdLayerMicron: template.thirdLayerMicron,
+    note: template.note,
+  );
 }
 
 CalculateOrderTemplate _template({
