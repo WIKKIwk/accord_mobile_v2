@@ -378,6 +378,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _imageMime = image.imageMime;
         _imageSizeBytes = image.imageSizeBytes;
         _imageUrl = image.imageUrl;
+        _imageLocalPath = '';
       });
     } catch (error) {
       if (!mounted) {
