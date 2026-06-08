@@ -287,6 +287,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _calculate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_product.text.trim().isEmpty) {
       showAdminTopNotice(context, 'Mahsulot tanlang');
       return;
@@ -433,112 +434,116 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
-          children: [
-            _TextInput(
-              controller: _orderName,
-              label: 'Zakaz nomi',
-            ),
-            const _SectionHeader(title: 'Buyurtma'),
-            _PickerInput(
-              label: 'Mijoz',
-              value: _customer.text,
-              subtitle: _customerRef,
-              onTap: _openCustomerPicker,
-            ),
-            _PickerInput(
-              label: 'Mahsulot',
-              value: _product.text,
-              subtitle: _itemCode,
-              required: true,
-              onTap: _openProductPicker,
-            ),
-            _TextInput(
-              controller: _status,
-              label: 'Status',
-            ),
-            _ImageUploadInput(
-              localPath: _imageLocalPath,
-              imageUrl: _imageUrl,
-              imageName: _imageName,
-              imageSizeBytes: _imageSizeBytes,
-              uploading: _uploadingImage,
-              onPick: _pickImage,
-              onClear: _clearImage,
-            ),
-            const SizedBox(height: 18),
-            const _SectionHeader(title: 'Hisob'),
-            _NumberInput(
-              controller: _kg,
-              label: 'KG',
-              suffixText: 'kg',
-              required: true,
-            ),
-            _NumberInput(
-              controller: _widthMm,
-              label: 'Razmer',
-              suffixText: 'mm',
-              required: true,
-            ),
-            _NumberInput(
-              controller: _wastePercent,
-              label: 'Atxod foiz',
-              suffixText: '%',
-              required: true,
-              allowZero: true,
-            ),
-            _IntegerInput(
-              controller: _rollCount,
-              label: 'Val soni',
-              suffixText: 'ta',
-            ),
-            const SizedBox(height: 18),
-            const _SectionHeader(title: 'Qavatlar'),
-            _LayerInputs(
-              material: _firstMaterial,
-              micron: _firstMicron,
-              materialLabel: '1-qavat',
-              required: true,
-            ),
-            _LayerInputs(
-              material: _secondMaterial,
-              micron: _secondMicron,
-              materialLabel: '2-qavat',
-              required: true,
-            ),
-            _LayerInputs(
-              material: _thirdMaterial,
-              micron: _thirdMicron,
-              materialLabel: '3-qavat',
-            ),
-            const SizedBox(height: 18),
-            _TextInput(
-              controller: _note,
-              label: 'Izoh',
-              minLines: 3,
-              maxLines: 5,
-            ),
-            const SizedBox(height: 22),
-            FilledButton.icon(
-              onPressed: _calculating ? null : _calculate,
-              icon: const Icon(Icons.calculate_outlined),
-              label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
+            children: [
+              _TextInput(
+                controller: _orderName,
+                label: 'Zakaz nomi',
               ),
-            ),
-            if (_error.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _ErrorPanel(message: _error),
-            ],
-            if (_result != null) ...[
+              const _SectionHeader(title: 'Buyurtma'),
+              _PickerInput(
+                label: 'Mijoz',
+                value: _customer.text,
+                subtitle: _customerRef,
+                onTap: _openCustomerPicker,
+              ),
+              _PickerInput(
+                label: 'Mahsulot',
+                value: _product.text,
+                subtitle: _itemCode,
+                required: true,
+                onTap: _openProductPicker,
+              ),
+              _TextInput(
+                controller: _status,
+                label: 'Status',
+              ),
+              _ImageUploadInput(
+                localPath: _imageLocalPath,
+                imageUrl: _imageUrl,
+                imageName: _imageName,
+                imageSizeBytes: _imageSizeBytes,
+                uploading: _uploadingImage,
+                onPick: _pickImage,
+                onClear: _clearImage,
+              ),
               const SizedBox(height: 18),
-              _ResultPanel(response: _result!),
+              const _SectionHeader(title: 'Hisob'),
+              _NumberInput(
+                controller: _kg,
+                label: 'KG',
+                suffixText: 'kg',
+                required: true,
+              ),
+              _NumberInput(
+                controller: _widthMm,
+                label: 'Razmer',
+                suffixText: 'mm',
+                required: true,
+              ),
+              _NumberInput(
+                controller: _wastePercent,
+                label: 'Atxod foiz',
+                suffixText: '%',
+                required: true,
+                allowZero: true,
+              ),
+              _IntegerInput(
+                controller: _rollCount,
+                label: 'Val soni',
+                suffixText: 'ta',
+              ),
+              const SizedBox(height: 18),
+              const _SectionHeader(title: 'Qavatlar'),
+              _LayerInputs(
+                material: _firstMaterial,
+                micron: _firstMicron,
+                materialLabel: '1-qavat',
+                required: true,
+              ),
+              _LayerInputs(
+                material: _secondMaterial,
+                micron: _secondMicron,
+                materialLabel: '2-qavat',
+                required: true,
+              ),
+              _LayerInputs(
+                material: _thirdMaterial,
+                micron: _thirdMicron,
+                materialLabel: '3-qavat',
+              ),
+              const SizedBox(height: 18),
+              _TextInput(
+                controller: _note,
+                label: 'Izoh',
+                minLines: 3,
+                maxLines: 5,
+              ),
+              const SizedBox(height: 22),
+              FilledButton.icon(
+                onPressed: _calculating ? null : _calculate,
+                icon: const Icon(Icons.calculate_outlined),
+                label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
+              ),
+              if (_error.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _ErrorPanel(message: _error),
+              ],
+              if (_result != null) ...[
+                const SizedBox(height: 18),
+                _ResultPanel(response: _result!),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
