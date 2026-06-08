@@ -6,6 +6,7 @@ import '../features/customer/presentation/customer_notifications_screen.dart';
 import '../features/customer/presentation/customer_status_detail_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
+import '../features/admin/presentation/admin_calculate_orders_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
 import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
@@ -24,6 +25,7 @@ import '../features/admin/presentation/admin_item_group_bulk_move_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
+import '../features/admin/state/calculate_order_store.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
@@ -121,6 +123,7 @@ class AppRoutes {
   static const String adminHome = '/admin-home';
   static const String adminActivity = '/admin-activity';
   static const String adminCalculate = '/admin-calculate';
+  static const String adminCalculateOrders = '/admin-calculate-orders';
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
   static const String adminRoles = '/admin-roles';
@@ -153,6 +156,7 @@ class AppRouter {
     AppRoutes.adminHome,
     AppRoutes.adminActivity,
     AppRoutes.adminCalculate,
+    AppRoutes.adminCalculateOrders,
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
@@ -195,6 +199,7 @@ class AppRouter {
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminCalculate,
+    AppRoutes.adminCalculateOrders,
     AppRoutes.adminSupplierCreate,
     AppRoutes.adminCustomerCreate,
     AppRoutes.adminCustomerDetail,
@@ -419,7 +424,16 @@ class AppRouter {
       case AppRoutes.adminActivity:
         return _buildRoute(settings, const AdminActivityScreen());
       case AppRoutes.adminCalculate:
-        return _buildRoute(settings, const AdminCalculateScreen());
+        final CalculateOrderTemplate? template =
+            settings.arguments is CalculateOrderTemplate
+                ? settings.arguments as CalculateOrderTemplate
+                : null;
+        return _buildRoute(
+          settings,
+          AdminCalculateScreen(template: template),
+        );
+      case AppRoutes.adminCalculateOrders:
+        return _buildRoute(settings, const AdminCalculateOrdersScreen());
       case AppRoutes.adminCreateHub:
         return _buildRoute(settings, const AdminCreateHubScreen());
       case AppRoutes.adminSettings:
@@ -571,6 +585,10 @@ class AppRouter {
     },
     AppRoutes.adminActivity: {'admin.activity.read'},
     AppRoutes.adminCalculate: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminCalculateOrders: {
       'admin.access',
       'production.map.manage',
     },

@@ -2,6 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../state/calculate_order_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
@@ -9,7 +10,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class AdminCalculateScreen extends StatefulWidget {
-  const AdminCalculateScreen({super.key});
+  const AdminCalculateScreen({
+    super.key,
+    this.template,
+  });
+
+  final CalculateOrderTemplate? template;
 
   @override
   State<AdminCalculateScreen> createState() => _AdminCalculateScreenState();
@@ -17,6 +23,7 @@ class AdminCalculateScreen extends StatefulWidget {
 
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _orderName = TextEditingController();
   final _orderNumber = TextEditingController();
   final _customer = TextEditingController();
   final _product = TextEditingController();
@@ -41,7 +48,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   String _error = '';
 
   @override
+  void initState() {
+    super.initState();
+    _applyTemplate(widget.template);
+  }
+
+  @override
   void dispose() {
+    _orderName.dispose();
     _orderNumber.dispose();
     _customer.dispose();
     _product.dispose();
@@ -62,6 +76,31 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     super.dispose();
   }
 
+  void _applyTemplate(CalculateOrderTemplate? template) {
+    if (template == null) {
+      return;
+    }
+    _orderName.text = template.name;
+    _orderNumber.text = template.orderNumber;
+    _customer.text = template.customer;
+    _product.text = template.product;
+    _status.text = template.status;
+    _material.text = template.materialDisplay;
+    _color.text = template.color;
+    _kg.clear();
+    _widthMm.text = _fmtInput(template.widthMm);
+    _wastePercent.text = _fmtInput(template.wastePercent);
+    _rollCount.text =
+        template.rollCount == null ? '' : _fmtInput(template.rollCount!);
+    _firstMaterial.text = template.firstLayerMaterial;
+    _firstMicron.text = template.firstLayerMicron;
+    _secondMaterial.text = template.secondLayerMaterial;
+    _secondMicron.text = template.secondLayerMicron;
+    _thirdMaterial.text = template.thirdLayerMaterial;
+    _thirdMicron.text = template.thirdLayerMicron;
+    _note.text = template.note;
+  }
+
   void _openDrawerRoute(String routeName) {
     if (_openingRoute) {
       return;
@@ -75,6 +114,64 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       routeName,
       (route) => false,
     );
+  }
+
+  Future<void> _openOrders() async {
+    await Navigator.of(context).pushNamed(AppRoutes.adminCalculateOrders);
+  }
+
+  Future<void> _saveTemplate() async {
+    final error = _templateValidationError();
+    if (error != null) {
+      showAdminTopNotice(context, error);
+      return;
+    }
+    final template = CalculateOrderTemplate(
+      id: '',
+      name: _orderName.text.trim(),
+      savedAt: DateTime.now().toUtc(),
+      orderNumber: _orderNumber.text.trim(),
+      customer: _customer.text.trim(),
+      product: _product.text.trim(),
+      status: _status.text.trim(),
+      materialDisplay: _material.text.trim(),
+      color: _color.text.trim(),
+      widthMm: _parseRequiredDouble(_widthMm.text),
+      wastePercent: _parseRequiredDouble(_wastePercent.text),
+      rollCount: _parseOptionalDouble(_rollCount.text),
+      firstLayerMaterial: _firstMaterial.text.trim(),
+      firstLayerMicron: _firstMicron.text.trim(),
+      secondLayerMaterial: _secondMaterial.text.trim(),
+      secondLayerMicron: _secondMicron.text.trim(),
+      thirdLayerMaterial: _thirdMaterial.text.trim(),
+      thirdLayerMicron: _thirdMicron.text.trim(),
+      note: _note.text.trim(),
+    );
+    await CalculateOrderTemplateStore.instance.upsert(template);
+    if (!mounted) {
+      return;
+    }
+    showAdminTopNotice(context, 'Zakaz saqlandi');
+  }
+
+  String? _templateValidationError() {
+    if (_orderName.text.trim().isEmpty) {
+      return 'Zakaz nomini yozing';
+    }
+    final checks = <String?>[
+      _requiredText(_product.text),
+      _requiredPositiveNumber(_widthMm.text),
+      _requiredNonNegativeNumber(_wastePercent.text),
+      _requiredText(_firstMaterial.text),
+      _requiredPositiveNumber(_firstMicron.text),
+      _requiredText(_secondMaterial.text),
+      _requiredPositiveNumber(_secondMicron.text),
+      _optionalPositiveInteger(_rollCount.text),
+    ];
+    if (checks.any((error) => error != null)) {
+      return 'Zakaz ma’lumotlarini to‘ldiring';
+    }
+    return null;
   }
 
   Future<void> _calculate() async {
@@ -149,6 +246,16 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      actions: [
+        AppShellIconAction(
+          icon: Icons.list_alt_rounded,
+          onTap: _openOrders,
+        ),
+        AppShellIconAction(
+          icon: Icons.save_outlined,
+          onTap: _saveTemplate,
+        ),
+      ],
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
@@ -157,6 +264,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
           children: [
+            _TextInput(
+              controller: _orderName,
+              label: 'Zakaz nomi',
+            ),
             const _SectionHeader(title: 'Buyurtma'),
             _TextInput(
               controller: _orderNumber,
@@ -636,4 +747,11 @@ String _fmt(double value) {
     return value.toStringAsFixed(0);
   }
   return value.toStringAsFixed(2);
+}
+
+String _fmtInput(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+  return value.toString();
 }
