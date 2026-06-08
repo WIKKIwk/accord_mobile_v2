@@ -273,18 +273,6 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         routeName: AppRoutes.adminUserCreate,
       ),
       _AdminHubActionCandidate(
-        key: const ValueKey('admin-hub-settings'),
-        title: l10n.adminErpSettingsTitle,
-        icon: Icons.settings_outlined,
-        routeName: AppRoutes.adminSettings,
-      ),
-      _AdminHubActionCandidate(
-        key: const ValueKey('admin-hub-roles'),
-        title: l10n.adminRolesTitle,
-        icon: Icons.admin_panel_settings_outlined,
-        routeName: AppRoutes.adminRoles,
-      ),
-      _AdminHubActionCandidate(
         key: const ValueKey('admin-hub-item-create'),
         title: l10n.adminCreateItemTitle,
         icon: Icons.inventory_2_outlined,
@@ -295,12 +283,6 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         title: l10n.adminCreateItemGroupTitle,
         icon: Icons.account_tree_outlined,
         routeName: AppRoutes.adminItemGroupCreate,
-      ),
-      _AdminHubActionCandidate(
-        key: const ValueKey('admin-hub-item-bulk-move'),
-        title: l10n.adminProductsTitle,
-        icon: Icons.grid_view_rounded,
-        routeName: AppRoutes.adminItemBulkMove,
       ),
     ];
     final visible = candidates
