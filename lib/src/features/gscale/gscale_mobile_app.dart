@@ -411,6 +411,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       TextEditingController();
   final TextEditingController _babinaWeightController = TextEditingController();
   final TextEditingController _manualQtyController = TextEditingController();
+  final TextEditingController _manualDuplicateController =
+      TextEditingController();
   StreamSubscription<String>? _streamSubscription;
   int _streamGeneration = 0;
   int _selectedSection = 0;
@@ -448,6 +450,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   void initState() {
     super.initState();
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
+    _manualDuplicateController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
     _snapshot = MonitorSnapshot.empty().copyWithLatency(
       widget.server.latencyMs,
@@ -466,6 +469,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     _defaultWarehouseController.dispose();
     _babinaWeightController.dispose();
     _manualQtyController.dispose();
+    _manualDuplicateController.dispose();
     _stopLiveStream();
     _client.close();
     super.dispose();
@@ -573,6 +577,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             : _quantitySource;
         _babinaEnabled = draft.babinaEnabled;
         _manualQtyController.text = draft.manualQtyText;
+        _manualDuplicateController.text = draft.manualDuplicateText;
         _babinaWeightController.text = draft.babinaText;
         _warehouseMode =
             draft.warehouseMode == 'default' ? 'default' : 'manual';
@@ -597,6 +602,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       printer: normalizePrinterChoice(_batchPrinter),
       quantitySource: normalizeQuantitySource(_quantitySource),
       manualQtyText: _manualQtyController.text.trim(),
+      manualDuplicateText: _manualDuplicateController.text.trim(),
       babinaEnabled: _babinaEnabled,
       babinaText: _babinaWeightController.text.trim(),
       warehouseMode: _warehouseMode == 'default' ? 'default' : 'manual',
@@ -1251,9 +1257,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   Future<GScaleMaterialReceiptPrintResponse> _submitMaterialReceiptPrint({
     required double grossQtyKg,
+    required int printCount,
   }) async {
     await _startRsBatchFromSelection(grossQtyKg: grossQtyKg);
-    return _printActiveRsBatch(grossQtyKg: grossQtyKg);
+    return _printActiveRsBatch(
+      grossQtyKg: grossQtyKg,
+      printCount: printCount,
+    );
   }
 
   Future<GScaleRpsBatchResponse> _startRsBatchFromSelection({
@@ -1306,6 +1316,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   Future<GScaleMaterialReceiptPrintResponse> _printActiveRsBatch({
     required double grossQtyKg,
+    int printCount = 1,
   }) async {
     final tareKg =
         _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
@@ -1323,6 +1334,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           buildGScaleRpsBatchPrintRequest(
             grossQtyKg: grossQtyKg,
             driverUrl: driverUrl,
+            printCount: printCount,
           ),
         )
         .timeout(const Duration(seconds: 15));
@@ -1439,13 +1451,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       return;
     }
     final manualQtyKg = parsePositiveKg(_manualQtyController.text);
+    final duplicateCount =
+        parseManualDuplicateCount(_manualDuplicateController.text);
     if (!canTriggerManualPrint(
-      qtyText: _manualQtyController.text,
-      babinaEnabled: _babinaEnabled,
-      babinaText: _babinaWeightController.text,
-    )) {
+          qtyText: _manualQtyController.text,
+          babinaEnabled: _babinaEnabled,
+          babinaText: _babinaWeightController.text,
+        ) ||
+        duplicateCount == null) {
       setState(() {
-        _errorText = "Manual kg ni to'g'ri kiriting";
+        _errorText = duplicateCount == null
+            ? "Duplicate sonini to'g'ri kiriting"
+            : "Manual kg ni to'g'ri kiriting";
       });
       return;
     }
@@ -1457,6 +1474,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     try {
       final response = await _submitMaterialReceiptPrint(
         grossQtyKg: manualQtyKg ?? 0,
+        printCount: duplicateCount,
       );
       if (!mounted) {
         return;
@@ -2146,6 +2164,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final manualQtyKg = selectedQuantitySource == 'manual'
         ? parsePositiveKg(_manualQtyController.text)
         : null;
+    final duplicateCount = selectedQuantitySource == 'manual'
+        ? parseManualDuplicateCount(_manualDuplicateController.text)
+        : 1;
     final manualPrintReady = canTriggerManualPrint(
       qtyText: _manualQtyController.text,
       babinaEnabled: _babinaEnabled,
@@ -2154,6 +2175,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final manualQtyInvalid = selectedQuantitySource == 'manual' &&
         _manualQtyController.text.trim().isNotEmpty &&
         manualQtyKg == null;
+    final duplicateInvalid = selectedQuantitySource == 'manual' &&
+        _manualDuplicateController.text.trim().isNotEmpty &&
+        duplicateCount == null;
     final babinaKg =
         _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : null;
     final babinaInvalid = _babinaEnabled &&
@@ -2449,6 +2473,24 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _manualDuplicateController,
+            enabled: !_batchActionLoading && !_manualPrintLoading,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            textAlignVertical: TextAlignVertical.center,
+            decoration: InputDecoration(
+              labelText: 'Duplicate soni',
+              suffixText: 'ta',
+              hintText: '1',
+              errorText: duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
           ),
           if (_manualPrintLoading) ...[
             const SizedBox(height: 6),
@@ -3844,6 +3886,18 @@ bool canTriggerManualPrint({
   );
 }
 
+int? parseManualDuplicateCount(String value) {
+  final text = value.trim();
+  if (text.isEmpty) {
+    return 1;
+  }
+  final parsed = int.tryParse(text);
+  if (parsed == null || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
 GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
   required String driverUrl,
   required MobileItem item,
@@ -3876,11 +3930,13 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
 GScaleRpsBatchPrintRequest buildGScaleRpsBatchPrintRequest({
   required double grossQtyKg,
   required String driverUrl,
+  int printCount = 1,
 }) {
   return GScaleRpsBatchPrintRequest(
     grossQty: grossQtyKg,
     driverUrl: driverUrl,
     unit: 'kg',
+    printCount: printCount,
   );
 }
 
@@ -3904,11 +3960,13 @@ String buildPrintSuccessMessage(
   final status = response.status.trim().toLowerCase();
   final target = serverLabel.trim();
   final targetText = target.isEmpty ? '' : ' • $target';
+  final duplicateText =
+      response.printCount > 1 ? ' • ${response.printCount} ta' : '';
   if (status == 'printed') {
-    return 'Printerga yuborildi$targetText • netto $qty ${response.unit}';
+    return 'Printerga yuborildi$targetText$duplicateText • netto $qty ${response.unit}';
   }
   final draft = response.draftName.isEmpty ? 'draft' : response.draftName;
-  return '$draft submit qilindi$targetText • netto $qty ${response.unit}';
+  return '$draft submit qilindi$targetText$duplicateText • netto $qty ${response.unit}';
 }
 
 String buildRsBatchErpErrorMessage(String detail) {
@@ -4907,6 +4965,7 @@ class OperatorControlDraft {
     required this.printer,
     required this.quantitySource,
     required this.manualQtyText,
+    required this.manualDuplicateText,
     required this.babinaEnabled,
     required this.babinaText,
     required this.warehouseMode,
@@ -4920,6 +4979,7 @@ class OperatorControlDraft {
   final String printer;
   final String quantitySource;
   final String manualQtyText;
+  final String manualDuplicateText;
   final bool babinaEnabled;
   final String babinaText;
   final String warehouseMode;
@@ -4934,6 +4994,7 @@ class OperatorControlDraft {
       'printer': printer,
       'quantity_source': quantitySource,
       'manual_qty_text': manualQtyText,
+      'manual_duplicate_text': manualDuplicateText,
       'babina_enabled': babinaEnabled,
       'babina_text': babinaText,
       'warehouse_mode': warehouseMode,
@@ -4950,6 +5011,7 @@ class OperatorControlDraft {
       printer: normalizePrinterChoice(_text(json['printer'])),
       quantitySource: normalizeQuantitySource(_text(json['quantity_source'])),
       manualQtyText: _text(json['manual_qty_text']),
+      manualDuplicateText: _text(json['manual_duplicate_text']),
       babinaEnabled: json['babina_enabled'] == true,
       babinaText: _text(json['babina_text']),
       warehouseMode:
@@ -4978,6 +5040,7 @@ Future<OperatorControlDraft> loadOperatorControlDraft() async {
       printer: '',
       quantitySource: '',
       manualQtyText: '',
+      manualDuplicateText: '',
       babinaEnabled: false,
       babinaText: '',
       warehouseMode: 'manual',
@@ -4997,6 +5060,7 @@ Future<OperatorControlDraft> loadOperatorControlDraft() async {
         printer: '',
         quantitySource: '',
         manualQtyText: '',
+        manualDuplicateText: '',
         babinaEnabled: false,
         babinaText: '',
         warehouseMode: 'manual',
@@ -5013,6 +5077,7 @@ Future<OperatorControlDraft> loadOperatorControlDraft() async {
       printer: '',
       quantitySource: '',
       manualQtyText: '',
+      manualDuplicateText: '',
       babinaEnabled: false,
       babinaText: '',
       warehouseMode: 'manual',

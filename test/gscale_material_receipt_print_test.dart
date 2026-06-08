@@ -19,6 +19,7 @@ void main() {
       'printer': 'zebra',
       'print_mode': 'rfid',
       'printer_status': 'OK',
+      'print_count': 5,
     });
 
     expect(response.ok, isTrue);
@@ -27,6 +28,7 @@ void main() {
     expect(response.netQty, 1.72);
     expect(response.grossQty, 2.5);
     expect(response.printer, 'zebra');
+    expect(response.printCount, 5);
   });
 
   test('print success message distinguishes fast printed status', () {
@@ -45,6 +47,7 @@ void main() {
       printer: 'godex',
       printMode: 'label',
       printerStatus: 'sent',
+      printCount: 1,
     );
 
     expect(
@@ -55,6 +58,31 @@ void main() {
       buildPrintSuccessMessage(response,
           serverLabel: 'rp-scale-godex-2 @ 41257'),
       'Printerga yuborildi • rp-scale-godex-2 @ 41257 • netto 2.5 kg',
+    );
+  });
+
+  test('print success message includes duplicate count', () {
+    const response = GScaleMaterialReceiptPrintResponse(
+      ok: true,
+      status: 'printed',
+      draftName: '',
+      epc: 'EPC-1',
+      itemCode: 'ITEM-1',
+      itemName: 'Green Tea',
+      warehouse: 'Stores - A',
+      qty: 2.5,
+      netQty: 2.5,
+      grossQty: 2.5,
+      unit: 'kg',
+      printer: 'godex',
+      printMode: 'label',
+      printerStatus: 'sent',
+      printCount: 5,
+    );
+
+    expect(
+      buildPrintSuccessMessage(response),
+      'Printerga yuborildi • 5 ta • netto 2.5 kg',
     );
   });
 
@@ -372,13 +400,24 @@ void main() {
     final request = buildGScaleRpsBatchPrintRequest(
       grossQtyKg: 2.5,
       driverUrl: ' http://127.0.0.1:39117/ ',
+      printCount: 5,
     );
 
     expect(request.toJson(), {
       'gross_qty': 2.5,
       'unit': 'kg',
       'driver_url': 'http://127.0.0.1:39117',
+      'print_count': 5,
     });
+  });
+
+  test(
+      'manual duplicate count parser defaults to one and rejects invalid input',
+      () {
+    expect(parseManualDuplicateCount(''), 1);
+    expect(parseManualDuplicateCount(' 5 '), 5);
+    expect(parseManualDuplicateCount('0'), isNull);
+    expect(parseManualDuplicateCount('1.5'), isNull);
   });
 
   test('auto batch print triggers once per stable scale reading', () {

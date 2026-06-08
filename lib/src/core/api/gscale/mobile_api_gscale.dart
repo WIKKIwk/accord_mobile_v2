@@ -202,17 +202,20 @@ class GScaleRpsBatchPrintRequest {
     required this.grossQty,
     required this.driverUrl,
     this.unit = 'kg',
+    this.printCount = 1,
   });
 
   final double grossQty;
   final String driverUrl;
   final String unit;
+  final int printCount;
 
   Map<String, dynamic> toJson() {
     return {
       'gross_qty': grossQty,
       'unit': unit.trim().isEmpty ? 'kg' : unit.trim(),
       'driver_url': driverUrl.trim().trimRightSlash(),
+      'print_count': printCount > 1 ? printCount : 1,
     };
   }
 }
@@ -306,6 +309,7 @@ class GScaleMaterialReceiptPrintResponse {
     required this.printer,
     required this.printMode,
     required this.printerStatus,
+    required this.printCount,
   });
 
   factory GScaleMaterialReceiptPrintResponse.fromJson(
@@ -326,6 +330,7 @@ class GScaleMaterialReceiptPrintResponse {
       printer: _gscaleText(json['printer']),
       printMode: _gscaleText(json['print_mode']),
       printerStatus: _gscaleText(json['printer_status']),
+      printCount: (json['print_count'] as num?)?.toInt() ?? 1,
     );
   }
 
@@ -343,6 +348,7 @@ class GScaleMaterialReceiptPrintResponse {
   final String printer;
   final String printMode;
   final String printerStatus;
+  final int printCount;
 }
 
 Map<String, dynamic> _gscaleDecodeObject(String body) {
