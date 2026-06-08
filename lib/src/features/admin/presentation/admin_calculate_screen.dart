@@ -205,7 +205,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               query: query,
               offset: offset,
               limit: limit,
-              customerItems: MobileApi.instance.werkaCustomerItems,
+              customerDetail: MobileApi.instance.adminCustomerDetail,
               allItems: MobileApi.instance.gscaleItemsPage,
             );
           },

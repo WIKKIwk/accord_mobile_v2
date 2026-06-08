@@ -3,34 +3,46 @@ import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart'
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('loads customer items when customer is selected', () async {
-    var customerCalls = 0;
+  test('loads assigned customer items when customer is selected', () async {
+    var detailCalls = 0;
     var allCalls = 0;
 
     final result = await loadCalculateProductPickerPage(
       customerRef: 'CUST-001',
-      query: 'cpp',
-      offset: 10,
-      limit: 20,
-      customerItems: ({
-        required customerRef,
-        query = '',
-        limit = 100,
-        offset = 0,
-      }) async {
-        customerCalls++;
+      query: 'cust',
+      offset: 1,
+      limit: 1,
+      customerDetail: (customerRef) async {
+        detailCalls++;
         expect(customerRef, 'CUST-001');
-        expect(query, 'cpp');
-        expect(offset, 10);
-        expect(limit, 20);
-        return const [
-          SupplierItem(
-            code: 'ITEM-CUST',
-            name: 'Customer item',
-            uom: 'Kg',
-            warehouse: '',
-          ),
-        ];
+        return const AdminCustomerDetail(
+          ref: 'CUST-001',
+          name: 'Customer',
+          phone: '',
+          code: '',
+          codeLocked: false,
+          codeRetryAfterSec: 0,
+          assignedItems: [
+            SupplierItem(
+              code: 'ITEM-1',
+              name: 'Customer first',
+              uom: 'Kg',
+              warehouse: '',
+            ),
+            SupplierItem(
+              code: 'ITEM-2',
+              name: 'Customer second',
+              uom: 'Kg',
+              warehouse: '',
+            ),
+            SupplierItem(
+              code: 'NOPE',
+              name: 'Other item',
+              uom: 'Kg',
+              warehouse: '',
+            ),
+          ],
+        );
       },
       allItems: ({
         query = '',
@@ -39,17 +51,72 @@ void main() {
         offset = 0,
       }) async {
         allCalls++;
-        return const <SupplierItem>[];
+        expect(query, 'cpp');
+        expect(offset, 0);
+        expect(limit, 80);
+        return const [
+          SupplierItem(
+            code: 'ITEM-ALL',
+            name: 'All item',
+            uom: 'Kg',
+            warehouse: '',
+          ),
+        ];
       },
     );
 
-    expect(result.single.code, 'ITEM-CUST');
-    expect(customerCalls, 1);
+    expect(result.single.code, 'ITEM-2');
+    expect(detailCalls, 1);
     expect(allCalls, 0);
   });
 
+  test('returns empty customer item page when offset is past filtered items',
+      () async {
+    final result = await loadCalculateProductPickerPage(
+      customerRef: 'CUST-001',
+      query: 'missing',
+      offset: 0,
+      limit: 20,
+      customerDetail: (_) async {
+        return const AdminCustomerDetail(
+          ref: 'CUST-001',
+          name: 'Customer',
+          phone: '',
+          code: '',
+          codeLocked: false,
+          codeRetryAfterSec: 0,
+          assignedItems: [
+            SupplierItem(
+              code: 'ITEM-CUST',
+              name: 'Customer item',
+              uom: 'Kg',
+              warehouse: '',
+            ),
+          ],
+        );
+      },
+      allItems: ({
+        query = '',
+        group = '',
+        limit = 80,
+        offset = 0,
+      }) async {
+        return const [
+          SupplierItem(
+            code: 'ITEM-ALL',
+            name: 'All item',
+            uom: 'Kg',
+            warehouse: '',
+          ),
+        ];
+      },
+    );
+
+    expect(result, isEmpty);
+  });
+
   test('loads all items when customer is not selected', () async {
-    var customerCalls = 0;
+    var detailCalls = 0;
     var allCalls = 0;
 
     final result = await loadCalculateProductPickerPage(
@@ -57,14 +124,9 @@ void main() {
       query: 'cpp',
       offset: 0,
       limit: 80,
-      customerItems: ({
-        required customerRef,
-        query = '',
-        limit = 100,
-        offset = 0,
-      }) async {
-        customerCalls++;
-        return const <SupplierItem>[];
+      customerDetail: (_) async {
+        detailCalls++;
+        throw StateError('customer detail should not load');
       },
       allItems: ({
         query = '',
@@ -88,7 +150,7 @@ void main() {
     );
 
     expect(result.single.code, 'ITEM-ALL');
-    expect(customerCalls, 0);
+    expect(detailCalls, 0);
     expect(allCalls, 1);
   });
 }
