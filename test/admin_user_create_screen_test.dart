@@ -5,16 +5,20 @@ import 'dart:typed_data';
 
 import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
 import 'package:erpnext_stock_mobile/src/core/session/session.dart';
+import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,
@@ -26,7 +30,8 @@ void main() {
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
+    await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -52,7 +57,7 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUi(tester);
 
       expect(find.text('Role tanlash'), findsOneWidget);
       expect(find.text('Omborchi'), findsOneWidget);
@@ -60,21 +65,19 @@ void main() {
       expect(seenRequests, contains('GET /v1/mobile/admin/settings'));
 
       await tester.tap(find.text('Omborchi').first);
-      await tester.pumpAndSettle();
+      await _pumpUi(tester);
       expect(find.text('Role tanlang'), findsOneWidget);
       expect(seenRequests, contains('GET /v1/mobile/admin/roles'));
       expect(find.text('Item yaratuvchi'), findsOneWidget);
-      await tester.tap(find.text('Item yaratuvchi'));
-      await tester.pumpAndSettle();
+      await _selectPickerItem(tester, 'Item yaratuvchi');
       expect(find.text('Code'), findsNothing);
       expect(find.text('Omborchi saqlash'), findsNothing);
       expect(find.text('Foydalanuvchi saqlash'), findsOneWidget);
 
       await tester.tap(find.text('Item yaratuvchi').first);
-      await tester.pumpAndSettle();
+      await _pumpUi(tester);
       expect(find.text('Role tanlang'), findsOneWidget);
-      await tester.tap(find.text('Haridor').last);
-      await tester.pumpAndSettle();
+      await _selectPickerItem(tester, 'Haridor');
 
       await tester.enterText(find.byType(TextField).at(0), 'Ali Market');
       await tester.enterText(find.byType(TextField).at(1), '+998900001111');
@@ -85,9 +88,69 @@ void main() {
       expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(milliseconds: 2200));
-      await tester.pumpAndSettle();
+      await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
+
+  testWidgets('admin user create screen assigns aparatchi role',
+      (tester) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(seenRequests);
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Omborchi').first);
+      await _pumpUi(tester);
+      await _selectPickerItem(tester, 'Aparatchi');
+
+      expect(find.text('Foydalanuvchi saqlash'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Aparatchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000011');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests
+            .any((request) => request.contains('"role_id":"aparatchi"')),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+}
+
+Future<void> _pumpUi(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
+Future<void> _selectPickerItem(WidgetTester tester, String label) async {
+  await tester.enterText(find.byType(TextField).last, label);
+  await _pumpUi(tester);
+  await tester.tap(find.text(label).last);
+  await _pumpUi(tester);
 }
 
 class _AdminUserCreateHttpClient implements HttpClient {
@@ -139,6 +202,12 @@ class _AdminUserCreateHttpClient implements HttpClient {
             'capability_codes': ['catalog.item.read', 'catalog.item.create'],
             'system': false,
           },
+          {
+            'id': 'aparatchi',
+            'label': 'Aparatchi',
+            'capability_codes': ['apparatus.queue.read'],
+            'system': true,
+          },
         ];
       case 'POST /v1/mobile/admin/customers':
         body = const {
@@ -161,6 +230,8 @@ class _AdminUserCreateHttpClient implements HttpClient {
       response: _FakeHttpClientResponse(
         body: jsonEncode(body),
         statusCode: statusCode,
+        requestKey: key,
+        seenRequests: seenRequests,
       ),
     );
   }
@@ -225,7 +296,10 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
   @override
   Future<HttpClientResponse> close() async {
-    _body.clear();
+    final body = utf8.decode(_body.takeBytes());
+    if (body.isNotEmpty) {
+      response.seenRequests.add('BODY ${response.requestKey} $body');
+    }
     return response;
   }
 
@@ -247,9 +321,13 @@ class _FakeHttpClientResponse extends Stream<List<int>>
   _FakeHttpClientResponse({
     required this.body,
     required this.statusCode,
+    required this.requestKey,
+    required this.seenRequests,
   });
 
   final String body;
+  final String requestKey;
+  final List<String> seenRequests;
 
   @override
   final int statusCode;

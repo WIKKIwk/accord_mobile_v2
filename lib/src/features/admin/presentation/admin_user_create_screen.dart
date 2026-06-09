@@ -39,9 +39,7 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
     try {
       final roles = await MobileApi.instance.adminRoles();
       return [
-        ...roles
-            .where((role) => !role.system)
-            .map(_AdminUserCreateChoice.custom),
+        ...roles.where(_isAssignableRole).map(_AdminUserCreateChoice.custom),
         ...fallbackChoices,
       ];
     } catch (_) {
@@ -198,6 +196,13 @@ _AdminUserCreateKind _kindForRole(AdminRoleDefinition role) {
     return _AdminUserCreateKind.werka;
   }
   return _AdminUserCreateKind.custom;
+}
+
+bool _isAssignableRole(AdminRoleDefinition role) {
+  if (!role.system) {
+    return true;
+  }
+  return !{'admin', 'werka', 'supplier', 'customer'}.contains(role.id);
 }
 
 class _RoleSelector extends StatelessWidget {
@@ -676,7 +681,7 @@ Future<void> _assignCustomRole(
   UserRole principalRole,
   String principalRef,
 ) async {
-  if (role == null || role.system) {
+  if (role == null) {
     return;
   }
   await MobileApi.instance.adminUpsertRoleAssignment(
