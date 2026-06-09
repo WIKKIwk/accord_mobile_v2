@@ -144,11 +144,28 @@ class _FormulaAutocompleteController extends TextEditingController {
 }
 
 class AdminProductionMapTestScreen extends StatefulWidget {
-  const AdminProductionMapTestScreen({super.key});
+  const AdminProductionMapTestScreen({
+    super.key,
+    this.orderContext,
+  });
+
+  final ProductionMapOrderContext? orderContext;
 
   @override
   State<AdminProductionMapTestScreen> createState() =>
       _AdminProductionMapTestScreenState();
+}
+
+class ProductionMapOrderContext {
+  const ProductionMapOrderContext({
+    required this.orderName,
+    required this.productName,
+    required this.itemCode,
+  });
+
+  final String orderName;
+  final String productName;
+  final String itemCode;
 }
 
 class _AdminProductionMapTestScreenState
@@ -161,54 +178,113 @@ class _AdminProductionMapTestScreenState
   static const _maxNodeX = 1600.0;
   static const _maxNodeY = 3200.0;
 
-  final nodes = <ProductionMapNode>[
-    const ProductionMapNode(
-      id: 'start',
-      kind: 'start',
-      title: 'Start',
-      x: 420,
-      y: 32,
-    ),
-    const ProductionMapNode(
-      id: 'cpp_calc',
-      kind: 'formula',
-      title: 'CPP hisob',
-      x: 420,
-      y: 164,
-      formula: ProductionFormula(
-        target: 'cpp_kg',
-        expression: 'order_qty * 1.08',
-      ),
-    ),
-    const ProductionMapNode(
-      id: 'qty_check',
-      kind: 'condition',
-      title: 'Katta partiyami?',
-      x: 420,
-      y: 296,
-      formula: ProductionFormula(
-        target: '',
-        expression: 'order_qty >= 100',
-      ),
-    ),
-    const ProductionMapNode(
-      id: 'end',
-      kind: 'end',
-      title: 'End',
-      x: 420,
-      y: 520,
-    ),
-  ];
-  final edges = <ProductionMapEdge>[
-    const ProductionMapEdge(from: 'start', to: 'cpp_calc'),
-    const ProductionMapEdge(from: 'cpp_calc', to: 'qty_check'),
-  ];
+  late final bool _orderMode;
+  late final List<ProductionMapNode> nodes;
+  late final List<ProductionMapEdge> edges;
 
   int _nextNodeIndex = 1;
   String? _connectingFromNodeID;
   String _connectingFromBranch = '';
   Offset? _connectionPreviewEnd;
   bool _mapToolsMenuOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderMode = widget.orderContext != null;
+    nodes = _orderMode
+        ? _orderFlowNodes(widget.orderContext!)
+        : _defaultTestNodes();
+    edges = _orderMode ? _orderFlowEdges() : _defaultTestEdges();
+  }
+
+  List<ProductionMapNode> _defaultTestNodes() {
+    return [
+      const ProductionMapNode(
+        id: 'start',
+        kind: 'start',
+        title: 'Start',
+        x: 420,
+        y: 32,
+      ),
+      const ProductionMapNode(
+        id: 'cpp_calc',
+        kind: 'formula',
+        title: 'CPP hisob',
+        x: 420,
+        y: 164,
+        formula: ProductionFormula(
+          target: 'cpp_kg',
+          expression: 'order_qty * 1.08',
+        ),
+      ),
+      const ProductionMapNode(
+        id: 'qty_check',
+        kind: 'condition',
+        title: 'Katta partiyami?',
+        x: 420,
+        y: 296,
+        formula: ProductionFormula(
+          target: '',
+          expression: 'order_qty >= 100',
+        ),
+      ),
+      const ProductionMapNode(
+        id: 'end',
+        kind: 'end',
+        title: 'End',
+        x: 420,
+        y: 520,
+      ),
+    ];
+  }
+
+  List<ProductionMapEdge> _defaultTestEdges() {
+    return [
+      const ProductionMapEdge(from: 'start', to: 'cpp_calc'),
+      const ProductionMapEdge(from: 'cpp_calc', to: 'qty_check'),
+    ];
+  }
+
+  List<ProductionMapNode> _orderFlowNodes(ProductionMapOrderContext context) {
+    final orderName =
+        context.orderName.trim().isEmpty ? 'Zakaz' : context.orderName.trim();
+    final productName = context.productName.trim().isEmpty
+        ? 'Mahsulot'
+        : context.productName.trim();
+    return [
+      const ProductionMapNode(
+        id: 'start',
+        kind: 'start',
+        title: 'Start',
+        x: 420,
+        y: 32,
+      ),
+      ProductionMapNode(
+        id: 'order',
+        kind: 'task',
+        title: orderName,
+        roleCode: 'zakaz',
+        x: 420,
+        y: 164,
+      ),
+      ProductionMapNode(
+        id: 'end',
+        kind: 'end',
+        title: productName,
+        itemCode: context.itemCode,
+        x: 420,
+        y: 296,
+      ),
+    ];
+  }
+
+  List<ProductionMapEdge> _orderFlowEdges() {
+    return [
+      const ProductionMapEdge(from: 'start', to: 'order'),
+      const ProductionMapEdge(from: 'order', to: 'end'),
+    ];
+  }
 
   void _addNode(String kind) {
     final id = '${kind}_${_nextNodeIndex++}';
@@ -663,6 +739,15 @@ class _AdminProductionMapTestScreenState
   }
 
   List<AdminFabMenuAction> _mapToolActions() {
+    if (_orderMode) {
+      return [
+        AdminFabMenuAction(
+          title: 'Aparat',
+          icon: Icons.precision_manufacturing_rounded,
+          onTap: () => _runMapToolAction(() => _addNode('apparatus')),
+        ),
+      ];
+    }
     return [
       AdminFabMenuAction(
         title: 'Ishlov',

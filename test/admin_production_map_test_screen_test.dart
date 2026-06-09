@@ -65,6 +65,48 @@ void main() {
     expect(find.text('Godex aparat - DEMO'), findsWidgets);
   });
 
+  testWidgets('production map opened from zakaz uses linear apparatus flow',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            orderName: 'Zenit order',
+            productName: 'zenit frutto ninja 70gr',
+            itemCode: 'ITEM-001',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Zenit order'), findsOneWidget);
+    expect(find.text('zenit frutto ninja 70gr'), findsOneWidget);
+    expect(find.text('CPP hisob'), findsNothing);
+    expect(find.text('Katta partiyami?'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('admin-fab-menu-Aparat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Formula')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('admin-fab-menu-Condition')), findsNothing);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Ishlov')), findsNothing);
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier',
       (tester) async {
     await _usePhoneViewport(tester);

@@ -7,6 +7,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'calculate_product_picker_loader.dart';
+import 'admin_production_map_test_screen.dart';
 import '../state/calculate_order_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
@@ -140,7 +141,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openProductionMap() async {
-    await Navigator.of(context).pushNamed(AppRoutes.adminProductionMapTest);
+    await Navigator.of(context).pushNamed(
+      AppRoutes.adminProductionMapTest,
+      arguments: ProductionMapOrderContext(
+        orderName: _orderName.text,
+        productName: _product.text,
+        itemCode: _itemCode,
+      ),
+    );
   }
 
   Future<void> _openCustomerPicker() async {

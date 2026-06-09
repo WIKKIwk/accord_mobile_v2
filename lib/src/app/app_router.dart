@@ -441,7 +441,14 @@ class AppRouter {
       case AppRoutes.adminRoles:
         return _buildRoute(settings, const AdminRolesScreen());
       case AppRoutes.adminProductionMapTest:
-        return _buildRoute(settings, const AdminProductionMapTestScreen());
+        final ProductionMapOrderContext? orderContext =
+            settings.arguments is ProductionMapOrderContext
+                ? settings.arguments as ProductionMapOrderContext
+                : null;
+        return _buildRoute(
+          settings,
+          AdminProductionMapTestScreen(orderContext: orderContext),
+        );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
       case AppRoutes.adminUserCreate:
