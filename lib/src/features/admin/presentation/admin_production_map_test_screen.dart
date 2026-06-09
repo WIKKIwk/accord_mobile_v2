@@ -348,11 +348,9 @@ class _AdminProductionMapTestScreenState
   }
 
   Future<String?> _requestOrderNumber() {
-    return showModalBottomSheet<String>(
+    return showDialog<String>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => _ProductionMapOrderNumberSheet(
+      builder: (context) => _ProductionMapOrderNumberDialog(
         initialValue: _orderNumber,
       ),
     );
@@ -1206,18 +1204,18 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
   }
 }
 
-class _ProductionMapOrderNumberSheet extends StatefulWidget {
-  const _ProductionMapOrderNumberSheet({required this.initialValue});
+class _ProductionMapOrderNumberDialog extends StatefulWidget {
+  const _ProductionMapOrderNumberDialog({required this.initialValue});
 
   final String initialValue;
 
   @override
-  State<_ProductionMapOrderNumberSheet> createState() =>
-      _ProductionMapOrderNumberSheetState();
+  State<_ProductionMapOrderNumberDialog> createState() =>
+      _ProductionMapOrderNumberDialogState();
 }
 
-class _ProductionMapOrderNumberSheetState
-    extends State<_ProductionMapOrderNumberSheet> {
+class _ProductionMapOrderNumberDialogState
+    extends State<_ProductionMapOrderNumberDialog> {
   late final TextEditingController _controller;
   String? _errorText;
 
@@ -1245,65 +1243,89 @@ class _ProductionMapOrderNumberSheetState
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return _DismissibleBottomSheetFrame(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.topRight,
-              child: IconButton(
-                key: const ValueKey('production-map-order-number-close'),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(22),
             ),
-            Text(
-              'Zakaz raqami',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Zakaz raqami',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey(
+                          'production-map-order-number-close',
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ],
                   ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              key: const ValueKey('production-map-order-number-field'),
-              controller: _controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
-              maxLength: 4,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(4),
-              ],
-              decoration: InputDecoration(
-                labelText: '4 xonali zakaz raqami',
-                counterText: '',
-                errorText: _errorText,
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('production-map-order-number-field'),
+                    controller: _controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    maxLength: 4,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(4),
+                    ],
+                    decoration: InputDecoration(
+                      labelText: '4 xonali zakaz raqami',
+                      counterText: '',
+                      errorText: _errorText,
+                    ),
+                    onChanged: (_) {
+                      if (_errorText != null) {
+                        setState(() => _errorText = null);
+                      }
+                    },
+                    onSubmitted: (_) => _save(),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    key: const ValueKey('production-map-confirm-save'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    onPressed: _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Saqlash'),
+                  ),
+                ],
               ),
-              onChanged: (_) {
-                if (_errorText != null) {
-                  setState(() => _errorText = null);
-                }
-              },
-              onSubmitted: (_) => _save(),
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              key: const ValueKey('production-map-confirm-save'),
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.primary,
-                foregroundColor: scheme.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-              onPressed: _save,
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Saqlash'),
-            ),
-          ],
+          ),
         ),
       ),
     );
