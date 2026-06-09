@@ -56,7 +56,7 @@ class TestModeDemoData {
     AdminWarehouse(warehouse: 'Tayyor mahsulot ombori - DEMO'),
     AdminWarehouse(
       warehouse: 'Godex aparat - DEMO',
-      parentWarehouse: 'Aparat',
+      parentWarehouse: 'aparat - A',
     ),
   ];
 

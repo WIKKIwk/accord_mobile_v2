@@ -54,7 +54,7 @@ void main() {
     await TestModeController.instance.setEnabled(true);
 
     final warehouses = await MobileApi.instance.adminWarehouses(
-      parent: 'Aparat',
+      parent: 'aparat - A',
     );
 
     expect(warehouses.map((item) => item.warehouse), ['Godex aparat - DEMO']);

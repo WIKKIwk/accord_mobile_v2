@@ -595,7 +595,7 @@ class _AdminProductionMapTestScreenState
             loadPage: (query, offset, limit) async {
               final warehouses = await MobileApi.instance.adminWarehouses(
                 query: query,
-                parent: 'Aparat',
+                parent: 'aparat - A',
                 limit: offset + limit,
               );
               return warehouses
