@@ -178,6 +178,12 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       label: 'Production map',
       routeName: AppRoutes.adminProductionMapTest,
     ),
+    const _AdminDrawerDestination(
+      icon: Icons.account_tree_outlined,
+      selectedIcon: Icons.account_tree_rounded,
+      label: 'Ochilgan zakazlar',
+      routeName: AppRoutes.adminProductionMapOrders,
+    ),
     _AdminDrawerDestination(
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,

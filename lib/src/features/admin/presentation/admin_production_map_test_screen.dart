@@ -148,9 +148,11 @@ class AdminProductionMapTestScreen extends StatefulWidget {
   const AdminProductionMapTestScreen({
     super.key,
     this.orderContext,
+    this.savedMap,
   });
 
   final ProductionMapOrderContext? orderContext;
+  final ProductionMapDefinition? savedMap;
 
   @override
   State<AdminProductionMapTestScreen> createState() =>
@@ -195,11 +197,19 @@ class _AdminProductionMapTestScreenState
   @override
   void initState() {
     super.initState();
-    _orderMode = widget.orderContext != null;
-    nodes = _orderMode
-        ? _orderFlowNodes(widget.orderContext!)
-        : _defaultTestNodes();
-    edges = _orderMode ? _orderFlowEdges() : _defaultTestEdges();
+    final savedMap = widget.savedMap;
+    _orderMode = widget.orderContext != null ||
+        (savedMap?.id.trim().startsWith('zakaz-') ?? false);
+    nodes = savedMap != null
+        ? List<ProductionMapNode>.from(savedMap.nodes)
+        : _orderMode
+            ? _orderFlowNodes(widget.orderContext!)
+            : _defaultTestNodes();
+    edges = savedMap != null
+        ? List<ProductionMapEdge>.from(savedMap.edges)
+        : _orderMode
+            ? _orderFlowEdges()
+            : _defaultTestEdges();
   }
 
   List<ProductionMapNode> _defaultTestNodes() {
@@ -315,13 +325,18 @@ class _AdminProductionMapTestScreenState
 
   ProductionMapDefinition _currentMapDefinition() {
     final context = widget.orderContext;
+    final savedMap = widget.savedMap;
     final title = context == null
-        ? 'Production map test'
+        ? (savedMap?.title.trim().isNotEmpty ?? false)
+            ? savedMap!.title.trim()
+            : 'Production map test'
         : (context.orderName.trim().isEmpty
             ? 'Zakaz'
             : context.orderName.trim());
     final productCode = context == null
-        ? 'production-map-test'
+        ? (savedMap?.productCode.trim().isNotEmpty ?? false)
+            ? savedMap!.productCode.trim()
+            : 'production-map-test'
         : _firstNonEmpty([
             context.itemCode,
             context.productName,
@@ -329,7 +344,11 @@ class _AdminProductionMapTestScreenState
             context.templateId,
           ]);
     return ProductionMapDefinition(
-      id: context == null ? 'production-map-test' : _orderMapId(context),
+      id: context == null
+          ? (savedMap?.id.trim().isNotEmpty ?? false)
+              ? savedMap!.id.trim()
+              : 'production-map-test'
+          : _orderMapId(context),
       productCode: productCode,
       title: title,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),

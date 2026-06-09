@@ -1,6 +1,7 @@
 import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
 import 'package:erpnext_stock_mobile/src/core/session/session.dart';
 import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -138,6 +139,60 @@ void main() {
 
     expect(find.text('Production map saqlandi'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('opened production map orders page lists saved zakaz',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            templateId: 'ORDER-2',
+            orderName: 'Zenit opened',
+            productName: 'zenit frutto ninja 70gr',
+            itemCode: 'ITEM-002',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ochilgan zakazlar'), findsOneWidget);
+    expect(find.text('Zenit opened'), findsOneWidget);
+    expect(
+      find.textContaining('zenit frutto ninja 70gr • ITEM-002'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('production map sheet closes when tapping the dimmed barrier',

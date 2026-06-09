@@ -1,5 +1,7 @@
 part of '../mobile_api.dart';
 
+final List<ProductionMapSaved> _testModeProductionMaps = [];
+
 extension MobileApiAdmin on MobileApi {
   String get baseUrl => MobileApi.baseUrl;
 
@@ -106,6 +108,9 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<List<ProductionMapSaved>> adminProductionMaps() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
+    }
     final response = await _sendAuthorized(
       () => http.get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),
@@ -126,7 +131,7 @@ extension MobileApiAdmin on MobileApi {
     ProductionMapDefinition map,
   ) async {
     if (await TestModeController.instance.isEnabled()) {
-      return ProductionMapSaved(
+      final saved = ProductionMapSaved(
         map: map,
         program: ProductionMapProgram(
           mapId: map.id,
@@ -142,6 +147,9 @@ extension MobileApiAdmin on MobileApi {
           ],
         ),
       );
+      _testModeProductionMaps.removeWhere((item) => item.map.id == map.id);
+      _testModeProductionMaps.insert(0, saved);
+      return saved;
     }
     final response = await _sendAuthorized(
       () => http.put(

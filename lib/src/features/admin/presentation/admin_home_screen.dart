@@ -301,6 +301,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminProductionMapTest,
     ),
     const _AdminHomeAction(
+      title: 'Ochilgan zakazlar',
+      icon: Icons.account_tree_outlined,
+      routeName: AppRoutes.adminProductionMapOrders,
+    ),
+    const _AdminHomeAction(
       title: 'GScale',
       icon: Icons.scale_outlined,
       routeName: AppRoutes.gscaleMode,

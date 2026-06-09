@@ -15,6 +15,7 @@ import '../features/admin/presentation/admin_item_group_create_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
+import '../features/admin/presentation/admin_production_map_orders_screen.dart';
 import '../features/admin/presentation/admin_supplier_create_screen.dart';
 import '../features/admin/presentation/admin_customer_create_screen.dart';
 import '../features/admin/presentation/admin_customer_detail_screen.dart';
@@ -25,6 +26,7 @@ import '../features/admin/presentation/admin_item_group_bulk_move_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
+import '../features/admin/models/production_map_models.dart';
 import '../features/admin/state/calculate_order_store.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
@@ -128,6 +130,7 @@ class AppRoutes {
   static const String adminSettings = '/admin-settings';
   static const String adminRoles = '/admin-roles';
   static const String adminProductionMapTest = '/admin-production-map-test';
+  static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminUserCreate = '/admin-user-create';
   static const String adminSupplierCreate = '/admin-supplier-create';
@@ -161,6 +164,7 @@ class AppRouter {
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
+    AppRoutes.adminProductionMapOrders,
     AppRoutes.adminSuppliers,
     AppRoutes.adminUserCreate,
     AppRoutes.adminWerka,
@@ -198,6 +202,7 @@ class AppRouter {
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
+    AppRoutes.adminProductionMapOrders,
     AppRoutes.adminCalculate,
     AppRoutes.adminCalculateOrders,
     AppRoutes.adminSupplierCreate,
@@ -445,10 +450,19 @@ class AppRouter {
             settings.arguments is ProductionMapOrderContext
                 ? settings.arguments as ProductionMapOrderContext
                 : null;
+        final ProductionMapSaved? savedMap =
+            settings.arguments is ProductionMapSaved
+                ? settings.arguments as ProductionMapSaved
+                : null;
         return _buildRoute(
           settings,
-          AdminProductionMapTestScreen(orderContext: orderContext),
+          AdminProductionMapTestScreen(
+            orderContext: orderContext,
+            savedMap: savedMap?.map,
+          ),
         );
+      case AppRoutes.adminProductionMapOrders:
+        return _buildRoute(settings, const AdminProductionMapOrdersScreen());
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
       case AppRoutes.adminUserCreate:
@@ -610,6 +624,10 @@ class AppRouter {
     AppRoutes.adminSettings: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
     AppRoutes.adminProductionMapTest: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminProductionMapOrders: {
       'admin.access',
       'production.map.manage',
     },
