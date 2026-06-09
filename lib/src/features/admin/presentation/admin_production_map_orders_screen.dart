@@ -25,9 +25,10 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
 }
 
 class _AdminProductionMapOrdersScreenState
-    extends State<AdminProductionMapOrdersScreen> {
+    extends State<AdminProductionMapOrdersScreen>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
-  final _pageController = PageController();
+  late final TabController _tabController;
   bool _openingRoute = false;
   bool _loading = true;
   String _searchQuery = '';
@@ -40,13 +41,19 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _OpenedOrderModule.values.length,
+      vsync: this,
+    );
+    _tabController.addListener(_syncModuleFromTab);
     _load();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_syncModuleFromTab);
+    _tabController.dispose();
     _searchController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -92,31 +99,25 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _setModule(_OpenedOrderModule module) {
-    if (_module == module) {
-      return;
+    if (_module != module) {
+      setState(() => _module = module);
     }
-    setState(() => _module = module);
-    _pageController.animateToPage(
-      module.index,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    if (_tabController.index != module.index) {
+      _tabController.animateTo(
+        module.index,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   void _selectApparatus(AdminWarehouse apparatus) {
-    setState(() {
-      _selectedApparatus = apparatus;
-      _module = _OpenedOrderModule.sequence;
-    });
-    _pageController.animateToPage(
-      _OpenedOrderModule.sequence.index,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
+    setState(() => _selectedApparatus = apparatus);
+    _setModule(_OpenedOrderModule.sequence);
   }
 
-  void _onPageChanged(int index) {
-    final module = _OpenedOrderModule.values[index];
+  void _syncModuleFromTab() {
+    final module = _OpenedOrderModule.values[_tabController.index];
     if (_module != module) {
       setState(() => _module = module);
     }
@@ -194,14 +195,19 @@ class _AdminProductionMapOrdersScreenState
           ? const Center(child: AppLoadingIndicator())
           : Column(
               children: [
-                _OpenedOrderModulePicker(
-                  selected: _module,
-                  onSelected: _setModule,
+                TabBar(
+                  controller: _tabController,
+                  onTap: (index) =>
+                      _setModule(_OpenedOrderModule.values[index]),
+                  tabs: const [
+                    Tab(text: 'Zakazlar'),
+                    Tab(text: 'Aparatlar'),
+                    Tab(text: 'Ketma-ketlik'),
+                  ],
                 ),
                 Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
+                  child: TabBarView(
+                    controller: _tabController,
                     children: [
                       _OrdersModulePage(
                         bottomPadding: bottomPadding,
@@ -239,48 +245,6 @@ class _AdminProductionMapOrdersScreenState
                 ),
               ],
             ),
-    );
-  }
-}
-
-class _OpenedOrderModulePicker extends StatelessWidget {
-  const _OpenedOrderModulePicker({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final _OpenedOrderModule selected;
-  final ValueChanged<_OpenedOrderModule> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      child: SegmentedButton<_OpenedOrderModule>(
-        segments: const [
-          ButtonSegment(
-            value: _OpenedOrderModule.orders,
-            icon: Icon(Icons.list_alt_rounded, size: 18),
-            label: Text('Zakazlar'),
-          ),
-          ButtonSegment(
-            value: _OpenedOrderModule.apparatus,
-            icon: Icon(Icons.precision_manufacturing_rounded, size: 18),
-            label: Text('Aparatlar'),
-          ),
-          ButtonSegment(
-            value: _OpenedOrderModule.sequence,
-            icon: Icon(Icons.sort_rounded, size: 18),
-            label: Text('Ketma-ketlik'),
-          ),
-        ],
-        selected: {selected},
-        showSelectedIcon: false,
-        onSelectionChanged: (values) => onSelected(values.single),
-        style: const ButtonStyle(
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
     );
   }
 }
