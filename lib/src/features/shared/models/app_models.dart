@@ -832,6 +832,7 @@ class SessionProfile {
     required this.phone,
     required this.avatarUrl,
     this.capabilities = const [],
+    this.assignedApparatus = const [],
   });
 
   final UserRole role;
@@ -841,6 +842,7 @@ class SessionProfile {
   final String phone;
   final String avatarUrl;
   final List<String> capabilities;
+  final List<String> assignedApparatus;
 
   factory SessionProfile.fromJson(Map<String, dynamic> json) {
     return SessionProfile(
@@ -853,6 +855,10 @@ class SessionProfile {
       capabilities: (json['capabilities'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(growable: false),
+      assignedApparatus:
+          (json['assigned_apparatus'] as List<dynamic>? ?? const [])
+              .map((item) => item as String)
+              .toList(growable: false),
     );
   }
 
@@ -865,6 +871,7 @@ class SessionProfile {
       'phone': phone,
       'avatar_url': avatarUrl,
       'capabilities': capabilities,
+      'assigned_apparatus': assignedApparatus,
     };
   }
 
@@ -925,6 +932,7 @@ class SessionProfile {
     String? phone,
     String? avatarUrl,
     List<String>? capabilities,
+    List<String>? assignedApparatus,
   }) {
     return SessionProfile(
       role: role ?? this.role,
@@ -934,6 +942,7 @@ class SessionProfile {
       phone: phone ?? this.phone,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       capabilities: capabilities ?? this.capabilities,
+      assignedApparatus: assignedApparatus ?? this.assignedApparatus,
     );
   }
 }
@@ -1073,17 +1082,23 @@ class AdminRoleAssignment {
     required this.principalRole,
     required this.principalRef,
     required this.roleId,
+    this.assignedApparatus = const [],
   });
 
   final UserRole principalRole;
   final String principalRef;
   final String roleId;
+  final List<String> assignedApparatus;
 
   factory AdminRoleAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRoleAssignment(
       principalRole: userRoleFromJson(json['principal_role'] as String?),
       principalRef: json['principal_ref'] as String? ?? '',
       roleId: json['role_id'] as String? ?? '',
+      assignedApparatus:
+          (json['assigned_apparatus'] as List<dynamic>? ?? const [])
+              .map((item) => item as String)
+              .toList(growable: false),
     );
   }
 
@@ -1092,6 +1107,7 @@ class AdminRoleAssignment {
       'principal_role': userRoleToJson(principalRole),
       'principal_ref': principalRef,
       'role_id': roleId,
+      if (assignedApparatus.isNotEmpty) 'assigned_apparatus': assignedApparatus,
     };
   }
 }

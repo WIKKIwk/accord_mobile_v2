@@ -47,6 +47,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       MobileApi.instance.adminSettings(),
       MobileApi.instance.adminSuppliers(limit: 100),
       MobileApi.instance.adminCustomers(limit: 100),
+      MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
     ]);
     return _AdminRolesData(
       capabilities: results[0] as List<AdminCapability>,
@@ -55,6 +56,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       settings: results[3] as AdminSettings,
       suppliers: results[4] as List<AdminSupplier>,
       customers: results[5] as List<CustomerDirectoryEntry>,
+      apparatus: results[6] as List<AdminWarehouse>,
     );
   }
 
@@ -128,7 +130,12 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) {
-        return _RoleAssignmentSheet(principal: principal, roles: data.roles);
+        return _RoleAssignmentSheet(
+          principal: principal,
+          roles: data.roles,
+          apparatus: data.apparatus,
+          existingAssignment: data.assignmentForPrincipal(principal),
+        );
       },
     );
     if (assignment == null || !mounted) {
@@ -640,10 +647,47 @@ class _RoleAssignmentSheet extends StatelessWidget {
   const _RoleAssignmentSheet({
     required this.principal,
     required this.roles,
+    required this.apparatus,
+    required this.existingAssignment,
   });
 
   final _RolePrincipal principal;
   final List<AdminRoleDefinition> roles;
+  final List<AdminWarehouse> apparatus;
+  final AdminRoleAssignment? existingAssignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoleAssignmentSheetBody(
+      principal: principal,
+      roles: roles,
+      apparatus: apparatus,
+      existingAssignment: existingAssignment,
+    );
+  }
+}
+
+class _RoleAssignmentSheetBody extends StatefulWidget {
+  const _RoleAssignmentSheetBody({
+    required this.principal,
+    required this.roles,
+    required this.apparatus,
+    required this.existingAssignment,
+  });
+
+  final _RolePrincipal principal;
+  final List<AdminRoleDefinition> roles;
+  final List<AdminWarehouse> apparatus;
+  final AdminRoleAssignment? existingAssignment;
+
+  @override
+  State<_RoleAssignmentSheetBody> createState() =>
+      _RoleAssignmentSheetBodyState();
+}
+
+class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
+  late final Set<String> _assignedApparatus =
+      widget.existingAssignment?.assignedApparatus.toSet() ?? <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -655,13 +699,13 @@ class _RoleAssignmentSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
         children: [
           Text(
-            l10n.adminRoleForPrincipal(principal.name),
+            l10n.adminRoleForPrincipal(widget.principal.name),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          for (final role in roles)
+          for (final role in widget.roles) ...[
             ListTile(
-              enabled: _roleCanAssignToPrincipal(role, principal),
+              enabled: _roleCanAssignToPrincipal(role, widget.principal),
               leading: Icon(
                 role.system
                     ? Icons.admin_panel_settings_outlined
@@ -669,20 +713,87 @@ class _RoleAssignmentSheet extends StatelessWidget {
               ),
               title: Text(_roleDefinitionLabel(context, role)),
               subtitle: Text(_roleAssignmentSubtitle(l10n, role)),
-              onTap: _roleCanAssignToPrincipal(role, principal)
-                  ? () {
-                      Navigator.of(context).pop(
-                        AdminRoleAssignment(
-                          principalRole: principal.role,
-                          principalRef: principal.ref,
-                          roleId: role.id,
-                        ),
-                      );
-                    }
+              onTap: _roleCanAssignToPrincipal(role, widget.principal)
+                  ? () => _submit(role)
                   : null,
             ),
+            if (_roleNeedsApparatus(role))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _ApparatusScopePicker(
+                  apparatus: widget.apparatus,
+                  selected: _assignedApparatus,
+                  onChanged: (warehouse, checked) {
+                    setState(() {
+                      if (checked) {
+                        _assignedApparatus.add(warehouse);
+                      } else {
+                        _assignedApparatus.remove(warehouse);
+                      }
+                    });
+                  },
+                ),
+              ),
+          ],
         ],
       ),
+    );
+  }
+
+  void _submit(AdminRoleDefinition role) {
+    Navigator.of(context).pop(
+      AdminRoleAssignment(
+        principalRole: widget.principal.role,
+        principalRef: widget.principal.ref,
+        roleId: role.id,
+        assignedApparatus:
+            _roleNeedsApparatus(role) ? _sortedAssignedApparatus() : const [],
+      ),
+    );
+  }
+
+  List<String> _sortedAssignedApparatus() {
+    return _assignedApparatus.toList(growable: false)..sort();
+  }
+}
+
+class _ApparatusScopePicker extends StatelessWidget {
+  const _ApparatusScopePicker({
+    required this.apparatus,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<AdminWarehouse> apparatus;
+  final Set<String> selected;
+  final void Function(String warehouse, bool checked) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (apparatus.isEmpty) {
+      return Text(
+        'Aparat topilmadi',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Ruxsat berilgan apparatlar',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 6),
+        for (final item in apparatus)
+          CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: selected.contains(item.warehouse),
+            title: Text(item.warehouse),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (value) => onChanged(item.warehouse, value == true),
+          ),
+      ],
     );
   }
 }
@@ -695,6 +806,7 @@ class _AdminRolesData {
     required this.settings,
     required this.suppliers,
     required this.customers,
+    required this.apparatus,
   });
 
   final List<AdminCapability> capabilities;
@@ -703,6 +815,7 @@ class _AdminRolesData {
   final AdminSettings settings;
   final List<AdminSupplier> suppliers;
   final List<CustomerDirectoryEntry> customers;
+  final List<AdminWarehouse> apparatus;
 
   List<_RolePrincipal> get _principals {
     return <_RolePrincipal>[
@@ -755,13 +868,7 @@ class _AdminRolesData {
   }
 
   AdminRoleDefinition? roleForPrincipal(_RolePrincipal principal) {
-    final assignment = assignments
-        .where(
-          (item) =>
-              item.principalRole == principal.role &&
-              item.principalRef == principal.ref,
-        )
-        .letFirstOrNull();
+    final assignment = assignmentForPrincipal(principal);
     if (assignment == null) {
       return roles
           .where(
@@ -773,6 +880,17 @@ class _AdminRolesData {
           .letFirstOrNull();
     }
     return roles.where((role) => role.id == assignment.roleId).letFirstOrNull();
+  }
+
+  AdminRoleAssignment? assignmentForPrincipal(_RolePrincipal principal) {
+    final assignment = assignments
+        .where(
+          (item) =>
+              item.principalRole == principal.role &&
+              item.principalRef == principal.ref,
+        )
+        .letFirstOrNull();
+    return assignment;
   }
 
   _AdminRolesData upsertRole(AdminRoleDefinition role) {
@@ -810,6 +928,7 @@ class _AdminRolesData {
       settings: settings,
       suppliers: suppliers,
       customers: customers,
+      apparatus: apparatus,
     );
   }
 }
@@ -869,6 +988,10 @@ bool _roleCanAssignToPrincipal(
   _RolePrincipal principal,
 ) {
   return !role.system || role.baseRole == principal.role;
+}
+
+bool _roleNeedsApparatus(AdminRoleDefinition role) {
+  return role.capabilityCodes.contains('apparatus.queue.read');
 }
 
 String _roleAssignmentSubtitle(

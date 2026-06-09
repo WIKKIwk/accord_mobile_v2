@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -79,6 +80,7 @@ class _AdminProductionMapOrdersScreenState
       parent: 'aparat - A',
       limit: 200,
     );
+    final filteredApparatus = _filterApparatusForWorker(apparatus);
     if (!mounted) {
       return;
     }
@@ -86,10 +88,28 @@ class _AdminProductionMapOrdersScreenState
       _orders = maps
           .where((item) => item.map.id.trim().startsWith('zakaz-'))
           .toList(growable: false);
-      _apparatus = apparatus;
-      _selectedApparatus ??= apparatus.isEmpty ? null : apparatus.first;
+      _apparatus = filteredApparatus;
+      _selectedApparatus ??=
+          filteredApparatus.isEmpty ? null : filteredApparatus.first;
       _loading = false;
     });
+  }
+
+  List<AdminWarehouse> _filterApparatusForWorker(List<AdminWarehouse> source) {
+    if (!widget.workerMode) {
+      return source;
+    }
+    final allowed = AppSession.instance.profile?.assignedApparatus
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toSet() ??
+        const <String>{};
+    if (allowed.isEmpty) {
+      return const <AdminWarehouse>[];
+    }
+    return source
+        .where((item) => allowed.contains(item.warehouse.trim()))
+        .toList(growable: false);
   }
 
   void _openDrawerRoute(String routeName) {
@@ -111,6 +131,16 @@ class _AdminProductionMapOrdersScreenState
     Navigator.of(context).pushNamed(
       AppRoutes.adminProductionMapTest,
       arguments: order,
+    );
+  }
+
+  void _showOrderDetail(ProductionMapSaved order) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _ReadOnlyOrderDetailSheet(order: order),
     );
   }
 
@@ -214,7 +244,7 @@ class _AdminProductionMapOrdersScreenState
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       bottom: widget.workerMode
-          ? null
+          ? const _WorkerHomeDock()
           : const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
@@ -266,7 +296,9 @@ class _AdminProductionMapOrdersScreenState
                                   : _ordersForApparatus(_selectedApparatus!),
                               readOnly: widget.readOnly,
                               onReorder: _reorderSelectedApparatusOrders,
-                              onTapOrder: widget.readOnly ? null : _openOrder,
+                              onTapOrder: widget.readOnly
+                                  ? _showOrderDetail
+                                  : _openOrder,
                             ),
                         },
                     ],
@@ -838,5 +870,338 @@ class _EmptyOpenedOrders extends StatelessWidget {
             ),
       ),
     );
+  }
+}
+
+class _WorkerHomeDock extends StatelessWidget {
+  const _WorkerHomeDock();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        border: Border(
+          top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64 + bottom,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 7),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    height: 32,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        Icons.home_rounded,
+                        size: 20,
+                        color: scheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Uy',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyOrderDetailSheet extends StatelessWidget {
+  const _ReadOnlyOrderDetailSheet({required this.order});
+
+  final ProductionMapSaved order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final map = order.map;
+    final steps = _linearNodes(map);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.86,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      builder: (context, controller) {
+        return ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          children: [
+            Text(
+              map.title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _DetailCard(
+              children: [
+                if (map.orderNumber.trim().isNotEmpty)
+                  _DetailRow(label: 'Zakaz raqami', value: map.orderNumber),
+                _DetailRow(label: 'Mahsulot', value: _productTitle(map)),
+                if (map.productCode.trim().isNotEmpty)
+                  _DetailRow(label: 'Kod', value: map.productCode),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Ketma-ketlik',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    for (var index = 0; index < steps.length; index++)
+                      _SequenceStepTile(
+                        node: steps[index],
+                        index: index,
+                        isLast: index == steps.length - 1,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _productTitle(ProductionMapDefinition map) {
+    for (final node in map.nodes) {
+      final title = node.title.trim();
+      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
+        return title;
+      }
+    }
+    return map.title;
+  }
+
+  List<ProductionMapNode> _linearNodes(ProductionMapDefinition map) {
+    final byId = {for (final node in map.nodes) node.id: node};
+    final byFrom = <String, List<ProductionMapEdge>>{};
+    for (final edge in map.edges) {
+      byFrom.putIfAbsent(edge.from, () => <ProductionMapEdge>[]).add(edge);
+    }
+    final start = map.nodes
+        .where((node) => node.kind == 'start')
+        .map((node) => node.id)
+        .cast<String?>()
+        .firstWhere((id) => id != null, orElse: () => null);
+    if (start == null || !byId.containsKey(start)) {
+      return map.nodes;
+    }
+    final result = <ProductionMapNode>[];
+    final seen = <String>{};
+    var current = start;
+    while (seen.add(current)) {
+      final node = byId[current];
+      if (node != null) {
+        result.add(node);
+      }
+      final next = byFrom[current]
+          ?.map((edge) => edge.to)
+          .where((id) => byId.containsKey(id))
+          .cast<String?>()
+          .firstWhere((id) => id != null, orElse: () => null);
+      if (next == null) {
+        break;
+      }
+      current = next;
+    }
+    return result.isEmpty ? map.nodes : result;
+  }
+}
+
+class _DetailCard extends StatelessWidget {
+  const _DetailCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(children: children),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 112,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '-' : value.trim(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SequenceStepTile extends StatelessWidget {
+  const _SequenceStepTile({
+    required this.node,
+    required this.index,
+    required this.isLast,
+  });
+
+  final ProductionMapNode node;
+  final int index;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final icon = switch (node.kind) {
+      'start' => Icons.play_arrow_rounded,
+      'apparatus' => Icons.precision_manufacturing_rounded,
+      'kk_product' => Icons.inventory_2_outlined,
+      'end' => Icons.flag_rounded,
+      _ => Icons.account_tree_outlined,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              SizedBox.square(
+                dimension: 34,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 28,
+                  margin: const EdgeInsets.symmetric(vertical: 3),
+                  color: scheme.outlineVariant,
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    node.title.trim().isEmpty
+                        ? 'Qadam ${index + 1}'
+                        : node.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _kindLabel(node.kind),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _kindLabel(String kind) {
+    return switch (kind) {
+      'start' => 'Boshlanish',
+      'apparatus' => 'Aparat',
+      'kk_product' => 'KK li mahsulot',
+      'end' => 'Yakun',
+      _ => kind,
+    };
   }
 }

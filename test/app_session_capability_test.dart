@@ -20,6 +20,7 @@ void main() {
       'display_name': 'Scale operator',
       'ref': 'werka',
       'capabilities': ['gscale.print', 'rps.batch.manage'],
+      'assigned_apparatus': ['Godex aparat - DEMO'],
     });
 
     expect(profile.hasCapability('gscale.print'), isTrue);
@@ -28,6 +29,7 @@ void main() {
       'gscale.print',
       'rps.batch.manage',
     ]);
+    expect(profile.assignedApparatus, ['Godex aparat - DEMO']);
   });
 
   test('home route prefers capabilities over base role', () async {

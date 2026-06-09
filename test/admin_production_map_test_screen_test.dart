@@ -411,6 +411,19 @@ void main() {
 
   testWidgets('apparatus queue worker view is read only', (tester) async {
     await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-token',
+      profile: const SessionProfile(
+        role: UserRole.werka,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'werka',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read'],
+        assignedApparatus: ['Godex aparat - DEMO'],
+      ),
+    );
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
         id: 'zakaz-worker-queue',
@@ -450,6 +463,13 @@ void main() {
 
     expect(find.text('Worker queue order'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+
+    await tester.tap(find.text('Worker queue order'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ketma-ketlik'), findsWidgets);
+    expect(find.text('Zakaz detail'), findsNothing);
+    expect(find.text('worker mahsulot'), findsWidgets);
   });
 
   testWidgets('production map sheet closes when tapping the dimmed barrier',

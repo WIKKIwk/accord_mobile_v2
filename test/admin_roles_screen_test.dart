@@ -11,11 +11,13 @@ import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,
@@ -54,7 +56,10 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey('admin-role-card-admin')),
+      );
 
       expect(seenRequests, contains('GET /v1/mobile/admin/capabilities'));
       expect(seenRequests, contains('GET /v1/mobile/admin/roles'));
@@ -92,7 +97,7 @@ void main() {
       expect(find.widgetWithText(FilledButton, 'Saqlash'), findsNothing);
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('admin-role-save-action')));
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(tester, find.text('Biriktirish'));
 
       expect(seenRequests, contains('PUT /v1/mobile/admin/roles'));
       expect(seenBodies.last, contains('"id":"catalog_reader"'));
@@ -125,7 +130,10 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey('admin-role-edit-catalog_reader')),
+      );
       await tester.tap(find.text('Biriktirish'));
       await tester.pumpAndSettle();
 
@@ -135,9 +143,14 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Tanlash').first);
       await tester.pumpAndSettle();
       expect(find.text('Admin'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.text('Catalog reader'),
+        180,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('Catalog reader'), findsOneWidget);
       await tester.tap(find.text('Catalog reader'));
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(tester, find.text('Biriktirish'));
 
       expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
       expect(seenBodies.last, contains('"principal_role":"werka"'));
@@ -171,7 +184,7 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(tester, find.text('Biriktirish'));
       await tester.tap(
         find.byKey(const ValueKey('admin-role-edit-catalog_reader')),
       );
@@ -183,7 +196,7 @@ void main() {
       await tester.tap(find.text('GScale chop etish'));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('admin-role-save-action')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 800));
 
       expect(seenRequests, contains('PUT /v1/mobile/admin/roles'));
       expect(seenBodies.last, contains('"id":"catalog_reader"'));
@@ -219,14 +232,14 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(tester, find.text('Biriktirish'));
       await tester.tap(find.text('Biriktirish'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(OutlinedButton, 'Tanlash').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Scale operator').last);
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 800));
 
       expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
       expect(seenBodies.last, contains('"principal_role":"werka"'));
@@ -267,7 +280,7 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpUntilFound(tester, find.text('Biriktirish'));
       await tester.tap(find.text('Biriktirish'));
       await tester.pumpAndSettle();
 
@@ -278,6 +291,20 @@ void main() {
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
   });
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int attempts = 30,
+}) async {
+  for (var index = 0; index < attempts; index++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+  await tester.pump();
 }
 
 class _AdminRolesHttpClient implements HttpClient {
@@ -303,118 +330,138 @@ class _AdminRolesHttpClient implements HttpClient {
 
     Object body;
     var statusCode = HttpStatus.ok;
-    switch (key) {
-      case 'GET /v1/mobile/admin/capabilities':
-        body = const [
-          {
-            'code': 'admin.access',
-            'label': 'Admin panel',
-            'default_roles': ['admin'],
-          },
-          {
-            'code': 'role.capability.read',
-            'label': 'Role capability catalog read',
-            'default_roles': ['admin'],
-          },
-          {
-            'code': 'gscale.print',
-            'label': 'GScale chop etish',
-            'default_roles': ['admin', 'werka'],
-          },
-          {
-            'code': 'catalog.item.read',
-            'label': 'Catalog item read',
-            'default_roles': ['admin'],
-          },
-        ];
-      case 'GET /v1/mobile/admin/roles':
-        body = const [
-          {
-            'id': 'admin',
-            'label': 'Admin',
-            'base_role': 'admin',
-            'capability_codes': ['admin.access', 'role.capability.read'],
-            'system': true,
-          },
-          {
-            'id': 'werka',
-            'label': 'Werka',
-            'base_role': 'werka',
-            'capability_codes': ['gscale.print'],
-            'system': true,
-          },
-          {
-            'id': 'scale_operator',
-            'label': 'Scale operator',
-            'base_role': 'werka',
-            'capability_codes': ['gscale.print'],
-            'system': false,
-          },
-          {
+    if (key.startsWith('GET /v1/mobile/admin/warehouses')) {
+      body = const [
+        {'warehouse': 'Godex aparat - DEMO'},
+        {'warehouse': 'Paket aparat'},
+      ];
+    } else {
+      switch (key) {
+        case 'GET /v1/mobile/admin/capabilities':
+          body = const [
+            {
+              'code': 'admin.access',
+              'label': 'Admin panel',
+              'default_roles': ['admin'],
+            },
+            {
+              'code': 'role.capability.read',
+              'label': 'Role capability catalog read',
+              'default_roles': ['admin'],
+            },
+            {
+              'code': 'gscale.print',
+              'label': 'GScale chop etish',
+              'default_roles': ['admin', 'werka'],
+            },
+            {
+              'code': 'catalog.item.read',
+              'label': 'Catalog item read',
+              'default_roles': ['admin'],
+            },
+            {
+              'code': 'apparatus.queue.read',
+              'label': 'Apparat queue read',
+              'default_roles': [],
+            },
+          ];
+        case 'GET /v1/mobile/admin/roles':
+          body = const [
+            {
+              'id': 'admin',
+              'label': 'Admin',
+              'base_role': 'admin',
+              'capability_codes': ['admin.access', 'role.capability.read'],
+              'system': true,
+            },
+            {
+              'id': 'werka',
+              'label': 'Werka',
+              'base_role': 'werka',
+              'capability_codes': ['gscale.print'],
+              'system': true,
+            },
+            {
+              'id': 'scale_operator',
+              'label': 'Scale operator',
+              'base_role': 'werka',
+              'capability_codes': ['gscale.print'],
+              'system': false,
+            },
+            {
+              'id': 'aparatchi',
+              'label': 'Aparatchi',
+              'base_role': 'werka',
+              'capability_codes': ['apparatus.queue.read'],
+              'system': true,
+            },
+            {
+              'id': 'catalog_reader',
+              'label': 'Catalog reader',
+              'capability_codes': ['catalog.item.read'],
+              'system': false,
+            },
+          ];
+        case 'GET /v1/mobile/admin/role-assignments':
+          body = emptyAssignments
+              ? const []
+              : const [
+                  {
+                    'principal_role': 'werka',
+                    'principal_ref': 'werka',
+                    'role_id': 'scale_operator',
+                  },
+                ];
+        case 'GET /v1/mobile/admin/settings':
+          body = {
+            'werka_name': blankWerkaName ? '' : 'Werka',
+            'werka_phone': '+998',
+          };
+        case 'GET /v1/mobile/admin/suppliers/list?limit=100':
+        case 'GET /v1/mobile/admin/suppliers/list?limit=100&offset=0':
+          body = emptyDirectories
+              ? const []
+              : const [
+                  {
+                    'ref': 'SUP-1',
+                    'name': 'Supplier',
+                    'phone': '+9981',
+                    'code': 'S1',
+                    'blocked': false,
+                    'removed': false,
+                    'assigned_item_codes': [],
+                    'assigned_item_count': 0,
+                  },
+                ];
+        case 'GET /v1/mobile/admin/customers/list?limit=100':
+        case 'GET /v1/mobile/admin/customers/list?limit=100&offset=0':
+          body = emptyDirectories
+              ? const []
+              : const [
+                  {
+                    'ref': 'CUS-1',
+                    'name': 'Customer',
+                    'phone': '+9982',
+                  },
+                ];
+        case 'PUT /v1/mobile/admin/roles':
+          body = const {
             'id': 'catalog_reader',
             'label': 'Catalog reader',
             'capability_codes': ['catalog.item.read'],
             'system': false,
-          },
-        ];
-      case 'GET /v1/mobile/admin/role-assignments':
-        body = emptyAssignments
-            ? const []
-            : const [
-                {
-                  'principal_role': 'werka',
-                  'principal_ref': 'werka',
-                  'role_id': 'scale_operator',
-                },
-              ];
-      case 'GET /v1/mobile/admin/settings':
-        body = {
-          'werka_name': blankWerkaName ? '' : 'Werka',
-          'werka_phone': '+998',
-        };
-      case 'GET /v1/mobile/admin/suppliers/list?limit=100':
-      case 'GET /v1/mobile/admin/suppliers/list?limit=100&offset=0':
-        body = emptyDirectories
-            ? const []
-            : const [
-                {
-                  'ref': 'SUP-1',
-                  'name': 'Supplier',
-                  'phone': '+9981',
-                  'code': 'S1',
-                  'blocked': false,
-                  'removed': false,
-                  'assigned_item_codes': [],
-                  'assigned_item_count': 0,
-                },
-              ];
-      case 'GET /v1/mobile/admin/customers/list?limit=100':
-      case 'GET /v1/mobile/admin/customers/list?limit=100&offset=0':
-        body = emptyDirectories
-            ? const []
-            : const [
-                {
-                  'ref': 'CUS-1',
-                  'name': 'Customer',
-                  'phone': '+9982',
-                },
-              ];
-      case 'PUT /v1/mobile/admin/roles':
-        body = const {
-          'id': 'catalog_reader',
-          'label': 'Catalog reader',
-          'capability_codes': ['catalog.item.read'],
-          'system': false,
-        };
-      case 'PUT /v1/mobile/admin/role-assignments':
-        body = const {
-          'principal_role': 'werka',
-          'principal_ref': 'werka',
-          'role_id': 'scale_operator',
-        };
-      default:
-        statusCode = HttpStatus.notFound;
-        body = {'error': 'Unhandled request: $key'};
+          };
+        case 'PUT /v1/mobile/admin/role-assignments':
+          body = const {
+            'principal_role': 'werka',
+            'principal_ref': 'werka',
+            'role_id': 'scale_operator',
+            'assigned_apparatus': ['Godex aparat - DEMO'],
+          };
+        default:
+          statusCode = HttpStatus.notFound;
+          body = {'error': 'Unhandled request: $key'};
+      }
     }
 
     return _FakeHttpClientRequest(
