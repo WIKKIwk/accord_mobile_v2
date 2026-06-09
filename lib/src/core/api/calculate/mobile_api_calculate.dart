@@ -226,6 +226,7 @@ class CalculateResponse {
     required this.ok,
     required this.kg,
     required this.widthMm,
+    required this.rubberSizeMm,
     required this.wastePercent,
     required this.layers,
     required this.results,
@@ -244,6 +245,7 @@ class CalculateResponse {
       ok: json['ok'] == true,
       kg: _calculateNumber(json['kg']),
       widthMm: _calculateNumber(json['width_mm']),
+      rubberSizeMm: _calculateInt(json['rubber_size_mm']),
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       layers: layers,
       results: results,
@@ -253,6 +255,7 @@ class CalculateResponse {
   final bool ok;
   final double kg;
   final double widthMm;
+  final int rubberSizeMm;
   final double wastePercent;
   final List<CalculateLayer> layers;
   final List<CalculateResult> results;

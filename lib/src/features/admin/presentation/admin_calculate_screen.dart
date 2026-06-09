@@ -1005,6 +1005,7 @@ class _ResultPanel extends StatelessWidget {
               index: i,
               result: response.results[i],
               wastePercent: response.wastePercent,
+              rubberSizeMm: response.rubberSizeMm,
             ),
             if (i != response.results.length - 1) const SizedBox(height: 12),
           ],
@@ -1019,11 +1020,13 @@ class _ResultVariant extends StatelessWidget {
     required this.index,
     required this.result,
     required this.wastePercent,
+    required this.rubberSizeMm,
   });
 
   final int index;
   final CalculateResult result;
   final double wastePercent;
+  final int rubberSizeMm;
 
   @override
   Widget build(BuildContext context) {
@@ -1041,6 +1044,7 @@ class _ResultVariant extends StatelessWidget {
         const SizedBox(height: 8),
         _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
         _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm)} sm'),
+        _ResultRow(label: 'Rezina razmeri', value: '$rubberSizeMm mm'),
         _ResultRow(label: 'Base', value: _fmt(result.baseLength)),
         _ResultRow(
           label: 'Atxod ${_fmt(wastePercent)}%',
