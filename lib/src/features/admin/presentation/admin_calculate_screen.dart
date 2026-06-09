@@ -698,11 +698,15 @@ class _SavedTemplateSummary extends StatelessWidget {
           ),
           if (imageUrl.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
-            ClipRRect(
+            InkWell(
               borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 2.35,
-                child: _ImagePreview(localPath: '', imageUrl: imageUrl),
+              onTap: () => _showCalculateImageDialog(context, imageUrl),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 2.35,
+                  child: _ImagePreview(localPath: '', imageUrl: imageUrl),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -773,6 +777,50 @@ class _SavedTemplateSummary extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showCalculateImageDialog(BuildContext context, String imageUrl) {
+  final token = _sessionToken();
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      final scheme = Theme.of(context).colorScheme;
+      return Dialog.fullscreen(
+        backgroundColor: scheme.surface,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.network(
+                      MobileApi.instance.calculateOrderImageUrl(imageUrl),
+                      headers: token.isEmpty
+                          ? null
+                          : {'Authorization': 'Bearer $token'},
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) =>
+                          _ImagePlaceholder(color: scheme.primary),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton.filledTonal(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _ChecklistSection extends StatelessWidget {
