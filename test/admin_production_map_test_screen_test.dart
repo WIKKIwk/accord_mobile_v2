@@ -1,6 +1,8 @@
 import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
+import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
 import 'package:erpnext_stock_mobile/src/core/session/session.dart';
 import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_models.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
@@ -195,6 +197,60 @@ void main() {
     );
   });
 
+  testWidgets('opened orders page shows apparatus and sequence modules',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-sequence-a',
+        title: 'Paket order A',
+        productCode: 'PKT-A',
+        apparatus: 'Godex aparat - DEMO',
+        product: 'paket mahsulot A',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-sequence-b',
+        title: 'Paket order B',
+        productCode: 'PKT-B',
+        apparatus: 'Godex aparat - DEMO',
+        product: 'paket mahsulot B',
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zakazlar'), findsOneWidget);
+    expect(find.text('Aparatlar'), findsOneWidget);
+    expect(find.text('Ketma-ketlik'), findsOneWidget);
+
+    await tester.tap(find.text('Aparatlar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+
+    await tester.tap(find.text('Godex aparat - DEMO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paket order A'), findsOneWidget);
+    expect(find.text('Paket order B'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsWidgets);
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier',
       (tester) async {
     await _usePhoneViewport(tester);
@@ -377,6 +433,42 @@ void main() {
       findsWidgets,
     );
   });
+}
+
+ProductionMapDefinition _productionOrderMap({
+  required String id,
+  required String title,
+  required String productCode,
+  required String apparatus,
+  required String product,
+}) {
+  return ProductionMapDefinition(
+    id: id,
+    productCode: productCode,
+    title: title,
+    nodes: [
+      const ProductionMapNode(
+        id: 'start',
+        kind: 'start',
+        title: 'Start',
+      ),
+      ProductionMapNode(
+        id: 'apparatus',
+        kind: 'apparatus',
+        title: apparatus,
+      ),
+      ProductionMapNode(
+        id: 'end',
+        kind: 'end',
+        title: product,
+        itemCode: productCode,
+      ),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'apparatus'),
+      ProductionMapEdge(from: 'apparatus', to: 'end'),
+    ],
+  );
 }
 
 Future<void> _usePhoneViewport(WidgetTester tester) async {
