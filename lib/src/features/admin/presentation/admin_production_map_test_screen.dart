@@ -11,6 +11,7 @@ import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 String productionMapBranchDisplayLabel(String branch) {
   return switch (branch.trim().toLowerCase()) {
@@ -205,6 +206,7 @@ class _AdminProductionMapTestScreenState
   Offset? _connectionPreviewEnd;
   bool _mapToolsMenuOpen = false;
   bool _savingMap = false;
+  late String _orderNumber;
 
   @override
   void initState() {
@@ -222,6 +224,7 @@ class _AdminProductionMapTestScreenState
         : _orderMode
             ? _orderFlowEdges()
             : _defaultTestEdges();
+    _orderNumber = savedMap?.orderNumber.trim() ?? '';
   }
 
   List<ProductionMapNode> _defaultTestNodes() {
@@ -316,11 +319,20 @@ class _AdminProductionMapTestScreenState
     if (_savingMap) {
       return;
     }
+    final orderNumber = _orderMode ? await _requestOrderNumber() : null;
+    if (_orderMode && orderNumber == null) {
+      return;
+    }
     setState(() => _savingMap = true);
     try {
-      await MobileApi.instance.adminSaveProductionMap(_currentMapDefinition());
+      await MobileApi.instance.adminSaveProductionMap(
+        _currentMapDefinition(orderNumber: orderNumber),
+      );
       if (!mounted) {
         return;
+      }
+      if (orderNumber != null) {
+        _orderNumber = orderNumber;
       }
       showAdminTopNotice(context, 'Production map saqlandi');
     } catch (_) {
@@ -335,9 +347,21 @@ class _AdminProductionMapTestScreenState
     }
   }
 
-  ProductionMapDefinition _currentMapDefinition() {
+  Future<String?> _requestOrderNumber() {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _ProductionMapOrderNumberSheet(
+        initialValue: _orderNumber,
+      ),
+    );
+  }
+
+  ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
     final context = widget.orderContext;
     final savedMap = widget.savedMap;
+    final normalizedOrderNumber = (orderNumber ?? _orderNumber).trim();
     final title = context == null
         ? (savedMap?.title.trim().isNotEmpty ?? false)
             ? savedMap!.title.trim()
@@ -360,15 +384,19 @@ class _AdminProductionMapTestScreenState
           ? (savedMap?.id.trim().isNotEmpty ?? false)
               ? savedMap!.id.trim()
               : 'production-map-test'
-          : _orderMapId(context),
+          : _orderMapId(context, normalizedOrderNumber),
       productCode: productCode,
       title: title,
+      orderNumber: normalizedOrderNumber,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );
   }
 
-  String _orderMapId(ProductionMapOrderContext context) {
+  String _orderMapId(ProductionMapOrderContext context, String orderNumber) {
+    if (RegExp(r'^\d{4}$').hasMatch(orderNumber)) {
+      return 'zakaz-$orderNumber';
+    }
     final source = _firstNonEmpty([
       context.templateId,
       context.orderName,
@@ -1172,6 +1200,110 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductionMapOrderNumberSheet extends StatefulWidget {
+  const _ProductionMapOrderNumberSheet({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_ProductionMapOrderNumberSheet> createState() =>
+      _ProductionMapOrderNumberSheetState();
+}
+
+class _ProductionMapOrderNumberSheetState
+    extends State<_ProductionMapOrderNumberSheet> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final value = _controller.text.trim();
+    if (!RegExp(r'^\d{4}$').hasMatch(value)) {
+      setState(() => _errorText = '4 xonali raqam kiriting');
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _DismissibleBottomSheetFrame(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.topRight,
+              child: IconButton(
+                key: const ValueKey('production-map-order-number-close'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+            Text(
+              'Zakaz raqami',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const ValueKey('production-map-order-number-field'),
+              controller: _controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              maxLength: 4,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: InputDecoration(
+                labelText: '4 xonali zakaz raqami',
+                counterText: '',
+                errorText: _errorText,
+              ),
+              onChanged: (_) {
+                if (_errorText != null) {
+                  setState(() => _errorText = null);
+                }
+              },
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const ValueKey('production-map-confirm-save'),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Saqlash'),
+            ),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ class ProductionMapDefinition {
     required this.id,
     required this.productCode,
     required this.title,
+    this.orderNumber = '',
     required this.nodes,
     required this.edges,
   });
@@ -10,6 +11,7 @@ class ProductionMapDefinition {
   final String id;
   final String productCode;
   final String title;
+  final String orderNumber;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
 
@@ -18,6 +20,7 @@ class ProductionMapDefinition {
       id: json['id'] as String? ?? '',
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
+      orderNumber: json['order_number'] as String? ?? '',
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
           .map((item) =>
               ProductionMapNode.fromJson(item as Map<String, dynamic>))
@@ -34,6 +37,7 @@ class ProductionMapDefinition {
       'id': id,
       'product_code': productCode,
       'title': title,
+      if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
       'edges': edges.map((edge) => edge.toJson()).toList(growable: false),
     };

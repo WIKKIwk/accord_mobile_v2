@@ -184,7 +184,8 @@ void main() {
     expect(productionMapCanCreateEdge(task, apparatus), isTrue);
   });
 
-  testWidgets('production map order flow saves current map', (tester) async {
+  testWidgets('production map order flow requires four digit order number',
+      (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -213,7 +214,31 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('production-map-save')));
     await tester.pumpAndSettle();
 
+    expect(find.text('Zakaz raqami'), findsOneWidget);
+    expect(find.byKey(const ValueKey('production-map-order-number-field')),
+        findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('production-map-order-number-field')),
+      '12',
+    );
+    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('4 xonali raqam kiriting'), findsOneWidget);
+    expect(find.text('Production map saqlandi'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('production-map-order-number-field')),
+      '1234',
+    );
+    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Production map saqlandi'), findsOneWidget);
+    final maps = await MobileApi.instance.adminProductionMaps();
+    expect(maps.first.map.orderNumber, '1234');
+    expect(maps.first.map.id, 'zakaz-1234');
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -244,6 +269,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('production-map-order-number-field')),
+      '2222',
+    );
+    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
