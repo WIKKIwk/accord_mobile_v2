@@ -131,6 +131,15 @@ extension MobileApiAdmin on MobileApi {
     ProductionMapDefinition map,
   ) async {
     if (await TestModeController.instance.isEnabled()) {
+      final duplicate = _testModeProductionMaps.any(
+        (item) =>
+            item.map.orderNumber.trim().isNotEmpty &&
+            item.map.orderNumber.trim() == map.orderNumber.trim() &&
+            !_isSameProductionMapOrder(item.map, map),
+      );
+      if (duplicate) {
+        throw Exception('Admin production map duplicate order number');
+      }
       final saved = ProductionMapSaved(
         map: map,
         program: ProductionMapProgram(
@@ -662,4 +671,13 @@ extension MobileApiAdmin on MobileApi {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+}
+
+bool _isSameProductionMapOrder(
+  ProductionMapDefinition current,
+  ProductionMapDefinition next,
+) {
+  return current.id.trim() == next.id.trim() &&
+      current.title.trim() == next.title.trim() &&
+      current.productCode.trim() == next.productCode.trim();
 }

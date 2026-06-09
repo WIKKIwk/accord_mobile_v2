@@ -242,6 +242,59 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('production map order number must be unique per zakaz',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-9876',
+        title: 'Old zakaz',
+        productCode: 'OLD-ITEM',
+        apparatus: 'Paket aparat',
+        product: 'old product',
+        orderNumber: '9876',
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            templateId: 'ORDER-NEW',
+            orderName: 'New zakaz',
+            productName: 'new product',
+            itemCode: 'NEW-ITEM',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('production-map-order-number-field')),
+      '9876',
+    );
+    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bu raqam boshqa zakazga berilgan'), findsOneWidget);
+    expect(find.text('Production map saqlandi'), findsNothing);
+    final maps = await MobileApi.instance.adminProductionMaps();
+    expect(maps.where((item) => item.map.orderNumber == '9876'), hasLength(1));
+    expect(maps.first.map.title, 'Old zakaz');
+  });
+
   testWidgets('opened production map orders page lists saved zakaz',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
@@ -589,11 +642,13 @@ ProductionMapDefinition _productionOrderMap({
   required String productCode,
   required String apparatus,
   required String product,
+  String orderNumber = '',
 }) {
   return ProductionMapDefinition(
     id: id,
     productCode: productCode,
     title: title,
+    orderNumber: orderNumber,
     nodes: [
       const ProductionMapNode(
         id: 'start',

@@ -199,6 +199,7 @@ class _AdminProductionMapTestScreenState
   late final bool _orderMode;
   late final List<ProductionMapNode> nodes;
   late final List<ProductionMapEdge> edges;
+  String? _savedMapId;
 
   int _nextNodeIndex = 1;
   String? _connectingFromNodeID;
@@ -225,6 +226,7 @@ class _AdminProductionMapTestScreenState
             ? _orderFlowEdges()
             : _defaultTestEdges();
     _orderNumber = savedMap?.orderNumber.trim() ?? '';
+    _savedMapId = savedMap?.id.trim();
   }
 
   List<ProductionMapNode> _defaultTestNodes() {
@@ -325,7 +327,7 @@ class _AdminProductionMapTestScreenState
     }
     setState(() => _savingMap = true);
     try {
-      await MobileApi.instance.adminSaveProductionMap(
+      final saved = await MobileApi.instance.adminSaveProductionMap(
         _currentMapDefinition(orderNumber: orderNumber),
       );
       if (!mounted) {
@@ -334,6 +336,7 @@ class _AdminProductionMapTestScreenState
       if (orderNumber != null) {
         _orderNumber = orderNumber;
       }
+      _savedMapId = saved.map.id.trim();
       showAdminTopNotice(context, 'Production map saqlandi');
     } catch (_) {
       if (!mounted) {
@@ -352,8 +355,28 @@ class _AdminProductionMapTestScreenState
       context: context,
       builder: (context) => _ProductionMapOrderNumberDialog(
         initialValue: _orderNumber,
+        validate: _validateOrderNumber,
       ),
     );
+  }
+
+  Future<String?> _validateOrderNumber(String orderNumber) async {
+    try {
+      final maps = await MobileApi.instance.adminProductionMaps();
+      for (final saved in maps) {
+        final map = saved.map;
+        if (map.orderNumber.trim() != orderNumber.trim()) {
+          continue;
+        }
+        if (_savedMapId != null && map.id.trim() == _savedMapId) {
+          continue;
+        }
+        return 'Bu raqam boshqa zakazga berilgan';
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
@@ -1205,9 +1228,13 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
 }
 
 class _ProductionMapOrderNumberDialog extends StatefulWidget {
-  const _ProductionMapOrderNumberDialog({required this.initialValue});
+  const _ProductionMapOrderNumberDialog({
+    required this.initialValue,
+    required this.validate,
+  });
 
   final String initialValue;
+  final Future<String?> Function(String value) validate;
 
   @override
   State<_ProductionMapOrderNumberDialog> createState() =>
@@ -1218,6 +1245,7 @@ class _ProductionMapOrderNumberDialogState
     extends State<_ProductionMapOrderNumberDialog> {
   late final TextEditingController _controller;
   String? _errorText;
+  bool _checking = false;
 
   @override
   void initState() {
@@ -1231,10 +1259,22 @@ class _ProductionMapOrderNumberDialogState
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     final value = _controller.text.trim();
     if (!RegExp(r'^\d{4}$').hasMatch(value)) {
       setState(() => _errorText = '4 xonali raqam kiriting');
+      return;
+    }
+    setState(() => _checking = true);
+    final validationError = await widget.validate(value);
+    if (!mounted) {
+      return;
+    }
+    if (validationError != null) {
+      setState(() {
+        _checking = false;
+        _errorText = validationError;
+      });
       return;
     }
     Navigator.of(context).pop(value);
@@ -1318,9 +1358,13 @@ class _ProductionMapOrderNumberDialogState
                       foregroundColor: scheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    onPressed: _save,
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Saqlash'),
+                    onPressed: _checking ? null : _save,
+                    icon: Icon(
+                      _checking
+                          ? Icons.hourglass_top_rounded
+                          : Icons.save_outlined,
+                    ),
+                    label: Text(_checking ? 'Tekshirilmoqda' : 'Saqlash'),
                   ),
                 ],
               ),
