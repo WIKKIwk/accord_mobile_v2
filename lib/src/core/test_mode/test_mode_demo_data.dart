@@ -54,6 +54,10 @@ class TestModeDemoData {
     AdminWarehouse(warehouse: 'Xomashyo ombori - DEMO'),
     AdminWarehouse(warehouse: 'Qadoqlash ombori - DEMO'),
     AdminWarehouse(warehouse: 'Tayyor mahsulot ombori - DEMO'),
+    AdminWarehouse(
+      warehouse: 'Godex aparat - DEMO',
+      parentWarehouse: 'Aparat',
+    ),
   ];
 
   static const List<AdminSupplier> suppliers = [

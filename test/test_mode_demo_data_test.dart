@@ -49,4 +49,14 @@ void main() {
     expect(warehouses, hasLength(1));
     expect(warehouses.single.warehouse, 'Xomashyo ombori - DEMO');
   });
+
+  test('test mode filters apparatus warehouses by parent', () async {
+    await TestModeController.instance.setEnabled(true);
+
+    final warehouses = await MobileApi.instance.adminWarehouses(
+      parent: 'Aparat',
+    );
+
+    expect(warehouses.map((item) => item.warehouse), ['Godex aparat - DEMO']);
+  });
 }

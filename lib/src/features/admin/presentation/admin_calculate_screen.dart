@@ -139,6 +139,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     await Navigator.of(context).pushNamed(AppRoutes.adminCalculateOrders);
   }
 
+  Future<void> _openProductionMap() async {
+    await Navigator.of(context).pushNamed(AppRoutes.adminProductionMapTest);
+  }
+
   Future<void> _openCustomerPicker() async {
     final picked = await showModalBottomSheet<CustomerDirectoryEntry>(
       context: context,
@@ -572,6 +576,15 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         const SizedBox(height: 18),
         _ResultPanel(response: _result!),
       ],
+      const SizedBox(height: 18),
+      OutlinedButton.icon(
+        onPressed: _openProductionMap,
+        icon: const Icon(Icons.account_tree_outlined),
+        label: const Text('Production mapga ulash'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+        ),
+      ),
     ];
   }
 

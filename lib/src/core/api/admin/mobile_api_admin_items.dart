@@ -112,15 +112,20 @@ extension MobileApiAdminItems on MobileApi {
 
   Future<List<AdminWarehouse>> adminWarehouses({
     String query = '',
+    String parent = '',
     int limit = 50,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
+      final normalizedParent = parent.trim().toLowerCase();
       return TestModeDemoData.warehouses
           .where(
             (warehouse) =>
-                normalized.isEmpty ||
-                warehouse.warehouse.toLowerCase().contains(normalized),
+                (normalized.isEmpty ||
+                    warehouse.warehouse.toLowerCase().contains(normalized)) &&
+                (normalizedParent.isEmpty ||
+                    warehouse.parentWarehouse.toLowerCase() ==
+                        normalizedParent),
           )
           .take(limit)
           .toList(growable: false);
@@ -130,6 +135,7 @@ extension MobileApiAdminItems on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (parent.trim().isNotEmpty) 'parent': parent.trim(),
             if (limit > 0) 'limit': '$limit',
           },
         ),

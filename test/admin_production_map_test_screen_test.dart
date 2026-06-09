@@ -29,7 +29,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('production map page can add and edit a location node',
+  testWidgets('production map page can add and select an apparatus node',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
@@ -49,21 +49,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _tapMapTool(tester, 'Location');
+    await _tapMapTool(tester, 'Aparat');
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.storefront_rounded), findsWidgets);
+    expect(find.text('Aparat tanlang'), findsOneWidget);
 
-    final warehouseIcon = find.byIcon(Icons.storefront_rounded).first;
-    await tester.ensureVisible(warehouseIcon);
+    await tester.ensureVisible(find.text('Aparat tanlang'));
     await tester.pumpAndSettle();
-    await tester.tap(warehouseIcon);
+    await tester.tap(find.text('Aparat tanlang'));
     await tester.pumpAndSettle();
-    expect(find.text('Location tanlash'), findsOneWidget);
+    expect(find.text('Aparat tanlang'), findsWidgets);
 
-    await tester.tap(find.text('Xomashyo ombori - DEMO').last);
+    await tester.tap(find.text('Godex aparat - DEMO').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Xomashyo ombori - DEMO'), findsWidgets);
+    expect(find.text('Godex aparat - DEMO'), findsWidgets);
   });
 
   testWidgets('production map sheet closes when tapping the dimmed barrier',
@@ -258,7 +257,7 @@ Future<void> _usePhoneViewport(WidgetTester tester) async {
 }
 
 Future<void> _tapMapTool(WidgetTester tester, String label) async {
-  await tester.tap(find.byIcon(Icons.tune_rounded), warnIfMissed: false);
+  await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  await tester.tap(find.byKey(ValueKey('admin-fab-menu-$label')));
 }

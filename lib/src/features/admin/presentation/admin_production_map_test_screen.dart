@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../shared/models/app_models.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -221,6 +224,13 @@ class _AdminProductionMapTestScreenState
   ProductionMapNode _newNode(String id, String kind) {
     final end = nodes.firstWhere((node) => node.kind == 'end');
     return switch (kind) {
+      'apparatus' => ProductionMapNode(
+          id: id,
+          kind: 'apparatus',
+          title: 'Aparat tanlang',
+          x: end.x,
+          y: end.y - 132,
+        ),
       'formula' => ProductionMapNode(
           id: id,
           kind: 'formula',
@@ -566,6 +576,46 @@ class _AdminProductionMapTestScreenState
       return;
     }
     final node = nodes[index];
+    if (node.kind == 'apparatus') {
+      final picked = await showModalBottomSheet<AdminWarehouse>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (context) {
+          return M3AsyncPickerSheet<AdminWarehouse>(
+            title: 'Aparat tanlang',
+            hintText: 'Aparat qidiring',
+            pageSize: 50,
+            cacheKey: 'production-map:apparatus-warehouses',
+            loadPage: (query, offset, limit) async {
+              final warehouses = await MobileApi.instance.adminWarehouses(
+                query: query,
+                parent: 'Aparat',
+                limit: offset + limit,
+              );
+              return warehouses
+                  .skip(offset)
+                  .take(limit)
+                  .toList(growable: false);
+            },
+            itemTitle: (item) => item.warehouse,
+            itemSubtitle: (item) =>
+                item.company.trim().isEmpty ? 'Aparat' : item.company,
+            onSelected: (item) => Navigator.of(context).pop(item),
+          );
+        },
+      );
+      if (picked == null || !mounted) {
+        return;
+      }
+      setState(() => nodes[index] = node.copyWith(title: picked.warehouse));
+      return;
+    }
     final edited = await showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -618,6 +668,11 @@ class _AdminProductionMapTestScreenState
         title: 'Ishlov',
         icon: Icons.engineering_rounded,
         onTap: () => _runMapToolAction(() => _addNode('task')),
+      ),
+      AdminFabMenuAction(
+        title: 'Aparat',
+        icon: Icons.precision_manufacturing_rounded,
+        onTap: () => _runMapToolAction(() => _addNode('apparatus')),
       ),
       AdminFabMenuAction(
         title: 'Formula',
@@ -1825,6 +1880,7 @@ class _MapNodeVisual extends StatelessWidget {
 
   IconData _iconFor(String kind) {
     return switch (kind) {
+      'apparatus' => Icons.precision_manufacturing_rounded,
       'formula' => Icons.functions_rounded,
       'condition' => Icons.call_split_rounded,
       'task' => Icons.engineering_rounded,
@@ -1835,6 +1891,7 @@ class _MapNodeVisual extends StatelessWidget {
 
   String _labelFor(String kind) {
     return switch (kind) {
+      'apparatus' => 'aparat',
       'formula' => 'formula',
       'condition' => 'if',
       'task' => 'ishlov',
@@ -1859,6 +1916,7 @@ class _MapNodeVisual extends StatelessWidget {
 
   Color _colorFor(String kind, ColorScheme scheme) {
     return switch (kind) {
+      'apparatus' => scheme.secondaryContainer,
       'formula' => scheme.tertiaryContainer,
       'condition' => scheme.primaryContainer,
       'task' => scheme.secondaryContainer,

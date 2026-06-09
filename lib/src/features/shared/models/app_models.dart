@@ -127,17 +127,22 @@ class AdminWarehouse {
     required this.warehouse,
     this.company = '',
     this.isGroup = false,
+    this.parentWarehouse = '',
   });
 
   final String warehouse;
   final String company;
   final bool isGroup;
+  final String parentWarehouse;
 
   factory AdminWarehouse.fromJson(Map<String, dynamic> json) {
     return AdminWarehouse(
       warehouse: json['warehouse'] as String? ?? '',
       company: json['company'] as String? ?? '',
       isGroup: json['is_group'] == true,
+      parentWarehouse: (json['parent_warehouse'] as String?) ??
+          (json['parent'] as String?) ??
+          '',
     );
   }
 }
