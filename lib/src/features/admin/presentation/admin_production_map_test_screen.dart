@@ -20,6 +20,18 @@ String productionMapBranchDisplayLabel(String branch) {
   };
 }
 
+bool productionMapCanCreateEdge(
+  ProductionMapNode from,
+  ProductionMapNode to,
+) {
+  final hasKkProduct = from.kind == 'kk_product' || to.kind == 'kk_product';
+  if (!hasKkProduct) {
+    return true;
+  }
+  return (from.kind == 'kk_product' && to.kind == 'apparatus') ||
+      (from.kind == 'apparatus' && to.kind == 'kk_product');
+}
+
 const _formulaVariables = [
   _FormulaVariable(label: 'Buyurtma miqdori', token: 'order_qty'),
   _FormulaVariable(label: 'CPP kg', token: 'cpp_kg'),
@@ -400,6 +412,8 @@ class _AdminProductionMapTestScreenState
     setState(() {
       if (kind == 'condition') {
         _addConditionBranch(id);
+      } else if (kind == 'kk_product') {
+        _addDetachedNode(_newNode(id, kind));
       } else {
         _insertBeforeEnd(_newNode(id, kind));
       }
@@ -426,6 +440,13 @@ class _AdminProductionMapTestScreenState
             target: 'result_kg',
             expression: 'order_qty',
           ),
+        ),
+      'kk_product' => ProductionMapNode(
+          id: id,
+          kind: 'kk_product',
+          title: 'KK li mahsulot tanlang',
+          x: end.x,
+          y: end.y + _nodeStepY,
         ),
       _ => ProductionMapNode(
           id: id,
@@ -455,6 +476,12 @@ class _AdminProductionMapTestScreenState
       ..add(ProductionMapEdge(from: previous.id, to: placedNode.id))
       ..add(ProductionMapEdge(from: placedNode.id, to: end.id));
     _pushEndDown();
+  }
+
+  void _addDetachedNode(ProductionMapNode node) {
+    final endIndex = nodes.indexWhere((item) => item.kind == 'end');
+    final placedNode = _placeNode(node);
+    nodes.insert(endIndex < 0 ? nodes.length : endIndex, placedNode);
   }
 
   void _addConditionBranch(String id) {
@@ -536,6 +563,13 @@ class _AdminProductionMapTestScreenState
       if (target == null) {
         return;
       }
+      final source = nodes.firstWhere(
+        (node) => node.id == fromID,
+        orElse: () => target,
+      );
+      if (!_canCreateEdge(source, target)) {
+        return;
+      }
       final exists = edges.any((edge) =>
           edge.from == fromID &&
           edge.to == target.id &&
@@ -551,6 +585,10 @@ class _AdminProductionMapTestScreenState
         );
       }
     });
+  }
+
+  bool _canCreateEdge(ProductionMapNode from, ProductionMapNode to) {
+    return productionMapCanCreateEdge(from, to);
   }
 
   void _cancelConnection() {
@@ -801,6 +839,47 @@ class _AdminProductionMapTestScreenState
       setState(() => nodes[index] = node.copyWith(title: picked.warehouse));
       return;
     }
+    if (node.kind == 'kk_product') {
+      final picked = await showModalBottomSheet<SupplierItem>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (context) {
+          return M3AsyncPickerSheet<SupplierItem>(
+            title: 'KK li mahsulot tanlang',
+            hintText: 'Mahsulot qidiring',
+            pageSize: 80,
+            cacheKey: 'production-map:kk-products',
+            loadPage: (query, offset, limit) {
+              return MobileApi.instance.gscaleItemsPage(
+                query: query,
+                offset: offset,
+                limit: limit,
+              );
+            },
+            itemTitle: (item) =>
+                item.name.trim().isEmpty ? item.code : item.name,
+            itemSubtitle: (item) => item.code,
+            onSelected: (item) => Navigator.of(context).pop(item),
+          );
+        },
+      );
+      if (picked == null || !mounted) {
+        return;
+      }
+      setState(() {
+        nodes[index] = node.copyWith(
+          title: picked.name.trim().isEmpty ? picked.code : picked.name.trim(),
+          itemCode: picked.code,
+        );
+      });
+      return;
+    }
     final edited = await showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -855,6 +934,11 @@ class _AdminProductionMapTestScreenState
           icon: Icons.precision_manufacturing_rounded,
           onTap: () => _runMapToolAction(() => _addNode('apparatus')),
         ),
+        AdminFabMenuAction(
+          title: 'kk li mahsulot',
+          icon: Icons.inventory_2_rounded,
+          onTap: () => _runMapToolAction(() => _addNode('kk_product')),
+        ),
       ];
     }
     return [
@@ -867,6 +951,11 @@ class _AdminProductionMapTestScreenState
         title: 'Aparat',
         icon: Icons.precision_manufacturing_rounded,
         onTap: () => _runMapToolAction(() => _addNode('apparatus')),
+      ),
+      AdminFabMenuAction(
+        title: 'kk li mahsulot',
+        icon: Icons.inventory_2_rounded,
+        onTap: () => _runMapToolAction(() => _addNode('kk_product')),
       ),
       AdminFabMenuAction(
         title: 'Formula',
@@ -2084,6 +2173,7 @@ class _MapNodeVisual extends StatelessWidget {
   IconData _iconFor(String kind) {
     return switch (kind) {
       'apparatus' => Icons.precision_manufacturing_rounded,
+      'kk_product' => Icons.inventory_2_rounded,
       'formula' => Icons.functions_rounded,
       'condition' => Icons.call_split_rounded,
       'task' => Icons.engineering_rounded,
@@ -2095,6 +2185,7 @@ class _MapNodeVisual extends StatelessWidget {
   String _labelFor(String kind) {
     return switch (kind) {
       'apparatus' => 'aparat',
+      'kk_product' => 'kk',
       'formula' => 'formula',
       'condition' => 'if',
       'task' => 'ishlov',
@@ -2114,12 +2205,16 @@ class _MapNodeVisual extends StatelessWidget {
     if (node.roleCode.trim().isNotEmpty) {
       return node.roleCode;
     }
+    if (node.itemCode.trim().isNotEmpty) {
+      return node.itemCode;
+    }
     return node.kind;
   }
 
   Color _colorFor(String kind, ColorScheme scheme) {
     return switch (kind) {
       'apparatus' => scheme.secondaryContainer,
+      'kk_product' => scheme.primaryContainer,
       'formula' => scheme.tertiaryContainer,
       'condition' => scheme.primaryContainer,
       'task' => scheme.secondaryContainer,

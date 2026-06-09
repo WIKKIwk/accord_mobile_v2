@@ -104,10 +104,84 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('admin-fab-menu-Aparat')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-fab-menu-kk li mahsulot')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('admin-fab-menu-Formula')), findsNothing);
     expect(
         find.byKey(const ValueKey('admin-fab-menu-Condition')), findsNothing);
     expect(find.byKey(const ValueKey('admin-fab-menu-Ishlov')), findsNothing);
+  });
+
+  testWidgets('production map can add kk product and pick item',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            orderName: 'Zenit order',
+            productName: 'zenit frutto ninja 70gr',
+            itemCode: 'ITEM-001',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tapMapTool(tester, 'kk li mahsulot');
+    await tester.pumpAndSettle();
+    expect(find.text('KK li mahsulot tanlang'), findsOneWidget);
+
+    await tester.tap(find.text('KK li mahsulot tanlang'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mahsulot qidiring'), findsOneWidget);
+
+    await tester.tap(find.text('Hotlunch').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hotlunch'), findsWidgets);
+    expect(find.text('DEMO-HOTLUNCH'), findsWidgets);
+  });
+
+  test('kk product edges are allowed only with apparatus nodes', () {
+    const kk = ProductionMapNode(
+      id: 'kk_product_1',
+      kind: 'kk_product',
+      title: 'Hotlunch',
+    );
+    const apparatus = ProductionMapNode(
+      id: 'apparatus_1',
+      kind: 'apparatus',
+      title: 'Godex aparat - DEMO',
+    );
+    const task = ProductionMapNode(
+      id: 'task_1',
+      kind: 'task',
+      title: 'Ishlov jarayoni',
+    );
+    const start = ProductionMapNode(
+      id: 'start',
+      kind: 'start',
+      title: 'Start',
+    );
+
+    expect(productionMapCanCreateEdge(kk, apparatus), isTrue);
+    expect(productionMapCanCreateEdge(apparatus, kk), isTrue);
+    expect(productionMapCanCreateEdge(kk, task), isFalse);
+    expect(productionMapCanCreateEdge(start, kk), isFalse);
+    expect(productionMapCanCreateEdge(task, apparatus), isTrue);
   });
 
   testWidgets('production map order flow saves current map', (tester) async {
