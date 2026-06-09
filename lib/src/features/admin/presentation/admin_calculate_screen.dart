@@ -672,10 +672,10 @@ class _SavedTemplateSummary extends StatelessWidget {
     final imageTitle =
         imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
@@ -684,12 +684,6 @@ class _SavedTemplateSummary extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.fact_check_outlined,
-                color: scheme.primary,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   orderName.trim().isEmpty ? 'Zakaz' : orderName.trim(),
@@ -702,7 +696,33 @@ class _SavedTemplateSummary extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          if (imageUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 2.35,
+                child: _ImagePreview(localPath: '', imageUrl: imageUrl),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              imageTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (imageSizeBytes > 0)
+              Text(
+                _formatBytes(imageSizeBytes),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+          const SizedBox(height: 16),
           _ChecklistSection(
             title: 'Buyurtma',
             rows: [
@@ -711,53 +731,7 @@ class _SavedTemplateSummary extends StatelessWidget {
               _ChecklistRowData('Status', status),
             ],
           ),
-          if (imageUrl.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: _ImagePreview(localPath: '', imageUrl: imageUrl),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rang rasmi',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        imageTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (imageSizeBytes > 0)
-                        Text(
-                          _formatBytes(imageSizeBytes),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _ChecklistSection(
             title: 'Parametrlar',
             rows: [
@@ -765,7 +739,7 @@ class _SavedTemplateSummary extends StatelessWidget {
               _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _ChecklistSection(
             title: 'Qavatlar',
             rows: [
@@ -789,7 +763,7 @@ class _SavedTemplateSummary extends StatelessWidget {
             ],
           ),
           if (note.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _ChecklistSection(
               title: 'Izoh',
               rows: [_ChecklistRowData('', note)],
@@ -822,14 +796,14 @@ class _ChecklistSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.textTheme.labelLarge?.copyWith(
+          style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         for (var i = 0; i < visibleRows.length; i++) ...[
           _ChecklistRow(data: visibleRows[i]),
-          if (i != visibleRows.length - 1) const SizedBox(height: 6),
+          if (i != visibleRows.length - 1) const SizedBox(height: 8),
         ],
       ],
     );
@@ -849,15 +823,9 @@ class _ChecklistRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.check_circle_rounded,
-          color: scheme.primary,
-          size: 18,
-        ),
-        const SizedBox(width: 8),
         if (data.label.trim().isNotEmpty) ...[
           SizedBox(
-            width: 82,
+            width: 92,
             child: Text(
               data.label,
               maxLines: 1,
