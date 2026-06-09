@@ -148,6 +148,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         orderName: _orderName.text,
         productName: _product.text,
         itemCode: _itemCode,
+        rollCount: _parseOptionalDouble(_rollCount.text),
+        widthMm: _parseOptionalDouble(_widthMm.text),
       ),
     );
   }

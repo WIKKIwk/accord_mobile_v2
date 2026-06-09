@@ -58,6 +58,18 @@ class TestModeDemoData {
       warehouse: 'Godex aparat - DEMO',
       parentWarehouse: 'aparat - A',
     ),
+    AdminWarehouse(
+      warehouse: '7 ta rangli pechat',
+      parentWarehouse: 'aparat - A',
+    ),
+    AdminWarehouse(
+      warehouse: '8 ta rangli pechat',
+      parentWarehouse: 'aparat - A',
+    ),
+    AdminWarehouse(
+      warehouse: '9 ta rangli pechat',
+      parentWarehouse: 'aparat - A',
+    ),
   ];
 
   static const List<AdminSupplier> suppliers = [

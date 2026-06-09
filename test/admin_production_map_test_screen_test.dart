@@ -155,6 +155,45 @@ void main() {
     expect(find.text('DEMO-HOTLUNCH'), findsWidgets);
   });
 
+  testWidgets('production map apparatus picker shows only recommended pechat',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            orderName: 'Zenit order',
+            productName: 'zenit frutto ninja 70gr',
+            itemCode: 'ITEM-001',
+            rollCount: 8,
+            widthMm: 700,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tapMapTool(tester, 'Aparat');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aparat tanlang'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('8 ta rangli pechat'), findsOneWidget);
+    expect(find.text('7 ta rangli pechat'), findsNothing);
+    expect(find.text('9 ta rangli pechat'), findsNothing);
+    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+  });
+
   test('kk product edges are allowed only with apparatus nodes', () {
     const kk = ProductionMapNode(
       id: 'kk_product_1',
@@ -182,6 +221,84 @@ void main() {
     expect(productionMapCanCreateEdge(kk, task), isFalse);
     expect(productionMapCanCreateEdge(start, kk), isFalse);
     expect(productionMapCanCreateEdge(task, apparatus), isTrue);
+  });
+
+  test('production map pechat recommendation prioritizes val then rubber', () {
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 7, widthMm: 700),
+      7,
+    );
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 7, widthMm: 900),
+      8,
+    );
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 8, widthMm: 700),
+      8,
+    );
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 9, widthMm: 700),
+      9,
+    );
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 6, widthMm: 1200),
+      9,
+    );
+    expect(
+      productionMapRecommendedPechatColorCount(rollCount: 10, widthMm: 700),
+      isNull,
+    );
+  });
+
+  test('production map pechat filter hides non recommended pechat only', () {
+    const context = ProductionMapOrderContext(
+      orderName: 'Zenit order',
+      productName: 'zenit frutto ninja 70gr',
+      itemCode: 'ITEM-001',
+      rollCount: 8,
+      widthMm: 700,
+    );
+
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminWarehouse(
+          warehouse: '7 ta rangli pechat',
+          parentWarehouse: 'aparat - A',
+        ),
+        context,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminWarehouse(
+          warehouse: '8 ta rangli pechat',
+          parentWarehouse: 'aparat - A',
+        ),
+        context,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminWarehouse(
+          warehouse: '9 ta rangli pechat',
+          parentWarehouse: 'aparat - A',
+        ),
+        context,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminWarehouse(
+          warehouse: 'Godex aparat - DEMO',
+          parentWarehouse: 'aparat - A',
+        ),
+        context,
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('production map order flow requires four digit order number',

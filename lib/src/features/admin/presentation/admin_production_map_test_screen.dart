@@ -33,6 +33,79 @@ bool productionMapCanCreateEdge(
       (from.kind == 'apparatus' && to.kind == 'kk_product');
 }
 
+int productionMapRubberSizeFromWidth(double widthMm) {
+  return (widthMm / 50).ceil().clamp(1, 26).toInt() * 50;
+}
+
+int? productionMapRecommendedPechatColorCount({
+  double? rollCount,
+  double? widthMm,
+}) {
+  final hasRoll = rollCount != null && rollCount > 0;
+  final hasWidth = widthMm != null && widthMm > 0;
+  if (!hasRoll && !hasWidth) {
+    return null;
+  }
+
+  var requiredColorCount = 0;
+  if (hasRoll) {
+    if (rollCount > 9) {
+      return null;
+    }
+    requiredColorCount = rollCount > 8
+        ? 9
+        : rollCount > 7
+            ? 8
+            : 7;
+  }
+  if (hasWidth) {
+    final rubberSize = productionMapRubberSizeFromWidth(widthMm);
+    if (rubberSize > 1300) {
+      return null;
+    }
+    final rubberColorCount = rubberSize > 1000
+        ? 9
+        : rubberSize > 800
+            ? 8
+            : 7;
+    requiredColorCount = math.max(requiredColorCount, rubberColorCount);
+  }
+  return requiredColorCount == 0 ? null : requiredColorCount;
+}
+
+bool productionMapApparatusMatchesOrder(
+  AdminWarehouse apparatus,
+  ProductionMapOrderContext? orderContext,
+) {
+  final apparatusColorCount = _pechatColorCount(apparatus.warehouse);
+  if (apparatusColorCount == null) {
+    return true;
+  }
+  final context = orderContext;
+  if (context == null) {
+    return true;
+  }
+  final recommended = productionMapRecommendedPechatColorCount(
+    rollCount: context.rollCount,
+    widthMm: context.widthMm,
+  );
+  if (recommended == null) {
+    return context.rollCount == null && context.widthMm == null;
+  }
+  return apparatusColorCount == recommended;
+}
+
+int? _pechatColorCount(String title) {
+  final match = RegExp(
+    r'\b([789])\s*(?:ta)?\s*rangli\s*(?:pechat|val)\b',
+    caseSensitive: false,
+  ).firstMatch(title.trim().toLowerCase());
+  if (match == null) {
+    return null;
+  }
+  return int.tryParse(match.group(1) ?? '');
+}
+
 const _formulaVariables = [
   _FormulaVariable(label: 'Buyurtma miqdori', token: 'order_qty'),
   _FormulaVariable(label: 'CPP kg', token: 'cpp_kg'),
@@ -178,12 +251,16 @@ class ProductionMapOrderContext {
     required this.orderName,
     required this.productName,
     required this.itemCode,
+    this.rollCount,
+    this.widthMm,
   });
 
   final String templateId;
   final String orderName;
   final String productName;
   final String itemCode;
+  final double? rollCount;
+  final double? widthMm;
 }
 
 class _AdminProductionMapTestScreenState
@@ -863,14 +940,19 @@ class _AdminProductionMapTestScreenState
             title: 'Aparat tanlang',
             hintText: 'Aparat qidiring',
             pageSize: 50,
-            cacheKey: 'production-map:apparatus-warehouses',
+            cacheKey: 'production-map:apparatus-warehouses'
+                ':${_apparatusFilterCacheSuffix()}',
             loadPage: (query, offset, limit) async {
               final warehouses = await MobileApi.instance.adminWarehouses(
                 query: query,
                 parent: 'aparat - A',
-                limit: offset + limit,
+                limit: 200,
               );
               return warehouses
+                  .where((warehouse) => productionMapApparatusMatchesOrder(
+                        warehouse,
+                        widget.orderContext,
+                      ))
                   .skip(offset)
                   .take(limit)
                   .toList(growable: false);
@@ -942,6 +1024,22 @@ class _AdminProductionMapTestScreenState
       return;
     }
     setState(() => nodes[index] = edited);
+  }
+
+  String _apparatusFilterCacheSuffix() {
+    final context = widget.orderContext;
+    if (context == null) {
+      return 'all';
+    }
+    final recommended = productionMapRecommendedPechatColorCount(
+      rollCount: context.rollCount,
+      widthMm: context.widthMm,
+    );
+    return [
+      context.rollCount?.toStringAsFixed(0) ?? 'x',
+      context.widthMm?.toStringAsFixed(0) ?? 'x',
+      recommended?.toString() ?? 'none',
+    ].join('-');
   }
 
   void _deleteNode(int index) {
