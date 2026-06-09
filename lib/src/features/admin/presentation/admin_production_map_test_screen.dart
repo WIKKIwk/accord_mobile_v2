@@ -1,11 +1,8 @@
 import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
-import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../shared/models/app_models.dart';
-import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -161,11 +158,6 @@ class _AdminProductionMapTestScreenState
   static const _maxNodeX = 1600.0;
   static const _maxNodeY = 3200.0;
 
-  String mapID = 'hotlunch-test';
-  String productCode = 'HOTLUNCH';
-  String productName = 'HOTLUNCH';
-  String mapTitle = 'Hotlunch test map';
-
   final nodes = <ProductionMapNode>[
     const ProductionMapNode(
       id: 'start',
@@ -178,7 +170,6 @@ class _AdminProductionMapTestScreenState
       id: 'cpp_calc',
       kind: 'formula',
       title: 'CPP hisob',
-      itemCode: 'CPP',
       x: 420,
       y: 164,
       formula: ProductionFormula(
@@ -210,107 +201,11 @@ class _AdminProductionMapTestScreenState
     const ProductionMapEdge(from: 'cpp_calc', to: 'qty_check'),
   ];
 
-  bool saving = false;
-  bool running = false;
   int _nextNodeIndex = 1;
   String? _connectingFromNodeID;
   String _connectingFromBranch = '';
   Offset? _connectionPreviewEnd;
   bool _mapToolsMenuOpen = false;
-  Set<String> _runVisitedNodeIDs = const {};
-  String _runAwaitingNodeID = '';
-
-  Future<void> _save() async {
-    setState(() => saving = true);
-    try {
-      await MobileApi.instance.adminSaveProductionMap(
-        ProductionMapDefinition(
-          id: mapID,
-          productCode: productCode,
-          title: mapTitle,
-          nodes: nodes,
-          edges: edges,
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Map saqlandi va compiled bo‘ldi')),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Map saqlanmadi: $error')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => saving = false);
-      }
-    }
-  }
-
-  Future<void> _run() async {
-    final input = await showModalBottomSheet<_RunMapInput>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (context) => const _RunMapSheet(),
-    );
-    if (input == null || input.orderQty <= 0 || !mounted) {
-      return;
-    }
-    setState(() => running = true);
-    try {
-      final variables = Map<String, double>.of(input.variables);
-      while (mounted) {
-        final result = await MobileApi.instance.adminRunProductionMap(
-          ProductionMapRunRequest(
-            mapId: mapID,
-            productCode: productCode,
-            orderQty: input.orderQty,
-            variables: variables,
-          ),
-        );
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _runVisitedNodeIDs = result.visitedNodeIds.toSet();
-          _runAwaitingNodeID = result.awaitingNodeId;
-        });
-        final next = await showModalBottomSheet<_RuntimeVariableInput>(
-          context: context,
-          isDismissible: true,
-          enableDrag: true,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          barrierColor: Colors.black.withValues(alpha: 0.32),
-          builder: (context) => _RunResultSheet(result: result),
-        );
-        if (next == null || next.name.trim().isEmpty) {
-          break;
-        }
-        variables[next.name.trim()] = next.value;
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hisoblash bajarilmadi: $error')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => running = false);
-      }
-    }
-  }
 
   void _addNode(String kind) {
     final id = '${kind}_${_nextNodeIndex++}';
@@ -326,23 +221,6 @@ class _AdminProductionMapTestScreenState
   ProductionMapNode _newNode(String id, String kind) {
     final end = nodes.firstWhere((node) => node.kind == 'end');
     return switch (kind) {
-      'location' => ProductionMapNode(
-          id: id,
-          kind: 'location',
-          title: 'ERPNext location',
-          x: end.x,
-          y: end.y - 132,
-        ),
-      'material' => ProductionMapNode(
-          id: id,
-          kind: 'material',
-          title: 'Material tanlash',
-          itemCode: 'CPP',
-          qtyFormula: 'order_qty',
-          fromLocation: 'Location',
-          x: end.x,
-          y: end.y - 132,
-        ),
       'formula' => ProductionMapNode(
           id: id,
           kind: 'formula',
@@ -354,29 +232,11 @@ class _AdminProductionMapTestScreenState
             expression: 'order_qty',
           ),
         ),
-      'wait' => ProductionMapNode(
-          id: id,
-          kind: 'wait',
-          title: 'Material kutish',
-          x: end.x,
-          y: end.y - 132,
-        ),
-      'output' => ProductionMapNode(
-          id: id,
-          kind: 'output',
-          title: 'Natija chiqarish',
-          itemCode: productCode,
-          qtyFormula: 'order_qty',
-          toLocation: 'Tayyor mahsulot location',
-          x: end.x,
-          y: end.y - 132,
-        ),
       _ => ProductionMapNode(
           id: id,
           kind: 'task',
           title: 'Ishlov jarayoni',
           roleCode: 'worker',
-          qtyFormula: 'order_qty',
           x: end.x,
           y: end.y - 132,
         ),
@@ -701,110 +561,11 @@ class _AdminProductionMapTestScreenState
     ).inflate(_nodeGap / 2);
   }
 
-  Future<void> _editMapInfo() async {
-    final edited = await showModalBottomSheet<_MapInfo>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (context) => _MapInfoSheet(
-        mapID: mapID,
-        title: mapTitle,
-      ),
-    );
-    if (edited == null || !mounted) {
-      return;
-    }
-    setState(() {
-      mapID = edited.mapID;
-      mapTitle = edited.title;
-    });
-  }
-
-  Future<void> _openProductPicker() async {
-    final picked = await showModalBottomSheet<SupplierItem>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) {
-        return M3AsyncPickerSheet<SupplierItem>(
-          title: 'Mahsulot tanlang',
-          hintText: 'Mahsulot qidiring',
-          pageSize: 80,
-          cacheKey: 'production-map:items',
-          loadPage: (query, offset, limit) {
-            return MobileApi.instance.adminItemsPage(
-              query: query,
-              offset: offset,
-              limit: limit,
-            );
-          },
-          itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,
-          itemSubtitle: (item) => item.code,
-          onSelected: (item) => Navigator.of(context).pop(item),
-        );
-      },
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      productCode = picked.code;
-      productName = picked.name.trim().isEmpty ? picked.code : picked.name;
-    });
-  }
-
   Future<void> _editNode(int index) async {
     if (index < 0) {
       return;
     }
     final node = nodes[index];
-    if (node.kind == 'location') {
-      final picked = await showModalBottomSheet<AdminWarehouse>(
-        context: context,
-        isDismissible: true,
-        enableDrag: true,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.32),
-        sheetAnimationStyle: kM3PickerSheetAnimation,
-        builder: (context) {
-          return M3AsyncPickerSheet<AdminWarehouse>(
-            title: 'Location tanlash',
-            hintText: 'Location qidiring',
-            pageSize: 50,
-            loadPage: (query, offset, limit) async {
-              final warehouses = await MobileApi.instance.adminWarehouses(
-                query: query,
-                limit: offset + limit,
-              );
-              return warehouses
-                  .skip(offset)
-                  .take(limit)
-                  .toList(growable: false);
-            },
-            itemTitle: (item) => item.warehouse,
-            itemSubtitle: (item) =>
-                item.company.trim().isEmpty ? 'ERPNext location' : item.company,
-            onSelected: (item) => Navigator.of(context).pop(item),
-            supportingText: 'Bu card ustidagi location nomini tanlang.',
-          );
-        },
-      );
-      if (picked == null || !mounted) {
-        return;
-      }
-      setState(() => nodes[index] = node.copyWith(title: picked.warehouse));
-      return;
-    }
     final edited = await showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -854,21 +615,6 @@ class _AdminProductionMapTestScreenState
   List<AdminFabMenuAction> _mapToolActions() {
     return [
       AdminFabMenuAction(
-        title: 'Map ma’lumotlari',
-        icon: Icons.edit_rounded,
-        onTap: () => _runMapToolAction(_editMapInfo),
-      ),
-      AdminFabMenuAction(
-        title: 'Mahsulot',
-        icon: Icons.inventory_2_rounded,
-        onTap: () => _runMapToolAction(_openProductPicker),
-      ),
-      AdminFabMenuAction(
-        title: 'Location',
-        icon: Icons.storefront_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('location')),
-      ),
-      AdminFabMenuAction(
         title: 'Ishlov',
         icon: Icons.engineering_rounded,
         onTap: () => _runMapToolAction(() => _addNode('task')),
@@ -882,33 +628,6 @@ class _AdminProductionMapTestScreenState
         title: 'Condition',
         icon: Icons.call_split_rounded,
         onTap: () => _runMapToolAction(() => _addNode('condition')),
-      ),
-      AdminFabMenuAction(
-        title: 'Material',
-        icon: Icons.inventory_2_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('material')),
-      ),
-      AdminFabMenuAction(
-        title: 'Wait',
-        icon: Icons.hourglass_bottom_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('wait')),
-      ),
-      AdminFabMenuAction(
-        title: 'Output',
-        icon: Icons.flag_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('output')),
-      ),
-      AdminFabMenuAction(
-        title: running ? 'Hisoblanmoqda' : 'Hisoblash',
-        icon: Icons.play_arrow_rounded,
-        enabled: !running,
-        onTap: () => _runMapToolAction(_run),
-      ),
-      AdminFabMenuAction(
-        title: saving ? 'Saqlanyapti' : 'Saqlash',
-        icon: Icons.check_rounded,
-        enabled: !saving,
-        onTap: () => _runMapToolAction(_save),
       ),
     ];
   }
@@ -950,8 +669,6 @@ class _AdminProductionMapTestScreenState
                 connectingFromNodeID: _connectingFromNodeID,
                 connectingFromBranch: _connectingFromBranch,
                 connectionPreviewEnd: _connectionPreviewEnd,
-                runVisitedNodeIDs: _runVisitedNodeIDs,
-                runAwaitingNodeID: _runAwaitingNodeID,
                 onNodeTap: (node) => _editNode(nodes.indexOf(node)),
                 onNodeDelete: (node) => _deleteNode(nodes.indexOf(node)),
                 onNodeMoved: _moveNode,
@@ -979,9 +696,9 @@ class _AdminProductionMapTestScreenState
                 open: _mapToolsMenuOpen,
                 actions: _mapToolActions(),
                 onToggle: _toggleMapToolsMenu,
-                closedLabel: 'Map sozlamalari',
+                closedLabel: 'Element qo‘shish',
                 openLabel: 'Yopish',
-                closedIcon: Icons.tune_rounded,
+                closedIcon: Icons.add_rounded,
                 alignEnd: false,
                 columns: 2,
               ),
@@ -1121,8 +838,6 @@ class _ProductionMapCanvas extends StatefulWidget {
     required this.connectingFromNodeID,
     required this.connectingFromBranch,
     required this.connectionPreviewEnd,
-    required this.runVisitedNodeIDs,
-    required this.runAwaitingNodeID,
     required this.onNodeTap,
     required this.onNodeDelete,
     required this.onNodeMoved,
@@ -1141,8 +856,6 @@ class _ProductionMapCanvas extends StatefulWidget {
   final String? connectingFromNodeID;
   final String connectingFromBranch;
   final Offset? connectionPreviewEnd;
-  final Set<String> runVisitedNodeIDs;
-  final String runAwaitingNodeID;
   final ValueChanged<ProductionMapNode> onNodeTap;
   final ValueChanged<ProductionMapNode> onNodeDelete;
   final void Function(String nodeID, Offset delta) onNodeMoved;
@@ -1289,10 +1002,8 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                                 widget.onConnectionCancel();
                               },
                               floating: false,
-                              highlighted: widget.connectingFromNodeID ==
-                                      node.id ||
-                                  widget.runVisitedNodeIDs.contains(node.id),
-                              awaiting: widget.runAwaitingNodeID == node.id,
+                              highlighted:
+                                  widget.connectingFromNodeID == node.id,
                             ),
                           ),
                         for (final node in widget.nodes)
@@ -1488,10 +1199,7 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
     final toRect = _nodeRect(to);
     final branchKey = edge.branch.trim().toLowerCase();
     final start = _startAnchor(from, branchKey, toRect.center);
-    final isWarehouseTarget = to.kind == 'location';
-    final end = isWarehouseTarget
-        ? _warehousePortCenter(toRect, fromRect.center)
-        : _edgeAnchor(toRect, fromRect.center);
+    final end = _edgeAnchor(toRect, fromRect.center);
     return Offset(
       (start.dx + end.dx) / 2,
       (start.dy + end.dy) / 2,
@@ -1540,16 +1248,6 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
       return anchor;
     }
     return anchor + vector / distance * _MapCanvasPainter.portRadius;
-  }
-
-  Offset _warehousePortCenter(Rect rect, Offset toward) {
-    final anchor = _edgeAnchor(rect, toward);
-    final vector = anchor - rect.center;
-    final distance = vector.distance;
-    if (distance == 0) {
-      return anchor;
-    }
-    return anchor + vector / distance * 4;
   }
 
   Offset _edgeAnchor(Rect rect, Offset toward) {
@@ -1756,10 +1454,7 @@ class _MapCanvasPainter extends CustomPainter {
     final toRect = _nodeRect(to);
     final branchKey = branch.trim().toLowerCase();
     final start = _startAnchor(from, branchKey, toRect.center);
-    final isWarehouseTarget = to.kind == 'location';
-    final end = isWarehouseTarget
-        ? _warehousePortCenter(toRect, fromRect.center)
-        : _edgeAnchor(toRect, fromRect.center);
+    final end = _edgeAnchor(toRect, fromRect.center);
     final path = _elasticPath(
       start: start,
       end: end,
@@ -1778,11 +1473,7 @@ class _MapCanvasPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, paint);
     _paintStartPort(canvas, from, branchKey, start, color);
-    if (isWarehouseTarget) {
-      _paintEndPort(canvas, end, color);
-    } else {
-      _paintArrow(canvas, end, start, color);
-    }
+    _paintArrow(canvas, end, start, color);
     if (branchKey.isNotEmpty) {
       _paintBranchLabel(
         canvas,
@@ -1861,16 +1552,6 @@ class _MapCanvasPainter extends CustomPainter {
     return anchor + vector / distance * portRadius;
   }
 
-  Offset _warehousePortCenter(Rect rect, Offset toward) {
-    final anchor = _edgeAnchor(rect, toward);
-    final vector = anchor - rect.center;
-    final distance = vector.distance;
-    if (distance == 0) {
-      return anchor;
-    }
-    return anchor + vector / distance * 4;
-  }
-
   Offset _edgeAnchor(Rect rect, Offset toward) {
     final center = rect.center;
     final dx = toward.dx - center.dx;
@@ -1928,24 +1609,6 @@ class _MapCanvasPainter extends CustomPainter {
     if (node.kind == 'condition' && branchKey.isNotEmpty) {
       return;
     }
-    canvas.drawCircle(
-      center,
-      portRadius,
-      Paint()
-        ..color = scheme.surface
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawCircle(
-      center,
-      portRadius,
-      Paint()
-        ..color = color
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke,
-    );
-  }
-
-  void _paintEndPort(Canvas canvas, Offset center, Color color) {
     canvas.drawCircle(
       center,
       portRadius,
@@ -2034,7 +1697,6 @@ class _MapNodeVisual extends StatelessWidget {
     required this.onConnectionDragCancel,
     required this.floating,
     required this.highlighted,
-    required this.awaiting,
   });
 
   final ProductionMapNode node;
@@ -2047,28 +1709,11 @@ class _MapNodeVisual extends StatelessWidget {
   final VoidCallback onConnectionDragCancel;
   final bool floating;
   final bool highlighted;
-  final bool awaiting;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isLocation = node.kind == 'location';
-    if (isLocation) {
-      return _WarehouseLocationNode(
-        node: node,
-        onTap: onTap,
-        onDragUpdate: onDragUpdate,
-        onDelete: onDelete,
-        onConnectionDragStart: onConnectionDragStart,
-        onConnectionDragUpdate: onConnectionDragUpdate,
-        onConnectionDragEnd: onConnectionDragEnd,
-        onConnectionDragCancel: onConnectionDragCancel,
-        floating: floating,
-        highlighted: highlighted,
-        awaiting: awaiting,
-      );
-    }
     return Semantics(
       button: true,
       label: '${node.title} node',
@@ -2080,12 +1725,10 @@ class _MapNodeVisual extends StatelessWidget {
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
             color: _colorFor(node.kind, scheme),
-            borderRadius: _shapeFor(node.kind),
-            border: awaiting
-                ? Border.all(color: scheme.error, width: 3)
-                : highlighted
-                    ? Border.all(color: scheme.primary, width: 2)
-                    : null,
+            borderRadius: BorderRadius.circular(28),
+            border: highlighted
+                ? Border.all(color: scheme.primary, width: 2)
+                : null,
             boxShadow: floating
                 ? [
                     BoxShadow(
@@ -2182,12 +1825,9 @@ class _MapNodeVisual extends StatelessWidget {
 
   IconData _iconFor(String kind) {
     return switch (kind) {
-      'location' => Icons.storefront_rounded,
       'formula' => Icons.functions_rounded,
       'condition' => Icons.call_split_rounded,
       'task' => Icons.engineering_rounded,
-      'wait' => Icons.hourglass_bottom_rounded,
-      'output' => Icons.inventory_2_rounded,
       'end' => Icons.flag_rounded,
       _ => Icons.play_arrow_rounded,
     };
@@ -2195,22 +1835,15 @@ class _MapNodeVisual extends StatelessWidget {
 
   String _labelFor(String kind) {
     return switch (kind) {
-      'location' => 'location',
-      'material' => 'material',
       'formula' => 'formula',
       'condition' => 'if',
       'task' => 'ishlov',
-      'wait' => 'wait',
-      'output' => 'output',
       'end' => 'end',
       _ => 'start',
     };
   }
 
   String _subtitleFor(ProductionMapNode node) {
-    if (node.kind == 'location') {
-      return 'ERPNext location';
-    }
     final formula = node.formula;
     if (formula != null) {
       if (node.kind == 'condition') {
@@ -2219,217 +1852,18 @@ class _MapNodeVisual extends StatelessWidget {
       return '${formula.target} = ${formula.expression}';
     }
     if (node.roleCode.trim().isNotEmpty) {
-      return [
-        node.roleCode,
-        if (node.qtyFormula.trim().isNotEmpty) node.qtyFormula,
-      ].join(' · ');
-    }
-    if (node.itemCode.trim().isNotEmpty) {
-      return [
-        node.itemCode,
-        if (node.qtyFormula.trim().isNotEmpty) node.qtyFormula,
-      ].join(' · ');
-    }
-    if (node.qtyFormula.trim().isNotEmpty) {
-      return node.qtyFormula;
+      return node.roleCode;
     }
     return node.kind;
   }
 
   Color _colorFor(String kind, ColorScheme scheme) {
     return switch (kind) {
-      'location' => scheme.surfaceContainerHigh,
       'formula' => scheme.tertiaryContainer,
       'condition' => scheme.primaryContainer,
       'task' => scheme.secondaryContainer,
-      'wait' => scheme.errorContainer,
-      'output' => scheme.primaryContainer,
       _ => scheme.surfaceContainerHighest,
     };
-  }
-
-  BorderRadius _shapeFor(String kind) {
-    if (kind == 'location') {
-      return const BorderRadius.only(
-        topLeft: Radius.circular(18),
-        topRight: Radius.circular(18),
-        bottomLeft: Radius.circular(28),
-        bottomRight: Radius.circular(28),
-      );
-    }
-    return BorderRadius.circular(28);
-  }
-}
-
-class _WarehouseLocationNode extends StatelessWidget {
-  const _WarehouseLocationNode({
-    required this.node,
-    required this.onTap,
-    required this.onDragUpdate,
-    required this.onDelete,
-    required this.onConnectionDragStart,
-    required this.onConnectionDragUpdate,
-    required this.onConnectionDragEnd,
-    required this.onConnectionDragCancel,
-    required this.floating,
-    required this.highlighted,
-    required this.awaiting,
-  });
-
-  final ProductionMapNode node;
-  final VoidCallback onTap;
-  final GestureDragUpdateCallback onDragUpdate;
-  final VoidCallback? onDelete;
-  final ValueChanged<Offset> onConnectionDragStart;
-  final ValueChanged<Offset> onConnectionDragUpdate;
-  final VoidCallback onConnectionDragEnd;
-  final VoidCallback onConnectionDragCancel;
-  final bool floating;
-  final bool highlighted;
-  final bool awaiting;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final borderColor = awaiting
-        ? scheme.error
-        : highlighted
-            ? scheme.primary
-            : scheme.outlineVariant;
-    return Semantics(
-      button: true,
-      label: '${node.title} location',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onPanUpdate: onDragUpdate,
-        child: SizedBox(
-          height: 68,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: borderColor,
-                width: awaiting || highlighted ? 2.4 : 1.2,
-              ),
-              boxShadow: floating
-                  ? [
-                      BoxShadow(
-                        color: scheme.shadow.withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: scheme.surface.withValues(alpha: 0.62),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.storefront_rounded,
-                    size: 26,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        node.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: scheme.onPrimaryContainer,
-                            ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'ERPNext location',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onPrimaryContainer
-                                  .withValues(alpha: 0.74),
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  key: ValueKey('production-map-node-connect-${node.id}'),
-                  behavior: HitTestBehavior.opaque,
-                  onPanStart: (details) =>
-                      onConnectionDragStart(details.globalPosition),
-                  onPanUpdate: (details) =>
-                      onConnectionDragUpdate(details.globalPosition),
-                  onPanEnd: (_) => onConnectionDragEnd(),
-                  onPanCancel: onConnectionDragCancel,
-                  child: _WarehouseMiniButton(
-                    icon: Icons.add_link_rounded,
-                    scheme: scheme,
-                  ),
-                ),
-                if (onDelete != null) ...[
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onDelete,
-                    child: _WarehouseMiniButton(
-                      icon: Icons.close_rounded,
-                      scheme: scheme,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WarehouseMiniButton extends StatelessWidget {
-  const _WarehouseMiniButton({
-    required this.icon,
-    required this.scheme,
-  });
-
-  final IconData icon;
-  final ColorScheme scheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        shape: BoxShape.circle,
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: Icon(
-          icon,
-          size: 18,
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
-    );
   }
 }
 
@@ -2444,11 +1878,7 @@ class _NodeEditSheet extends StatefulWidget {
 
 class _NodeEditSheetState extends State<_NodeEditSheet> {
   late final TextEditingController _title;
-  late final TextEditingController _itemCode;
   late final TextEditingController _roleCode;
-  late final TextEditingController _qtyFormula;
-  late final TextEditingController _fromLocation;
-  late final TextEditingController _toLocation;
   late final TextEditingController _formulaTarget;
   late final TextEditingController _formulaExpression;
 
@@ -2457,11 +1887,7 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
     super.initState();
     final formula = widget.node.formula;
     _title = TextEditingController(text: widget.node.title);
-    _itemCode = TextEditingController(text: widget.node.itemCode);
     _roleCode = TextEditingController(text: widget.node.roleCode);
-    _qtyFormula = TextEditingController(text: widget.node.qtyFormula);
-    _fromLocation = TextEditingController(text: widget.node.fromLocation);
-    _toLocation = TextEditingController(text: widget.node.toLocation);
     _formulaTarget = TextEditingController(text: formula?.target ?? '');
     _formulaExpression = TextEditingController(text: formula?.expression ?? '');
   }
@@ -2469,11 +1895,7 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
   @override
   void dispose() {
     _title.dispose();
-    _itemCode.dispose();
     _roleCode.dispose();
-    _qtyFormula.dispose();
-    _fromLocation.dispose();
-    _toLocation.dispose();
     _formulaTarget.dispose();
     _formulaExpression.dispose();
     super.dispose();
@@ -2509,39 +1931,12 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
             ),
             const SizedBox(height: 14),
             _SheetField(
-              label:
-                  widget.node.kind == 'location' ? 'ERPNext location' : 'Nomi',
+              label: 'Nomi',
               controller: _title,
             ),
-            if (widget.node.kind == 'material' ||
-                widget.node.kind == 'task' ||
-                widget.node.kind == 'output') ...[
-              const SizedBox(height: 10),
-              _SheetField(label: 'Mahsulot code', controller: _itemCode),
-            ],
             if (widget.node.kind == 'task') ...[
               const SizedBox(height: 10),
               _SheetField(label: 'Vazifa / role code', controller: _roleCode),
-            ],
-            if (widget.node.kind == 'material' ||
-                widget.node.kind == 'task' ||
-                widget.node.kind == 'wait' ||
-                widget.node.kind == 'output') ...[
-              const SizedBox(height: 10),
-              _FormulaSheetField(
-                label: 'Miqdor formulasi',
-                controller: _qtyFormula,
-              ),
-              const SizedBox(height: 10),
-              _SheetField(
-                label: 'Qayerdan',
-                controller: _fromLocation,
-              ),
-              const SizedBox(height: 10),
-              _SheetField(
-                label: 'Qayerga',
-                controller: _toLocation,
-              ),
             ],
             if (widget.node.kind == 'formula') ...[
               const SizedBox(height: 10),
@@ -2575,425 +1970,28 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
     final title = _title.text.trim();
     final formulaTarget = _formulaTarget.text.trim();
     final formulaExpression = _formulaExpression.text.trim();
-    final isLocation = widget.node.kind == 'location';
     Navigator.of(context).pop(
       ProductionMapNode(
         id: widget.node.id,
         kind: widget.node.kind,
         title: title.isEmpty ? widget.node.title : title,
-        itemCode: isLocation ? '' : _itemCode.text.trim(),
-        roleCode: isLocation ? '' : _roleCode.text.trim(),
-        qtyFormula: isLocation ? '' : _qtyFormula.text.trim(),
-        fromLocation: isLocation ? '' : _fromLocation.text.trim(),
-        toLocation: isLocation ? '' : _toLocation.text.trim(),
+        roleCode: _roleCode.text.trim(),
         x: widget.node.x,
         y: widget.node.y,
-        formula: !isLocation &&
-                (widget.node.kind == 'formula' ||
-                    widget.node.kind == 'condition')
-            ? ProductionFormula(
-                target: widget.node.kind == 'condition'
-                    ? ''
-                    : formulaTarget.isEmpty
-                        ? 'result'
-                        : formulaTarget,
-                expression: formulaExpression.isEmpty
-                    ? widget.node.formula?.expression ?? 'order_qty'
-                    : formulaExpression,
-              )
-            : null,
+        formula:
+            widget.node.kind == 'formula' || widget.node.kind == 'condition'
+                ? ProductionFormula(
+                    target: widget.node.kind == 'condition'
+                        ? ''
+                        : formulaTarget.isEmpty
+                            ? 'result'
+                            : formulaTarget,
+                    expression: formulaExpression.isEmpty
+                        ? widget.node.formula?.expression ?? 'order_qty'
+                        : formulaExpression,
+                  )
+                : null,
       ),
-    );
-  }
-}
-
-class _MapInfo {
-  const _MapInfo({
-    required this.mapID,
-    required this.title,
-  });
-
-  final String mapID;
-  final String title;
-}
-
-class _MapInfoSheet extends StatefulWidget {
-  const _MapInfoSheet({
-    required this.mapID,
-    required this.title,
-  });
-
-  final String mapID;
-  final String title;
-
-  @override
-  State<_MapInfoSheet> createState() => _MapInfoSheetState();
-}
-
-class _MapInfoSheetState extends State<_MapInfoSheet> {
-  late final TextEditingController _mapID;
-  late final TextEditingController _title;
-
-  @override
-  void initState() {
-    super.initState();
-    _mapID = TextEditingController(text: widget.mapID);
-    _title = TextEditingController(text: widget.title);
-  }
-
-  @override
-  void dispose() {
-    _mapID.dispose();
-    _title.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _DismissibleBottomSheetFrame(
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        children: [
-          Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const SizedBox(width: 44, height: 4),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Map sozlash',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          const SizedBox(height: 14),
-          _SheetField(label: 'Map ID', controller: _mapID),
-          const SizedBox(height: 10),
-          _SheetField(label: 'Nomi', controller: _title),
-          const SizedBox(height: 16),
-          _PlainActionButton(
-            label: 'Saqlash',
-            icon: Icons.check_rounded,
-            onTap: _save,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _save() {
-    final mapID = _mapID.text.trim();
-    final title = _title.text.trim();
-    Navigator.of(context).pop(
-      _MapInfo(
-        mapID: mapID.isEmpty ? widget.mapID : mapID,
-        title: title.isEmpty ? widget.title : title,
-      ),
-    );
-  }
-}
-
-class _RunMapSheet extends StatefulWidget {
-  const _RunMapSheet();
-
-  @override
-  State<_RunMapSheet> createState() => _RunMapSheetState();
-}
-
-class _RunMapInput {
-  const _RunMapInput({
-    required this.orderQty,
-    required this.variables,
-  });
-
-  final double orderQty;
-  final Map<String, double> variables;
-}
-
-class _RuntimeVariableInput {
-  const _RuntimeVariableInput({
-    required this.name,
-    required this.value,
-  });
-
-  final String name;
-  final double value;
-}
-
-class _RunMapSheetState extends State<_RunMapSheet> {
-  final _qty = TextEditingController(text: '100');
-  final _variables = TextEditingController();
-
-  @override
-  void dispose() {
-    _qty.dispose();
-    _variables.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _DismissibleBottomSheetFrame(
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        children: [
-          Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const SizedBox(width: 44, height: 4),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Production hisob',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _qty,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            decoration: InputDecoration(
-              labelText: 'Buyurtma miqdori',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _variables,
-            minLines: 2,
-            maxLines: 5,
-            decoration: InputDecoration(
-              labelText: 'Runtime variablelar',
-              hintText: 'pechat_ok=1',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _PlainActionButton(
-            label: 'Hisoblash',
-            icon: Icons.play_arrow_rounded,
-            onTap: _run,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _run() {
-    final qty = double.tryParse(_qty.text.trim().replaceAll(',', '.')) ?? 0;
-    if (qty <= 0) {
-      return;
-    }
-    Navigator.of(context).pop(
-      _RunMapInput(
-        orderQty: qty,
-        variables: _parseVariables(_variables.text),
-      ),
-    );
-  }
-
-  Map<String, double> _parseVariables(String raw) {
-    final variables = <String, double>{};
-    for (final line in raw.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty || !trimmed.contains('=')) {
-        continue;
-      }
-      final parts = trimmed.split('=');
-      final key = parts.first.trim();
-      final value = double.tryParse(
-        parts.sublist(1).join('=').trim().replaceAll(',', '.'),
-      );
-      if (key.isNotEmpty && value != null) {
-        variables[key] = value;
-      }
-    }
-    return variables;
-  }
-}
-
-class _RunResultSheet extends StatefulWidget {
-  const _RunResultSheet({required this.result});
-
-  final ProductionMapRunResult result;
-
-  @override
-  State<_RunResultSheet> createState() => _RunResultSheetState();
-}
-
-class _RunResultSheetState extends State<_RunResultSheet> {
-  late final TextEditingController _runtimeValue;
-
-  @override
-  void initState() {
-    super.initState();
-    _runtimeValue = TextEditingController(text: '1');
-  }
-
-  @override
-  void dispose() {
-    _runtimeValue.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final result = widget.result;
-    final variables = result.variables.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    return _DismissibleBottomSheetFrame(
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        children: [
-          Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const SizedBox(width: 44, height: 4),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Run natijasi',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          if (result.awaitingVariable.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.pending_actions_rounded),
-              title: Text('${result.awaitingVariable} kutilmoqda'),
-              subtitle: Text(result.awaitingExpression),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _runtimeValue,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-                signed: true,
-              ),
-              decoration: InputDecoration(
-                labelText: result.awaitingVariable,
-                hintText: '1 yoki 0',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _PlainActionButton(
-                    label: 'Shunda',
-                    icon: Icons.check_rounded,
-                    onTap: () => _continueWith(1),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PlainActionButton(
-                    label: 'Aks holda',
-                    icon: Icons.close_rounded,
-                    onTap: () => _continueWith(0),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _PlainActionButton(
-              label: 'Qiymat bilan davom etish',
-              icon: Icons.play_arrow_rounded,
-              onTap: _continueWithTypedValue,
-            ),
-          ],
-          const SizedBox(height: 12),
-          for (final variable in variables)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.functions_rounded),
-              title: Text(variable.key),
-              trailing: Text(_formatQty(variable.value)),
-            ),
-          if (result.tasks.isNotEmpty) ...[
-            const Divider(height: 24),
-            for (final task in result.tasks)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.engineering_rounded),
-                title: Text(task.title),
-                subtitle: Text([
-                  if (task.roleCode.trim().isNotEmpty) task.roleCode,
-                  if (task.itemCode.trim().isNotEmpty) task.itemCode,
-                  if (task.fromLocation.trim().isNotEmpty ||
-                      task.toLocation.trim().isNotEmpty)
-                    '${task.fromLocation.trim().isEmpty ? '—' : task.fromLocation} → ${task.toLocation.trim().isEmpty ? '—' : task.toLocation}',
-                  task.taskKind,
-                ].join(' · ')),
-                trailing: Text(_formatQty(task.qty)),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _formatQty(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(3);
-  }
-
-  void _continueWithTypedValue() {
-    final value =
-        double.tryParse(_runtimeValue.text.trim().replaceAll(',', '.'));
-    if (value == null) {
-      return;
-    }
-    _continueWith(value);
-  }
-
-  void _continueWith(double value) {
-    final name = widget.result.awaitingVariable.trim();
-    if (name.isEmpty) {
-      return;
-    }
-    Navigator.of(context).pop(
-      _RuntimeVariableInput(name: name, value: value),
     );
   }
 }
