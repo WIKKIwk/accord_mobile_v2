@@ -125,6 +125,24 @@ extension MobileApiAdmin on MobileApi {
   Future<ProductionMapSaved> adminSaveProductionMap(
     ProductionMapDefinition map,
   ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return ProductionMapSaved(
+        map: map,
+        program: ProductionMapProgram(
+          mapId: map.id,
+          productCode: map.productCode,
+          operations: [
+            for (var i = 0; i < map.nodes.length; i++)
+              ProductionMapOperation(
+                order: i + 1,
+                nodeId: map.nodes[i].id,
+                opCode: map.nodes[i].kind,
+                args: {'title': map.nodes[i].title},
+              ),
+          ],
+        ),
+      );
+    }
     final response = await _sendAuthorized(
       () => http.put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),

@@ -9,6 +9,7 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 String productionMapBranchDisplayLabel(String branch) {
@@ -158,11 +159,13 @@ class AdminProductionMapTestScreen extends StatefulWidget {
 
 class ProductionMapOrderContext {
   const ProductionMapOrderContext({
+    this.templateId = '',
     required this.orderName,
     required this.productName,
     required this.itemCode,
   });
 
+  final String templateId;
   final String orderName;
   final String productName;
   final String itemCode;
@@ -187,6 +190,7 @@ class _AdminProductionMapTestScreenState
   String _connectingFromBranch = '';
   Offset? _connectionPreviewEnd;
   bool _mapToolsMenuOpen = false;
+  bool _savingMap = false;
 
   @override
   void initState() {
@@ -284,6 +288,92 @@ class _AdminProductionMapTestScreenState
       const ProductionMapEdge(from: 'start', to: 'order'),
       const ProductionMapEdge(from: 'order', to: 'end'),
     ];
+  }
+
+  Future<void> _saveMap() async {
+    if (_savingMap) {
+      return;
+    }
+    setState(() => _savingMap = true);
+    try {
+      await MobileApi.instance.adminSaveProductionMap(_currentMapDefinition());
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(context, 'Production map saqlandi');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(context, 'Production map saqlanmadi');
+    } finally {
+      if (mounted) {
+        setState(() => _savingMap = false);
+      }
+    }
+  }
+
+  ProductionMapDefinition _currentMapDefinition() {
+    final context = widget.orderContext;
+    final title = context == null
+        ? 'Production map test'
+        : (context.orderName.trim().isEmpty
+            ? 'Zakaz'
+            : context.orderName.trim());
+    final productCode = context == null
+        ? 'production-map-test'
+        : _firstNonEmpty([
+            context.itemCode,
+            context.productName,
+            context.orderName,
+            context.templateId,
+          ]);
+    return ProductionMapDefinition(
+      id: context == null ? 'production-map-test' : _orderMapId(context),
+      productCode: productCode,
+      title: title,
+      nodes: List<ProductionMapNode>.unmodifiable(nodes),
+      edges: List<ProductionMapEdge>.unmodifiable(edges),
+    );
+  }
+
+  String _orderMapId(ProductionMapOrderContext context) {
+    final source = _firstNonEmpty([
+      context.templateId,
+      context.orderName,
+      context.productName,
+      context.itemCode,
+    ]);
+    return 'zakaz-${_slug(source)}';
+  }
+
+  String _firstNonEmpty(List<String> values) {
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return 'zakaz';
+  }
+
+  String _slug(String value) {
+    final lower = value.trim().toLowerCase();
+    final buffer = StringBuffer();
+    var lastDash = false;
+    for (final unit in lower.codeUnits) {
+      final isLetter = unit >= 97 && unit <= 122;
+      final isDigit = unit >= 48 && unit <= 57;
+      if (isLetter || isDigit) {
+        buffer.writeCharCode(unit);
+        lastDash = false;
+      } else if (!lastDash) {
+        buffer.write('-');
+        lastDash = true;
+      }
+    }
+    final slug = buffer.toString().replaceAll(RegExp('^-+|-+\$'), '');
+    return slug.isEmpty ? 'zakaz' : slug;
   }
 
   void _addNode(String kind) {
@@ -795,6 +885,15 @@ class _AdminProductionMapTestScreenState
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      actions: [
+        if (_orderMode)
+          AppShellIconAction(
+            key: const ValueKey('production-map-save'),
+            icon:
+                _savingMap ? Icons.hourglass_top_rounded : Icons.save_outlined,
+            onTap: _saveMap,
+          ),
+      ],
       contentPadding: EdgeInsets.zero,
       animateOnEnter: false,
       bottom: const AdminDock(activeTab: AdminDockTab.home),

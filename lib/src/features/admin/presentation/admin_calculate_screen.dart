@@ -144,6 +144,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     await Navigator.of(context).pushNamed(
       AppRoutes.adminProductionMapTest,
       arguments: ProductionMapOrderContext(
+        templateId: _templateId,
         orderName: _orderName.text,
         productName: _product.text,
         itemCode: _itemCode,

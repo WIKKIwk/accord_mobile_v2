@@ -107,6 +107,39 @@ void main() {
     expect(find.byKey(const ValueKey('admin-fab-menu-Ishlov')), findsNothing);
   });
 
+  testWidgets('production map order flow saves current map', (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          orderContext: ProductionMapOrderContext(
+            templateId: 'ORDER-1',
+            orderName: 'Zenit order',
+            productName: 'zenit frutto ninja 70gr',
+            itemCode: 'ITEM-001',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Production map saqlandi'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier',
       (tester) async {
     await _usePhoneViewport(tester);
