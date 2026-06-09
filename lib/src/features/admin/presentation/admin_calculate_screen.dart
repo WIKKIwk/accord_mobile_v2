@@ -749,20 +749,17 @@ class _SavedTemplateSummary extends StatelessWidget {
             rows: [
               _ChecklistRowData(
                 '1-qavat',
-                firstLayerMaterial,
-                subtitle: _layerMicron(firstLayerMicron),
+                _layerValue(firstLayerMaterial, firstLayerMicron),
               ),
               _ChecklistRowData(
                 '2-qavat',
-                secondLayerMaterial,
-                subtitle: _layerMicron(secondLayerMicron),
+                _layerValue(secondLayerMaterial, secondLayerMicron),
               ),
               if (thirdLayerMaterial.trim().isNotEmpty ||
                   thirdLayerMicron.trim().isNotEmpty)
                 _ChecklistRowData(
                   '3-qavat',
-                  thirdLayerMaterial,
-                  subtitle: _layerMicron(thirdLayerMicron),
+                  _layerValue(thirdLayerMaterial, thirdLayerMicron),
                 ),
             ],
           ),
@@ -942,9 +939,16 @@ class _ChecklistRowData {
   }
 }
 
-String _layerMicron(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? '' : '$trimmed mkr';
+String _layerValue(String material, String micron) {
+  final materialText = material.trim();
+  final micronText = micron.trim();
+  if (materialText.isEmpty) {
+    return micronText.isEmpty ? '' : '$micronText mkr';
+  }
+  if (micronText.isEmpty) {
+    return materialText;
+  }
+  return '$materialText • $micronText mkr';
 }
 
 class _ResultPanel extends StatelessWidget {
