@@ -17,7 +17,14 @@ enum _OpenedOrderModule {
 }
 
 class AdminProductionMapOrdersScreen extends StatefulWidget {
-  const AdminProductionMapOrdersScreen({super.key});
+  const AdminProductionMapOrdersScreen({
+    super.key,
+    this.readOnly = false,
+    this.workerMode = false,
+  });
+
+  final bool readOnly;
+  final bool workerMode;
 
   @override
   State<AdminProductionMapOrdersScreen> createState() =>
@@ -41,8 +48,11 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.workerMode) {
+      _module = _OpenedOrderModule.apparatus;
+    }
     _tabController = TabController(
-      length: _OpenedOrderModule.values.length,
+      length: _modules.length,
       vsync: this,
     );
     _tabController.addListener(_syncModuleFromTab);
@@ -55,6 +65,12 @@ class _AdminProductionMapOrdersScreenState
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  List<_OpenedOrderModule> get _modules {
+    return widget.workerMode
+        ? const [_OpenedOrderModule.apparatus, _OpenedOrderModule.sequence]
+        : _OpenedOrderModule.values;
   }
 
   Future<void> _load() async {
@@ -102,9 +118,13 @@ class _AdminProductionMapOrdersScreenState
     if (_module != module) {
       setState(() => _module = module);
     }
-    if (_tabController.index != module.index) {
+    final index = _modules.indexOf(module);
+    if (index < 0) {
+      return;
+    }
+    if (_tabController.index != index) {
       _tabController.animateTo(
-        module.index,
+        index,
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
       );
@@ -117,7 +137,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _syncModuleFromTab() {
-    final module = _OpenedOrderModule.values[_tabController.index];
+    final module = _modules[_tabController.index];
     if (_module != module) {
       setState(() => _module = module);
     }
@@ -159,6 +179,9 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _reorderSelectedApparatusOrders(int oldIndex, int newIndex) {
+    if (widget.readOnly) {
+      return;
+    }
     final apparatus = _selectedApparatus;
     if (apparatus == null) {
       return;
@@ -179,16 +202,20 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminProductionMapOrders,
-        onNavigate: _openDrawerRoute,
-      ),
-      title: 'Ochilgan zakazlar',
+      drawer: widget.workerMode
+          ? null
+          : AdminNavigationDrawer(
+              selectedIndex: 0,
+              selectedRouteName: AppRoutes.adminProductionMapOrders,
+              onNavigate: _openDrawerRoute,
+            ),
+      title: widget.workerMode ? 'Aparatlar' : 'Ochilgan zakazlar',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.home),
+      bottom: widget.workerMode
+          ? null
+          : const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: _loading
@@ -197,55 +224,65 @@ class _AdminProductionMapOrdersScreenState
               children: [
                 TabBar(
                   controller: _tabController,
-                  onTap: (index) =>
-                      _setModule(_OpenedOrderModule.values[index]),
-                  tabs: const [
-                    Tab(text: 'Zakazlar'),
-                    Tab(text: 'Aparatlar'),
-                    Tab(text: 'Ketma-ketlik'),
+                  onTap: (index) => _setModule(_modules[index]),
+                  tabs: [
+                    for (final module in _modules)
+                      Tab(text: _moduleLabel(module)),
                   ],
                 ),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _OrdersModulePage(
-                        bottomPadding: bottomPadding,
-                        searchController: _searchController,
-                        orders: _orders,
-                        visibleOrders: _visibleOrders(),
-                        onSearchChanged: (value) {
-                          setState(() => _searchQuery = value);
+                      for (final module in _modules)
+                        switch (module) {
+                          _OpenedOrderModule.orders => _OrdersModulePage(
+                              bottomPadding: bottomPadding,
+                              searchController: _searchController,
+                              orders: _orders,
+                              visibleOrders: _visibleOrders(),
+                              onSearchChanged: (value) {
+                                setState(() => _searchQuery = value);
+                              },
+                              onSearchClear: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              onTapOrder: widget.readOnly ? null : _openOrder,
+                            ),
+                          _OpenedOrderModule.apparatus => _ApparatusModulePage(
+                              bottomPadding: bottomPadding,
+                              apparatus: _apparatus,
+                              selected: _selectedApparatus,
+                              orderCountFor: (apparatus) =>
+                                  _ordersForApparatus(apparatus).length,
+                              onTapApparatus: _selectApparatus,
+                            ),
+                          _OpenedOrderModule.sequence => _SequenceModulePage(
+                              bottomPadding: bottomPadding,
+                              apparatus: _selectedApparatus,
+                              orders: _selectedApparatus == null
+                                  ? const []
+                                  : _ordersForApparatus(_selectedApparatus!),
+                              readOnly: widget.readOnly,
+                              onReorder: _reorderSelectedApparatusOrders,
+                              onTapOrder: widget.readOnly ? null : _openOrder,
+                            ),
                         },
-                        onSearchClear: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                        onTapOrder: _openOrder,
-                      ),
-                      _ApparatusModulePage(
-                        bottomPadding: bottomPadding,
-                        apparatus: _apparatus,
-                        selected: _selectedApparatus,
-                        orderCountFor: (apparatus) =>
-                            _ordersForApparatus(apparatus).length,
-                        onTapApparatus: _selectApparatus,
-                      ),
-                      _SequenceModulePage(
-                        bottomPadding: bottomPadding,
-                        apparatus: _selectedApparatus,
-                        orders: _selectedApparatus == null
-                            ? const []
-                            : _ordersForApparatus(_selectedApparatus!),
-                        onReorder: _reorderSelectedApparatusOrders,
-                        onTapOrder: _openOrder,
-                      ),
                     ],
                   ),
                 ),
               ],
             ),
     );
+  }
+
+  String _moduleLabel(_OpenedOrderModule module) {
+    return switch (module) {
+      _OpenedOrderModule.orders => 'Zakazlar',
+      _OpenedOrderModule.apparatus => 'Aparatlar',
+      _OpenedOrderModule.sequence => 'Ketma-ketlik',
+    };
   }
 }
 
@@ -266,7 +303,7 @@ class _OrdersModulePage extends StatelessWidget {
   final List<ProductionMapSaved> visibleOrders;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchClear;
-  final ValueChanged<ProductionMapSaved> onTapOrder;
+  final ValueChanged<ProductionMapSaved>? onTapOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -340,6 +377,7 @@ class _SequenceModulePage extends StatelessWidget {
     required this.bottomPadding,
     required this.apparatus,
     required this.orders,
+    required this.readOnly,
     required this.onReorder,
     required this.onTapOrder,
   });
@@ -347,8 +385,9 @@ class _SequenceModulePage extends StatelessWidget {
   final double bottomPadding;
   final AdminWarehouse? apparatus;
   final List<ProductionMapSaved> orders;
+  final bool readOnly;
   final ReorderCallback onReorder;
-  final ValueChanged<ProductionMapSaved> onTapOrder;
+  final ValueChanged<ProductionMapSaved>? onTapOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -359,6 +398,22 @@ class _SequenceModulePage extends StatelessWidget {
     if (orders.isEmpty) {
       return _EmptyOpenedOrders(
         message: '${selected.warehouse} uchun zakaz yo‘q',
+      );
+    }
+    if (readOnly) {
+      return ListView.builder(
+        padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
+        itemCount: orders.length,
+        itemBuilder: (context, index) {
+          final order = orders[index];
+          return _SequenceOrderRow(
+            key: ValueKey('sequence-${selected.warehouse}-${order.map.id}'),
+            order: order,
+            index: index,
+            readOnly: true,
+            onTap: onTapOrder == null ? null : () => onTapOrder!(order),
+          );
+        },
       );
     }
     return ReorderableListView.builder(
@@ -372,7 +427,8 @@ class _SequenceModulePage extends StatelessWidget {
           key: ValueKey('sequence-${selected.warehouse}-${order.map.id}'),
           order: order,
           index: index,
-          onTap: () => onTapOrder(order),
+          readOnly: false,
+          onTap: onTapOrder == null ? null : () => onTapOrder!(order),
         );
       },
     );
@@ -435,7 +491,7 @@ class _OpenedOrderList extends StatelessWidget {
   });
 
   final List<ProductionMapSaved> orders;
-  final ValueChanged<ProductionMapSaved> onTapOrder;
+  final ValueChanged<ProductionMapSaved>? onTapOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -449,7 +505,7 @@ class _OpenedOrderList extends StatelessWidget {
               orders.length,
             ),
             order: orders[index],
-            onTap: () => onTapOrder(orders[index]),
+            onTap: onTapOrder == null ? null : () => onTapOrder!(orders[index]),
           ),
       ],
     );
@@ -465,7 +521,7 @@ class _OpenedOrderRow extends StatelessWidget {
 
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -655,12 +711,14 @@ class _SequenceOrderRow extends StatelessWidget {
     super.key,
     required this.order,
     required this.index,
+    required this.readOnly,
     required this.onTap,
   });
 
   final ProductionMapSaved order;
   final int index;
-  final VoidCallback onTap;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -732,16 +790,17 @@ class _SequenceOrderRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.drag_handle_rounded,
-                      color: scheme.onSurfaceVariant,
+                if (!readOnly)
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

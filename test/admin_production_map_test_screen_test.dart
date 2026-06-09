@@ -325,6 +325,49 @@ void main() {
     expect(find.byIcon(Icons.drag_handle_rounded), findsWidgets);
   });
 
+  testWidgets('apparatus queue worker view is read only', (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-worker-queue',
+        title: 'Worker queue order',
+        productCode: 'WRK-A',
+        apparatus: 'Godex aparat - DEMO',
+        product: 'worker mahsulot',
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zakazlar'), findsNothing);
+    expect(find.text('Aparatlar'), findsWidgets);
+    expect(find.text('Ketma-ketlik'), findsOneWidget);
+    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+
+    await tester.tap(find.text('Godex aparat - DEMO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Worker queue order'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier',
       (tester) async {
     await _usePhoneViewport(tester);

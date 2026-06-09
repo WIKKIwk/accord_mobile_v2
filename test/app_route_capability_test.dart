@@ -81,6 +81,24 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isTrue);
   });
 
+  test('apparatus queue route opens read-only with queue capability', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Apparatchi',
+      legalName: '',
+      ref: 'werka',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.apparatusQueue);
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapOrders), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isFalse);
+  });
+
   test('rezka split route opens with rezka capability', () {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

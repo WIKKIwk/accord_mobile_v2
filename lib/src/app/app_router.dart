@@ -131,6 +131,7 @@ class AppRoutes {
   static const String adminRoles = '/admin-roles';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String apparatusQueue = '/apparatus-queue';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminUserCreate = '/admin-user-create';
   static const String adminSupplierCreate = '/admin-supplier-create';
@@ -165,6 +166,7 @@ class AppRouter {
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.apparatusQueue,
     AppRoutes.adminSuppliers,
     AppRoutes.adminUserCreate,
     AppRoutes.adminWerka,
@@ -203,6 +205,7 @@ class AppRouter {
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.apparatusQueue,
     AppRoutes.adminCalculate,
     AppRoutes.adminCalculateOrders,
     AppRoutes.adminSupplierCreate,
@@ -463,6 +466,14 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.apparatusQueue:
+        return _buildRoute(
+          settings,
+          const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
       case AppRoutes.adminUserCreate:
@@ -631,6 +642,7 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
+    AppRoutes.apparatusQueue: {'apparatus.queue.read'},
     AppRoutes.adminSuppliers: {
       'party.supplier.read',
       'party.customer.read',

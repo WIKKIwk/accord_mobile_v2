@@ -979,6 +979,7 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
         'admin.activity.read',
         'werka.code.manage',
         'production.map.manage',
+        'apparatus.queue.read',
         'gscale.catalog.read',
         'gscale.print',
         'rps.batch.manage',

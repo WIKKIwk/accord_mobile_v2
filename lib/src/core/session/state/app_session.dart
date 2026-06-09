@@ -59,6 +59,9 @@ class AppSession {
     ])) {
       return '/admin-home';
     }
+    if (profile.hasCapability('apparatus.queue.read')) {
+      return '/apparatus-queue';
+    }
     if (profile.hasCapability('rezka.split.manage')) {
       return '/rezka-split';
     }
