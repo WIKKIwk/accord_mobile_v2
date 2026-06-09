@@ -48,9 +48,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   String _customerRef = '';
   String _itemCode = '';
+  String _templateId = '';
   bool _openingRoute = false;
   bool _calculating = false;
   bool _uploadingImage = false;
+  bool _editingAllFields = true;
   String _imageId = '';
   String _imageName = '';
   String _imageMime = '';
@@ -63,6 +65,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   void initState() {
     super.initState();
+    _editingAllFields = widget.template == null;
     _applyTemplate(widget.template);
   }
 
@@ -90,6 +93,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     if (template == null) {
       return;
     }
+    _templateId = template.id;
     _orderName.text = template.name;
     _customerRef = template.customerRef;
     _customer.text = template.customer;
@@ -232,7 +236,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     final template = CalculateOrderTemplate(
-      id: '',
+      id: _templateId,
       name: _orderName.text.trim(),
       savedAt: DateTime.now().toUtc(),
       orderNumber: '',
@@ -262,6 +266,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     await CalculateOrderTemplateStore.instance.upsert(template);
     if (!mounted) {
       return;
+    }
+    if (_templateId.isNotEmpty) {
+      setState(() {
+        _editingAllFields = false;
+      });
     }
     showAdminTopNotice(context, 'Zakaz saqlandi');
   }
@@ -408,9 +417,169 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     });
   }
 
+  void _enableFullEdit() {
+    setState(() {
+      _editingAllFields = true;
+    });
+  }
+
+  List<Widget> _fullEditChildren() {
+    return [
+      _TextInput(
+        controller: _orderName,
+        label: 'Zakaz nomi',
+      ),
+      const _SectionHeader(title: 'Buyurtma'),
+      _PickerInput(
+        label: 'Mijoz',
+        value: _customer.text,
+        subtitle: _customerRef,
+        onTap: _openCustomerPicker,
+      ),
+      _PickerInput(
+        label: 'Mahsulot',
+        value: _product.text,
+        subtitle: _itemCode,
+        required: true,
+        onTap: _openProductPicker,
+      ),
+      _TextInput(
+        controller: _status,
+        label: 'Status',
+      ),
+      _ImageUploadInput(
+        localPath: _imageLocalPath,
+        imageUrl: _imageUrl,
+        imageName: _imageName,
+        imageSizeBytes: _imageSizeBytes,
+        uploading: _uploadingImage,
+        onPick: _pickImage,
+        onClear: _clearImage,
+      ),
+      const SizedBox(height: 18),
+      const _SectionHeader(title: 'Hisob'),
+      _NumberInput(
+        controller: _kg,
+        label: 'KG',
+        suffixText: 'kg',
+        required: true,
+      ),
+      _NumberInput(
+        controller: _widthMm,
+        label: 'Razmer',
+        suffixText: 'mm',
+        required: true,
+      ),
+      _NumberInput(
+        controller: _wastePercent,
+        label: 'Atxod foiz',
+        suffixText: '%',
+        required: true,
+        allowZero: true,
+      ),
+      _IntegerInput(
+        controller: _rollCount,
+        label: 'Val soni',
+        suffixText: 'ta',
+      ),
+      const SizedBox(height: 18),
+      const _SectionHeader(title: 'Qavatlar'),
+      _LayerInputs(
+        material: _firstMaterial,
+        micron: _firstMicron,
+        materialLabel: '1-qavat',
+        required: true,
+      ),
+      _LayerInputs(
+        material: _secondMaterial,
+        micron: _secondMicron,
+        materialLabel: '2-qavat',
+        required: true,
+      ),
+      _LayerInputs(
+        material: _thirdMaterial,
+        micron: _thirdMicron,
+        materialLabel: '3-qavat',
+      ),
+      const SizedBox(height: 18),
+      _TextInput(
+        controller: _note,
+        label: 'Izoh',
+        minLines: 3,
+        maxLines: 5,
+      ),
+      ..._calculateActionChildren(),
+    ];
+  }
+
+  List<Widget> _compactTemplateChildren() {
+    return [
+      _SavedTemplateSummary(
+        orderName: _orderName.text,
+        customer: _customer.text,
+        customerRef: _customerRef,
+        product: _product.text,
+        itemCode: _itemCode,
+        status: _status.text,
+        imageUrl: _imageUrl,
+        imageName: _imageName,
+        imageSizeBytes: _imageSizeBytes,
+        widthMm: _widthMm.text,
+        rollCount: _rollCount.text,
+        firstLayerMaterial: _firstMaterial.text,
+        firstLayerMicron: _firstMicron.text,
+        secondLayerMaterial: _secondMaterial.text,
+        secondLayerMicron: _secondMicron.text,
+        thirdLayerMaterial: _thirdMaterial.text,
+        thirdLayerMicron: _thirdMicron.text,
+        note: _note.text,
+      ),
+      const SizedBox(height: 18),
+      const _SectionHeader(title: 'Hisob'),
+      _NumberInput(
+        controller: _kg,
+        label: 'KG',
+        suffixText: 'kg',
+        required: true,
+      ),
+      _NumberInput(
+        controller: _wastePercent,
+        label: 'Atxod foiz',
+        suffixText: '%',
+        required: true,
+        allowZero: true,
+      ),
+      ..._calculateActionChildren(),
+    ];
+  }
+
+  List<Widget> _calculateActionChildren() {
+    return [
+      const SizedBox(height: 22),
+      FilledButton.icon(
+        onPressed: _calculating ? null : _calculate,
+        icon: const Icon(Icons.calculate_outlined),
+        label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+        ),
+      ),
+      if (_error.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        _ErrorPanel(message: _error),
+      ],
+      if (_result != null) ...[
+        const SizedBox(height: 18),
+        _ResultPanel(response: _result!),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final children =
+        _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
@@ -426,10 +595,16 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           icon: Icons.list_alt_rounded,
           onTap: _openOrders,
         ),
-        AppShellIconAction(
-          icon: Icons.save_outlined,
-          onTap: _saveTemplate,
-        ),
+        if (_editingAllFields)
+          AppShellIconAction(
+            icon: Icons.save_outlined,
+            onTap: _saveTemplate,
+          )
+        else
+          AppShellIconAction(
+            icon: Icons.edit_outlined,
+            onTap: _enableFullEdit,
+          ),
       ],
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
@@ -441,113 +616,319 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           key: _formKey,
           child: ListView(
             padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
-            children: [
-              _TextInput(
-                controller: _orderName,
-                label: 'Zakaz nomi',
-              ),
-              const _SectionHeader(title: 'Buyurtma'),
-              _PickerInput(
-                label: 'Mijoz',
-                value: _customer.text,
-                subtitle: _customerRef,
-                onTap: _openCustomerPicker,
-              ),
-              _PickerInput(
-                label: 'Mahsulot',
-                value: _product.text,
-                subtitle: _itemCode,
-                required: true,
-                onTap: _openProductPicker,
-              ),
-              _TextInput(
-                controller: _status,
-                label: 'Status',
-              ),
-              _ImageUploadInput(
-                localPath: _imageLocalPath,
-                imageUrl: _imageUrl,
-                imageName: _imageName,
-                imageSizeBytes: _imageSizeBytes,
-                uploading: _uploadingImage,
-                onPick: _pickImage,
-                onClear: _clearImage,
-              ),
-              const SizedBox(height: 18),
-              const _SectionHeader(title: 'Hisob'),
-              _NumberInput(
-                controller: _kg,
-                label: 'KG',
-                suffixText: 'kg',
-                required: true,
-              ),
-              _NumberInput(
-                controller: _widthMm,
-                label: 'Razmer',
-                suffixText: 'mm',
-                required: true,
-              ),
-              _NumberInput(
-                controller: _wastePercent,
-                label: 'Atxod foiz',
-                suffixText: '%',
-                required: true,
-                allowZero: true,
-              ),
-              _IntegerInput(
-                controller: _rollCount,
-                label: 'Val soni',
-                suffixText: 'ta',
-              ),
-              const SizedBox(height: 18),
-              const _SectionHeader(title: 'Qavatlar'),
-              _LayerInputs(
-                material: _firstMaterial,
-                micron: _firstMicron,
-                materialLabel: '1-qavat',
-                required: true,
-              ),
-              _LayerInputs(
-                material: _secondMaterial,
-                micron: _secondMicron,
-                materialLabel: '2-qavat',
-                required: true,
-              ),
-              _LayerInputs(
-                material: _thirdMaterial,
-                micron: _thirdMicron,
-                materialLabel: '3-qavat',
-              ),
-              const SizedBox(height: 18),
-              _TextInput(
-                controller: _note,
-                label: 'Izoh',
-                minLines: 3,
-                maxLines: 5,
-              ),
-              const SizedBox(height: 22),
-              FilledButton.icon(
-                onPressed: _calculating ? null : _calculate,
-                icon: const Icon(Icons.calculate_outlined),
-                label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              ),
-              if (_error.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _ErrorPanel(message: _error),
-              ],
-              if (_result != null) ...[
-                const SizedBox(height: 18),
-                _ResultPanel(response: _result!),
-              ],
-            ],
+            children: children,
           ),
         ),
       ),
     );
   }
+}
+
+class _SavedTemplateSummary extends StatelessWidget {
+  const _SavedTemplateSummary({
+    required this.orderName,
+    required this.customer,
+    required this.customerRef,
+    required this.product,
+    required this.itemCode,
+    required this.status,
+    required this.imageUrl,
+    required this.imageName,
+    required this.imageSizeBytes,
+    required this.widthMm,
+    required this.rollCount,
+    required this.firstLayerMaterial,
+    required this.firstLayerMicron,
+    required this.secondLayerMaterial,
+    required this.secondLayerMicron,
+    required this.thirdLayerMaterial,
+    required this.thirdLayerMicron,
+    required this.note,
+  });
+
+  final String orderName;
+  final String customer;
+  final String customerRef;
+  final String product;
+  final String itemCode;
+  final String status;
+  final String imageUrl;
+  final String imageName;
+  final int imageSizeBytes;
+  final String widthMm;
+  final String rollCount;
+  final String firstLayerMaterial;
+  final String firstLayerMicron;
+  final String secondLayerMaterial;
+  final String secondLayerMicron;
+  final String thirdLayerMaterial;
+  final String thirdLayerMicron;
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final imageTitle =
+        imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.fact_check_outlined,
+                color: scheme.primary,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  orderName.trim().isEmpty ? 'Zakaz' : orderName.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ChecklistSection(
+            title: 'Buyurtma',
+            rows: [
+              _ChecklistRowData('Mijoz', customer, subtitle: customerRef),
+              _ChecklistRowData('Mahsulot', product, subtitle: itemCode),
+              _ChecklistRowData('Status', status),
+            ],
+          ),
+          if (imageUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: _ImagePreview(localPath: '', imageUrl: imageUrl),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rang rasmi',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        imageTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (imageSizeBytes > 0)
+                        Text(
+                          _formatBytes(imageSizeBytes),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          _ChecklistSection(
+            title: 'Parametrlar',
+            rows: [
+              _ChecklistRowData('Razmer', widthMm, suffix: 'mm'),
+              _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ChecklistSection(
+            title: 'Qavatlar',
+            rows: [
+              _ChecklistRowData(
+                '1-qavat',
+                firstLayerMaterial,
+                subtitle: _layerMicron(firstLayerMicron),
+              ),
+              _ChecklistRowData(
+                '2-qavat',
+                secondLayerMaterial,
+                subtitle: _layerMicron(secondLayerMicron),
+              ),
+              if (thirdLayerMaterial.trim().isNotEmpty ||
+                  thirdLayerMicron.trim().isNotEmpty)
+                _ChecklistRowData(
+                  '3-qavat',
+                  thirdLayerMaterial,
+                  subtitle: _layerMicron(thirdLayerMicron),
+                ),
+            ],
+          ),
+          if (note.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ChecklistSection(
+              title: 'Izoh',
+              rows: [_ChecklistRowData('', note)],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ChecklistSection extends StatelessWidget {
+  const _ChecklistSection({
+    required this.title,
+    required this.rows,
+  });
+
+  final String title;
+  final List<_ChecklistRowData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visibleRows = rows.where((row) => row.hasValue).toList();
+    if (visibleRows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (var i = 0; i < visibleRows.length; i++) ...[
+          _ChecklistRow(data: visibleRows[i]),
+          if (i != visibleRows.length - 1) const SizedBox(height: 6),
+        ],
+      ],
+    );
+  }
+}
+
+class _ChecklistRow extends StatelessWidget {
+  const _ChecklistRow({required this.data});
+
+  final _ChecklistRowData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final value = data.formattedValue;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.check_circle_rounded,
+          color: scheme.primary,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        if (data.label.trim().isNotEmpty) ...[
+          SizedBox(
+            width: 82,
+            child: Text(
+              data.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                maxLines: data.label.trim().isEmpty ? 4 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (data.subtitle.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  data.subtitle.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChecklistRowData {
+  const _ChecklistRowData(
+    this.label,
+    this.value, {
+    this.subtitle = '',
+    this.suffix = '',
+  });
+
+  final String label;
+  final String value;
+  final String subtitle;
+  final String suffix;
+
+  bool get hasValue => value.trim().isNotEmpty || subtitle.trim().isNotEmpty;
+
+  String get formattedValue {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return subtitle.trim();
+    }
+    final unit = suffix.trim();
+    return unit.isEmpty ? trimmed : '$trimmed $unit';
+  }
+}
+
+String _layerMicron(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? '' : '$trimmed mkr';
 }
 
 class _ResultPanel extends StatelessWidget {
