@@ -580,13 +580,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final children =
         _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
+    final pageTitle = _templateId.isEmpty ? 'Zakaz yaratish' : 'Zakaz';
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
         selectedRouteName: AppRoutes.adminCalculate,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Calculate',
+      title: pageTitle,
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),

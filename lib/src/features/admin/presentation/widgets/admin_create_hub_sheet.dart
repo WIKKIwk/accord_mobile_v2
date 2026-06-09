@@ -284,6 +284,12 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         icon: Icons.account_tree_outlined,
         routeName: AppRoutes.adminItemGroupCreate,
       ),
+      const _AdminHubActionCandidate(
+        key: ValueKey('admin-hub-calculate-order-create'),
+        title: 'Zakaz yaratish',
+        icon: Icons.add_task_outlined,
+        routeName: AppRoutes.adminCalculate,
+      ),
     ];
     final visible = candidates
         .where((action) => AppRouter.canOpenRoute(action.routeName))

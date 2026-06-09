@@ -291,9 +291,9 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminRoles,
     ),
     const _AdminHomeAction(
-      title: 'Calculate',
-      icon: Icons.calculate_outlined,
-      routeName: AppRoutes.adminCalculate,
+      title: 'Zakazlar',
+      icon: Icons.list_alt_rounded,
+      routeName: AppRoutes.adminCalculateOrders,
     ),
     const _AdminHomeAction(
       title: 'Production map test',

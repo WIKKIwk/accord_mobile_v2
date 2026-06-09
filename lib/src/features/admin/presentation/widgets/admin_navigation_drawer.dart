@@ -161,10 +161,10 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminActivity,
     ),
     const _AdminDrawerDestination(
-      icon: Icons.calculate_outlined,
-      selectedIcon: Icons.calculate_rounded,
-      label: 'Calculate',
-      routeName: AppRoutes.adminCalculate,
+      icon: Icons.list_alt_outlined,
+      selectedIcon: Icons.list_alt_rounded,
+      label: 'Zakazlar',
+      routeName: AppRoutes.adminCalculateOrders,
     ),
     _AdminDrawerDestination(
       icon: Icons.admin_panel_settings_outlined,
