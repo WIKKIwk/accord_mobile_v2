@@ -936,13 +936,12 @@ class _MoveDropZone extends StatelessWidget {
                       orders.length,
                     );
                     if (isDragging) {
-                      return Opacity(
-                        opacity: 0,
-                        child: _MoveOrderCard(
-                          order: order,
-                          index: index,
-                          slot: slot,
-                        ),
+                      return const AnimatedSize(
+                        duration: Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        clipBehavior: Clip.hardEdge,
+                        child: SizedBox.shrink(),
                       );
                     }
                     return Padding(
@@ -1090,6 +1089,7 @@ class _MoveOrderTile extends StatelessWidget {
           trailing: LongPressDraggable<_MoveDragPayload>(
             data: _MoveDragPayload(order: order, source: source),
             axis: Axis.vertical,
+            childWhenDragging: const SizedBox.shrink(),
             dragAnchorStrategy: (_, handleContext, position) {
               final box = handleContext.findRenderObject()! as RenderBox;
               final local = box.globalToLocal(position);
