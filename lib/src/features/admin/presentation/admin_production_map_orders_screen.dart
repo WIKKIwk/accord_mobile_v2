@@ -594,10 +594,14 @@ class _SequenceModulePage extends StatelessWidget {
 
     if (!readOnly && selected != null && orders.isNotEmpty) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SequenceApparatusSelector(
-            selected: selected,
-            onTap: onPickApparatus,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: _SequenceApparatusSelector(
+              selected: selected,
+              onTap: onPickApparatus,
+            ),
           ),
           Expanded(
             child: ReorderableListView.builder(
@@ -653,53 +657,58 @@ class _SequenceApparatusSelector extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final selectedTitle = selected?.warehouse.trim() ?? '';
+    final hasValue = selectedTitle.isNotEmpty;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Semantics(
+        button: true,
+        label: 'Aparatlar',
         child: InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.precision_manufacturing_rounded,
-                  color: scheme.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Aparatlar',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        selectedTitle.isEmpty
-                            ? 'Aparat tanlang'
-                            : selectedTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.expand_more_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ],
+          child: InputDecorator(
+            isFocused: false,
+            decoration: InputDecoration(
+              labelText: 'Aparatlar',
+              isDense: true,
+              filled: true,
+              fillColor: scheme.surfaceContainerLow,
+              contentPadding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+              prefixIcon: Icon(
+                Icons.precision_manufacturing_outlined,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
+              suffixIcon: Icon(
+                Icons.expand_more_rounded,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: scheme.outlineVariant),
+              ),
+            ),
+            child: Text(
+              hasValue ? selectedTitle : 'Tanlang',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: hasValue ? scheme.onSurface : scheme.onSurfaceVariant,
+                fontWeight: hasValue ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
           ),
         ),
