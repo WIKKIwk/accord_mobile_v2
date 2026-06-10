@@ -910,18 +910,22 @@ class _MoveOrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final feedbackWidth = MediaQuery.sizeOf(context).width - 40;
     return _MoveOrderCard(
       order: order,
       index: index,
       trailing: LongPressDraggable<_MoveDragPayload>(
         data: _MoveDragPayload(order: order, source: source),
         axis: Axis.vertical,
-        dragAnchorStrategy: childDragAnchorStrategy,
-        feedbackOffset: const Offset(-160, 0),
+        dragAnchorStrategy: (_, handleContext, position) {
+          final box = handleContext.findRenderObject()! as RenderBox;
+          final local = box.globalToLocal(position);
+          return Offset(feedbackWidth - 28, local.dy);
+        },
         feedback: Material(
           color: Colors.transparent,
           child: SizedBox(
-            width: MediaQuery.sizeOf(context).width - 40,
+            width: feedbackWidth,
             child: _MoveOrderCard(
               order: order,
               index: index,
