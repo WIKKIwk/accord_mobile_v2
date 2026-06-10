@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 enum AdminDockTab {
   home,
   suppliers,
-  products,
   settings,
   activity,
 }
@@ -36,7 +35,6 @@ class AdminDock extends StatelessWidget {
     );
     final homeLabel = l10n?.adminHomeNavTitle ?? 'Uy';
     final usersLabel = l10n?.adminWorkersNavTitle ?? 'Ishchilar';
-    final productsLabel = l10n?.adminProductsTitle ?? 'Mahsulotlar';
     final createLabel = l10n?.adminCreateTitle ?? 'Yangi';
     final activityLabel = l10n?.adminActivityNavTitle ?? 'Faoliyat';
     return AnimatedBuilder(
@@ -48,7 +46,6 @@ class AdminDock extends StatelessWidget {
         final destinations = _visibleDestinations(
           homeLabel: homeLabel,
           usersLabel: usersLabel,
-          productsLabel: productsLabel,
           createLabel: createLabel,
           activityLabel: activityLabel,
         );
@@ -82,7 +79,6 @@ class AdminDock extends StatelessWidget {
               Navigator.of(context).pushNamedAndRemoveUntil(
                 destination.routeName,
                 (route) => false,
-                arguments: destination.routeArguments,
               );
             }
 
@@ -154,7 +150,6 @@ class _AdminDockDestination {
     required this.icon,
     required this.selectedIcon,
     required this.routeName,
-    this.routeArguments,
     this.primary = false,
   });
 
@@ -164,14 +159,12 @@ class _AdminDockDestination {
   final IconData icon;
   final IconData selectedIcon;
   final String routeName;
-  final Object? routeArguments;
   final bool primary;
 }
 
 List<_AdminDockDestination> _visibleDestinations({
   required String homeLabel,
   required String usersLabel,
-  required String productsLabel,
   required String createLabel,
   required String activityLabel,
 }) {
@@ -191,15 +184,6 @@ List<_AdminDockDestination> _visibleDestinations({
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
       routeName: AppRoutes.adminSuppliers,
-    ),
-    _AdminDockDestination(
-      id: 'admin-products',
-      tab: AdminDockTab.products,
-      label: productsLabel,
-      icon: Icons.inventory_2_outlined,
-      selectedIcon: Icons.inventory_2_rounded,
-      routeName: AppRoutes.adminItemCreate,
-      routeArguments: 2,
     ),
     _AdminDockDestination(
       id: 'admin-create',

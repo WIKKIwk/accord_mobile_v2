@@ -24,7 +24,7 @@ class AdminItemGroupBulkMoveScreen extends StatelessWidget {
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
-      bottom: const AdminDock(activeTab: AdminDockTab.products),
+      bottom: const AdminDock(activeTab: AdminDockTab.settings),
       child: const AdminItemGroupBulkMoveTab(),
     );
   }

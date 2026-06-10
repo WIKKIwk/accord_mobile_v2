@@ -201,7 +201,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.products),
+      bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
