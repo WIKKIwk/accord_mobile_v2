@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
@@ -51,7 +49,6 @@ class _AdminProductionMapOrdersScreenState
   AdminWarehouse? _selectedApparatus;
   AdminWarehouse? _moveTopApparatus;
   AdminWarehouse? _moveBottomApparatus;
-  ProductionMapSaved? _draggingMoveOrder;
   List<ProductionMapSaved> _orders = const [];
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
@@ -291,14 +288,12 @@ class _AdminProductionMapOrdersScreenState
           for (final item in _orders)
             if (item.map.id == saved.map.id) saved else item,
         ];
-        _draggingMoveOrder = null;
       });
       showAdminTopNotice(context, 'Zakaz ko‘chirildi');
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() => _draggingMoveOrder = null);
       showAdminTopNotice(context, 'Zakaz ko‘chirilmadi');
     }
   }
@@ -443,17 +438,9 @@ class _AdminProductionMapOrdersScreenState
                               bottomOrders: _moveBottomApparatus == null
                                   ? const []
                                   : _ordersForApparatus(_moveBottomApparatus!),
-                              draggingOrder: _draggingMoveOrder,
-                              canMoveTo: _canMoveOrderToApparatus,
                               onPickTop: () => _pickMoveApparatus(top: true),
                               onPickBottom: () =>
                                   _pickMoveApparatus(top: false),
-                              onDragStarted: (order) {
-                                setState(() => _draggingMoveOrder = order);
-                              },
-                              onDragEnded: () {
-                                setState(() => _draggingMoveOrder = null);
-                              },
                               onMove: _moveOrderBetweenApparatus,
                             ),
                         },
@@ -630,12 +617,8 @@ class _MoveModulePage extends StatelessWidget {
     required this.bottomApparatus,
     required this.topOrders,
     required this.bottomOrders,
-    required this.draggingOrder,
-    required this.canMoveTo,
     required this.onPickTop,
     required this.onPickBottom,
-    required this.onDragStarted,
-    required this.onDragEnded,
     required this.onMove,
   });
 
@@ -643,13 +626,8 @@ class _MoveModulePage extends StatelessWidget {
   final AdminWarehouse? bottomApparatus;
   final List<ProductionMapSaved> topOrders;
   final List<ProductionMapSaved> bottomOrders;
-  final ProductionMapSaved? draggingOrder;
-  final bool Function(ProductionMapSaved order, AdminWarehouse target)
-      canMoveTo;
   final VoidCallback onPickTop;
   final VoidCallback onPickBottom;
-  final ValueChanged<ProductionMapSaved> onDragStarted;
-  final VoidCallback onDragEnded;
   final Future<void> Function({
     required ProductionMapSaved order,
     required AdminWarehouse from,
@@ -687,10 +665,6 @@ class _MoveModulePage extends StatelessWidget {
                     apparatus: top,
                     fromApparatus: bottom,
                     orders: topOrders,
-                    draggingOrder: draggingOrder,
-                    canMoveTo: canMoveTo,
-                    onDragStarted: onDragStarted,
-                    onDragEnded: onDragEnded,
                     onMove: onMove,
                   ),
                 ),
@@ -709,10 +683,6 @@ class _MoveModulePage extends StatelessWidget {
               apparatus: bottom,
               fromApparatus: top,
               orders: bottomOrders,
-              draggingOrder: draggingOrder,
-              canMoveTo: canMoveTo,
-              onDragStarted: onDragStarted,
-              onDragEnded: onDragEnded,
               onMove: onMove,
             ),
           ),
@@ -727,21 +697,12 @@ class _MoveDropZone extends StatelessWidget {
     required this.apparatus,
     required this.fromApparatus,
     required this.orders,
-    required this.draggingOrder,
-    required this.canMoveTo,
-    required this.onDragStarted,
-    required this.onDragEnded,
     required this.onMove,
   });
 
   final AdminWarehouse apparatus;
   final AdminWarehouse fromApparatus;
   final List<ProductionMapSaved> orders;
-  final ProductionMapSaved? draggingOrder;
-  final bool Function(ProductionMapSaved order, AdminWarehouse target)
-      canMoveTo;
-  final ValueChanged<ProductionMapSaved> onDragStarted;
-  final VoidCallback onDragEnded;
   final Future<void> Function({
     required ProductionMapSaved order,
     required AdminWarehouse from,
@@ -750,56 +711,22 @@ class _MoveDropZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dragged = draggingOrder;
-    final blocked = dragged != null && !canMoveTo(dragged, apparatus);
-    return DragTarget<_MoveDragPayload>(
-      onWillAcceptWithDetails: (details) =>
-          details.data.source.warehouse.trim() != apparatus.warehouse.trim() &&
-          canMoveTo(details.data.order, apparatus),
-      onAcceptWithDetails: (details) {
-        onMove(
-          order: details.data.order,
-          from: details.data.source,
-          to: apparatus,
-        );
-      },
-      builder: (context, candidate, rejected) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          decoration: BoxDecoration(
-            color: blocked
-                ? Theme.of(context)
-                    .colorScheme
-                    .errorContainer
-                    .withValues(alpha: 0.18)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(
-              sigmaX: blocked ? 1.8 : 0,
-              sigmaY: blocked ? 1.8 : 0,
-            ),
-            child: orders.isEmpty
-                ? _MoveEmptyZone(apparatus: apparatus)
-                : ListView.builder(
-                    padding: EdgeInsets.zero,
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      return _MoveOrderTile(
-                        order: order,
-                        source: apparatus,
-                        index: index,
-                        onDragStarted: () => onDragStarted(order),
-                        onDragEnded: onDragEnded,
-                      );
-                    },
-                  ),
-          ),
-        );
-      },
-    );
+    return orders.isEmpty
+        ? _MoveEmptyZone(apparatus: apparatus)
+        : ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return _MoveOrderTile(
+                order: order,
+                source: apparatus,
+                target: fromApparatus,
+                index: index,
+                onMove: onMove,
+              );
+            },
+          );
   }
 }
 
@@ -897,70 +824,35 @@ class _MoveOrderTile extends StatelessWidget {
   const _MoveOrderTile({
     required this.order,
     required this.source,
+    required this.target,
     required this.index,
-    required this.onDragStarted,
-    required this.onDragEnded,
+    required this.onMove,
   });
 
   final ProductionMapSaved order;
   final AdminWarehouse source;
+  final AdminWarehouse target;
   final int index;
-  final VoidCallback onDragStarted;
-  final VoidCallback onDragEnded;
+  final Future<void> Function({
+    required ProductionMapSaved order,
+    required AdminWarehouse from,
+    required AdminWarehouse to,
+  }) onMove;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final feedbackWidth = constraints.maxWidth;
-        return _MoveOrderCard(
-          order: order,
-          index: index,
-          trailing: LongPressDraggable<_MoveDragPayload>(
-            data: _MoveDragPayload(order: order, source: source),
-            axis: Axis.vertical,
-            dragAnchorStrategy: (_, handleContext, position) {
-              final box = handleContext.findRenderObject()! as RenderBox;
-              final local = box.globalToLocal(position);
-              return Offset(feedbackWidth - 28, local.dy);
-            },
-            feedback: Material(
-              color: Colors.transparent,
-              child: SizedBox(
-                width: feedbackWidth,
-                child: _MoveOrderCard(
-                  order: order,
-                  index: index,
-                ),
-              ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0.35,
-              child: _MoveDragHandle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            onDragStarted: onDragStarted,
-            onDragEnd: (_) => onDragEnded(),
-            onDraggableCanceled: (_, __) => onDragEnded(),
-            child: _MoveDragHandle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        );
-      },
+    return _MoveOrderCard(
+      order: order,
+      index: index,
+      trailing: InkResponse(
+        onTap: () => onMove(order: order, from: source, to: target),
+        radius: 24,
+        child: _MoveDragHandle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
-}
-
-class _MoveDragPayload {
-  const _MoveDragPayload({
-    required this.order,
-    required this.source,
-  });
-
-  final ProductionMapSaved order;
-  final AdminWarehouse source;
 }
 
 class _MoveOrderCard extends StatelessWidget {

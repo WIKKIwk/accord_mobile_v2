@@ -7,7 +7,6 @@ import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_mo
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -656,26 +655,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsNothing);
 
-    await _dragOrderTitleToTopZone(
-      tester,
-      orderTitle: 'Move ok order',
-      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
-    );
+    await tester.tap(find.text('Move ok order'));
+    await tester.pumpAndSettle();
     var maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli pechat');
 
-    await _dragOrderHandleToTopZone(
+    await _tapOrderHandle(
       tester,
       orderTitle: 'Move ok order',
-      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
     );
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
 
-    await _dragOrderHandleToTopZone(
+    await _tapOrderHandle(
       tester,
       orderTitle: 'Move blocked order',
-      targetText: 'Move ok order',
     );
     maps = await MobileApi.instance.adminProductionMaps();
     expect(
@@ -987,26 +981,9 @@ Future<void> _tapMapTool(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(ValueKey('admin-fab-menu-$label')));
 }
 
-Future<void> _dragOrderTitleToTopZone(
+Future<void> _tapOrderHandle(
   WidgetTester tester, {
   required String orderTitle,
-  required String targetText,
-}) async {
-  final order = find.text(orderTitle);
-  await tester.ensureVisible(order);
-  await tester.pumpAndSettle();
-  final gesture = await tester.startGesture(tester.getCenter(order));
-  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
-  await tester.pump();
-  await gesture.up();
-  await tester.pumpAndSettle();
-}
-
-Future<void> _dragOrderHandleToTopZone(
-  WidgetTester tester, {
-  required String orderTitle,
-  required String targetText,
 }) async {
   final order = find.text(orderTitle);
   await tester.ensureVisible(order);
@@ -1029,11 +1006,7 @@ Future<void> _dragOrderHandleToTopZone(
       matchingHandle = handle;
     }
   }
-  final gesture = await tester.startGesture(tester.getCenter(matchingHandle!));
-  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
-  await tester.pump();
-  await gesture.up();
+  await tester.tap(matchingHandle!);
   await tester.pumpAndSettle();
 }
 
