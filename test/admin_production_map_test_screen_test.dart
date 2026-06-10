@@ -663,12 +663,21 @@ void main() {
     );
     var maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli pechat');
+    expect(
+      find.text('7 ta rangli pechat uchun zakaz yo‘q'),
+      findsOneWidget,
+    );
 
     await _dragOrderHandleToTopZone(
       tester,
       orderTitle: 'Move ok order',
       targetText: '7 ta rangli pechat uchun zakaz yo‘q',
     );
+    expect(
+      find.text('7 ta rangli pechat uchun zakaz yo‘q'),
+      findsNothing,
+    );
+    expect(find.text('Move ok order'), findsOneWidget);
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
 

@@ -279,6 +279,19 @@ class _AdminProductionMapOrdersScreenState
       from: from.warehouse,
       to: to.warehouse,
     );
+    final orderId = order.map.id.trim();
+    final previousOrders = _orders;
+    final optimistic = ProductionMapSaved(
+      map: nextMap,
+      program: order.program,
+    );
+    setState(() {
+      _draggingMoveOrder = null;
+      _orders = [
+        for (final item in _orders)
+          if (item.map.id.trim() == orderId) optimistic else item,
+      ];
+    });
     try {
       final saved = await MobileApi.instance.adminSaveProductionMap(nextMap);
       if (!mounted) {
@@ -287,7 +300,7 @@ class _AdminProductionMapOrdersScreenState
       setState(() {
         _orders = [
           for (final item in _orders)
-            if (item.map.id == saved.map.id) saved else item,
+            if (item.map.id.trim() == saved.map.id.trim()) saved else item,
         ];
       });
       showAdminTopNotice(context, 'Zakaz ko‘chirildi');
@@ -295,6 +308,9 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
+      setState(() {
+        _orders = previousOrders;
+      });
       showAdminTopNotice(context, 'Zakaz ko‘chirilmadi');
     }
   }
