@@ -16,10 +16,10 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 enum _OpenedOrderModule {
-  orders,
+  move,
   apparatus,
   sequence,
-  move,
+  orders,
 }
 
 class AdminProductionMapOrdersScreen extends StatefulWidget {
@@ -63,6 +63,7 @@ class _AdminProductionMapOrdersScreenState
     _tabController = TabController(
       length: _modules.length,
       vsync: this,
+      initialIndex: _modules.indexOf(_module).clamp(0, _modules.length - 1),
     );
     _tabController.addListener(_syncModuleFromTab);
     _load();
