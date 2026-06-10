@@ -5,6 +5,8 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
+import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../logic/production_map_pechat_rules.dart';
@@ -661,26 +663,38 @@ class _MoveModulePage extends StatelessWidget {
     if (top == null || bottom == null) {
       return const _EmptyOpenedOrders(message: 'Ko‘chirish uchun aparat yo‘q');
     }
+    final viewMetrics = MediaQueryData.fromView(View.of(context));
+    final dockInset = dockLayoutBottomInset(
+      viewMetrics,
+      thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
+    );
+    final bottomInset = 60 + dockInset;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomInset),
       child: Column(
         children: [
-          _MoveApparatusHeader(
-            apparatus: top,
-            alignment: Alignment.centerLeft,
-            onTap: onPickTop,
-          ),
-          const SizedBox(height: 8),
           Expanded(
-            child: _MoveDropZone(
-              apparatus: top,
-              fromApparatus: bottom,
-              orders: topOrders,
-              draggingOrder: draggingOrder,
-              canMoveTo: canMoveTo,
-              onDragStarted: onDragStarted,
-              onDragEnded: onDragEnded,
-              onMove: onMove,
+            child: Column(
+              children: [
+                _MoveApparatusHeader(
+                  apparatus: top,
+                  alignment: Alignment.centerLeft,
+                  onTap: onPickTop,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _MoveDropZone(
+                    apparatus: top,
+                    fromApparatus: bottom,
+                    orders: topOrders,
+                    draggingOrder: draggingOrder,
+                    canMoveTo: canMoveTo,
+                    onDragStarted: onDragStarted,
+                    onDragEnded: onDragEnded,
+                    onMove: onMove,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
