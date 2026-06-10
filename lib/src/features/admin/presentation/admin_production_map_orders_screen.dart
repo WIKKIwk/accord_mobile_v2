@@ -916,7 +916,8 @@ class _MoveOrderTile extends StatelessWidget {
       trailing: LongPressDraggable<_MoveDragPayload>(
         data: _MoveDragPayload(order: order, source: source),
         axis: Axis.vertical,
-        dragAnchorStrategy: pointerDragAnchorStrategy,
+        dragAnchorStrategy: childDragAnchorStrategy,
+        feedbackOffset: const Offset(-160, 0),
         feedback: Material(
           color: Colors.transparent,
           child: SizedBox(
