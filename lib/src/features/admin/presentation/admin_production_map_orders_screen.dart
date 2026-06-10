@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 
 enum _OpenedOrderModule {
   move,
-  apparatus,
   sequence,
   orders,
 }
@@ -58,7 +57,7 @@ class _AdminProductionMapOrdersScreenState
   void initState() {
     super.initState();
     if (widget.workerMode) {
-      _module = _OpenedOrderModule.apparatus;
+      _module = _OpenedOrderModule.sequence;
     }
     _tabController = TabController(
       length: _modules.length,
@@ -79,7 +78,7 @@ class _AdminProductionMapOrdersScreenState
 
   List<_OpenedOrderModule> get _modules {
     return widget.workerMode
-        ? const [_OpenedOrderModule.apparatus, _OpenedOrderModule.sequence]
+        ? const [_OpenedOrderModule.sequence]
         : _OpenedOrderModule.values;
   }
 
@@ -196,9 +195,24 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  void _selectApparatus(AdminWarehouse apparatus) {
-    setState(() => _selectedApparatus = apparatus);
-    _setModule(_OpenedOrderModule.sequence);
+  Future<void> _pickSequenceApparatus() async {
+    if (_apparatus.isEmpty) {
+      return;
+    }
+    final picked = await showModalBottomSheet<AdminWarehouse>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _ApparatusPickerSheet(
+        apparatus: _apparatus,
+        selected: _selectedApparatus,
+        orderCountFor: (apparatus) => _ordersForApparatus(apparatus).length,
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _selectedApparatus = picked);
   }
 
   void _syncModuleFromTab() {
@@ -351,7 +365,7 @@ class _AdminProductionMapOrdersScreenState
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => _MoveApparatusPickerSheet(apparatus: _apparatus),
+      builder: (context) => _ApparatusPickerSheet(apparatus: _apparatus),
     );
     if (picked == null || !mounted) {
       return;
@@ -376,7 +390,7 @@ class _AdminProductionMapOrdersScreenState
               selectedRouteName: AppRoutes.adminProductionMapOrders,
               onNavigate: _openDrawerRoute,
             ),
-      title: widget.workerMode ? 'Aparatlar' : 'Ochilgan zakazlar',
+      title: widget.workerMode ? 'Ketma-ketlik' : 'Ochilgan zakazlar',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -393,14 +407,15 @@ class _AdminProductionMapOrdersScreenState
           ? const Center(child: AppLoadingIndicator())
           : Column(
               children: [
-                TabBar(
-                  controller: _tabController,
-                  onTap: (index) => _setModule(_modules[index]),
-                  tabs: [
-                    for (final module in _modules)
-                      Tab(text: _moduleLabel(module)),
-                  ],
-                ),
+                if (_modules.length > 1)
+                  TabBar(
+                    controller: _tabController,
+                    onTap: (index) => _setModule(_modules[index]),
+                    tabs: [
+                      for (final module in _modules)
+                        Tab(text: _moduleLabel(module)),
+                    ],
+                  ),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -421,14 +436,6 @@ class _AdminProductionMapOrdersScreenState
                               },
                               onTapOrder: widget.readOnly ? null : _openOrder,
                             ),
-                          _OpenedOrderModule.apparatus => _ApparatusModulePage(
-                              bottomPadding: bottomPadding,
-                              apparatus: _apparatus,
-                              selected: _selectedApparatus,
-                              orderCountFor: (apparatus) =>
-                                  _ordersForApparatus(apparatus).length,
-                              onTapApparatus: _selectApparatus,
-                            ),
                           _OpenedOrderModule.sequence => _SequenceModulePage(
                               bottomPadding: bottomPadding,
                               apparatus: _selectedApparatus,
@@ -436,6 +443,7 @@ class _AdminProductionMapOrdersScreenState
                                   ? const []
                                   : _ordersForApparatus(_selectedApparatus!),
                               readOnly: widget.readOnly,
+                              onPickApparatus: _pickSequenceApparatus,
                               onReorder: _reorderSelectedApparatusOrders,
                               onTapOrder: widget.readOnly
                                   ? _showOrderDetail
@@ -475,7 +483,6 @@ class _AdminProductionMapOrdersScreenState
   String _moduleLabel(_OpenedOrderModule module) {
     return switch (module) {
       _OpenedOrderModule.orders => 'Zakazlar',
-      _OpenedOrderModule.apparatus => 'Aparatlar',
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
       _OpenedOrderModule.move => 'Ko‘chirish',
     };
@@ -525,55 +532,13 @@ class _OrdersModulePage extends StatelessWidget {
   }
 }
 
-class _ApparatusModulePage extends StatelessWidget {
-  const _ApparatusModulePage({
-    required this.bottomPadding,
-    required this.apparatus,
-    required this.selected,
-    required this.orderCountFor,
-    required this.onTapApparatus,
-  });
-
-  final double bottomPadding;
-  final List<AdminWarehouse> apparatus;
-  final AdminWarehouse? selected;
-  final int Function(AdminWarehouse apparatus) orderCountFor;
-  final ValueChanged<AdminWarehouse> onTapApparatus;
-
-  @override
-  Widget build(BuildContext context) {
-    if (apparatus.isEmpty) {
-      return const _EmptyOpenedOrders(message: 'Aparat topilmadi');
-    }
-    return ListView(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
-      children: [
-        M3SegmentSpacedColumn(
-          children: [
-            for (var index = 0; index < apparatus.length; index++)
-              _ApparatusRow(
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                  index,
-                  apparatus.length,
-                ),
-                apparatus: apparatus[index],
-                selected: selected?.warehouse == apparatus[index].warehouse,
-                orderCount: orderCountFor(apparatus[index]),
-                onTap: () => onTapApparatus(apparatus[index]),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _SequenceModulePage extends StatelessWidget {
   const _SequenceModulePage({
     required this.bottomPadding,
     required this.apparatus,
     required this.orders,
     required this.readOnly,
+    required this.onPickApparatus,
     required this.onReorder,
     required this.onTapOrder,
   });
@@ -582,51 +547,163 @@ class _SequenceModulePage extends StatelessWidget {
   final AdminWarehouse? apparatus;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
+  final VoidCallback onPickApparatus;
   final ReorderCallback onReorder;
   final ValueChanged<ProductionMapSaved>? onTapOrder;
 
   @override
   Widget build(BuildContext context) {
     final selected = apparatus;
-    if (selected == null) {
-      return const _EmptyOpenedOrders(message: 'Avval aparat tanlang');
-    }
-    if (orders.isEmpty) {
-      return _EmptyOpenedOrders(
-        message: '${selected.warehouse} uchun zakaz yo‘q',
+    final list = selected == null
+        ? const <Widget>[]
+        : orders.isEmpty
+            ? <Widget>[
+                _EmptyOpenedOrders(
+                  message: '${selected.warehouse} uchun zakaz yo‘q',
+                ),
+              ]
+            : readOnly
+                ? [
+                    for (var index = 0; index < orders.length; index++)
+                      _SequenceOrderRow(
+                        key: ValueKey(
+                          'sequence-${selected.warehouse}-${orders[index].map.id}',
+                        ),
+                        order: orders[index],
+                        index: index,
+                        readOnly: true,
+                        onTap: onTapOrder == null
+                            ? null
+                            : () => onTapOrder!(orders[index]),
+                      ),
+                  ]
+                : [
+                    for (var index = 0; index < orders.length; index++)
+                      _SequenceOrderRow(
+                        key: ValueKey(
+                          'sequence-${selected.warehouse}-${orders[index].map.id}',
+                        ),
+                        order: orders[index],
+                        index: index,
+                        readOnly: false,
+                        onTap: onTapOrder == null
+                            ? null
+                            : () => onTapOrder!(orders[index]),
+                      ),
+                  ];
+
+    if (!readOnly && selected != null && orders.isNotEmpty) {
+      return Column(
+        children: [
+          _SequenceApparatusSelector(
+            selected: selected,
+            onTap: onPickApparatus,
+          ),
+          Expanded(
+            child: ReorderableListView.builder(
+              padding: EdgeInsets.fromLTRB(12, 0, 12, bottomPadding),
+              buildDefaultDragHandles: false,
+              itemCount: orders.length,
+              onReorderItem: onReorder,
+              itemBuilder: (context, index) {
+                final order = orders[index];
+                return _SequenceOrderRow(
+                  key: ValueKey(
+                    'sequence-${selected.warehouse}-${order.map.id}',
+                  ),
+                  order: order,
+                  index: index,
+                  readOnly: false,
+                  onTap: onTapOrder == null ? null : () => onTapOrder!(order),
+                );
+              },
+            ),
+          ),
+        ],
       );
     }
-    if (readOnly) {
-      return ListView.builder(
-        padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
-        itemCount: orders.length,
-        itemBuilder: (context, index) {
-          final order = orders[index];
-          return _SequenceOrderRow(
-            key: ValueKey('sequence-${selected.warehouse}-${order.map.id}'),
-            order: order,
-            index: index,
-            readOnly: true,
-            onTap: onTapOrder == null ? null : () => onTapOrder!(order),
-          );
-        },
-      );
-    }
-    return ReorderableListView.builder(
+
+    return ListView(
       padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
-      buildDefaultDragHandles: false,
-      itemCount: orders.length,
-      onReorderItem: onReorder,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return _SequenceOrderRow(
-          key: ValueKey('sequence-${selected.warehouse}-${order.map.id}'),
-          order: order,
-          index: index,
-          readOnly: false,
-          onTap: onTapOrder == null ? null : () => onTapOrder!(order),
-        );
-      },
+      children: [
+        _SequenceApparatusSelector(
+          selected: selected,
+          onTap: onPickApparatus,
+        ),
+        if (selected == null)
+          const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
+        else
+          ...list,
+      ],
+    );
+  }
+}
+
+class _SequenceApparatusSelector extends StatelessWidget {
+  const _SequenceApparatusSelector({
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AdminWarehouse? selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final selectedTitle = selected?.warehouse.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.precision_manufacturing_rounded,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Aparatlar',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        selectedTitle.isEmpty
+                            ? 'Aparat tanlang'
+                            : selectedTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.expand_more_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1096,10 +1173,16 @@ class _MoveEmptyZone extends StatelessWidget {
   }
 }
 
-class _MoveApparatusPickerSheet extends StatelessWidget {
-  const _MoveApparatusPickerSheet({required this.apparatus});
+class _ApparatusPickerSheet extends StatelessWidget {
+  const _ApparatusPickerSheet({
+    required this.apparatus,
+    this.selected,
+    this.orderCountFor,
+  });
 
   final List<AdminWarehouse> apparatus;
+  final AdminWarehouse? selected;
+  final int Function(AdminWarehouse apparatus)? orderCountFor;
 
   @override
   Widget build(BuildContext context) {
@@ -1124,8 +1207,10 @@ class _MoveApparatusPickerSheet extends StatelessWidget {
                     apparatus.length,
                   ),
                   apparatus: apparatus[index],
-                  selected: false,
-                  orderCount: 0,
+                  selected:
+                      selected?.warehouse == apparatus[index].warehouse,
+                  orderCount:
+                      orderCountFor?.call(apparatus[index]) ?? 0,
                   onTap: () => Navigator.of(context).pop(apparatus[index]),
                 ),
             ],

@@ -552,7 +552,7 @@ void main() {
     );
   });
 
-  testWidgets('opened orders page shows apparatus and sequence modules',
+  testWidgets('opened orders sequence module picks apparatus and reorders',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(
@@ -591,16 +591,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Zakazlar'), findsOneWidget);
-    expect(find.text('Aparatlar'), findsOneWidget);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
-
-    await tester.tap(find.text('Aparatlar'));
-    await tester.pumpAndSettle();
-    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+    expect(find.text('Ko‘chirish'), findsOneWidget);
 
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
-    await tester.tap(find.text('Godex aparat - DEMO'));
+
+    await tester.tap(find.text('Ketma-ketlik'));
     await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
+
+    expect(find.text('Aparatlar'), findsOneWidget);
+    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
 
     expect(find.text('Paket order A'), findsOneWidget);
     expect(find.text('Paket order B'), findsOneWidget);
@@ -744,12 +745,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Zakazlar'), findsNothing);
-    expect(find.text('Aparatlar'), findsWidgets);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
+    expect(find.text('Aparatlar'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
-
-    await tester.tap(find.text('Godex aparat - DEMO'));
-    await tester.pumpAndSettle();
 
     expect(find.text('Worker queue order'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
