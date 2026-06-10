@@ -4,6 +4,8 @@ class ProductionMapDefinition {
     required this.productCode,
     required this.title,
     this.orderNumber = '',
+    this.rollCount,
+    this.widthMm,
     required this.nodes,
     required this.edges,
   });
@@ -12,6 +14,8 @@ class ProductionMapDefinition {
   final String productCode;
   final String title;
   final String orderNumber;
+  final double? rollCount;
+  final double? widthMm;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
 
@@ -21,6 +25,8 @@ class ProductionMapDefinition {
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
       orderNumber: json['order_number'] as String? ?? '',
+      rollCount: (json['roll_count'] as num?)?.toDouble(),
+      widthMm: (json['width_mm'] as num?)?.toDouble(),
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
           .map((item) =>
               ProductionMapNode.fromJson(item as Map<String, dynamic>))
@@ -38,9 +44,33 @@ class ProductionMapDefinition {
       'product_code': productCode,
       'title': title,
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
+      if (rollCount != null) 'roll_count': rollCount,
+      if (widthMm != null) 'width_mm': widthMm,
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
       'edges': edges.map((edge) => edge.toJson()).toList(growable: false),
     };
+  }
+
+  ProductionMapDefinition copyWith({
+    String? id,
+    String? productCode,
+    String? title,
+    String? orderNumber,
+    double? rollCount,
+    double? widthMm,
+    List<ProductionMapNode>? nodes,
+    List<ProductionMapEdge>? edges,
+  }) {
+    return ProductionMapDefinition(
+      id: id ?? this.id,
+      productCode: productCode ?? this.productCode,
+      title: title ?? this.title,
+      orderNumber: orderNumber ?? this.orderNumber,
+      rollCount: rollCount ?? this.rollCount,
+      widthMm: widthMm ?? this.widthMm,
+      nodes: nodes ?? this.nodes,
+      edges: edges ?? this.edges,
+    );
   }
 }
 

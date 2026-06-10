@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
@@ -5,16 +7,19 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 enum _OpenedOrderModule {
   orders,
   apparatus,
   sequence,
+  move,
 }
 
 class AdminProductionMapOrdersScreen extends StatefulWidget {
@@ -42,6 +47,9 @@ class _AdminProductionMapOrdersScreenState
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
   AdminWarehouse? _selectedApparatus;
+  AdminWarehouse? _moveTopApparatus;
+  AdminWarehouse? _moveBottomApparatus;
+  ProductionMapSaved? _draggingMoveOrder;
   List<ProductionMapSaved> _orders = const [];
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
@@ -91,8 +99,34 @@ class _AdminProductionMapOrdersScreenState
       _apparatus = filteredApparatus;
       _selectedApparatus ??=
           filteredApparatus.isEmpty ? null : filteredApparatus.first;
+      _syncMoveApparatusDefaults(filteredApparatus);
       _loading = false;
     });
+  }
+
+  void _syncMoveApparatusDefaults(List<AdminWarehouse> source) {
+    final pechat = source
+        .where((item) => productionMapPechatColorCount(item.warehouse) != null)
+        .toList(growable: false);
+    final candidates = pechat.isEmpty ? source : pechat;
+    if (candidates.isEmpty) {
+      _moveTopApparatus = null;
+      _moveBottomApparatus = null;
+      return;
+    }
+    _moveTopApparatus ??= candidates.first;
+    if (_moveBottomApparatus == null) {
+      if (candidates.length > 1) {
+        _moveBottomApparatus = candidates[1];
+      } else {
+        for (final item in source) {
+          if (item.warehouse != candidates.first.warehouse) {
+            _moveBottomApparatus = item;
+            break;
+          }
+        }
+      }
+    }
   }
 
   List<AdminWarehouse> _filterApparatusForWorker(List<AdminWarehouse> source) {
@@ -228,6 +262,100 @@ class _AdminProductionMapOrdersScreenState
     });
   }
 
+  Future<void> _moveOrderBetweenApparatus({
+    required ProductionMapSaved order,
+    required AdminWarehouse from,
+    required AdminWarehouse to,
+  }) async {
+    if (widget.readOnly || from.warehouse.trim() == to.warehouse.trim()) {
+      return;
+    }
+    if (!_canMoveOrderToApparatus(order, to)) {
+      showAdminTopNotice(context, 'Bu zakaz tanlangan aparatga tushmaydi');
+      return;
+    }
+    final nextMap = _replaceOrderApparatus(
+      order.map,
+      from: from.warehouse,
+      to: to.warehouse,
+    );
+    try {
+      final saved = await MobileApi.instance.adminSaveProductionMap(nextMap);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _orders = [
+          for (final item in _orders)
+            if (item.map.id == saved.map.id) saved else item,
+        ];
+        _draggingMoveOrder = null;
+      });
+      showAdminTopNotice(context, 'Zakaz ko‘chirildi');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _draggingMoveOrder = null);
+      showAdminTopNotice(context, 'Zakaz ko‘chirilmadi');
+    }
+  }
+
+  ProductionMapDefinition _replaceOrderApparatus(
+    ProductionMapDefinition map, {
+    required String from,
+    required String to,
+  }) {
+    var replaced = false;
+    final nodes = [
+      for (final node in map.nodes)
+        if (!replaced &&
+            node.kind == 'apparatus' &&
+            node.title.trim() == from.trim())
+          (() {
+            replaced = true;
+            return node.copyWith(title: to.trim());
+          })()
+        else
+          node,
+    ];
+    return map.copyWith(nodes: nodes);
+  }
+
+  bool _canMoveOrderToApparatus(
+    ProductionMapSaved order,
+    AdminWarehouse target,
+  ) {
+    final colorCount = productionMapPechatColorCount(target.warehouse);
+    if (colorCount == null) {
+      return true;
+    }
+    return productionMapPechatCanMoveOrder(
+      apparatusColorCount: colorCount,
+      rollCount: order.map.rollCount,
+      widthMm: order.map.widthMm,
+    );
+  }
+
+  Future<void> _pickMoveApparatus({required bool top}) async {
+    final picked = await showModalBottomSheet<AdminWarehouse>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _MoveApparatusPickerSheet(apparatus: _apparatus),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      if (top) {
+        _moveTopApparatus = picked;
+      } else {
+        _moveBottomApparatus = picked;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -245,7 +373,11 @@ class _AdminProductionMapOrdersScreenState
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       bottom: widget.workerMode
           ? const _WorkerHomeDock()
-          : const AdminDock(activeTab: AdminDockTab.home),
+          : AdminDock(
+              activeTab: AdminDockTab.home,
+              showPrimaryFab: _module != _OpenedOrderModule.sequence &&
+                  _module != _OpenedOrderModule.move,
+            ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: _loading
@@ -300,6 +432,28 @@ class _AdminProductionMapOrdersScreenState
                                   ? _showOrderDetail
                                   : _openOrder,
                             ),
+                          _OpenedOrderModule.move => _MoveModulePage(
+                              topApparatus: _moveTopApparatus,
+                              bottomApparatus: _moveBottomApparatus,
+                              topOrders: _moveTopApparatus == null
+                                  ? const []
+                                  : _ordersForApparatus(_moveTopApparatus!),
+                              bottomOrders: _moveBottomApparatus == null
+                                  ? const []
+                                  : _ordersForApparatus(_moveBottomApparatus!),
+                              draggingOrder: _draggingMoveOrder,
+                              canMoveTo: _canMoveOrderToApparatus,
+                              onPickTop: () => _pickMoveApparatus(top: true),
+                              onPickBottom: () =>
+                                  _pickMoveApparatus(top: false),
+                              onDragStarted: (order) {
+                                setState(() => _draggingMoveOrder = order);
+                              },
+                              onDragEnded: () {
+                                setState(() => _draggingMoveOrder = null);
+                              },
+                              onMove: _moveOrderBetweenApparatus,
+                            ),
                         },
                     ],
                   ),
@@ -314,6 +468,7 @@ class _AdminProductionMapOrdersScreenState
       _OpenedOrderModule.orders => 'Zakazlar',
       _OpenedOrderModule.apparatus => 'Aparatlar',
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
+      _OpenedOrderModule.move => 'Ko‘chirish',
     };
   }
 }
@@ -463,6 +618,481 @@ class _SequenceModulePage extends StatelessWidget {
           onTap: onTapOrder == null ? null : () => onTapOrder!(order),
         );
       },
+    );
+  }
+}
+
+class _MoveModulePage extends StatelessWidget {
+  const _MoveModulePage({
+    required this.topApparatus,
+    required this.bottomApparatus,
+    required this.topOrders,
+    required this.bottomOrders,
+    required this.draggingOrder,
+    required this.canMoveTo,
+    required this.onPickTop,
+    required this.onPickBottom,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onMove,
+  });
+
+  final AdminWarehouse? topApparatus;
+  final AdminWarehouse? bottomApparatus;
+  final List<ProductionMapSaved> topOrders;
+  final List<ProductionMapSaved> bottomOrders;
+  final ProductionMapSaved? draggingOrder;
+  final bool Function(ProductionMapSaved order, AdminWarehouse target)
+      canMoveTo;
+  final VoidCallback onPickTop;
+  final VoidCallback onPickBottom;
+  final ValueChanged<ProductionMapSaved> onDragStarted;
+  final VoidCallback onDragEnded;
+  final Future<void> Function({
+    required ProductionMapSaved order,
+    required AdminWarehouse from,
+    required AdminWarehouse to,
+  }) onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = topApparatus;
+    final bottom = bottomApparatus;
+    if (top == null || bottom == null) {
+      return const _EmptyOpenedOrders(message: 'Ko‘chirish uchun aparat yo‘q');
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: Column(
+        children: [
+          _MoveApparatusHeader(
+            apparatus: top,
+            alignment: Alignment.centerLeft,
+            onTap: onPickTop,
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _MoveDropZone(
+              apparatus: top,
+              fromApparatus: bottom,
+              orders: topOrders,
+              draggingOrder: draggingOrder,
+              canMoveTo: canMoveTo,
+              onDragStarted: onDragStarted,
+              onDragEnded: onDragEnded,
+              onMove: onMove,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: _MoveBoundary(
+              apparatus: bottom,
+              onTap: onPickBottom,
+            ),
+          ),
+          Expanded(
+            child: _MoveDropZone(
+              apparatus: bottom,
+              fromApparatus: top,
+              orders: bottomOrders,
+              draggingOrder: draggingOrder,
+              canMoveTo: canMoveTo,
+              onDragStarted: onDragStarted,
+              onDragEnded: onDragEnded,
+              onMove: onMove,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoveDropZone extends StatelessWidget {
+  const _MoveDropZone({
+    required this.apparatus,
+    required this.fromApparatus,
+    required this.orders,
+    required this.draggingOrder,
+    required this.canMoveTo,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onMove,
+  });
+
+  final AdminWarehouse apparatus;
+  final AdminWarehouse fromApparatus;
+  final List<ProductionMapSaved> orders;
+  final ProductionMapSaved? draggingOrder;
+  final bool Function(ProductionMapSaved order, AdminWarehouse target)
+      canMoveTo;
+  final ValueChanged<ProductionMapSaved> onDragStarted;
+  final VoidCallback onDragEnded;
+  final Future<void> Function({
+    required ProductionMapSaved order,
+    required AdminWarehouse from,
+    required AdminWarehouse to,
+  }) onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final dragged = draggingOrder;
+    final blocked = dragged != null && !canMoveTo(dragged, apparatus);
+    return DragTarget<_MoveDragPayload>(
+      onWillAcceptWithDetails: (details) =>
+          details.data.source.warehouse.trim() != apparatus.warehouse.trim() &&
+          canMoveTo(details.data.order, apparatus),
+      onAcceptWithDetails: (details) {
+        onMove(
+          order: details.data.order,
+          from: details.data.source,
+          to: apparatus,
+        );
+      },
+      builder: (context, candidate, rejected) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: BoxDecoration(
+            color: blocked
+                ? Theme.of(context)
+                    .colorScheme
+                    .errorContainer
+                    .withValues(alpha: 0.18)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: blocked ? 1.8 : 0,
+              sigmaY: blocked ? 1.8 : 0,
+            ),
+            child: orders.isEmpty
+                ? _MoveEmptyZone(apparatus: apparatus)
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      return _MoveOrderTile(
+                        order: order,
+                        source: apparatus,
+                        index: index,
+                        onDragStarted: () => onDragStarted(order),
+                        onDragEnded: onDragEnded,
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MoveApparatusHeader extends StatelessWidget {
+  const _MoveApparatusHeader({
+    required this.apparatus,
+    required this.alignment,
+    required this.onTap,
+  });
+
+  final AdminWarehouse apparatus;
+  final Alignment alignment;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: alignment,
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(999),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.precision_manufacturing_rounded,
+                  size: 16,
+                  color: scheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    apparatus.warehouse,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveBoundary extends StatelessWidget {
+  const _MoveBoundary({
+    required this.apparatus,
+    required this.onTap,
+  });
+
+  final AdminWarehouse apparatus;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: scheme.outlineVariant)),
+          _MoveApparatusHeader(
+            apparatus: apparatus,
+            alignment: Alignment.center,
+            onTap: onTap,
+          ),
+          Expanded(child: Divider(color: scheme.outlineVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoveOrderTile extends StatelessWidget {
+  const _MoveOrderTile({
+    required this.order,
+    required this.source,
+    required this.index,
+    required this.onDragStarted,
+    required this.onDragEnded,
+  });
+
+  final ProductionMapSaved order;
+  final AdminWarehouse source;
+  final int index;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+
+  @override
+  Widget build(BuildContext context) {
+    return LongPressDraggable<_MoveDragPayload>(
+      data: _MoveDragPayload(order: order, source: source),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: MediaQuery.sizeOf(context).width - 40,
+          child: _MoveOrderCard(
+            order: order,
+            index: index,
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.35,
+        child: _MoveOrderCard(
+          order: order,
+          index: index,
+        ),
+      ),
+      onDragStarted: onDragStarted,
+      onDragEnd: (_) => onDragEnded(),
+      onDraggableCanceled: (_, __) => onDragEnded(),
+      child: _MoveOrderCard(
+        order: order,
+        index: index,
+      ),
+    );
+  }
+}
+
+class _MoveDragPayload {
+  const _MoveDragPayload({
+    required this.order,
+    required this.source,
+  });
+
+  final ProductionMapSaved order;
+  final AdminWarehouse source;
+}
+
+class _MoveOrderCard extends StatelessWidget {
+  const _MoveOrderCard({
+    required this.order,
+    required this.index,
+  });
+
+  final ProductionMapSaved order;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final productTitle = _productTitle(order.map);
+    final subtitle = [
+      if (productTitle.isNotEmpty) productTitle,
+      if (order.map.productCode.trim().isNotEmpty) order.map.productCode.trim(),
+    ].join(' • ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: M3SegmentedListGeometry.gap),
+      child: Material(
+        color: scheme.surfaceContainerHighest,
+        borderRadius:
+            BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 30,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.map.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.drag_handle_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _productTitle(ProductionMapDefinition map) {
+    for (final node in map.nodes) {
+      final title = node.title.trim();
+      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
+        return title;
+      }
+    }
+    return '';
+  }
+}
+
+class _MoveEmptyZone extends StatelessWidget {
+  const _MoveEmptyZone({required this.apparatus});
+
+  final AdminWarehouse apparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Text(
+        '${apparatus.warehouse} uchun zakaz yo‘q',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+      ),
+    );
+  }
+}
+
+class _MoveApparatusPickerSheet extends StatelessWidget {
+  const _MoveApparatusPickerSheet({required this.apparatus});
+
+  final List<AdminWarehouse> apparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        shrinkWrap: true,
+        children: [
+          Text(
+            'Aparat tanlang',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          M3SegmentSpacedColumn(
+            children: [
+              for (var index = 0; index < apparatus.length; index++)
+                _ApparatusRow(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    apparatus.length,
+                  ),
+                  apparatus: apparatus[index],
+                  selected: false,
+                  orderCount: 0,
+                  onTap: () => Navigator.of(context).pop(apparatus[index]),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

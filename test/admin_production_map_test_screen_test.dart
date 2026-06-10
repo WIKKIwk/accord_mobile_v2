@@ -2,10 +2,12 @@ import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dar
 import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
 import 'package:erpnext_stock_mobile/src/core/session/session.dart';
 import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_models.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +90,8 @@ void main() {
             orderName: 'Zenit order',
             productName: 'zenit frutto ninja 70gr',
             itemCode: 'ITEM-001',
+            rollCount: 7,
+            widthMm: 650,
           ),
         ),
       ),
@@ -250,13 +254,14 @@ void main() {
     );
   });
 
-  test('production map pechat filter hides non recommended pechat only', () {
+  test('production map pechat filter allows compatible higher pechat capacity',
+      () {
     const context = ProductionMapOrderContext(
       orderName: 'Zenit order',
       productName: 'zenit frutto ninja 70gr',
       itemCode: 'ITEM-001',
-      rollCount: 8,
-      widthMm: 700,
+      rollCount: 7,
+      widthMm: 650,
     );
 
     expect(
@@ -267,7 +272,7 @@ void main() {
         ),
         context,
       ),
-      isFalse,
+      isTrue,
     );
     expect(
       productionMapApparatusMatchesOrder(
@@ -299,6 +304,77 @@ void main() {
       ),
       isTrue,
     );
+
+    const smallRubberContext = ProductionMapOrderContext(
+      orderName: 'Small order',
+      productName: 'small product',
+      itemCode: 'ITEM-002',
+      rollCount: 7,
+      widthMm: 100,
+    );
+
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminWarehouse(
+          warehouse: '8 ta rangli pechat',
+          parentWarehouse: 'aparat - A',
+        ),
+        smallRubberContext,
+      ),
+      isFalse,
+    );
+  });
+
+  test('production map pechat move blocks missing or incompatible order data',
+      () {
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 8,
+        rollCount: null,
+        widthMm: 900,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 8,
+        rollCount: 7,
+        widthMm: null,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 9,
+        rollCount: null,
+        widthMm: 900,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 9,
+        rollCount: 7,
+        widthMm: null,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 9,
+        rollCount: 7,
+        widthMm: 650,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 9,
+        rollCount: 9,
+        widthMm: 900,
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('production map order flow requires four digit order number',
@@ -322,6 +398,8 @@ void main() {
             orderName: 'Zenit order',
             productName: 'zenit frutto ninja 70gr',
             itemCode: 'ITEM-001',
+            rollCount: 7,
+            widthMm: 650,
           ),
         ),
       ),
@@ -356,6 +434,8 @@ void main() {
     final maps = await MobileApi.instance.adminProductionMaps();
     expect(maps.first.map.orderNumber, '1234');
     expect(maps.first.map.id, 'zakaz-1234');
+    expect(maps.first.map.rollCount, 7);
+    expect(maps.first.map.widthMm, 650);
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -518,12 +598,83 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
 
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
     await tester.tap(find.text('Godex aparat - DEMO'));
     await tester.pumpAndSettle();
 
     expect(find.text('Paket order A'), findsOneWidget);
     expect(find.text('Paket order B'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle_rounded), findsWidgets);
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
+  });
+
+  testWidgets('opened orders move module moves only compatible pechat orders',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-move-ok',
+        title: 'Move ok order',
+        productCode: 'MOVE-OK',
+        apparatus: '8 ta rangli pechat',
+        product: 'move ok product',
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-move-blocked',
+        title: 'Move blocked order',
+        productCode: 'MOVE-BLOCK',
+        apparatus: '8 ta rangli pechat',
+        product: 'move blocked product',
+        rollCount: 8,
+        widthMm: 700,
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ko‘chirish'), findsOneWidget);
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    await tester.tap(find.text('Ko‘chirish'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
+
+    await _dragOrderToTopZone(
+      tester,
+      orderTitle: 'Move ok order',
+      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
+    );
+    var maps = await MobileApi.instance.adminProductionMaps();
+    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
+
+    await _dragOrderToTopZone(
+      tester,
+      orderTitle: 'Move blocked order',
+      targetText: 'Move ok order',
+    );
+    maps = await MobileApi.instance.adminProductionMaps();
+    expect(
+      _apparatusTitle(maps, 'zakaz-move-blocked'),
+      '8 ta rangli pechat',
+    );
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('apparatus queue worker view is read only', (tester) async {
@@ -780,12 +931,16 @@ ProductionMapDefinition _productionOrderMap({
   required String apparatus,
   required String product,
   String orderNumber = '',
+  double? rollCount,
+  double? widthMm,
 }) {
   return ProductionMapDefinition(
     id: id,
     productCode: productCode,
     title: title,
     orderNumber: orderNumber,
+    rollCount: rollCount,
+    widthMm: widthMm,
     nodes: [
       const ProductionMapNode(
         id: 'start',
@@ -822,4 +977,25 @@ Future<void> _tapMapTool(WidgetTester tester, String label) async {
   await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(ValueKey('admin-fab-menu-$label')));
+}
+
+Future<void> _dragOrderToTopZone(
+  WidgetTester tester, {
+  required String orderTitle,
+  required String targetText,
+}) async {
+  final order = find.text(orderTitle);
+  await tester.ensureVisible(order);
+  await tester.pumpAndSettle();
+  final gesture = await tester.startGesture(tester.getCenter(order));
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
+  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
+  await tester.pump();
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+String _apparatusTitle(List<ProductionMapSaved> maps, String id) {
+  final map = maps.singleWhere((item) => item.map.id == id).map;
+  return map.nodes.singleWhere((node) => node.kind == 'apparatus').title.trim();
 }

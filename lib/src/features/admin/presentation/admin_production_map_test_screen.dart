@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -31,10 +32,6 @@ bool productionMapCanCreateEdge(
   }
   return (from.kind == 'kk_product' && to.kind == 'apparatus') ||
       (from.kind == 'apparatus' && to.kind == 'kk_product');
-}
-
-int productionMapRubberSizeFromWidth(double widthMm) {
-  return (widthMm / 50).ceil().clamp(1, 26).toInt() * 50;
 }
 
 int? productionMapRecommendedPechatColorCount({
@@ -77,7 +74,8 @@ bool productionMapApparatusMatchesOrder(
   AdminWarehouse apparatus,
   ProductionMapOrderContext? orderContext,
 ) {
-  final apparatusColorCount = _pechatColorCount(apparatus.warehouse);
+  final apparatusColorCount =
+      productionMapPechatColorCount(apparatus.warehouse);
   if (apparatusColorCount == null) {
     return true;
   }
@@ -92,18 +90,11 @@ bool productionMapApparatusMatchesOrder(
   if (recommended == null) {
     return context.rollCount == null && context.widthMm == null;
   }
-  return apparatusColorCount == recommended;
-}
-
-int? _pechatColorCount(String title) {
-  final match = RegExp(
-    r'\b([789])\s*(?:ta)?\s*rangli\s*(?:pechat|val)\b',
-    caseSensitive: false,
-  ).firstMatch(title.trim().toLowerCase());
-  if (match == null) {
-    return null;
-  }
-  return int.tryParse(match.group(1) ?? '');
+  return productionMapPechatCanHandleOrder(
+    apparatusColorCount: apparatusColorCount,
+    rollCount: context.rollCount,
+    widthMm: context.widthMm,
+  );
 }
 
 const _formulaVariables = [
@@ -486,6 +477,8 @@ class _AdminProductionMapTestScreenState
       productCode: productCode,
       title: title,
       orderNumber: normalizedOrderNumber,
+      rollCount: context?.rollCount,
+      widthMm: context?.widthMm,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );
