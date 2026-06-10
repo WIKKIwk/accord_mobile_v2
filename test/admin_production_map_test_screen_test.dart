@@ -656,15 +656,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsNothing);
 
-    await _dragOrderToTopZone(
+    await _dragOrderTitleToTopZone(
       tester,
       orderTitle: 'Move ok order',
       targetText: '7 ta rangli pechat uchun zakaz yo‘q',
     );
     var maps = await MobileApi.instance.adminProductionMaps();
+    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli pechat');
+
+    await _dragOrderHandleToTopZone(
+      tester,
+      orderTitle: 'Move ok order',
+      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
+    );
+    maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
 
-    await _dragOrderToTopZone(
+    await _dragOrderHandleToTopZone(
       tester,
       orderTitle: 'Move blocked order',
       targetText: 'Move ok order',
@@ -979,7 +987,7 @@ Future<void> _tapMapTool(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(ValueKey('admin-fab-menu-$label')));
 }
 
-Future<void> _dragOrderToTopZone(
+Future<void> _dragOrderTitleToTopZone(
   WidgetTester tester, {
   required String orderTitle,
   required String targetText,
@@ -988,6 +996,40 @@ Future<void> _dragOrderToTopZone(
   await tester.ensureVisible(order);
   await tester.pumpAndSettle();
   final gesture = await tester.startGesture(tester.getCenter(order));
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
+  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
+  await tester.pump();
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dragOrderHandleToTopZone(
+  WidgetTester tester, {
+  required String orderTitle,
+  required String targetText,
+}) async {
+  final order = find.text(orderTitle);
+  await tester.ensureVisible(order);
+  await tester.pumpAndSettle();
+  final orderCenter = tester.getCenter(order);
+  final handles = tester
+      .widgetList<Icon>(find.byIcon(Icons.drag_handle_rounded))
+      .toList(growable: false);
+  final handleFinders = [
+    for (var index = 0; index < handles.length; index++)
+      find.byIcon(Icons.drag_handle_rounded).at(index),
+  ];
+  Finder? matchingHandle;
+  var minDistance = double.infinity;
+  for (final handle in handleFinders) {
+    final center = tester.getCenter(handle);
+    final distance = (center.dy - orderCenter.dy).abs();
+    if (distance < minDistance) {
+      minDistance = distance;
+      matchingHandle = handle;
+    }
+  }
+  final gesture = await tester.startGesture(tester.getCenter(matchingHandle!));
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
   await gesture.moveTo(tester.getCenter(find.text(targetText).first));
   await tester.pump();

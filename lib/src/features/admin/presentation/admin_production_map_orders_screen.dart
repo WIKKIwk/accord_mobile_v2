@@ -910,32 +910,34 @@ class _MoveOrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LongPressDraggable<_MoveDragPayload>(
-      data: _MoveDragPayload(order: order, source: source),
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.sizeOf(context).width - 40,
-          child: _MoveOrderCard(
-            order: order,
-            index: index,
+    return _MoveOrderCard(
+      order: order,
+      index: index,
+      trailing: LongPressDraggable<_MoveDragPayload>(
+        data: _MoveDragPayload(order: order, source: source),
+        axis: Axis.vertical,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: Material(
+          color: Colors.transparent,
+          child: SizedBox(
+            width: MediaQuery.sizeOf(context).width - 40,
+            child: _MoveOrderCard(
+              order: order,
+              index: index,
+            ),
           ),
         ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: _MoveOrderCard(
-          order: order,
-          index: index,
+        childWhenDragging: Opacity(
+          opacity: 0.35,
+          child: _MoveDragHandle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
-      ),
-      onDragStarted: onDragStarted,
-      onDragEnd: (_) => onDragEnded(),
-      onDraggableCanceled: (_, __) => onDragEnded(),
-      child: _MoveOrderCard(
-        order: order,
-        index: index,
+        onDragStarted: onDragStarted,
+        onDragEnd: (_) => onDragEnded(),
+        onDraggableCanceled: (_, __) => onDragEnded(),
+        child: _MoveDragHandle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -955,10 +957,12 @@ class _MoveOrderCard extends StatelessWidget {
   const _MoveOrderCard({
     required this.order,
     required this.index,
+    this.trailing,
   });
 
   final ProductionMapSaved order;
   final int index;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,13 +1030,7 @@ class _MoveOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  Icons.drag_handle_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
+              trailing ?? _MoveDragHandle(color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -1048,6 +1046,23 @@ class _MoveOrderCard extends StatelessWidget {
       }
     }
     return '';
+  }
+}
+
+class _MoveDragHandle extends StatelessWidget {
+  const _MoveDragHandle({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Icon(
+        Icons.drag_handle_rounded,
+        color: color,
+      ),
+    );
   }
 }
 
