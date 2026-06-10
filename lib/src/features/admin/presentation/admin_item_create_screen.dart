@@ -6,6 +6,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'admin_item_group_bulk_move_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
@@ -13,29 +14,46 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 class AdminItemCreateScreen extends StatefulWidget {
-  const AdminItemCreateScreen({super.key});
+  const AdminItemCreateScreen({
+    super.key,
+    this.initialTabIndex = 0,
+  });
+
+  final int initialTabIndex;
 
   @override
   State<AdminItemCreateScreen> createState() => _AdminItemCreateScreenState();
 }
 
-class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
+class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
+    with SingleTickerProviderStateMixin {
+  static const int _tabCount = 3;
+
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
   final TextEditingController itemGroup = TextEditingController();
   final TextEditingController uom = TextEditingController(text: 'Kg');
   late final Future<List<String>> itemGroupsFuture;
+  late final TabController _tabController;
   bool saving = false;
 
   @override
   void initState() {
     super.initState();
+    final initialIndex =
+        widget.initialTabIndex.clamp(0, _tabCount - 1);
+    _tabController = TabController(
+      length: _tabCount,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
     itemGroupsFuture = _loadItemGroups();
     _hydrateDefaultUom();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     code.dispose();
     name.dispose();
     itemGroup.dispose();
@@ -183,49 +201,50 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      bottom: const AdminDock(activeTab: AdminDockTab.products),
       contentPadding: EdgeInsets.zero,
-      child: DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            const TabBar(
-              tabs: [
-                Tab(text: 'Item yaratish'),
-                Tab(text: 'Itemlar'),
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Item yaratish'),
+              Tab(text: 'Itemlar'),
+              Tab(text: "Group ko'chirish"),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _CreateItemTab(
+                  code: code,
+                  name: name,
+                  itemGroup: itemGroup,
+                  uom: uom,
+                  itemGroupsFuture: itemGroupsFuture,
+                  saving: saving,
+                  onSyncItemGroup: _syncItemGroupSelection,
+                  onOpenItemGroupPicker: _openItemGroupPicker,
+                  onSave: saving ? null : _save,
+                ),
+                AdminItemsListTab(
+                  loadItemsPage: ({
+                    required query,
+                    required limit,
+                    required offset,
+                  }) =>
+                      MobileApi.instance.adminItemsPage(
+                    query: query,
+                    limit: limit,
+                    offset: offset,
+                  ),
+                ),
+                const AdminItemGroupBulkMoveTab(embedded: true),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _CreateItemTab(
-                    code: code,
-                    name: name,
-                    itemGroup: itemGroup,
-                    uom: uom,
-                    itemGroupsFuture: itemGroupsFuture,
-                    saving: saving,
-                    onSyncItemGroup: _syncItemGroupSelection,
-                    onOpenItemGroupPicker: _openItemGroupPicker,
-                    onSave: saving ? null : _save,
-                  ),
-                  AdminItemsListTab(
-                    loadItemsPage: ({
-                      required query,
-                      required limit,
-                      required offset,
-                    }) =>
-                        MobileApi.instance.adminItemsPage(
-                      query: query,
-                      limit: limit,
-                      offset: offset,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

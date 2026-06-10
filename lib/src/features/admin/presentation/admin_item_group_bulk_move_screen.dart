@@ -5,27 +5,45 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/search/search_normalizer.dart';
-import '../../../core/widgets/navigation/app_navigation_bar.dart';
-import '../../../core/widgets/navigation/app_primary_navigation_fab.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
-import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_summary_card.dart';
 
-class AdminItemGroupBulkMoveScreen extends StatefulWidget {
+class AdminItemGroupBulkMoveScreen extends StatelessWidget {
   const AdminItemGroupBulkMoveScreen({super.key});
 
   @override
-  State<AdminItemGroupBulkMoveScreen> createState() =>
-      _AdminItemGroupBulkMoveScreenState();
+  Widget build(BuildContext context) {
+    return AppShell(
+      animateOnEnter: false,
+      title: "Mahsulot group ko'chirish",
+      subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      contentPadding: EdgeInsets.zero,
+      bottom: const AdminDock(activeTab: AdminDockTab.products),
+      child: const AdminItemGroupBulkMoveTab(),
+    );
+  }
 }
 
-class _AdminItemGroupBulkMoveScreenState
-    extends State<AdminItemGroupBulkMoveScreen> {
+class AdminItemGroupBulkMoveTab extends StatefulWidget {
+  const AdminItemGroupBulkMoveTab({
+    super.key,
+    this.embedded = false,
+  });
+
+  final bool embedded;
+
+  @override
+  State<AdminItemGroupBulkMoveTab> createState() =>
+      _AdminItemGroupBulkMoveTabState();
+}
+
+class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
   static const int _initialPageSize = 30;
   static const int _scrollPageSize = 50;
   static const double _prefetchExtent = 2800;
@@ -292,93 +310,100 @@ class _AdminItemGroupBulkMoveScreenState
     final rowCount = visibleItems.isEmpty ? 1 : visibleItems.length;
     final listItemCount = 2 + rowCount + (_loadingMore ? 1 : 0);
 
-    return ExcludeSemantics(
-      child: AppShell(
-        animateOnEnter: false,
-        title: "Mahsulot group ko'chirish",
-        subtitle: '',
-        nativeTopBar: true,
-        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        contentPadding: EdgeInsets.zero,
-        bottom: _AdminDockWithScrollTop(
-          activeTab: AdminDockTab.products,
-          visible: _showScrollTopButton,
-          onScrollTop: _scrollToTop,
-        ),
-        child: _initialLoading
-            ? const Center(child: AppLoadingIndicator())
-            : _errorText != null && _items.isEmpty
-                ? _ErrorView(
-                    message: _errorText!,
-                    onRetry: () =>
-                        _loadInitial(clearGroup: false, forceRefresh: true),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 164),
-                      itemCount: listItemCount,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return _BulkMoveHeader(
-                            groups: _groups,
-                            selectedGroup: _selectedGroup,
-                            groupMenuOpen: _groupMenuOpen,
-                            selectedCount: _selectedCodes.length,
-                            submitting: _submitting,
-                            canSubmit: canSubmit,
-                            onChooseGroup: _chooseGroup,
-                            onSelectGroup: _selectGroup,
-                            searchController: _searchController,
-                            onSearchChanged: _handleSearchChanged,
-                            onSubmit: _moveSelected,
-                          );
-                        }
-
-                        if (index == 1) {
-                          return const SizedBox(height: 12);
-                        }
-
-                        if (visibleItems.isEmpty && index == 2) {
-                          return const _EmptyItemsView();
-                        }
-
-                        final rowIndex = index - 2;
-                        if (rowIndex >= 0 && rowIndex < visibleItems.length) {
-                          final item = visibleItems[rowIndex];
-                          return Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              8,
-                              rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
-                              8,
-                              0,
-                            ),
-                            child: _ItemRow(
-                              slot: M3SegmentedListGeometry
-                                  .standaloneListSlotForIndex(
-                                rowIndex,
-                                visibleItems.length,
-                              ),
-                              item: item,
-                              selected: _selectedCodes.contains(item.code),
-                              onTap:
-                                  _submitting ? null : () => _toggleItem(item),
-                            ),
-                          );
-                        }
-
-                        if (_loadingMore && index == listItemCount - 1) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 18),
-                            child: Center(child: AppLoadingIndicator()),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+    final content = _initialLoading
+        ? const Center(child: AppLoadingIndicator())
+        : _errorText != null && _items.isEmpty
+            ? _ErrorView(
+                message: _errorText!,
+                onRetry: () => _loadInitial(clearGroup: false, forceRefresh: true),
+              )
+            : RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    4,
+                    8,
+                    4,
+                    widget.embedded ? 24 : 164,
                   ),
+                  itemCount: listItemCount,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return _BulkMoveHeader(
+                        groups: _groups,
+                        selectedGroup: _selectedGroup,
+                        groupMenuOpen: _groupMenuOpen,
+                        selectedCount: _selectedCodes.length,
+                        submitting: _submitting,
+                        canSubmit: canSubmit,
+                        onChooseGroup: _chooseGroup,
+                        onSelectGroup: _selectGroup,
+                        searchController: _searchController,
+                        onSearchChanged: _handleSearchChanged,
+                        onSubmit: _moveSelected,
+                      );
+                    }
+
+                    if (index == 1) {
+                      return const SizedBox(height: 12);
+                    }
+
+                    if (visibleItems.isEmpty && index == 2) {
+                      return const _EmptyItemsView();
+                    }
+
+                    final rowIndex = index - 2;
+                    if (rowIndex >= 0 && rowIndex < visibleItems.length) {
+                      final item = visibleItems[rowIndex];
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          8,
+                          rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
+                          8,
+                          0,
+                        ),
+                        child: _ItemRow(
+                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            rowIndex,
+                            visibleItems.length,
+                          ),
+                          item: item,
+                          selected: _selectedCodes.contains(item.code),
+                          onTap: _submitting ? null : () => _toggleItem(item),
+                        ),
+                      );
+                    }
+
+                    if (_loadingMore && index == listItemCount - 1) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Center(child: AppLoadingIndicator()),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              );
+
+    if (!_showScrollTopButton) {
+      return ExcludeSemantics(child: content);
+    }
+
+    return ExcludeSemantics(
+      child: Stack(
+        children: [
+          content,
+          PositionedDirectional(
+            end: 16,
+            bottom: widget.embedded ? 16 : 96,
+            child: _ScrollToTopButton(
+              size: 48,
+              onTap: _scrollToTop,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -614,62 +639,6 @@ class _AdminItemGroupBulkMoveScreenState
       offset: offset,
       hasMore: hasMore,
       allLoaded: !hasMore,
-    );
-  }
-}
-
-class _AdminDockWithScrollTop extends StatelessWidget {
-  const _AdminDockWithScrollTop({
-    required this.activeTab,
-    required this.visible,
-    required this.onScrollTop,
-  });
-
-  final AdminDockTab activeTab;
-  final bool visible;
-  final VoidCallback onScrollTop;
-
-  @override
-  Widget build(BuildContext context) {
-    final dock = AdminDock(
-      activeTab: activeTab,
-    );
-
-    if (!visible) {
-      return dock;
-    }
-
-    final media = MediaQueryData.fromView(View.of(context));
-    final dockHeight = appNavigationBarDockHeight(
-      height: appNavigationBarHeight,
-      systemBottomInset: dockLayoutBottomInset(
-        media,
-        thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
-      ),
-    );
-    const double buttonSize = 48;
-    final double buttonBottom =
-        appNavigationBarPrimaryButtonBottom(dockHeight: dockHeight) +
-            (appNavigationBarPrimaryButtonSize / 2) -
-            (buttonSize / 2) -
-            7;
-    final double buttonEnd = appNavigationBarPrimaryEndMargin +
-        appNavigationBarPrimaryButtonSize +
-        appNavigationBarPrimaryNavGap;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        dock,
-        PositionedDirectional(
-          end: buttonEnd,
-          bottom: buttonBottom,
-          child: _ScrollToTopButton(
-            size: buttonSize,
-            onTap: onScrollTop,
-          ),
-        ),
-      ],
     );
   }
 }

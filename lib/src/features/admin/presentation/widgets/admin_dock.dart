@@ -82,6 +82,7 @@ class AdminDock extends StatelessWidget {
               Navigator.of(context).pushNamedAndRemoveUntil(
                 destination.routeName,
                 (route) => false,
+                arguments: destination.routeArguments,
               );
             }
 
@@ -153,6 +154,7 @@ class _AdminDockDestination {
     required this.icon,
     required this.selectedIcon,
     required this.routeName,
+    this.routeArguments,
     this.primary = false,
   });
 
@@ -162,6 +164,7 @@ class _AdminDockDestination {
   final IconData icon;
   final IconData selectedIcon;
   final String routeName;
+  final Object? routeArguments;
   final bool primary;
 }
 
@@ -195,7 +198,8 @@ List<_AdminDockDestination> _visibleDestinations({
       label: productsLabel,
       icon: Icons.inventory_2_outlined,
       selectedIcon: Icons.inventory_2_rounded,
-      routeName: AppRoutes.adminItemBulkMove,
+      routeName: AppRoutes.adminItemCreate,
+      routeArguments: 2,
     ),
     _AdminDockDestination(
       id: 'admin-create',

@@ -22,7 +22,6 @@ import '../features/admin/presentation/admin_customer_detail_screen.dart';
 import '../features/admin/presentation/admin_supplier_detail_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_add_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_view_screen.dart';
-import '../features/admin/presentation/admin_item_group_bulk_move_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
@@ -491,11 +490,20 @@ class AppRouter {
       case AppRoutes.adminInactiveSuppliers:
         return _buildRoute(settings, const AdminInactiveSuppliersScreen());
       case AppRoutes.adminItemCreate:
-        return _buildRoute(settings, const AdminItemCreateScreen());
+        final int initialTabIndex = settings.arguments is int
+            ? settings.arguments as int
+            : 0;
+        return _buildRoute(
+          settings,
+          AdminItemCreateScreen(initialTabIndex: initialTabIndex),
+        );
       case AppRoutes.adminItemGroupCreate:
         return _buildRoute(settings, const AdminItemGroupCreateScreen());
       case AppRoutes.adminItemBulkMove:
-        return _buildRoute(settings, const AdminItemGroupBulkMoveScreen());
+        return _buildRoute(
+          settings,
+          const AdminItemCreateScreen(initialTabIndex: 2),
+        );
       case AppRoutes.adminSupplierDetail:
         final String supplierRef = settings.arguments as String;
         return _buildRoute(
@@ -656,7 +664,11 @@ class AppRouter {
     AppRoutes.adminCustomerCreate: {'party.customer.manage'},
     AppRoutes.adminCustomerDetail: {'party.customer.read'},
     AppRoutes.adminInactiveSuppliers: {'party.supplier.read'},
-    AppRoutes.adminItemCreate: {'catalog.item.read', 'catalog.item.create'},
+    AppRoutes.adminItemCreate: {
+      'catalog.item.read',
+      'catalog.item.create',
+      'catalog.item.bulk_move',
+    },
     AppRoutes.adminItemGroupCreate: {'catalog.item_group.manage'},
     AppRoutes.adminItemBulkMove: {'catalog.item.bulk_move'},
     AppRoutes.adminSupplierDetail: {'party.supplier.read'},
