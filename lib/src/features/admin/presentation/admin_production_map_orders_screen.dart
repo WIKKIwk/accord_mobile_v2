@@ -910,40 +910,45 @@ class _MoveOrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final feedbackWidth = MediaQuery.sizeOf(context).width - 40;
-    return _MoveOrderCard(
-      order: order,
-      index: index,
-      trailing: LongPressDraggable<_MoveDragPayload>(
-        data: _MoveDragPayload(order: order, source: source),
-        axis: Axis.vertical,
-        dragAnchorStrategy: (_, handleContext, position) {
-          final box = handleContext.findRenderObject()! as RenderBox;
-          final local = box.globalToLocal(position);
-          return Offset(feedbackWidth - 28, local.dy);
-        },
-        feedback: Material(
-          color: Colors.transparent,
-          child: SizedBox(
-            width: feedbackWidth,
-            child: _MoveOrderCard(
-              order: order,
-              index: index,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final feedbackWidth = constraints.maxWidth;
+        return _MoveOrderCard(
+          order: order,
+          index: index,
+          trailing: LongPressDraggable<_MoveDragPayload>(
+            data: _MoveDragPayload(order: order, source: source),
+            axis: Axis.vertical,
+            dragAnchorStrategy: (_, handleContext, position) {
+              final box = handleContext.findRenderObject()! as RenderBox;
+              final local = box.globalToLocal(position);
+              return Offset(feedbackWidth - 28, local.dy);
+            },
+            feedback: Material(
+              color: Colors.transparent,
+              child: SizedBox(
+                width: feedbackWidth,
+                child: _MoveOrderCard(
+                  order: order,
+                  index: index,
+                ),
+              ),
+            ),
+            childWhenDragging: Opacity(
+              opacity: 0.35,
+              child: _MoveDragHandle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            onDragStarted: onDragStarted,
+            onDragEnd: (_) => onDragEnded(),
+            onDraggableCanceled: (_, __) => onDragEnded(),
+            child: _MoveDragHandle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
-        childWhenDragging: Opacity(
-          opacity: 0.35,
-          child: _MoveDragHandle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        onDragStarted: onDragStarted,
-        onDragEnd: (_) => onDragEnded(),
-        onDraggableCanceled: (_, __) => onDragEnded(),
-        child: _MoveDragHandle(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
+        );
+      },
     );
   }
 }
