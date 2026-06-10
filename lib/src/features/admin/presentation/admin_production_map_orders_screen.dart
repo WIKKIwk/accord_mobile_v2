@@ -841,11 +841,14 @@ class _MoveOrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    void moveOrder() => onMove(order: order, from: source, to: target);
+
     return _MoveOrderCard(
       order: order,
       index: index,
       trailing: InkResponse(
-        onTap: () => onMove(order: order, from: source, to: target),
+        onTap: moveOrder,
+        onLongPress: moveOrder,
         radius: 24,
         child: _MoveDragHandle(
           color: Theme.of(context).colorScheme.onSurfaceVariant,

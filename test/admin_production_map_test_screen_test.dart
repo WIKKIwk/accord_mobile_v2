@@ -1006,7 +1006,7 @@ Future<void> _tapOrderHandle(
       matchingHandle = handle;
     }
   }
-  await tester.tap(matchingHandle!);
+  await tester.longPress(matchingHandle!);
   await tester.pumpAndSettle();
 }
 
