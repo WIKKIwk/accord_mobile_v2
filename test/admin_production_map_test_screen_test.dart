@@ -620,6 +620,7 @@ void main() {
         product: 'move ok product',
         rollCount: 7,
         widthMm: 650,
+        apparatusCopies: 2,
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -680,6 +681,10 @@ void main() {
     expect(find.text('Move ok order'), findsOneWidget);
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
+    expect(
+      _apparatusTitles(maps, 'zakaz-move-ok'),
+      isNot(contains('8 ta rangli pechat')),
+    );
 
     await _dragOrderHandleToTopZone(
       tester,
@@ -950,7 +955,16 @@ ProductionMapDefinition _productionOrderMap({
   String orderNumber = '',
   double? rollCount,
   double? widthMm,
+  int apparatusCopies = 1,
 }) {
+  final apparatusNodes = [
+    for (var index = 0; index < apparatusCopies; index++)
+      ProductionMapNode(
+        id: index == 0 ? 'apparatus' : 'apparatus-$index',
+        kind: 'apparatus',
+        title: apparatus,
+      ),
+  ];
   return ProductionMapDefinition(
     id: id,
     productCode: productCode,
@@ -964,11 +978,7 @@ ProductionMapDefinition _productionOrderMap({
         kind: 'start',
         title: 'Start',
       ),
-      ProductionMapNode(
-        id: 'apparatus',
-        kind: 'apparatus',
-        title: apparatus,
-      ),
+      ...apparatusNodes,
       ProductionMapNode(
         id: 'end',
         kind: 'end',
@@ -976,9 +986,14 @@ ProductionMapDefinition _productionOrderMap({
         itemCode: productCode,
       ),
     ],
-    edges: const [
-      ProductionMapEdge(from: 'start', to: 'apparatus'),
-      ProductionMapEdge(from: 'apparatus', to: 'end'),
+    edges: [
+      ProductionMapEdge(from: 'start', to: apparatusNodes.first.id),
+      for (var index = 0; index < apparatusNodes.length - 1; index++)
+        ProductionMapEdge(
+          from: apparatusNodes[index].id,
+          to: apparatusNodes[index + 1].id,
+        ),
+      ProductionMapEdge(from: apparatusNodes.last.id, to: 'end'),
     ],
   );
 }
@@ -1048,5 +1063,13 @@ Future<void> _dragOrderHandleToTopZone(
 
 String _apparatusTitle(List<ProductionMapSaved> maps, String id) {
   final map = maps.singleWhere((item) => item.map.id == id).map;
-  return map.nodes.singleWhere((node) => node.kind == 'apparatus').title.trim();
+  return map.nodes.firstWhere((node) => node.kind == 'apparatus').title.trim();
+}
+
+List<String> _apparatusTitles(List<ProductionMapSaved> maps, String id) {
+  final map = maps.singleWhere((item) => item.map.id == id).map;
+  return map.nodes
+      .where((node) => node.kind == 'apparatus')
+      .map((node) => node.title.trim())
+      .toList(growable: false);
 }

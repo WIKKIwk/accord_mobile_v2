@@ -320,16 +320,10 @@ class _AdminProductionMapOrdersScreenState
     required String from,
     required String to,
   }) {
-    var replaced = false;
     final nodes = [
       for (final node in map.nodes)
-        if (!replaced &&
-            node.kind == 'apparatus' &&
-            node.title.trim() == from.trim())
-          (() {
-            replaced = true;
-            return node.copyWith(title: to.trim());
-          })()
+        if (node.kind == 'apparatus' && node.title.trim() == from.trim())
+          node.copyWith(title: to.trim())
         else
           node,
     ];
