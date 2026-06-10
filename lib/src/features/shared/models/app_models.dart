@@ -2,6 +2,7 @@ enum UserRole {
   supplier,
   werka,
   customer,
+  aparatchi,
   admin,
 }
 
@@ -11,9 +12,11 @@ UserRole userRoleFromJson(String? value) {
       ? UserRole.werka
       : roleValue == 'customer'
           ? UserRole.customer
-          : roleValue == 'admin'
-              ? UserRole.admin
-              : UserRole.supplier;
+          : roleValue == 'aparatchi'
+              ? UserRole.aparatchi
+              : roleValue == 'admin'
+                  ? UserRole.admin
+                  : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
@@ -21,9 +24,11 @@ String userRoleToJson(UserRole role) {
       ? 'werka'
       : role == UserRole.customer
           ? 'customer'
-          : role == UserRole.admin
-              ? 'admin'
-              : 'supplier';
+          : role == UserRole.aparatchi
+              ? 'aparatchi'
+              : role == UserRole.admin
+                  ? 'admin'
+                  : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
@@ -31,9 +36,11 @@ String userRoleLabel(UserRole role) {
       ? 'Werka'
       : role == UserRole.customer
           ? 'Haridor'
-          : role == UserRole.admin
-              ? 'Admin'
-              : 'Ta\'minotchi';
+          : role == UserRole.aparatchi
+              ? 'Aparatchi'
+              : role == UserRole.admin
+                  ? 'Admin'
+                  : 'Ta\'minotchi';
 }
 
 enum DispatchStatus {
@@ -965,6 +972,8 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
       ];
     case UserRole.customer:
       return const ['customer.access'];
+    case UserRole.aparatchi:
+      return const ['apparatus.queue.read'];
     case UserRole.admin:
       return const [
         'admin.access',

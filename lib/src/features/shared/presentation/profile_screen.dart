@@ -19,6 +19,8 @@ import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../supplier/presentation/widgets/supplier_navigation_drawer.dart';
 import '../../customer/presentation/widgets/customer_dock.dart';
 import '../../customer/presentation/widgets/customer_navigation_drawer.dart';
+import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
+import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:io';
@@ -379,6 +381,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 selectedIndex: 2,
                 onNavigate: _openCustomerDrawerRoute,
               ),
+            _ProfileShellKind.aparatchi => AparatchiNavigationDrawer(
+                selectedIndex: 1,
+                onNavigate: _openAparatchiDrawerRoute,
+              ),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
@@ -387,6 +393,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             _ProfileShellKind.werka =>
               const WerkaDock(activeTab: null, showPrimaryFab: false),
             _ProfileShellKind.customer => const CustomerDock(activeTab: null),
+            _ProfileShellKind.aparatchi =>
+              const AparatchiDock(activeTab: AparatchiDockTab.profile),
             _ProfileShellKind.admin =>
               const AdminDock(activeTab: null, showPrimaryFab: false),
             _ProfileShellKind.none => null,
@@ -693,12 +701,21 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
     Navigator.of(context).pushReplacementNamed(route);
   }
+
+  void _openAparatchiDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
 }
 
 enum _ProfileShellKind {
   supplier,
   werka,
   customer,
+  aparatchi,
   admin,
   none,
 }
@@ -708,6 +725,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.supplierHome => _ProfileShellKind.supplier,
     AppRoutes.werkaHome => _ProfileShellKind.werka,
     AppRoutes.customerHome => _ProfileShellKind.customer,
+    AppRoutes.apparatusQueue => _ProfileShellKind.aparatchi,
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

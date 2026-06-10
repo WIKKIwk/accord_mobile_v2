@@ -7,8 +7,8 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'calculate_product_picker_loader.dart';
+import '../logic/production_map_pechat_rules.dart';
 import 'admin_production_map_test_screen.dart';
-import '../state/calculate_order_store.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
@@ -31,7 +31,6 @@ class AdminCalculateScreen extends StatefulWidget {
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
-  final _orderName = TextEditingController();
   final _customer = TextEditingController();
   final _product = TextEditingController();
   final _status = TextEditingController();
@@ -50,6 +49,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   String _customerRef = '';
   String _itemCode = '';
   String _templateId = '';
+  String _orderCode = '';
   bool _openingRoute = false;
   bool _calculating = false;
   bool _uploadingImage = false;
@@ -72,7 +72,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   @override
   void dispose() {
-    _orderName.dispose();
     _customer.dispose();
     _product.dispose();
     _status.dispose();
@@ -95,7 +94,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     _templateId = template.id;
-    _orderName.text = template.name;
+    _orderCode = template.code;
     _customerRef = template.customerRef;
     _customer.text = template.customer;
     _itemCode = template.itemCode;
@@ -141,16 +140,62 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openProductionMap() async {
-    await Navigator.of(context).pushNamed(
+    final error = _templateValidationError();
+    if (error != null) {
+      showAdminTopNotice(context, error);
+      return;
+    }
+    final saved = await Navigator.of(context).pushNamed(
       AppRoutes.adminProductionMapTest,
       arguments: ProductionMapOrderContext(
         templateId: _templateId,
-        orderName: _orderName.text,
+        orderCode: _orderCode,
+        orderName: _resolvedOrderName(),
         productName: _product.text,
         itemCode: _itemCode,
         rollCount: _parseOptionalDouble(_rollCount.text),
         widthMm: _parseOptionalDouble(_widthMm.text),
+        templateDraft: _buildTemplateDraft(),
       ),
+    );
+    if (!mounted || saved is! CalculateOrderTemplate) {
+      return;
+    }
+    setState(() {
+      _applyTemplate(saved);
+      _editingAllFields = false;
+    });
+  }
+
+  CalculateOrderTemplate _buildTemplateDraft() {
+    return CalculateOrderTemplate(
+      id: _templateId,
+      code: _orderCode,
+      name: _resolvedOrderName(),
+      savedAt: DateTime.now().toUtc(),
+      orderNumber: '',
+      customerRef: _customerRef,
+      customer: _customer.text.trim(),
+      itemCode: _itemCode,
+      product: _product.text.trim(),
+      status: _status.text.trim(),
+      materialDisplay: '',
+      color: '',
+      imageId: _imageId,
+      imageName: _imageName,
+      imageMime: _imageMime,
+      imageSizeBytes: _imageSizeBytes,
+      imageUrl: _imageUrl,
+      widthMm: _parseRequiredDouble(_widthMm.text),
+      wastePercent: _parseRequiredDouble(_wastePercent.text),
+      rollCount: _parseOptionalDouble(_rollCount.text),
+      firstLayerMaterial: _firstMaterial.text.trim(),
+      firstLayerMicron: _firstMicron.text.trim(),
+      secondLayerMaterial: _secondMaterial.text.trim(),
+      secondLayerMicron: _secondMicron.text.trim(),
+      thirdLayerMaterial: _thirdMaterial.text.trim(),
+      thirdLayerMicron: _thirdMicron.text.trim(),
+      note: _note.text.trim(),
     );
   }
 
@@ -244,56 +289,12 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     });
   }
 
-  Future<void> _saveTemplate() async {
-    final error = _templateValidationError();
-    if (error != null) {
-      showAdminTopNotice(context, error);
-      return;
-    }
-    final template = CalculateOrderTemplate(
-      id: _templateId,
-      name: _orderName.text.trim(),
-      savedAt: DateTime.now().toUtc(),
-      orderNumber: '',
-      customerRef: _customerRef,
-      customer: _customer.text.trim(),
-      itemCode: _itemCode,
-      product: _product.text.trim(),
-      status: _status.text.trim(),
-      materialDisplay: '',
-      color: '',
-      imageId: _imageId,
-      imageName: _imageName,
-      imageMime: _imageMime,
-      imageSizeBytes: _imageSizeBytes,
-      imageUrl: _imageUrl,
-      widthMm: _parseRequiredDouble(_widthMm.text),
-      wastePercent: _parseRequiredDouble(_wastePercent.text),
-      rollCount: _parseOptionalDouble(_rollCount.text),
-      firstLayerMaterial: _firstMaterial.text.trim(),
-      firstLayerMicron: _firstMicron.text.trim(),
-      secondLayerMaterial: _secondMaterial.text.trim(),
-      secondLayerMicron: _secondMicron.text.trim(),
-      thirdLayerMaterial: _thirdMaterial.text.trim(),
-      thirdLayerMicron: _thirdMicron.text.trim(),
-      note: _note.text.trim(),
-    );
-    await CalculateOrderTemplateStore.instance.upsert(template);
-    if (!mounted) {
-      return;
-    }
-    if (_templateId.isNotEmpty) {
-      setState(() {
-        _editingAllFields = false;
-      });
-    }
-    showAdminTopNotice(context, 'Zakaz saqlandi');
+  String _resolvedOrderName() {
+    final product = _product.text.trim();
+    return product.isEmpty ? 'Zakaz' : product;
   }
 
   String? _templateValidationError() {
-    if (_orderName.text.trim().isEmpty) {
-      return 'Zakaz nomini yozing';
-    }
     final checks = <String?>[
       _requiredText(_product.text),
       _requiredPositiveNumber(_widthMm.text),
@@ -440,10 +441,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   List<Widget> _fullEditChildren() {
     return [
-      _TextInput(
-        controller: _orderName,
-        label: 'Zakaz nomi',
-      ),
       const _SectionHeader(title: 'Buyurtma'),
       _PickerInput(
         label: 'Mijoz',
@@ -530,7 +527,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   List<Widget> _compactTemplateChildren() {
     return [
       _SavedTemplateSummary(
-        orderName: _orderName.text,
+        title: _resolvedOrderName(),
         customer: _customer.text,
         customerRef: _customerRef,
         product: _product.text,
@@ -585,7 +582,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       ],
       if (_result != null) ...[
         const SizedBox(height: 18),
-        _ResultPanel(response: _result!),
+        _ResultPanel(
+          response: _result!,
+          rollCount: _parseOptionalDouble(_rollCount.text),
+          widthMm: _parseRequiredDouble(_widthMm.text),
+        ),
       ],
       const SizedBox(height: 18),
       OutlinedButton.icon(
@@ -604,7 +605,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final children =
         _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
-    final pageTitle = _templateId.isEmpty ? 'Zakaz yaratish' : 'Zakaz';
+    final resolvedName = _resolvedOrderName().trim();
+    final pageTitle =
+        resolvedName.isEmpty || resolvedName == 'Zakaz' ? 'Zakaz yaratish' : resolvedName;
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
@@ -620,12 +623,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           icon: Icons.list_alt_rounded,
           onTap: _openOrders,
         ),
-        if (_editingAllFields)
-          AppShellIconAction(
-            icon: Icons.save_outlined,
-            onTap: _saveTemplate,
-          )
-        else
+        if (!_editingAllFields)
           AppShellIconAction(
             icon: Icons.edit_outlined,
             onTap: _enableFullEdit,
@@ -651,7 +649,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
 class _SavedTemplateSummary extends StatelessWidget {
   const _SavedTemplateSummary({
-    required this.orderName,
+    required this.title,
     required this.customer,
     required this.customerRef,
     required this.product,
@@ -671,7 +669,7 @@ class _SavedTemplateSummary extends StatelessWidget {
     required this.note,
   });
 
-  final String orderName;
+  final String title;
   final String customer;
   final String customerRef;
   final String product;
@@ -711,7 +709,7 @@ class _SavedTemplateSummary extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  orderName.trim().isEmpty ? 'Zakaz' : orderName.trim(),
+                  title.trim().isEmpty ? 'Zakaz' : title.trim(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -977,9 +975,15 @@ String _layerValue(String material, String micron) {
 }
 
 class _ResultPanel extends StatelessWidget {
-  const _ResultPanel({required this.response});
+  const _ResultPanel({
+    required this.response,
+    required this.rollCount,
+    required this.widthMm,
+  });
 
   final CalculateResponse response;
+  final double? rollCount;
+  final double widthMm;
 
   @override
   Widget build(BuildContext context) {
@@ -1002,6 +1006,14 @@ class _ResultPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _ResultMultilineRow(
+            label: 'Pechat',
+            value: productionMapPechatCompatibilitySummary(
+              rollCount: rollCount,
+              widthMm: widthMm,
+            ),
+          ),
+          const Divider(height: 18),
           for (var i = 0; i < response.results.length; i++) ...[
             _ResultVariant(
               index: i,
@@ -1085,6 +1097,36 @@ class _ResultRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label, style: style)),
+          Text(value, style: style),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultMultilineRow extends StatelessWidget {
+  const _ResultMultilineRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            label,
+            style: style?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
           Text(value, style: style),
         ],
       ),

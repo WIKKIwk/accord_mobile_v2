@@ -1,0 +1,124 @@
+import 'package:erpnext_stock_mobile/src/features/admin/logic/apparatus_queue_state.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/logic/production_map_chain.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/logic/production_map_pechat_rules.dart';
+import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+ProductionMapDefinition _hotlunchMap() {
+  ProductionMapNode node(String id, String kind, String title) {
+    return ProductionMapNode(id: id, kind: kind, title: title);
+  }
+
+  return ProductionMapDefinition(
+    id: 'zakaz-hot',
+    productCode: 'HOT',
+    title: 'Hotlunch',
+    nodes: [
+      node('start', 'start', 'Start'),
+      node('order', 'task', 'Hotlunch mahsulot'),
+      node('pechat', 'apparatus', '9 ta rangli pechat - A'),
+      node('lamin', 'task', 'Laminatsiya'),
+      node('rezka', 'apparatus', 'Rezka aparat - A'),
+      node('end', 'end', 'End'),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'order'),
+      ProductionMapEdge(from: 'order', to: 'pechat'),
+      ProductionMapEdge(from: 'pechat', to: 'lamin'),
+      ProductionMapEdge(from: 'lamin', to: 'rezka'),
+      ProductionMapEdge(from: 'rezka', to: 'end'),
+    ],
+  );
+}
+
+ProductionMapDefinition _pechatOnlyMap() {
+  ProductionMapNode node(String id, String kind, String title) {
+    return ProductionMapNode(id: id, kind: kind, title: title);
+  }
+
+  return ProductionMapDefinition(
+    id: 'zakaz-1236',
+    productCode: 'ZEN',
+    title: 'Zenit',
+    nodes: [
+      node('start', 'start', 'Start'),
+      node('order', 'task', 'zenit frutto ninja 70 gr'),
+      node('pechat', 'apparatus', '7 ta rangli pechat - A'),
+      node('end', 'end', 'End'),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'order'),
+      ProductionMapEdge(from: 'order', to: 'pechat'),
+      ProductionMapEdge(from: 'pechat', to: 'end'),
+    ],
+  );
+}
+
+void main() {
+  test('warehouse suffix titles match', () {
+    expect(productionMapWarehouseTitlesMatch('Laminatsiya - A', 'Laminatsiya'), isTrue);
+    expect(productionMapWarehouseTitlesMatch('Paket aparat - A', 'Paket aparat'), isTrue);
+  });
+
+  test('linear work stages skip product task before first apparatus', () {
+    final stages = productionMapLinearWorkStages(_hotlunchMap());
+    expect(
+      stages.map((stage) => stage.stationTitle).toList(),
+      ['9 ta rangli pechat - A', 'Laminatsiya', 'Rezka aparat - A'],
+    );
+  });
+
+  test('laminatsiya tab sees orders only when map includes that stage', () {
+    expect(
+      productionMapMapHasWorkStageForStation(
+        map: _hotlunchMap(),
+        station: 'Laminatsiya - A',
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapMapHasWorkStageForStation(
+        map: _pechatOnlyMap(),
+        station: 'Laminatsiya - A',
+      ),
+      isFalse,
+    );
+  });
+
+  test('later stage waits for previous completion', () {
+    final map = _hotlunchMap();
+    const states = <String, Map<String, String>>{};
+
+    expect(
+      productionMapOrderReadyForStation(
+        map: map,
+        orderId: 'zakaz-hot',
+        station: 'Laminatsiya - A',
+        queueStatesByApparatus: states,
+      ),
+      isFalse,
+    );
+
+    final withPechatDone = {
+      '9 ta rangli pechat - A': {'zakaz-hot': 'completed'},
+    };
+    expect(
+      productionMapOrderReadyForStation(
+        map: map,
+        orderId: 'zakaz-hot',
+        station: 'Laminatsiya - A',
+        queueStatesByApparatus: withPechatDone,
+      ),
+      isTrue,
+    );
+  });
+
+  test('first actionable skips orders blocked by chain', () {
+    final actionable = firstActionableQueueOrderId(
+      sequence: const ['zakaz-a', 'zakaz-b'],
+      states: const {},
+      isOrderReady: (id) => id != 'zakaz-a',
+    );
+    expect(actionable, 'zakaz-b');
+  });
+}

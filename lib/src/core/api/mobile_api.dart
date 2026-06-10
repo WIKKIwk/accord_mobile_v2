@@ -1,3 +1,5 @@
+import '../../features/admin/logic/apparatus_queue_state.dart';
+import '../../features/admin/logic/production_map_pechat_rules.dart';
 import '../../features/shared/models/app_models.dart';
 import '../../features/admin/models/admin_item_group_tree_entry.dart';
 import '../../features/admin/models/production_map_models.dart';
@@ -83,6 +85,22 @@ class MobileApi {
     Future<http.Response> Function() send,
   ) async {
     final http.Response response = await send();
+    if (response.statusCode != 401) {
+      return response;
+    }
+
+    final bool refreshed = await _reauthenticateFromStorage();
+    if (!refreshed) {
+      await AppSession.instance.clear();
+      return response;
+    }
+    return send();
+  }
+
+  Future<http.StreamedResponse> _sendAuthorizedStream(
+    Future<http.StreamedResponse> Function() send,
+  ) async {
+    final http.StreamedResponse response = await send();
     if (response.statusCode != 401) {
       return response;
     }

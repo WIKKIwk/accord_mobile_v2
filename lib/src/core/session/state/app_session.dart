@@ -79,6 +79,8 @@ class AppSession {
         return '/werka-home';
       case UserRole.customer:
         return '/customer-home';
+      case UserRole.aparatchi:
+        return '/apparatus-queue';
       case UserRole.admin:
         return '/admin-home';
     }

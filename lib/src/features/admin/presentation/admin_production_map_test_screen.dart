@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
@@ -8,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
+import '../state/calculate_order_store.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_top_notice.dart';
@@ -32,42 +34,6 @@ bool productionMapCanCreateEdge(
   }
   return (from.kind == 'kk_product' && to.kind == 'apparatus') ||
       (from.kind == 'apparatus' && to.kind == 'kk_product');
-}
-
-int? productionMapRecommendedPechatColorCount({
-  double? rollCount,
-  double? widthMm,
-}) {
-  final hasRoll = rollCount != null && rollCount > 0;
-  final hasWidth = widthMm != null && widthMm > 0;
-  if (!hasRoll && !hasWidth) {
-    return null;
-  }
-
-  var requiredColorCount = 0;
-  if (hasRoll) {
-    if (rollCount > 9) {
-      return null;
-    }
-    requiredColorCount = rollCount > 8
-        ? 9
-        : rollCount > 7
-            ? 8
-            : 7;
-  }
-  if (hasWidth) {
-    final rubberSize = productionMapRubberSizeFromWidth(widthMm);
-    if (rubberSize > 1300) {
-      return null;
-    }
-    final rubberColorCount = rubberSize > 1000
-        ? 9
-        : rubberSize > 800
-            ? 8
-            : 7;
-    requiredColorCount = math.max(requiredColorCount, rubberColorCount);
-  }
-  return requiredColorCount == 0 ? null : requiredColorCount;
 }
 
 bool productionMapApparatusMatchesOrder(
@@ -239,19 +205,23 @@ class AdminProductionMapTestScreen extends StatefulWidget {
 class ProductionMapOrderContext {
   const ProductionMapOrderContext({
     this.templateId = '',
+    this.orderCode = '',
     required this.orderName,
     required this.productName,
     required this.itemCode,
     this.rollCount,
     this.widthMm,
+    this.templateDraft,
   });
 
   final String templateId;
+  final String orderCode;
   final String orderName;
   final String productName;
   final String itemCode;
   final double? rollCount;
   final double? widthMm;
+  final CalculateOrderTemplate? templateDraft;
 }
 
 class _AdminProductionMapTestScreenState
@@ -267,7 +237,6 @@ class _AdminProductionMapTestScreenState
   late final bool _orderMode;
   late final List<ProductionMapNode> nodes;
   late final List<ProductionMapEdge> edges;
-  String? _savedMapId;
 
   int _nextNodeIndex = 1;
   String? _connectingFromNodeID;
@@ -276,6 +245,7 @@ class _AdminProductionMapTestScreenState
   bool _mapToolsMenuOpen = false;
   bool _savingMap = false;
   late String _orderNumber;
+  CalculateOrderTemplate? _lastSavedTemplate;
 
   @override
   void initState() {
@@ -294,7 +264,6 @@ class _AdminProductionMapTestScreenState
             ? _orderFlowEdges()
             : _defaultTestEdges();
     _orderNumber = savedMap?.orderNumber.trim() ?? '';
-    _savedMapId = savedMap?.id.trim();
   }
 
   List<ProductionMapNode> _defaultTestNodes() {
@@ -389,28 +358,52 @@ class _AdminProductionMapTestScreenState
     if (_savingMap) {
       return;
     }
-    final orderNumber = _orderMode ? await _requestOrderNumber() : null;
+    final orderNumber = _orderMode ? await _resolveOrderNumberForSave() : null;
     if (_orderMode && orderNumber == null) {
       return;
     }
     setState(() => _savingMap = true);
     try {
-      final saved = await MobileApi.instance.adminSaveProductionMap(
-        _currentMapDefinition(orderNumber: orderNumber),
+      final definition = _currentMapDefinition(orderNumber: orderNumber);
+      final draft = widget.orderContext?.templateDraft;
+      if (draft != null) {
+        // Single server-side operation: map + zakaz saved together.
+        final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
+          map: definition,
+          template: draft,
+        );
+        if (!mounted) {
+          return;
+        }
+        _lastSavedTemplate = result.template;
+        await CalculateOrderTemplateStore.instance.load(force: true);
+        if (!mounted) {
+          return;
+        }
+        if (orderNumber != null) {
+          _orderNumber = orderNumber;
+        }
+        showAdminTopNotice(context, 'Production map va zakaz saqlandi');
+      } else {
+        await MobileApi.instance.adminSaveProductionMap(definition);
+        if (!mounted) {
+          return;
+        }
+        if (orderNumber != null) {
+          _orderNumber = orderNumber;
+        }
+        showAdminTopNotice(context, 'Production map saqlandi');
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        error is MobileApiException
+            ? error.message
+            : 'Production map saqlanmadi',
       );
-      if (!mounted) {
-        return;
-      }
-      if (orderNumber != null) {
-        _orderNumber = orderNumber;
-      }
-      _savedMapId = saved.map.id.trim();
-      showAdminTopNotice(context, 'Production map saqlandi');
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(context, 'Production map saqlanmadi');
     } finally {
       if (mounted) {
         setState(() => _savingMap = false);
@@ -418,33 +411,25 @@ class _AdminProductionMapTestScreenState
     }
   }
 
+  bool get _orderNumberLocked =>
+      RegExp(r'^\d{4}$').hasMatch(_orderNumber.trim());
+
+  Future<String?> _resolveOrderNumberForSave() async {
+    if (_orderNumberLocked) {
+      return _orderNumber.trim();
+    }
+    return _requestOrderNumber();
+  }
+
   Future<String?> _requestOrderNumber() {
+    // Uniqueness is enforced server-side on save (duplicate_order_number);
+    // the dialog only checks the 4-digit format.
     return showDialog<String>(
       context: context,
       builder: (context) => _ProductionMapOrderNumberDialog(
         initialValue: _orderNumber,
-        validate: _validateOrderNumber,
       ),
     );
-  }
-
-  Future<String?> _validateOrderNumber(String orderNumber) async {
-    try {
-      final maps = await MobileApi.instance.adminProductionMaps();
-      for (final saved in maps) {
-        final map = saved.map;
-        if (map.orderNumber.trim() != orderNumber.trim()) {
-          continue;
-        }
-        if (_savedMapId != null && map.id.trim() == _savedMapId) {
-          continue;
-        }
-        return 'Bu raqam boshqa zakazga berilgan';
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
   }
 
   ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
@@ -469,19 +454,43 @@ class _AdminProductionMapTestScreenState
             context.templateId,
           ]);
     return ProductionMapDefinition(
-      id: context == null
-          ? (savedMap?.id.trim().isNotEmpty ?? false)
+      id: _orderMode
+          ? ((savedMap?.id.trim().isNotEmpty ?? false)
               ? savedMap!.id.trim()
-              : 'production-map-test'
-          : _orderMapId(context, normalizedOrderNumber),
+              : _zakazMapId(normalizedOrderNumber, context: context))
+          : (context == null
+              ? (savedMap?.id.trim().isNotEmpty ?? false)
+                  ? savedMap!.id.trim()
+                  : 'production-map-test'
+              : _orderMapId(context, normalizedOrderNumber)),
       productCode: productCode,
       title: title,
+      code: _orderMode && normalizedOrderNumber.isNotEmpty
+          ? normalizedOrderNumber
+          : _firstNonEmpty([
+              context?.orderCode ?? '',
+              savedMap?.code ?? '',
+            ]),
       orderNumber: normalizedOrderNumber,
-      rollCount: context?.rollCount,
-      widthMm: context?.widthMm,
+      // Re-saving an opened zakaz must keep its pechat constraints.
+      rollCount: context?.rollCount ?? savedMap?.rollCount,
+      widthMm: context?.widthMm ?? savedMap?.widthMm,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );
+  }
+
+  String _zakazMapId(
+    String orderNumber, {
+    ProductionMapOrderContext? context,
+  }) {
+    if (RegExp(r'^\d{4}$').hasMatch(orderNumber)) {
+      return 'zakaz-$orderNumber';
+    }
+    if (context != null) {
+      return _orderMapId(context, orderNumber);
+    }
+    return 'production-map-test';
   }
 
   String _orderMapId(ProductionMapOrderContext context, String orderNumber) {
@@ -537,6 +546,16 @@ class _AdminProductionMapTestScreenState
         _insertBeforeEnd(_newNode(id, kind));
       }
     });
+    if (_orderMode && kind == 'task') {
+      final index = nodes.indexWhere((node) => node.id == id);
+      if (index >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            unawaited(_editNode(index));
+          }
+        });
+      }
+    }
   }
 
   ProductionMapNode _newNode(String id, String kind) {
@@ -570,7 +589,7 @@ class _AdminProductionMapTestScreenState
       _ => ProductionMapNode(
           id: id,
           kind: 'task',
-          title: 'Ishlov jarayoni',
+          title: _orderMode ? 'Stansiya tanlang' : 'Ishlov jarayoni',
           roleCode: 'worker',
           x: end.x,
           y: end.y - 132,
@@ -913,6 +932,48 @@ class _AdminProductionMapTestScreenState
     ).inflate(_nodeGap / 2);
   }
 
+  bool _isOrderProductTask(ProductionMapNode node) {
+    return node.kind == 'task' &&
+        (node.id.trim() == 'order' || node.roleCode.trim() == 'zakaz');
+  }
+
+  bool _isStationTask(ProductionMapNode node) {
+    return node.kind == 'task' && !_isOrderProductTask(node);
+  }
+
+  Future<AdminWarehouse?> _pickStationWarehouse({String? title}) async {
+    return showModalBottomSheet<AdminWarehouse>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<AdminWarehouse>(
+          title: title ?? 'Stansiya tanlang',
+          hintText: 'Aparat qidiring',
+          pageSize: 50,
+          cacheKey: 'production-map:station-warehouses',
+          loadPage: (query, offset, limit) async {
+            final warehouses = await MobileApi.instance.adminWarehouses(
+              query: query,
+              parent: 'aparat - A',
+              limit: 200,
+            );
+            return warehouses.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (item) => item.warehouse,
+          itemSubtitle: (item) =>
+              item.company.trim().isEmpty ? 'Aparat' : item.company,
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+  }
+
   Future<void> _editNode(int index) async {
     if (index < 0) {
       return;
@@ -957,6 +1018,14 @@ class _AdminProductionMapTestScreenState
           );
         },
       );
+      if (picked == null || !mounted) {
+        return;
+      }
+      setState(() => nodes[index] = node.copyWith(title: picked.warehouse));
+      return;
+    }
+    if (_isStationTask(node)) {
+      final picked = await _pickStationWarehouse(title: 'Ishlov stansiyasi');
       if (picked == null || !mounted) {
         return;
       }
@@ -1075,6 +1144,11 @@ class _AdminProductionMapTestScreenState
           onTap: () => _runMapToolAction(() => _addNode('apparatus')),
         ),
         AdminFabMenuAction(
+          title: 'Ishlov',
+          icon: Icons.engineering_rounded,
+          onTap: () => _runMapToolAction(() => _addNode('task')),
+        ),
+        AdminFabMenuAction(
           title: 'kk li mahsulot',
           icon: Icons.inventory_2_rounded,
           onTap: () => _runMapToolAction(() => _addNode('kk_product')),
@@ -1114,13 +1188,30 @@ class _AdminProductionMapTestScreenState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final fabBottom = MediaQuery.viewPaddingOf(context).bottom + 92.0;
+    // System back (swipe) must also return the saved template to the caller.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop(_lastSavedTemplate);
+        }
+      },
+      child: _buildShell(context, scheme, fabBottom),
+    );
+  }
+
+  Widget _buildShell(BuildContext context, ColorScheme scheme, double fabBottom) {
     return AppShell(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded),
         onPressed: () {
           final nav = Navigator.of(context);
           if (nav.canPop()) {
-            nav.pop();
+            nav.pop(_lastSavedTemplate);
           } else {
             nav.pushNamedAndRemoveUntil(
               AppRoutes.adminHome,
@@ -1321,11 +1412,9 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
 class _ProductionMapOrderNumberDialog extends StatefulWidget {
   const _ProductionMapOrderNumberDialog({
     required this.initialValue,
-    required this.validate,
   });
 
   final String initialValue;
-  final Future<String?> Function(String value) validate;
 
   @override
   State<_ProductionMapOrderNumberDialog> createState() =>
@@ -1336,7 +1425,6 @@ class _ProductionMapOrderNumberDialogState
     extends State<_ProductionMapOrderNumberDialog> {
   late final TextEditingController _controller;
   String? _errorText;
-  bool _checking = false;
 
   @override
   void initState() {
@@ -1350,22 +1438,10 @@ class _ProductionMapOrderNumberDialogState
     super.dispose();
   }
 
-  Future<void> _save() async {
+  void _save() {
     final value = _controller.text.trim();
     if (!RegExp(r'^\d{4}$').hasMatch(value)) {
       setState(() => _errorText = '4 xonali raqam kiriting');
-      return;
-    }
-    setState(() => _checking = true);
-    final validationError = await widget.validate(value);
-    if (!mounted) {
-      return;
-    }
-    if (validationError != null) {
-      setState(() {
-        _checking = false;
-        _errorText = validationError;
-      });
       return;
     }
     Navigator.of(context).pop(value);
@@ -1449,13 +1525,9 @@ class _ProductionMapOrderNumberDialogState
                       foregroundColor: scheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    onPressed: _checking ? null : _save,
-                    icon: Icon(
-                      _checking
-                          ? Icons.hourglass_top_rounded
-                          : Icons.save_outlined,
-                    ),
-                    label: Text(_checking ? 'Tekshirilmoqda' : 'Saqlash'),
+                    onPressed: _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Saqlash'),
                   ),
                 ],
               ),

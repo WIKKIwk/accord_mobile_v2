@@ -227,6 +227,17 @@ void main() {
     expect(productionMapCanCreateEdge(task, apparatus), isTrue);
   });
 
+  test('production map pechat compatibility summary uses product constraints', () {
+    expect(
+      productionMapPechatCompatibilitySummary(rollCount: 7, widthMm: 650),
+      'Minimal 7 ta rangli pechat • Mos: 7 ta rangli pechat, 8 ta rangli pechat',
+    );
+    expect(
+      productionMapPechatCompatibilitySummary(rollCount: 7, widthMm: 1250),
+      'Minimal 9 ta rangli pechat • Mos: 9 ta rangli pechat',
+    );
+  });
+
   test('production map pechat recommendation prioritizes val then rubber', () {
     expect(
       productionMapRecommendedPechatColorCount(rollCount: 7, widthMm: 700),
@@ -375,6 +386,48 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 7,
+        rollCount: 7,
+        widthMm: 1300,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 8,
+        rollCount: 7,
+        widthMm: 1250,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatColorCount('9 ta rangli aparat'),
+      9,
+    );
+    expect(
+      productionMapPechatColorCount('7 ta rangli'),
+      7,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 7,
+        rollCount: 7,
+        widthMm: null,
+        sourceApparatusColorCount: 9,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanMoveOrder(
+        apparatusColorCount: 7,
+        rollCount: 7,
+        widthMm: 1250,
+        sourceApparatusColorCount: 9,
+      ),
+      isFalse,
+    );
   });
 
   testWidgets('production map order flow requires four digit order number',
@@ -490,6 +543,8 @@ void main() {
     final maps = await MobileApi.instance.adminProductionMaps();
     expect(maps.where((item) => item.map.orderNumber == '9876'), hasLength(1));
     expect(maps.first.map.title, 'Old zakaz');
+    // Let the top notice auto-dismiss timer finish.
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('opened production map orders page lists saved zakaz',
@@ -545,7 +600,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ochilgan zakazlar'), findsOneWidget);
-    expect(find.text('Zenit opened'), findsOneWidget);
+    expect(find.textContaining('Zenit opened'), findsOneWidget);
     expect(
       find.textContaining('zenit frutto ninja 70gr • ITEM-002'),
       findsOneWidget,
@@ -603,8 +658,8 @@ void main() {
     expect(find.text('Aparatlar'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
 
-    expect(find.text('Paket order A'), findsOneWidget);
-    expect(find.text('Paket order B'), findsOneWidget);
+    expect(find.textContaining('Paket order A'), findsOneWidget);
+    expect(find.textContaining('Paket order B'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle_rounded), findsWidgets);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
@@ -679,7 +734,7 @@ void main() {
       find.text('7 ta rangli pechat uchun zakaz yo‘q'),
       findsNothing,
     );
-    expect(find.text('Move ok order'), findsOneWidget);
+    expect(find.textContaining('Move ok order'), findsOneWidget);
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
     expect(
@@ -700,6 +755,51 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets(
+      'opened orders move module blocks 9-color rubber orders on 7-color pechat',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-move-9-only',
+        title: 'Nine color rubber order',
+        productCode: 'MOVE-9',
+        apparatus: '8 ta rangli pechat',
+        product: 'nine color product',
+        rollCount: 7,
+        widthMm: 1250,
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ko‘chirish'));
+    await tester.pumpAndSettle();
+
+    await _dragOrderHandleToTopZone(
+      tester,
+      orderTitle: 'Nine color rubber order',
+      targetText: '7 ta rangli pechat',
+    );
+    final maps = await MobileApi.instance.adminProductionMaps();
+    expect(_apparatusTitle(maps, 'zakaz-move-9-only'), '8 ta rangli pechat');
+    expect(find.textContaining('Nine color rubber order'), findsOneWidget);
+  });
+
   testWidgets('apparatus queue worker view is read only', (tester) async {
     await TestModeController.instance.setEnabled(true);
     await AppSession.instance.setSession(
@@ -711,8 +811,8 @@ void main() {
         ref: 'werka',
         phone: '',
         avatarUrl: '',
-        capabilities: ['apparatus.queue.read'],
-        assignedApparatus: ['Godex aparat - DEMO'],
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['7 ta rangli pechat'],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -720,9 +820,22 @@ void main() {
         id: 'zakaz-worker-queue',
         title: 'Worker queue order',
         productCode: 'WRK-A',
-        apparatus: 'Godex aparat - DEMO',
+        apparatus: '7 ta rangli pechat',
         product: 'worker mahsulot',
       ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-worker-queue-2',
+        title: 'Worker queue order 2',
+        productCode: 'WRK-B',
+        apparatus: '7 ta rangli pechat',
+        product: 'worker mahsulot 2',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: '7 ta rangli pechat',
+      orderIds: const ['zakaz-worker-queue', 'zakaz-worker-queue-2'],
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -745,19 +858,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Zakazlar'), findsNothing);
-    expect(find.text('Ketma-ketlik'), findsOneWidget);
-    expect(find.text('Aparatlar'), findsOneWidget);
+    expect(find.text('Kuzatish'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
-
-    expect(find.text('Worker queue order'), findsOneWidget);
+    expect(find.text('7 ta rangli pechat'), findsOneWidget);
+    expect(find.text('Aparatlar'), findsNothing);
+    expect(find.textContaining('Worker queue order'), findsNWidgets(2));
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(find.text('Sizning aparatingiz'), findsOneWidget);
+    expect(find.text('Boshlash'), findsNothing);
 
-    await tester.tap(find.text('Worker queue order'));
+    await tester.tap(find.text('7 ta rangli pechat'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ketma-ketlik'), findsWidgets);
-    expect(find.text('Zakaz detail'), findsNothing);
-    expect(find.text('worker mahsulot'), findsWidgets);
+    await tester.tap(find.textContaining('worker-queue').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Boshlash'), findsOneWidget);
+    expect(find.text('Tugatish'), findsNothing);
+
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugatish'), findsOneWidget);
+    expect(find.text('Boshlash'), findsNothing);
+
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugatish'), findsNothing);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Boshlash'), findsNothing);
   });
 
   testWidgets('production map sheet closes when tapping the dimmed barrier',
@@ -1014,12 +1146,12 @@ Future<void> _dragOrderTitleToTopZone(
   required String orderTitle,
   required String targetText,
 }) async {
-  final order = find.text(orderTitle);
+  final order = find.textContaining(orderTitle);
   await tester.ensureVisible(order);
   await tester.pumpAndSettle();
   final gesture = await tester.startGesture(tester.getCenter(order));
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
+  await gesture.moveTo(tester.getCenter(find.textContaining(targetText).first));
   await tester.pump();
   await gesture.up();
   await tester.pumpAndSettle();
@@ -1030,7 +1162,7 @@ Future<void> _dragOrderHandleToTopZone(
   required String orderTitle,
   required String targetText,
 }) async {
-  final order = find.text(orderTitle);
+  final order = find.textContaining(orderTitle);
   await tester.ensureVisible(order);
   await tester.pumpAndSettle();
   final orderCenter = tester.getCenter(order);
@@ -1053,7 +1185,7 @@ Future<void> _dragOrderHandleToTopZone(
   }
   final gesture = await tester.startGesture(tester.getCenter(matchingHandle!));
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.text(targetText).first));
+  await gesture.moveTo(tester.getCenter(find.textContaining(targetText).first));
   await tester.pump();
   await gesture.up();
   await tester.pumpAndSettle();

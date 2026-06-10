@@ -1,5 +1,7 @@
 part of '../mobile_api.dart';
 
+final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
+
 extension MobileApiCalculate on MobileApi {
   Future<CalculateResponse> calculate(CalculateRequest request) async {
     final response = await _sendAuthorized(
@@ -28,6 +30,11 @@ extension MobileApiCalculate on MobileApi {
   }
 
   Future<List<CalculateOrderTemplate>> calculateOrderTemplates() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return List<CalculateOrderTemplate>.unmodifiable(
+        _testModeCalculateOrderTemplates,
+      );
+    }
     final response = await _sendAuthorized(
       () => http.get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders'),
@@ -56,6 +63,9 @@ extension MobileApiCalculate on MobileApi {
   Future<CalculateOrderTemplate> upsertCalculateOrderTemplate(
     CalculateOrderTemplate template,
   ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeUpsertCalculateOrderTemplate(template);
+    }
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders'),
@@ -83,6 +93,11 @@ extension MobileApiCalculate on MobileApi {
   }
 
   Future<void> deleteCalculateOrderTemplate(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeCalculateOrderTemplates
+          .removeWhere((template) => template.id.trim() == id.trim());
+      return;
+    }
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders/delete'),
@@ -313,6 +328,7 @@ class CalculateResult {
 class CalculateOrderTemplate {
   const CalculateOrderTemplate({
     required this.id,
+    required this.code,
     required this.name,
     required this.savedAt,
     required this.orderNumber,
@@ -343,6 +359,7 @@ class CalculateOrderTemplate {
   factory CalculateOrderTemplate.fromJson(Map<String, dynamic> json) {
     return CalculateOrderTemplate(
       id: _calculateText(json['id']),
+      code: _calculateText(json['code']),
       name: _calculateText(json['name']),
       savedAt: _calculateDate(json['saved_at']),
       orderNumber: _calculateText(json['order_number']),
@@ -372,6 +389,7 @@ class CalculateOrderTemplate {
   }
 
   final String id;
+  final String code;
   final String name;
   final DateTime savedAt;
   final String orderNumber;
@@ -401,6 +419,7 @@ class CalculateOrderTemplate {
   Map<String, dynamic> toJson() {
     return {
       if (id.trim().isNotEmpty) 'id': id.trim(),
+      if (code.trim().isNotEmpty) 'code': code.trim(),
       'name': name.trim(),
       if (savedAt.millisecondsSinceEpoch > 0)
         'saved_at': savedAt.toUtc().toIso8601String(),
@@ -455,6 +474,58 @@ class CalculateOrderImage {
   final String imageMime;
   final int imageSizeBytes;
   final String imageUrl;
+}
+
+CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
+  CalculateOrderTemplate template,
+) {
+  if (_testModeForceCalculateTemplateSaveFailure) {
+    throw const MobileApiException(
+      code: 'calculate_order_save',
+      message: 'Calculate order save failed (test)',
+    );
+  }
+  final id = template.id.trim().isNotEmpty
+      ? template.id.trim()
+      : 'test-co-${DateTime.now().millisecondsSinceEpoch}';
+  final code =
+      template.code.trim().isNotEmpty ? template.code.trim() : 'Z-$id';
+  final saved = CalculateOrderTemplate(
+    id: id,
+    code: code,
+    name: template.name,
+    savedAt: DateTime.now().toUtc(),
+    orderNumber: template.orderNumber,
+    customerRef: template.customerRef,
+    customer: template.customer,
+    itemCode: template.itemCode,
+    product: template.product,
+    status: template.status,
+    materialDisplay: template.materialDisplay,
+    color: template.color,
+    imageId: template.imageId,
+    imageName: template.imageName,
+    imageMime: template.imageMime,
+    imageSizeBytes: template.imageSizeBytes,
+    imageUrl: template.imageUrl,
+    widthMm: template.widthMm,
+    wastePercent: template.wastePercent,
+    rollCount: template.rollCount,
+    firstLayerMaterial: template.firstLayerMaterial,
+    firstLayerMicron: template.firstLayerMicron,
+    secondLayerMaterial: template.secondLayerMaterial,
+    secondLayerMicron: template.secondLayerMicron,
+    thirdLayerMaterial: template.thirdLayerMaterial,
+    thirdLayerMicron: template.thirdLayerMicron,
+    note: template.note,
+  );
+  final lowerCode = code.toLowerCase();
+  _testModeCalculateOrderTemplates.removeWhere(
+    (item) =>
+        item.id == saved.id || item.code.toLowerCase() == lowerCode,
+  );
+  _testModeCalculateOrderTemplates.insert(0, saved);
+  return saved;
 }
 
 Map<String, dynamic> _calculateDecodeObject(String body) {

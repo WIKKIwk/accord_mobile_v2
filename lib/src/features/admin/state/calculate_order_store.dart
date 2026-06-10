@@ -58,13 +58,14 @@ class CalculateOrderTemplateStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> upsert(CalculateOrderTemplate template) async {
+  Future<CalculateOrderTemplate> upsert(CalculateOrderTemplate template) async {
     final saved = await _client.upsertTemplate(template);
     await load(force: true);
     if (!_templates.any((item) => item.id == saved.id)) {
       _templates = [saved, ..._templates];
       notifyListeners();
     }
+    return saved;
   }
 
   Future<void> delete(String id) async {

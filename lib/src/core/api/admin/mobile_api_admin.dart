@@ -1,6 +1,94 @@
 part of '../mobile_api.dart';
 
 final List<ProductionMapSaved> _testModeProductionMaps = [];
+final Map<String, List<String>> _testModeApparatusSequences = {};
+final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+bool _testModeForceSequenceSaveFailure = false;
+bool _testModeForceCalculateTemplateSaveFailure = false;
+
+void setMobileApiTestModeForceSequenceSaveFailure(bool value) {
+  _testModeForceSequenceSaveFailure = value;
+}
+
+void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
+  _testModeForceCalculateTemplateSaveFailure = value;
+}
+
+class ProductionMapSaveWithOrderResult {
+  const ProductionMapSaveWithOrderResult({
+    required this.saved,
+    required this.template,
+  });
+
+  final ProductionMapSaved saved;
+  final CalculateOrderTemplate? template;
+}
+
+class AdminApparatusQueueSnapshot {
+  const AdminApparatusQueueSnapshot({
+    required this.sequences,
+    required this.queueStates,
+  });
+
+  final Map<String, List<String>> sequences;
+  final Map<String, Map<String, String>> queueStates;
+}
+
+class AdminProductionMapLiveSnapshot {
+  const AdminProductionMapLiveSnapshot({
+    required this.maps,
+    required this.sequences,
+    required this.queueStates,
+  });
+
+  final List<ProductionMapSaved> maps;
+  final Map<String, List<String>> sequences;
+  final Map<String, Map<String, String>> queueStates;
+
+  factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
+    final mapsRaw = json['maps'];
+    return AdminProductionMapLiveSnapshot(
+      maps: [
+        if (mapsRaw is List)
+          for (final item in mapsRaw)
+            ProductionMapSaved.fromJson(item as Map<String, dynamic>),
+      ],
+      sequences: MobileApi.instance.parseApparatusSequenceMap(json['sequences']),
+      queueStates:
+          MobileApi.instance.parseApparatusQueueStateMap(json['queue_states']),
+    );
+  }
+}
+
+MobileApiException _adminProductionMapException(
+  http.Response response,
+  String fallbackCode,
+) {
+  String code = fallbackCode;
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    message: switch (code) {
+      'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
+      'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
+      'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
+      'queue_action_not_allowed' => 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+      'previous_stage_not_completed' => 'Oldingi bosqich tugallanguncha kutilmoqda',
+      'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
+      'map_not_found' => 'Zakaz topilmadi',
+      _ => 'Production map amali bajarilmadi',
+    },
+    statusCode: response.statusCode,
+  );
+}
 
 extension MobileApiAdmin on MobileApi {
   String get baseUrl => MobileApi.baseUrl;
@@ -138,7 +226,10 @@ extension MobileApiAdmin on MobileApi {
             !_isSameProductionMapOrder(item.map, map),
       );
       if (duplicate) {
-        throw Exception('Admin production map duplicate order number');
+        throw const MobileApiException(
+          code: 'duplicate_order_number',
+          message: 'Bu raqam boshqa zakazga berilgan',
+        );
       }
       final saved = ProductionMapSaved(
         map: map,
@@ -169,11 +260,433 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin production map save failed');
+      throw _adminProductionMapException(response, 'production_map_save');
     }
     return ProductionMapSaved.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<ProductionMapSaveWithOrderResult> adminSaveProductionMapWithOrder({
+    required ProductionMapDefinition map,
+    required CalculateOrderTemplate template,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final previousIndex = _testModeProductionMaps.indexWhere(
+        (item) => item.map.id.trim() == map.id.trim(),
+      );
+      ProductionMapSaved? previousMap;
+      if (previousIndex >= 0) {
+        previousMap = _testModeProductionMaps[previousIndex];
+      }
+      if (template.product.trim().isEmpty || template.widthMm <= 0) {
+        throw const MobileApiException(
+          code: 'calculate_order_save',
+          message: 'Calculate order validation failed',
+        );
+      }
+      try {
+        final savedMap = await adminSaveProductionMap(map);
+        final savedTemplate = _testModeUpsertCalculateOrderTemplate(template);
+        return ProductionMapSaveWithOrderResult(
+          saved: savedMap,
+          template: savedTemplate,
+        );
+      } catch (error) {
+        if (previousMap != null) {
+          if (previousIndex >= 0) {
+            _testModeProductionMaps[previousIndex] = previousMap;
+          }
+        } else {
+          _testModeProductionMaps.removeWhere(
+            (item) => item.map.id.trim() == map.id.trim(),
+          );
+        }
+        rethrow;
+      }
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/with-order'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'map': map.toJson(),
+          'template': template.toJson(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'production_map_save_with_order',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProductionMapSaveWithOrderResult(
+      saved: ProductionMapSaved.fromJson(
+        (payload['saved'] as Map).cast<String, dynamic>(),
+      ),
+      template: payload['template'] is Map
+          ? CalculateOrderTemplate.fromJson(
+              (payload['template'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+
+  Future<List<ProductionMapSaved>> adminMoveProductionMapOrdersBatch({
+    required List<String> mapIds,
+    required String fromApparatus,
+    required String toApparatus,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalizedIds = [
+        for (final id in mapIds)
+          if (id.trim().isNotEmpty) id.trim(),
+      ];
+      if (normalizedIds.isEmpty) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz tanlanmadi',
+        );
+      }
+      final originals = <ProductionMapSaved>[];
+      for (final mapId in normalizedIds) {
+        final index = _testModeProductionMaps.indexWhere(
+          (item) => item.map.id.trim() == mapId,
+        );
+        if (index < 0) {
+          throw const MobileApiException(
+            code: 'map_not_found',
+            message: 'Zakaz topilmadi',
+          );
+        }
+        originals.add(_testModeProductionMaps[index]);
+      }
+      final updated = <ProductionMapSaved>[];
+      for (final current in originals) {
+        final targetColor = productionMapPechatColorCount(toApparatus);
+        if (targetColor != null) {
+          final sourceColor = productionMapPechatColorCount(fromApparatus);
+          if (!productionMapPechatCanMoveOrder(
+            apparatusColorCount: targetColor,
+            rollCount: current.map.rollCount,
+            widthMm: current.map.widthMm,
+            sourceApparatusColorCount: sourceColor,
+          )) {
+            throw const MobileApiException(
+              code: 'move_not_allowed',
+              message: 'Zakaz bu aparatga tushmaydi',
+            );
+          }
+        }
+        final nodes = productionMapReassignApparatusNodes(
+          nodes: current.map.nodes,
+          fromApparatus: fromApparatus,
+          toApparatus: toApparatus,
+        );
+        if (nodes == null) {
+          throw const MobileApiException(
+            code: 'move_not_allowed',
+            message: 'Zakaz bu aparatga tushmaydi',
+          );
+        }
+        updated.add(
+          ProductionMapSaved(
+            map: current.map.copyWith(nodes: nodes),
+            program: current.program,
+          ),
+        );
+      }
+      for (var i = 0; i < normalizedIds.length; i++) {
+        final index = _testModeProductionMaps.indexWhere(
+          (item) => item.map.id.trim() == normalizedIds[i],
+        );
+        if (index >= 0) {
+          _testModeProductionMaps[index] = updated[i];
+        }
+      }
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/move-batch'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'from_apparatus': fromApparatus,
+          'to_apparatus': toApparatus,
+          'map_ids': mapIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_move_batch');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['saved'];
+    if (raw is! List) {
+      return const [];
+    }
+    return [
+      for (final item in raw)
+        if (item is Map)
+          ProductionMapSaved.fromJson(item.cast<String, dynamic>()),
+    ];
+  }
+
+  Future<ProductionMapSaved> adminMoveProductionMapOrder({
+    required String mapId,
+    required String fromApparatus,
+    required String toApparatus,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeProductionMaps.indexWhere(
+        (item) => item.map.id.trim() == mapId.trim(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'map_not_found',
+          message: 'Zakaz topilmadi',
+        );
+      }
+      final current = _testModeProductionMaps[index];
+      final targetColor = productionMapPechatColorCount(toApparatus);
+      if (targetColor != null) {
+        final sourceColor = productionMapPechatColorCount(fromApparatus);
+        if (!productionMapPechatCanMoveOrder(
+          apparatusColorCount: targetColor,
+          rollCount: current.map.rollCount,
+          widthMm: current.map.widthMm,
+          sourceApparatusColorCount: sourceColor,
+        )) {
+          throw const MobileApiException(
+            code: 'move_not_allowed',
+            message: 'Zakaz bu aparatga tushmaydi',
+          );
+        }
+      }
+      final nodes = productionMapReassignApparatusNodes(
+        nodes: current.map.nodes,
+        fromApparatus: fromApparatus,
+        toApparatus: toApparatus,
+      );
+      if (nodes == null) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz bu aparatga tushmaydi',
+        );
+      }
+      final saved = ProductionMapSaved(
+        map: current.map.copyWith(nodes: nodes),
+        program: current.program,
+      );
+      _testModeProductionMaps[index] = saved;
+      return saved;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/move'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'map_id': mapId,
+          'from_apparatus': fromApparatus,
+          'to_apparatus': toApparatus,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_move');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProductionMapSaved.fromJson(
+      (payload['saved'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<Map<String, List<String>>> adminProductionMapSequences() async {
+    final snapshot = await adminProductionMapQueueSnapshot();
+    return snapshot.sequences;
+  }
+
+  Future<AdminApparatusQueueSnapshot> adminProductionMapQueueSnapshot() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminApparatusQueueSnapshot(
+        sequences: {
+          for (final entry in _testModeApparatusSequences.entries)
+            entry.key: List<String>.unmodifiable(entry.value),
+        },
+        queueStates: {
+          for (final entry in _testModeApparatusQueueStates.entries)
+            entry.key: Map<String, String>.unmodifiable(entry.value),
+        },
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/sequence'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_sequence');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminApparatusQueueSnapshot(
+      sequences: parseApparatusSequenceMap(payload['sequences']),
+      queueStates: parseApparatusQueueStateMap(payload['queue_states']),
+    );
+  }
+
+  Future<http.StreamedResponse> adminProductionMapLiveConnect() async {
+    final request = http.Request(
+      'GET',
+      Uri.parse('$baseUrl/v1/mobile/admin/production-maps/live'),
+    );
+    request.headers.addAll({
+      ..._headers(requireToken()),
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    });
+    return _sendAuthorizedStream(() => http.Client().send(request));
+  }
+
+  Map<String, List<String>> parseApparatusSequenceMap(Object? raw) {
+    if (raw is! Map) {
+      return const {};
+    }
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString(): [
+          if (entry.value is List)
+            for (final id in entry.value as List) id.toString(),
+        ],
+    };
+  }
+
+  Map<String, Map<String, String>> parseApparatusQueueStateMap(Object? raw) {
+    if (raw is! Map) {
+      return const {};
+    }
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString(): {
+          if (entry.value is Map)
+            for (final stateEntry in (entry.value as Map).entries)
+              stateEntry.key.toString(): stateEntry.value.toString(),
+        },
+    };
+  }
+
+  Future<Map<String, String>> adminApparatusQueueAction({
+    required String apparatus,
+    required String orderId,
+    required String action,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final knownKeys = {
+        ..._testModeApparatusSequences.keys,
+        ..._testModeApparatusQueueStates.keys,
+      };
+      final storageKey = resolveApparatusStorageKey(apparatus, knownKeys);
+      final sequence =
+          _testModeApparatusSequences[storageKey] ?? const [];
+      final states = Map<String, String>.from(
+        _testModeApparatusQueueStates[storageKey] ?? const {},
+      );
+      final actionable = firstActionableQueueOrderId(
+        sequence: sequence,
+        states: states,
+      );
+      if (actionable != orderId.trim()) {
+        throw const MobileApiException(
+          code: 'queue_action_not_allowed',
+          message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+        );
+      }
+      final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
+      if (action == 'start') {
+        if (current != ApparatusQueueOrderState.pending) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
+        states[orderId.trim()] = 'in_progress';
+      } else if (action == 'complete') {
+        if (current != ApparatusQueueOrderState.inProgress) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
+        states[orderId.trim()] = 'completed';
+      } else {
+        throw const MobileApiException(
+          code: 'queue_action_not_allowed',
+          message: 'Production map amali bajarilmadi',
+        );
+      }
+      _testModeApparatusQueueStates[storageKey] = states;
+      return Map<String, String>.unmodifiable(states);
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': apparatus,
+          'order_id': orderId,
+          'action': action,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'queue_action_not_allowed');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['states'];
+    if (raw is! Map) {
+      return const {};
+    }
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString(): entry.value.toString(),
+    };
+  }
+
+  Future<void> adminSaveProductionMapSequence({
+    required String apparatus,
+    required List<String> orderIds,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      if (_testModeForceSequenceSaveFailure) {
+        throw const MobileApiException(
+          code: 'production_map_sequence',
+          message: 'Ketma-ketlik saqlanmadi (test)',
+        );
+      }
+      _testModeApparatusSequences[apparatus.trim()] =
+          List<String>.from(orderIds);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/sequence'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': apparatus,
+          'order_ids': orderIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_sequence');
+    }
   }
 
   Future<ProductionMapRunResult> adminRunProductionMap(

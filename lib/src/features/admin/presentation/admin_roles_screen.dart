@@ -7,7 +7,9 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../logic/admin_aparatchi_assignment.dart';
 import '../../shared/models/app_models.dart';
+import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
@@ -447,6 +449,7 @@ class _AssignmentsTab extends StatelessWidget {
                 _RoleAssignmentTile(
                   principal: principals[index],
                   assignedRole: data.roleForPrincipal(principals[index]),
+                  assignment: data.assignmentForPrincipal(principals[index]),
                   slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                     index,
                     principals.length,
@@ -465,12 +468,14 @@ class _RoleAssignmentTile extends StatelessWidget {
   const _RoleAssignmentTile({
     required this.principal,
     required this.assignedRole,
+    required this.assignment,
     required this.slot,
     required this.onAssign,
   });
 
   final _RolePrincipal principal;
   final AdminRoleDefinition? assignedRole;
+  final AdminRoleAssignment? assignment;
   final M3SegmentVerticalSlot slot;
   final VoidCallback onAssign;
 
@@ -504,6 +509,16 @@ class _RoleAssignmentTile extends StatelessWidget {
                         : _roleDefinitionLabel(context, assignedRole!),
                     style: theme.textTheme.bodyMedium,
                   ),
+                  if (assignment != null &&
+                      assignment!.assignedApparatus.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${assignment!.assignedApparatus.length} ta aparat: ${assignment!.assignedApparatus.join(', ')}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -720,18 +735,30 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
             if (_roleNeedsApparatus(role))
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _ApparatusScopePicker(
-                  apparatus: widget.apparatus,
-                  selected: _assignedApparatus,
-                  onChanged: (warehouse, checked) {
-                    setState(() {
-                      if (checked) {
-                        _assignedApparatus.add(warehouse);
-                      } else {
-                        _assignedApparatus.remove(warehouse);
-                      }
-                    });
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AdminApparatusScopePicker(
+                      apparatus: widget.apparatus,
+                      selected: _assignedApparatus,
+                      onChanged: (warehouse, checked) {
+                        setState(() {
+                          if (checked) {
+                            _assignedApparatus.add(warehouse);
+                          } else {
+                            _assignedApparatus.remove(warehouse);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _roleCanAssignToPrincipal(role, widget.principal)
+                          ? () => _submit(role)
+                          : null,
+                      child: const Text('Saqlash'),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -741,9 +768,18 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
   }
 
   void _submit(AdminRoleDefinition role) {
+    if (_roleNeedsApparatus(role) && _assignedApparatus.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kamida bitta aparat tanlang')),
+      );
+      return;
+    }
+    final principalRole = role.id == 'aparatchi'
+        ? UserRole.aparatchi
+        : widget.principal.role;
     Navigator.of(context).pop(
       AdminRoleAssignment(
-        principalRole: widget.principal.role,
+        principalRole: principalRole,
         principalRef: widget.principal.ref,
         roleId: role.id,
         assignedApparatus:
@@ -754,47 +790,6 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
 
   List<String> _sortedAssignedApparatus() {
     return _assignedApparatus.toList(growable: false)..sort();
-  }
-}
-
-class _ApparatusScopePicker extends StatelessWidget {
-  const _ApparatusScopePicker({
-    required this.apparatus,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<AdminWarehouse> apparatus;
-  final Set<String> selected;
-  final void Function(String warehouse, bool checked) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    if (apparatus.isEmpty) {
-      return Text(
-        'Aparat topilmadi',
-        style: Theme.of(context).textTheme.bodySmall,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ruxsat berilgan apparatlar',
-          style: Theme.of(context).textTheme.labelLarge,
-        ),
-        const SizedBox(height: 6),
-        for (final item in apparatus)
-          CheckboxListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            value: selected.contains(item.warehouse),
-            title: Text(item.warehouse),
-            controlAffinity: ListTileControlAffinity.leading,
-            onChanged: (value) => onChanged(item.warehouse, value == true),
-          ),
-      ],
-    );
   }
 }
 
@@ -834,10 +829,13 @@ class _AdminRolesData {
         ),
       for (final customer in customers)
         _RolePrincipal(
-          role: UserRole.customer,
+          role: adminCustomerPrincipalRole(assignments, customer.ref),
           ref: customer.ref,
           name: customer.name,
-          icon: Icons.person_outline_rounded,
+          icon: adminCustomerPrincipalRole(assignments, customer.ref) ==
+                  UserRole.aparatchi
+              ? Icons.precision_manufacturing_outlined
+              : Icons.person_outline_rounded,
         ),
     ];
   }
@@ -883,14 +881,17 @@ class _AdminRolesData {
   }
 
   AdminRoleAssignment? assignmentForPrincipal(_RolePrincipal principal) {
-    final assignment = assignments
+    if (principal.role == UserRole.customer ||
+        principal.role == UserRole.aparatchi) {
+      return adminAssignmentForCustomerRef(assignments, principal.ref);
+    }
+    return assignments
         .where(
           (item) =>
               item.principalRole == principal.role &&
               item.principalRef == principal.ref,
         )
         .letFirstOrNull();
-    return assignment;
   }
 
   _AdminRolesData upsertRole(AdminRoleDefinition role) {
@@ -908,9 +909,7 @@ class _AdminRolesData {
   _AdminRolesData upsertAssignment(AdminRoleAssignment assignment) {
     final nextAssignments = assignments
         .where(
-          (item) =>
-              item.principalRole != assignment.principalRole ||
-              item.principalRef != assignment.principalRef,
+          (item) => item.principalRef.trim() != assignment.principalRef.trim(),
         )
         .toList()
       ..add(assignment);
@@ -987,7 +986,17 @@ bool _roleCanAssignToPrincipal(
   AdminRoleDefinition role,
   _RolePrincipal principal,
 ) {
-  return !role.system || role.baseRole == principal.role;
+  if (!role.system) {
+    return true;
+  }
+  if (role.id == 'aparatchi') {
+    return principal.role == UserRole.customer ||
+        principal.role == UserRole.aparatchi;
+  }
+  if (role.baseRole == null) {
+    return true;
+  }
+  return role.baseRole == principal.role;
 }
 
 bool _roleNeedsApparatus(AdminRoleDefinition role) {

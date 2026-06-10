@@ -1,0 +1,77 @@
+import 'production_map_pechat_rules.dart';
+
+enum ApparatusQueueOrderState {
+  pending,
+  inProgress,
+  completed,
+}
+
+ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
+  switch (raw?.trim().toLowerCase()) {
+    case 'in_progress':
+      return ApparatusQueueOrderState.inProgress;
+    case 'completed':
+      return ApparatusQueueOrderState.completed;
+    default:
+      return ApparatusQueueOrderState.pending;
+  }
+}
+
+String? firstActionableQueueOrderId({
+  required List<String> sequence,
+  required Map<String, String> states,
+  Iterable<String>? visibleOrderIds,
+  bool Function(String orderId)? isOrderReady,
+}) {
+  final visible = visibleOrderIds == null
+      ? null
+      : visibleOrderIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+  for (final id in sequence) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) {
+      continue;
+    }
+    if (visible != null && !visible.contains(normalized)) {
+      continue;
+    }
+    if (isOrderReady != null && !isOrderReady(normalized)) {
+      continue;
+    }
+    final state = apparatusQueueOrderStateFromRaw(states[normalized]);
+    if (state == ApparatusQueueOrderState.completed) {
+      continue;
+    }
+    return normalized;
+  }
+  return null;
+}
+
+String resolveApparatusStorageKey(
+  String apparatus,
+  Iterable<String> knownKeys,
+) {
+  final normalized = apparatus.trim();
+  if (normalized.isEmpty) {
+    return normalized;
+  }
+  final keys = knownKeys.map((key) => key.trim()).where((key) => key.isNotEmpty);
+  if (keys.contains(normalized)) {
+    return normalized;
+  }
+  for (final key in keys) {
+    if (productionMapApparatusNodeMatchesFrom(
+          nodeTitle: normalized,
+          fromApparatus: key,
+        ) ||
+        productionMapApparatusNodeMatchesFrom(
+          nodeTitle: key,
+          fromApparatus: normalized,
+        )) {
+      return key;
+    }
+  }
+  return normalized;
+}

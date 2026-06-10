@@ -6,6 +6,7 @@ import '../../../core/widgets/navigation/native_back_button.dart';
 import '../../shared/models/app_models.dart';
 import 'dart:async';
 
+import 'widgets/admin_aparatchi_apparatus_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -396,6 +397,11 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 onRegenerateCode: _regenerateCode,
                 onCopyCode: _copyCode,
                 onRemove: _removeCustomer,
+              ),
+              const SizedBox(height: 12),
+              AdminAparatchiApparatusCard(
+                customerRef: widget.customerRef,
+                onChanged: () => _changed = true,
               ),
               if (_loadError != null) ...[
                 const SizedBox(height: 12),

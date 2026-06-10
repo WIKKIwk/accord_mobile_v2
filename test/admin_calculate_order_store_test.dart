@@ -15,24 +15,33 @@ void main() {
     expect(client.listCalls, 1);
     expect(store.templates, isEmpty);
 
-    await store.upsert(_template(name: 'CPP 600', widthMm: 530));
-    await store.upsert(_template(name: 'CPP 600', widthMm: 630));
+    await store.upsert(_template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 530));
+    await store.upsert(_template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 630));
 
     expect(client.upsertCalls, 2);
     expect(client.listCalls, 3);
     expect(store.templates, hasLength(1));
+    expect(store.templates.single.code, 'Z-CPP-1');
     expect(store.templates.single.name, 'CPP 600');
     expect(store.templates.single.widthMm, 630);
-    expect(store.templates.single.materialDisplay, isEmpty);
-    expect(store.templates.single.imageId, 'img-1');
-    expect(store.templates.single.customerRef, 'CUST-001');
-    expect(store.templates.single.itemCode, 'ITEM-001');
-    expect(
-        jsonEncode(store.templates.single.toJson()), isNot(contains('"kg"')));
 
-    await store.delete(store.templates.single.id);
+    await store.upsert(_template(code: 'Z-CPP-2', name: 'CPP 600', widthMm: 700));
+    expect(store.templates, hasLength(2));
+    final first = store.templates.firstWhere(
+      (template) => template.code == 'Z-CPP-1',
+    );
+    expect(first.materialDisplay, isEmpty);
+    expect(first.imageId, 'img-1');
+    expect(first.customerRef, 'CUST-001');
+    expect(first.itemCode, 'ITEM-001');
+    expect(jsonEncode(first.toJson()), isNot(contains('"kg"')));
 
-    expect(client.deleteCalls, 1);
+    await store.delete(first.id);
+    await store.delete(
+      store.templates.firstWhere((template) => template.code == 'Z-CPP-2').id,
+    );
+
+    expect(client.deleteCalls, 2);
     expect(store.templates, isEmpty);
   });
 }
@@ -55,13 +64,18 @@ class _FakeCalculateOrderTemplateClient
     CalculateOrderTemplate template,
   ) async {
     upsertCalls++;
-    final normalizedName = template.name.trim().toLowerCase();
-    final index = _templates.indexWhere(
-      (item) => item.name.trim().toLowerCase() == normalizedName,
-    );
+    final normalizedCode = template.code.trim().toLowerCase();
+    final index = normalizedCode.isEmpty
+        ? -1
+        : _templates.indexWhere(
+            (item) => item.code.trim().toLowerCase() == normalizedCode,
+          );
     final saved = _copyWithServerFields(
       template,
       id: index >= 0 ? _templates[index].id : 'template-$upsertCalls',
+      code: template.code.trim().isEmpty
+          ? 'Z-AUTO-$upsertCalls'
+          : template.code.trim(),
     );
     if (index >= 0) {
       _templates[index] = saved;
@@ -81,9 +95,11 @@ class _FakeCalculateOrderTemplateClient
 CalculateOrderTemplate _copyWithServerFields(
   CalculateOrderTemplate template, {
   required String id,
+  required String code,
 }) {
   return CalculateOrderTemplate(
     id: id,
+    code: code,
     name: template.name,
     savedAt: DateTime.utc(2026, 6, 8, 12),
     orderNumber: template.orderNumber,
@@ -113,11 +129,13 @@ CalculateOrderTemplate _copyWithServerFields(
 }
 
 CalculateOrderTemplate _template({
+  required String code,
   required String name,
   double widthMm = 530,
 }) {
   return CalculateOrderTemplate(
     id: '',
+    code: code,
     name: name,
     savedAt: DateTime.utc(2026, 6, 8, 11),
     orderNumber: 'ORD-1',

@@ -7,6 +7,8 @@ import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'admin_suppliers_screen.dart';
 import 'widgets/admin_dock.dart';
+import '../logic/admin_aparatchi_assignment.dart';
+import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_top_notice.dart';
 import 'dart:async';
 
@@ -436,6 +438,40 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   final TextEditingController name = TextEditingController();
   final TextEditingController phone = TextEditingController();
   bool saving = false;
+  bool loadingApparatus = false;
+  List<AdminWarehouse> apparatus = const [];
+  final Set<String> selectedApparatus = <String>{};
+
+  bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isAparatchiRole) {
+      unawaited(_loadApparatus());
+    }
+  }
+
+  Future<void> _loadApparatus() async {
+    setState(() => loadingApparatus = true);
+    try {
+      final items = await MobileApi.instance.adminWarehouses(
+        parent: 'aparat - A',
+        limit: 200,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        apparatus = items;
+        loadingApparatus = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => loadingApparatus = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -445,18 +481,34 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   }
 
   Future<void> _create() async {
+    if (_isAparatchiRole && selectedApparatus.isEmpty) {
+      showAdminTopNotice(context, 'Kamida bitta aparat tanlang');
+      return;
+    }
     setState(() => saving = true);
     try {
       final user = await MobileApi.instance.adminCreateCustomer(
         name: name.text.trim(),
         phone: phone.text.trim(),
       );
-      await _assignCustomRole(widget.assignedRole, UserRole.customer, user.ref);
+      if (_isAparatchiRole) {
+        await MobileApi.instance.adminUpsertRoleAssignment(
+          adminAparatchiAssignmentUpsert(
+            principalRef: user.ref,
+            assignedApparatus: selectedApparatus.toList(growable: false)..sort(),
+          ),
+        );
+        await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
+      } else {
+        final principalRole = _principalRoleForAssignedRole(widget.assignedRole);
+        await _assignCustomRole(widget.assignedRole, principalRole, user.ref);
+      }
       if (!mounted) {
         return;
       }
       name.clear();
       phone.clear();
+      selectedApparatus.clear();
       AdminSuppliersScreen.invalidateCache();
       showAdminTopNotice(context, 'Foydalanuvchi yaratildi');
     } catch (_) {
@@ -472,14 +524,63 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
 
   @override
   Widget build(BuildContext context) {
-    return _CreateUserForm(
-      name: name,
-      phone: phone,
-      nameLabel: 'Foydalanuvchi name',
-      phoneLabel: 'Foydalanuvchi phone',
-      actionLabel: saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
-      saving: saving,
-      onSubmit: _create,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: name,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Foydalanuvchi name',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Foydalanuvchi phone',
+                  ),
+                ),
+                if (_isAparatchiRole) ...[
+                  const SizedBox(height: 16),
+                  if (loadingApparatus)
+                    const Center(child: AppLoadingIndicator())
+                  else
+                    AdminApparatusScopePicker(
+                      apparatus: apparatus,
+                      selected: selectedApparatus,
+                      onChanged: (warehouse, checked) {
+                        setState(() {
+                          if (checked) {
+                            selectedApparatus.add(warehouse);
+                          } else {
+                            selectedApparatus.remove(warehouse);
+                          }
+                        });
+                      },
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          child: FilledButton(
+            onPressed: saving ? null : _create,
+            child: Text(
+              saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -691,6 +792,13 @@ Future<void> _assignCustomRole(
       roleId: role.id,
     ),
   );
+}
+
+UserRole _principalRoleForAssignedRole(AdminRoleDefinition role) {
+  if (role.id == 'aparatchi') {
+    return UserRole.aparatchi;
+  }
+  return role.baseRole ?? UserRole.customer;
 }
 
 class _CreateUserForm extends StatelessWidget {

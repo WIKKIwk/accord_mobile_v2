@@ -650,7 +650,10 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
-    AppRoutes.apparatusQueue: {'apparatus.queue.read'},
+    AppRoutes.apparatusQueue: {
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
+    },
     AppRoutes.adminSuppliers: {
       'party.supplier.read',
       'party.customer.read',

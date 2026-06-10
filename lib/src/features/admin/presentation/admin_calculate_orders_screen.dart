@@ -88,6 +88,7 @@ class _AdminCalculateOrdersScreenState
     }
     return templates.where((template) {
       final haystack = [
+        template.code,
         template.name,
         template.customer,
         template.customerRef,
@@ -299,7 +300,7 @@ class _OrderRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      template.name,
+                      _orderTitle(template),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -364,6 +365,13 @@ class _EmptyOrders extends StatelessWidget {
       ),
     );
   }
+}
+
+String _orderTitle(CalculateOrderTemplate template) {
+  final name = template.name.trim().isEmpty
+      ? template.product.trim()
+      : template.name.trim();
+  return name.isEmpty ? 'Zakaz' : name;
 }
 
 String _fmt(double value) {

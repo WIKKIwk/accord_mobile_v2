@@ -3,6 +3,7 @@ class ProductionMapDefinition {
     required this.id,
     required this.productCode,
     required this.title,
+    this.code = '',
     this.orderNumber = '',
     this.rollCount,
     this.widthMm,
@@ -13,6 +14,7 @@ class ProductionMapDefinition {
   final String id;
   final String productCode;
   final String title;
+  final String code;
   final String orderNumber;
   final double? rollCount;
   final double? widthMm;
@@ -24,6 +26,7 @@ class ProductionMapDefinition {
       id: json['id'] as String? ?? '',
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
+      code: json['code'] as String? ?? '',
       orderNumber: json['order_number'] as String? ?? '',
       rollCount: (json['roll_count'] as num?)?.toDouble(),
       widthMm: (json['width_mm'] as num?)?.toDouble(),
@@ -43,6 +46,7 @@ class ProductionMapDefinition {
       'id': id,
       'product_code': productCode,
       'title': title,
+      if (code.trim().isNotEmpty) 'code': code.trim(),
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
@@ -55,6 +59,7 @@ class ProductionMapDefinition {
     String? id,
     String? productCode,
     String? title,
+    String? code,
     String? orderNumber,
     double? rollCount,
     double? widthMm,
@@ -65,6 +70,7 @@ class ProductionMapDefinition {
       id: id ?? this.id,
       productCode: productCode ?? this.productCode,
       title: title ?? this.title,
+      code: code ?? this.code,
       orderNumber: orderNumber ?? this.orderNumber,
       rollCount: rollCount ?? this.rollCount,
       widthMm: widthMm ?? this.widthMm,
