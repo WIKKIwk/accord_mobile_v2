@@ -21,6 +21,31 @@ enum _OpenedOrderModule {
   orders,
 }
 
+String _openedOrderProductTitle(ProductionMapDefinition map) {
+  for (final node in map.nodes) {
+    final title = node.title.trim();
+    if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
+      return title;
+    }
+  }
+  return '';
+}
+
+String _openedOrderSubtitle(
+  ProductionMapDefinition map, {
+  bool includeApparatusCount = false,
+}) {
+  final productTitle = _openedOrderProductTitle(map);
+  final apparatusCount =
+      map.nodes.where((node) => node.kind == 'apparatus').length;
+  return [
+    if (productTitle.isNotEmpty) productTitle,
+    if (map.productCode.trim().isNotEmpty) map.productCode.trim(),
+    if (includeApparatusCount && apparatusCount > 0)
+      '$apparatusCount ta aparat',
+  ].join(' • ');
+}
+
 class AdminProductionMapOrdersScreen extends StatefulWidget {
   const AdminProductionMapOrdersScreen({
     super.key,
@@ -565,30 +590,46 @@ class _SequenceModulePage extends StatelessWidget {
             : readOnly
                 ? [
                     for (var index = 0; index < orders.length; index++)
-                      _SequenceOrderRow(
-                        key: ValueKey(
-                          'sequence-${selected.warehouse}-${orders[index].map.id}',
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < orders.length - 1
+                              ? M3SegmentedListGeometry.gap
+                              : 0,
                         ),
-                        order: orders[index],
-                        index: index,
-                        readOnly: true,
-                        onTap: onTapOrder == null
-                            ? null
-                            : () => onTapOrder!(orders[index]),
+                        child: _SequenceOrderRow(
+                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            index,
+                            orders.length,
+                          ),
+                          order: orders[index],
+                          index: index,
+                          readOnly: true,
+                          onTap: onTapOrder == null
+                              ? null
+                              : () => onTapOrder!(orders[index]),
+                        ),
                       ),
                   ]
                 : [
                     for (var index = 0; index < orders.length; index++)
-                      _SequenceOrderRow(
-                        key: ValueKey(
-                          'sequence-${selected.warehouse}-${orders[index].map.id}',
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < orders.length - 1
+                              ? M3SegmentedListGeometry.gap
+                              : 0,
                         ),
-                        order: orders[index],
-                        index: index,
-                        readOnly: false,
-                        onTap: onTapOrder == null
-                            ? null
-                            : () => onTapOrder!(orders[index]),
+                        child: _SequenceOrderRow(
+                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                            index,
+                            orders.length,
+                          ),
+                          order: orders[index],
+                          index: index,
+                          readOnly: false,
+                          onTap: onTapOrder == null
+                              ? null
+                              : () => onTapOrder!(orders[index]),
+                        ),
                       ),
                   ];
 
@@ -611,14 +652,26 @@ class _SequenceModulePage extends StatelessWidget {
               onReorderItem: onReorder,
               itemBuilder: (context, index) {
                 final order = orders[index];
-                return _SequenceOrderRow(
+                return Padding(
                   key: ValueKey(
                     'sequence-${selected.warehouse}-${order.map.id}',
                   ),
-                  order: order,
-                  index: index,
-                  readOnly: false,
-                  onTap: onTapOrder == null ? null : () => onTapOrder!(order),
+                  padding: EdgeInsets.only(
+                    bottom: index < orders.length - 1
+                        ? M3SegmentedListGeometry.gap
+                        : 0,
+                  ),
+                  child: _SequenceOrderRow(
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      orders.length,
+                    ),
+                    order: order,
+                    index: index,
+                    readOnly: false,
+                    onTap:
+                        onTapOrder == null ? null : () => onTapOrder!(order),
+                  ),
                 );
               },
             ),
@@ -877,18 +930,35 @@ class _MoveDropZone extends StatelessWidget {
                     final order = orders[index];
                     final isDragging =
                         draggingOrder?.map.id.trim() == order.map.id.trim();
+                    final slot =
+                        M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      orders.length,
+                    );
                     if (isDragging) {
                       return Opacity(
                         opacity: 0,
-                        child: _MoveOrderCard(order: order, index: index),
+                        child: _MoveOrderCard(
+                          order: order,
+                          index: index,
+                          slot: slot,
+                        ),
                       );
                     }
-                    return _MoveOrderTile(
-                      order: order,
-                      source: apparatus,
-                      index: index,
-                      onDragStarted: () => onDragStarted(order),
-                      onDragEnded: onDragEnded,
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index < orders.length - 1
+                            ? M3SegmentedListGeometry.gap
+                            : 0,
+                      ),
+                      child: _MoveOrderTile(
+                        order: order,
+                        source: apparatus,
+                        index: index,
+                        slot: slot,
+                        onDragStarted: () => onDragStarted(order),
+                        onDragEnded: onDragEnded,
+                      ),
                     );
                   },
                 ),
@@ -993,6 +1063,7 @@ class _MoveOrderTile extends StatelessWidget {
     required this.order,
     required this.source,
     required this.index,
+    required this.slot,
     required this.onDragStarted,
     required this.onDragEnded,
   });
@@ -1000,6 +1071,7 @@ class _MoveOrderTile extends StatelessWidget {
   final ProductionMapSaved order;
   final AdminWarehouse source;
   final int index;
+  final M3SegmentVerticalSlot slot;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
 
@@ -1008,9 +1080,13 @@ class _MoveOrderTile extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth;
+        final feedbackRadius = BorderRadius.circular(
+          M3SegmentedListGeometry.cornerLarge,
+        );
         return _MoveOrderCard(
           order: order,
           index: index,
+          slot: slot,
           trailing: LongPressDraggable<_MoveDragPayload>(
             data: _MoveDragPayload(order: order, source: source),
             axis: Axis.vertical,
@@ -1023,7 +1099,12 @@ class _MoveOrderTile extends StatelessWidget {
               color: Colors.transparent,
               child: SizedBox(
                 width: cardWidth,
-                child: _MoveOrderCard(order: order, index: index),
+                child: _MoveOrderCard(
+                  order: order,
+                  index: index,
+                  slot: M3SegmentVerticalSlot.top,
+                  borderRadiusOverride: feedbackRadius,
+                ),
               ),
             ),
             onDragStarted: onDragStarted,
@@ -1053,95 +1134,27 @@ class _MoveOrderCard extends StatelessWidget {
   const _MoveOrderCard({
     required this.order,
     required this.index,
+    required this.slot,
     this.trailing,
+    this.borderRadiusOverride,
   });
 
   final ProductionMapSaved order;
   final int index;
+  final M3SegmentVerticalSlot slot;
   final Widget? trailing;
+  final BorderRadius? borderRadiusOverride;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final productTitle = _productTitle(order.map);
-    final subtitle = [
-      if (productTitle.isNotEmpty) productTitle,
-      if (order.map.productCode.trim().isNotEmpty) order.map.productCode.trim(),
-    ].join(' • ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: M3SegmentedListGeometry.gap),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius:
-            BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 30,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      order.map.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.05,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              trailing ?? _MoveDragHandle(color: scheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
+    final scheme = Theme.of(context).colorScheme;
+    return _OpenedOrderCardRow(
+      slot: slot,
+      order: order,
+      borderRadiusOverride: borderRadiusOverride,
+      leading: _OpenedOrderIndexBadge(index: index),
+      trailing: trailing ?? _MoveDragHandle(color: scheme.onSurfaceVariant),
     );
-  }
-
-  String _productTitle(ProductionMapDefinition map) {
-    for (final node in map.nodes) {
-      final title = node.title.trim();
-      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
-        return title;
-      }
-    }
-    return '';
   }
 }
 
@@ -1307,6 +1320,134 @@ class _OpenedOrderList extends StatelessWidget {
   }
 }
 
+class _OpenedOrderCardRow extends StatelessWidget {
+  const _OpenedOrderCardRow({
+    required this.slot,
+    required this.order,
+    required this.leading,
+    required this.trailing,
+    this.onTap,
+    this.includeApparatusCount = false,
+    this.borderRadiusOverride,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final ProductionMapSaved order;
+  final Widget leading;
+  final Widget trailing;
+  final VoidCallback? onTap;
+  final bool includeApparatusCount;
+  final BorderRadius? borderRadiusOverride;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final map = order.map;
+    final subtitle = _openedOrderSubtitle(
+      map,
+      includeApparatusCount: includeApparatusCount,
+    );
+
+    return M3SegmentFilledSurface(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      borderRadiusOverride: borderRadiusOverride,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    map.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.05,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenedOrderIndexBadge extends StatelessWidget {
+  const _OpenedOrderIndexBadge({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SizedBox.square(
+      dimension: 30,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            '${index + 1}',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenedOrderTreeBadge extends StatelessWidget {
+  const _OpenedOrderTreeBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: 30,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.account_tree_outlined,
+          color: scheme.onPrimaryContainer,
+          size: 16,
+        ),
+      ),
+    );
+  }
+}
+
 class _OpenedOrderRow extends StatelessWidget {
   const _OpenedOrderRow({
     required this.slot,
@@ -1320,94 +1461,19 @@ class _OpenedOrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final map = order.map;
-    final apparatusCount =
-        map.nodes.where((node) => node.kind == 'apparatus').length;
-    final productTitle = _productTitle(map);
-    final subtitle = [
-      if (productTitle.isNotEmpty) productTitle,
-      if (map.productCode.trim().isNotEmpty) map.productCode.trim(),
-      if (apparatusCount > 0) '$apparatusCount ta aparat',
-    ].join(' • ');
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
-    return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 30,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.account_tree_outlined,
-                    color: scheme.onPrimaryContainer,
-                    size: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      map.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.05,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
+    final scheme = Theme.of(context).colorScheme;
+    return _OpenedOrderCardRow(
+      slot: slot,
+      order: order,
+      onTap: onTap,
+      includeApparatusCount: true,
+      leading: const _OpenedOrderTreeBadge(),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        size: 22,
+        color: scheme.onSurfaceVariant,
       ),
     );
-  }
-
-  String _productTitle(ProductionMapDefinition map) {
-    for (final node in map.nodes) {
-      final title = node.title.trim();
-      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
-        return title;
-      }
-    }
-    return '';
   }
 }
 
@@ -1503,13 +1569,14 @@ class _ApparatusRow extends StatelessWidget {
 
 class _SequenceOrderRow extends StatelessWidget {
   const _SequenceOrderRow({
-    super.key,
+    required this.slot,
     required this.order,
     required this.index,
     required this.readOnly,
     required this.onTap,
   });
 
+  final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final int index;
   final bool readOnly;
@@ -1517,101 +1584,25 @@ class _SequenceOrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final productTitle = _productTitle(order.map);
-    final subtitle = [
-      if (productTitle.isNotEmpty) productTitle,
-      if (order.map.productCode.trim().isNotEmpty) order.map.productCode.trim(),
-    ].join(' • ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: M3SegmentedListGeometry.gap),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius:
-            BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius:
-              BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
-            child: Row(
-              children: [
-                SizedBox.square(
-                  dimension: 30,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
+    final scheme = Theme.of(context).colorScheme;
+    return _OpenedOrderCardRow(
+      slot: slot,
+      order: order,
+      onTap: onTap,
+      leading: _OpenedOrderIndexBadge(index: index),
+      trailing: readOnly
+          ? const SizedBox(width: 8)
+          : ReorderableDragStartListener(
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.drag_handle_rounded,
+                  color: scheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        order.map.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.05,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!readOnly)
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.drag_handle_rounded,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
-  }
-
-  String _productTitle(ProductionMapDefinition map) {
-    for (final node in map.nodes) {
-      final title = node.title.trim();
-      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
-        return title;
-      }
-    }
-    return '';
   }
 }
 
