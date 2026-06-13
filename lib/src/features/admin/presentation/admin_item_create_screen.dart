@@ -221,6 +221,15 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      leading: IconButton(
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        style: IconButton.styleFrom(padding: EdgeInsets.zero),
+        onPressed: () => Navigator.of(context).maybePop(),
+        icon: Icon(
+          Icons.arrow_back_rounded,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
       titleWidget: _AdminItemProductSearchField(
         controller: _itemsSearchController,
         focusNode: _itemsSearchFocusNode,
@@ -232,6 +241,22 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
           _itemsListTabKey.currentState?.notifySearchChanged('');
         },
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: SizedBox.square(
+            dimension: 44,
+            child: IconButton.filledTonal(
+              tooltip: 'Profil',
+              style: IconButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: () => Navigator.of(context).pushNamed(
+                AppRoutes.profile,
+              ),
+              icon: const Icon(Icons.person_rounded, size: 22),
+            ),
+          ),
+        ),
+      ],
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
       child: Column(
@@ -1000,46 +1025,12 @@ class _AdminItemProductSearchField extends StatelessWidget {
       },
     );
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: EdgeInsets.zero,
       child: SizedBox(
         height: AppTheme.appBarHeight,
         child: Align(
           alignment: Alignment.center,
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 44,
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 58,
-                  child: field,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox.square(
-                dimension: 44,
-                child: IconButton.filledTonal(
-                  tooltip: 'Profil',
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.profile,
-                  ),
-                  icon: const Icon(Icons.person_rounded, size: 22),
-                ),
-              ),
-            ],
-          ),
+          child: SizedBox(height: 58, width: double.infinity, child: field),
         ),
       ),
     );
