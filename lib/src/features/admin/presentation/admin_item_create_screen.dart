@@ -1,3 +1,4 @@
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -971,16 +972,6 @@ class _AdminItemProductSearchField extends StatelessWidget {
               fontWeight: FontWeight.w400,
             ),
             isDense: true,
-            prefixIcon: IconButton(
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: Icon(
-                Icons.arrow_back_rounded,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            prefixIconConstraints:
-                const BoxConstraints(minWidth: 58, minHeight: 58),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Tozalash',
@@ -1013,10 +1004,38 @@ class _AdminItemProductSearchField extends StatelessWidget {
         height: AppTheme.appBarHeight,
         child: Align(
           alignment: Alignment.center,
-          child: SizedBox(
-            height: 58,
-            width: double.infinity,
-            child: field,
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 44,
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(
+                    Icons.arrow_back_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: SizedBox(
+                  height: 58,
+                  child: field,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox.square(
+                dimension: 44,
+                child: IconButton.filledTonal(
+                  tooltip: 'Profil',
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.profile,
+                  ),
+                  icon: const Icon(Icons.person_rounded, size: 22),
+                ),
+              ),
+            ],
           ),
         ),
       ),
