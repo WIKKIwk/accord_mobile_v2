@@ -962,42 +962,65 @@ class _AdminItemProductSearchField extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           alignment: Alignment.center,
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            onTap: onActivate,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            textAlignVertical: TextAlignVertical.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w400,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Mahsulot qidirish',
-              hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
+          child: Row(
+            children: [
+              const SizedBox(width: 18),
+              Expanded(
+                child: SizedBox(
+                  height: 58,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onTap: onActivate,
+                        onChanged: onChanged,
+                        textInputAction: TextInputAction.search,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: false,
+                          constraints: BoxConstraints.tightFor(height: 58),
+                          filled: false,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                        ),
+                      ),
+                      if (!hasText)
+                        IgnorePointer(
+                          child: Text(
+                            'Mahsulot qidirish',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-              isDense: false,
-              constraints: const BoxConstraints.tightFor(height: 58),
-              suffixIcon: hasText
-                  ? IconButton(
-                      tooltip: 'Tozalash',
-                      onPressed: onClear,
-                      icon: const Icon(Icons.close_rounded),
-                    )
-                  : null,
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 48,
-                minHeight: 58,
-              ),
-              filled: false,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
+              if (hasText)
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    tooltip: 'Tozalash',
+                    onPressed: onClear,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 18),
+            ],
           ),
         );
       },
@@ -1024,9 +1047,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Expanded(
-                child: SizedBox(height: 58, child: field),
-              ),
+              Expanded(child: field),
               const SizedBox(width: 6),
               SizedBox.square(
                 dimension: 38,
