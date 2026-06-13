@@ -1,4 +1,3 @@
-import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -971,8 +970,17 @@ class _AdminItemProductSearchField extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w400,
             ),
-            constraints: const BoxConstraints(minHeight: 60),
             isDense: true,
+            prefixIcon: IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 58, minHeight: 58),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Tozalash',
@@ -1000,55 +1008,12 @@ class _AdminItemProductSearchField extends StatelessWidget {
       },
     );
     return Padding(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(right: 10),
       child: SizedBox(
         height: AppTheme.appBarHeight,
         child: Align(
           alignment: Alignment.center,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final fieldWidth = (constraints.maxWidth - 132).clamp(
-                160.0,
-                260.0,
-              );
-              return Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 40,
-                    child: IconButton(
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).backButtonTooltip,
-                      style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: Icon(
-                        Icons.arrow_back_rounded,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: fieldWidth,
-                    height: 60,
-                    child: field,
-                  ),
-                  const Spacer(),
-                  SizedBox.square(
-                    dimension: 40,
-                    child: IconButton.filledTonal(
-                      tooltip: 'Profil',
-                      style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () => Navigator.of(context).pushNamed(
-                        AppRoutes.profile,
-                      ),
-                      icon: const Icon(Icons.person_rounded, size: 22),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+          child: SizedBox(height: 58, width: double.infinity, child: field),
         ),
       ),
     );
