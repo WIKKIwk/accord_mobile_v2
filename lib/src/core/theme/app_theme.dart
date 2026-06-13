@@ -980,7 +980,7 @@ class AppTheme {
     // Yorug‘: barlar odatda surfaceContainer bilan ajraladi.
     final Color appChromeBackground = brightness == Brightness.dark
         ? colorScheme.surfaceContainerHigh
-        : colorScheme.surfaceContainer;
+        : colorScheme.surfaceContainerLow;
 
     return ThemeData(
       useMaterial3: true,

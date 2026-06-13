@@ -240,6 +240,14 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                 theme.colorScheme.surfaceContainer,
             child: TabBar(
               controller: _tabController,
+              labelColor: theme.colorScheme.primary,
+              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+              labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w400,
+              ),
+              unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w400,
+              ),
               tabs: const [
                 Tab(height: 38, text: 'Itemlar'),
                 Tab(height: 38, text: 'Item yaratish'),
@@ -931,7 +939,12 @@ class _AdminItemProductSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final searchFill = Color.alphaBlend(
+      scheme.outlineVariant.withValues(alpha: 0.22),
+      scheme.surfaceContainerHighest,
+    );
     final field = ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -942,14 +955,24 @@ class _AdminItemProductSearchField extends StatelessWidget {
           onTap: onActivate,
           onChanged: onChanged,
           textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyLarge,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w400,
+          ),
           decoration: InputDecoration(
             hintText: 'Mahsulot qidirish',
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w400,
+            ),
             isDense: true,
             prefixIcon: IconButton(
               tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 54, minHeight: 54),
@@ -961,7 +984,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   )
                 : null,
             filled: true,
-            fillColor: scheme.surfaceContainerHighest,
+            fillColor: searchFill,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(999),
