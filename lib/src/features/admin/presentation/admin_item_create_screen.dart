@@ -971,6 +971,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w400,
             ),
+            constraints: const BoxConstraints(minHeight: 58),
             isDense: true,
             suffixIcon: hasText
                 ? IconButton(
@@ -999,7 +1000,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
       },
     );
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
+      padding: EdgeInsets.zero,
       child: SizedBox(
         height: AppTheme.appBarHeight,
         child: Align(
@@ -1007,9 +1008,10 @@ class _AdminItemProductSearchField extends StatelessWidget {
           child: Row(
             children: [
               SizedBox.square(
-                dimension: 44,
+                dimension: 40,
                 child: IconButton(
                   tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: Icon(
                     Icons.arrow_back_rounded,
@@ -1017,18 +1019,19 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Expanded(
                 child: SizedBox(
                   height: 58,
                   child: field,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               SizedBox.square(
-                dimension: 44,
+                dimension: 40,
                 child: IconButton.filledTonal(
                   tooltip: 'Profil',
+                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
                   onPressed: () => Navigator.of(context).pushNamed(
                     AppRoutes.profile,
                   ),
