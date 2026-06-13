@@ -213,6 +213,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AppShell(
       title: '',
       subtitle: '',
@@ -234,13 +235,17 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
-          TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'Itemlar'),
-              Tab(text: 'Item yaratish'),
-              Tab(text: "Group ko'chirish"),
-            ],
+          Material(
+            color: theme.appBarTheme.backgroundColor ??
+                theme.colorScheme.surfaceContainer,
+            child: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(height: 38, text: 'Itemlar'),
+                Tab(height: 38, text: 'Item yaratish'),
+                Tab(height: 38, text: "Group ko'chirish"),
+              ],
+            ),
           ),
           Expanded(
             child: TabBarView(
