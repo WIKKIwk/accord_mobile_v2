@@ -217,6 +217,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       titleWidget: _AdminItemProductSearchField(
         controller: _itemsSearchController,
@@ -940,7 +941,13 @@ class _AdminItemProductSearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Mahsulot qidirish',
             isDense: true,
-            prefixIcon: const Icon(Icons.search_rounded),
+            prefixIcon: IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 48, minHeight: 48),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Tozalash',

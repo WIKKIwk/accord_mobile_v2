@@ -56,6 +56,7 @@ class AppShell extends StatefulWidget {
     this.nativeTopBar = false,
     this.nativeTitleTextStyle,
     this.titleWidget,
+    this.automaticallyImplyNativeLeading = true,
     this.backgroundColor,
     this.appBarBottomLoading = false,
   });
@@ -76,6 +77,7 @@ class AppShell extends StatefulWidget {
   final bool animateOnEnter;
   final bool preferNativeTitle;
   final bool nativeTopBar;
+  final bool automaticallyImplyNativeLeading;
   final TextStyle? nativeTitleTextStyle;
   final Color? backgroundColor;
 
@@ -248,6 +250,7 @@ class _AppShellState extends State<AppShell>
         NativeBackButtonBridge.shouldUseNativeBackButton(context);
     final route = ModalRoute.of(context);
     final inferredBackLeading = !shouldHideLeading &&
+        widget.automaticallyImplyNativeLeading &&
         widget.leading == null &&
         widget.drawer == null &&
         (route?.canPop ?? false) &&
@@ -269,7 +272,9 @@ class _AppShellState extends State<AppShell>
               leading: _nativeAppBarLeading(shouldHideLeading),
               automaticallyImplyLeading: shouldHideLeading
                   ? false
-                  : widget.leading == null && widget.drawer == null,
+                  : widget.automaticallyImplyNativeLeading &&
+                      widget.leading == null &&
+                      widget.drawer == null,
               actions: widget.actions,
               backgroundColor: widget.backgroundColor ??
                   theme.appBarTheme.backgroundColor ??
