@@ -975,7 +975,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
               ),
             ),
             prefixIconConstraints:
-                const BoxConstraints(minWidth: 54, minHeight: 54),
+                const BoxConstraints(minWidth: 58, minHeight: 58),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Tozalash',
@@ -1009,7 +1009,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
         child: Align(
           alignment: Alignment.center,
           child: SizedBox(
-            height: 54,
+            height: 58,
             width: double.infinity,
             child: field,
           ),

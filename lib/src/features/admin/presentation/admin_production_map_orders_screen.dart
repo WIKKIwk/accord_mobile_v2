@@ -2626,7 +2626,7 @@ class _OpenedOrderSearchField extends StatelessWidget {
                   )
                 : const Icon(Icons.search_rounded),
             prefixIconConstraints: inAppBar
-                ? const BoxConstraints(minWidth: 54, minHeight: 54)
+                ? const BoxConstraints(minWidth: 58, minHeight: 58)
                 : null,
             suffixIcon: hasText
                 ? IconButton(
@@ -2665,7 +2665,7 @@ class _OpenedOrderSearchField extends StatelessWidget {
           height: AppTheme.appBarHeight,
           child: Align(
             alignment: Alignment.center,
-            child: SizedBox(height: 54, width: double.infinity, child: field),
+            child: SizedBox(height: 58, width: double.infinity, child: field),
           ),
         ),
       );
