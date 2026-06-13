@@ -603,40 +603,44 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
   Widget build(BuildContext context) {
     super.build(context);
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
-    return RefreshIndicator.noSpinner(
-      onRefresh: () => _loadFirstPage(forceRefresh: true),
-      child: ListView(
-        controller: _scrollController,
-        padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          if (!widget.embeddedSearchInAppBar) ...[
-            SearchBar(
-              controller: _searchController,
-              hintText: 'Mahsulot qidirish',
-              constraints: const BoxConstraints(minHeight: 58),
-              padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-                EdgeInsets.symmetric(horizontal: 18),
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: scheme.surfaceContainerHighest,
+      child: RefreshIndicator.noSpinner(
+        onRefresh: () => _loadFirstPage(forceRefresh: true),
+        child: ListView(
+          controller: _scrollController,
+          padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            if (!widget.embeddedSearchInAppBar) ...[
+              SearchBar(
+                controller: _searchController,
+                hintText: 'Mahsulot qidirish',
+                constraints: const BoxConstraints(minHeight: 58),
+                padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                  EdgeInsets.symmetric(horizontal: 18),
+                ),
+                leading: Icon(
+                  Icons.search_rounded,
+                  size: 26,
+                  color: scheme.onSurfaceVariant,
+                ),
+                elevation: const WidgetStatePropertyAll<double>(0),
+                onChanged: _handleSearchChanged,
               ),
-              leading: Icon(
-                Icons.search_rounded,
-                size: 26,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              elevation: const WidgetStatePropertyAll<double>(0),
-              onChanged: _handleSearchChanged,
+              const SizedBox(height: 12),
+            ],
+            _AdminItemsListBody(
+              items: _items,
+              initialLoading: _initialLoading,
+              loadingMore: _loadingMore,
+              hasMore: _hasMore,
+              error: _error,
+              onRetry: () => _loadFirstPage(forceRefresh: true),
             ),
-            const SizedBox(height: 12),
           ],
-          _AdminItemsListBody(
-            items: _items,
-            initialLoading: _initialLoading,
-            loadingMore: _loadingMore,
-            hasMore: _hasMore,
-            error: _error,
-            onRetry: () => _loadFirstPage(forceRefresh: true),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -780,6 +784,7 @@ class _AdminItemRow extends StatelessWidget {
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: scheme.surface,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',
