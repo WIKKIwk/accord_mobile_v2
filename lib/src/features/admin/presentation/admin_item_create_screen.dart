@@ -961,6 +961,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
           onTap: onActivate,
           onChanged: onChanged,
           textInputAction: TextInputAction.search,
+          textAlignVertical: TextAlignVertical.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w400,
@@ -971,8 +972,8 @@ class _AdminItemProductSearchField extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w400,
             ),
-            isDense: true,
-            constraints: const BoxConstraints(minHeight: 58),
+            isDense: false,
+            constraints: const BoxConstraints.tightFor(height: 58),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Tozalash',
@@ -980,9 +981,13 @@ class _AdminItemProductSearchField extends StatelessWidget {
                     icon: const Icon(Icons.close_rounded),
                   )
                 : null,
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 48,
+              minHeight: 58,
+            ),
             filled: true,
             fillColor: searchFill,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(999),
               borderSide: BorderSide.none,
