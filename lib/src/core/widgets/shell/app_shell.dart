@@ -284,7 +284,7 @@ class _AppShellState extends State<AppShell>
               scrolledUnderElevation: 0,
               toolbarHeight: AppTheme.appBarHeight,
               titleSpacing: widget.titleWidget != null
-                  ? 0
+                  ? 10
                   : (compactTitleNearLeading ? 0 : 20),
               centerTitle: false,
               bottom: widget.appBarBottomLoading
