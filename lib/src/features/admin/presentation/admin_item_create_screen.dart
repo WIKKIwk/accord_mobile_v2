@@ -1005,40 +1005,49 @@ class _AdminItemProductSearchField extends StatelessWidget {
         height: AppTheme.appBarHeight,
         child: Align(
           alignment: Alignment.center,
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 40,
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: scheme.onSurfaceVariant,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final fieldWidth = (constraints.maxWidth - 132).clamp(
+                160.0,
+                260.0,
+              );
+              return Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 40,
+                    child: IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
+                      style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: SizedBox(
-                  height: 60,
-                  child: field,
-                ),
-              ),
-              const SizedBox(width: 14),
-              SizedBox.square(
-                dimension: 40,
-                child: IconButton.filledTonal(
-                  tooltip: 'Profil',
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.profile,
+                  const Spacer(),
+                  SizedBox(
+                    width: fieldWidth,
+                    height: 60,
+                    child: field,
                   ),
-                  icon: const Icon(Icons.person_rounded, size: 22),
-                ),
-              ),
-            ],
+                  const Spacer(),
+                  SizedBox.square(
+                    dimension: 40,
+                    child: IconButton.filledTonal(
+                      tooltip: 'Profil',
+                      style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                      onPressed: () => Navigator.of(context).pushNamed(
+                        AppRoutes.profile,
+                      ),
+                      icon: const Icon(Icons.person_rounded, size: 22),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
