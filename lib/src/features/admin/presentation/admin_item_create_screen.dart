@@ -1019,14 +1019,14 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 14),
               Expanded(
                 child: SizedBox(
                   height: 60,
                   child: field,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 14),
               SizedBox.square(
                 dimension: 40,
                 child: IconButton.filledTonal(
