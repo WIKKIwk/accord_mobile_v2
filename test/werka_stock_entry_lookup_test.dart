@@ -1,17 +1,18 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/stock_entry_lookup.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_stock_entry_lookup_screen.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/stock_entry_lookup.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_stock_entry_lookup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('QR result submit preserves stock entry source metadata',
-      (tester) async {
+  testWidgets('QR result submit preserves stock entry source metadata', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final api = _FakeStockEntryLookupApi(
       lookup: _lookup(
@@ -55,14 +56,12 @@ void main() {
     expect(api.lastSourceLineIndex, 3);
   });
 
-  testWidgets('QR result submit falls back to scanned barcode for source',
-      (tester) async {
+  testWidgets('QR result submit falls back to scanned barcode for source', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final api = _FakeStockEntryLookupApi(
-      lookup: _lookup(
-        scannedBarcode: 'SCANNED-FALLBACK',
-        entryBarcode: '',
-      ),
+      lookup: _lookup(scannedBarcode: 'SCANNED-FALLBACK', entryBarcode: ''),
       customers: const [
         CustomerDirectoryEntry(ref: 'umar-oboy', name: 'Umar Oboy', phone: ''),
       ],
@@ -92,14 +91,12 @@ void main() {
     expect(api.lastSourceLineIndex, 3);
   });
 
-  testWidgets('QR result duplicate source error is shown to user',
-      (tester) async {
+  testWidgets('QR result duplicate source error is shown to user', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final api = _FakeStockEntryLookupApi(
-      lookup: _lookup(
-        scannedBarcode: 'SCANNED-DUP',
-        entryBarcode: 'ENTRY-DUP',
-      ),
+      lookup: _lookup(scannedBarcode: 'SCANNED-DUP', entryBarcode: 'ENTRY-DUP'),
       customers: const [
         CustomerDirectoryEntry(ref: 'umar-oboy', name: 'Umar Oboy', phone: ''),
       ],

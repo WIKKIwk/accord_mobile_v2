@@ -4,10 +4,7 @@ import '../customer_notifications_screen.dart';
 import 'customer_dock.dart';
 import 'package:flutter/material.dart';
 
-enum CustomerTabTransitionDirection {
-  forward,
-  backward,
-}
+enum CustomerTabTransitionDirection { forward, backward }
 
 int _customerTabIndex(CustomerDockTab tab) {
   switch (tab) {
@@ -41,10 +38,7 @@ void navigateToCustomerTab(
       : CustomerTabTransitionDirection.backward;
 
   Navigator.of(context).pushReplacement(
-    _CustomerTabRoute(
-      child: _customerTabScreen(to),
-      direction: direction,
-    ),
+    _CustomerTabRoute(child: _customerTabScreen(to), direction: direction),
   );
 }
 
@@ -76,64 +70,56 @@ void handleCustomerTabSwipe(
     case CustomerDockTab.home:
       return;
     case CustomerDockTab.notifications:
-      navigateToCustomerTab(
-        context,
-        from: activeTab,
-        to: CustomerDockTab.home,
-      );
+      navigateToCustomerTab(context, from: activeTab, to: CustomerDockTab.home);
   }
 }
 
 class _CustomerTabRoute extends PageRouteBuilder<void> {
-  _CustomerTabRoute({
-    required this.child,
-    required this.direction,
-  }) : super(
-          transitionDuration: AppMotion.pageEnter,
-          reverseTransitionDuration: AppMotion.pageExit,
-          pageBuilder: (context, animation, secondaryAnimation) => child,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
+  _CustomerTabRoute({required this.child, required this.direction})
+    : super(
+        transitionDuration: AppMotion.pageEnter,
+        reverseTransitionDuration: AppMotion.pageExit,
+        pageBuilder: (context, animation, secondaryAnimation) => child,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.pageIn,
+            reverseCurve: AppMotion.pageOut,
+          );
+          final slide = Tween<Offset>(
+            begin: direction == CustomerTabTransitionDirection.forward
+                ? const Offset(0.12, 0)
+                : const Offset(-0.12, 0),
+            end: Offset.zero,
+          ).animate(curve);
+          final fade = Tween<double>(begin: 0.72, end: 1).animate(
+            CurvedAnimation(
               parent: animation,
-              curve: AppMotion.pageIn,
-              reverseCurve: AppMotion.pageOut,
-            );
-            final slide = Tween<Offset>(
-              begin: direction == CustomerTabTransitionDirection.forward
-                  ? const Offset(0.12, 0)
-                  : const Offset(-0.12, 0),
-              end: Offset.zero,
-            ).animate(curve);
-            final fade = Tween<double>(begin: 0.72, end: 1).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: AppMotion.emphasizedDecelerate,
-              ),
-            );
-            final outgoing = Tween<Offset>(
-              begin: Offset.zero,
-              end: direction == CustomerTabTransitionDirection.forward
-                  ? const Offset(-0.06, 0)
-                  : const Offset(0.06, 0),
-            ).animate(
-              CurvedAnimation(
-                parent: secondaryAnimation,
-                curve: AppMotion.pageOut,
-              ),
-            );
-
-            return SlideTransition(
-              position: outgoing,
-              child: FadeTransition(
-                opacity: fade,
-                child: SlideTransition(
-                  position: slide,
-                  child: child,
+              curve: AppMotion.emphasizedDecelerate,
+            ),
+          );
+          final outgoing =
+              Tween<Offset>(
+                begin: Offset.zero,
+                end: direction == CustomerTabTransitionDirection.forward
+                    ? const Offset(-0.06, 0)
+                    : const Offset(0.06, 0),
+              ).animate(
+                CurvedAnimation(
+                  parent: secondaryAnimation,
+                  curve: AppMotion.pageOut,
                 ),
-              ),
-            );
-          },
-        );
+              );
+
+          return SlideTransition(
+            position: outgoing,
+            child: FadeTransition(
+              opacity: fade,
+              child: SlideTransition(position: slide, child: child),
+            ),
+          );
+        },
+      );
 
   final Widget child;
   final CustomerTabTransitionDirection direction;

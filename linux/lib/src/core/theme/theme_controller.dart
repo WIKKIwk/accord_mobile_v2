@@ -48,7 +48,9 @@ class ThemeController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        prefsKey, nextMode == ThemeMode.light ? 'light' : 'dark');
+      prefsKey,
+      nextMode == ThemeMode.light ? 'light' : 'dark',
+    );
   }
 
   Future<void> setVariant(AppThemeVariant nextVariant) async {
@@ -58,10 +60,7 @@ class ThemeController extends ChangeNotifier {
     _variant = nextVariant;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      variantPrefsKey,
-      _variantToPrefs(nextVariant),
-    );
+    await prefs.setString(variantPrefsKey, _variantToPrefs(nextVariant));
   }
 
   static AppThemeVariant _variantFromPrefs(String? value) {

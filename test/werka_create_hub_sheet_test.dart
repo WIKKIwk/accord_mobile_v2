@@ -1,6 +1,6 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/widgets/werka_create_hub_sheet.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/werka_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,11 +21,8 @@ Widget _wrap(
     onGenerateRoute: (settings) {
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (context) => Scaffold(
-          body: Center(
-            child: Text(settings.name ?? 'root'),
-          ),
-        ),
+        builder: (context) =>
+            Scaffold(body: Center(child: Text(settings.name ?? 'root'))),
       );
     },
     navigatorObservers: navigatorObservers,
@@ -34,8 +31,9 @@ Widget _wrap(
 }
 
 void main() {
-  testWidgets('Werka create hub starts as a medium expressive FAB',
-      (tester) async {
+  testWidgets('Werka create hub starts as a medium expressive FAB', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         Builder(
@@ -58,8 +56,9 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
   });
 
-  testWidgets('Werka create hub keeps the ordered action stack',
-      (tester) async {
+  testWidgets('Werka create hub keeps the ordered action stack', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         Builder(
@@ -83,15 +82,14 @@ void main() {
       const ValueKey('werka-hub-customer-issue'),
       const ValueKey('werka-hub-batch-dispatch'),
     ];
-    final orderedFinders = [
-      for (final key in orderedKeys) find.byKey(key),
-    ];
+    final orderedFinders = [for (final key in orderedKeys) find.byKey(key)];
     for (final finder in orderedFinders) {
       expect(finder, findsOneWidget);
     }
 
-    final toggleSize =
-        tester.getSize(find.byKey(const ValueKey('werka-hub-toggle-button')));
+    final toggleSize = tester.getSize(
+      find.byKey(const ValueKey('werka-hub-toggle-button')),
+    );
     expect(toggleSize.width, closeTo(56, 1.5));
     expect(toggleSize.height, closeTo(56, 1.5));
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
@@ -100,10 +98,7 @@ void main() {
       for (final finder in orderedFinders) tester.getCenter(finder),
     ];
     for (var i = 1; i < centers.length; i++) {
-      expect(
-        centers[i].dy - centers[i - 1].dy,
-        inInclusiveRange(60.0, 68.0),
-      );
+      expect(centers[i].dy - centers[i - 1].dy, inInclusiveRange(60.0, 68.0));
     }
 
     final bottomRect = tester.getRect(
@@ -112,10 +107,7 @@ void main() {
     final toggleRect = tester.getRect(
       find.byKey(const ValueKey('werka-hub-toggle-button')),
     );
-    expect(
-      toggleRect.top - bottomRect.bottom,
-      inInclusiveRange(8.0, 14.0),
-    );
+    expect(toggleRect.top - bottomRect.bottom, inInclusiveRange(8.0, 14.0));
   });
 
   testWidgets('Werka create hub exposes GScale switch action', (tester) async {
@@ -145,14 +137,12 @@ void main() {
     await tester.tap(switchFinder);
     await tester.pumpAndSettle();
 
-    expect(
-      observer.pushedRouteNames,
-      contains(AppRoutes.gscaleMode),
-    );
+    expect(observer.pushedRouteNames, contains(AppRoutes.gscaleMode));
   });
 
-  testWidgets('Werka create hub toggle can reverse while opening',
-      (tester) async {
+  testWidgets('Werka create hub toggle can reverse while opening', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         Builder(
@@ -182,8 +172,9 @@ void main() {
     );
   });
 
-  testWidgets('Werka create hub cards are full-surface tappable',
-      (tester) async {
+  testWidgets('Werka create hub cards are full-surface tappable', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         Builder(
@@ -211,8 +202,9 @@ void main() {
     );
   });
 
-  testWidgets('Werka create hub reveals cards from right to left',
-      (tester) async {
+  testWidgets('Werka create hub reveals cards from right to left', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         Builder(
@@ -243,8 +235,9 @@ void main() {
     expect(titleEarly.dx, closeTo(titleLate.dx, 0.01));
   });
 
-  testWidgets('Werka create hub toggle can reopen while closing',
-      (tester) async {
+  testWidgets('Werka create hub toggle can reopen while closing', (
+    tester,
+  ) async {
     late BuildContext capturedContext;
 
     await tester.pumpWidget(
@@ -275,7 +268,9 @@ void main() {
     expect(toggleFinder, findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     expect(
-        find.byKey(const ValueKey('werka-hub-batch-dispatch')), findsOneWidget);
+      find.byKey(const ValueKey('werka-hub-batch-dispatch')),
+      findsOneWidget,
+    );
   });
 }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 ScaffoldFeatureController<MaterialBanner, MaterialBannerClosedReason>?
-    _currentAdminTopNotice;
+_currentAdminTopNotice;
 
 void showAdminTopNotice(
   BuildContext context,
@@ -25,8 +25,8 @@ void showAdminTopNotice(
       leading: icon == null ? null : Icon(icon),
       content: Text(message),
       contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
       actions: const [SizedBox.shrink()],
       minActionBarHeight: 0,
     ),

@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
-import 'package:erpnext_stock_mobile/src/features/gscale/gscale_mobile_app.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -55,8 +55,10 @@ void main() {
       'Printerga yuborildi • netto 2.5 kg',
     );
     expect(
-      buildPrintSuccessMessage(response,
-          serverLabel: 'rp-scale-godex-2 @ 41257'),
+      buildPrintSuccessMessage(
+        response,
+        serverLabel: 'rp-scale-godex-2 @ 41257',
+      ),
       'Printerga yuborildi • rp-scale-godex-2 @ 41257 • netto 2.5 kg',
     );
   });
@@ -222,10 +224,7 @@ void main() {
       'ERPNext tasdiqlashda xatolik yuz berdi: submit failed: NegativeStockError',
     );
     expect(
-      shouldStopRsBatchAfterLateError(
-        batch: batch,
-        seenErrorKey: '',
-      ),
+      shouldStopRsBatchAfterLateError(batch: batch, seenErrorKey: ''),
       isTrue,
     );
     expect(
@@ -412,13 +411,14 @@ void main() {
   });
 
   test(
-      'manual duplicate count parser defaults to one and rejects invalid input',
-      () {
-    expect(parseManualDuplicateCount(''), 1);
-    expect(parseManualDuplicateCount(' 5 '), 5);
-    expect(parseManualDuplicateCount('0'), isNull);
-    expect(parseManualDuplicateCount('1.5'), isNull);
-  });
+    'manual duplicate count parser defaults to one and rejects invalid input',
+    () {
+      expect(parseManualDuplicateCount(''), 1);
+      expect(parseManualDuplicateCount(' 5 '), 5);
+      expect(parseManualDuplicateCount('0'), isNull);
+      expect(parseManualDuplicateCount('1.5'), isNull);
+    },
+  );
 
   test('auto batch print triggers once per stable scale reading', () {
     final key = autoBatchPrintKey(

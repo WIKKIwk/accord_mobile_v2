@@ -6,21 +6,14 @@ import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
 
 class SupplierQtyArgs {
-  const SupplierQtyArgs({
-    required this.item,
-    this.initialQty,
-  });
+  const SupplierQtyArgs({required this.item, this.initialQty});
 
   final SupplierItem item;
   final double? initialQty;
 }
 
 class SupplierQtyScreen extends StatefulWidget {
-  const SupplierQtyScreen({
-    super.key,
-    required this.item,
-    this.initialQty,
-  });
+  const SupplierQtyScreen({super.key, required this.item, this.initialQty});
 
   final SupplierItem item;
   final double? initialQty;
@@ -73,20 +66,16 @@ class _SupplierQtyScreenState extends State<SupplierQtyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.item.name,
-                    style: textTheme.titleLarge,
-                  ),
+                  Text(widget.item.name, style: textTheme.titleLarge),
                   const SizedBox(height: 18),
                   TextField(
                     controller: controller,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     textAlignVertical: TextAlignVertical.center,
                     style: textTheme.headlineMedium,
-                    decoration: InputDecoration(
-                      suffixText: widget.item.uom,
-                    ),
+                    decoration: InputDecoration(suffixText: widget.item.uom),
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
@@ -100,8 +89,10 @@ class _SupplierQtyScreenState extends State<SupplierQtyScreen> {
                         }
                         Navigator.of(context).pushNamed(
                           AppRoutes.supplierConfirm,
-                          arguments:
-                              SupplierConfirmArgs(item: widget.item, qty: qty),
+                          arguments: SupplierConfirmArgs(
+                            item: widget.item,
+                            qty: qty,
+                          ),
                         );
                       },
                       child: const Text('Davom etish'),

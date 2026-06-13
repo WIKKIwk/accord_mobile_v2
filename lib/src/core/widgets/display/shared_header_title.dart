@@ -6,10 +6,7 @@ import 'package:flutter/material.dart';
 const String _sharedHeaderHeroTag = 'accord.shared-header-title';
 
 class SharedHeaderTitle extends StatelessWidget {
-  const SharedHeaderTitle({
-    super.key,
-    required this.title,
-  });
+  const SharedHeaderTitle({super.key, required this.title});
 
   final String title;
 
@@ -19,35 +16,34 @@ class SharedHeaderTitle extends StatelessWidget {
     return Hero(
       tag: _sharedHeaderHeroTag,
       transitionOnUserGestures: true,
-      flightShuttleBuilder: (
-        flightContext,
-        animation,
-        flightDirection,
-        fromHeroContext,
-        toHeroContext,
-      ) {
-        final fromHero = (fromHeroContext.widget as Hero).child;
-        final toHero = (toHeroContext.widget as Hero).child;
-        if (fromHero is! _SharedHeaderManifest ||
-            toHero is! _SharedHeaderManifest) {
-          return toHero;
-        }
-        return _SharedHeaderFlight(
-          animation: animation,
-          direction: flightDirection,
-          from: fromHero,
-          to: toHero,
-        );
-      },
+      flightShuttleBuilder:
+          (
+            flightContext,
+            animation,
+            flightDirection,
+            fromHeroContext,
+            toHeroContext,
+          ) {
+            final fromHero = (fromHeroContext.widget as Hero).child;
+            final toHero = (toHeroContext.widget as Hero).child;
+            if (fromHero is! _SharedHeaderManifest ||
+                toHero is! _SharedHeaderManifest) {
+              return toHero;
+            }
+            return _SharedHeaderFlight(
+              animation: animation,
+              direction: flightDirection,
+              from: fromHero,
+              to: toHero,
+            );
+          },
       child: child,
     );
   }
 }
 
 class _SharedHeaderManifest extends StatelessWidget {
-  const _SharedHeaderManifest({
-    required this.title,
-  });
+  const _SharedHeaderManifest({required this.title});
 
   final String title;
 
@@ -89,10 +85,12 @@ class _SharedHeaderFlight extends StatelessWidget {
         final t = Curves.easeInOutCubicEmphasized.transform(
           progress.clamp(0.0, 1.0),
         );
-        final leavingShift =
-            direction == HeroFlightDirection.push ? -14.0 : 14.0;
-        final enteringStartShift =
-            direction == HeroFlightDirection.push ? 14.0 : -14.0;
+        final leavingShift = direction == HeroFlightDirection.push
+            ? -14.0
+            : 14.0;
+        final enteringStartShift = direction == HeroFlightDirection.push
+            ? 14.0
+            : -14.0;
 
         return Material(
           color: Colors.transparent,
@@ -155,18 +153,12 @@ class _AnimatedFlightTitle extends StatelessWidget {
       );
     }
 
-    return Opacity(
-      opacity: opacity.clamp(0.0, 1.0),
-      child: child,
-    );
+    return Opacity(opacity: opacity.clamp(0.0, 1.0), child: child);
   }
 }
 
 class HeaderLeadingTransition extends StatelessWidget {
-  const HeaderLeadingTransition({
-    super.key,
-    required this.child,
-  });
+  const HeaderLeadingTransition({super.key, required this.child});
 
   final Widget child;
 

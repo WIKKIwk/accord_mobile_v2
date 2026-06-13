@@ -14,8 +14,10 @@ extension MobileApiAdminItems on MobileApi {
       final normalizedQuery = query.trim().toLowerCase();
       final matches = <CustomerDirectoryEntry>[];
       final seen = <String>{};
-      for (final customer
-          in TestModeDemoData.customerPage(limit: 0, offset: 0)) {
+      for (final customer in TestModeDemoData.customerPage(
+        limit: 0,
+        offset: 0,
+      )) {
         final detail = TestModeDemoData.customerDetail(customer.ref);
         final hasItem = detail.assignedItems.any((item) {
           final code = item.code.trim().toLowerCase();
@@ -63,8 +65,9 @@ extension MobileApiAdminItems on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/customers/items/add')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/customers/items/add',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'item_code': itemCode}),
@@ -84,13 +87,9 @@ extension MobileApiAdminItems on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.delete(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/customers/items/remove')
-            .replace(
-          queryParameters: {
-            'ref': ref,
-            'item_code': itemCode,
-          },
-        ),
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/customers/items/remove',
+        ).replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
         headers: _headers(requireToken()),
       ),
     );
@@ -107,15 +106,11 @@ extension MobileApiAdminItems on MobileApi {
     String group = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      return TestModeDemoData.itemPage(
-        query: query,
-        group: group,
-        limit: 0,
-      );
+      return TestModeDemoData.itemPage(query: query, group: group, limit: 0);
     }
     const pageSize = 200;
     final items = <SupplierItem>[];
-    for (var offset = 0;; offset += pageSize) {
+    for (var offset = 0; ; offset += pageSize) {
       final page = await adminItemsPage(
         query: query,
         group: group,
@@ -216,10 +211,7 @@ extension MobileApiAdminItems on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/bulk-move-group'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'item_codes': itemCodes,
-          'item_group': itemGroup,
-        }),
+        body: jsonEncode({'item_codes': itemCodes, 'item_group': itemGroup}),
       ),
     );
     if (response.statusCode != 200) {

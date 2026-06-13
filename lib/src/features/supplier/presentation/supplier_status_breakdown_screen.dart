@@ -10,10 +10,7 @@ import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
 
 class SupplierStatusBreakdownScreen extends StatefulWidget {
-  const SupplierStatusBreakdownScreen({
-    super.key,
-    required this.kind,
-  });
+  const SupplierStatusBreakdownScreen({super.key, required this.kind});
 
   final SupplierStatusKind kind;
 
@@ -131,10 +128,12 @@ class _SupplierStatusBreakdownScreenState
             final accepted = store.historyItems.where(
               (item) => item.status == DispatchStatus.accepted,
             );
-            final acceptedByWerka =
-                accepted.where((item) => !_isApprovedUnannounced(item)).length;
-            final approvedUnannounced =
-                accepted.where(_isApprovedUnannounced).length;
+            final acceptedByWerka = accepted
+                .where((item) => !_isApprovedUnannounced(item))
+                .length;
+            final approvedUnannounced = accepted
+                .where(_isApprovedUnannounced)
+                .length;
             return AppRefreshIndicator(
               onRefresh: _reload,
               child: ListView(
@@ -241,59 +240,64 @@ class _SupplierStatusBreakdownScreenState
                   child: Column(
                     children: [
                       for (int index = 0; index < items.length; index++) ...[
-                        Builder(builder: (context) {
-                          final item = items[index];
-                          return InkWell(
-                            onTap: () => Navigator.of(context).pushNamed(
-                              AppRoutes.supplierStatusDetail,
-                              arguments: SupplierStatusDetailArgs(
-                                kind: widget.kind,
-                                itemCode: item.itemCode,
-                                itemName: item.itemName,
-                              ),
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Padding(
-                                padding: const EdgeInsets.all(18),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.itemName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      _metricLabel(item),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      AppLocalizations.of(context)
-                                          .receiptCountLabel(item.receiptCount),
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                        Builder(
+                          builder: (context) {
+                            final item = items[index];
+                            return InkWell(
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.supplierStatusDetail,
+                                arguments: SupplierStatusDetailArgs(
+                                  kind: widget.kind,
+                                  itemCode: item.itemCode,
+                                  itemName: item.itemName,
                                 ),
                               ),
-                            ),
-                          );
-                        }),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(18),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.itemName,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleLarge,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        _metricLabel(item),
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.headlineMedium,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        ).receiptCountLabel(item.receiptCount),
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         if (index != items.length - 1)
                           Divider(
                             height: 1,
                             thickness: 1,
                             indent: 18,
                             endIndent: 18,
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withValues(alpha: 0.55),
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.55),
                           ),
                       ],
                     ],
@@ -329,12 +333,7 @@ class _SupplierAcceptedCategoryRow extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.titleLarge,
-              ),
-            ),
+            Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
             Container(
               constraints: const BoxConstraints(minWidth: 58),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

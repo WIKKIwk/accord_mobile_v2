@@ -57,9 +57,10 @@ extension MobileApiCalculate on MobileApi {
     }
     return (payload['templates'] as List? ?? const [])
         .whereType<Map>()
-        .map((item) => CalculateOrderTemplate.fromJson(
-              item.cast<String, dynamic>(),
-            ))
+        .map(
+          (item) =>
+              CalculateOrderTemplate.fromJson(item.cast<String, dynamic>()),
+        )
         .toList(growable: false);
   }
 
@@ -80,8 +81,10 @@ extension MobileApiCalculate on MobileApi {
     final payload = _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
-        code:
-            _calculateText(payload['error'], fallback: 'calculate_order_save'),
+        code: _calculateText(
+          payload['error'],
+          fallback: 'calculate_order_save',
+        ),
         message: _calculateText(
           payload['detail'],
           fallback: 'Calculate order save failed',
@@ -97,8 +100,9 @@ extension MobileApiCalculate on MobileApi {
 
   Future<void> deleteCalculateOrderTemplate(String id) async {
     if (await TestModeController.instance.isEnabled()) {
-      _testModeCalculateOrderTemplates
-          .removeWhere((template) => template.id.trim() == id.trim());
+      _testModeCalculateOrderTemplates.removeWhere(
+        (template) => template.id.trim() == id.trim(),
+      );
       return;
     }
     final response = await _sendAuthorized(
@@ -112,8 +116,10 @@ extension MobileApiCalculate on MobileApi {
     final payload = _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
-        code: _calculateText(payload['error'],
-            fallback: 'calculate_order_delete'),
+        code: _calculateText(
+          payload['error'],
+          fallback: 'calculate_order_delete',
+        ),
         message: _calculateText(
           payload['detail'],
           fallback: 'Calculate order delete failed',
@@ -139,8 +145,10 @@ extension MobileApiCalculate on MobileApi {
     final payload = _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
-        code:
-            _calculateText(payload['error'], fallback: 'calculate_image_save'),
+        code: _calculateText(
+          payload['error'],
+          fallback: 'calculate_image_save',
+        ),
         message: _calculateText(
           payload['detail'],
           fallback: 'Calculate image save failed',
@@ -170,8 +178,9 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
   final widthSm = request.widthMm / 10;
   final rubberSize = productionMapRubberSizeFromWidth(request.widthMm);
   const coeffSum = 4.3;
-  final baseLength =
-      widthSm <= 0 ? 0.0 : request.kg / (coeffSum * widthSm) * 6000.0;
+  final baseLength = widthSm <= 0
+      ? 0.0
+      : request.kg / (coeffSum * widthSm) * 6000.0;
   final wasteLength = baseLength * request.wastePercent / 100;
   final roundedLength = ((baseLength + wasteLength) / 100).ceil() * 100.0;
   return CalculateResponse(
@@ -264,10 +273,7 @@ class CalculateRequest {
 }
 
 class CalculateLayerInput {
-  const CalculateLayerInput({
-    this.material = '',
-    this.micron = '',
-  });
+  const CalculateLayerInput({this.material = '', this.micron = ''});
 
   final String material;
   final String micron;
@@ -275,10 +281,7 @@ class CalculateLayerInput {
   bool get isEmpty => material.trim().isEmpty && micron.trim().isEmpty;
 
   Map<String, dynamic> toJson() {
-    return {
-      'material': material.trim(),
-      'micron': micron.trim(),
-    };
+    return {'material': material.trim(), 'micron': micron.trim()};
   }
 }
 
@@ -323,10 +326,7 @@ class CalculateResponse {
 }
 
 class CalculateLayer {
-  const CalculateLayer({
-    required this.material,
-    required this.micron,
-  });
+  const CalculateLayer({required this.material, required this.micron});
 
   factory CalculateLayer.fromJson(Map<String, dynamic> json) {
     return CalculateLayer(

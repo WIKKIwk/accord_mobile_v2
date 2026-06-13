@@ -14,10 +14,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaStatusDetailScreen extends StatefulWidget {
-  const WerkaStatusDetailScreen({
-    super.key,
-    required this.args,
-  });
+  const WerkaStatusDetailScreen({super.key, required this.args});
 
   final WerkaStatusDetailArgs args;
 
@@ -30,13 +27,17 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
   @override
   void initState() {
     super.initState();
-    WerkaStore.instance
-        .bootstrapDetail(widget.args.kind, widget.args.supplierRef);
+    WerkaStore.instance.bootstrapDetail(
+      widget.args.kind,
+      widget.args.supplierRef,
+    );
   }
 
   Future<void> _reload() async {
-    await WerkaStore.instance
-        .refreshDetail(widget.args.kind, widget.args.supplierRef);
+    await WerkaStore.instance.refreshDetail(
+      widget.args.kind,
+      widget.args.supplierRef,
+    );
   }
 
   String get _title {
@@ -44,13 +45,19 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
     switch (widget.args.kind) {
       case WerkaStatusKind.pending:
         return l10n.statusWithName(
-            widget.args.supplierName, l10n.pendingStatus);
+          widget.args.supplierName,
+          l10n.pendingStatus,
+        );
       case WerkaStatusKind.confirmed:
         return l10n.statusWithName(
-            widget.args.supplierName, l10n.confirmedStatus);
+          widget.args.supplierName,
+          l10n.confirmedStatus,
+        );
       case WerkaStatusKind.returned:
         return l10n.statusWithName(
-            widget.args.supplierName, l10n.returnedStatus);
+          widget.args.supplierName,
+          l10n.returnedStatus,
+        );
     }
   }
 
@@ -76,19 +83,21 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
                   .isEmpty) {
             return const Center(child: AppLoadingIndicator());
           }
-          final error =
-              store.detailError(widget.args.kind, widget.args.supplierRef);
+          final error = store.detailError(
+            widget.args.kind,
+            widget.args.supplierRef,
+          );
           if (error != null &&
               store
                   .detailItems(widget.args.kind, widget.args.supplierRef)
                   .isEmpty) {
-            return AppRetryState(
-              onRetry: _reload,
-            );
+            return AppRetryState(onRetry: _reload);
           }
 
-          final items =
-              store.detailItems(widget.args.kind, widget.args.supplierRef);
+          final items = store.detailItems(
+            widget.args.kind,
+            widget.args.supplierRef,
+          );
           if (items.isEmpty) {
             return Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -144,19 +153,15 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
 
   void _openRecord(DispatchRecord record) {
     if (record.isDeliveryNote) {
-      Navigator.of(context).pushNamed(
-        AppRoutes.werkaCustomerDeliveryDetail,
-        arguments: record,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaCustomerDeliveryDetail, arguments: record);
       return;
     }
     if (widget.args.kind == WerkaStatusKind.pending) {
-      Navigator.of(context)
-          .pushNamed(
-        AppRoutes.werkaDetail,
-        arguments: record,
-      )
-          .then((_) {
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaDetail, arguments: record).then((_) {
         if (!mounted) {
           return;
         }
@@ -164,10 +169,9 @@ class _WerkaStatusDetailScreenState extends State<WerkaStatusDetailScreen> {
       });
       return;
     }
-    Navigator.of(context).pushNamed(
-      AppRoutes.notificationDetail,
-      arguments: record.id,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.notificationDetail, arguments: record.id);
   }
 }
 
@@ -194,8 +198,9 @@ class _WerkaStatusDetailSegmentTile extends StatelessWidget {
       itemCount,
     );
     final r = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
-    final title =
-        record.itemName.trim().isEmpty ? record.itemCode : record.itemName;
+    final title = record.itemName.trim().isEmpty
+        ? record.itemCode
+        : record.itemName;
 
     return M3SegmentFilledSurface(
       slot: slot,

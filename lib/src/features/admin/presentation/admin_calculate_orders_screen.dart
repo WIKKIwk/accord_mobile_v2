@@ -53,10 +53,7 @@ class _AdminCalculateOrdersScreenState
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   void _openTemplate(CalculateOrderTemplate template) {

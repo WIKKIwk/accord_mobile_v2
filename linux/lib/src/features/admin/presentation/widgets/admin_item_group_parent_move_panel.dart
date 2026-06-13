@@ -27,12 +27,13 @@ class _AdminItemGroupParentMovePanelState
   String? parentName;
   bool submitting = false;
 
-  List<String> get movableGroups => widget.groups
-      .map((group) => group.trim())
-      .where((group) => group.isNotEmpty && group != 'All Item Groups')
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get movableGroups =>
+      widget.groups
+          .map((group) => group.trim())
+          .where((group) => group.isNotEmpty && group != 'All Item Groups')
+          .toSet()
+          .toList()
+        ..sort();
 
   List<String> get parentGroups {
     final current = groupName?.trim() ?? '';
@@ -53,8 +54,9 @@ class _AdminItemGroupParentMovePanelState
       groupName = null;
     }
     if (parentName != null && !parents.contains(parentName)) {
-      parentName =
-          parents.contains('All Item Groups') ? 'All Item Groups' : null;
+      parentName = parents.contains('All Item Groups')
+          ? 'All Item Groups'
+          : null;
     }
   }
 
@@ -79,9 +81,9 @@ class _AdminItemGroupParentMovePanelState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Parent yangilanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Parent yangilanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -93,7 +95,8 @@ class _AdminItemGroupParentMovePanelState
   Widget build(BuildContext context) {
     final movable = movableGroups;
     final parents = parentGroups;
-    final canSubmit = !submitting &&
+    final canSubmit =
+        !submitting &&
         (groupName?.isNotEmpty ?? false) &&
         (parentName?.isNotEmpty ?? false);
     return SoftCard(
@@ -148,8 +151,9 @@ class _AdminItemGroupParentMovePanelState
           const SizedBox(height: 16),
           FilledButton(
             onPressed: canSubmit ? _move : null,
-            child:
-                Text(submitting ? 'Ko‘chirilmoqda...' : 'Parentni yangilash'),
+            child: Text(
+              submitting ? 'Ko‘chirilmoqda...' : 'Parentni yangilash',
+            ),
           ),
         ],
       ),

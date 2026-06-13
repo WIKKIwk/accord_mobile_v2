@@ -1,4 +1,4 @@
-import 'package:erpnext_stock_mobile/src/core/search/search_normalizer.dart';
+import 'package:accord_mobile_v2/src/core/search/search_normalizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

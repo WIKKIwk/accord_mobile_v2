@@ -5,11 +5,7 @@ import 'package:flutter/material.dart';
 /// Shakl: tepa segmentda faqat **yuqori** yumaloqlar, o‘rtada **to‘rt tomon**,
 /// pastda faqat **pastki** yumaloqlar. Ketma-ket segmentlar orasida **gap** qoladi
 /// (birlashtirib yubormaydi).
-enum M3SegmentVerticalSlot {
-  top,
-  middle,
-  bottom,
-}
+enum M3SegmentVerticalSlot { top, middle, bottom }
 
 /// MD3 **contained list** — bo‘shliq va to‘ldirilgan elementlar guruhani aniqlaydi.
 ///
@@ -96,7 +92,9 @@ abstract final class M3SegmentedListGeometry {
   ///
   /// Bitta qator: [top] (yuqori katta radius); bir nechta: birinchi [top], o‘rtalar [middle], oxirgi [bottom].
   static M3SegmentVerticalSlot standaloneListSlotForIndex(
-      int index, int count) {
+    int index,
+    int count,
+  ) {
     assert(count >= 1);
     if (count == 1) {
       return M3SegmentVerticalSlot.top;
@@ -140,19 +138,18 @@ class M3SegmentFilledSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final brightness = Theme.of(context).brightness;
-    final BorderRadius radius = borderRadiusOverride ??
+    final BorderRadius radius =
+        borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg = backgroundColor ??
+    final Color bg =
+        backgroundColor ??
         switch (brightness) {
           Brightness.dark => scheme.surfaceContainerLow,
           Brightness.light => scheme.surfaceContainerHighest,
         };
 
     final Widget ink = Ink(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: radius,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: radius),
       child: child,
     );
 

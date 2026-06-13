@@ -14,18 +14,13 @@ enum SupplierSubmittedCategory {
 }
 
 class SupplierSubmittedCategoryArgs {
-  const SupplierSubmittedCategoryArgs({
-    required this.category,
-  });
+  const SupplierSubmittedCategoryArgs({required this.category});
 
   final SupplierSubmittedCategory category;
 }
 
 class SupplierSubmittedCategoryDetailScreen extends StatefulWidget {
-  const SupplierSubmittedCategoryDetailScreen({
-    super.key,
-    required this.args,
-  });
+  const SupplierSubmittedCategoryDetailScreen({super.key, required this.args});
 
   final SupplierSubmittedCategoryArgs args;
 
@@ -147,65 +142,68 @@ class _SupplierSubmittedCategoryDetailScreenState
                   child: Column(
                     children: [
                       for (int index = 0; index < items.length; index++) ...[
-                        Builder(builder: (context) {
-                          final record = items[index];
-                          return InkWell(
-                            onTap: () => Navigator.of(context).pushNamed(
-                              AppRoutes.notificationDetail,
-                              arguments: record.id,
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Padding(
-                                padding: const EdgeInsets.all(18),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .headlineMedium,
+                        Builder(
+                          builder: (context) {
+                            final record = items[index];
+                            return InkWell(
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.notificationDetail,
+                                arguments: record.id,
+                              ),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(18),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.headlineMedium,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 12),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            record.createdLabel,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                          ),
+                                        ],
+                                      ),
+                                      if (record.note.trim().isNotEmpty) ...[
+                                        const SizedBox(height: 8),
                                         Text(
-                                          record.createdLabel,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
+                                          record.note,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
                                         ),
                                       ],
-                                    ),
-                                    if (record.note.trim().isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        record.note,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
-                                      ),
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }),
+                            );
+                          },
+                        ),
                         if (index != items.length - 1)
                           Divider(
                             height: 1,
                             thickness: 1,
                             indent: 18,
                             endIndent: 18,
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withValues(alpha: 0.55),
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.55),
                           ),
                       ],
                     ],

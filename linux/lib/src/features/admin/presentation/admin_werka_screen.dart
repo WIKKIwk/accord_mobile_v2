@@ -136,9 +136,9 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Code nusxalandi')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
   }
 
   @override
@@ -196,8 +196,9 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed:
-                              werkaCode.trim().isEmpty ? null : _copyCode,
+                          onPressed: werkaCode.trim().isEmpty
+                              ? null
+                              : _copyCode,
                           icon: const Icon(Icons.content_copy_outlined),
                         ),
                         IconButton(
@@ -237,9 +238,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: scheme.outlineVariant,
-                        ),
+                        borderSide: BorderSide(color: scheme.outlineVariant),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -262,9 +261,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: scheme.outlineVariant,
-                        ),
+                        borderSide: BorderSide(color: scheme.outlineVariant),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -280,9 +277,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: saving ? null : () => _save(current),
-                      child: Text(
-                        saving ? 'Saqlanmoqda...' : 'Saqlash',
-                      ),
+                      child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
                     ),
                   ),
                 ],

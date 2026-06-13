@@ -94,36 +94,36 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
   static const double _stackTrailingInset = 16.0;
   static final SpringDescription _spatialSpring =
       SpringDescription.withDampingRatio(
-    mass: 1.18,
-    stiffness: 230.0,
-    ratio: 0.88,
-  );
+        mass: 1.18,
+        stiffness: 230.0,
+        ratio: 0.88,
+      );
   static final SpringDescription _effectsSpring =
       SpringDescription.withDampingRatio(
-    mass: 1.12,
-    stiffness: 500.0,
-    ratio: 1.0,
-  );
+        mass: 1.12,
+        stiffness: 500.0,
+        ratio: 1.0,
+      );
   static final SpringDescription _spatialSpringClose =
       SpringDescription.withDampingRatio(
-    mass: 1.2,
-    stiffness: 400.0,
-    ratio: 0.82,
-  );
+        mass: 1.2,
+        stiffness: 400.0,
+        ratio: 0.82,
+      );
   static final SpringDescription _effectsSpringClose =
       SpringDescription.withDampingRatio(
-    mass: 1.08,
-    stiffness: 700.0,
-    ratio: 1.0,
-  );
+        mass: 1.08,
+        stiffness: 700.0,
+        ratio: 1.0,
+      );
 
   /// FAB circle ↔ rounded rect: slightly under-damped for settle bounce.
   static final SpringDescription _fabMorphSpring =
       SpringDescription.withDampingRatio(
-    mass: 0.55,
-    stiffness: 2350.0,
-    ratio: 0.72,
-  );
+        mass: 0.55,
+        stiffness: 2350.0,
+        ratio: 0.72,
+      );
   static final SpringDescription _fabMorphSpringClose = _fabMorphSpring;
   static const Duration _openDuration = Duration(milliseconds: 1080);
   static const Duration _closeDuration = Duration(milliseconds: 1080);
@@ -203,12 +203,15 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
       return;
     }
 
-    final SpringDescription spatialSpring =
-        open ? _spatialSpring : _spatialSpringClose;
-    final SpringDescription effectsSpring =
-        open ? _effectsSpring : _effectsSpringClose;
-    final SpringDescription fabMorphSpring =
-        open ? _fabMorphSpring : _fabMorphSpringClose;
+    final SpringDescription spatialSpring = open
+        ? _spatialSpring
+        : _spatialSpringClose;
+    final SpringDescription effectsSpring = open
+        ? _effectsSpring
+        : _effectsSpringClose;
+    final SpringDescription fabMorphSpring = open
+        ? _fabMorphSpring
+        : _fabMorphSpringClose;
 
     final spatialFuture = _animateWithSpring(
       controller: _spatialController,
@@ -227,24 +230,22 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
     );
 
     if (!open) {
-      unawaited(
-        () async {
-          try {
-            await Future.wait<void>([
-              spatialFuture.orCancel,
-              fabMorphFuture.orCancel,
-              effectsFuture.orCancel,
-            ]);
-          } on TickerCanceled {
-            return;
-          }
+      unawaited(() async {
+        try {
+          await Future.wait<void>([
+            spatialFuture.orCancel,
+            fabMorphFuture.orCancel,
+            effectsFuture.orCancel,
+          ]);
+        } on TickerCanceled {
+          return;
+        }
 
-          if (!mounted || _targetOpen) {
-            return;
-          }
-          widget.onClose();
-        }(),
-      );
+        if (!mounted || _targetOpen) {
+          return;
+        }
+        widget.onClose();
+      }());
     }
   }
 
@@ -340,8 +341,10 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
               child: AnimatedBuilder(
                 animation: _effectsController,
                 builder: (context, _) {
-                  final double progress =
-                      _effectsController.value.clamp(0.0, 1.0);
+                  final double progress = _effectsController.value.clamp(
+                    0.0,
+                    1.0,
+                  );
                   final double backdropOpacity = progress;
                   return Container(
                     color: Color.lerp(
@@ -370,8 +373,9 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
                       actions[index],
                       _effectsController,
                     ),
-                    motionKey:
-                        ValueKey('werka-hub-reveal-${actions[index].row}'),
+                    motionKey: ValueKey(
+                      'werka-hub-reveal-${actions[index].row}',
+                    ),
                     onTap: () => widget.onOpenRoute(actions[index].routeName),
                   ),
                   if (index != actions.length - 1)
@@ -381,13 +385,19 @@ class _WerkaCreateHubOverlayState extends State<_WerkaCreateHubOverlay>
             ),
           ),
           AnimatedBuilder(
-            animation:
-                Listenable.merge([_fabMorphController, _effectsController]),
+            animation: Listenable.merge([
+              _fabMorphController,
+              _effectsController,
+            ]),
             builder: (context, _) {
-              final double progress =
-                  _m3SpatialLerpT(_fabMorphController.value);
-              final double currentButtonSize =
-                  _lerpDouble(_fabClosedSize, _fabOpenSize, progress);
+              final double progress = _m3SpatialLerpT(
+                _fabMorphController.value,
+              );
+              final double currentButtonSize = _lerpDouble(
+                _fabClosedSize,
+                _fabOpenSize,
+                progress,
+              );
               final double anchoredBottom =
                   toggleBottom + _fabClosedSize - currentButtonSize;
               return PositionedDirectional(
@@ -467,7 +477,8 @@ class _WerkaHubActionPill extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final textDirection = Directionality.of(context);
-    final TextStyle titleStyle = theme.textTheme.titleMedium?.copyWith(
+    final TextStyle titleStyle =
+        theme.textTheme.titleMedium?.copyWith(
           color: scheme.onPrimaryContainer,
           fontWeight: FontWeight.w600,
         ) ??
@@ -492,8 +503,10 @@ class _WerkaHubActionPill extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([spatial, effectsAnimation]),
       builder: (context, _) {
-        final double widthT =
-            _hubStaggerSpatialT(spatial.value, action.staggerOrder);
+        final double widthT = _hubStaggerSpatialT(
+          spatial.value,
+          action.staggerOrder,
+        );
         final double opacity = effectsAnimation.value.clamp(0.0, 1.0);
         final double currentWidth = _lerpDouble(
           _werkaHubMenuItemHeight,

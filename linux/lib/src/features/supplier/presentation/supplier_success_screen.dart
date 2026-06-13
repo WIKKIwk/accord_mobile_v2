@@ -6,10 +6,7 @@ import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
 
 class SupplierSuccessScreen extends StatelessWidget {
-  const SupplierSuccessScreen({
-    super.key,
-    required this.record,
-  });
+  const SupplierSuccessScreen({super.key, required this.record});
 
   final DispatchRecord record;
 
@@ -33,14 +30,20 @@ class SupplierSuccessScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.check_circle_rounded,
-                        size: 72, color: Color(0xFFFFFFFF)),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 72,
+                      color: Color(0xFFFFFFFF),
+                    ),
                     const SizedBox(height: 16),
-                    Text(record.id,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      record.id,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 6),
                     Text(
-                        '${record.itemCode} • ${record.sentQty.toStringAsFixed(2)} ${record.uom}'),
+                      '${record.itemCode} • ${record.sentQty.toStringAsFixed(2)} ${record.uom}',
+                    ),
                   ],
                 ),
               ),

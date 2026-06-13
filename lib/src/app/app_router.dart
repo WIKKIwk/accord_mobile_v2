@@ -236,10 +236,7 @@ class AppRouter {
       case AppRoutes.supplierStatusBreakdown:
         final SupplierStatusKind kind =
             settings.arguments as SupplierStatusKind;
-        return _buildRoute(
-          settings,
-          SupplierStatusBreakdownScreen(kind: kind),
-        );
+        return _buildRoute(settings, SupplierStatusBreakdownScreen(kind: kind));
       case AppRoutes.supplierSubmittedCategoryDetail:
         final SupplierSubmittedCategoryArgs args =
             settings.arguments as SupplierSubmittedCategoryArgs;
@@ -250,10 +247,7 @@ class AppRouter {
       case AppRoutes.supplierStatusDetail:
         final SupplierStatusDetailArgs args =
             settings.arguments as SupplierStatusDetailArgs;
-        return _buildRoute(
-          settings,
-          SupplierStatusDetailScreen(args: args),
-        );
+        return _buildRoute(settings, SupplierStatusDetailScreen(args: args));
       case AppRoutes.supplierItemPicker:
         return _buildRoute(settings, const SupplierItemPickerScreen());
       case AppRoutes.supplierQty:
@@ -261,10 +255,7 @@ class AppRouter {
           final SupplierQtyArgs args = settings.arguments as SupplierQtyArgs;
           return _buildRoute(
             settings,
-            SupplierQtyScreen(
-              item: args.item,
-              initialQty: args.initialQty,
-            ),
+            SupplierQtyScreen(item: args.item, initialQty: args.initialQty),
           );
         }
         final SupplierItem item = settings.arguments as SupplierItem;
@@ -295,8 +286,8 @@ class AppRouter {
       case AppRoutes.werkaCustomerIssueCustomer:
         final WerkaCustomerIssuePrefillArgs? args =
             settings.arguments is WerkaCustomerIssuePrefillArgs
-                ? settings.arguments as WerkaCustomerIssuePrefillArgs
-                : null;
+            ? settings.arguments as WerkaCustomerIssuePrefillArgs
+            : null;
         return _buildRoute(
           settings,
           WerkaCustomerIssueCustomerScreen(prefill: args),
@@ -304,8 +295,8 @@ class AppRouter {
       case AppRoutes.werkaUnannouncedSupplier:
         final WerkaUnannouncedPrefillArgs? args =
             settings.arguments is WerkaUnannouncedPrefillArgs
-                ? settings.arguments as WerkaUnannouncedPrefillArgs
-                : null;
+            ? settings.arguments as WerkaUnannouncedPrefillArgs
+            : null;
         return _buildRoute(
           settings,
           WerkaUnannouncedSupplierScreen(prefill: args),
@@ -315,10 +306,7 @@ class AppRouter {
       case AppRoutes.werkaStockEntryLookup:
         final WerkaStockEntryLookupArgs args =
             settings.arguments as WerkaStockEntryLookupArgs;
-        return _buildRoute(
-          settings,
-          WerkaStockEntryLookupScreen(args: args),
-        );
+        return _buildRoute(settings, WerkaStockEntryLookupScreen(args: args));
       case AppRoutes.werkaArchiveBatchQrLookup:
         final WerkaArchiveBatchQrLookupArgs args =
             settings.arguments as WerkaArchiveBatchQrLookupArgs;
@@ -360,35 +348,23 @@ class AppRouter {
         final WerkaArchiveKind kind = settings.arguments is WerkaArchiveKind
             ? settings.arguments as WerkaArchiveKind
             : WerkaArchiveKind.sent;
-        return _buildRoute(
-          settings,
-          WerkaArchivePeriodScreen(kind: kind),
-        );
+        return _buildRoute(settings, WerkaArchivePeriodScreen(kind: kind));
       case AppRoutes.werkaArchiveList:
         final WerkaArchiveListArgs args =
             settings.arguments is WerkaArchiveListArgs
-                ? settings.arguments as WerkaArchiveListArgs
-                : const WerkaArchiveListArgs(
-                    kind: WerkaArchiveKind.sent,
-                    period: WerkaArchivePeriod.daily,
-                  );
-        return _buildRoute(
-          settings,
-          WerkaArchiveListScreen(args: args),
-        );
+            ? settings.arguments as WerkaArchiveListArgs
+            : const WerkaArchiveListArgs(
+                kind: WerkaArchiveKind.sent,
+                period: WerkaArchivePeriod.daily,
+              );
+        return _buildRoute(settings, WerkaArchiveListScreen(args: args));
       case AppRoutes.werkaStatusBreakdown:
         final WerkaStatusKind kind = settings.arguments as WerkaStatusKind;
-        return _buildRoute(
-          settings,
-          WerkaStatusBreakdownScreen(kind: kind),
-        );
+        return _buildRoute(settings, WerkaStatusBreakdownScreen(kind: kind));
       case AppRoutes.werkaStatusDetail:
         final WerkaStatusDetailArgs args =
             settings.arguments as WerkaStatusDetailArgs;
-        return _buildRoute(
-          settings,
-          WerkaStatusDetailScreen(args: args),
-        );
+        return _buildRoute(settings, WerkaStatusDetailScreen(args: args));
       case AppRoutes.werkaDetail:
         final DispatchRecord record = settings.arguments as DispatchRecord;
         return _buildRoute(settings, WerkaDetailScreen(record: record));
@@ -414,10 +390,7 @@ class AppRouter {
       case AppRoutes.customerStatusDetail:
         final CustomerStatusKind kind =
             settings.arguments as CustomerStatusKind;
-        return _buildRoute(
-          settings,
-          CustomerStatusDetailScreen(kind: kind),
-        );
+        return _buildRoute(settings, CustomerStatusDetailScreen(kind: kind));
       case AppRoutes.customerDetail:
         final String deliveryNoteID = settings.arguments as String;
         return _buildRoute(
@@ -437,12 +410,9 @@ class AppRouter {
       case AppRoutes.adminCalculate:
         final CalculateOrderTemplate? template =
             settings.arguments is CalculateOrderTemplate
-                ? settings.arguments as CalculateOrderTemplate
-                : null;
-        return _buildRoute(
-          settings,
-          AdminCalculateScreen(template: template),
-        );
+            ? settings.arguments as CalculateOrderTemplate
+            : null;
+        return _buildRoute(settings, AdminCalculateScreen(template: template));
       case AppRoutes.adminCalculateOrders:
         return _buildRoute(settings, const AdminCalculateOrdersScreen());
       case AppRoutes.adminCreateHub:
@@ -454,16 +424,17 @@ class AppRouter {
       case AppRoutes.adminProductionMapTest:
         final ProductionMapTestArgs? args =
             settings.arguments is ProductionMapTestArgs
-                ? settings.arguments as ProductionMapTestArgs
-                : null;
-        final ProductionMapOrderContext? orderContext = args?.orderContext ??
+            ? settings.arguments as ProductionMapTestArgs
+            : null;
+        final ProductionMapOrderContext? orderContext =
+            args?.orderContext ??
             (settings.arguments is ProductionMapOrderContext
                 ? settings.arguments as ProductionMapOrderContext
                 : null);
         final ProductionMapSaved? savedMap =
             settings.arguments is ProductionMapSaved
-                ? settings.arguments as ProductionMapSaved
-                : null;
+            ? settings.arguments as ProductionMapSaved
+            : null;
         return _buildRoute(
           settings,
           AdminProductionMapTestScreen(
@@ -500,8 +471,9 @@ class AppRouter {
       case AppRoutes.adminInactiveSuppliers:
         return _buildRoute(settings, const AdminInactiveSuppliersScreen());
       case AppRoutes.adminItemCreate:
-        final int initialTabIndex =
-            settings.arguments is int ? settings.arguments as int : 0;
+        final int initialTabIndex = settings.arguments is int
+            ? settings.arguments as int
+            : 0;
         return _buildRoute(
           settings,
           AdminItemCreateScreen(initialTabIndex: initialTabIndex),
@@ -633,14 +605,8 @@ class AppRouter {
       'rezka.split.manage',
     },
     AppRoutes.adminActivity: {'admin.activity.read'},
-    AppRoutes.adminCalculate: {
-      'admin.access',
-      'production.map.manage',
-    },
-    AppRoutes.adminCalculateOrders: {
-      'admin.access',
-      'production.map.manage',
-    },
+    AppRoutes.adminCalculate: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminCalculateOrders: {'admin.access', 'production.map.manage'},
     AppRoutes.adminCreateHub: {
       'catalog.item.create',
       'catalog.item_group.manage',
@@ -651,26 +617,17 @@ class AppRouter {
     },
     AppRoutes.adminSettings: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
-    AppRoutes.adminProductionMapTest: {
-      'admin.access',
-      'production.map.manage',
-    },
+    AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapOrders: {
       'admin.access',
       'production.map.manage',
     },
-    AppRoutes.adminApparatusGroups: {
-      'admin.access',
-      'production.map.manage',
-    },
+    AppRoutes.adminApparatusGroups: {'admin.access', 'production.map.manage'},
     AppRoutes.apparatusQueue: {
       'apparatus.queue.read',
       'apparatus.queue.manage',
     },
-    AppRoutes.adminSuppliers: {
-      'party.supplier.read',
-      'party.customer.read',
-    },
+    AppRoutes.adminSuppliers: {'party.supplier.read', 'party.customer.read'},
     AppRoutes.adminUserCreate: {
       'party.supplier.manage',
       'party.customer.manage',
@@ -708,26 +665,23 @@ class AppRouter {
           );
           final fadeIn = CurvedAnimation(
             parent: animation,
-            curve: const Interval(0.08, 1.0,
-                curve: AppMotion.emphasizedDecelerate),
+            curve: const Interval(
+              0.08,
+              1.0,
+              curve: AppMotion.emphasizedDecelerate,
+            ),
             reverseCurve: AppMotion.pageOut,
           );
           final slideIn = Tween<Offset>(
             begin: const Offset(0, 0.045),
             end: Offset.zero,
           ).animate(enter);
-          final scaleIn = Tween<double>(
-            begin: 0.985,
-            end: 1.0,
-          ).animate(enter);
+          final scaleIn = Tween<double>(begin: 0.985, end: 1.0).animate(enter);
           return FadeTransition(
             opacity: fadeIn,
             child: SlideTransition(
               position: slideIn,
-              child: ScaleTransition(
-                scale: scaleIn,
-                child: child,
-              ),
+              child: ScaleTransition(scale: scaleIn, child: child),
             ),
           );
         },
@@ -785,10 +739,6 @@ class _CapabilityDeniedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Ruxsat yo‘q'),
-      ),
-    );
+    return const Scaffold(body: Center(child: Text('Ruxsat yo‘q')));
   }
 }

@@ -21,10 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AdminCalculateScreen extends StatefulWidget {
-  const AdminCalculateScreen({
-    super.key,
-    this.template,
-  });
+  const AdminCalculateScreen({super.key, this.template});
 
   final CalculateOrderTemplate? template;
 
@@ -106,18 +103,18 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   List<TextEditingController> get _calculationInputControllers => [
-        _product,
-        _kg,
-        _widthMm,
-        _wastePercent,
-        _rollCount,
-        _firstMaterial,
-        _firstMicron,
-        _secondMaterial,
-        _secondMicron,
-        _thirdMaterial,
-        _thirdMicron,
-      ];
+    _product,
+    _kg,
+    _widthMm,
+    _wastePercent,
+    _rollCount,
+    _firstMaterial,
+    _firstMicron,
+    _secondMaterial,
+    _secondMicron,
+    _thirdMaterial,
+    _thirdMicron,
+  ];
 
   void _handleCalculationInputChanged() {
     if (_applyingTemplate || !mounted) {
@@ -152,8 +149,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _kg.clear();
       _widthMm.text = _fmtInput(template.widthMm);
       _wastePercent.text = _fmtInput(template.wastePercent);
-      _rollCount.text =
-          template.rollCount == null ? '' : _fmtInput(template.rollCount!);
+      _rollCount.text = template.rollCount == null
+          ? ''
+          : _fmtInput(template.rollCount!);
       _firstMaterial.text = template.firstLayerMaterial;
       _firstMicron.text = template.firstLayerMicron;
       _secondMaterial.text = template.secondLayerMaterial;
@@ -185,10 +183,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   Future<void> _openOrders() async {
@@ -440,8 +435,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     setState(() {
       _productCustomerGeneration++;
       _customerRef = picked.ref;
-      _customer.text =
-          picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
+      _customer.text = picked.name.trim().isEmpty
+          ? picked.ref
+          : picked.name.trim();
       _itemCode = '';
       _product.clear();
     });
@@ -462,8 +458,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           pageSize: 80,
-          supportingText:
-              _customer.text.trim().isEmpty ? null : _customer.text.trim(),
+          supportingText: _customer.text.trim().isEmpty
+              ? null
+              : _customer.text.trim(),
           cacheKey: _customerRef.trim().isEmpty
               ? 'calculate:items'
               : 'calculate:customer-items:${_customerRef.trim()}',
@@ -504,8 +501,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     setState(() {
       _productCustomerGeneration = generation;
       _itemCode = picked.code;
-      _product.text =
-          picked.name.trim().isEmpty ? picked.code : picked.name.trim();
+      _product.text = picked.name.trim().isEmpty
+          ? picked.code
+          : picked.name.trim();
     });
     if (shouldAutoSelectCustomer) {
       unawaited(_autoSelectCustomerForProduct(picked, generation));
@@ -536,8 +534,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       }
       setState(() {
         _customerRef = customer.ref;
-        _customer.text =
-            customer.name.trim().isEmpty ? customer.ref : customer.name.trim();
+        _customer.text = customer.name.trim().isEmpty
+            ? customer.ref
+            : customer.name.trim();
       });
     } catch (_) {
       return;
@@ -712,10 +711,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         required: true,
         onTap: _openProductPicker,
       ),
-      _TextInput(
-        controller: _status,
-        label: 'Status',
-      ),
+      _TextInput(controller: _status, label: 'Status'),
       _ImageUploadInput(
         localPath: _imageLocalPath,
         imageUrl: _imageUrl,
@@ -771,12 +767,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         materialLabel: '3-qavat',
       ),
       const SizedBox(height: 18),
-      _TextInput(
-        controller: _note,
-        label: 'Izoh',
-        minLines: 3,
-        maxLines: 5,
-      ),
+      _TextInput(controller: _note, label: 'Izoh', minLines: 3, maxLines: 5),
       ..._calculateActionChildren(),
     ];
   }
@@ -830,9 +821,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         onPressed: _calculating ? null : _calculate,
         icon: const Icon(Icons.calculate_outlined),
         label: Text(_calculating ? 'Hisoblanmoqda...' : 'Hisoblash'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-        ),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
       ),
       if (_error.isNotEmpty) ...[
         const SizedBox(height: 16),
@@ -895,8 +884,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children =
-        _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
+    final children = _editingAllFields
+        ? _fullEditChildren()
+        : _compactTemplateChildren();
     final resolvedName = _resolvedOrderName().trim();
     final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
         ? 'Zakaz yaratish'
@@ -912,15 +902,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
-        AppShellIconAction(
-          icon: Icons.list_alt_rounded,
-          onTap: _openOrders,
-        ),
+        AppShellIconAction(icon: Icons.list_alt_rounded, onTap: _openOrders),
         if (!_editingAllFields)
-          AppShellIconAction(
-            icon: Icons.edit_outlined,
-            onTap: _enableFullEdit,
-          ),
+          AppShellIconAction(icon: Icons.edit_outlined, onTap: _enableFullEdit),
       ],
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
@@ -1071,8 +1055,9 @@ class _SavedTemplateSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final imageTitle =
-        imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
+    final imageTitle = imageName.trim().isEmpty
+        ? 'Rasm biriktirilgan'
+        : imageName.trim();
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
@@ -1223,10 +1208,7 @@ void _showCalculateImageDialog(BuildContext context, String imageUrl) {
 }
 
 class _ChecklistSection extends StatelessWidget {
-  const _ChecklistSection({
-    required this.title,
-    required this.rows,
-  });
+  const _ChecklistSection({required this.title, required this.rows});
 
   final String title;
   final List<_ChecklistRowData> rows;
@@ -1484,10 +1466,7 @@ class _ResultRow extends StatelessWidget {
 }
 
 class _ResultMultilineRow extends StatelessWidget {
-  const _ResultMultilineRow({
-    required this.label,
-    required this.value,
-  });
+  const _ResultMultilineRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1501,10 +1480,7 @@ class _ResultMultilineRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            label,
-            style: style?.copyWith(fontWeight: FontWeight.w700),
-          ),
+          Text(label, style: style?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(value, style: style),
         ],
@@ -1530,9 +1506,9 @@ class _ErrorPanel extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onErrorContainer,
-              fontWeight: FontWeight.w700,
-            ),
+          color: scheme.onErrorContainer,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1549,9 +1525,9 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -1616,8 +1592,9 @@ class _PickerInput extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color:
-                            empty ? scheme.onSurfaceVariant : scheme.onSurface,
+                        color: empty
+                            ? scheme.onSurfaceVariant
+                            : scheme.onSurface,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1714,8 +1691,8 @@ class _ImageUploadInput extends StatelessWidget {
                     Text(
                       hasImage
                           ? (imageName.trim().isEmpty
-                              ? 'Rasm tanlangan'
-                              : imageName.trim())
+                                ? 'Rasm tanlangan'
+                                : imageName.trim())
                           : 'Rasm tanlash',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1746,10 +1723,7 @@ class _ImageUploadInput extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded),
                 )
               else
-                Icon(
-                  Icons.upload_file_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
+                Icon(Icons.upload_file_rounded, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -1759,10 +1733,7 @@ class _ImageUploadInput extends StatelessWidget {
 }
 
 class _ImagePreview extends StatelessWidget {
-  const _ImagePreview({
-    required this.localPath,
-    required this.imageUrl,
-  });
+  const _ImagePreview({required this.localPath, required this.imageUrl});
 
   final String localPath;
   final String imageUrl;
@@ -1771,10 +1742,7 @@ class _ImagePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (localPath.trim().isNotEmpty) {
-      return Image.file(
-        File(localPath),
-        fit: BoxFit.cover,
-      );
+      return Image.file(File(localPath), fit: BoxFit.cover);
     }
     if (imageUrl.trim().isNotEmpty) {
       final token = _sessionToken();
@@ -1798,10 +1766,7 @@ class _ImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.image_outlined,
-        color: color,
-      ),
+      child: Icon(Icons.image_outlined, color: color),
     );
   }
 }
@@ -1878,8 +1843,9 @@ class _TextInput extends StatelessWidget {
         controller: controller,
         minLines: minLines,
         maxLines: maxLines,
-        textInputAction:
-            maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
+        textInputAction: maxLines == 1
+            ? TextInputAction.next
+            : TextInputAction.newline,
         decoration: InputDecoration(labelText: label),
         validator: required ? _requiredText : null,
       ),
@@ -1913,15 +1879,12 @@ class _NumberInput extends StatelessWidget {
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
         ],
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(
-          labelText: label,
-          suffixText: suffixText,
-        ),
+        decoration: InputDecoration(labelText: label, suffixText: suffixText),
         validator: required
             ? (allowZero ? _requiredNonNegativeNumber : _requiredPositiveNumber)
             : (allowZero
-                ? _optionalNonNegativeNumber
-                : _optionalPositiveNumber),
+                  ? _optionalNonNegativeNumber
+                  : _optionalPositiveNumber),
       ),
     );
   }
@@ -1945,14 +1908,9 @@ class _IntegerInput extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(
-          labelText: label,
-          suffixText: suffixText,
-        ),
+        decoration: InputDecoration(labelText: label, suffixText: suffixText),
         validator: _optionalPositiveInteger,
       ),
     );

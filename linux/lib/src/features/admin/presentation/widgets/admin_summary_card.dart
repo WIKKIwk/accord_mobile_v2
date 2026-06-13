@@ -49,9 +49,11 @@ class AdminSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final brightness = Theme.of(context).brightness;
-    final BorderRadius radius = borderRadiusOverride ??
+    final BorderRadius radius =
+        borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg = backgroundColor ??
+    final Color bg =
+        backgroundColor ??
         switch (brightness) {
           Brightness.dark => scheme.surfaceContainerLow,
           Brightness.light => scheme.surfaceContainerHighest,
@@ -59,24 +61,16 @@ class AdminSummaryCard extends StatelessWidget {
     final bool showValue = value.trim().isNotEmpty;
 
     final Widget ink = Ink(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: radius,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: radius),
       child: SizedBox(
         height: fixedHeight,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: minHeight ?? 0,
-          ),
+          constraints: BoxConstraints(minHeight: minHeight ?? 0),
           child: Padding(
             padding: padding ?? const EdgeInsets.fromLTRB(16, 16, 12, 16),
             child: Row(
               children: [
-                if (leading != null) ...[
-                  leading!,
-                  const SizedBox(width: 14),
-                ],
+                if (leading != null) ...[leading!, const SizedBox(width: 14)],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,12 +80,13 @@ class AdminSummaryCard extends StatelessWidget {
                         title,
                         maxLines: titleMaxLines,
                         overflow: TextOverflow.ellipsis,
-                        style: titleStyle ??
+                        style:
+                            titleStyle ??
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontSize: 18.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: scheme.onSurface,
-                                ),
+                              fontSize: 18.5,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
                       ),
                       if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -99,11 +94,12 @@ class AdminSummaryCard extends StatelessWidget {
                           subtitle!,
                           maxLines: subtitleMaxLines,
                           overflow: TextOverflow.ellipsis,
-                          style: subtitleStyle ??
+                          style:
+                              subtitleStyle ??
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    height: 1.25,
-                                  ),
+                                color: scheme.onSurfaceVariant,
+                                height: 1.25,
+                              ),
                         ),
                       ],
                     ],
@@ -115,12 +111,13 @@ class AdminSummaryCard extends StatelessWidget {
                     value,
                     maxLines: valueMaxLines,
                     overflow: TextOverflow.ellipsis,
-                    style: valueStyle ??
+                    style:
+                        valueStyle ??
                         Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 18.5,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
+                          fontSize: 18.5,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                        ),
                   ),
                 ],
                 if (showChevron) ...[

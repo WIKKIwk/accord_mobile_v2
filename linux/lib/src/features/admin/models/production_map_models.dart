@@ -19,12 +19,14 @@ class ProductionMapDefinition {
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
-          .map((item) =>
-              ProductionMapNode.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => ProductionMapNode.fromJson(item as Map<String, dynamic>),
+          )
           .toList(growable: false),
       edges: (json['edges'] as List<dynamic>? ?? const [])
-          .map((item) =>
-              ProductionMapEdge.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => ProductionMapEdge.fromJson(item as Map<String, dynamic>),
+          )
           .toList(growable: false),
     );
   }
@@ -131,10 +133,7 @@ class ProductionMapNode {
 }
 
 class ProductionFormula {
-  const ProductionFormula({
-    required this.target,
-    required this.expression,
-  });
+  const ProductionFormula({required this.target, required this.expression});
 
   final String target;
   final String expression;
@@ -147,10 +146,7 @@ class ProductionFormula {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'target': target,
-      'expression': expression,
-    };
+    return {'target': target, 'expression': expression};
   }
 }
 
@@ -183,10 +179,7 @@ class ProductionMapEdge {
 }
 
 class ProductionMapSaved {
-  const ProductionMapSaved({
-    required this.map,
-    required this.program,
-  });
+  const ProductionMapSaved({required this.map, required this.program});
 
   final ProductionMapDefinition map;
   final ProductionMapProgram program;
@@ -296,9 +289,10 @@ class ProductionMapRunResult {
         (key, value) => MapEntry(key, (value as num?)?.toDouble() ?? 0),
       ),
       tasks: (json['tasks'] as List<dynamic>? ?? const [])
-          .map((item) => ProductionTaskDraft.fromJson(
-                item as Map<String, dynamic>,
-              ))
+          .map(
+            (item) =>
+                ProductionTaskDraft.fromJson(item as Map<String, dynamic>),
+          )
           .toList(growable: false),
       visitedNodeIds: (json['visited_node_ids'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
@@ -326,8 +320,10 @@ class ProductionMapProgram {
       mapId: json['map_id'] as String? ?? '',
       productCode: json['product_code'] as String? ?? '',
       operations: (json['operations'] as List<dynamic>? ?? const [])
-          .map((item) =>
-              ProductionMapOperation.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                ProductionMapOperation.fromJson(item as Map<String, dynamic>),
+          )
           .toList(growable: false),
     );
   }

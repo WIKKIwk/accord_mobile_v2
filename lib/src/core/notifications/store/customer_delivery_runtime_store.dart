@@ -59,11 +59,14 @@ class CustomerDeliveryRuntimeStore extends ChangeNotifier {
   }
 
   CustomerHomeSummary applySummary(CustomerHomeSummary summary) {
-    var pending = _latestStatusLists[CustomerStatusKind.pending]?.length ??
+    var pending =
+        _latestStatusLists[CustomerStatusKind.pending]?.length ??
         summary.pendingCount;
-    var confirmed = _latestStatusLists[CustomerStatusKind.confirmed]?.length ??
+    var confirmed =
+        _latestStatusLists[CustomerStatusKind.confirmed]?.length ??
         summary.confirmedCount;
-    var rejected = _latestStatusLists[CustomerStatusKind.rejected]?.length ??
+    var rejected =
+        _latestStatusLists[CustomerStatusKind.rejected]?.length ??
         summary.rejectedCount;
 
     for (final mutation in _activeMutations()) {
@@ -101,10 +104,7 @@ class CustomerDeliveryRuntimeStore extends ChangeNotifier {
     );
   }
 
-  void setStatusSnapshot(
-    CustomerStatusKind kind,
-    List<DispatchRecord> items,
-  ) {
+  void setStatusSnapshot(CustomerStatusKind kind, List<DispatchRecord> items) {
     final next = List<DispatchRecord>.unmodifiable(items);
     final previous = _latestStatusLists[kind];
     if (_sameRecords(previous, next)) {
@@ -164,7 +164,8 @@ class CustomerDeliveryRuntimeStore extends ChangeNotifier {
   List<DispatchRecord> _sorted(Iterable<DispatchRecord> records) {
     final result = records.toList();
     result.sort(
-        (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel));
+      (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel),
+    );
     return result;
   }
 
@@ -188,10 +189,7 @@ class CustomerDeliveryRuntimeStore extends ChangeNotifier {
     ].join('|');
   }
 
-  bool _sameRecords(
-    List<DispatchRecord>? a,
-    List<DispatchRecord> b,
-  ) {
+  bool _sameRecords(List<DispatchRecord>? a, List<DispatchRecord> b) {
     if (a == null || a.length != b.length) {
       return false;
     }

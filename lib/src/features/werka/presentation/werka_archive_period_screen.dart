@@ -10,10 +10,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaArchivePeriodScreen extends StatelessWidget {
-  const WerkaArchivePeriodScreen({
-    super.key,
-    required this.kind,
-  });
+  const WerkaArchivePeriodScreen({super.key, required this.kind});
 
   final WerkaArchiveKind kind;
 
@@ -32,32 +29,26 @@ class WerkaArchivePeriodScreen extends StatelessWidget {
 
   void _openList(BuildContext context, WerkaArchivePeriod period) {
     if (period == WerkaArchivePeriod.daily) {
-      Navigator.of(context).pushNamed(
-        AppRoutes.werkaArchiveDailyCalendar,
-        arguments: kind,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaArchiveDailyCalendar, arguments: kind);
       return;
     }
     if (period == WerkaArchivePeriod.monthly) {
-      Navigator.of(context).pushNamed(
-        AppRoutes.werkaArchiveMonthlyCalendar,
-        arguments: kind,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaArchiveMonthlyCalendar, arguments: kind);
       return;
     }
     if (period == WerkaArchivePeriod.yearly) {
-      Navigator.of(context).pushNamed(
-        AppRoutes.werkaArchiveYearlyCalendar,
-        arguments: kind,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaArchiveYearlyCalendar, arguments: kind);
       return;
     }
     Navigator.of(context).pushNamed(
       AppRoutes.werkaArchiveList,
-      arguments: WerkaArchiveListArgs(
-        kind: kind,
-        period: period,
-      ),
+      arguments: WerkaArchiveListArgs(kind: kind, period: period),
     );
   }
 
@@ -144,12 +135,7 @@ class _WerkaArchivePeriodSegmentTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleLarge,
-                ),
-              ),
+              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
               Icon(
                 Icons.chevron_right_rounded,
                 size: 22,

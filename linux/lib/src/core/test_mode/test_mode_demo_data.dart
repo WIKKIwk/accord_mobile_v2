@@ -160,24 +160,25 @@ class TestModeDemoData {
   }) {
     final normalizedQuery = query.trim().toLowerCase();
     final normalizedGroup = group.trim().toLowerCase();
-    final filtered = items.where((item) {
-      final matchesGroup = normalizedGroup.isEmpty ||
-          item.itemGroup.toLowerCase() == normalizedGroup;
-      final matchesQuery = normalizedQuery.isEmpty ||
-          item.code.toLowerCase().contains(normalizedQuery) ||
-          item.name.toLowerCase().contains(normalizedQuery) ||
-          item.uom.toLowerCase().contains(normalizedQuery) ||
-          item.warehouse.toLowerCase().contains(normalizedQuery) ||
-          item.itemGroup.toLowerCase().contains(normalizedQuery);
-      return matchesGroup && matchesQuery;
-    }).toList(growable: false);
+    final filtered = items
+        .where((item) {
+          final matchesGroup =
+              normalizedGroup.isEmpty ||
+              item.itemGroup.toLowerCase() == normalizedGroup;
+          final matchesQuery =
+              normalizedQuery.isEmpty ||
+              item.code.toLowerCase().contains(normalizedQuery) ||
+              item.name.toLowerCase().contains(normalizedQuery) ||
+              item.uom.toLowerCase().contains(normalizedQuery) ||
+              item.warehouse.toLowerCase().contains(normalizedQuery) ||
+              item.itemGroup.toLowerCase().contains(normalizedQuery);
+          return matchesGroup && matchesQuery;
+        })
+        .toList(growable: false);
     return _page(filtered, limit: limit, offset: offset);
   }
 
-  static List<AdminSupplier> supplierPage({
-    int limit = 20,
-    int offset = 0,
-  }) {
+  static List<AdminSupplier> supplierPage({int limit = 20, int offset = 0}) {
     return _page(suppliers, limit: limit, offset: offset);
   }
 
@@ -233,13 +234,13 @@ class TestModeDemoData {
     final start = offset <= 0
         ? 0
         : offset >= source.length
-            ? source.length
-            : offset;
+        ? source.length
+        : offset;
     final end = limit <= 0
         ? source.length
         : start + limit >= source.length
-            ? source.length
-            : start + limit;
+        ? source.length
+        : start + limit;
     return source.sublist(start, end);
   }
 }

@@ -1,6 +1,6 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/session/state/app_session.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

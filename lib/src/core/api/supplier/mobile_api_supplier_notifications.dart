@@ -39,9 +39,9 @@ extension MobileApiSupplierNotifications on MobileApi {
   ) async {
     final http.Response response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/supplier/status-breakdown').replace(
-          queryParameters: {'kind': kind.name},
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/supplier/status-breakdown',
+        ).replace(queryParameters: {'kind': kind.name}),
         headers: _headers(requireToken()),
       ),
     );
@@ -64,12 +64,9 @@ extension MobileApiSupplierNotifications on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/supplier/status-details').replace(
-          queryParameters: {
-            'kind': kind.name,
-            'item_code': itemCode,
-          },
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/supplier/status-details',
+        ).replace(queryParameters: {'kind': kind.name, 'item_code': itemCode}),
         headers: _headers(requireToken()),
       ),
     );
@@ -85,8 +82,9 @@ extension MobileApiSupplierNotifications on MobileApi {
   Future<NotificationDetail> notificationDetail(String receiptID) async {
     final http.Response response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/notifications/detail')
-            .replace(queryParameters: {'receipt_id': receiptID}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/notifications/detail',
+        ).replace(queryParameters: {'receipt_id': receiptID}),
         headers: _headers(requireToken()),
       ),
     );
@@ -104,8 +102,9 @@ extension MobileApiSupplierNotifications on MobileApi {
   }) async {
     final http.Response response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('$baseUrl/v1/mobile/notifications/comments')
-            .replace(queryParameters: {'receipt_id': receiptID}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/notifications/comments',
+        ).replace(queryParameters: {'receipt_id': receiptID}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'message': message}),
@@ -123,14 +122,11 @@ extension MobileApiSupplierNotifications on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.itemPage(query: query, limit: 0);
     }
-    final Uri uri = Uri.parse('$baseUrl/v1/mobile/supplier/items').replace(
-      queryParameters: query.trim().isEmpty ? null : {'q': query},
-    );
+    final Uri uri = Uri.parse(
+      '$baseUrl/v1/mobile/supplier/items',
+    ).replace(queryParameters: query.trim().isEmpty ? null : {'q': query});
     final http.Response response = await _sendAuthorized(
-      () => http.get(
-        uri,
-        headers: _headers(requireToken()),
-      ),
+      () => http.get(uri, headers: _headers(requireToken())),
     );
     if (response.statusCode != 200) {
       throw Exception('Supplier items failed');
@@ -150,10 +146,7 @@ extension MobileApiSupplierNotifications on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/supplier/dispatch'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'item_code': itemCode,
-          'qty': qty,
-        }),
+        body: jsonEncode({'item_code': itemCode, 'qty': qty}),
       ),
     );
     if (response.statusCode != 200) {

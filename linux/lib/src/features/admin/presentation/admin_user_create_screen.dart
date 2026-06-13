@@ -97,24 +97,21 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
-          _RoleSelector(
-            choice: _choice,
-            onTap: _openRolePicker,
-          ),
+          _RoleSelector(choice: _choice, onTap: _openRolePicker),
           Expanded(
             child: switch (kind) {
               _AdminUserCreateKind.werka => _WerkaCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.customer => _CustomerCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.supplier => _SupplierCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.custom => _CustomRoleCreateTab(
-                  assignedRole: _choice.customRole!,
-                ),
+                assignedRole: _choice.customRole!,
+              ),
             },
           ),
         ],
@@ -201,10 +198,7 @@ _AdminUserCreateKind _kindForRole(AdminRoleDefinition role) {
 }
 
 class _RoleSelector extends StatelessWidget {
-  const _RoleSelector({
-    required this.choice,
-    required this.onTap,
-  });
+  const _RoleSelector({required this.choice, required this.onTap});
 
   final _AdminUserCreateChoice choice;
   final VoidCallback onTap;
@@ -646,8 +640,9 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
               regenerating: regenerating,
               retryAfterSec: _retryAfterSec,
               onCopy: werkaCode.trim().isEmpty ? null : _copyCode,
-              onRegenerate:
-                  regenerating || _retryAfterSec > 0 ? null : _regenerate,
+              onRegenerate: regenerating || _retryAfterSec > 0
+                  ? null
+                  : _regenerate,
             ),
             if (_retryAfterSec > 0) ...[
               const SizedBox(height: 12),

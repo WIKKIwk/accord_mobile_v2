@@ -8,10 +8,7 @@ import '../state/security_controller.dart';
 import 'package:flutter/material.dart';
 
 class AppLockGate extends StatefulWidget {
-  const AppLockGate({
-    super.key,
-    required this.child,
-  });
+  const AppLockGate({super.key, required this.child});
 
   final Widget child;
 
@@ -43,10 +40,7 @@ class _AppLockGateState extends State<AppLockGate> {
         return Stack(
           children: [
             Positioned.fill(
-              child: IgnorePointer(
-                ignoring: locked,
-                child: widget.child,
-              ),
+              child: IgnorePointer(ignoring: locked, child: widget.child),
             ),
             Positioned.fill(
               child: IgnorePointer(
@@ -115,9 +109,7 @@ class _PrivacyShieldOverlay extends StatelessWidget {
         children: [
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: ColoredBox(
-              color: scheme.surface.withValues(alpha: 0.30),
-            ),
+            child: ColoredBox(color: scheme.surface.withValues(alpha: 0.30)),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -132,8 +124,9 @@ class _PrivacyShieldOverlay extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color:
-                        scheme.surfaceContainerHighest.withValues(alpha: 0.30),
+                    color: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.30,
+                    ),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.08),
                     ),
@@ -156,10 +149,8 @@ class _PrivacyShieldOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              'Accord',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
+                              'Accord Mobile V2',
+                              style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
                                     color: scheme.onPrimary,
                                     fontWeight: FontWeight.w700,
@@ -230,8 +221,9 @@ class _PinUnlockOverlayState extends State<_PinUnlockOverlay> {
       _error = null;
     });
     try {
-      final ok = await SecurityController.instance
-          .unlockWithPin(_pinController.text.trim());
+      final ok = await SecurityController.instance.unlockWithPin(
+        _pinController.text.trim(),
+      );
       if (!ok && mounted) {
         _resetPinField(error: l10n.pinWrong);
       }
@@ -280,9 +272,7 @@ class _PinUnlockOverlayState extends State<_PinUnlockOverlay> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: ColoredBox(
-              color: Theme.of(context).colorScheme.surface,
-            ),
+            child: ColoredBox(color: Theme.of(context).colorScheme.surface),
           ),
           SafeArea(
             child: Align(
@@ -318,13 +308,15 @@ class _PinUnlockOverlayState extends State<_PinUnlockOverlay> {
                           busy: _unlocking,
                         ),
                         if (SecurityController
-                            .instance.biometricEnabledForCurrentUser) ...[
+                            .instance
+                            .biometricEnabledForCurrentUser) ...[
                           const SizedBox(height: 18),
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton(
-                              onPressed:
-                                  _unlocking ? null : _unlockWithBiometric,
+                              onPressed: _unlocking
+                                  ? null
+                                  : _unlockWithBiometric,
                               child: Text(l10n.biometricCta),
                             ),
                           ),

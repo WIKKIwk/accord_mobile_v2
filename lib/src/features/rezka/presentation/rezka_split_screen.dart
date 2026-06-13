@@ -36,8 +36,9 @@ class RezkaSplitScreen extends StatefulWidget {
 class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   final _barcodeController = TextEditingController();
   final _reasonController = TextEditingController();
-  final _driverUrlController =
-      TextEditingController(text: 'http://gscale.local:39117');
+  final _driverUrlController = TextEditingController(
+    text: 'http://gscale.local:39117',
+  );
   final _printerController = TextEditingController(text: 'godex');
   final _printModeController = TextEditingController(text: 'label');
   final _printerDiscoveryClient = http.Client();
@@ -144,7 +145,8 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   }
 
   Future<void> _finishPrinterDiscovery(
-      ServerEndpoint? preferredEndpoint) async {
+    ServerEndpoint? preferredEndpoint,
+  ) async {
     try {
       final result = await discoverServers(
         _printerDiscoveryClient,
@@ -208,7 +210,8 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   }
 
   Future<void> _loadSource() async {
-    final barcode = _extractLookupBarcode(_barcodeController.text) ??
+    final barcode =
+        _extractLookupBarcode(_barcodeController.text) ??
         _barcodeController.text.trim();
     if (barcode.isEmpty || _loadingSource) {
       return;
@@ -303,8 +306,9 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       final message = action == _RezkaRemainderAction.scrap
           ? 'Qoldiq ${diff.gscale} ${source.uom} brak sifatida $_rezkaScrapWarehouse omborga yozildi.'
           : 'Qoldiq ${diff.gscale} ${source.uom} yangi bo‘lakka ochildi, mahsulotini tanlang.';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       return false;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -462,9 +466,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${response.outputs.length} ta QR chiqarildi.'),
-        ),
+        SnackBar(content: Text('${response.outputs.length} ta QR chiqarildi.')),
       );
     } catch (error) {
       if (mounted) {
@@ -478,16 +480,18 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   }
 
   void _showError(Object error) {
-    final message =
-        error is MobileApiException ? error.message : error.toString();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    final message = error is MobileApiException
+        ? error.message
+        : error.toString();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showRezkaSubmitError(Object error) {
-    final message =
-        error is MobileApiException ? error.message : error.toString();
+    final message = error is MobileApiException
+        ? error.message
+        : error.toString();
     final parsed = RegExp(
       r'output_total_must_equal_source_qty:([0-9.]+)!=([0-9.]+)',
     ).firstMatch(message);
@@ -712,18 +716,18 @@ class _PrinterDiscoveryCard extends StatelessWidget {
     final isBusy = activity?.busy ?? false;
     final title = selected == null
         ? discovering
-            ? 'Printer qidirilmoqda'
-            : 'Printer fallback'
+              ? 'Printer qidirilmoqda'
+              : 'Printer fallback'
         : isBusy
-            ? 'Printer band'
-            : selected.handshake.displayName.trim().isEmpty
-                ? selected.endpoint.label
-                : selected.handshake.displayName;
+        ? 'Printer band'
+        : selected.handshake.displayName.trim().isEmpty
+        ? selected.endpoint.label
+        : selected.handshake.displayName;
     final subtitle = selected == null
         ? driverUrl
         : isBusy
-            ? activity!.displayDetail
-            : '${selected.endpoint.label} • ${selected.latencyMs} ms';
+        ? activity!.displayDetail
+        : '${selected.endpoint.label} • ${selected.latencyMs} ms';
     return Card(
       child: Theme(
         data: theme.copyWith(
@@ -743,7 +747,8 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(
-                    isBusy ? Icons.hourglass_top_rounded : Icons.print_rounded),
+                    isBusy ? Icons.hourglass_top_rounded : Icons.print_rounded,
+                  ),
           ),
           title: Text(
             title,
@@ -754,11 +759,7 @@ class _PrinterDiscoveryCard extends StatelessWidget {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
               if (selected != null)
                 Text(
                   driverUrl,
@@ -831,8 +832,8 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                     final itemTitle = itemBusy
                         ? 'Band'
                         : item.handshake.displayName.trim().isEmpty
-                            ? item.endpoint.label
-                            : item.handshake.displayName;
+                        ? item.endpoint.label
+                        : item.handshake.displayName;
                     return ListTile(
                       dense: true,
                       minVerticalPadding: 4,
@@ -923,8 +924,8 @@ class _OutputCard extends StatelessWidget {
     final theme = Theme.of(context);
     final itemLabel = output.printQr
         ? output.itemCode.trim().isEmpty
-            ? 'Mahsulot tanlang'
-            : '${output.itemName} (${output.itemCode})'
+              ? 'Mahsulot tanlang'
+              : '${output.itemName} (${output.itemCode})'
         : 'Atxot: QR chiqarilmaydi';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -972,8 +973,9 @@ class _OutputCard extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: output.qtyController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(labelText: 'Qty'),
                   ),
                 ),
@@ -1107,12 +1109,13 @@ class _RezkaItemPickerSheetState extends State<_RezkaItemPickerSheet> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        tileColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        tileColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         title: Text(item.name.isEmpty ? item.code : item.name),
                         subtitle: Text(
-                            '${item.code} • ${item.uom} • ${item.warehouse}'),
+                          '${item.code} • ${item.uom} • ${item.warehouse}',
+                        ),
                         onTap: () => Navigator.of(context).pop(item),
                       );
                     },
@@ -1192,10 +1195,7 @@ class _RezkaScannerDialogState extends State<_RezkaScannerDialog> {
         appBar: AppBar(title: const Text('QR scan')),
         body: controller == null
             ? const Center(child: Text('Scanner bu qurilmada ishlamaydi'))
-            : MobileScanner(
-                controller: controller,
-                onDetect: _detect,
-              ),
+            : MobileScanner(controller: controller, onDetect: _detect),
       ),
     );
   }

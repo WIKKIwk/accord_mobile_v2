@@ -1,4 +1,4 @@
-import 'package:erpnext_stock_mobile/src/core/widgets/scroll/top_refresh_scroll_physics.dart';
+import 'package:accord_mobile_v2/src/core/widgets/scroll/top_refresh_scroll_physics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

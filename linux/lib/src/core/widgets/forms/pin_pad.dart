@@ -142,8 +142,10 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
       return;
     }
     HapticFeedback.selectionClick();
-    final value =
-        widget.controller.text.substring(0, widget.controller.text.length - 1);
+    final value = widget.controller.text.substring(
+      0,
+      widget.controller.text.length - 1,
+    );
     widget.controller.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
@@ -174,9 +176,7 @@ class _PinCodeEditorState extends State<PinCodeEditor> {
           Text(
             widget.errorText!,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.error,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
           ),
         ],
         const SizedBox(height: 22),
@@ -256,8 +256,8 @@ class _PinIndicatorRow extends StatelessWidget {
           final motion = inserting
               ? _PinGlyphMotion.insert
               : (!filled && deletingIndex == index)
-                  ? _PinGlyphMotion.delete
-                  : _PinGlyphMotion.none;
+              ? _PinGlyphMotion.delete
+              : _PinGlyphMotion.none;
           final shapeKind = filled
               ? (index < shapeCycle.length ? shapeCycle[index] : null)
               : (deletingIndex == index ? deletingShape : null);
@@ -277,11 +277,7 @@ class _PinIndicatorRow extends StatelessWidget {
   }
 }
 
-enum _PinGlyphMotion {
-  none,
-  insert,
-  delete,
-}
+enum _PinGlyphMotion { none, insert, delete }
 
 enum _PinShapeKind {
   clover,
@@ -329,9 +325,7 @@ class _PinGlyph extends StatelessWidget {
           scaleY: 0.94,
         );
       case _PinShapeKind.square:
-        return RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(9),
-        );
+        return RoundedRectangleBorder(borderRadius: BorderRadius.circular(9));
       case _PinShapeKind.pentagon:
         return const _OrganicBlobBorder(
           lobes: 5,
@@ -394,9 +388,7 @@ class _PinGlyph extends StatelessWidget {
           scaleY: 0.95,
         );
       case _PinShapeKind.square:
-        return RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        );
+        return RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
       case _PinShapeKind.pentagon:
         return const _OrganicBlobBorder(
           lobes: 5,
@@ -454,11 +446,7 @@ class _PinGlyph extends StatelessWidget {
         width: 40,
         height: 40,
         child: Center(
-          child: _GlyphSurface(
-            shape: CircleBorder(),
-            color: null,
-            size: 20,
-          ),
+          child: _GlyphSurface(shape: CircleBorder(), color: null, size: 20),
         ),
       );
     }
@@ -555,8 +543,9 @@ class _PinGlyphInsertMotionState extends State<_PinGlyphInsertMotion>
 
   ShapeBorder _shapeAt(double t) {
     if (t < 0.15) {
-      final local =
-          AppMotion.emphasizedDecelerate.transform((t / 0.15).clamp(0.0, 1.0));
+      final local = AppMotion.emphasizedDecelerate.transform(
+        (t / 0.15).clamp(0.0, 1.0),
+      );
       return ShapeBorder.lerp(widget.settledShape, widget.startShape, local)!;
     }
     if (t < 0.26) {
@@ -564,37 +553,43 @@ class _PinGlyphInsertMotionState extends State<_PinGlyphInsertMotion>
     }
     final settleT = ((t - 0.26) / 0.74).clamp(0.0, 1.0);
     if (settleT < 0.58) {
-      final local = Curves.easeInOutCubicEmphasized
-          .transform((settleT / 0.58).clamp(0.0, 1.0));
+      final local = Curves.easeInOutCubicEmphasized.transform(
+        (settleT / 0.58).clamp(0.0, 1.0),
+      );
       return ShapeBorder.lerp(widget.startShape, widget.midShape, local)!;
     }
-    final local = Curves.easeInOutCubicEmphasized
-        .transform(((settleT - 0.58) / 0.42).clamp(0.0, 1.0));
+    final local = Curves.easeInOutCubicEmphasized.transform(
+      ((settleT - 0.58) / 0.42).clamp(0.0, 1.0),
+    );
     return ShapeBorder.lerp(widget.midShape, widget.settledShape, local)!;
   }
 
   double _sizeAt(double t) {
     if (t < 0.15) {
-      final local =
-          AppMotion.emphasizedDecelerate.transform((t / 0.15).clamp(0.0, 1.0));
+      final local = AppMotion.emphasizedDecelerate.transform(
+        (t / 0.15).clamp(0.0, 1.0),
+      );
       return 20 + (11 * local);
     }
     if (t < 0.26) {
       return 31;
     }
-    final local = Curves.easeInOutCubicEmphasized
-        .transform(((t - 0.26) / 0.74).clamp(0.0, 1.0));
+    final local = Curves.easeInOutCubicEmphasized.transform(
+      ((t - 0.26) / 0.74).clamp(0.0, 1.0),
+    );
     return 31 - (11 * local);
   }
 
   double _scaleAt(double t) {
     if (t < 0.15) {
-      final local =
-          AppMotion.emphasizedDecelerate.transform((t / 0.15).clamp(0.0, 1.0));
+      final local = AppMotion.emphasizedDecelerate.transform(
+        (t / 0.15).clamp(0.0, 1.0),
+      );
       return _lerpDouble(1.0, 1.06, local);
     }
-    final local = Curves.easeInOutCubicEmphasized
-        .transform(((t - 0.26) / 0.74).clamp(0.0, 1.0));
+    final local = Curves.easeInOutCubicEmphasized.transform(
+      ((t - 0.26) / 0.74).clamp(0.0, 1.0),
+    );
     return _lerpDouble(1.06, 1.0, local);
   }
 
@@ -689,8 +684,11 @@ class _OrganicBlobBorder extends OutlinedBorder {
       return _OrganicBlobBorder(
         lobes: _lerpDouble(a.lobes, lobes, t),
         amplitude: _lerpDouble(a.amplitude, amplitude, t),
-        secondaryAmplitude:
-            _lerpDouble(a.secondaryAmplitude, secondaryAmplitude, t),
+        secondaryAmplitude: _lerpDouble(
+          a.secondaryAmplitude,
+          secondaryAmplitude,
+          t,
+        ),
         rotation: _lerpDouble(a.rotation, rotation, t),
         scaleX: _lerpDouble(a.scaleX, scaleX, t),
         scaleY: _lerpDouble(a.scaleY, scaleY, t),
@@ -706,8 +704,11 @@ class _OrganicBlobBorder extends OutlinedBorder {
       return _OrganicBlobBorder(
         lobes: _lerpDouble(lobes, b.lobes, t),
         amplitude: _lerpDouble(amplitude, b.amplitude, t),
-        secondaryAmplitude:
-            _lerpDouble(secondaryAmplitude, b.secondaryAmplitude, t),
+        secondaryAmplitude: _lerpDouble(
+          secondaryAmplitude,
+          b.secondaryAmplitude,
+          t,
+        ),
         rotation: _lerpDouble(rotation, b.rotation, t),
         scaleX: _lerpDouble(scaleX, b.scaleX, t),
         scaleY: _lerpDouble(scaleY, b.scaleY, t),
@@ -770,9 +771,7 @@ class _OrganicBlobBorder extends OutlinedBorder {
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
 
   @override
-  _OrganicBlobBorder copyWith({
-    BorderSide? side,
-  }) {
+  _OrganicBlobBorder copyWith({BorderSide? side}) {
     return _OrganicBlobBorder(
       lobes: lobes,
       amplitude: amplitude,
@@ -788,9 +787,7 @@ class _OrganicBlobBorder extends OutlinedBorder {
 double _lerpDouble(double a, double b, double t) => a + ((b - a) * t);
 
 class _PinKeypadRow extends StatelessWidget {
-  const _PinKeypadRow({
-    required this.digits,
-  });
+  const _PinKeypadRow({required this.digits});
 
   final List<String> digits;
 
@@ -845,11 +842,11 @@ class _PinDigitButtonState extends State<_PinDigitButton> {
       child: Text(
         widget.label,
         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: widget.enabled
-                  ? foreground
-                  : foreground.withValues(alpha: 0.35),
-              fontWeight: FontWeight.w500,
-            ),
+          color: widget.enabled
+              ? foreground
+              : foreground.withValues(alpha: 0.35),
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -1030,8 +1027,9 @@ class _PinActionButtonState extends State<_PinActionButton> {
             scheme.primaryContainer,
           )
         : scheme.secondaryContainer.withValues(alpha: 0.82);
-    final foreground =
-        widget.emphasized ? scheme.onPrimaryContainer : scheme.onSurface;
+    final foreground = widget.emphasized
+        ? scheme.onPrimaryContainer
+        : scheme.onSurface;
     final overlayColor = widget.emphasized
         ? scheme.onPrimaryContainer.withValues(alpha: 0.08)
         : scheme.secondaryContainer.withValues(alpha: 0.22);

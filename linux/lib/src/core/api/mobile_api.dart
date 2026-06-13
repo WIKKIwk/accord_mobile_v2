@@ -64,9 +64,7 @@ class MobileApi {
   );
 
   Map<String, String> _headers(String token) {
-    return {
-      'Authorization': 'Bearer $token',
-    };
+    return {'Authorization': 'Bearer $token'};
   }
 
   String requireToken() {

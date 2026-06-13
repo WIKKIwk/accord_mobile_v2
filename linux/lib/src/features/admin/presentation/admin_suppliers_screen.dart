@@ -200,15 +200,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
     final results = await Future.wait([
       if (shouldLoadSuppliers)
-        _safeLoadAdminSuppliers(
-          limit: _pageSize,
-          offset: _supplierOffset,
-        ),
+        _safeLoadAdminSuppliers(limit: _pageSize, offset: _supplierOffset),
       if (shouldLoadCustomers)
-        _safeLoadAdminCustomers(
-          limit: _pageSize,
-          offset: _customerOffset,
-        ),
+        _safeLoadAdminCustomers(limit: _pageSize, offset: _customerOffset),
     ]);
     if (!mounted) {
       return;
@@ -409,20 +403,19 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
     if (item.kind == AdminUserKind.werka) {
-      final result =
-          await Navigator.of(context).pushNamed(AppRoutes.adminWerka);
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminWerka);
       changed = result == true;
     } else if (item.kind == AdminUserKind.customer) {
-      final result = await Navigator.of(context).pushNamed(
-        AppRoutes.adminCustomerDetail,
-        arguments: item.id,
-      );
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item.id);
       changed = result == true;
     } else {
-      final result = await Navigator.of(context).pushNamed(
-        AppRoutes.adminSupplierDetail,
-        arguments: item.id,
-      );
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminSupplierDetail, arguments: item.id);
       changed = result == true;
     }
     if (changed && mounted) {
@@ -461,9 +454,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       customerHasMore: _customerHasMore,
       supplierOffset: _supplierOffset,
       customerOffset: _customerOffset,
-      assignedRoleLabels: Map<String, String>.unmodifiable(
-        _assignedRoleLabels,
-      ),
+      assignedRoleLabels: Map<String, String>.unmodifiable(_assignedRoleLabels),
     );
   }
 
@@ -489,10 +480,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = Localizations.of<AppLocalizations>(
-      context,
-      AppLocalizations,
-    );
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final visibleItems = _visibleItems();
     return AppShell(
       animateOnEnter: false,

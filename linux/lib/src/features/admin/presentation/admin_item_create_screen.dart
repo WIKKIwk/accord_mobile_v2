@@ -130,9 +130,11 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
     final normalizedCode = itemCode.toLowerCase();
     final normalizedName = itemName.toLowerCase();
     return items.any((item) {
-      final codeMatches = normalizedCode.isNotEmpty &&
+      final codeMatches =
+          normalizedCode.isNotEmpty &&
           item.code.trim().toLowerCase() == normalizedCode;
-      final nameMatches = normalizedName.isNotEmpty &&
+      final nameMatches =
+          normalizedName.isNotEmpty &&
           item.name.trim().toLowerCase() == normalizedName;
       return codeMatches || nameMatches;
     });
@@ -157,9 +159,11 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
             final normalizedQuery = query.trim().toLowerCase();
             final filtered = normalizedQuery.isEmpty
                 ? groups
-                : groups.where((group) {
-                    return group.toLowerCase().contains(normalizedQuery);
-                  }).toList(growable: false);
+                : groups
+                      .where((group) {
+                        return group.toLowerCase().contains(normalizedQuery);
+                      })
+                      .toList(growable: false);
             return filtered.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (group) => group,
@@ -210,16 +214,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
                     onSave: saving ? null : _save,
                   ),
                   AdminItemsListTab(
-                    loadItemsPage: ({
-                      required query,
-                      required limit,
-                      required offset,
-                    }) =>
-                        MobileApi.instance.adminItemsPage(
-                      query: query,
-                      limit: limit,
-                      offset: offset,
-                    ),
+                    loadItemsPage:
+                        ({required query, required limit, required offset}) =>
+                            MobileApi.instance.adminItemsPage(
+                              query: query,
+                              limit: limit,
+                              offset: offset,
+                            ),
                   ),
                 ],
               ),
@@ -277,21 +278,23 @@ class _CreateItemTab extends StatelessWidget {
                 !snapshot.hasError) {
               onSyncItemGroup(groups);
             }
-            final selectedGroup =
-                itemGroup.text.trim().isEmpty ? null : itemGroup.text.trim();
+            final selectedGroup = itemGroup.text.trim().isEmpty
+                ? null
+                : itemGroup.text.trim();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Item group',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 _TapBox(
-                  onTap: snapshot.connectionState == ConnectionState.done &&
+                  onTap:
+                      snapshot.connectionState == ConnectionState.done &&
                           !snapshot.hasError &&
                           !saving
                       ? () => onOpenItemGroupPicker(groups)
@@ -317,14 +320,12 @@ class _CreateItemTab extends StatelessWidget {
                             selectedGroup ?? 'Group tanlang',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
+                            style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(
                                   color: selectedGroup == null
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant
                                       : Theme.of(context).colorScheme.onSurface,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -361,17 +362,15 @@ class _CreateItemTab extends StatelessWidget {
   }
 }
 
-typedef AdminItemsPageLoader = Future<List<SupplierItem>> Function({
-  required String query,
-  required int limit,
-  required int offset,
-});
+typedef AdminItemsPageLoader =
+    Future<List<SupplierItem>> Function({
+      required String query,
+      required int limit,
+      required int offset,
+    });
 
 class AdminItemsListTab extends StatefulWidget {
-  const AdminItemsListTab({
-    super.key,
-    required this.loadItemsPage,
-  });
+  const AdminItemsListTab({super.key, required this.loadItemsPage});
 
   final AdminItemsPageLoader loadItemsPage;
 
@@ -486,10 +485,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     await _fetchPage(offset: _items.length, replace: false);
   }
 
-  Future<void> _fetchPage({
-    required int offset,
-    required bool replace,
-  }) async {
+  Future<void> _fetchPage({required int offset, required bool replace}) async {
     final query = _query;
     try {
       final page = await widget.loadItemsPage(
@@ -671,9 +667,9 @@ class _AdminItemsList extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Text(
               'Pastga scroll qiling, qolganlari yuklanadi',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ),
       ],
@@ -682,10 +678,7 @@ class _AdminItemsList extends StatelessWidget {
 }
 
 class _AdminItemRow extends StatelessWidget {
-  const _AdminItemRow({
-    required this.slot,
-    required this.item,
-  });
+  const _AdminItemRow({required this.slot, required this.item});
 
   final M3SegmentVerticalSlot slot;
   final SupplierItem item;
@@ -725,23 +718,19 @@ class _AdminItemRow extends StatelessWidget {
       subtitle: subtitle,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
+        color: scheme.onSurfaceVariant,
+        height: 1.05,
+      ),
     );
   }
 }
 
 class _ItemListNotice extends StatelessWidget {
-  const _ItemListNotice({
-    required this.text,
-    this.actionText,
-    this.onAction,
-  });
+  const _ItemListNotice({required this.text, this.actionText, this.onAction});
 
   final String text;
   final String? actionText;
@@ -762,10 +751,7 @@ class _ItemListNotice extends StatelessWidget {
           Text(text, textAlign: TextAlign.center),
           if (actionText != null && onAction != null) ...[
             const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: onAction,
-              child: Text(actionText!),
-            ),
+            OutlinedButton(onPressed: onAction, child: Text(actionText!)),
           ],
         ],
       ),
@@ -783,10 +769,11 @@ List<String> orderAdminItemGroupsByParent(
 
   for (var index = 0; index < entries.length; index++) {
     final entry = entries[index];
-    final name = (entry.itemGroupName.trim().isNotEmpty
-            ? entry.itemGroupName
-            : entry.name)
-        .trim();
+    final name =
+        (entry.itemGroupName.trim().isNotEmpty
+                ? entry.itemGroupName
+                : entry.name)
+            .trim();
     if (name.isEmpty || !names.add(name)) {
       continue;
     }
@@ -800,8 +787,9 @@ List<String> orderAdminItemGroupsByParent(
 
   for (final children in childrenByParent.values) {
     children.sort((left, right) {
-      return (indexByName[left] ?? 1 << 20)
-          .compareTo(indexByName[right] ?? 1 << 20);
+      return (indexByName[left] ?? 1 << 20).compareTo(
+        indexByName[right] ?? 1 << 20,
+      );
     });
   }
 
@@ -820,14 +808,15 @@ List<String> orderAdminItemGroupsByParent(
     enqueue('All Item Groups');
   }
 
-  final roots = names.where((name) {
-    final parent = parentByName[name] ?? '';
-    return parent.isEmpty || parent == name || !names.contains(parent);
-  }).toList()
-    ..sort((left, right) {
-      return (indexByName[left] ?? 1 << 20)
-          .compareTo(indexByName[right] ?? 1 << 20);
-    });
+  final roots =
+      names.where((name) {
+        final parent = parentByName[name] ?? '';
+        return parent.isEmpty || parent == name || !names.contains(parent);
+      }).toList()..sort((left, right) {
+        return (indexByName[left] ?? 1 << 20).compareTo(
+          indexByName[right] ?? 1 << 20,
+        );
+      });
 
   for (final root in roots) {
     enqueue(root);

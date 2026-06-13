@@ -107,10 +107,9 @@ class _CustomerNotificationsScreenState
     setState(() {
       _highlightedUnreadIds.remove(deliveryNoteID);
     });
-    await Navigator.of(context).pushNamed(
-      '/customer-detail',
-      arguments: deliveryNoteID,
-    );
+    await Navigator.of(
+      context,
+    ).pushNamed('/customer-detail', arguments: deliveryNoteID);
   }
 
   Future<void> _clearAll() async {
@@ -241,11 +240,12 @@ class _CustomerNotificationsScreenState
         final hidden = NotificationHiddenStore.instance.hiddenIdsForProfile(
           AppSession.instance.profile,
         );
-        final items = ((store.loaded
-                ? store.historyItems
-                : (_cachedItems ?? <DispatchRecord>[])))
-            .where((item) => !hidden.contains(item.id))
-            .toList();
+        final items =
+            ((store.loaded
+                    ? store.historyItems
+                    : (_cachedItems ?? <DispatchRecord>[])))
+                .where((item) => !hidden.contains(item.id))
+                .toList();
         final orderedItems = [
           ...items.where((item) => _highlightedUnreadIds.contains(item.id)),
           ...items.where((item) => !_highlightedUnreadIds.contains(item.id)),
@@ -261,9 +261,7 @@ class _CustomerNotificationsScreenState
             child: ListView(
               physics: const TopRefreshScrollPhysics(),
               padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
-              children: [
-                AppRetryState(onRetry: _reload),
-              ],
+              children: [AppRetryState(onRetry: _reload)],
             ),
           );
         }
@@ -275,9 +273,7 @@ class _CustomerNotificationsScreenState
               physics: const TopRefreshScrollPhysics(),
               padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
               children: [
-                _NotificationPanel(
-                  child: Text(context.l10n.noRecordsYet),
-                ),
+                _NotificationPanel(child: Text(context.l10n.noRecordsYet)),
               ],
             ),
           );
@@ -354,13 +350,8 @@ class _NotificationPanel extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       color: isDark ? const Color(0xFF25242B) : scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Padding(
-        padding: padding,
-        child: child,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -410,8 +401,9 @@ class _NotificationSection extends StatelessWidget {
                       record: items[index],
                       isFirst: index == 0,
                       isLast: index == items.length - 1,
-                      highlighted:
-                          highlightedUnreadIds.contains(items[index].id),
+                      highlighted: highlightedUnreadIds.contains(
+                        items[index].id,
+                      ),
                       onTap: () => onTapRecord(items[index].id),
                     ),
                   ),
@@ -508,10 +500,7 @@ class _CustomerFeedRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        record.itemName,
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text(record.itemName, style: theme.textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
                         record.itemCode,

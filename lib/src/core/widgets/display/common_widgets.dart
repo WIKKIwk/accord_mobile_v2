@@ -53,10 +53,7 @@ class SoftCard extends StatelessWidget {
 }
 
 class StatusPill extends StatelessWidget {
-  const StatusPill({
-    super.key,
-    required this.status,
-  });
+  const StatusPill({super.key, required this.status});
 
   final DispatchStatus status;
 
@@ -101,7 +98,8 @@ class StatusPill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: status == DispatchStatus.accepted ||
+          color:
+              status == DispatchStatus.accepted ||
                   status == DispatchStatus.draft
               ? Colors.transparent
               : const Color(0x33000000),
@@ -111,20 +109,16 @@ class StatusPill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
 }
 
 class MetricBadge extends StatelessWidget {
-  const MetricBadge({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const MetricBadge({super.key, required this.label, required this.value});
 
   final String label;
   final String value;

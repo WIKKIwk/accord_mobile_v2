@@ -1,13 +1,14 @@
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_dock.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:erpnext_stock_mobile/src/core/widgets/shell/app_shell.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_dock.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('admin supplier list builds with semantics enabled',
-      (tester) async {
+  testWidgets('admin supplier list builds with semantics enabled', (
+    tester,
+  ) async {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
@@ -50,8 +51,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('admin supplier shell builds with dock semantics enabled',
-      (tester) async {
+  testWidgets('admin supplier shell builds with dock semantics enabled', (
+    tester,
+  ) async {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(

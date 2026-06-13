@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.erpnext_stock_mobile"
+    namespace = "com.example.accord_mobile_v2"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.erpnext_stock_mobile"
+        applicationId = "com.example.accord_mobile_v2"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -62,7 +62,7 @@ tasks.register<Copy>("copyAccordDebugApk") {
 tasks.register<Copy>("copyAccordDebugAliasApk") {
     from(debugApkDir.map { it.file("app-debug.apk") })
     into(flutterApkDir)
-    rename { "accord-debug.apk" }
+    rename { "accord-mobile-v2-debug.apk" }
 }
 
 tasks.register<Copy>("copyAccordReleaseApk") {
@@ -73,7 +73,7 @@ tasks.register<Copy>("copyAccordReleaseApk") {
 tasks.register<Copy>("copyAccordReleaseAliasApk") {
     from(releaseApkDir.map { it.file("app-release.apk") })
     into(flutterApkDir)
-    rename { "accord.apk" }
+    rename { "accord-mobile-v2.apk" }
 }
 
 tasks.matching { it.name == "assembleDebug" }.configureEach {

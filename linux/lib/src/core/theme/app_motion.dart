@@ -33,18 +33,18 @@ class AppMotion {
   /// M3 Expressive `fastSpatialSpec` (Compose reference values).
   static final SpringDescription m3ExpressiveFastSpatial =
       SpringDescription.withDampingRatio(
-    mass: 1.0,
-    stiffness: 1400.0,
-    ratio: 0.6,
-  );
+        mass: 1.0,
+        stiffness: 1400.0,
+        ratio: 0.6,
+      );
 
   /// M3 Expressive `fastEffectsSpec` (no overshoot).
   static final SpringDescription m3ExpressiveFastEffects =
       SpringDescription.withDampingRatio(
-    mass: 1.0,
-    stiffness: 3800.0,
-    ratio: 1.0,
-  );
+        mass: 1.0,
+        stiffness: 3800.0,
+        ratio: 1.0,
+      );
 
   static const AnimationStyle sheetEaseOut = AnimationStyle(
     curve: easeOut,

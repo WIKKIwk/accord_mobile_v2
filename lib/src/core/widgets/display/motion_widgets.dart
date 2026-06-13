@@ -25,16 +25,18 @@ class SmoothAppear extends StatelessWidget {
         final double delayedValue = delay == Duration.zero
             ? value
             : ((value * (duration + delay).inMilliseconds) -
-                        delay.inMilliseconds)
-                    .clamp(0, duration.inMilliseconds)
-                    .toDouble() /
-                duration.inMilliseconds;
+                          delay.inMilliseconds)
+                      .clamp(0, duration.inMilliseconds)
+                      .toDouble() /
+                  duration.inMilliseconds;
 
         return Opacity(
           opacity: delayedValue,
           child: Transform.translate(
             offset: Offset(
-                offset.dx * (1 - delayedValue), offset.dy * (1 - delayedValue)),
+              offset.dx * (1 - delayedValue),
+              offset.dy * (1 - delayedValue),
+            ),
             child: animatedChild,
           ),
         );
@@ -70,24 +72,18 @@ class SoftReveal extends StatelessWidget {
         final double delayedValue = delay == Duration.zero
             ? value
             : ((value * (duration + delay).inMilliseconds) -
-                        delay.inMilliseconds)
-                    .clamp(0, duration.inMilliseconds)
-                    .toDouble() /
-                duration.inMilliseconds;
+                          delay.inMilliseconds)
+                      .clamp(0, duration.inMilliseconds)
+                      .toDouble() /
+                  duration.inMilliseconds;
         final eased = AppMotion.emphasizedDecelerate.transform(delayedValue);
         final scale = beginScale + ((1 - beginScale) * eased);
 
         return Opacity(
           opacity: eased,
           child: Transform.translate(
-            offset: Offset(
-              offset.dx * (1 - eased),
-              offset.dy * (1 - eased),
-            ),
-            child: Transform.scale(
-              scale: scale,
-              child: animatedChild,
-            ),
+            offset: Offset(offset.dx * (1 - eased), offset.dy * (1 - eased)),
+            child: Transform.scale(scale: scale, child: animatedChild),
           ),
         );
       },

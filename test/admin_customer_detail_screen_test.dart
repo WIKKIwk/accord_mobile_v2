@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_customer_detail_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_customer_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,8 +34,9 @@ void main() {
     expect(find.text('30SFT8WLPTR9'), findsOneWidget);
   });
 
-  testWidgets('admin customer detail renders with semantics enabled',
-      (tester) async {
+  testWidgets('admin customer detail renders with semantics enabled', (
+    tester,
+  ) async {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(

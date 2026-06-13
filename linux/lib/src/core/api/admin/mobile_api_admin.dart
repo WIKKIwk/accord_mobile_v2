@@ -100,8 +100,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
-        .map((item) =>
-            AdminRoleDefinition.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => AdminRoleDefinition.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -118,7 +119,8 @@ extension MobileApiAdmin on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-            (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>))
+          (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -160,9 +162,7 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
-  Future<AdminRoleDefinition> adminUpsertRole(
-    AdminRoleDefinition role,
-  ) async {
+  Future<AdminRoleDefinition> adminUpsertRole(AdminRoleDefinition role) async {
     final response = await _sendAuthorized(
       () => http.put(
         Uri.parse('$baseUrl/v1/mobile/admin/roles'),
@@ -194,8 +194,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
-        .map((item) =>
-            AdminRoleAssignment.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => AdminRoleAssignment.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -311,8 +312,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/detail')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/detail',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -330,8 +332,9 @@ extension MobileApiAdmin on MobileApi {
     }
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/admin/customers/detail')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/customers/detail',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -349,8 +352,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.put(
-        Uri.parse('$baseUrl/v1/mobile/admin/customers/phone')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/customers/phone',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'phone': phone}),
@@ -367,8 +371,9 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminCustomerDetail> adminRegenerateCustomerCode(String ref) async {
     final response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('$baseUrl/v1/mobile/admin/customers/code/regenerate')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/customers/code/regenerate',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -383,8 +388,9 @@ extension MobileApiAdmin on MobileApi {
   Future<void> adminRemoveCustomer(String ref) async {
     final response = await _sendAuthorized(
       () => http.delete(
-        Uri.parse('$baseUrl/v1/mobile/admin/customers/remove')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/customers/remove',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -402,10 +408,7 @@ extension MobileApiAdmin on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'name': name,
-          'phone': phone,
-        }),
+        body: jsonEncode({'name': name, 'phone': phone}),
       ),
     );
     if (response.statusCode != 200) {
@@ -425,10 +428,7 @@ extension MobileApiAdmin on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/admin/customers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'name': name,
-          'phone': phone,
-        }),
+        body: jsonEncode({'name': name, 'phone': phone}),
       ),
     );
     if (response.statusCode != 200) {
@@ -463,9 +463,8 @@ extension MobileApiAdmin on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-          (item) => CustomerDirectoryEntry.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              CustomerDirectoryEntry.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -476,8 +475,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.put(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/status')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/status',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'blocked': blocked}),
@@ -497,8 +497,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.put(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/phone')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/phone',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'phone': phone}),
@@ -515,8 +516,9 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminSupplierDetail> adminRegenerateSupplierCode(String ref) async {
     final response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/code/regenerate')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/code/regenerate',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -534,8 +536,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.put(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/items',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'item_codes': itemCodes}),
@@ -552,8 +555,9 @@ extension MobileApiAdmin on MobileApi {
   Future<List<SupplierItem>> adminAssignedSupplierItems(String ref) async {
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/assigned')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/items/assigned',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -572,8 +576,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/add')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/items/add',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({'item_code': itemCode}),
@@ -593,8 +598,9 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final response = await _sendAuthorized(
       () => http.delete(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/items/remove')
-            .replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/items/remove',
+        ).replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
         headers: _headers(requireToken()),
       ),
     );
@@ -609,8 +615,9 @@ extension MobileApiAdmin on MobileApi {
   Future<void> adminRemoveSupplier(String ref) async {
     final response = await _sendAuthorized(
       () => http.delete(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/remove')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/remove',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );
@@ -622,8 +629,9 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminSupplierDetail> adminRestoreSupplier(String ref) async {
     final response = await _sendAuthorized(
       () => http.post(
-        Uri.parse('$baseUrl/v1/mobile/admin/suppliers/restore')
-            .replace(queryParameters: {'ref': ref}),
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/suppliers/restore',
+        ).replace(queryParameters: {'ref': ref}),
         headers: _headers(requireToken()),
       ),
     );

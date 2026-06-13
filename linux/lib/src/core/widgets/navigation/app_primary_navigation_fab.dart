@@ -52,8 +52,9 @@ class AppNavigationPrimaryFabOnly extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final MediaQueryData viewMetrics =
-        MediaQueryData.fromView(View.of(context));
+    final MediaQueryData viewMetrics = MediaQueryData.fromView(
+      View.of(context),
+    );
     final double systemBottomInset = dockLayoutBottomInset(
       viewMetrics,
       thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
@@ -117,10 +118,12 @@ class AppPrimaryNavigationFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final Color background =
-        selected ? scheme.primary : scheme.primaryContainer;
-    final Color foreground =
-        selected ? scheme.onPrimary : scheme.onPrimaryContainer;
+    final Color background = selected
+        ? scheme.primary
+        : scheme.primaryContainer;
+    final Color foreground = selected
+        ? scheme.onPrimary
+        : scheme.onPrimaryContainer;
     final Widget icon = destination.selectedIcon ?? destination.icon;
     final double side = driveReferencePrimaryFabSize(context);
     final double radius = driveReferencePrimaryFabBorderRadius(context);
@@ -152,10 +155,7 @@ class AppPrimaryNavigationFab extends StatelessWidget {
                 ),
               ),
               child: IconTheme(
-                data: IconThemeData(
-                  color: foreground,
-                  size: iconSize,
-                ),
+                data: IconThemeData(color: foreground, size: iconSize),
                 child: Center(
                   child: SizedBox(
                     width: iconSize,

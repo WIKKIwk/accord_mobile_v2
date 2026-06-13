@@ -61,10 +61,8 @@ class WerkaStore extends ChangeNotifier {
   List<DispatchRecord> get pendingItems =>
       WerkaRuntimeStore.instance.applyPendingItems(_pendingItems);
 
-  List<DispatchRecord> get fullPendingItems =>
-      WerkaRuntimeStore.instance.applyPendingItems(
-        _loadedPending ? _fullPendingItems : _pendingItems,
-      );
+  List<DispatchRecord> get fullPendingItems => WerkaRuntimeStore.instance
+      .applyPendingItems(_loadedPending ? _fullPendingItems : _pendingItems);
 
   bool get homePendingListExpanded => _homePendingListExpanded;
 
@@ -75,8 +73,8 @@ class WerkaStore extends ChangeNotifier {
   List<DispatchRecord> get historyItems => _historyItems;
   List<WerkaStatusBreakdownEntry> breakdownItems(WerkaStatusKind kind) =>
       kind == WerkaStatusKind.pending
-          ? _pendingBreakdownItems()
-          : _breakdownItems[kind] ?? const <WerkaStatusBreakdownEntry>[];
+      ? _pendingBreakdownItems()
+      : _breakdownItems[kind] ?? const <WerkaStatusBreakdownEntry>[];
   bool loadingBreakdown(WerkaStatusKind kind) => kind == WerkaStatusKind.pending
       ? _loadingPending
       : _loadingBreakdown[kind] == true;
@@ -84,23 +82,23 @@ class WerkaStore extends ChangeNotifier {
       kind == WerkaStatusKind.pending ? _pendingError : _breakdownErrors[kind];
   List<DispatchRecord> detailItems(WerkaStatusKind kind, String supplierRef) =>
       kind == WerkaStatusKind.pending
-          ? _pendingDetailItems(supplierRef)
-          : _detailItems[_detailKey(kind, supplierRef)] ??
-              const <DispatchRecord>[];
+      ? _pendingDetailItems(supplierRef)
+      : _detailItems[_detailKey(kind, supplierRef)] ?? const <DispatchRecord>[];
   bool loadingDetail(WerkaStatusKind kind, String supplierRef) =>
       kind == WerkaStatusKind.pending
-          ? _loadingPending
-          : _loadingDetail[_detailKey(kind, supplierRef)] == true;
+      ? _loadingPending
+      : _loadingDetail[_detailKey(kind, supplierRef)] == true;
   Object? detailError(WerkaStatusKind kind, String supplierRef) =>
       kind == WerkaStatusKind.pending
-          ? _pendingError
-          : _detailErrors[_detailKey(kind, supplierRef)];
+      ? _pendingError
+      : _detailErrors[_detailKey(kind, supplierRef)];
 
   Future<void> bootstrapHome({bool force = false}) async {
     if (_loadingHome) return;
     if (_loadedHome && !force) return;
-    final bootstrap =
-        force ? null : AppSession.instance.consumeWerkaHomeBootstrap();
+    final bootstrap = force
+        ? null
+        : AppSession.instance.consumeWerkaHomeBootstrap();
     if (bootstrap != null) {
       _summary = bootstrap.summary;
       _pendingItems = bootstrap.pendingItems;
@@ -193,15 +191,13 @@ class WerkaStore extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
-    await Future.wait([
-      refreshHome(),
-      refreshPending(),
-      refreshHistory(),
-    ]);
+    await Future.wait([refreshHome(), refreshPending(), refreshHistory()]);
   }
 
-  Future<void> bootstrapBreakdown(WerkaStatusKind kind,
-      {bool force = false}) async {
+  Future<void> bootstrapBreakdown(
+    WerkaStatusKind kind, {
+    bool force = false,
+  }) async {
     if (kind == WerkaStatusKind.pending) {
       await bootstrapPending(force: force);
       return;
@@ -221,8 +217,9 @@ class WerkaStore extends ChangeNotifier {
     _breakdownErrors[kind] = null;
     notifyListeners();
     try {
-      _breakdownItems[kind] =
-          await MobileApi.instance.werkaStatusBreakdown(kind);
+      _breakdownItems[kind] = await MobileApi.instance.werkaStatusBreakdown(
+        kind,
+      );
     } catch (error) {
       _breakdownErrors[kind] = error;
     } finally {
@@ -231,8 +228,11 @@ class WerkaStore extends ChangeNotifier {
     }
   }
 
-  Future<void> bootstrapDetail(WerkaStatusKind kind, String supplierRef,
-      {bool force = false}) async {
+  Future<void> bootstrapDetail(
+    WerkaStatusKind kind,
+    String supplierRef, {
+    bool force = false,
+  }) async {
     if (kind == WerkaStatusKind.pending) {
       await bootstrapPending(force: force);
       return;
@@ -313,8 +313,12 @@ class WerkaStore extends ChangeNotifier {
     }
 
     final items = grouped.values.toList()
-      ..sort((a, b) =>
-          compareCreatedLabelsDesc(a.latestCreatedLabel, b.latestCreatedLabel));
+      ..sort(
+        (a, b) => compareCreatedLabelsDesc(
+          a.latestCreatedLabel,
+          b.latestCreatedLabel,
+        ),
+      );
     return items
         .map(
           (item) => WerkaStatusBreakdownEntry(

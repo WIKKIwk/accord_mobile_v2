@@ -28,10 +28,7 @@ class WerkaArchiveListArgs {
 }
 
 class WerkaArchiveListScreen extends StatefulWidget {
-  const WerkaArchiveListScreen({
-    super.key,
-    required this.args,
-  });
+  const WerkaArchiveListScreen({super.key, required this.args});
 
   final WerkaArchiveListArgs args;
 
@@ -131,8 +128,10 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     if (from == null || to == null) {
       return '';
     }
-    final localizations =
-        Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
+    final localizations = Localizations.of<MaterialLocalizations>(
+      context,
+      MaterialLocalizations,
+    );
     if (localizations == null) {
       return '';
     }
@@ -199,9 +198,9 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
         final message = savedAt == file.filename
             ? context.l10n.archivePdfDownloadStartedWeb
             : context.l10n.archivePdfSavedAt(savedAt);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
         return;
       }
       await _showPdfActions(file);
@@ -209,9 +208,9 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.archivePdfFailed)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.archivePdfFailed)));
     } finally {
       if (mounted) {
         setState(() => _downloading = false);
@@ -300,11 +299,11 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     final message = defaultTargetPlatform == TargetPlatform.iOS
         ? context.l10n.archivePdfSavedOnIPhone
         : outputFile == file.filename
-            ? context.l10n.archivePdfSavedToFiles
-            : context.l10n.archivePdfSavedAt(outputFile);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+        ? context.l10n.archivePdfSavedToFiles
+        : context.l10n.archivePdfSavedAt(outputFile);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sharePdf(DownloadedFile file) async {
@@ -320,8 +319,9 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
           ),
         ],
         fileNameOverrides: [file.filename],
-        sharePositionOrigin:
-            box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
       ),
     );
   }
@@ -496,8 +496,10 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
                     subtitle:
                         '${data.items[index].itemCode} • ${data.items[index].itemName}',
                     metric: _metricLabel(data.items[index]),
-                    status:
-                        _statusLabel(context.l10n, data.items[index].status),
+                    status: _statusLabel(
+                      context.l10n,
+                      data.items[index].status,
+                    ),
                     createdLabel: data.items[index].createdLabel,
                     isLast: index == data.items.length - 1,
                   ),
@@ -507,9 +509,9 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
                       thickness: 1,
                       indent: 18,
                       endIndent: 18,
-                      color: Theme.of(context)
-                          .dividerColor
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(
+                        context,
+                      ).dividerColor.withValues(alpha: 0.55),
                     ),
                 ],
               ],
@@ -525,8 +527,10 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     if (value == null) {
       return context.l10n.archiveSelectDateAction;
     }
-    final localizations =
-        Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
+    final localizations = Localizations.of<MaterialLocalizations>(
+      context,
+      MaterialLocalizations,
+    );
     if (localizations == null) {
       return context.l10n.archiveSelectDateAction;
     }
@@ -578,9 +582,7 @@ class _DailyFilterCard extends StatelessWidget {
     return Card.filled(
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -637,10 +639,7 @@ class _DailyFilterCard extends StatelessWidget {
 }
 
 class _AnimatedCalendarReveal extends StatelessWidget {
-  const _AnimatedCalendarReveal({
-    required this.open,
-    required this.child,
-  });
+  const _AnimatedCalendarReveal({required this.open, required this.child});
 
   final bool open;
   final Widget child;
@@ -682,9 +681,7 @@ class _DailyCalendarCard extends StatelessWidget {
     return Card.filled(
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: CalendarDatePicker(

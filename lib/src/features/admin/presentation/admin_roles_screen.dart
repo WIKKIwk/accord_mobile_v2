@@ -78,10 +78,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   Future<void> _openRoleEditor(
@@ -295,8 +292,9 @@ class _RolesTabState extends State<_RolesTab> {
                   expanded: _expandedRoleId == widget.data.roles[index].id,
                   onExpandedChanged: (expanded) {
                     setState(() {
-                      _expandedRoleId =
-                          expanded ? widget.data.roles[index].id : null;
+                      _expandedRoleId = expanded
+                          ? widget.data.roles[index].id
+                          : null;
                     });
                   },
                   onEdit: widget.data.roles[index].system
@@ -753,7 +751,8 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
                     ),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: _roleCanAssignToPrincipal(role, widget.principal)
+                      onPressed:
+                          _roleCanAssignToPrincipal(role, widget.principal)
                           ? () => _submit(role)
                           : null,
                       child: const Text('Saqlash'),
@@ -782,8 +781,9 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
         principalRole: principalRole,
         principalRef: widget.principal.ref,
         roleId: role.id,
-        assignedApparatus:
-            _roleNeedsApparatus(role) ? _sortedAssignedApparatus() : const [],
+        assignedApparatus: _roleNeedsApparatus(role)
+            ? _sortedAssignedApparatus()
+            : const [],
       ),
     );
   }
@@ -832,7 +832,8 @@ class _AdminRolesData {
           role: adminCustomerPrincipalRole(assignments, customer.ref),
           ref: customer.ref,
           name: customer.name,
-          icon: adminCustomerPrincipalRole(assignments, customer.ref) ==
+          icon:
+              adminCustomerPrincipalRole(assignments, customer.ref) ==
                   UserRole.aparatchi
               ? Icons.precision_manufacturing_outlined
               : Icons.person_outline_rounded,
@@ -907,12 +908,14 @@ class _AdminRolesData {
   }
 
   _AdminRolesData upsertAssignment(AdminRoleAssignment assignment) {
-    final nextAssignments = assignments
-        .where(
-          (item) => item.principalRef.trim() != assignment.principalRef.trim(),
-        )
-        .toList()
-      ..add(assignment);
+    final nextAssignments =
+        assignments
+            .where(
+              (item) =>
+                  item.principalRef.trim() != assignment.principalRef.trim(),
+            )
+            .toList()
+          ..add(assignment);
     return copyWith(assignments: nextAssignments);
   }
 
@@ -971,10 +974,7 @@ String _roleDefinitionLabel(BuildContext context, AdminRoleDefinition role) {
   return context.l10n.systemRoleLabel(role.id, role.label);
 }
 
-String _roleDefinitionSummary(
-  AppLocalizations l10n,
-  AdminRoleDefinition role,
-) {
+String _roleDefinitionSummary(AppLocalizations l10n, AdminRoleDefinition role) {
   final baseRole = role.baseRole;
   if (baseRole == null) {
     return l10n.adminRoleKindLabel(role.system);
@@ -1019,7 +1019,8 @@ String _capabilityLabel(
   String code,
   List<AdminCapability> capabilities,
 ) {
-  final fallback = capabilities
+  final fallback =
+      capabilities
           .where((capability) => capability.code == code)
           .map((capability) => capability.label)
           .letFirstOrNull() ??

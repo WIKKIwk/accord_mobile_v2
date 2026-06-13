@@ -7,10 +7,7 @@ import 'widgets/supplier_dock.dart';
 import 'package:flutter/material.dart';
 
 class SupplierConfirmArgs {
-  const SupplierConfirmArgs({
-    required this.item,
-    required this.qty,
-  });
+  const SupplierConfirmArgs({required this.item, required this.qty});
 
   final SupplierItem item;
   final double qty;
@@ -25,7 +22,7 @@ class SupplierConfirmScreen extends StatefulWidget {
 
   final SupplierConfirmArgs args;
   final Future<DispatchRecord> Function(SupplierConfirmArgs args)?
-      submitDispatch;
+  submitDispatch;
 
   @override
   State<SupplierConfirmScreen> createState() => _SupplierConfirmScreenState();
@@ -44,25 +41,27 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
     });
 
     try {
-      final submitDispatch = widget.submitDispatch ??
+      final submitDispatch =
+          widget.submitDispatch ??
           (args) => MobileApi.instance.createDispatch(
-                itemCode: args.item.code,
-                qty: args.qty,
-              );
+            itemCode: args.item.code,
+            qty: args.qty,
+          );
       final DispatchRecord record = await submitDispatch(widget.args);
       SupplierStore.instance.recordCreatedPending();
       if (!mounted) {
         return;
       }
-      await Navigator.of(context)
-          .pushNamed(AppRoutes.supplierSuccess, arguments: record);
+      await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.supplierSuccess, arguments: record);
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Jo‘natish saqlanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Jo‘natish saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -114,10 +113,7 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.args.item.name,
-                    style: textTheme.headlineSmall,
-                  ),
+                  Text(widget.args.item.name, style: textTheme.headlineSmall),
                   const SizedBox(height: 4),
                   Text(
                     widget.args.item.code,
@@ -134,9 +130,11 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                     ),
                     child: Column(
                       children: [
-                        for (int index = 0;
-                            index < detailRows.length;
-                            index++) ...[
+                        for (
+                          int index = 0;
+                          index < detailRows.length;
+                          index++
+                        ) ...[
                           _ConfirmDetailRow(
                             label: detailRows[index].label,
                             value: detailRows[index].value,
@@ -149,8 +147,9 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                               thickness: 1,
                               indent: 16,
                               endIndent: 16,
-                              color:
-                                  scheme.outlineVariant.withValues(alpha: 0.55),
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.55,
+                              ),
                             ),
                         ],
                       ],
@@ -165,8 +164,9 @@ class _SupplierConfirmScreenState extends State<SupplierConfirmScreen> {
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                              ),
                             )
                           : const Text('Ha, jo‘natishni saqlash'),
                     ),

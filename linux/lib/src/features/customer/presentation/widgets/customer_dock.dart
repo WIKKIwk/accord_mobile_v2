@@ -5,10 +5,7 @@ import '../../../../core/session/session.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
-enum CustomerDockTab {
-  home,
-  notifications,
-}
+enum CustomerDockTab { home, notifications }
 
 class CustomerDock extends StatelessWidget {
   const CustomerDock({
@@ -32,7 +29,8 @@ class CustomerDock extends StatelessWidget {
         NativeDockBridge.instance,
       ]),
       builder: (context, _) {
-        final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
+        final showBadge =
+            NotificationUnreadStore.instance.hasUnreadForProfile(
               AppSession.instance.profile,
             ) &&
             activeTab != CustomerDockTab.notifications;
@@ -70,7 +68,8 @@ class CustomerDock extends StatelessWidget {
           }
         }
 
-        final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+        final useNativeDock =
+            NativeDockBridge.isSupportedPlatform &&
             NativeDockBridge.instance.supportsSystemDock;
         if (useNativeDock) {
           NativeDockBridge.instance.register(
@@ -87,8 +86,9 @@ class CustomerDock extends StatelessWidget {
                   active: activeTab == CustomerDockTab.home,
                   primary: false,
                   showBadge: false,
-                  routeName:
-                      onTabSelected == null ? AppRoutes.customerHome : null,
+                  routeName: onTabSelected == null
+                      ? AppRoutes.customerHome
+                      : null,
                   replaceStack: onTabSelected == null,
                   onTap: () => handleSelection(0),
                 ),

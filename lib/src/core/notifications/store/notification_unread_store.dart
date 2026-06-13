@@ -111,8 +111,10 @@ class NotificationUnreadStore extends ChangeNotifier {
     if (set == null || set.isEmpty) {
       return <String>{};
     }
-    final requested =
-        ids.map((item) => item.trim()).where((item) => item.isNotEmpty).toSet();
+    final requested = ids
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
     final highlighted = set.intersection(requested);
     if (highlighted.isEmpty) {
       return <String>{};
@@ -139,8 +141,10 @@ class NotificationUnreadStore extends ChangeNotifier {
     if (set == null || set.isEmpty) {
       return;
     }
-    final allowed =
-        ids.map((item) => item.trim()).where((item) => item.isNotEmpty).toSet();
+    final allowed = ids
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
     final filtered = set.intersection(allowed);
     if (set.length == filtered.length) {
       return;

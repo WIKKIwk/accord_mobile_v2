@@ -1,16 +1,16 @@
 import '../../../core/search/search_normalizer.dart';
 import '../../shared/models/app_models.dart';
 
-typedef CalculateAllProductPageLoader = Future<List<SupplierItem>> Function({
-  String query,
-  String group,
-  int limit,
-  int offset,
-});
+typedef CalculateAllProductPageLoader =
+    Future<List<SupplierItem>> Function({
+      String query,
+      String group,
+      int limit,
+      int offset,
+    });
 
-typedef CalculateCustomerDetailLoader = Future<AdminCustomerDetail> Function(
-  String customerRef,
-);
+typedef CalculateCustomerDetailLoader =
+    Future<AdminCustomerDetail> Function(String customerRef);
 
 Future<List<SupplierItem>> loadCalculateProductPickerPage({
   required String customerRef,
@@ -44,9 +44,5 @@ Future<List<SupplierItem>> loadCalculateProductPickerPage({
         : offset + limit;
     return filtered.sublist(offset, end);
   }
-  return allItems(
-    query: query,
-    offset: offset,
-    limit: limit,
-  );
+  return allItems(query: query, offset: offset, limit: limit);
 }

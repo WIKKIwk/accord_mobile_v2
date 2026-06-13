@@ -14,10 +14,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 
 class NotificationDetailScreen extends StatefulWidget {
-  const NotificationDetailScreen({
-    super.key,
-    required this.receiptID,
-  });
+  const NotificationDetailScreen({super.key, required this.receiptID});
 
   final String receiptID;
 
@@ -133,8 +130,10 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Dialog(
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 28,
+              vertical: 24,
+            ),
             backgroundColor: scheme.surfaceContainerHigh,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
@@ -268,9 +267,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
               controller: controller,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Sabab (ixtiyoriy)',
-              ),
+              decoration: const InputDecoration(hintText: 'Sabab (ixtiyoriy)'),
             ),
             actions: [
               TextButton(
@@ -345,8 +342,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
         bottom: role == UserRole.supplier
             ? const SupplierDock(activeTab: null)
             : role == UserRole.werka
-                ? const WerkaDock(activeTab: null)
-                : null,
+            ? const WerkaDock(activeTab: null)
+            : null,
         child: const Center(child: AppLoadingIndicator()),
       );
     }
@@ -359,8 +356,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
       bottom: role == UserRole.supplier
           ? const SupplierDock(activeTab: null)
           : role == UserRole.werka
-              ? const WerkaDock(activeTab: null)
-              : null,
+          ? const WerkaDock(activeTab: null)
+          : null,
       child: FutureBuilder<NotificationDetail>(
         future: _future,
         builder: (context, snapshot) {
@@ -368,15 +365,14 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
             return const Center(child: AppLoadingIndicator());
           }
           if (snapshot.hasError) {
-            return AppRetryState(
-              onRetry: () async => _reload(),
-            );
+            return AppRetryState(onRetry: () async => _reload());
           }
 
           final detail = snapshot.data!;
           final record = detail.record;
           final currentProfile = AppSession.instance.profile;
-          final belongsToCurrentSupplier = role != UserRole.supplier ||
+          final belongsToCurrentSupplier =
+              role != UserRole.supplier ||
               currentProfile == null ||
               record.supplierRef.trim().isEmpty ||
               record.supplierRef.trim() == currentProfile.ref.trim();
@@ -394,11 +390,13 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
             });
             return const SizedBox.shrink();
           }
-          final canConfirm = role == UserRole.werka &&
+          final canConfirm =
+              role == UserRole.werka &&
               record.eventType.isEmpty &&
               (record.status == DispatchStatus.pending ||
                   record.status == DispatchStatus.draft);
-          final canRespondWerkaUnannounced = role == UserRole.supplier &&
+          final canRespondWerkaUnannounced =
+              role == UserRole.supplier &&
               record.eventType == 'werka_unannounced_pending';
           final isSupplierAckEvent = record.eventType == 'supplier_ack';
           final supplierAcknowledged = detail.comments.any(
@@ -406,18 +404,21 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                 item.authorLabel.startsWith('Supplier') &&
                 item.body.toLowerCase().contains('tasdiqlayman'),
           );
-          final canAcknowledge = role == UserRole.supplier &&
+          final canAcknowledge =
+              role == UserRole.supplier &&
               !canRespondWerkaUnannounced &&
               !supplierAcknowledged &&
               (record.status == DispatchStatus.partial ||
                   record.status == DispatchStatus.rejected ||
                   record.status == DispatchStatus.cancelled ||
                   record.note.trim().isNotEmpty);
-          final canComment = record.note.trim().isNotEmpty ||
+          final canComment =
+              record.note.trim().isNotEmpty ||
               record.status == DispatchStatus.partial ||
               record.status == DispatchStatus.rejected ||
               record.status == DispatchStatus.cancelled;
-          final canWriteIssueComment = canComment &&
+          final canWriteIssueComment =
+              canComment &&
               !canRespondWerkaUnannounced &&
               !isSupplierAckEvent &&
               !(role == UserRole.supplier && supplierAcknowledged);
@@ -451,10 +452,9 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () => Navigator.of(context).pushNamed(
-                        AppRoutes.werkaDetail,
-                        arguments: record,
-                      ),
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.werkaDetail, arguments: record),
                       child: const Text('Qabul qilishga o‘tish'),
                     ),
                   ),
@@ -475,8 +475,9 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                           ),
                           onPressed: _sending
                               ? null
@@ -498,8 +499,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           ? null
                           : () async {
                               final messenger = ScaffoldMessenger.of(context);
-                              final bool? confirmed =
-                                  await _showActionConfirmDialog(
+                              final bool?
+                              confirmed = await _showActionConfirmDialog(
                                 title: 'Tasdiqlash',
                                 message:
                                     'Haqiqatan ham shu holatni tasdiqlaysizmi?',
@@ -513,10 +514,10 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                               try {
                                 final updated = await MobileApi.instance
                                     .addNotificationComment(
-                                  receiptID: widget.receiptID,
-                                  message:
-                                      'Tasdiqlayman, shu holat bo‘lganini ko‘rdim.',
-                                );
+                                      receiptID: widget.receiptID,
+                                      message:
+                                          'Tasdiqlayman, shu holat bo‘lganini ko‘rdim.',
+                                    );
                                 if (!mounted) {
                                   return;
                                 }
@@ -593,9 +594,9 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                               Divider(
                                 height: 1,
                                 thickness: 1,
-                                color: Theme.of(context)
-                                    .dividerColor
-                                    .withValues(alpha: 0.45),
+                                color: Theme.of(
+                                  context,
+                                ).dividerColor.withValues(alpha: 0.45),
                               ),
                             ],
                           ),
@@ -607,9 +608,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                     controller: _commentController,
                     minLines: 3,
                     maxLines: 5,
-                    decoration: const InputDecoration(
-                      hintText: 'Izoh yozing',
-                    ),
+                    decoration: const InputDecoration(hintText: 'Izoh yozing'),
                   ),
                   if (_hasCommentText) ...[
                     const SizedBox(height: 12),
@@ -646,9 +645,7 @@ class _NotificationBackButton extends StatelessWidget {
 }
 
 class _NotificationSummarySection extends StatelessWidget {
-  const _NotificationSummarySection({
-    required this.record,
-  });
+  const _NotificationSummarySection({required this.record});
 
   final DispatchRecord record;
 
@@ -721,10 +718,7 @@ class _NotificationSummarySection extends StatelessWidget {
 }
 
 class _NotificationNoteSection extends StatelessWidget {
-  const _NotificationNoteSection({
-    required this.note,
-    this.emphasized = false,
-  });
+  const _NotificationNoteSection({required this.note, this.emphasized = false});
 
   final String note;
   final bool emphasized;
@@ -751,8 +745,8 @@ class _NotificationNoteSection extends StatelessWidget {
         child: Text(
           note,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: emphasized ? scheme.onSecondaryContainer : null,
-              ),
+            color: emphasized ? scheme.onSecondaryContainer : null,
+          ),
         ),
       ),
     );
@@ -812,9 +806,7 @@ class _NotificationInfoRow extends StatelessWidget {
 }
 
 class _DetailStatusChip extends StatelessWidget {
-  const _DetailStatusChip({
-    required this.label,
-  });
+  const _DetailStatusChip({required this.label});
 
   final String label;
 

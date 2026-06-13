@@ -12,10 +12,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaStatusBreakdownScreen extends StatefulWidget {
-  const WerkaStatusBreakdownScreen({
-    super.key,
-    required this.kind,
-  });
+  const WerkaStatusBreakdownScreen({super.key, required this.kind});
 
   final WerkaStatusKind kind;
 
@@ -94,9 +91,7 @@ class _WerkaStatusBreakdownScreenState
           }
           final error = store.breakdownError(widget.kind);
           if (error != null && store.breakdownItems(widget.kind).isEmpty) {
-            return AppRetryState(
-              onRetry: _reload,
-            );
+            return AppRetryState(onRetry: _reload);
           }
 
           final items = store.breakdownItems(widget.kind);
@@ -234,8 +229,9 @@ class _WerkaBreakdownSegmentTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      AppLocalizations.of(context)
-                          .recordCountLabel(entry.receiptCount),
+                      AppLocalizations.of(
+                        context,
+                      ).recordCountLabel(entry.receiptCount),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(

@@ -7,12 +7,7 @@ import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'werka_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
-enum WerkaDockTab {
-  home,
-  notifications,
-  create,
-  archive,
-}
+enum WerkaDockTab { home, notifications, create, archive }
 
 class WerkaDock extends StatelessWidget {
   const WerkaDock({
@@ -37,9 +32,11 @@ class WerkaDock extends StatelessWidget {
         ProfileRouteOverlayNotifier.instance,
       ]),
       builder: (context, _) {
-        final effectiveShowPrimaryFab = showPrimaryFab &&
+        final effectiveShowPrimaryFab =
+            showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab;
-        final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
+        final showBadge =
+            NotificationUnreadStore.instance.hasUnreadForProfile(
               AppSession.instance.profile,
             ) &&
             activeTab != WerkaDockTab.notifications;
@@ -85,7 +82,8 @@ class WerkaDock extends StatelessWidget {
               }
             }
 
-            final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+            final useNativeDock =
+                NativeDockBridge.isSupportedPlatform &&
                 NativeDockBridge.instance.supportsSystemDock;
             if (useNativeDock) {
               NativeDockBridge.instance.register(

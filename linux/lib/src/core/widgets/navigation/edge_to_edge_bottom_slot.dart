@@ -31,18 +31,21 @@ class EdgeToEdgeBottomSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MediaQueryData viewMetrics =
-        MediaQueryData.fromView(View.of(context));
+    final MediaQueryData viewMetrics = MediaQueryData.fromView(
+      View.of(context),
+    );
     final double systemBottomInset = dockLayoutBottomInset(
       viewMetrics,
       thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
     );
-    final double bh = barHeight ??
+    final double bh =
+        barHeight ??
         (child is NavigationBar ? (child as NavigationBar).height : null) ??
         NavigationBarTheme.of(context).height ??
         driveReferenceNavBarHeight(context);
     final double dockHeight = bh + systemBottomInset;
-    final double hostHeight = dockHeight +
+    final double hostHeight =
+        dockHeight +
         (overlayEndBottom != null
             ? appNavigationBarPrimaryFabSlotExtensionOf(context)
             : 0);

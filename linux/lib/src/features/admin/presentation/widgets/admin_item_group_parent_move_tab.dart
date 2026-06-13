@@ -36,10 +36,7 @@ class AdminItemGroupParentMoveTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
           children: [
-            AdminItemGroupParentMovePanel(
-              groups: groups,
-              onMoved: onMoved,
-            ),
+            AdminItemGroupParentMovePanel(groups: groups, onMoved: onMoved),
           ],
         );
       },

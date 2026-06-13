@@ -156,10 +156,7 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
                 padding: const EdgeInsets.fromLTRB(4, 0, 4, 116),
                 children: [
                   TweenAnimationBuilder<double>(
-                    tween: Tween<double>(
-                      begin: 1.0,
-                      end: 1.0 + _cardStretch,
-                    ),
+                    tween: Tween<double>(begin: 1.0, end: 1.0 + _cardStretch),
                     duration: const Duration(milliseconds: 110),
                     curve: Curves.easeOutCubic,
                     builder: (context, scaleY, child) {
@@ -178,88 +175,92 @@ class _SupplierRecentScreenState extends State<SupplierRecentScreen>
                       ),
                       child: Column(
                         children: [
-                          for (int index = 0;
-                              index < items.length;
-                              index++) ...[
-                            Builder(builder: (context) {
-                              final record = items[index];
-                              final item = SupplierItem(
-                                code: record.itemCode,
-                                name: record.itemName,
-                                uom: record.uom,
-                                warehouse: '',
-                              );
-                              return InkWell(
-                                onTap: () => Navigator.of(context).pushNamed(
-                                  AppRoutes.supplierQty,
-                                  arguments: SupplierQtyArgs(
-                                    item: item,
-                                    initialQty: record.sentQty,
+                          for (
+                            int index = 0;
+                            index < items.length;
+                            index++
+                          ) ...[
+                            Builder(
+                              builder: (context) {
+                                final record = items[index];
+                                final item = SupplierItem(
+                                  code: record.itemCode,
+                                  name: record.itemName,
+                                  uom: record.uom,
+                                  warehouse: '',
+                                );
+                                return InkWell(
+                                  onTap: () => Navigator.of(context).pushNamed(
+                                    AppRoutes.supplierQty,
+                                    arguments: SupplierQtyArgs(
+                                      item: item,
+                                      initialQty: record.sentQty,
+                                    ),
                                   ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 16,
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              record.itemName.trim().isEmpty
-                                                  ? record.itemCode
-                                                  : record.itemName,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleLarge,
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium,
-                                            ),
-                                            if (record.amount > 0) ...[
-                                              const SizedBox(height: 4),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 16,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
                                               Text(
-                                                '${record.amount.toStringAsFixed(0)} ${record.currency.isEmpty ? "" : record.currency}'
-                                                    .trim(),
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall,
+                                                record.itemName.trim().isEmpty
+                                                    ? record.itemCode
+                                                    : record.itemName,
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.titleLarge,
                                               ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                              ),
+                                              if (record.amount > 0) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${record.amount.toStringAsFixed(0)} ${record.currency.isEmpty ? "" : record.currency}'
+                                                      .trim(),
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.bodySmall,
+                                                ),
+                                              ],
                                             ],
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        record.createdLabel,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
-                                      ),
-                                    ],
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          record.createdLabel,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              },
+                            ),
                             if (index != items.length - 1)
                               Divider(
                                 height: 1,
                                 thickness: 1,
                                 indent: 18,
                                 endIndent: 18,
-                                color: Theme.of(context)
-                                    .dividerColor
-                                    .withValues(alpha: 0.55),
+                                color: Theme.of(
+                                  context,
+                                ).dividerColor.withValues(alpha: 0.55),
                               ),
                           ],
                         ],

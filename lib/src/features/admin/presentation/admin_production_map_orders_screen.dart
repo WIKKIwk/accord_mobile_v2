@@ -27,11 +27,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-enum _OpenedOrderModule {
-  orders,
-  move,
-  sequence,
-}
+enum _OpenedOrderModule { orders, move, sequence }
 
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
@@ -89,8 +85,9 @@ String _openedOrderSubtitle(
   bool includeApparatusCount = false,
 }) {
   final productTitle = _openedOrderProductTitle(map);
-  final apparatusCount =
-      map.nodes.where((node) => node.kind == 'apparatus').length;
+  final apparatusCount = map.nodes
+      .where((node) => node.kind == 'apparatus')
+      .length;
   return [
     if (productTitle.isNotEmpty) productTitle,
     if (map.productCode.trim().isNotEmpty) map.productCode.trim(),
@@ -207,8 +204,9 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _runWorkerLiveStream(int generation) async {
-    while (
-        mounted && generation == _liveStreamGeneration && widget.workerMode) {
+    while (mounted &&
+        generation == _liveStreamGeneration &&
+        widget.workerMode) {
       try {
         await _connectWorkerLiveStreamOnce(generation);
       } catch (_) {
@@ -242,44 +240,44 @@ class _AdminProductionMapOrdersScreenState
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-      (line) {
-        if (!mounted || generation != _liveStreamGeneration) {
-          return;
-        }
-        if (line.isEmpty) {
-          if (dataLines.isEmpty) {
-            return;
-          }
-          final payloadText = dataLines.join('\n');
-          dataLines.clear();
-          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-          if (payload['ok'] != true) {
-            return;
-          }
-          _applyWorkerLiveSnapshot(
-            AdminProductionMapLiveSnapshot.fromJson(payload),
-          );
-          return;
-        }
-        if (line.startsWith(':')) {
-          return;
-        }
-        if (line.startsWith('data:')) {
-          dataLines.add(line.substring(5).trimLeft());
-        }
-      },
-      onError: (error, _) {
-        if (!completer.isCompleted) {
-          completer.completeError(error);
-        }
-      },
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: true,
-    );
+          (line) {
+            if (!mounted || generation != _liveStreamGeneration) {
+              return;
+            }
+            if (line.isEmpty) {
+              if (dataLines.isEmpty) {
+                return;
+              }
+              final payloadText = dataLines.join('\n');
+              dataLines.clear();
+              final payload = jsonDecode(payloadText) as Map<String, dynamic>;
+              if (payload['ok'] != true) {
+                return;
+              }
+              _applyWorkerLiveSnapshot(
+                AdminProductionMapLiveSnapshot.fromJson(payload),
+              );
+              return;
+            }
+            if (line.startsWith(':')) {
+              return;
+            }
+            if (line.startsWith('data:')) {
+              dataLines.add(line.substring(5).trimLeft());
+            }
+          },
+          onError: (error, _) {
+            if (!completer.isCompleted) {
+              completer.completeError(error);
+            }
+          },
+          onDone: () {
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          cancelOnError: true,
+        );
 
     await completer.future;
   }
@@ -377,10 +375,7 @@ class _AdminProductionMapOrdersScreenState
     try {
       final results = await Future.wait([
         MobileApi.instance.adminProductionMaps(),
-        MobileApi.instance.adminWarehouses(
-          parent: 'aparat - A',
-          limit: 200,
-        ),
+        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
       ]);
       if (!mounted) {
         return;
@@ -394,9 +389,7 @@ class _AdminProductionMapOrdersScreenState
           _ordersRevision(orders) == _ordersRevision(_orders) &&
           _apparatus.length == apparatus.length &&
           _apparatus.every(
-            (item) => apparatus.any(
-              (next) => next.warehouse == item.warehouse,
-            ),
+            (item) => apparatus.any((next) => next.warehouse == item.warehouse),
           )) {
         return;
       }
@@ -531,7 +524,8 @@ class _AdminProductionMapOrdersScreenState
   }
 
   int _initialWatchTabIndex(List<AdminWarehouse> apparatus) {
-    final assigned = AppSession.instance.profile?.assignedApparatus
+    final assigned =
+        AppSession.instance.profile?.assignedApparatus
             .map((item) => item.trim())
             .where((item) => item.isNotEmpty) ??
         const <String>[];
@@ -639,10 +633,7 @@ class _AdminProductionMapOrdersScreenState
     try {
       return await MobileApi.instance.adminProductionMapQueueSnapshot();
     } catch (_) {
-      return const AdminApparatusQueueSnapshot(
-        sequences: {},
-        queueStates: {},
-      );
+      return const AdminApparatusQueueSnapshot(sequences: {}, queueStates: {});
     }
   }
 
@@ -680,17 +671,13 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   void _openOrder(ProductionMapSaved order) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.adminProductionMapTest,
-      arguments: order,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.adminProductionMapTest, arguments: order);
   }
 
   void _showOrderDetail(ProductionMapSaved order) {
@@ -734,9 +721,9 @@ class _AdminProductionMapOrdersScreenState
           );
         },
         sequenceOrderIds: _sequenceOrderIdsForApparatus(apparatus),
-        visibleOrderIds: _ordersForApparatus(apparatus)
-            .map((item) => item.map.id)
-            .toList(growable: false),
+        visibleOrderIds: _ordersForApparatus(
+          apparatus,
+        ).map((item) => item.map.id).toList(growable: false),
         onQueueAction: _handleQueueAction,
       ),
     );
@@ -791,18 +778,20 @@ class _AdminProductionMapOrdersScreenState
     if (query.isEmpty) {
       return _orders;
     }
-    return _orders.where((order) {
-      final map = order.map;
-      final haystack = [
-        _openedOrderDisplayCode(map),
-        map.code,
-        map.orderNumber,
-        map.title,
-        map.productCode,
-        for (final node in map.nodes) node.title,
-      ].join(' ').toLowerCase();
-      return haystack.contains(query);
-    }).toList(growable: false);
+    return _orders
+        .where((order) {
+          final map = order.map;
+          final haystack = [
+            _openedOrderDisplayCode(map),
+            map.code,
+            map.orderNumber,
+            map.title,
+            map.productCode,
+            for (final node in map.nodes) node.title,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
@@ -853,7 +842,9 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _reorderSelectedApparatusOrders(
-      int oldIndex, int newIndex) async {
+    int oldIndex,
+    int newIndex,
+  ) async {
     if (widget.readOnly) {
       return;
     }
@@ -861,18 +852,21 @@ class _AdminProductionMapOrdersScreenState
     if (apparatus == null) {
       return;
     }
-    final orders =
-        List<ProductionMapSaved>.from(_ordersForApparatus(apparatus));
+    final orders = List<ProductionMapSaved>.from(
+      _ordersForApparatus(apparatus),
+    );
     if (oldIndex == newIndex) {
       return;
     }
-    final previousOrderIds =
-        orders.map((order) => order.map.id).toList(growable: false);
+    final previousOrderIds = orders
+        .map((order) => order.map.id)
+        .toList(growable: false);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
     final apparatusKey = apparatus.warehouse.trim();
-    final orderIds =
-        orders.map((order) => order.map.id).toList(growable: false);
+    final orderIds = orders
+        .map((order) => order.map.id)
+        .toList(growable: false);
     setState(() {
       _sequenceByApparatus[apparatusKey] = orderIds;
     });
@@ -924,9 +918,7 @@ class _AdminProductionMapOrdersScreenState
   }) {
     final orderId = order.map.id.trim();
     final selectedFromZone = zoneOrders
-        .where(
-          (item) => _selectedMoveOrderIds.contains(item.map.id.trim()),
-        )
+        .where((item) => _selectedMoveOrderIds.contains(item.map.id.trim()))
         .toList(growable: false);
     final orders = selectedFromZone.isEmpty
         ? [order]
@@ -944,17 +936,11 @@ class _AdminProductionMapOrdersScreenState
     required AdminWarehouse to,
   }) async {
     if (_isMoveUnassignedApparatus(from) && !_isMoveUnassignedApparatus(to)) {
-      await _assignAlternativeOrdersToApparatus(
-        orders: orders,
-        apparatus: to,
-      );
+      await _assignAlternativeOrdersToApparatus(orders: orders, apparatus: to);
       return;
     }
     if (!_isMoveUnassignedApparatus(from) && _isMoveUnassignedApparatus(to)) {
-      await _returnOrdersToUnassigned(
-        orders: orders,
-        source: from,
-      );
+      await _returnOrdersToUnassigned(orders: orders, source: from);
       return;
     }
     if (widget.readOnly ||
@@ -985,9 +971,7 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final savedById = {
-        for (final item in saved) item.map.id.trim(): item,
-      };
+      final savedById = {for (final item in saved) item.map.id.trim(): item};
       if (savedById.length != orderIds.length ||
           !orderIds.every(savedById.containsKey)) {
         throw const MobileApiException(
@@ -1049,16 +1033,12 @@ class _AdminProductionMapOrdersScreenState
     try {
       final saved = <ProductionMapSaved>[];
       for (final entry in converted) {
-        saved.add(
-          await MobileApi.instance.adminSaveProductionMap(entry.value),
-        );
+        saved.add(await MobileApi.instance.adminSaveProductionMap(entry.value));
       }
       if (!mounted) {
         return;
       }
-      final savedById = {
-        for (final item in saved) item.map.id.trim(): item,
-      };
+      final savedById = {for (final item in saved) item.map.id.trim(): item};
       if (savedById.length != orderIds.length ||
           !orderIds.every(savedById.containsKey)) {
         throw const MobileApiException(
@@ -1149,9 +1129,7 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final savedById = {
-        for (final item in saved) item.map.id.trim(): item,
-      };
+      final savedById = {for (final item in saved) item.map.id.trim(): item};
       if (savedById.length != orderIds.length ||
           !orderIds.every(savedById.containsKey)) {
         throw const MobileApiException(
@@ -1199,10 +1177,7 @@ class _AdminProductionMapOrdersScreenState
               productionMapWarehouseTitlesMatch(node.title, targetTitle);
         })
         .cast<ProductionMapNode?>()
-        .firstWhere(
-          (node) => node != null,
-          orElse: () => null,
-        );
+        .firstWhere((node) => node != null, orElse: () => null);
     if (targetNode == null) {
       return map;
     }
@@ -1244,8 +1219,8 @@ class _AdminProductionMapOrdersScreenState
     final pickerApparatus = _movePickerApparatusOptions(anchor);
     final unassignedOrderCount =
         anchor == null || _isMoveUnassignedApparatus(anchor)
-            ? 0
-            : _alternativeOrdersForApparatus(anchor).length;
+        ? 0
+        : _alternativeOrdersForApparatus(anchor).length;
     final picked = await showModalBottomSheet<AdminWarehouse>(
       context: context,
       useSafeArea: true,
@@ -1292,9 +1267,11 @@ class _AdminProductionMapOrdersScreenState
     AdminWarehouse apparatus,
   ) {
     return _orders
-        .where((order) =>
-            !_isFlexoOrderBlockedForColorPechat(order.map, apparatus) &&
-            _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus))
+        .where(
+          (order) =>
+              !_isFlexoOrderBlockedForColorPechat(order.map, apparatus) &&
+              _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus),
+        )
         .toList(growable: false);
   }
 
@@ -1405,15 +1382,27 @@ class _AdminProductionMapOrdersScreenState
               selectedRouteName: AppRoutes.adminProductionMapOrders,
               onNavigate: _openDrawerRoute,
             ),
-      title: widget.workerMode ? workerTitle : 'reja menu',
+      title: widget.workerMode ? workerTitle : '',
       subtitle: widget.workerMode ? 'Kuzatish' : '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      titleWidget: widget.workerMode
+          ? null
+          : _OpenedOrderSearchField(
+              controller: _searchController,
+              inAppBar: true,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              onClear: () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              },
+            ),
       bottom: widget.workerMode
           ? const AparatchiDock(activeTab: AparatchiDockTab.home)
           : AdminDock(
               activeTab: AdminDockTab.home,
-              showPrimaryFab: _module != _OpenedOrderModule.sequence &&
+              showPrimaryFab:
+                  _module != _OpenedOrderModule.sequence &&
                   _module != _OpenedOrderModule.move,
             ),
       bottomDockFadeStrength: null,
@@ -1421,128 +1410,116 @@ class _AdminProductionMapOrdersScreenState
       child: _loading
           ? const Center(child: AppLoadingIndicator())
           : _loadError != null
-              ? Center(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _loading = true;
-                        _loadError = null;
-                      });
-                      unawaited(_load());
-                    },
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(_loadError!),
+          ? Center(
+              child: FilledButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _loading = true;
+                    _loadError = null;
+                  });
+                  unawaited(_load());
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(_loadError!),
+              ),
+            )
+          : widget.workerMode
+          ? _buildWorkerWatchBody(bottomPadding)
+          : Column(
+              children: [
+                if (_modules.length > 1)
+                  TabBar(
+                    controller: _tabController,
+                    onTap: (index) => _setModule(_modules[index]),
+                    tabs: [
+                      for (final module in _modules)
+                        Tab(text: _moduleLabel(module)),
+                    ],
                   ),
-                )
-              : widget.workerMode
-                  ? _buildWorkerWatchBody(bottomPadding)
-                  : Column(
-                      children: [
-                        if (_modules.length > 1)
-                          TabBar(
-                            controller: _tabController,
-                            onTap: (index) => _setModule(_modules[index]),
-                            tabs: [
-                              for (final module in _modules)
-                                Tab(text: _moduleLabel(module)),
-                            ],
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      for (final module in _modules)
+                        switch (module) {
+                          _OpenedOrderModule.orders => _OrdersModulePage(
+                            bottomPadding: bottomPadding,
+                            orders: _orders,
+                            visibleOrders: _visibleOrders(),
+                            onTapOrder: widget.readOnly ? null : _openOrder,
                           ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              for (final module in _modules)
-                                switch (module) {
-                                  _OpenedOrderModule.orders =>
-                                    _OrdersModulePage(
-                                      bottomPadding: bottomPadding,
-                                      searchController: _searchController,
-                                      orders: _orders,
-                                      visibleOrders: _visibleOrders(),
-                                      onSearchChanged: (value) {
-                                        setState(() => _searchQuery = value);
-                                      },
-                                      onSearchClear: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                      },
-                                      onTapOrder:
-                                          widget.readOnly ? null : _openOrder,
-                                    ),
-                                  _OpenedOrderModule.sequence =>
-                                    _SequenceModulePage(
-                                      bottomPadding: bottomPadding,
-                                      apparatus: _selectedApparatus,
-                                      orders: _selectedApparatus == null
-                                          ? const []
-                                          : _ordersForApparatus(
-                                              _selectedApparatus!),
-                                      readOnly: widget.readOnly,
-                                      onPickApparatus: _pickSequenceApparatus,
-                                      onReorder: (oldIndex, newIndex) {
-                                        unawaited(
-                                          _reorderSelectedApparatusOrders(
-                                            oldIndex,
-                                            newIndex,
-                                          ),
-                                        );
-                                      },
-                                      onTapOrder: widget.readOnly
-                                          ? _showOrderDetail
-                                          : _openOrder,
-                                    ),
-                                  _OpenedOrderModule.move => _MoveModulePage(
-                                      topApparatus: _moveTopApparatus,
-                                      bottomApparatus: _moveBottomApparatus,
-                                      topOrders: _moveTopApparatus == null ||
-                                              _moveBottomApparatus == null
-                                          ? const []
-                                          : _moveOrdersForApparatus(
-                                              source: _moveTopApparatus!,
-                                              target: _moveBottomApparatus!,
-                                            ),
-                                      bottomOrders: _moveTopApparatus == null ||
-                                              _moveBottomApparatus == null
-                                          ? const []
-                                          : _moveOrdersForApparatus(
-                                              source: _moveBottomApparatus!,
-                                              target: _moveTopApparatus!,
-                                            ),
-                                      selectedOrderIds: _selectedMoveOrderIds,
-                                      draggingOrders: _draggingMoveOrders,
-                                      draggingSource: _draggingMoveSource,
-                                      canMoveTo: (order, target, source) =>
-                                          _canMoveOrderToApparatus(
-                                        order,
-                                        target,
-                                        source: source,
-                                      ),
-                                      onPickTop: () =>
-                                          _pickMoveApparatus(top: true),
-                                      onPickBottom: () =>
-                                          _pickMoveApparatus(top: false),
-                                      onToggleSelect: _toggleMoveOrderSelection,
-                                      buildDragPayload: _buildMoveDragPayload,
-                                      onDragStarted: (payload) {
-                                        setState(() {
-                                          _draggingMoveOrders = payload.orders;
-                                          _draggingMoveSource = payload.source;
-                                        });
-                                      },
-                                      onDragEnded: () {
-                                        setState(() {
-                                          _draggingMoveOrders = const [];
-                                          _draggingMoveSource = null;
-                                        });
-                                      },
-                                      onMove: _moveOrdersBetweenApparatus,
-                                    ),
-                                },
-                            ],
+                          _OpenedOrderModule.sequence => _SequenceModulePage(
+                            bottomPadding: bottomPadding,
+                            apparatus: _selectedApparatus,
+                            orders: _selectedApparatus == null
+                                ? const []
+                                : _ordersForApparatus(_selectedApparatus!),
+                            readOnly: widget.readOnly,
+                            onPickApparatus: _pickSequenceApparatus,
+                            onReorder: (oldIndex, newIndex) {
+                              unawaited(
+                                _reorderSelectedApparatusOrders(
+                                  oldIndex,
+                                  newIndex,
+                                ),
+                              );
+                            },
+                            onTapOrder: widget.readOnly
+                                ? _showOrderDetail
+                                : _openOrder,
                           ),
-                        ),
-                      ],
-                    ),
+                          _OpenedOrderModule.move => _MoveModulePage(
+                            topApparatus: _moveTopApparatus,
+                            bottomApparatus: _moveBottomApparatus,
+                            topOrders:
+                                _moveTopApparatus == null ||
+                                    _moveBottomApparatus == null
+                                ? const []
+                                : _moveOrdersForApparatus(
+                                    source: _moveTopApparatus!,
+                                    target: _moveBottomApparatus!,
+                                  ),
+                            bottomOrders:
+                                _moveTopApparatus == null ||
+                                    _moveBottomApparatus == null
+                                ? const []
+                                : _moveOrdersForApparatus(
+                                    source: _moveBottomApparatus!,
+                                    target: _moveTopApparatus!,
+                                  ),
+                            selectedOrderIds: _selectedMoveOrderIds,
+                            draggingOrders: _draggingMoveOrders,
+                            draggingSource: _draggingMoveSource,
+                            canMoveTo: (order, target, source) =>
+                                _canMoveOrderToApparatus(
+                                  order,
+                                  target,
+                                  source: source,
+                                ),
+                            onPickTop: () => _pickMoveApparatus(top: true),
+                            onPickBottom: () => _pickMoveApparatus(top: false),
+                            onToggleSelect: _toggleMoveOrderSelection,
+                            buildDragPayload: _buildMoveDragPayload,
+                            onDragStarted: (payload) {
+                              setState(() {
+                                _draggingMoveOrders = payload.orders;
+                                _draggingMoveSource = payload.source;
+                              });
+                            },
+                            onDragEnded: () {
+                              setState(() {
+                                _draggingMoveOrders = const [];
+                                _draggingMoveSource = null;
+                              });
+                            },
+                            onMove: _moveOrdersBetweenApparatus,
+                          ),
+                        },
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -1563,9 +1540,7 @@ class _AdminProductionMapOrdersScreenState
           labelPadding: const EdgeInsets.symmetric(horizontal: 8),
           tabs: [
             for (final item in _apparatus)
-              Tab(
-                text: productionMapPechatTabLabel(item.warehouse),
-              ),
+              Tab(text: productionMapPechatTabLabel(item.warehouse)),
           ],
         ),
         Expanded(
@@ -1579,10 +1554,8 @@ class _AdminProductionMapOrdersScreenState
                   bottomPadding: bottomPadding,
                   isAssigned: _isAssignedWatchApparatus(item),
                   queueStates: _queueStatesForApparatus(item),
-                  onTapOrder: (order) => _showWatchOrderDetail(
-                    apparatus: item,
-                    order: order,
-                  ),
+                  onTapOrder: (order) =>
+                      _showWatchOrderDetail(apparatus: item, order: order),
                 ),
             ],
           ),
@@ -1603,20 +1576,14 @@ class _AdminProductionMapOrdersScreenState
 class _OrdersModulePage extends StatelessWidget {
   const _OrdersModulePage({
     required this.bottomPadding,
-    required this.searchController,
     required this.orders,
     required this.visibleOrders,
-    required this.onSearchChanged,
-    required this.onSearchClear,
     required this.onTapOrder,
   });
 
   final double bottomPadding;
-  final TextEditingController searchController;
   final List<ProductionMapSaved> orders;
   final List<ProductionMapSaved> visibleOrders;
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback onSearchClear;
   final ValueChanged<ProductionMapSaved>? onTapOrder;
 
   @override
@@ -1624,20 +1591,12 @@ class _OrdersModulePage extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(0, 0, 0, bottomPadding),
       children: [
-        _OpenedOrderSearchField(
-          controller: searchController,
-          onChanged: onSearchChanged,
-          onClear: onSearchClear,
-        ),
         if (orders.isEmpty)
           const _EmptyOpenedOrders(message: 'Ochilgan zakaz yo‘q')
         else if (visibleOrders.isEmpty)
           const _EmptyOpenedOrders(message: 'Zakaz topilmadi')
         else
-          _OpenedOrderList(
-            orders: visibleOrders,
-            onTapOrder: onTapOrder,
-          ),
+          _OpenedOrderList(orders: visibleOrders, onTapOrder: onTapOrder),
       ],
     );
   }
@@ -1686,9 +1645,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
             ),
           ),
         if (orders.isEmpty)
-          _EmptyOpenedOrders(
-            message: '${apparatus.warehouse} uchun zakaz yo‘q',
-          )
+          _EmptyOpenedOrders(message: '${apparatus.warehouse} uchun zakaz yo‘q')
         else
           for (var index = 0; index < orders.length; index++)
             Padding(
@@ -1741,58 +1698,56 @@ class _SequenceModulePage extends StatelessWidget {
     final list = selected == null
         ? const <Widget>[]
         : orders.isEmpty
-            ? <Widget>[
-                _EmptyOpenedOrders(
-                  message: '${selected.warehouse} uchun zakaz yo‘q',
+        ? <Widget>[
+            _EmptyOpenedOrders(
+              message: '${selected.warehouse} uchun zakaz yo‘q',
+            ),
+          ]
+        : readOnly
+        ? [
+            for (var index = 0; index < orders.length; index++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index < orders.length - 1
+                      ? M3SegmentedListGeometry.gap
+                      : 0,
                 ),
-              ]
-            : readOnly
-                ? [
-                    for (var index = 0; index < orders.length; index++)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index < orders.length - 1
-                              ? M3SegmentedListGeometry.gap
-                              : 0,
-                        ),
-                        child: _SequenceOrderRow(
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            orders.length,
-                          ),
-                          order: orders[index],
-                          index: index,
-                          readOnly: true,
-                          onTap: onTapOrder == null
-                              ? null
-                              : () => onTapOrder!(orders[index]),
-                        ),
-                      ),
-                  ]
-                : [
-                    for (var index = 0; index < orders.length; index++)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index < orders.length - 1
-                              ? M3SegmentedListGeometry.gap
-                              : 0,
-                        ),
-                        child: _SequenceOrderRow(
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            orders.length,
-                          ),
-                          order: orders[index],
-                          index: index,
-                          readOnly: false,
-                          onTap: onTapOrder == null
-                              ? null
-                              : () => onTapOrder!(orders[index]),
-                        ),
-                      ),
-                  ];
+                child: _SequenceOrderRow(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    orders.length,
+                  ),
+                  order: orders[index],
+                  index: index,
+                  readOnly: true,
+                  onTap: onTapOrder == null
+                      ? null
+                      : () => onTapOrder!(orders[index]),
+                ),
+              ),
+          ]
+        : [
+            for (var index = 0; index < orders.length; index++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index < orders.length - 1
+                      ? M3SegmentedListGeometry.gap
+                      : 0,
+                ),
+                child: _SequenceOrderRow(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    orders.length,
+                  ),
+                  order: orders[index],
+                  index: index,
+                  readOnly: false,
+                  onTap: onTapOrder == null
+                      ? null
+                      : () => onTapOrder!(orders[index]),
+                ),
+              ),
+          ];
 
     if (!readOnly && selected != null && orders.isNotEmpty) {
       return Column(
@@ -1847,10 +1802,7 @@ class _SequenceModulePage extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
       children: [
-        _SequenceApparatusSelector(
-          selected: selected,
-          onTap: onPickApparatus,
-        ),
+        _SequenceApparatusSelector(selected: selected, onTap: onPickApparatus),
         if (selected == null)
           const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
         else
@@ -1890,8 +1842,10 @@ class _SequenceApparatusSelector extends StatelessWidget {
               onTap: onTap,
               borderRadius: BorderRadius.circular(999),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1907,9 +1861,9 @@ class _SequenceApparatusSelector extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: scheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -1959,7 +1913,8 @@ class _MoveModulePage extends StatefulWidget {
     ProductionMapSaved order,
     AdminWarehouse target,
     AdminWarehouse source,
-  ) canMoveTo;
+  )
+  canMoveTo;
   final VoidCallback onPickTop;
   final VoidCallback onPickBottom;
   final ValueChanged<String> onToggleSelect;
@@ -1967,14 +1922,16 @@ class _MoveModulePage extends StatefulWidget {
     required ProductionMapSaved order,
     required AdminWarehouse source,
     required List<ProductionMapSaved> zoneOrders,
-  }) buildDragPayload;
+  })
+  buildDragPayload;
   final ValueChanged<_MoveDragPayload> onDragStarted;
   final VoidCallback onDragEnded;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
     required AdminWarehouse from,
     required AdminWarehouse to,
-  }) onMove;
+  })
+  onMove;
 
   @override
   State<_MoveModulePage> createState() => _MoveModulePageState();
@@ -1994,7 +1951,8 @@ class _MoveModulePageState extends State<_MoveModulePage> {
     ProductionMapSaved order,
     AdminWarehouse target,
     AdminWarehouse source,
-  ) get canMoveTo => widget.canMoveTo;
+  )
+  get canMoveTo => widget.canMoveTo;
   VoidCallback get onPickTop => widget.onPickTop;
   VoidCallback get onPickBottom => widget.onPickBottom;
   ValueChanged<String> get onToggleSelect => widget.onToggleSelect;
@@ -2002,14 +1960,16 @@ class _MoveModulePageState extends State<_MoveModulePage> {
     required ProductionMapSaved order,
     required AdminWarehouse source,
     required List<ProductionMapSaved> zoneOrders,
-  }) get buildDragPayload => widget.buildDragPayload;
+  })
+  get buildDragPayload => widget.buildDragPayload;
   ValueChanged<_MoveDragPayload> get onDragStarted => widget.onDragStarted;
   VoidCallback get onDragEnded => widget.onDragEnded;
   Future<void> Function({
     required List<ProductionMapSaved> orders,
     required AdminWarehouse from,
     required AdminWarehouse to,
-  }) get onMove => widget.onMove;
+  })
+  get onMove => widget.onMove;
 
   void _resizeMoveZones(double delta, double availableHeight) {
     if (!availableHeight.isFinite || availableHeight <= 0) {
@@ -2133,20 +2093,23 @@ class _MoveDropZone extends StatelessWidget {
     ProductionMapSaved order,
     AdminWarehouse target,
     AdminWarehouse source,
-  ) canMoveTo;
+  )
+  canMoveTo;
   final ValueChanged<String> onToggleSelect;
   final _MoveDragPayload Function({
     required ProductionMapSaved order,
     required AdminWarehouse source,
     required List<ProductionMapSaved> zoneOrders,
-  }) buildDragPayload;
+  })
+  buildDragPayload;
   final ValueChanged<_MoveDragPayload> onDragStarted;
   final VoidCallback onDragEnded;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
     required AdminWarehouse from,
     required AdminWarehouse to,
-  }) onMove;
+  })
+  onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -2154,13 +2117,13 @@ class _MoveDropZone extends StatelessWidget {
       for (final order in draggingOrders) order.map.id.trim(),
     };
     final dragSource = draggingSource;
-    final isDropTarget = dragSource != null &&
+    final isDropTarget =
+        dragSource != null &&
         dragSource.warehouse.trim() != apparatus.warehouse.trim();
-    final blocked = isDropTarget &&
+    final blocked =
+        isDropTarget &&
         draggingOrders.isNotEmpty &&
-        draggingOrders.any(
-          (order) => !canMoveTo(order, apparatus, dragSource),
-        );
+        draggingOrders.any((order) => !canMoveTo(order, apparatus, dragSource));
     return DragTarget<_MoveDragPayload>(
       onWillAcceptWithDetails: (details) {
         if (details.data.source.warehouse.trim() ==
@@ -2191,9 +2154,9 @@ class _MoveDropZone extends StatelessWidget {
                   final isDragging = draggingIds.contains(orderId);
                   final slot =
                       M3SegmentedListGeometry.standaloneListSlotForIndex(
-                    index,
-                    orders.length,
-                  );
+                        index,
+                        orders.length,
+                      );
                   if (isDragging) {
                     return const AnimatedSize(
                       duration: Duration(milliseconds: 220),
@@ -2234,9 +2197,7 @@ class _MoveDropZone extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 160),
             child: showBlocked
@@ -2245,9 +2206,7 @@ class _MoveDropZone extends StatelessWidget {
                     imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                     child: Opacity(
                       opacity: 0.42,
-                      child: IgnorePointer(
-                        child: zoneBody,
-                      ),
+                      child: IgnorePointer(child: zoneBody),
                     ),
                   )
                 : KeyedSubtree(
@@ -2302,9 +2261,9 @@ class _MoveApparatusHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -2428,11 +2387,11 @@ class _MoveOrderTile extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           '$batchCount ta zakaz',
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: scheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: scheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
                   ],
@@ -2445,9 +2404,7 @@ class _MoveOrderTile extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onToggleSelect,
-              child: _MoveDragHandle(
-                color: scheme.onSurfaceVariant,
-              ),
+              child: _MoveDragHandle(color: scheme.onSurfaceVariant),
             ),
           ),
         );
@@ -2457,10 +2414,7 @@ class _MoveOrderTile extends StatelessWidget {
 }
 
 class _MoveDragPayload {
-  const _MoveDragPayload({
-    required this.orders,
-    required this.source,
-  });
+  const _MoveDragPayload({required this.orders, required this.source});
 
   final List<ProductionMapSaved> orders;
   final AdminWarehouse source;
@@ -2512,10 +2466,7 @@ class _MoveDragHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Icon(
-        Icons.drag_handle_rounded,
-        color: color,
-      ),
+      child: Icon(Icons.drag_handle_rounded, color: color),
     );
   }
 }
@@ -2535,9 +2486,9 @@ class _MoveEmptyZone extends StatelessWidget {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
       ),
     );
   }
@@ -2560,8 +2511,10 @@ class _ApparatusPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sheetHeight =
-        (MediaQuery.sizeOf(context).height * 0.52).clamp(360.0, 520.0);
+    final sheetHeight = (MediaQuery.sizeOf(context).height * 0.52).clamp(
+      360.0,
+      520.0,
+    );
     return SafeArea(
       child: SizedBox(
         height: sheetHeight.toDouble(),
@@ -2572,9 +2525,9 @@ class _ApparatusPickerSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
                 'Aparat tanlang',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
             const SizedBox(height: 12),
@@ -2652,55 +2605,93 @@ class _OpenedOrderSearchField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.inAppBar = false,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final bool inAppBar;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final field = ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return TextField(
+          controller: controller,
+          onChanged: onChanged,
+          textInputAction: TextInputAction.search,
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Ochilgan zakaz qidirish',
+            isDense: inAppBar,
+            prefixIcon: inAppBar
+                ? IconButton(
+                    icon: const Icon(Icons.menu_rounded),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).openAppDrawerTooltip,
+                    onPressed: () =>
+                        AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+                  )
+                : const Icon(Icons.search_rounded),
+            prefixIconConstraints: inAppBar
+                ? const BoxConstraints(minWidth: 48, minHeight: 48)
+                : null,
+            suffixIcon: hasText
+                ? IconButton(
+                    tooltip: 'Tozalash',
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                  )
+                : null,
+            filled: true,
+            fillColor: inAppBar
+                ? scheme.surfaceContainerHighest
+                : scheme.surfaceContainer,
+            contentPadding: inAppBar
+                ? const EdgeInsets.symmetric(vertical: 12)
+                : const EdgeInsets.symmetric(vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        );
+      },
+    );
+    if (inAppBar) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: SizedBox(
+          height: AppTheme.appBarHeight,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(height: 46, width: double.infinity, child: field),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          final hasText = controller.text.trim().isNotEmpty;
-          return TextField(
-            controller: controller,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Ochilgan zakaz qidirish',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: hasText
-                  ? IconButton(
-                      tooltip: 'Tozalash',
-                      onPressed: onClear,
-                      icon: const Icon(Icons.close_rounded),
-                    )
-                  : null,
-              filled: true,
-              fillColor: scheme.surfaceContainer,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(22),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          );
-        },
-      ),
+      child: field,
     );
   }
 }
 
 class _OpenedOrderList extends StatelessWidget {
-  const _OpenedOrderList({
-    required this.orders,
-    required this.onTapOrder,
-  });
+  const _OpenedOrderList({required this.orders, required this.onTapOrder});
 
   final List<ProductionMapSaved> orders;
   final ValueChanged<ProductionMapSaved>? onTapOrder;
@@ -2771,11 +2762,7 @@ class _OpenedOrderCardRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _OpenedOrderTitleLine(
-                    map: map,
-                    theme: theme,
-                    scheme: scheme,
-                  ),
+                  _OpenedOrderTitleLine(map: map, theme: theme, scheme: scheme),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -2818,11 +2805,11 @@ class _OpenedOrderTitleLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final code = _openedOrderDisplayCode(map);
     final title = _openedOrderPrimaryTitle(map);
-    final resolvedTitleStyle = titleStyle ??
-        theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        );
-    final resolvedCodeStyle = codeStyle ??
+    final resolvedTitleStyle =
+        titleStyle ??
+        theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
+    final resolvedCodeStyle =
+        codeStyle ??
         theme.textTheme.labelMedium?.copyWith(
           color: scheme.onSurfaceVariant,
           fontWeight: FontWeight.w800,
@@ -2839,10 +2826,7 @@ class _OpenedOrderTitleLine extends StatelessWidget {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(
-            text: code,
-            style: resolvedCodeStyle,
-          ),
+          TextSpan(text: code, style: resolvedCodeStyle),
           TextSpan(
             text: ' • ',
             style: resolvedCodeStyle?.copyWith(
@@ -2850,10 +2834,7 @@ class _OpenedOrderTitleLine extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          TextSpan(
-            text: title,
-            style: resolvedTitleStyle,
-          ),
+          TextSpan(text: title, style: resolvedTitleStyle),
         ],
       ),
       maxLines: 1,
@@ -2985,8 +2966,9 @@ class _ApparatusRow extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     return Material(
-      color:
-          selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+      color: selected
+          ? scheme.primaryContainer
+          : scheme.surfaceContainerHighest,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -3109,9 +3091,9 @@ class _EmptyOpenedOrders extends StatelessWidget {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
       ),
     );
   }
@@ -3142,7 +3124,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     required AdminWarehouse apparatus,
     required ProductionMapSaved order,
     required String action,
-  })? onQueueAction;
+  })?
+  onQueueAction;
 
   @override
   State<_ReadOnlyOrderDetailSheet> createState() =>
@@ -3226,7 +3209,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final orderId = map.id.trim();
     final station = widget.apparatus?.warehouse.trim() ?? '';
     final queueState = apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
-    final chainReady = station.isEmpty ||
+    final chainReady =
+        station.isEmpty ||
         productionMapOrderReadyForStation(
           map: map,
           orderId: orderId,
@@ -3247,12 +3231,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           )
         : null;
     final isActionable = actionableId == orderId;
-    final showStart = isActionable &&
+    final showStart =
+        isActionable &&
         chainReady &&
         queueState == ApparatusQueueOrderState.pending;
     final showComplete =
         isActionable && queueState == ApparatusQueueOrderState.inProgress;
-    final showWaitingForPrevious = widget.canManageQueue &&
+    final showWaitingForPrevious =
+        widget.canManageQueue &&
         !chainReady &&
         queueState == ApparatusQueueOrderState.pending &&
         previousStage != null;
@@ -3301,8 +3287,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 onPressed: _actionInFlight
                     ? null
                     : () => unawaited(
-                          _runQueueAction(showStart ? 'start' : 'complete'),
-                        ),
+                        _runQueueAction(showStart ? 'start' : 'complete'),
+                      ),
                 child: Text(showStart ? 'Boshlash' : 'Tugatish'),
               ),
             ],
@@ -3503,11 +3489,7 @@ class _SequenceStepTile extends StatelessWidget {
                     color: scheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    size: 18,
-                    color: scheme.onPrimaryContainer,
-                  ),
+                  child: Icon(icon, size: 18, color: scheme.onPrimaryContainer),
                 ),
               ),
               if (!isLast)

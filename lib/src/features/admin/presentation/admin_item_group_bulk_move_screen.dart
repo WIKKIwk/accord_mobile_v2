@@ -31,10 +31,7 @@ class AdminItemGroupBulkMoveScreen extends StatelessWidget {
 }
 
 class AdminItemGroupBulkMoveTab extends StatefulWidget {
-  const AdminItemGroupBulkMoveTab({
-    super.key,
-    this.embedded = false,
-  });
+  const AdminItemGroupBulkMoveTab({super.key, this.embedded = false});
 
   final bool embedded;
 
@@ -186,10 +183,7 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
     return _loadInitial(clearGroup: false, forceRefresh: true);
   }
 
-  Future<void> _loadMore({
-    required int limit,
-    required bool showLoader,
-  }) async {
+  Future<void> _loadMore({required int limit, required bool showLoader}) async {
     if (_initialLoading || _loadingMore || !_hasMore) {
       return;
     }
@@ -221,9 +215,9 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mahsulotlar yuklanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Mahsulotlar yuklanmadi: $error')));
     } finally {
       if (mounted && showLoader) {
         setState(() => _loadingMore = false);
@@ -283,16 +277,16 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
       final message = result.failedCount == 0
           ? "${result.updatedCount} ta mahsulot ko'chirildi"
           : "${result.updatedCount} ta ko'chirildi, ${result.failedCount} ta xato";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ko'chirish bajarilmadi: $error")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Ko'chirish bajarilmadi: $error")));
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -302,7 +296,8 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = _selectedCodes.isNotEmpty &&
+    final canSubmit =
+        _selectedCodes.isNotEmpty &&
         (_selectedGroup?.trim().isNotEmpty ?? false) &&
         !_submitting;
     final searchTerm = _searchController.text.trim();
@@ -313,79 +308,74 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
     final content = _initialLoading
         ? const Center(child: AppLoadingIndicator())
         : _errorText != null && _items.isEmpty
-            ? _ErrorView(
-                message: _errorText!,
-                onRetry: () => _loadInitial(clearGroup: false, forceRefresh: true),
-              )
-            : RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView.builder(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    4,
-                    8,
-                    4,
-                    widget.embedded ? 24 : 164,
-                  ),
-                  itemCount: listItemCount,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _BulkMoveHeader(
-                        groups: _groups,
-                        selectedGroup: _selectedGroup,
-                        groupMenuOpen: _groupMenuOpen,
-                        selectedCount: _selectedCodes.length,
-                        submitting: _submitting,
-                        canSubmit: canSubmit,
-                        onChooseGroup: _chooseGroup,
-                        onSelectGroup: _selectGroup,
-                        searchController: _searchController,
-                        onSearchChanged: _handleSearchChanged,
-                        onSubmit: _moveSelected,
-                      );
-                    }
+        ? _ErrorView(
+            message: _errorText!,
+            onRetry: () => _loadInitial(clearGroup: false, forceRefresh: true),
+          )
+        : RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.builder(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(4, 8, 4, widget.embedded ? 24 : 164),
+              itemCount: listItemCount,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _BulkMoveHeader(
+                    groups: _groups,
+                    selectedGroup: _selectedGroup,
+                    groupMenuOpen: _groupMenuOpen,
+                    selectedCount: _selectedCodes.length,
+                    submitting: _submitting,
+                    canSubmit: canSubmit,
+                    onChooseGroup: _chooseGroup,
+                    onSelectGroup: _selectGroup,
+                    searchController: _searchController,
+                    onSearchChanged: _handleSearchChanged,
+                    onSubmit: _moveSelected,
+                  );
+                }
 
-                    if (index == 1) {
-                      return const SizedBox(height: 12);
-                    }
+                if (index == 1) {
+                  return const SizedBox(height: 12);
+                }
 
-                    if (visibleItems.isEmpty && index == 2) {
-                      return const _EmptyItemsView();
-                    }
+                if (visibleItems.isEmpty && index == 2) {
+                  return const _EmptyItemsView();
+                }
 
-                    final rowIndex = index - 2;
-                    if (rowIndex >= 0 && rowIndex < visibleItems.length) {
-                      final item = visibleItems[rowIndex];
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          8,
-                          rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
-                          8,
-                          0,
-                        ),
-                        child: _ItemRow(
-                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                            rowIndex,
-                            visibleItems.length,
-                          ),
-                          item: item,
-                          selected: _selectedCodes.contains(item.code),
-                          onTap: _submitting ? null : () => _toggleItem(item),
-                        ),
-                      );
-                    }
+                final rowIndex = index - 2;
+                if (rowIndex >= 0 && rowIndex < visibleItems.length) {
+                  final item = visibleItems[rowIndex];
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      8,
+                      rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
+                      8,
+                      0,
+                    ),
+                    child: _ItemRow(
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        rowIndex,
+                        visibleItems.length,
+                      ),
+                      item: item,
+                      selected: _selectedCodes.contains(item.code),
+                      onTap: _submitting ? null : () => _toggleItem(item),
+                    ),
+                  );
+                }
 
-                    if (_loadingMore && index == listItemCount - 1) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 18),
-                        child: Center(child: AppLoadingIndicator()),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              );
+                if (_loadingMore && index == listItemCount - 1) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: AppLoadingIndicator()),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          );
 
     if (!_showScrollTopButton) {
       return ExcludeSemantics(child: content);
@@ -398,10 +388,7 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
           PositionedDirectional(
             end: 16,
             bottom: widget.embedded ? 16 : 96,
-            child: _ScrollToTopButton(
-              size: 48,
-              onTap: _scrollToTop,
-            ),
+            child: _ScrollToTopButton(size: 48, onTap: _scrollToTop),
           ),
         ],
       ),
@@ -436,16 +423,13 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
 
     final matches = indexedItems.values
         .where(
-          (item) => searchMatches(
-            normalized,
-            <String>[
-              item.code,
-              item.name,
-              item.uom,
-              item.warehouse,
-              item.itemGroup,
-            ],
-          ),
+          (item) => searchMatches(normalized, <String>[
+            item.code,
+            item.name,
+            item.uom,
+            item.warehouse,
+            item.itemGroup,
+          ]),
         )
         .toList(growable: false);
 
@@ -644,10 +628,7 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
 }
 
 class _ScrollToTopButton extends StatelessWidget {
-  const _ScrollToTopButton({
-    required this.size,
-    required this.onTap,
-  });
+  const _ScrollToTopButton({required this.size, required this.onTap});
 
   final double size;
   final VoidCallback onTap;
@@ -772,10 +753,7 @@ class _PillButton extends StatelessWidget {
 }
 
 class _SafeConfirmDialog extends StatelessWidget {
-  const _SafeConfirmDialog({
-    required this.title,
-    required this.message,
-  });
+  const _SafeConfirmDialog({required this.title, required this.message});
 
   final String title;
   final String message;
@@ -795,9 +773,9 @@ class _SafeConfirmDialog extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 18),
             Row(
@@ -889,9 +867,7 @@ class _BulkMoveHeader extends StatelessWidget {
                     else
                       const Icon(Icons.done_all_rounded, size: 18),
                     const SizedBox(width: 6),
-                    Text(
-                      submitting ? "..." : "Ko'chirish",
-                    ),
+                    Text(submitting ? "..." : "Ko'chirish"),
                   ],
                 ),
               ),
@@ -958,13 +934,15 @@ class _BulkMoveHeader extends StatelessWidget {
                             Divider(
                               height: 1,
                               thickness: 1,
-                              color:
-                                  scheme.outlineVariant.withValues(alpha: 0.6),
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           Material(
                             color: groups[index] == selectedGroup
-                                ? scheme.primaryContainer
-                                    .withValues(alpha: 0.55)
+                                ? scheme.primaryContainer.withValues(
+                                    alpha: 0.55,
+                                  )
                                 : Colors.transparent,
                             child: InkWell(
                               onTap: submitting
@@ -984,9 +962,9 @@ class _BulkMoveHeader extends StatelessWidget {
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
-                                          fontWeight: FontWeight.w500,
-                                          color: scheme.onSurface,
-                                        ),
+                                              fontWeight: FontWeight.w500,
+                                              color: scheme.onSurface,
+                                            ),
                                       ),
                                     ),
                                     if (groups[index] == selectedGroup)
@@ -1059,13 +1037,13 @@ class _ItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final displayTitle = item.name.isEmpty ? item.code : item.name;
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        );
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
     final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: scheme.onSurfaceVariant,
-          height: 1.05,
-        );
+      color: scheme.onSurfaceVariant,
+      height: 1.05,
+    );
     final subtitleLine = <String>[
       if (item.code.isNotEmpty && !_sameSearchText(item.code, displayTitle))
         item.code,
@@ -1131,10 +1109,7 @@ class _EmptyItemsView extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorView({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -1150,11 +1125,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 44,
-              color: scheme.error,
-            ),
+            Icon(Icons.error_outline_rounded, size: 44, color: scheme.error),
             const SizedBox(height: 12),
             Text(
               'Mahsulotlar yuklanmadi',

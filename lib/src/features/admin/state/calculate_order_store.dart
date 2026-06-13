@@ -34,9 +34,8 @@ class MobileApiCalculateOrderTemplateClient
 }
 
 class CalculateOrderTemplateStore extends ChangeNotifier {
-  CalculateOrderTemplateStore({
-    CalculateOrderTemplateClient? client,
-  }) : _client = client ?? const MobileApiCalculateOrderTemplateClient();
+  CalculateOrderTemplateStore({CalculateOrderTemplateClient? client})
+    : _client = client ?? const MobileApiCalculateOrderTemplateClient();
 
   static final CalculateOrderTemplateStore instance =
       CalculateOrderTemplateStore();

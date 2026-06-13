@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/calculate_product_picker_loader.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/calculate_product_picker_loader.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -44,12 +44,7 @@ void main() {
           ],
         );
       },
-      allItems: ({
-        query = '',
-        group = '',
-        limit = 80,
-        offset = 0,
-      }) async {
+      allItems: ({query = '', group = '', limit = 80, offset = 0}) async {
         allCalls++;
         expect(query, 'cpp');
         expect(offset, 0);
@@ -70,50 +65,47 @@ void main() {
     expect(allCalls, 0);
   });
 
-  test('returns empty customer item page when offset is past filtered items',
-      () async {
-    final result = await loadCalculateProductPickerPage(
-      customerRef: 'CUST-001',
-      query: 'missing',
-      offset: 0,
-      limit: 20,
-      customerDetail: (_) async {
-        return const AdminCustomerDetail(
-          ref: 'CUST-001',
-          name: 'Customer',
-          phone: '',
-          code: '',
-          codeLocked: false,
-          codeRetryAfterSec: 0,
-          assignedItems: [
+  test(
+    'returns empty customer item page when offset is past filtered items',
+    () async {
+      final result = await loadCalculateProductPickerPage(
+        customerRef: 'CUST-001',
+        query: 'missing',
+        offset: 0,
+        limit: 20,
+        customerDetail: (_) async {
+          return const AdminCustomerDetail(
+            ref: 'CUST-001',
+            name: 'Customer',
+            phone: '',
+            code: '',
+            codeLocked: false,
+            codeRetryAfterSec: 0,
+            assignedItems: [
+              SupplierItem(
+                code: 'ITEM-CUST',
+                name: 'Customer item',
+                uom: 'Kg',
+                warehouse: '',
+              ),
+            ],
+          );
+        },
+        allItems: ({query = '', group = '', limit = 80, offset = 0}) async {
+          return const [
             SupplierItem(
-              code: 'ITEM-CUST',
-              name: 'Customer item',
+              code: 'ITEM-ALL',
+              name: 'All item',
               uom: 'Kg',
               warehouse: '',
             ),
-          ],
-        );
-      },
-      allItems: ({
-        query = '',
-        group = '',
-        limit = 80,
-        offset = 0,
-      }) async {
-        return const [
-          SupplierItem(
-            code: 'ITEM-ALL',
-            name: 'All item',
-            uom: 'Kg',
-            warehouse: '',
-          ),
-        ];
-      },
-    );
+          ];
+        },
+      );
 
-    expect(result, isEmpty);
-  });
+      expect(result, isEmpty);
+    },
+  );
 
   test('loads all items when customer is not selected', () async {
     var detailCalls = 0;
@@ -128,12 +120,7 @@ void main() {
         detailCalls++;
         throw StateError('customer detail should not load');
       },
-      allItems: ({
-        query = '',
-        group = '',
-        limit = 80,
-        offset = 0,
-      }) async {
+      allItems: ({query = '', group = '', limit = 80, offset = 0}) async {
         allCalls++;
         expect(query, 'cpp');
         expect(offset, 0);

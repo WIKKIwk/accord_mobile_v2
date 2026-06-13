@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io' hide BytesBuilder;
 import 'dart:typed_data';
 
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_user_create_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,8 +36,9 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('admin user create screen picks role from bottom sheet',
-      (tester) async {
+  testWidgets('admin user create screen picks role from bottom sheet', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final client = _AdminUserCreateHttpClient(seenRequests);
 
@@ -92,8 +93,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin user create screen assigns aparatchi role',
-      (tester) async {
+  testWidgets('admin user create screen assigns aparatchi role', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final client = _AdminUserCreateHttpClient(seenRequests);
 
@@ -131,8 +133,9 @@ void main() {
       expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
       expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
       expect(
-        seenRequests
-            .any((request) => request.contains('"role_id":"aparatchi"')),
+        seenRequests.any(
+          (request) => request.contains('"role_id":"aparatchi"'),
+        ),
         isTrue,
       );
       expect(tester.takeException(), isNull);
@@ -250,9 +253,7 @@ class _AdminUserCreateHttpClient implements HttpClient {
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
-  _FakeHttpClientRequest({
-    required this.response,
-  });
+  _FakeHttpClientRequest({required this.response});
 
   final _FakeHttpClientResponse response;
   final BytesBuilder _body = BytesBuilder();
@@ -390,8 +391,7 @@ class _FakeHttpClientResponse extends Stream<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) =>
-      Future<HttpClientResponse>.value(this);
+  ]) => Future<HttpClientResponse>.value(this);
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -406,20 +406,12 @@ class _FakeHttpHeaders implements HttpHeaders {
   }
 
   @override
-  void set(
-    String name,
-    Object value, {
-    bool preserveHeaderCase = false,
-  }) {
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {
     _values[name] = <String>[value.toString()];
   }
 
   @override
-  void add(
-    String name,
-    Object value, {
-    bool preserveHeaderCase = false,
-  }) {
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {
     _values.putIfAbsent(name, () => <String>[]).add(value.toString());
   }
 

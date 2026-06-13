@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/core/widgets/shell/app_loading_indicator.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/models/admin_item_group_tree_entry.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_item_create_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_summary_card.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/admin_item_group_tree_entry.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_create_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,8 +34,9 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('duplicate item create shows temporary top notice',
-      (tester) async {
+  testWidgets('duplicate item create shows temporary top notice', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final client = _AdminItemCreateHttpClient(seenRequests);
 
@@ -66,8 +67,9 @@ void main() {
         contains('GET /v1/mobile/admin/items?q=test&limit=5'),
       );
       expect(
-        seenRequests
-            .where((request) => request == 'POST /v1/mobile/admin/items'),
+        seenRequests.where(
+          (request) => request == 'POST /v1/mobile/admin/items',
+        ),
         isEmpty,
       );
       expect(find.text('Item allaqachon yaratilgan'), findsOneWidget);
@@ -121,8 +123,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('item screen has create and paged item list modules',
-      (tester) async {
+  testWidgets('item screen has create and paged item list modules', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final client = _AdminItemCreateHttpClient(seenRequests);
 
@@ -150,10 +153,7 @@ void main() {
       await tester.tap(find.byType(Tab).last);
       await tester.pumpAndSettle();
 
-      expect(
-        seenRequests,
-        contains('GET /v1/mobile/admin/items?limit=80'),
-      );
+      expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=80'));
       expect(find.text('Item 001'), findsOneWidget);
       expect(find.text('Hamma itemlar'), findsNothing);
       expect(find.text('80 item'), findsNothing);
@@ -175,8 +175,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('item list initial load shows one centered app loader',
-      (tester) async {
+  testWidgets('item list initial load shows one centered app loader', (
+    tester,
+  ) async {
     final itemsPage = Completer<List<SupplierItem>>();
 
     await tester.pumpWidget(
@@ -184,11 +185,7 @@ void main() {
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: AdminItemsListTab(
-            loadItemsPage: ({
-              required query,
-              required limit,
-              required offset,
-            }) {
+            loadItemsPage: ({required query, required limit, required offset}) {
               return itemsPage.future;
             },
           ),
@@ -210,8 +207,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('item list reuses memory cache until user refreshes',
-      (tester) async {
+  testWidgets('item list reuses memory cache until user refreshes', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final client = _AdminItemCreateHttpClient(seenRequests);
 
@@ -240,7 +238,8 @@ void main() {
       expect(
         seenRequests
             .where(
-                (request) => request == 'GET /v1/mobile/admin/items?limit=80')
+              (request) => request == 'GET /v1/mobile/admin/items?limit=80',
+            )
             .length,
         1,
       );
@@ -253,7 +252,8 @@ void main() {
       expect(
         seenRequests
             .where(
-                (request) => request == 'GET /v1/mobile/admin/items?limit=80')
+              (request) => request == 'GET /v1/mobile/admin/items?limit=80',
+            )
             .length,
         1,
       );
@@ -271,7 +271,8 @@ void main() {
       expect(
         seenRequests
             .where(
-                (request) => request == 'GET /v1/mobile/admin/items?limit=80')
+              (request) => request == 'GET /v1/mobile/admin/items?limit=80',
+            )
             .length,
         2,
       );
@@ -279,8 +280,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('item group picker orders parent groups before children',
-      (tester) async {
+  testWidgets('item group picker orders parent groups before children', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(390, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -311,60 +313,56 @@ void main() {
       final homashyoTop = tester.getTopLeft(find.text('Homashyo')).dy;
 
       expect(allTop, lessThan(homashyoTop));
-      expect(
-        seenRequests,
-        contains('GET /v1/mobile/admin/item-groups/tree'),
-      );
+      expect(seenRequests, contains('GET /v1/mobile/admin/item-groups/tree'));
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
   });
 
-  test('item group tree keeps direct root children above deeper descendants',
-      () {
-    final ordered = orderAdminItemGroupsByParent(const [
-      AdminItemGroupTreeEntry(
-        name: 'Metal',
-        itemGroupName: 'Metal',
-        parentItemGroup: 'Homashyo',
-        isGroup: false,
-      ),
-      AdminItemGroupTreeEntry(
-        name: 'Tayyor Mahsulot',
-        itemGroupName: 'Tayyor Mahsulot',
-        parentItemGroup: 'All Item Groups',
-        isGroup: false,
-      ),
-      AdminItemGroupTreeEntry(
-        name: 'All Item Groups',
-        itemGroupName: 'All Item Groups',
-        parentItemGroup: '',
-        isGroup: true,
-      ),
-      AdminItemGroupTreeEntry(
-        name: 'Homashyo',
-        itemGroupName: 'Homashyo',
-        parentItemGroup: 'All Item Groups',
-        isGroup: true,
-      ),
-      AdminItemGroupTreeEntry(
-        name: 'Plastic',
-        itemGroupName: 'Plastic',
-        parentItemGroup: 'Homashyo',
-        isGroup: false,
-      ),
-    ]);
+  test(
+    'item group tree keeps direct root children above deeper descendants',
+    () {
+      final ordered = orderAdminItemGroupsByParent(const [
+        AdminItemGroupTreeEntry(
+          name: 'Metal',
+          itemGroupName: 'Metal',
+          parentItemGroup: 'Homashyo',
+          isGroup: false,
+        ),
+        AdminItemGroupTreeEntry(
+          name: 'Tayyor Mahsulot',
+          itemGroupName: 'Tayyor Mahsulot',
+          parentItemGroup: 'All Item Groups',
+          isGroup: false,
+        ),
+        AdminItemGroupTreeEntry(
+          name: 'All Item Groups',
+          itemGroupName: 'All Item Groups',
+          parentItemGroup: '',
+          isGroup: true,
+        ),
+        AdminItemGroupTreeEntry(
+          name: 'Homashyo',
+          itemGroupName: 'Homashyo',
+          parentItemGroup: 'All Item Groups',
+          isGroup: true,
+        ),
+        AdminItemGroupTreeEntry(
+          name: 'Plastic',
+          itemGroupName: 'Plastic',
+          parentItemGroup: 'Homashyo',
+          isGroup: false,
+        ),
+      ]);
 
-    expect(
-      ordered,
-      const [
+      expect(ordered, const [
         'All Item Groups',
         'Tayyor Mahsulot',
         'Homashyo',
         'Metal',
         'Plastic',
-      ],
-    );
-  });
+      ]);
+    },
+  );
 }
 
 class _AdminItemCreateHttpClient implements HttpClient {
@@ -396,58 +394,54 @@ class _AdminItemCreateHttpClient implements HttpClient {
     }
 
     final Object body = switch (key) {
-      'GET /v1/mobile/admin/settings' => {
-          'default_uom': 'Kg',
-        },
+      'GET /v1/mobile/admin/settings' => {'default_uom': 'Kg'},
       'GET /v1/mobile/admin/item-groups' => const [
-          'All Item Groups',
-          'Group A',
-          'Group B',
-        ],
+        'All Item Groups',
+        'Group A',
+        'Group B',
+      ],
       'GET /v1/mobile/admin/item-groups/tree' => const [
-          {
-            'name': 'Metal',
-            'item_group_name': 'Metal',
-            'parent_item_group': 'Homashyo',
-            'is_group': false,
-          },
-          {
-            'name': 'Group B',
-            'item_group_name': 'Group B',
-            'parent_item_group': 'All Item Groups',
-            'is_group': false,
-          },
-          {
-            'name': 'All Item Groups',
-            'item_group_name': 'All Item Groups',
-            'parent_item_group': '',
-            'is_group': true,
-          },
-          {
-            'name': 'Homashyo',
-            'item_group_name': 'Homashyo',
-            'parent_item_group': 'All Item Groups',
-            'is_group': true,
-          },
-          {
-            'name': 'Plastic',
-            'item_group_name': 'Plastic',
-            'parent_item_group': 'Homashyo',
-            'is_group': false,
-          },
-        ],
-      'GET /v1/mobile/admin/items?q=test&limit=5' => const [
-          {
-            'code': 'test',
-            'name': 'test',
-            'uom': 'Kg',
-            'warehouse': 'Stores - A',
-            'item_group': 'All Item Groups',
-          },
-        ],
-      'POST /v1/mobile/admin/items' => {
-          'error': 'admin item create failed',
+        {
+          'name': 'Metal',
+          'item_group_name': 'Metal',
+          'parent_item_group': 'Homashyo',
+          'is_group': false,
         },
+        {
+          'name': 'Group B',
+          'item_group_name': 'Group B',
+          'parent_item_group': 'All Item Groups',
+          'is_group': false,
+        },
+        {
+          'name': 'All Item Groups',
+          'item_group_name': 'All Item Groups',
+          'parent_item_group': '',
+          'is_group': true,
+        },
+        {
+          'name': 'Homashyo',
+          'item_group_name': 'Homashyo',
+          'parent_item_group': 'All Item Groups',
+          'is_group': true,
+        },
+        {
+          'name': 'Plastic',
+          'item_group_name': 'Plastic',
+          'parent_item_group': 'Homashyo',
+          'is_group': false,
+        },
+      ],
+      'GET /v1/mobile/admin/items?q=test&limit=5' => const [
+        {
+          'code': 'test',
+          'name': 'test',
+          'uom': 'Kg',
+          'warehouse': 'Stores - A',
+          'item_group': 'All Item Groups',
+        },
+      ],
+      'POST /v1/mobile/admin/items' => {'error': 'admin item create failed'},
       _ => throw StateError('Unhandled request: $key'),
     };
 
@@ -564,12 +558,10 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
 class _FakeHttpClientResponse extends StreamView<List<int>>
     implements HttpClientResponse {
-  _FakeHttpClientResponse({
-    required String body,
-    required this.statusCode,
-  })  : _bytes = utf8.encode(body),
-        _headers = _FakeHttpHeaders(),
-        super(Stream<List<int>>.value(utf8.encode(body))) {
+  _FakeHttpClientResponse({required String body, required this.statusCode})
+    : _bytes = utf8.encode(body),
+      _headers = _FakeHttpHeaders(),
+      super(Stream<List<int>>.value(utf8.encode(body))) {
     _headers.set('content-type', 'application/json; charset=utf-8');
     _headers.contentLength = _bytes.length;
   }

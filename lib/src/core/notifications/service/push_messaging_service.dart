@@ -162,9 +162,7 @@ class PushMessagingService {
     final messaging = FirebaseMessaging.instance;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       final apnsToken = await messaging.getAPNSToken();
-      debugPrint(
-        'push sync apns token=${maskPushToken(apnsToken ?? '')}',
-      );
+      debugPrint('push sync apns token=${maskPushToken(apnsToken ?? '')}');
     }
     final token = await messaging.getToken();
     if (token == null || token.trim().isEmpty) {

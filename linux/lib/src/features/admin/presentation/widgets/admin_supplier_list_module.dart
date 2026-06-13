@@ -103,13 +103,13 @@ class _AdminUserRow extends StatelessWidget {
       subtitle: subtitleLine,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
+        color: scheme.onSurfaceVariant,
+        height: 1.05,
+      ),
     );
   }
 }

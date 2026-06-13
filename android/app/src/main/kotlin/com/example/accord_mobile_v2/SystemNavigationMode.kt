@@ -1,4 +1,4 @@
-package com.example.erpnext_stock_mobile
+package com.example.accord_mobile_v2
 
 import android.content.Context
 import android.provider.Settings

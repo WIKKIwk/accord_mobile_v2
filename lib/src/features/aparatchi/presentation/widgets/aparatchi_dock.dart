@@ -3,10 +3,7 @@ import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
-enum AparatchiDockTab {
-  home,
-  profile,
-}
+enum AparatchiDockTab { home, profile }
 
 class AparatchiDock extends StatelessWidget {
   const AparatchiDock({
@@ -56,15 +53,15 @@ class AparatchiDock extends StatelessWidget {
             if (onTabSelected != null) {
               onTabSelected!(AparatchiDockTab.profile);
             } else {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRoutes.profile,
-                (route) => false,
-              );
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(AppRoutes.profile, (route) => false);
             }
           }
         }
 
-        final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+        final useNativeDock =
+            NativeDockBridge.isSupportedPlatform &&
             NativeDockBridge.instance.supportsSystemDock;
         if (useNativeDock) {
           NativeDockBridge.instance.register(
@@ -81,8 +78,9 @@ class AparatchiDock extends StatelessWidget {
                   active: activeTab == AparatchiDockTab.home,
                   primary: false,
                   showBadge: false,
-                  routeName:
-                      onTabSelected == null ? AppRoutes.apparatusQueue : null,
+                  routeName: onTabSelected == null
+                      ? AppRoutes.apparatusQueue
+                      : null,
                   replaceStack: onTabSelected == null,
                   onTap: () => handleSelection(0),
                 ),

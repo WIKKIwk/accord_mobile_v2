@@ -12,17 +12,15 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaArchiveSentHubScreen extends StatefulWidget {
-  const WerkaArchiveSentHubScreen({
-    super.key,
-    this.archiveLoader,
-  });
+  const WerkaArchiveSentHubScreen({super.key, this.archiveLoader});
 
   final Future<WerkaArchiveResponse> Function({
     required WerkaArchiveKind kind,
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })? archiveLoader;
+  })?
+  archiveLoader;
 
   @override
   State<WerkaArchiveSentHubScreen> createState() =>
@@ -104,11 +102,7 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
   }
 
   Future<void> _loadCurrent() async {
-    await Future.wait([
-      _loadDaily(),
-      _loadMonthly(),
-      _loadYearly(),
-    ]);
+    await Future.wait([_loadDaily(), _loadMonthly(), _loadYearly()]);
   }
 
   Future<void> _loadDaily() async {
@@ -253,8 +247,11 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
 
   double _dailyCalendarHeightFactor(BuildContext context) {
     final localizations = MaterialLocalizations.of(context);
-    final daysInMonth =
-        DateTime(_displayMonth.year, _displayMonth.month + 1, 0).day;
+    final daysInMonth = DateTime(
+      _displayMonth.year,
+      _displayMonth.month + 1,
+      0,
+    ).day;
     final firstDayOffset = DateUtils.firstDayOffset(
       _displayMonth.year,
       _displayMonth.month,
@@ -407,7 +404,7 @@ class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final years = [
-      for (int year = _startYear; year <= _startYear + 11; year++) year
+      for (int year = _startYear; year <= _startYear + 11; year++) year,
     ];
     return Column(
       children: [
@@ -554,9 +551,7 @@ class _SentArchiveExpandableCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           value,
-                          style: AppTheme.archiveSelectionValueStyle(
-                            context,
-                          ),
+                          style: AppTheme.archiveSelectionValueStyle(context),
                         ),
                       ],
                     ),
@@ -599,10 +594,7 @@ class _SentArchiveExpandableCard extends StatelessWidget {
 }
 
 class _AnimatedSentCalendarReveal extends StatelessWidget {
-  const _AnimatedSentCalendarReveal({
-    required this.open,
-    required this.child,
-  });
+  const _AnimatedSentCalendarReveal({required this.open, required this.child});
 
   final bool open;
   final Widget child;
@@ -659,8 +651,9 @@ class _SentHubMonthCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border:
-                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
+              border: active
+                  ? Border.all(color: scheme.primary, width: 1.2)
+                  : null,
             ),
             child: Text(
               label,
@@ -711,8 +704,9 @@ class _SentHubYearCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border:
-                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
+              border: active
+                  ? Border.all(color: scheme.primary, width: 1.2)
+                  : null,
             ),
             child: Text(
               '$year',

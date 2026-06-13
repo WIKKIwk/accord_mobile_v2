@@ -46,9 +46,9 @@ class WerkaArchiveScreen extends StatelessWidget {
                 itemCount: _entryCount,
                 title: context.l10n.archiveSentTitle,
                 icon: Icons.outbox_outlined,
-                onTap: () => Navigator.of(context).pushNamed(
-                  AppRoutes.werkaArchiveSentHub,
-                ),
+                onTap: () => Navigator.of(
+                  context,
+                ).pushNamed(AppRoutes.werkaArchiveSentHub),
               ),
               _WerkaArchiveSegmentTile(
                 index: 2,
@@ -103,18 +103,9 @@ class _WerkaArchiveSegmentTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
-              Icon(
-                icon,
-                size: 22,
-                color: scheme.onSurfaceVariant,
-              ),
+              Icon(icon, size: 22, color: scheme.onSurfaceVariant),
               const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
+              Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
               Icon(
                 Icons.chevron_right_rounded,
                 size: 22,

@@ -39,11 +39,7 @@ class NativeNavigationTitleHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          Expanded(
-            child: SharedHeaderTitle(
-              title: title,
-            ),
-          ),
+          Expanded(child: SharedHeaderTitle(title: title)),
         ],
       ),
     );
@@ -76,9 +72,7 @@ class NativeBackButtonSlot extends StatelessWidget {
         width: AppTheme.headerActionSize,
         child: IconButton.filledTonal(
           onPressed: onPressed,
-          style: IconButton.styleFrom(
-            padding: EdgeInsets.zero,
-          ),
+          style: IconButton.styleFrom(padding: EdgeInsets.zero),
           icon: Icon(Icons.arrow_back_rounded, size: iconSize),
         ),
       );

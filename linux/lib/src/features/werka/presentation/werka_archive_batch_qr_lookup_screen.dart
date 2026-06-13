@@ -123,9 +123,7 @@ class MobileWerkaArchiveBatchQrLookupApi
 }
 
 class WerkaArchiveBatchQrLookupArgs {
-  const WerkaArchiveBatchQrLookupArgs({
-    required this.payload,
-  });
+  const WerkaArchiveBatchQrLookupArgs({required this.payload});
 
   final WerkaArchiveBatchQrPayload payload;
 }
@@ -293,11 +291,11 @@ class _WerkaArchiveBatchQrLookupScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-              ? l10n.insufficientStockMessage
-              : l10n.customerIssueFailed(error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+          ? l10n.insufficientStockMessage
+          : l10n.customerIssueFailed(error);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -341,10 +339,7 @@ class _WerkaArchiveBatchQrLookupScreenState
               title: 'Mahsulot topilmadi',
               subtitle:
                   'Batch QR ichidagi mahsulot customer jo‘natish ro‘yxatidan topilmadi.',
-              trailing: Icon(
-                Icons.error_outline_rounded,
-                color: scheme.error,
-              ),
+              trailing: Icon(Icons.error_outline_rounded, color: scheme.error),
               formatQty: _formatQty,
               showScanActions: true,
             );
@@ -358,10 +353,7 @@ class _WerkaArchiveBatchQrLookupScreenState
             payload: payload,
             title: option.itemName,
             subtitle: selectedCustomer.name,
-            trailing: Icon(
-              Icons.check_circle_rounded,
-              color: scheme.primary,
-            ),
+            trailing: Icon(Icons.check_circle_rounded, color: scheme.primary),
             formatQty: _formatQty,
             resolvedOption: option,
             selectedCustomer: selectedCustomer,
@@ -516,8 +508,9 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                       icon: isSubmitting
                           ? const SizedBox.square(
                               dimension: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             )
                           : const Icon(Icons.local_shipping_outlined),
                       label: Text(
@@ -538,9 +531,9 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).pushReplacementNamed(
-                    AppRoutes.werkaStockEntryQrScan,
-                  ),
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
                   icon: const Icon(Icons.qr_code_scanner_rounded),
                   label: const Text('Qayta scan'),
                 ),
@@ -562,10 +555,7 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
 }
 
 class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-  });
+  const _MetricTile({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -669,10 +659,7 @@ class _InfoRow extends StatelessWidget {
           if (trailing != null) ...[
             const SizedBox(width: 6),
             IconTheme.merge(
-              data: IconThemeData(
-                color: scheme.onSurfaceVariant,
-                size: 20,
-              ),
+              data: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
               child: trailing!,
             ),
           ],

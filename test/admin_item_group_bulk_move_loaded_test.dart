@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_item_group_bulk_move_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_group_bulk_move_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,103 +31,102 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets(
-    'admin item group bulk move screen builds with loaded items',
-    (tester) async {
-      final semantics = tester.ensureSemantics();
-      final seenRequests = <String>[];
-      final client = _FakeHttpClient(seenRequests);
+  testWidgets('admin item group bulk move screen builds with loaded items', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final seenRequests = <String>[];
+    final client = _FakeHttpClient(seenRequests);
 
-      await HttpOverrides.runZoned(() async {
-        final groups = await MobileApi.instance.adminItemGroups();
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(useMaterial3: true),
-            locale: const Locale('uz'),
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-            ],
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: const AdminItemGroupBulkMoveScreen(),
-          ),
-        );
+    await HttpOverrides.runZoned(() async {
+      final groups = await MobileApi.instance.adminItemGroups();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminItemGroupBulkMoveScreen(),
+        ),
+      );
 
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
-        expect(groups, ['Group A', 'Group B']);
-        expect(seenRequests, contains('GET /v1/mobile/admin/item-groups'));
-        expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=30'));
-        expect(find.text('Target group'), findsOneWidget);
-        expect(find.text('Group tanlang'), findsOneWidget);
-        expect(find.text("A'lo Ta'm Kanada"), findsOneWidget);
-        expect(find.text('Item 001'), findsOneWidget);
-        expect(
-            find.text('ITEM-001 • Kg • Group: General • Main'), findsOneWidget);
-        expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(groups, ['Group A', 'Group B']);
+      expect(seenRequests, contains('GET /v1/mobile/admin/item-groups'));
+      expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=30'));
+      expect(find.text('Target group'), findsOneWidget);
+      expect(find.text('Group tanlang'), findsOneWidget);
+      expect(find.text("A'lo Ta'm Kanada"), findsOneWidget);
+      expect(find.text('Item 001'), findsOneWidget);
+      expect(
+        find.text('ITEM-001 • Kg • Group: General • Main'),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
 
-        await tester.pump(const Duration(seconds: 5));
-        await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
 
-        expect(
-          seenRequests,
-          contains('GET /v1/mobile/admin/items?limit=30&offset=30'),
-        );
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/items?limit=30&offset=30'),
+      );
 
-        await tester.drag(find.byType(ListView), const Offset(0, -320));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -320));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
 
-        await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.pumpAndSettle();
 
-        await tester.enterText(find.byType(TextField), 'alo');
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 250));
-        await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'alo');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
 
-        expect(find.text("A'lo Ta'm Kanada"), findsOneWidget);
+      expect(find.text("A'lo Ta'm Kanada"), findsOneWidget);
 
-        await tester.enterText(find.byType(TextField), 'Item 010');
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 250));
-        await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Item 010');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
 
-        final itemTitle = find.byWidgetPredicate((widget) {
-          return widget is Text &&
-              widget.data == 'Item 010' &&
-              widget.style?.fontWeight == FontWeight.w700;
-        });
-        expect(itemTitle, findsOneWidget);
-        expect(find.text('Item 001'), findsNothing);
-        expect(
-          seenRequests
-              .where((request) => request.contains('/v1/mobile/admin/items'))
-              .length,
-          greaterThanOrEqualTo(4),
-        );
-        expect(
-          seenRequests
-              .where((request) => request.contains('q=Item'))
-              .isNotEmpty,
-          isTrue,
-        );
-        expect(
-          seenRequests.where((request) => request.contains('q=alo')).isNotEmpty,
-          isTrue,
-        );
-        expect(tester.takeException(), isNull);
-      }, createHttpClient: (_) => client);
+      final itemTitle = find.byWidgetPredicate((widget) {
+        return widget is Text &&
+            widget.data == 'Item 010' &&
+            widget.style?.fontWeight == FontWeight.w700;
+      });
+      expect(itemTitle, findsOneWidget);
+      expect(find.text('Item 001'), findsNothing);
+      expect(
+        seenRequests
+            .where((request) => request.contains('/v1/mobile/admin/items'))
+            .length,
+        greaterThanOrEqualTo(4),
+      );
+      expect(
+        seenRequests.where((request) => request.contains('q=Item')).isNotEmpty,
+        isTrue,
+      );
+      expect(
+        seenRequests.where((request) => request.contains('q=alo')).isNotEmpty,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    }, createHttpClient: (_) => client);
 
-      semantics.dispose();
-    },
-  );
+    semantics.dispose();
+  });
 }
 
 class _FakeHttpClient implements HttpClient {
@@ -156,8 +155,9 @@ class _FakeHttpClient implements HttpClient {
         'item_group': number == '010' ? 'Special Group' : 'General',
       };
     }),
-    'GET /v1/mobile/admin/items?limit=30&offset=30':
-        List<Object>.generate(30, (index) {
+    'GET /v1/mobile/admin/items?limit=30&offset=30': List<Object>.generate(30, (
+      index,
+    ) {
       final number = (index + 31).toString().padLeft(3, '0');
       return {
         'code': 'ITEM-$number',
@@ -176,21 +176,23 @@ class _FakeHttpClient implements HttpClient {
         url.queryParameters['q'] != null &&
         url.queryParameters['q']!.isNotEmpty) {
       final query = url.queryParameters['q']!.toLowerCase();
-      final matches = [
-        for (final entry in _responses['GET /v1/mobile/admin/items?limit=30']!
-            as List<Object>)
-          entry,
-      ].where((item) {
-        final map = item as Map<String, Object>;
-        final haystack = [
-          map['code'],
-          map['name'],
-          map['uom'],
-          map['warehouse'],
-          map['item_group'],
-        ].whereType<String>().join(' ').toLowerCase();
-        return haystack.contains(query);
-      }).toList();
+      final matches =
+          [
+            for (final entry
+                in _responses['GET /v1/mobile/admin/items?limit=30']!
+                    as List<Object>)
+              entry,
+          ].where((item) {
+            final map = item as Map<String, Object>;
+            final haystack = [
+              map['code'],
+              map['name'],
+              map['uom'],
+              map['warehouse'],
+              map['item_group'],
+            ].whereType<String>().join(' ').toLowerCase();
+            return haystack.contains(query);
+          }).toList();
       return _responseFor(method, url, matches);
     }
     final body = _responses[key];
@@ -200,11 +202,7 @@ class _FakeHttpClient implements HttpClient {
     return _responseFor(method, url, body);
   }
 
-  _FakeHttpClientRequest _responseFor(
-    String method,
-    Uri url,
-    Object body,
-  ) {
+  _FakeHttpClientRequest _responseFor(String method, Uri url, Object body) {
     return _FakeHttpClientRequest(
       method: method,
       uri: url,
@@ -345,9 +343,9 @@ class _FakeHttpClientResponse extends StreamView<List<int>>
     required String body,
     this.statusCode = HttpStatus.ok,
     this.reasonPhrase = 'OK',
-  })  : _headers = _FakeHttpHeaders(),
-        _bytes = utf8.encode(body),
-        super(Stream<List<int>>.value(utf8.encode(body))) {
+  }) : _headers = _FakeHttpHeaders(),
+       _bytes = utf8.encode(body),
+       super(Stream<List<int>>.value(utf8.encode(body))) {
     _headers.set('content-type', 'application/json; charset=utf-8');
     _headers.contentLength = _bytes.length;
   }
@@ -445,7 +443,8 @@ class _FakeHttpHeaders implements HttpHeaders {
   @override
   List<String> operator [](String name) {
     return List<String>.unmodifiable(
-        _values[_normalize(name)] ?? const <String>[]);
+      _values[_normalize(name)] ?? const <String>[],
+    );
   }
 
   @override

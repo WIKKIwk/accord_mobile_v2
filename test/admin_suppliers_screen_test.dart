@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'dart:io' hide BytesBuilder;
 import 'dart:typed_data';
 
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_suppliers_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_user_create_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,8 +36,9 @@ void main() {
     AdminSuppliersScreen.invalidateCache();
   });
 
-  testWidgets('admin users list refreshes after custom role user create',
-      (tester) async {
+  testWidgets('admin users list refreshes after custom role user create', (
+    tester,
+  ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     final client = _AdminUsersHttpClient();
 
@@ -81,10 +82,7 @@ void main() {
 
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).first,
-        'chichqoq',
-      );
+      await tester.enterText(find.byType(TextField).first, 'chichqoq');
       await tester.pumpAndSettle();
 
       expect(
@@ -126,11 +124,7 @@ class _AdminUsersHttpClient implements HttpClient {
       case 'GET /v1/mobile/admin/customers/list?limit=50':
         body = createdCustomer
             ? const [
-                {
-                  'ref': 'CUS-1',
-                  'name': 'chichqoq',
-                  'phone': '998901234567',
-                },
+                {'ref': 'CUS-1', 'name': 'chichqoq', 'phone': '998901234567'},
               ]
             : const [];
       case 'GET /v1/mobile/admin/roles':
@@ -277,10 +271,8 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
 class _FakeHttpClientResponse extends Stream<List<int>>
     implements HttpClientResponse {
-  _FakeHttpClientResponse({
-    required String body,
-    required this.statusCode,
-  }) : _bytes = utf8.encode(body);
+  _FakeHttpClientResponse({required String body, required this.statusCode})
+    : _bytes = utf8.encode(body);
 
   final List<int> _bytes;
 
@@ -335,8 +327,7 @@ class _FakeHttpClientResponse extends Stream<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) =>
-      throw UnsupportedError('redirect');
+  ]) => throw UnsupportedError('redirect');
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

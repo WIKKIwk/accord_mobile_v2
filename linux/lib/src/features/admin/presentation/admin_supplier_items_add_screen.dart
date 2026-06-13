@@ -9,10 +9,7 @@ import 'widgets/admin_dock.dart';
 import 'package:flutter/material.dart';
 
 class AdminSupplierItemsAddScreen extends StatefulWidget {
-  const AdminSupplierItemsAddScreen({
-    super.key,
-    required this.supplierRef,
-  });
+  const AdminSupplierItemsAddScreen({super.key, required this.supplierRef});
 
   final String supplierRef;
 
@@ -37,11 +34,13 @@ class _AdminSupplierItemsAddScreenState
   Future<void> _load() async {
     setState(() => loading = true);
     try {
-      final detail =
-          await MobileApi.instance.adminSupplierDetail(widget.supplierRef);
+      final detail = await MobileApi.instance.adminSupplierDetail(
+        widget.supplierRef,
+      );
       final allItems = await MobileApi.instance.adminItems();
-      final assignedCodes =
-          detail.assignedItems.map((item) => item.code).toSet();
+      final assignedCodes = detail.assignedItems
+          .map((item) => item.code)
+          .toSet();
       if (!mounted) {
         return;
       }

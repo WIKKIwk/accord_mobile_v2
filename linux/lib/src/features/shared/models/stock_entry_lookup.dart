@@ -83,9 +83,9 @@ class StockEntryBarcodeLookup {
     final entriesJson = json['entries'];
     final entries = entriesJson is List
         ? entriesJson
-            .whereType<Map<String, dynamic>>()
-            .map(StockEntryBarcodeEntry.fromJson)
-            .toList()
+              .whereType<Map<String, dynamic>>()
+              .map(StockEntryBarcodeEntry.fromJson)
+              .toList()
         : const <StockEntryBarcodeEntry>[];
     return StockEntryBarcodeLookup(
       barcode: json['barcode'] as String? ?? '',

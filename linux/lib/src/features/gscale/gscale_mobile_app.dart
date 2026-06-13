@@ -21,7 +21,8 @@ import '../shared/models/app_models.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'gscale_catalog.dart';
 import 'network_candidates_stub.dart'
-    if (dart.library.io) 'network_candidates_io.dart' as network_candidates;
+    if (dart.library.io) 'network_candidates_io.dart'
+    as network_candidates;
 
 // Keep in sync with gscale-zebra mobileapi approved ports.
 const _defaultApiPort = 39117;
@@ -84,10 +85,7 @@ void main() {
 }
 
 class GScaleMobileApp extends StatefulWidget {
-  const GScaleMobileApp({
-    super.key,
-    this.onExitMode = SystemNavigator.pop,
-  });
+  const GScaleMobileApp({super.key, this.onExitMode = SystemNavigator.pop});
 
   final Future<void> Function() onExitMode;
 
@@ -356,9 +354,7 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: AppTheme.appBarHeight,
-          leading: NativeBackButtonSlot(
-            onPressed: widget.onExitMode,
-          ),
+          leading: NativeBackButtonSlot(onPressed: widget.onExitMode),
           title: const Text('gscale-zebra'),
           actions: [
             IconButton(
@@ -520,9 +516,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       ),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       side: WidgetStatePropertyAll(
         BorderSide(color: scheme.outlineVariant, width: 1),
@@ -553,17 +547,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         if (draft.itemCode.trim().isNotEmpty) {
           _selectedItem = MobileItem(
             itemCode: draft.itemCode,
-            itemName:
-                draft.itemName.isNotEmpty ? draft.itemName : draft.itemCode,
+            itemName: draft.itemName.isNotEmpty
+                ? draft.itemName
+                : draft.itemCode,
           );
         }
         if (_selectedItem != null && draft.warehouse.trim().isNotEmpty) {
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
-        _batchPrintMode =
-            draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
-        _batchPrinter =
-            draft.printer.isNotEmpty ? draft.printer : _batchPrinter;
+        _batchPrintMode = draft.printMode.isNotEmpty
+            ? draft.printMode
+            : _batchPrintMode;
+        _batchPrinter = draft.printer.isNotEmpty
+            ? draft.printer
+            : _batchPrinter;
         if (_batchPrinter == 'godex') {
           _batchPrintMode = 'label';
         }
@@ -573,8 +570,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         _babinaEnabled = draft.babinaEnabled;
         _manualQtyController.text = draft.manualQtyText;
         _babinaWeightController.text = draft.babinaText;
-        _warehouseMode =
-            draft.warehouseMode == 'default' ? 'default' : 'manual';
+        _warehouseMode = draft.warehouseMode == 'default'
+            ? 'default'
+            : 'manual';
         _defaultWarehouse = draft.defaultWarehouse;
         _defaultWarehouseController.text = draft.defaultWarehouse;
       });
@@ -657,8 +655,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     );
     request.headers['Accept'] = 'text/event-stream';
 
-    final response =
-        await _client.send(request).timeout(const Duration(seconds: 4));
+    final response = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 4));
     if (response.statusCode < 200 || response.statusCode > 299) {
       throw Exception('stream ${response.statusCode}');
     }
@@ -671,48 +670,48 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-      (line) {
-        if (!mounted || generation != _streamGeneration) {
-          return;
-        }
-        if (line.isEmpty) {
-          if (dataLines.isEmpty) {
-            return;
-          }
-          final payloadText = dataLines.join('\n');
-          dataLines.clear();
-          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-          if (payload.containsKey('error') && payload['ok'] != true) {
-            setState(() {
-              _errorText = payload['error'].toString();
-            });
-            return;
-          }
-          setState(() {
-            _applySnapshot(MonitorSnapshot.fromJson(payload));
-            _errorText = '';
-          });
-          return;
-        }
-        if (line.startsWith(':')) {
-          return;
-        }
-        if (line.startsWith('data:')) {
-          dataLines.add(line.substring(5).trimLeft());
-        }
-      },
-      onError: (error, _) {
-        if (!completer.isCompleted) {
-          completer.completeError(error);
-        }
-      },
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: true,
-    );
+          (line) {
+            if (!mounted || generation != _streamGeneration) {
+              return;
+            }
+            if (line.isEmpty) {
+              if (dataLines.isEmpty) {
+                return;
+              }
+              final payloadText = dataLines.join('\n');
+              dataLines.clear();
+              final payload = jsonDecode(payloadText) as Map<String, dynamic>;
+              if (payload.containsKey('error') && payload['ok'] != true) {
+                setState(() {
+                  _errorText = payload['error'].toString();
+                });
+                return;
+              }
+              setState(() {
+                _applySnapshot(MonitorSnapshot.fromJson(payload));
+                _errorText = '';
+              });
+              return;
+            }
+            if (line.startsWith(':')) {
+              return;
+            }
+            if (line.startsWith('data:')) {
+              dataLines.add(line.substring(5).trimLeft());
+            }
+          },
+          onError: (error, _) {
+            if (!completer.isCompleted) {
+              completer.completeError(error);
+            }
+          },
+          onDone: () {
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          cancelOnError: true,
+        );
 
     await completer.future;
   }
@@ -781,9 +780,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       if (!AppSession.instance.isLoggedIn) {
         return;
       }
-      final response = await MobileApi.instance
-          .gscaleRpsBatchState()
-          .timeout(const Duration(seconds: 4));
+      final response = await MobileApi.instance.gscaleRpsBatchState().timeout(
+        const Duration(seconds: 4),
+      );
       if (!mounted) {
         return;
       }
@@ -811,9 +810,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       _errorText = '';
     });
     try {
-      final response = await MobileApi.instance
-          .gscaleRpsBatchStop()
-          .timeout(const Duration(seconds: 8));
+      final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
+        const Duration(seconds: 8),
+      );
       if (!mounted) {
         return;
       }
@@ -839,9 +838,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       _errorText = message;
     });
     try {
-      final response = await MobileApi.instance
-          .gscaleRpsBatchStop()
-          .timeout(const Duration(seconds: 8));
+      final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
+        const Duration(seconds: 8),
+      );
       if (!mounted) {
         return;
       }
@@ -944,9 +943,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ..showSnackBar(SnackBar(content: Text(message)));
       });
       if (shouldStop) {
-        unawaited(Future<void>.microtask(
-          () => _stopRsBatchAfterLateErpError(message),
-        ));
+        unawaited(
+          Future<void>.microtask(() => _stopRsBatchAfterLateErpError(message)),
+        );
       }
     }
     _maybeAutoPrintStableBatch();
@@ -1145,20 +1144,24 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),
-          emptyActionLabel:
-              _canCreateCatalogItem ? (query) => '$query ni qo‘shish' : null,
-          onEmptyAction:
-              _canCreateCatalogItem ? _createCatalogItemFromSearch : null,
+          emptyActionLabel: _canCreateCatalogItem
+              ? (query) => '$query ni qo‘shish'
+              : null,
+          onEmptyAction: _canCreateCatalogItem
+              ? _createCatalogItemFromSearch
+              : null,
         );
       },
     );
     if (option == null) {
       return;
     }
-    _selectItem(MobileItem(
-      itemCode: option.code,
-      itemName: option.name.trim().isEmpty ? option.code : option.name.trim(),
-    ));
+    _selectItem(
+      MobileItem(
+        itemCode: option.code,
+        itemName: option.name.trim().isEmpty ? option.code : option.name.trim(),
+      ),
+    );
   }
 
   bool get _canCreateCatalogItem {
@@ -1256,8 +1259,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (warehouse == null || warehouse.trim().isEmpty) {
       throw Exception('Warehouse tanlang');
     }
-    final tareKg =
-        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
+    final tareKg = _babinaEnabled
+        ? parsePositiveKg(_babinaWeightController.text)
+        : 0.0;
     if (_babinaEnabled && tareKg == null) {
       throw Exception("Babina og'irligini kg da to'g'ri kiriting");
     }
@@ -1296,8 +1300,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Future<GScaleMaterialReceiptPrintResponse> _printActiveRsBatch({
     required double grossQtyKg,
   }) async {
-    final tareKg =
-        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
+    final tareKg = _babinaEnabled
+        ? parsePositiveKg(_babinaWeightController.text)
+        : 0.0;
     if (_babinaEnabled && tareKg == null) {
       throw Exception("Babina og'irligini kg da to'g'ri kiriting");
     }
@@ -1375,9 +1380,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       return;
     }
     _lastAutoBatchPrintKey = key;
-    unawaited(Future<void>.microtask(
-      () => _autoPrintStableBatchReading(grossQtyKg),
-    ));
+    unawaited(
+      Future<void>.microtask(() => _autoPrintStableBatchReading(grossQtyKg)),
+    );
   }
 
   Future<void> _autoPrintStableBatchReading(double grossQtyKg) async {
@@ -1412,9 +1417,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   void _showPrintSuccess(GScaleMaterialReceiptPrintResponse response) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(buildPrintSuccessMessage(response)),
-      ),
+      SnackBar(content: Text(buildPrintSuccessMessage(response))),
     );
   }
 
@@ -1482,7 +1485,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final rawSessions =
           (payload['archive'] as List?)?.cast<Map<String, dynamic>>() ??
-              const [];
+          const [];
       final sessions = rawSessions
           .map(MobileArchiveSession.fromJson)
           .toList(growable: false);
@@ -1599,8 +1602,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       if (!mounted) {
         return;
       }
-      final displayName =
-          session.displayItemName.isEmpty ? 'Partiya' : session.displayItemName;
+      final displayName = session.displayItemName.isEmpty
+          ? 'Partiya'
+          : session.displayItemName;
       setState(() {
         _archivePrintLoadingSessionId = '';
       });
@@ -1663,17 +1667,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           duration: const Duration(milliseconds: 220),
           child: switch (_selectedSection) {
             0 => _DashboardScrollView(
-                key: const ValueKey('control-section'),
-                child: _buildControlSection(context, theme, scheme, server),
-              ),
+              key: const ValueKey('control-section'),
+              child: _buildControlSection(context, theme, scheme, server),
+            ),
             1 => _DashboardScrollView(
-                key: const ValueKey('archive-section'),
-                child: _buildArchiveSection(context, theme, scheme, server),
-              ),
+              key: const ValueKey('archive-section'),
+              child: _buildArchiveSection(context, theme, scheme, server),
+            ),
             _ => _DashboardScrollView(
-                key: const ValueKey('server-section'),
-                child: _buildServerSection(context, theme, scheme, server),
-              ),
+              key: const ValueKey('server-section'),
+              child: _buildServerSection(context, theme, scheme, server),
+            ),
           },
         ),
         bottomNavigationBar: AppNavigationBar(
@@ -1737,10 +1741,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         const SizedBox(height: 22),
         const _SectionLabel(title: 'RPS driver', subtitle: ''),
         const SizedBox(height: 12),
-        _MiniIconRow(
-          icon: Icons.link_rounded,
-          text: server.endpoint.baseUrl,
-        ),
+        _MiniIconRow(icon: Icons.link_rounded, text: server.endpoint.baseUrl),
         const SizedBox(height: 12),
         _MiniIconRow(
           icon: Icons.scale_outlined,
@@ -1751,10 +1752,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         const SizedBox(height: 28),
         const _SectionLabel(title: 'RS / ERP boshqaruvi', subtitle: ''),
         const SizedBox(height: 12),
-        const _MiniIconRow(
-          icon: Icons.cloud_outlined,
-          text: MobileApi.baseUrl,
-        ),
+        const _MiniIconRow(icon: Icons.cloud_outlined, text: MobileApi.baseUrl),
         const SizedBox(height: 10),
         Text(
           'ERP URL, API key, Stock Entry draft/submit va delete flow RS serverda '
@@ -1912,8 +1910,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               ),
             ),
             IconButton(
-              onPressed:
-                  _archiveLoading ? null : () => unawaited(_refreshArchive()),
+              onPressed: _archiveLoading
+                  ? null
+                  : () => unawaited(_refreshArchive()),
               icon: const Icon(Icons.refresh_rounded),
               tooltip: 'Arxivni yangilash',
             ),
@@ -2135,16 +2134,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       babinaEnabled: _babinaEnabled,
       babinaText: _babinaWeightController.text,
     );
-    final manualQtyInvalid = selectedQuantitySource == 'manual' &&
+    final manualQtyInvalid =
+        selectedQuantitySource == 'manual' &&
         _manualQtyController.text.trim().isNotEmpty &&
         manualQtyKg == null;
-    final babinaKg =
-        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : null;
-    final babinaInvalid = _babinaEnabled &&
+    final babinaKg = _babinaEnabled
+        ? parsePositiveKg(_babinaWeightController.text)
+        : null;
+    final babinaInvalid =
+        _babinaEnabled &&
         _babinaWeightController.text.trim().isNotEmpty &&
         babinaKg == null;
     final scaleQtyKg = parseScaleDisplayKg(_snapshot.scaleValue);
-    final hasPrintSelection = selectedProduct != null &&
+    final hasPrintSelection =
+        selectedProduct != null &&
         (defaultMode ? defaultWarehouse.isNotEmpty : selectedWarehouse != null);
     final scalePrintReady = canTriggerGrossPrint(
       grossKg: scaleQtyKg,
@@ -2394,8 +2397,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                       labelText: 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
-                      errorText:
-                          manualQtyInvalid ? 'Masalan: 5 yoki 4.22' : null,
+                      errorText: manualQtyInvalid
+                          ? 'Masalan: 5 yoki 4.22'
+                          : null,
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -2410,7 +2414,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   width: 56,
                   child: IconButton.filled(
                     tooltip: 'Chop etish',
-                    onPressed: hasPrintSelection &&
+                    onPressed:
+                        hasPrintSelection &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
@@ -2451,8 +2456,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             ),
             onPressed: scaleBatchActionEnabled
                 ? (_snapshot.batchActive
-                    ? () => unawaited(_stopRsBatch())
-                    : _startScaleBatch)
+                      ? () => unawaited(_stopRsBatch())
+                      : _startScaleBatch)
                 : null,
             icon: _batchActionLoading
                 ? const SizedBox(
@@ -2460,9 +2465,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(_snapshot.batchActive
-                    ? Icons.stop_circle_outlined
-                    : Icons.play_arrow_rounded),
+                : Icon(
+                    _snapshot.batchActive
+                        ? Icons.stop_circle_outlined
+                        : Icons.play_arrow_rounded,
+                  ),
             label: Text(
               scaleBatchActionLabel(
                 loading: _batchActionLoading,
@@ -2676,21 +2683,14 @@ class _PickerField extends StatelessWidget {
           prefixIcon: Icon(icon),
           suffixIcon: const Icon(Icons.expand_more_rounded),
           labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: scheme.outlineVariant,
-            ),
+            borderSide: BorderSide(color: scheme.outlineVariant),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: scheme.primary,
-              width: 1.4,
-            ),
+            borderSide: BorderSide(color: scheme.primary, width: 1.4),
           ),
         ),
         child: Column(
@@ -2872,7 +2872,7 @@ class _WarehousePickerSheet extends StatefulWidget {
   final String queryHint;
   final String emptyText;
   final Future<List<MobileWarehouse>> Function({required String query})
-      fetchWarehouses;
+  fetchWarehouses;
   final MobileWarehouse? initialWarehouse;
 
   @override
@@ -2991,9 +2991,7 @@ class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: scheme.outlineVariant,
-                        ),
+                        borderSide: BorderSide(color: scheme.outlineVariant),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -3013,59 +3011,53 @@ class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
                         child: _loading
                             ? const Center(child: CircularProgressIndicator())
                             : _error.isNotEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Text(
-                                        _error,
-                                        textAlign: TextAlign.center,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: scheme.error,
-                                        ),
-                                      ),
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    _error,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: scheme.error,
                                     ),
-                                  )
-                                : _warehouses.isEmpty
-                                    ? Center(
-                                        child: Text(
-                                          widget.emptyText,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.separated(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 12,
-                                        ),
-                                        itemCount: _warehouses.length,
-                                        separatorBuilder: (context, index) =>
-                                            Divider(
-                                          height: 1,
-                                          color:
-                                              scheme.outlineVariant.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                        ),
-                                        itemBuilder: (context, index) {
-                                          final warehouse = _warehouses[index];
-                                          final selected = widget
-                                                  .initialWarehouse
-                                                  ?.warehouse ==
-                                              warehouse.warehouse;
-                                          return _WarehouseOptionTile(
-                                            warehouse: warehouse,
-                                            selected: selected,
-                                            onTap: () {
-                                              Navigator.of(context)
-                                                  .pop(warehouse);
-                                            },
-                                          );
-                                        },
-                                      ),
+                                  ),
+                                ),
+                              )
+                            : _warehouses.isEmpty
+                            ? Center(
+                                child: Text(
+                                  widget.emptyText,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                itemCount: _warehouses.length,
+                                separatorBuilder: (context, index) => Divider(
+                                  height: 1,
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                                itemBuilder: (context, index) {
+                                  final warehouse = _warehouses[index];
+                                  final selected =
+                                      widget.initialWarehouse?.warehouse ==
+                                      warehouse.warehouse;
+                                  return _WarehouseOptionTile(
+                                    warehouse: warehouse,
+                                    selected: selected,
+                                    onTap: () {
+                                      Navigator.of(context).pop(warehouse);
+                                    },
+                                  );
+                                },
+                              ),
                       ),
                     ),
                   ),
@@ -3137,7 +3129,9 @@ class _EmptyServerState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextButton(
-              onPressed: onManualAdd, child: const Text('Manzil qo‘shish')),
+            onPressed: onManualAdd,
+            child: const Text('Manzil qo‘shish'),
+          ),
         ],
       ),
     );
@@ -3227,10 +3221,7 @@ class _ServerList extends StatelessWidget {
             onOpen: () => onOpenServer(servers[i]),
           ),
           if (i != servers.length - 1)
-            Divider(
-              height: 1,
-              color: scheme.outlineVariant,
-            ),
+            Divider(height: 1, color: scheme.outlineVariant),
         ],
       ],
     );
@@ -3357,16 +3348,11 @@ class _ManualServerSheetState extends State<ManualServerSheet> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: scheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: scheme.outlineVariant),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: scheme.primary,
-                  width: 1.4,
-                ),
+                borderSide: BorderSide(color: scheme.primary, width: 1.4),
               ),
             ),
             onSubmitted: (_) => _submit(),
@@ -3516,8 +3502,9 @@ class MonitorSnapshot {
       serverLabel: _text(json['ok'], fallback: 'unknown') == 'true'
           ? 'API: onlayn'
           : 'API: oflayn',
-      monitorLabel:
-          batchItem.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $batchItem',
+      monitorLabel: batchItem.isEmpty
+          ? 'Faol partiya yo‘q'
+          : 'Partiya: $batchItem',
       printerLabel: printerConnected ? printerLabel : 'ulanmagan',
       printerKind: printerConnected ? printerKind : '',
       printerState: derivePrinterState(
@@ -3568,8 +3555,9 @@ class MonitorSnapshot {
       bridgeValue: bridgeValue,
       bridgeCaption: bridgeCaption,
       serverLabel: serverLabel,
-      monitorLabel:
-          itemName.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $itemName',
+      monitorLabel: itemName.isEmpty
+          ? 'Faol partiya yo‘q'
+          : 'Partiya: $itemName',
       printerLabel: printerLabel,
       printerKind: printerKind,
       printerState: printerState,
@@ -3585,8 +3573,9 @@ class MonitorSnapshot {
       batchPrinter: batch.active
           ? (batch.printer.isNotEmpty ? batch.printer : batchPrinter)
           : batchPrinter,
-      batchQuantitySource:
-          batch.active ? batch.quantitySource : batchQuantitySource,
+      batchQuantitySource: batch.active
+          ? batch.quantitySource
+          : batchQuantitySource,
       batchManualQtyKg: batch.active ? batch.manualQtyKg : batchManualQtyKg,
       batchTareEnabled: batch.active ? batch.tareEnabled : batchTareEnabled,
       batchTareKg: batch.active ? batch.tareKg : batchTareKg,
@@ -3875,8 +3864,9 @@ String formatCompactKg(double value) {
 }
 
 String buildPrintSuccessMessage(GScaleMaterialReceiptPrintResponse response) {
-  final qty =
-      formatCompactKg(response.netQty > 0 ? response.netQty : response.qty);
+  final qty = formatCompactKg(
+    response.netQty > 0 ? response.netQty : response.qty,
+  );
   final status = response.status.trim().toLowerCase();
   if (status == 'printed') {
     return 'Printerga yuborildi • netto $qty ${response.unit}';
@@ -3980,8 +3970,9 @@ String buildPrinterEventMessage({
   );
   final epc = _text(latestPrinterEPC);
   final err = _text(latestPrinterError);
-  final printerName =
-      normalizePrinterChoice(printerChoice) == 'godex' ? 'godex' : 'zebra';
+  final printerName = normalizePrinterChoice(printerChoice) == 'godex'
+      ? 'godex'
+      : 'zebra';
   if (state == 'done') {
     return epc.isEmpty
         ? '$printerName: print qildi'
@@ -4548,7 +4539,7 @@ Future<List<String>> _loadSubnetCandidateHosts() async {
 }
 
 Future<List<network_candidates.DiscoveryAnnouncement>>
-    _loadDiscoveryAnnouncements() async {
+_loadDiscoveryAnnouncements() async {
   try {
     return await network_candidates.discoverAnnouncements(
       port: _discoveryPort,
@@ -4590,8 +4581,9 @@ Future<List<DiscoveredServer>> _probeServers(
 
   final results = <DiscoveredServer>[];
   var nextIndex = 0;
-  final workerCount =
-      endpoints.length < concurrency ? endpoints.length : concurrency;
+  final workerCount = endpoints.length < concurrency
+      ? endpoints.length
+      : concurrency;
 
   Future<void> worker() async {
     while (nextIndex < endpoints.length) {
@@ -4706,7 +4698,8 @@ Future<List<DiscoveredServer>> _loadBonjourDiscoveredServers() async {
             role: _text(json['role'], fallback: 'operator'),
             serverRef: _text(json['server_ref']),
           ),
-          latencyMs: _intValue(json['latency_ms']) ??
+          latencyMs:
+              _intValue(json['latency_ms']) ??
               _fallbackProbeTimeout.inMilliseconds,
         ),
       );
@@ -4816,8 +4809,8 @@ class OperatorControlDraft {
       babinaText: _text(json['babina_text']),
       warehouseMode:
           _text(json['warehouse_mode'], fallback: 'manual') == 'default'
-              ? 'default'
-              : 'manual',
+          ? 'default'
+          : 'manual',
       defaultWarehouse: _text(json['default_warehouse']),
     );
   }

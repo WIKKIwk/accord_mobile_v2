@@ -10,10 +10,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
-  const WerkaCustomerDeliveryDetailScreen({
-    super.key,
-    required this.record,
-  });
+  const WerkaCustomerDeliveryDetailScreen({super.key, required this.record});
 
   final DispatchRecord record;
 
@@ -136,8 +133,10 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
                 slot: M3SegmentVerticalSlot.top,
                 cornerRadius: M3SegmentedListGeometry.cornerLarge,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 16,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -146,10 +145,7 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        _noteText(l10n),
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                      Text(_noteText(l10n), style: theme.textTheme.bodyMedium),
                     ],
                   ),
                 ),

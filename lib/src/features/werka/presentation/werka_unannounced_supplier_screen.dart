@@ -16,10 +16,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaUnannouncedSupplierScreen extends StatefulWidget {
-  const WerkaUnannouncedSupplierScreen({
-    super.key,
-    this.prefill,
-  });
+  const WerkaUnannouncedSupplierScreen({super.key, this.prefill});
 
   final WerkaUnannouncedPrefillArgs? prefill;
 
@@ -128,11 +125,11 @@ class _WerkaUnannouncedSupplierScreenState
           pageSize: 100,
           loadPage: (query, offset, limit) =>
               MobileApi.instance.werkaSupplierItems(
-            supplierRef: _selectedSupplier!.ref,
-            query: query,
-            offset: offset,
-            limit: limit,
-          ),
+                supplierRef: _selectedSupplier!.ref,
+                query: query,
+                offset: offset,
+                limit: limit,
+              ),
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -151,9 +148,9 @@ class _WerkaUnannouncedSupplierScreenState
     }
     final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
     if (qty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.qtyRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.qtyRequired)));
       return;
     }
 
@@ -182,10 +179,7 @@ class _WerkaUnannouncedSupplierScreenState
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  _selectedItem!.name,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(_selectedItem!.name, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 6),
                 Text(
                   '${qty.toStringAsFixed(0)} ${_selectedItem!.uom}',

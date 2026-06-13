@@ -6,11 +6,7 @@ import '../../../../core/session/session.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
-enum SupplierDockTab {
-  home,
-  notifications,
-  recent,
-}
+enum SupplierDockTab { home, notifications, recent }
 
 class SupplierDock extends StatelessWidget {
   const SupplierDock({
@@ -37,9 +33,11 @@ class SupplierDock extends StatelessWidget {
         ProfileRouteOverlayNotifier.instance,
       ]),
       builder: (context, _) {
-        final effectiveShowPrimaryFab = showPrimaryFab &&
+        final effectiveShowPrimaryFab =
+            showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab;
-        final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
+        final showBadge =
+            NotificationUnreadStore.instance.hasUnreadForProfile(
               AppSession.instance.profile,
             ) &&
             activeTab != SupplierDockTab.notifications;
@@ -56,10 +54,9 @@ class SupplierDock extends StatelessWidget {
             if (activeTab == SupplierDockTab.home && !centerActive) {
               return;
             }
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              AppRoutes.supplierHome,
-              (route) => false,
-            );
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(AppRoutes.supplierHome, (route) => false);
             return;
           }
           if (index == 1) {
@@ -85,7 +82,8 @@ class SupplierDock extends StatelessWidget {
           }
         }
 
-        final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+        final useNativeDock =
+            NativeDockBridge.isSupportedPlatform &&
             NativeDockBridge.instance.supportsSystemDock;
         if (useNativeDock) {
           NativeDockBridge.instance.register(

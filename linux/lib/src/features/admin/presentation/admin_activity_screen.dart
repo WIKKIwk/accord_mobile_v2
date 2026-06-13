@@ -84,10 +84,7 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
       nav.pop();
       return;
     }
-    nav.pushNamedAndRemoveUntil(
-      AppRoutes.adminHome,
-      (route) => false,
-    );
+    nav.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false);
   }
 
   @override
@@ -147,9 +144,7 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
             onRefresh: _reload,
             child: ListView(
               padding: const EdgeInsets.only(top: 4),
-              children: [
-                _AdminActivitySection(items: items),
-              ],
+              children: [_AdminActivitySection(items: items)],
             ),
           );
         },
@@ -159,9 +154,7 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
 }
 
 class _AdminActivitySection extends StatelessWidget {
-  const _AdminActivitySection({
-    required this.items,
-  });
+  const _AdminActivitySection({required this.items});
 
   final List<DispatchRecord> items;
 
@@ -184,10 +177,7 @@ class _AdminActivitySection extends StatelessWidget {
 }
 
 class _AdminActivityCard extends StatelessWidget {
-  const _AdminActivityCard({
-    required this.slot,
-    required this.item,
-  });
+  const _AdminActivityCard({required this.slot, required this.item});
 
   final M3SegmentVerticalSlot slot;
   final DispatchRecord item;
@@ -209,22 +199,22 @@ class _AdminActivityCard extends StatelessWidget {
       title: item.supplierName,
       value: item.createdLabel,
       titleStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w600,
-            color: scheme.onSurface,
-            height: 1.15,
-          ),
+        fontSize: 14.5,
+        fontWeight: FontWeight.w600,
+        color: scheme.onSurface,
+        height: 1.15,
+      ),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w500,
-            color: scheme.onSurfaceVariant,
-            height: 1.2,
-          ),
+        fontSize: 12.0,
+        fontWeight: FontWeight.w500,
+        color: scheme.onSurfaceVariant,
+        height: 1.2,
+      ),
       valueStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 11.5,
-            color: scheme.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
-          ),
+        fontSize: 11.5,
+        color: scheme.onSurfaceVariant,
+        fontWeight: FontWeight.w500,
+      ),
       subtitle: _metricLine(),
       leading: _ActivityStatusBadge(status: item.status),
       showChevron: false,
@@ -234,9 +224,7 @@ class _AdminActivityCard extends StatelessWidget {
 }
 
 class _ActivityStatusBadge extends StatelessWidget {
-  const _ActivityStatusBadge({
-    required this.status,
-  });
+  const _ActivityStatusBadge({required this.status});
 
   final DispatchStatus status;
 

@@ -20,10 +20,7 @@ class SupplierStatusDetailArgs {
 }
 
 class SupplierStatusDetailScreen extends StatefulWidget {
-  const SupplierStatusDetailScreen({
-    super.key,
-    required this.args,
-  });
+  const SupplierStatusDetailScreen({super.key, required this.args});
 
   final SupplierStatusDetailArgs args;
 
@@ -37,13 +34,17 @@ class _SupplierStatusDetailScreenState
   @override
   void initState() {
     super.initState();
-    SupplierStore.instance
-        .bootstrapDetail(widget.args.kind, widget.args.itemCode);
+    SupplierStore.instance.bootstrapDetail(
+      widget.args.kind,
+      widget.args.itemCode,
+    );
   }
 
   Future<void> _reload() async {
-    await SupplierStore.instance
-        .refreshDetail(widget.args.kind, widget.args.itemCode);
+    await SupplierStore.instance.refreshDetail(
+      widget.args.kind,
+      widget.args.itemCode,
+    );
   }
 
   @override
@@ -66,8 +67,10 @@ class _SupplierStatusDetailScreenState
                   .isEmpty) {
             return const Center(child: AppLoadingIndicator());
           }
-          final error =
-              store.detailError(widget.args.kind, widget.args.itemCode);
+          final error = store.detailError(
+            widget.args.kind,
+            widget.args.itemCode,
+          );
           if (error != null &&
               store
                   .detailItems(widget.args.kind, widget.args.itemCode)
@@ -82,8 +85,10 @@ class _SupplierStatusDetailScreenState
               ),
             );
           }
-          final items =
-              store.detailItems(widget.args.kind, widget.args.itemCode);
+          final items = store.detailItems(
+            widget.args.kind,
+            widget.args.itemCode,
+          );
           if (items.isEmpty) {
             return Center(child: Text(context.l10n.noSupplierReceiptsYet));
           }
@@ -102,72 +107,76 @@ class _SupplierStatusDetailScreenState
                   child: Column(
                     children: [
                       for (int index = 0; index < items.length; index++) ...[
-                        Builder(builder: (context) {
-                          final record = items[index];
-                          return InkWell(
-                            onTap: () => Navigator.of(context).pushNamed(
-                              AppRoutes.notificationDetail,
-                              arguments: record.id,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(18),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .headlineMedium,
+                        Builder(
+                          builder: (context) {
+                            final record = items[index];
+                            return InkWell(
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.notificationDetail,
+                                arguments: record.id,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(18),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${record.sentQty.toStringAsFixed(0)} ${record.uom}',
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.headlineMedium,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          record.createdLabel,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                    if (record.acceptedQty > 0) ...[
+                                      const SizedBox(height: 6),
                                       Text(
-                                        record.createdLabel,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
+                                        context.l10n.acceptedQtyLabel(
+                                          record.acceptedQty,
+                                          record.uom,
+                                        ),
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ],
-                                  ),
-                                  if (record.acceptedQty > 0) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      context.l10n.acceptedQtyLabel(
-                                        record.acceptedQty,
-                                        record.uom,
+                                    if (record.note.trim().isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        record.note,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
+                                    ],
                                   ],
-                                  if (record.note.trim().isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      record.note,
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ],
+                                ),
                               ),
-                            ),
-                          );
-                        }),
+                            );
+                          },
+                        ),
                         if (index != items.length - 1)
                           Divider(
                             height: 1,
                             thickness: 1,
                             indent: 18,
                             endIndent: 18,
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withValues(alpha: 0.55),
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.55),
                           ),
                       ],
                     ],

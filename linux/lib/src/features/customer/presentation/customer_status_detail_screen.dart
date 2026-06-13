@@ -12,10 +12,7 @@ import 'widgets/customer_dock.dart';
 import 'package:flutter/material.dart';
 
 class CustomerStatusDetailScreen extends StatefulWidget {
-  const CustomerStatusDetailScreen({
-    super.key,
-    required this.kind,
-  });
+  const CustomerStatusDetailScreen({super.key, required this.kind});
 
   final CustomerStatusKind kind;
 
@@ -37,10 +34,9 @@ class _CustomerStatusDetailScreenState
   }
 
   Future<void> _openDetail(String deliveryNoteID) async {
-    final changed = await Navigator.of(context).pushNamed(
-      AppRoutes.customerDetail,
-      arguments: deliveryNoteID,
-    );
+    final changed = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.customerDetail, arguments: deliveryNoteID);
     if (changed == true) {
       await _reload();
     }
@@ -79,9 +75,7 @@ class _CustomerStatusDetailScreenState
                   builder: (context, _) {
                     final store = CustomerStore.instance;
                     if (store.loading && !store.loaded) {
-                      return const Center(
-                        child: AppLoadingIndicator(),
-                      );
+                      return const Center(child: AppLoadingIndicator());
                     }
                     if (store.error != null && !store.loaded) {
                       return AppRetryState(onRetry: _reload);
@@ -117,9 +111,11 @@ class _CustomerStatusDetailScreenState
                             ),
                             child: Column(
                               children: [
-                                for (int index = 0;
-                                    index < items.length;
-                                    index++) ...[
+                                for (
+                                  int index = 0;
+                                  index < items.length;
+                                  index++
+                                ) ...[
                                   _CustomerStatusRecordRow(
                                     record: items[index],
                                     isFirst: index == 0,
@@ -182,10 +178,7 @@ class _CustomerStatusRecordRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  record.createdLabel,
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text(record.createdLabel, style: theme.textTheme.bodySmall),
               ],
             ),
             const SizedBox(height: 10),
@@ -195,10 +188,7 @@ class _CustomerStatusRecordRow extends StatelessWidget {
             ),
             if (record.note.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                record.note,
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(record.note, style: theme.textTheme.bodySmall),
             ],
           ],
         ),

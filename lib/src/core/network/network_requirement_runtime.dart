@@ -7,10 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 class NetworkRequirementRuntime extends StatefulWidget {
-  const NetworkRequirementRuntime({
-    super.key,
-    required this.child,
-  });
+  const NetworkRequirementRuntime({super.key, required this.child});
 
   final Widget child;
 

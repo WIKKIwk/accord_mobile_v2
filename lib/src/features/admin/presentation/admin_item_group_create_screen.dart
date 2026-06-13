@@ -217,10 +217,10 @@ class _AdminItemGroupCreateScreenState
                     onSelectGroup: _selectItemGroupForItems,
                     loadItemsPage: (group, limit, offset) =>
                         MobileApi.instance.adminItemsPage(
-                      group: group,
-                      limit: limit,
-                      offset: offset,
-                    ),
+                          group: group,
+                          limit: limit,
+                          offset: offset,
+                        ),
                   ),
                 ],
               ),
@@ -277,21 +277,23 @@ class _CreateGroupTab extends StatelessWidget {
                 !snapshot.hasError) {
               onSyncParent(groups);
             }
-            final selectedParent =
-                parent.text.trim().isEmpty ? null : parent.text.trim();
+            final selectedParent = parent.text.trim().isEmpty
+                ? null
+                : parent.text.trim();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Parent group',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 _TapBox(
-                  onTap: snapshot.connectionState == ConnectionState.done &&
+                  onTap:
+                      snapshot.connectionState == ConnectionState.done &&
                           !snapshot.hasError &&
                           !saving
                       ? () => onToggleParentMenu(!parentMenuOpen)
@@ -344,10 +346,7 @@ class _CreateGroupTab extends StatelessWidget {
 }
 
 class _SelectionBox extends StatelessWidget {
-  const _SelectionBox({
-    required this.label,
-    required this.selected,
-  });
+  const _SelectionBox({required this.label, required this.selected});
 
   final String label;
   final bool selected;
@@ -370,11 +369,11 @@ class _SelectionBox extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: selected
-                        ? Theme.of(context).colorScheme.onSurface
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: selected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -429,17 +428,15 @@ class _ParentMenu extends StatelessWidget {
               Divider(
                 height: 1,
                 thickness: 1,
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.6),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.6),
               ),
             Material(
               color: groups[index] == selectedParent
-                  ? Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withValues(alpha: 0.55)
+                  ? Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.55)
                   : Colors.transparent,
               child: InkWell(
                 onTap: saving ? null : () => onSelect(groups[index]),
@@ -455,10 +452,8 @@ class _ParentMenu extends StatelessWidget {
                           groups[index],
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
                       ),
                       if (groups[index] == selectedParent)

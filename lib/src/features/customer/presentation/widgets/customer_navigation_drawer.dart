@@ -51,9 +51,9 @@ class CustomerNavigationDrawer extends StatelessWidget {
                 child: Text(
                   'Bo‘limlar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

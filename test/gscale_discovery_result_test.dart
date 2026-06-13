@@ -1,4 +1,4 @@
-import 'package:erpnext_stock_mobile/src/features/gscale/gscale_mobile_app.dart';
+import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -45,27 +45,29 @@ void main() {
     expect(merged.servers.single.latencyMs, 12);
   });
 
-  test('mergeDiscoveryResults shows verified scan before stale cached server',
-      () {
-    final current = DiscoveryResult(
-      servers: [_server('192.168.1.4', 'cached-rps', latencyMs: 1)],
-      candidateCount: 1,
-    );
-    final next = DiscoveryResult(
-      servers: [_server('192.168.1.103', 'rp-scale', latencyMs: 12)],
-      candidateCount: 5,
-    );
+  test(
+    'mergeDiscoveryResults shows verified scan before stale cached server',
+    () {
+      final current = DiscoveryResult(
+        servers: [_server('192.168.1.4', 'cached-rps', latencyMs: 1)],
+        candidateCount: 1,
+      );
+      final next = DiscoveryResult(
+        servers: [_server('192.168.1.103', 'rp-scale', latencyMs: 12)],
+        candidateCount: 5,
+      );
 
-    final merged = mergeDiscoveryResults(
-      current: current,
-      next: next,
-      keepCurrentWhenNextEmpty: true,
-    );
+      final merged = mergeDiscoveryResults(
+        current: current,
+        next: next,
+        keepCurrentWhenNextEmpty: true,
+      );
 
-    expect(merged.servers, hasLength(2));
-    expect(merged.servers.first.endpoint.host, '192.168.1.103');
-    expect(merged.servers.last.endpoint.host, '192.168.1.4');
-  });
+      expect(merged.servers, hasLength(2));
+      expect(merged.servers.first.endpoint.host, '192.168.1.103');
+      expect(merged.servers.last.endpoint.host, '192.168.1.4');
+    },
+  );
 
   test(
     'mergeDiscoveryResults can clear servers after confirmed empty scans',

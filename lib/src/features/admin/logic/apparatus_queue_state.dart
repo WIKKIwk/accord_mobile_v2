@@ -1,10 +1,6 @@
 import 'production_map_pechat_rules.dart';
 
-enum ApparatusQueueOrderState {
-  pending,
-  inProgress,
-  completed,
-}
+enum ApparatusQueueOrderState { pending, inProgress, completed }
 
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
@@ -23,12 +19,10 @@ String? firstActionableQueueOrderId({
   Iterable<String>? visibleOrderIds,
   bool Function(String orderId)? isOrderReady,
 }) {
-  final visible = visibleOrderIds == null
-      ? null
-      : visibleOrderIds
-          .map((id) => id.trim())
-          .where((id) => id.isNotEmpty)
-          .toSet();
+  final visible = visibleOrderIds
+      ?.map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toSet();
   for (final id in sequence) {
     final normalized = id.trim();
     if (normalized.isEmpty) {
@@ -57,7 +51,8 @@ String resolveApparatusStorageKey(
   if (normalized.isEmpty) {
     return normalized;
   }
-  final keys = knownKeys.map((key) => key.trim()).where((key) => key.isNotEmpty);
+  final keys =
+      knownKeys.map((key) => key.trim()).where((key) => key.isNotEmpty);
   if (keys.contains(normalized)) {
     return normalized;
   }

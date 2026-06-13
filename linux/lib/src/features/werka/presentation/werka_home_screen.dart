@@ -153,9 +153,7 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
                       allowRefreshOnShortContent: true,
                       child: ListView(
                         physics: const TopRefreshScrollPhysics(),
-                        children: [
-                          AppRetryState(onRetry: _reload),
-                        ],
+                        children: [AppRetryState(onRetry: _reload)],
                       ),
                     );
                   }
@@ -208,9 +206,7 @@ class _WerkaHomeScreenState extends State<WerkaHomeScreen>
 }
 
 class _WerkaSummaryList extends StatelessWidget {
-  const _WerkaSummaryList({
-    required this.summary,
-  });
+  const _WerkaSummaryList({required this.summary});
 
   final WerkaHomeSummary summary;
 
@@ -276,8 +272,10 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final BorderRadius radius =
-        M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
+    final BorderRadius radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      cornerRadius,
+    );
     final Color bg = switch (theme.brightness) {
       Brightness.dark => scheme.surfaceContainerLow,
       Brightness.light => scheme.surfaceContainerHighest,
@@ -296,10 +294,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: radius,
-          ),
+          decoration: BoxDecoration(color: bg, borderRadius: radius),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 66),
             child: Padding(
@@ -326,11 +321,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: accent,
-                  ),
+                  Icon(Icons.chevron_right_rounded, size: 22, color: accent),
                 ],
               ),
             ),
@@ -342,9 +333,7 @@ class _WerkaSummarySegmentCard extends StatelessWidget {
 }
 
 class _WerkaPendingSection extends StatefulWidget {
-  const _WerkaPendingSection({
-    required this.items,
-  });
+  const _WerkaPendingSection({required this.items});
 
   final List<DispatchRecord> items;
 
@@ -421,9 +410,7 @@ class _WerkaPendingSectionState extends State<_WerkaPendingSection> {
                         const SizedBox(height: M3SegmentedListGeometry.gap),
                         for (int index = 0; index < n; index++) ...[
                           if (index > 0)
-                            const SizedBox(
-                              height: M3SegmentedListGeometry.gap,
-                            ),
+                            const SizedBox(height: M3SegmentedListGeometry.gap),
                           _WerkaPendingItemTile(
                             record: widget.items[index],
                             index: index,
@@ -460,11 +447,11 @@ class _WerkaPendingItemTile extends StatelessWidget {
     final r = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
 
     void navigate() => Navigator.of(context).pushNamed(
-          record.isDeliveryNote
-              ? AppRoutes.werkaCustomerDeliveryDetail
-              : AppRoutes.werkaDetail,
-          arguments: record,
-        );
+      record.isDeliveryNote
+          ? AppRoutes.werkaCustomerDeliveryDetail
+          : AppRoutes.werkaDetail,
+      arguments: record,
+    );
 
     return M3SegmentFilledSurface(
       slot: slot,

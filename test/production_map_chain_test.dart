@@ -1,8 +1,8 @@
-import 'package:erpnext_stock_mobile/src/features/admin/logic/apparatus_queue_state.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/logic/production_map_chain.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/logic/production_map_pechat_rules.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_models.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/apparatus_queue_state.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/production_map_chain.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ProductionMapDefinition _hotlunchMap() {
@@ -90,11 +90,7 @@ void main() {
       x: 24,
       y: 48,
     );
-    const cleanNode = ProductionMapNode(
-      id: 'end',
-      kind: 'end',
-      title: 'End',
-    );
+    const cleanNode = ProductionMapNode(id: 'end', kind: 'end', title: 'End');
     const edge = ProductionMapEdge(from: 'apparatus-7', to: 'end');
     const map = ProductionMapDefinition(
       id: 'zakaz-template',
@@ -138,19 +134,23 @@ void main() {
   });
 
   test('warehouse suffix titles match', () {
-    expect(productionMapWarehouseTitlesMatch('Laminatsiya - A', 'Laminatsiya'),
-        isTrue);
     expect(
-        productionMapWarehouseTitlesMatch('Paket aparat - A', 'Paket aparat'),
-        isTrue);
+      productionMapWarehouseTitlesMatch('Laminatsiya - A', 'Laminatsiya'),
+      isTrue,
+    );
+    expect(
+      productionMapWarehouseTitlesMatch('Paket aparat - A', 'Paket aparat'),
+      isTrue,
+    );
   });
 
   test('linear work stages skip product task before first apparatus', () {
     final stages = productionMapLinearWorkStages(_hotlunchMap());
-    expect(
-      stages.map((stage) => stage.stationTitle).toList(),
-      ['9 ta rangli pechat - A', 'Laminatsiya', 'Rezka aparat - A'],
-    );
+    expect(stages.map((stage) => stage.stationTitle).toList(), [
+      '9 ta rangli pechat - A',
+      'Laminatsiya',
+      'Rezka aparat - A',
+    ]);
   });
 
   test('laminatsiya tab sees orders only when map includes that stage', () {

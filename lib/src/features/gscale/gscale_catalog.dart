@@ -14,10 +14,7 @@ class GScaleCatalogWarehouse {
   final String? company;
 }
 
-enum GScaleCatalogItemSource {
-  adminItems,
-  gscaleItems,
-}
+enum GScaleCatalogItemSource { adminItems, gscaleItems }
 
 GScaleCatalogItemSource gscaleCatalogItemSourceForProfile(
   SessionProfile? profile,
@@ -37,15 +34,20 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
 }) async {
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
-  final canReadAdminCatalog = role == UserRole.admin ||
+  final canReadAdminCatalog =
+      role == UserRole.admin ||
       (role == null && profile?.hasCapability('catalog.item.read') == true);
-  final canReadGScaleCatalog = role == UserRole.werka ||
+  final canReadGScaleCatalog =
+      role == UserRole.werka ||
       (role == null && profile?.hasCapability('gscale.catalog.read') == true);
   if (canReadAdminCatalog) {
     final items = await client.adminItemsPage(query: itemCode, limit: 50);
-    final exactItems = items.where((item) {
-      return item.code.trim().toLowerCase() == itemCode.trim().toLowerCase();
-    }).toList(growable: false);
+    final exactItems = items
+        .where((item) {
+          return item.code.trim().toLowerCase() ==
+              itemCode.trim().toLowerCase();
+        })
+        .toList(growable: false);
     if (exactItems.isEmpty) {
       return const [];
     }
@@ -65,10 +67,7 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
     );
   }
   if (canReadGScaleCatalog) {
-    final items = await client.gscaleItemsPage(
-      query: itemCode,
-      limit: 50,
-    );
+    final items = await client.gscaleItemsPage(query: itemCode, limit: 50);
     final warehouses = gscaleWarehousesFromSupplierItems(
       items,
       itemCode: itemCode,
@@ -95,12 +94,14 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
 }) async {
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
-  final canReadAdminWarehouses = role == UserRole.admin ||
+  final canReadAdminWarehouses =
+      role == UserRole.admin ||
       (role == null &&
           (profile?.hasCapability('admin.access') == true ||
               profile?.hasCapability('production.map.manage') == true ||
               profile?.hasCapability('catalog.item.read') == true));
-  final canReadGScaleCatalog = role == UserRole.werka ||
+  final canReadGScaleCatalog =
+      role == UserRole.werka ||
       (role == null && profile?.hasCapability('gscale.catalog.read') == true);
   if (canReadAdminWarehouses) {
     final warehouses = await client.adminWarehouses(query: query, limit: limit);
@@ -108,8 +109,9 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
         .map(
           (warehouse) => GScaleCatalogWarehouse(
             warehouse: warehouse.warehouse,
-            company:
-                warehouse.company.trim().isEmpty ? null : warehouse.company,
+            company: warehouse.company.trim().isEmpty
+                ? null
+                : warehouse.company,
           ),
         )
         .where((warehouse) => warehouse.warehouse.trim().isNotEmpty)
@@ -118,9 +120,10 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
   }
   if (canReadGScaleCatalog) {
     final items = await client.gscaleItemsPage(limit: 200);
-    return gscaleWarehousesFromSupplierItems(items, query: query)
-        .take(limit)
-        .toList();
+    return gscaleWarehousesFromSupplierItems(
+      items,
+      query: query,
+    ).take(limit).toList();
   }
   throw Exception('GScale omborlari faqat admin yoki werka uchun mavjud');
 }
@@ -131,12 +134,15 @@ List<GScaleCatalogWarehouse> gscaleWarehousesFromSupplierItems(
   String query = '',
 }) {
   return _uniqueWarehouses(
-    items.where((item) {
-      if (itemCode.trim().isEmpty) {
-        return true;
-      }
-      return item.code.trim().toLowerCase() == itemCode.trim().toLowerCase();
-    }).map((item) => item.warehouse),
+    items
+        .where((item) {
+          if (itemCode.trim().isEmpty) {
+            return true;
+          }
+          return item.code.trim().toLowerCase() ==
+              itemCode.trim().toLowerCase();
+        })
+        .map((item) => item.warehouse),
     query: query,
   );
 }
@@ -147,13 +153,15 @@ List<GScaleCatalogWarehouse> gscaleWarehousesFromCustomerOptions(
   String query = '',
 }) {
   return _uniqueWarehouses(
-    options.where((option) {
-      if (itemCode.trim().isEmpty) {
-        return true;
-      }
-      return option.itemCode.trim().toLowerCase() ==
-          itemCode.trim().toLowerCase();
-    }).map((option) => option.warehouse),
+    options
+        .where((option) {
+          if (itemCode.trim().isEmpty) {
+            return true;
+          }
+          return option.itemCode.trim().toLowerCase() ==
+              itemCode.trim().toLowerCase();
+        })
+        .map((option) => option.warehouse),
     query: query,
   );
 }

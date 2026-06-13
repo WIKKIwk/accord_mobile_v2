@@ -41,8 +41,10 @@ class WerkaArchiveBatchQrPayload {
       return null;
     }
 
-    final lines =
-        decoded.split('\n').map((line) => line.trim()).toList(growable: false);
+    final lines = decoded
+        .split('\n')
+        .map((line) => line.trim())
+        .toList(growable: false);
     if (lines.length < 5 || lines.first.toUpperCase() != 'ARCHIVE') {
       return null;
     }

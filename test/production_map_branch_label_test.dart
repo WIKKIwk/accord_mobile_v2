@@ -1,4 +1,4 @@
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

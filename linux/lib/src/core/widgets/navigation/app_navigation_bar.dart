@@ -11,9 +11,7 @@ const double appNavigationBarPrimaryButtonBorderRadius = 22.0;
 const double appNavigationBarPrimaryButtonGap = 44.0;
 const double appNavigationBarPrimaryButtonLift = 10.0;
 
-double appNavigationBarPrimaryButtonBottom({
-  required double dockHeight,
-}) {
+double appNavigationBarPrimaryButtonBottom({required double dockHeight}) {
   return dockHeight +
       appNavigationBarPrimaryButtonGap -
       (appNavigationBarPrimaryButtonSize / 2) +
@@ -65,8 +63,9 @@ class AppNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MediaQueryData viewMetrics =
-        MediaQueryData.fromView(View.of(context));
+    final MediaQueryData viewMetrics = MediaQueryData.fromView(
+      View.of(context),
+    );
     final double systemBottomInset = dockLayoutBottomInset(
       viewMetrics,
       thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
@@ -76,39 +75,42 @@ class AppNavigationBar extends StatelessWidget {
       return SizedBox(height: height + systemBottomInset);
     }
 
-    final int effectiveIndex =
-        selectedIndex.clamp(0, destinations.length - 1).toInt();
-    final int primaryIndex =
-        destinations.indexWhere((destination) => destination.isPrimary);
+    final int effectiveIndex = selectedIndex
+        .clamp(0, destinations.length - 1)
+        .toInt();
+    final int primaryIndex = destinations.indexWhere(
+      (destination) => destination.isPrimary,
+    );
     final bool hasPrimary = primaryIndex != -1;
     final bool primarySelected = hasPrimary && effectiveIndex == primaryIndex;
     final bool barSelectionVisible = selectionVisible && !primarySelected;
     final List<AppNavigationDestination> barDestinations = hasPrimary
         ? destinations
-            .asMap()
-            .entries
-            .where((entry) => entry.key != primaryIndex)
-            .map((entry) => entry.value)
-            .toList()
+              .asMap()
+              .entries
+              .where((entry) => entry.key != primaryIndex)
+              .map((entry) => entry.value)
+              .toList()
         : destinations;
     final int barSelectedIndex = hasPrimary
         ? primarySelected || barDestinations.isEmpty
-            ? 0
-            : destinations
-                .take(effectiveIndex)
-                .where((destination) => !destination.isPrimary)
-                .length
-                .clamp(0, barDestinations.length - 1)
-                .toInt()
+              ? 0
+              : destinations
+                    .take(effectiveIndex)
+                    .where((destination) => !destination.isPrimary)
+                    .length
+                    .clamp(0, barDestinations.length - 1)
+                    .toInt()
         : effectiveIndex;
     final double dockHeight = appNavigationBarDockHeight(
       height: height,
       systemBottomInset: systemBottomInset,
     );
-    final double hostHeight = dockHeight +
+    final double hostHeight =
+        dockHeight +
         (hasPrimary && primaryVisible
             ? appNavigationBarPrimaryButtonSize +
-                appNavigationBarPrimaryButtonGap
+                  appNavigationBarPrimaryButtonGap
             : 0);
 
     return MediaQuery.removePadding(
@@ -145,8 +147,9 @@ class AppNavigationBar extends StatelessWidget {
                               selected: barSelectionVisible,
                               height: height,
                               onTap: () {
-                                final originalIndex = destinations
-                                    .indexOf(barDestinations.single);
+                                final originalIndex = destinations.indexOf(
+                                  barDestinations.single,
+                                );
                                 onDestinationSelected(originalIndex);
                               },
                             )
@@ -161,32 +164,35 @@ class AppNavigationBar extends StatelessWidget {
                                         .alwaysShow,
                                 onDestinationSelected: (index) {
                                   final destination = barDestinations[index];
-                                  final originalIndex =
-                                      destinations.indexOf(destination);
+                                  final originalIndex = destinations.indexOf(
+                                    destination,
+                                  );
                                   onDestinationSelected(originalIndex);
                                 },
                                 destinations:
                                     List<NavigationDestination>.generate(
-                                  barDestinations.length,
-                                  (index) {
-                                    final destination = barDestinations[index];
-                                    return NavigationDestination(
-                                      label: destination.label,
-                                      tooltip: destination.onLongPress == null
-                                          ? null
-                                          : '',
-                                      icon: _AppNavigationDestinationIcon(
-                                        destination: destination,
-                                        selected: false,
-                                      ),
-                                      selectedIcon:
-                                          _AppNavigationDestinationIcon(
-                                        destination: destination,
-                                        selected: true,
-                                      ),
-                                    );
-                                  },
-                                ),
+                                      barDestinations.length,
+                                      (index) {
+                                        final destination =
+                                            barDestinations[index];
+                                        return NavigationDestination(
+                                          label: destination.label,
+                                          tooltip:
+                                              destination.onLongPress == null
+                                              ? null
+                                              : '',
+                                          icon: _AppNavigationDestinationIcon(
+                                            destination: destination,
+                                            selected: false,
+                                          ),
+                                          selectedIcon:
+                                              _AppNavigationDestinationIcon(
+                                                destination: destination,
+                                                selected: true,
+                                              ),
+                                        );
+                                      },
+                                    ),
                               ),
                             ),
                     ),
@@ -232,10 +238,8 @@ class _SelectionAwareNavigationBarTheme extends StatelessWidget {
 
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final TextStyle? unselectedLabelStyle =
-        theme.textTheme.labelMedium?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
+    final TextStyle? unselectedLabelStyle = theme.textTheme.labelMedium
+        ?.copyWith(color: scheme.onSurfaceVariant);
 
     return NavigationBarTheme(
       data: NavigationBarThemeData(
@@ -285,7 +289,8 @@ class _SingleDestinationNavigationBar extends StatelessWidget {
       color: scheme.onSecondaryContainer,
     );
     return Material(
-      color: NavigationBarTheme.of(context).backgroundColor ??
+      color:
+          NavigationBarTheme.of(context).backgroundColor ??
           scheme.surfaceContainer,
       child: SizedBox(
         height: height,
@@ -294,10 +299,7 @@ class _SingleDestinationNavigationBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -351,9 +353,7 @@ class _AppNavigationDestinationIcon extends StatelessWidget {
         : destination.icon;
 
     if (destination.showBadge) {
-      icon = Badge(
-        child: icon,
-      );
+      icon = Badge(child: icon);
     }
 
     if (destination.onLongPress == null) {
@@ -383,10 +383,12 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final Color background =
-        selected ? scheme.primary : scheme.primaryContainer;
-    final Color foreground =
-        selected ? scheme.onPrimary : scheme.onPrimaryContainer;
+    final Color background = selected
+        ? scheme.primary
+        : scheme.primaryContainer;
+    final Color foreground = selected
+        ? scheme.onPrimary
+        : scheme.onPrimaryContainer;
     final Widget icon = destination.selectedIcon ?? destination.icon;
 
     return Semantics(
@@ -397,13 +399,15 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
         color: background,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(appNavigationBarPrimaryButtonBorderRadius),
+          borderRadius: BorderRadius.circular(
+            appNavigationBarPrimaryButtonBorderRadius,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius:
-              BorderRadius.circular(appNavigationBarPrimaryButtonBorderRadius),
+          borderRadius: BorderRadius.circular(
+            appNavigationBarPrimaryButtonBorderRadius,
+          ),
           onTap: onTap,
           onLongPress: destination.onLongPress,
           child: SizedBox(
@@ -419,16 +423,9 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
                 ),
               ),
               child: IconTheme(
-                data: IconThemeData(
-                  color: foreground,
-                  size: 24,
-                ),
+                data: IconThemeData(color: foreground, size: 24),
                 child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: icon,
-                  ),
+                  child: SizedBox(width: 24, height: 24, child: icon),
                 ),
               ),
             ),

@@ -218,8 +218,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _showPinFlow() async {
-    final result =
-        await Navigator.of(context).pushNamed(AppRoutes.pinSetupEntry);
+    final result = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.pinSetupEntry);
     if (result != true || !mounted) {
       return;
     }
@@ -229,8 +230,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       errorMessage = null;
     });
     try {
-      final canUseBiometrics =
-          await SecurityController.instance.canUseBiometrics();
+      final canUseBiometrics = await SecurityController.instance
+          .canUseBiometrics();
       if (!mounted ||
           !canUseBiometrics ||
           SecurityController.instance.biometricEnabledForCurrentUser) {
@@ -346,20 +347,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         final subtitle = current.isCapabilityOnlyProfile
             ? 'Role asosidagi account'
             : current.accessRole == UserRole.supplier
-                ? l10n.supplierAccount
-                : current.accessRole == UserRole.werka
-                    ? l10n.werkaAccount
-                    : current.accessRole == UserRole.customer
-                        ? l10n.customerAccount
-                        : l10n.adminAccount;
+            ? l10n.supplierAccount
+            : current.accessRole == UserRole.werka
+            ? l10n.werkaAccount
+            : current.accessRole == UserRole.customer
+            ? l10n.customerAccount
+            : l10n.adminAccount;
         final bool hasPin = SecurityController.instance.hasPinForCurrentUser;
         final bool biometricEnabled =
             SecurityController.instance.biometricEnabledForCurrentUser;
         final bool savingProfileChanges = savingNickname || savingAvatar;
         final displayName = _normalizedDisplayName(current);
         final legalName = _normalizedLegalName(current);
-        final effectiveLegalName =
-            (legalName.isEmpty ? displayName : legalName).trim();
+        final effectiveLegalName = (legalName.isEmpty ? displayName : legalName)
+            .trim();
 
         return AppShell(
           title: l10n.profileTitle,
@@ -368,27 +369,33 @@ class _ProfileScreenState extends State<ProfileScreen>
           animateOnEnter: current.accessRole != UserRole.customer,
           drawer: switch (shellKind) {
             _ProfileShellKind.werka => WerkaNavigationDrawer(
-                selectedIndex: 3,
-                onNavigate: _openWerkaDrawerRoute,
-              ),
+              selectedIndex: 3,
+              onNavigate: _openWerkaDrawerRoute,
+            ),
             _ProfileShellKind.supplier => SupplierNavigationDrawer(
-                selectedIndex: 3,
-                onNavigate: _openSupplierDrawerRoute,
-              ),
+              selectedIndex: 3,
+              onNavigate: _openSupplierDrawerRoute,
+            ),
             _ProfileShellKind.customer => CustomerNavigationDrawer(
-                selectedIndex: 2,
-                onNavigate: _openCustomerDrawerRoute,
-              ),
+              selectedIndex: 2,
+              onNavigate: _openCustomerDrawerRoute,
+            ),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
-            _ProfileShellKind.supplier =>
-              const SupplierDock(activeTab: null, showPrimaryFab: false),
-            _ProfileShellKind.werka =>
-              const WerkaDock(activeTab: null, showPrimaryFab: false),
+            _ProfileShellKind.supplier => const SupplierDock(
+              activeTab: null,
+              showPrimaryFab: false,
+            ),
+            _ProfileShellKind.werka => const WerkaDock(
+              activeTab: null,
+              showPrimaryFab: false,
+            ),
             _ProfileShellKind.customer => const CustomerDock(activeTab: null),
-            _ProfileShellKind.admin =>
-              const AdminDock(activeTab: null, showPrimaryFab: false),
+            _ProfileShellKind.admin => const AdminDock(
+              activeTab: null,
+              showPrimaryFab: false,
+            ),
             _ProfileShellKind.none => null,
           },
           contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
@@ -424,23 +431,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       height: 32,
                                       width: 32,
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .surfaceContainerLow,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerLow,
                                           width: 2,
                                         ),
                                       ),
                                       child: Icon(
                                         Icons.camera_alt_rounded,
                                         size: 16,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onPrimary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
                                       ),
                                     ),
                                   ),
@@ -462,8 +469,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   const SizedBox(height: 4),
                                   Text(
                                     subtitle,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                   if (current.phone.trim().isNotEmpty) ...[
                                     const SizedBox(height: 10),
@@ -472,9 +480,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                         Icon(
                                           Icons.phone_rounded,
                                           size: 16,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
@@ -500,9 +508,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                         Icon(
                                           Icons.badge_rounded,
                                           size: 16,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
@@ -534,12 +542,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                         TextField(
                           controller: nicknameController,
                           onChanged: (_) => setState(() {}),
-                          style:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                           cursorColor: Theme.of(context).colorScheme.primary,
                           decoration: InputDecoration(
                             labelText: l10n.nicknameLabel,
@@ -550,9 +558,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -617,10 +625,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         Divider(
                           height: 1,
                           thickness: 1,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outlineVariant
-                              .withValues(alpha: 0.55),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.55),
                         ),
                         const SizedBox(height: 24),
                         Text(
@@ -634,8 +641,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                           label: savingPin
                               ? l10n.pinSaving
                               : hasPin
-                                  ? l10n.pinChange
-                                  : l10n.pinSet,
+                              ? l10n.pinChange
+                              : l10n.pinSet,
                         ),
                         if (hasPin) ...[
                           const SizedBox(height: 10),
@@ -657,9 +664,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  _ProfilePanel(
-                    child: Text(errorMessage!),
-                  ),
+                  _ProfilePanel(child: Text(errorMessage!)),
                 ],
                 const SizedBox(height: 12),
               ],
@@ -695,13 +700,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 }
 
-enum _ProfileShellKind {
-  supplier,
-  werka,
-  customer,
-  admin,
-  none,
-}
+enum _ProfileShellKind { supplier, werka, customer, admin, none }
 
 _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
   return switch (homeRoute) {
@@ -714,9 +713,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
 }
 
 class _ProfilePanel extends StatelessWidget {
-  const _ProfilePanel({
-    required this.child,
-  });
+  const _ProfilePanel({required this.child});
 
   final Widget child;
 
@@ -725,21 +722,14 @@ class _ProfilePanel extends StatelessWidget {
     return Card.filled(
       margin: EdgeInsets.zero,
       color: Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(26),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: child,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: Padding(padding: const EdgeInsets.all(20), child: child),
     );
   }
 }
 
 class _LanguagePreferenceRow extends StatelessWidget {
-  const _LanguagePreferenceRow({
-    required this.currentLocale,
-  });
+  const _LanguagePreferenceRow({required this.currentLocale});
 
   final Locale currentLocale;
 
@@ -829,8 +819,8 @@ class _LanguagePreferenceRow extends StatelessWidget {
                 Text(
                   l10n.languageBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -846,8 +836,8 @@ class _LanguagePreferenceRow extends StatelessWidget {
               currentLocale.languageCode == 'uz'
                   ? l10n.uzbek
                   : currentLocale.languageCode == 'ru'
-                      ? l10n.russian
-                      : l10n.english,
+                  ? l10n.russian
+                  : l10n.english,
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
@@ -858,9 +848,7 @@ class _LanguagePreferenceRow extends StatelessWidget {
 }
 
 class _ThemePreferenceRow extends StatelessWidget {
-  const _ThemePreferenceRow({
-    required this.variant,
-  });
+  const _ThemePreferenceRow({required this.variant});
 
   final AppThemeVariant variant;
 
@@ -905,8 +893,9 @@ class _ThemePreferenceRow extends StatelessWidget {
                             Color(0xFFD8E2FF),
                             Color(0xFF53627F),
                           ],
-                          onTap: () => Navigator.of(context)
-                              .pop(AppThemeVariant.classic),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(AppThemeVariant.classic),
                         ),
                         _ThemeSelectionOption(
                           index: 1,
@@ -957,8 +946,9 @@ class _ThemePreferenceRow extends StatelessWidget {
                             Color(0xFFD8B9C3),
                             Color(0xFF827397),
                           ],
-                          onTap: () => Navigator.of(context)
-                              .pop(AppThemeVariant.lavender),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(AppThemeVariant.lavender),
                         ),
                         _ThemeSelectionOption(
                           index: 5,
@@ -984,8 +974,9 @@ class _ThemePreferenceRow extends StatelessWidget {
                             Color(0xFF202427),
                             Color(0xFFAEB4BA),
                           ],
-                          onTap: () => Navigator.of(context)
-                              .pop(AppThemeVariant.blackEdition),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(AppThemeVariant.blackEdition),
                         ),
                         _ThemeSelectionOption(
                           index: 7,
@@ -1053,8 +1044,9 @@ class _ThemePreferenceRow extends StatelessWidget {
                             Color(0xFF633F4D),
                             Color(0xFF0D1A14),
                           ],
-                          onTap: () => Navigator.of(context)
-                              .pop(AppThemeVariant.fleuriste),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(AppThemeVariant.fleuriste),
                         ),
                         _ThemeSelectionOption(
                           index: 12,
@@ -1067,8 +1059,9 @@ class _ThemePreferenceRow extends StatelessWidget {
                             Color(0xFFFFA3A3),
                             Color(0xFFFFFFF0),
                           ],
-                          onTap: () => Navigator.of(context)
-                              .pop(AppThemeVariant.paleNimbus),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(AppThemeVariant.paleNimbus),
                         ),
                       ],
                     ),
@@ -1098,8 +1091,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                 Text(
                   l10n.themeBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -1115,36 +1108,28 @@ class _ThemePreferenceRow extends StatelessWidget {
               variant == AppThemeVariant.classic
                   ? l10n.themeClassicLabel
                   : variant == AppThemeVariant.blush
-                      ? l10n.themeBlushLabel
-                      : variant == AppThemeVariant.moss
-                          ? l10n.themeMossLabel
-                          : variant == AppThemeVariant.lavender
-                              ? l10n.themeLavenderLabel
-                              : variant == AppThemeVariant.slate
-                                  ? l10n.themeSlateLabel
-                                  : variant == AppThemeVariant.ocean
-                                      ? l10n.themeOceanLabel
-                                      : variant == AppThemeVariant.blackEdition
-                                          ? l10n.themeBlackEditionLabel
-                                          : variant == AppThemeVariant.bingsu
-                                              ? l10n.themeBingsuLabel
-                                              : variant == AppThemeVariant.bliss
-                                                  ? l10n.themeBlissLabel
-                                                  : variant ==
-                                                          AppThemeVariant.dollar
-                                                      ? l10n.themeDollarLabel
-                                                      : variant ==
-                                                              AppThemeVariant
-                                                                  .fleuriste
-                                                          ? l10n
-                                                              .themeFleuristeLabel
-                                                          : variant ==
-                                                                  AppThemeVariant
-                                                                      .paleNimbus
-                                                              ? l10n
-                                                                  .themePaleNimbusLabel
-                                                              : l10n
-                                                                  .themeEarthLabel,
+                  ? l10n.themeBlushLabel
+                  : variant == AppThemeVariant.moss
+                  ? l10n.themeMossLabel
+                  : variant == AppThemeVariant.lavender
+                  ? l10n.themeLavenderLabel
+                  : variant == AppThemeVariant.slate
+                  ? l10n.themeSlateLabel
+                  : variant == AppThemeVariant.ocean
+                  ? l10n.themeOceanLabel
+                  : variant == AppThemeVariant.blackEdition
+                  ? l10n.themeBlackEditionLabel
+                  : variant == AppThemeVariant.bingsu
+                  ? l10n.themeBingsuLabel
+                  : variant == AppThemeVariant.bliss
+                  ? l10n.themeBlissLabel
+                  : variant == AppThemeVariant.dollar
+                  ? l10n.themeDollarLabel
+                  : variant == AppThemeVariant.fleuriste
+                  ? l10n.themeFleuristeLabel
+                  : variant == AppThemeVariant.paleNimbus
+                  ? l10n.themePaleNimbusLabel
+                  : l10n.themeEarthLabel,
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
@@ -1155,9 +1140,7 @@ class _ThemePreferenceRow extends StatelessWidget {
 }
 
 class _ThemeIconToggle extends StatelessWidget {
-  const _ThemeIconToggle({
-    required this.isDark,
-  });
+  const _ThemeIconToggle({required this.isDark});
 
   final bool isDark;
 
@@ -1197,14 +1180,10 @@ class _ProfileSelectionSheet extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: maxHeight ?? double.infinity,
-        ),
+        constraints: BoxConstraints(maxHeight: maxHeight ?? double.infinity),
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
           child: Column(
@@ -1222,10 +1201,7 @@ class _ProfileSelectionSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              Text(
-                title,
-                style: theme.textTheme.titleLarge,
-              ),
+              Text(title, style: theme.textTheme.titleLarge),
               const SizedBox(height: 6),
               Text(
                 subtitle,
@@ -1298,8 +1274,9 @@ class _ProfileSelectionOption extends StatelessWidget {
                       subtitle!,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: active
-                            ? scheme.onSecondaryContainer
-                                .withValues(alpha: 0.74)
+                            ? scheme.onSecondaryContainer.withValues(
+                                alpha: 0.74,
+                              )
                             : scheme.onSurfaceVariant,
                       ),
                     ),
@@ -1316,15 +1293,12 @@ class _ProfileSelectionOption extends StatelessWidget {
               decoration: BoxDecoration(
                 color: active ? scheme.primary : Colors.transparent,
                 shape: BoxShape.circle,
-                border:
-                    active ? null : Border.all(color: scheme.outlineVariant),
+                border: active
+                    ? null
+                    : Border.all(color: scheme.outlineVariant),
               ),
               child: active
-                  ? Icon(
-                      Icons.check_rounded,
-                      size: 16,
-                      color: scheme.onPrimary,
-                    )
+                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
                   : null,
             ),
           ],
@@ -1375,8 +1349,9 @@ class _ThemeSelectionOption extends StatelessWidget {
               child: Text(
                 title,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color:
-                      active ? scheme.onSecondaryContainer : scheme.onSurface,
+                  color: active
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurface,
                 ),
               ),
             ),
@@ -1405,15 +1380,12 @@ class _ThemeSelectionOption extends StatelessWidget {
               decoration: BoxDecoration(
                 color: active ? scheme.primary : Colors.transparent,
                 shape: BoxShape.circle,
-                border:
-                    active ? null : Border.all(color: scheme.outlineVariant),
+                border: active
+                    ? null
+                    : Border.all(color: scheme.outlineVariant),
               ),
               child: active
-                  ? Icon(
-                      Icons.check_rounded,
-                      size: 16,
-                      color: scheme.onPrimary,
-                    )
+                  ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
                   : null,
             ),
           ],
@@ -1424,10 +1396,7 @@ class _ThemeSelectionOption extends StatelessWidget {
 }
 
 class _ThemeIconButton extends StatelessWidget {
-  const _ThemeIconButton({
-    required this.asset,
-    required this.onTap,
-  });
+  const _ThemeIconButton({required this.asset, required this.onTap});
 
   final String asset;
   final VoidCallback onTap;
@@ -1435,8 +1404,9 @@ class _ThemeIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool darkModeIcon = asset.contains('contrast-2-fill');
-    final IconData icon =
-        darkModeIcon ? Icons.dark_mode_rounded : Icons.light_mode_rounded;
+    final IconData icon = darkModeIcon
+        ? Icons.dark_mode_rounded
+        : Icons.light_mode_rounded;
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
@@ -1461,10 +1431,7 @@ class _ThemeIconButton extends StatelessWidget {
             ).animate(animation);
             return RotationTransition(
               turns: turns,
-              child: FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
+              child: FadeTransition(opacity: animation, child: child),
             );
           },
           child: Icon(

@@ -26,9 +26,7 @@ class WerkaStockEntryLookupArgs {
 }
 
 abstract class WerkaStockEntryLookupApi {
-  Future<StockEntryBarcodeLookup> stockEntryLookup({
-    required String barcode,
-  });
+  Future<StockEntryBarcodeLookup> stockEntryLookup({required String barcode});
 
   Future<List<CustomerDirectoryEntry>> customersForItem({
     required String itemCode,
@@ -52,9 +50,7 @@ class MobileWerkaStockEntryLookupApi implements WerkaStockEntryLookupApi {
   const MobileWerkaStockEntryLookupApi();
 
   @override
-  Future<StockEntryBarcodeLookup> stockEntryLookup({
-    required String barcode,
-  }) {
+  Future<StockEntryBarcodeLookup> stockEntryLookup({required String barcode}) {
     return MobileApi.instance.werkaStockEntryLookup(barcode: barcode);
   }
 
@@ -123,9 +119,7 @@ class _WerkaStockEntryLookupScreenState
   }
 
   Future<StockEntryBarcodeLookup> _load() {
-    return widget.api.stockEntryLookup(
-      barcode: widget.args.scannedBarcode,
-    );
+    return widget.api.stockEntryLookup(barcode: widget.args.scannedBarcode);
   }
 
   Future<void> _retry() async {
@@ -150,9 +144,10 @@ class _WerkaStockEntryLookupScreenState
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',
         'stock_entry_lookup_bad_request' => 'Barcode bo‘sh yoki noto‘g‘ri.',
-        _ => error.message.isEmpty
-            ? 'Barcode tekshirishda xatolik.'
-            : error.message,
+        _ =>
+          error.message.isEmpty
+              ? 'Barcode tekshirishda xatolik.'
+              : error.message,
       };
     }
     return 'Barcode tekshirishda xatolik.';
@@ -191,9 +186,9 @@ class _WerkaStockEntryLookupScreenState
     final l10n = context.l10n;
     final itemCode = entry.itemCode.trim();
     if (itemCode.isEmpty || entry.qty <= 0 || customer.ref.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.qtyRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.qtyRequired)));
       return;
     }
 
@@ -249,17 +244,16 @@ class _WerkaStockEntryLookupScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-              ? l10n.insufficientStockMessage
-              : error is MobileApiException &&
-                      error.code == 'duplicate_customer_issue_source'
-                  ? 'Bu QR oldin customerga jo‘natilgan.'
-                  : error is MobileApiException &&
-                          error.code == 'customer_not_found'
-                      ? 'Bu mahsulot uchun customer topilmadi.'
-                      : l10n.customerIssueFailed(error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+          ? l10n.insufficientStockMessage
+          : error is MobileApiException &&
+                error.code == 'duplicate_customer_issue_source'
+          ? 'Bu QR oldin customerga jo‘natilgan.'
+          : error is MobileApiException && error.code == 'customer_not_found'
+          ? 'Bu mahsulot uchun customer topilmadi.'
+          : l10n.customerIssueFailed(error);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted && _submittingEntryKey == key) {
         setState(() => _submittingEntryKey = null);
@@ -294,9 +288,9 @@ class _WerkaStockEntryLookupScreenState
             return _ErrorView(
               message: message,
               onRetry: _retry,
-              onBackToScan: () => Navigator.of(context).pushReplacementNamed(
-                AppRoutes.werkaStockEntryQrScan,
-              ),
+              onBackToScan: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
             );
           }
 
@@ -305,9 +299,9 @@ class _WerkaStockEntryLookupScreenState
             return _ErrorView(
               message: 'Barcode bo‘yicha ma’lumot topilmadi.',
               onRetry: _retry,
-              onBackToScan: () => Navigator.of(context).pushReplacementNamed(
-                AppRoutes.werkaStockEntryQrScan,
-              ),
+              onBackToScan: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
             );
           }
 
@@ -329,10 +323,7 @@ class _WerkaStockEntryLookupScreenState
 }
 
 class _LoadingView extends StatelessWidget {
-  const _LoadingView({
-    required this.barcode,
-    required this.rawValue,
-  });
+  const _LoadingView({required this.barcode, required this.rawValue});
 
   final String barcode;
   final String rawValue;
@@ -397,10 +388,7 @@ class _LoadingView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  SelectableText(
-                    rawValue,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  SelectableText(rawValue, style: theme.textTheme.bodyMedium),
                 ],
                 const SizedBox(height: 18),
                 const LinearProgressIndicator(minHeight: 3),
@@ -539,7 +527,8 @@ class _ResultView extends StatelessWidget {
   final Future<void> Function(
     StockEntryBarcodeEntry entry,
     CustomerDirectoryEntry customer,
-  ) onCreateCustomerIssue;
+  )
+  onCreateCustomerIssue;
 
   @override
   Widget build(BuildContext context) {
@@ -571,9 +560,9 @@ class _ResultView extends StatelessWidget {
           children: [
             Expanded(
               child: FilledButton.tonalIcon(
-                onPressed: () => Navigator.of(context).pushReplacementNamed(
-                  AppRoutes.werkaStockEntryQrScan,
-                ),
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushReplacementNamed(AppRoutes.werkaStockEntryQrScan),
                 icon: const Icon(Icons.qr_code_scanner_rounded),
                 label: const Text('Qayta scan'),
               ),
@@ -630,11 +619,7 @@ class _LookupSummary extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.qr_code_2_rounded,
-                  size: 22,
-                  color: scheme.primary,
-                ),
+                Icon(Icons.qr_code_2_rounded, size: 22, color: scheme.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: SelectableText(
@@ -687,7 +672,8 @@ class _LookupEntryPanel extends StatefulWidget {
   final Future<void> Function(
     StockEntryBarcodeEntry entry,
     CustomerDirectoryEntry customer,
-  ) onCreateCustomerIssue;
+  )
+  onCreateCustomerIssue;
 
   @override
   State<_LookupEntryPanel> createState() => _LookupEntryPanelState();
@@ -853,9 +839,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
                     ],
                   ),
                 ),
-                _StatusBadge(
-                  label: widget.docStatusLabel(entry.docStatus),
-                ),
+                _StatusBadge(label: widget.docStatusLabel(entry.docStatus)),
               ],
             ),
             const SizedBox(height: 12),
@@ -879,19 +863,10 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
               ],
             ),
             const SizedBox(height: 12),
-            _InfoRow(
-              label: 'Mahsulot',
-              value: itemTitle,
-            ),
-            _InfoRow(
-              label: 'Kod',
-              value: entry.itemCode,
-            ),
+            _InfoRow(label: 'Mahsulot', value: itemTitle),
+            _InfoRow(label: 'Kod', value: entry.itemCode),
             if (entry.company.trim().isNotEmpty)
-              _InfoRow(
-                label: 'Kompaniya',
-                value: entry.company,
-              ),
+              _InfoRow(label: 'Kompaniya', value: entry.company),
             _InfoRow(
               label: 'Haridor',
               value: _customerLabel,
@@ -921,10 +896,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
                 icon: Icons.warehouse_outlined,
               ),
             if (entry.remarks.trim().isNotEmpty)
-              _InfoRow(
-                label: 'Izoh',
-                value: entry.remarks,
-              ),
+              _InfoRow(label: 'Izoh', value: entry.remarks),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -943,8 +915,8 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
               child: FilledButton.icon(
                 onPressed: _canCreateCustomerIssue && !widget.isSubmitting
                     ? () => unawaited(
-                          widget.onCreateCustomerIssue(entry, customer!),
-                        )
+                        widget.onCreateCustomerIssue(entry, customer!),
+                      )
                     : null,
                 icon: widget.isSubmitting
                     ? const SizedBox.square(
@@ -981,9 +953,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({
-    required this.label,
-  });
+  const _StatusBadge({required this.label});
 
   final String label;
 
@@ -1013,10 +983,7 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-  });
+  const _MetricTile({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1115,22 +1082,13 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: selectable
-                ? SelectableText(
-                    displayValue,
-                    style: valueStyle,
-                  )
-                : Text(
-                    displayValue,
-                    style: valueStyle,
-                  ),
+                ? SelectableText(displayValue, style: valueStyle)
+                : Text(displayValue, style: valueStyle),
           ),
           if (trailing != null) ...[
             const SizedBox(width: 6),
             IconTheme.merge(
-              data: IconThemeData(
-                color: scheme.onSurfaceVariant,
-                size: 20,
-              ),
+              data: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
               child: trailing!,
             ),
           ],

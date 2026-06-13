@@ -134,10 +134,8 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
     }
     setState(() => _scanning = true);
     try {
-      final suggestion =
-          await WerkaAiSearchService.instance.pickAndInferSuggestion(
-        context,
-      );
+      final suggestion = await WerkaAiSearchService.instance
+          .pickAndInferSuggestion(context);
       if (!mounted || suggestion == null) {
         return;
       }
@@ -157,9 +155,9 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _scanning = false);
@@ -217,9 +215,7 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
           child: GestureDetector(
             onTap: () {},
             child: _M3PickerSurface(
-              constraints: BoxConstraints(
-                maxHeight: media.size.height * 0.66,
-              ),
+              constraints: BoxConstraints(maxHeight: media.size.height * 0.66),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 child: Column(
@@ -314,8 +310,9 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                       child: visibleCount == 0
                           ? Center(
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
                                 child: Text(
                                   l10n.noRecordsYet,
                                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -329,20 +326,22 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                               itemCount: visibleItems.length,
                               separatorBuilder: (context, index) =>
                                   const SizedBox(
-                                height: M3SegmentedListGeometry.gap,
-                              ),
+                                    height: M3SegmentedListGeometry.gap,
+                                  ),
                               itemBuilder: (context, index) {
                                 final item = visibleItems[index];
-                                final subtitle =
-                                    widget.itemSubtitle(item).trim();
-                                final slot = M3SegmentedListGeometry
-                                    .standaloneListSlotForIndex(
-                                  index,
-                                  visibleItems.length,
-                                );
+                                final subtitle = widget
+                                    .itemSubtitle(item)
+                                    .trim();
+                                final slot =
+                                    M3SegmentedListGeometry.standaloneListSlotForIndex(
+                                      index,
+                                      visibleItems.length,
+                                    );
                                 final cornerRadius =
                                     M3SegmentedListGeometry.cornerRadiusForSlot(
-                                        slot);
+                                      slot,
+                                    );
 
                                 return M3SegmentFilledSurface(
                                   slot: slot,
@@ -362,8 +361,8 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                                           widget.itemTitle(item),
                                           style: theme.textTheme.titleLarge
                                               ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                         ),
                                         if (subtitle.isNotEmpty) ...[
                                           const SizedBox(height: 6),
@@ -371,8 +370,9 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                                             subtitle,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                ),
                                           ),
                                         ],
                                       ],
@@ -551,7 +551,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     _debounce?.cancel();
     _query = nextQuery;
     _searchQueries = <String>[
-      if (nextQuery.trim().isNotEmpty) nextQuery.trim()
+      if (nextQuery.trim().isNotEmpty) nextQuery.trim(),
     ];
     _debounce = Timer(const Duration(milliseconds: 220), () {
       _reload(reset: true);
@@ -773,10 +773,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     }
     setState(() => _scanning = true);
     try {
-      final suggestion =
-          await WerkaAiSearchService.instance.pickAndInferSuggestion(
-        context,
-      );
+      final suggestion = await WerkaAiSearchService.instance
+          .pickAndInferSuggestion(context);
       if (!mounted || suggestion == null) {
         return;
       }
@@ -796,9 +794,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _scanning = false);
@@ -960,7 +958,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     } else if (_items.isEmpty) {
       final emptyQuery = _query.trim();
       final emptyActionLabel = widget.emptyActionLabel;
-      final canRunEmptyAction = emptyQuery.isNotEmpty &&
+      final canRunEmptyAction =
+          emptyQuery.isNotEmpty &&
           emptyActionLabel != null &&
           widget.onEmptyAction != null;
       body = Center(
@@ -1001,9 +1000,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
         controller: _scrollController,
         shrinkWrap: true,
         itemCount: sortedItems.length + (_loadingMore ? 1 : 0),
-        separatorBuilder: (context, index) => const SizedBox(
-          height: M3SegmentedListGeometry.gap,
-        ),
+        separatorBuilder: (context, index) =>
+            const SizedBox(height: M3SegmentedListGeometry.gap),
         itemBuilder: (context, index) {
           if (index >= sortedItems.length) {
             return const Padding(
@@ -1017,8 +1015,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
             index,
             sortedItems.length,
           );
-          final cornerRadius =
-              M3SegmentedListGeometry.cornerRadiusForSlot(slot);
+          final cornerRadius = M3SegmentedListGeometry.cornerRadiusForSlot(
+            slot,
+          );
 
           return M3SegmentFilledSurface(
             slot: slot,
@@ -1026,10 +1025,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
             backgroundColor: itemBackgroundColor,
             onTap: () => widget.onSelected(item),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1068,9 +1064,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
           child: GestureDetector(
             onTap: () {},
             child: _M3PickerSurface(
-              constraints: BoxConstraints(
-                maxHeight: media.size.height * 0.66,
-              ),
+              constraints: BoxConstraints(maxHeight: media.size.height * 0.66),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 child: Column(
@@ -1167,10 +1161,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
 }
 
 class _M3PickerSurface extends StatelessWidget {
-  const _M3PickerSurface({
-    required this.constraints,
-    required this.child,
-  });
+  const _M3PickerSurface({required this.constraints, required this.child});
 
   final BoxConstraints constraints;
   final Widget child;

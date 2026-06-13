@@ -12,10 +12,7 @@ const double _drawerOpenDragDistance = 48;
 const double _drawerOpenDragVelocity = 450;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
-Widget _appShellStyleLinearProgress(
-  ThemeData theme, {
-  double? value,
-}) {
+Widget _appShellStyleLinearProgress(ThemeData theme, {double? value}) {
   return LinearProgressIndicator(
     minHeight: 3,
     value: value,
@@ -107,8 +104,9 @@ class _AppShellState extends State<AppShell>
         curve: AppMotion.expressiveSpatialDefault,
         reverseCurve: AppMotion.expressiveSpatialDefault.flipped,
       );
-      _expressiveDrawerController!
-          .addStatusListener(_expressiveDrawerStatusChanged);
+      _expressiveDrawerController!.addStatusListener(
+        _expressiveDrawerStatusChanged,
+      );
     }
   }
 
@@ -292,10 +290,7 @@ class _AppShellState extends State<AppShell>
           : null,
       bottomNavigationBar: widget.bottom == null
           ? null
-          : Padding(
-              padding: widget.bottomPadding,
-              child: widget.bottom!,
-            ),
+          : Padding(padding: widget.bottomPadding, child: widget.bottom!),
       body: SafeArea(
         bottom: false,
         child: _buildAnimatedContent(
@@ -355,11 +350,13 @@ class _AppShellState extends State<AppShell>
                         behavior: HitTestBehavior.opaque,
                         onTap: _expressiveCloseDrawer,
                         child: Semantics(
-                          label: MaterialLocalizations.of(context)
-                              .modalBarrierDismissLabel,
+                          label: MaterialLocalizations.of(
+                            context,
+                          ).modalBarrierDismissLabel,
                           child: ColoredBox(
-                            color:
-                                Colors.black.withValues(alpha: 0.54 * linearT),
+                            color: Colors.black.withValues(
+                              alpha: 0.54 * linearT,
+                            ),
                           ),
                         ),
                       ),
@@ -389,9 +386,13 @@ class _AppShellState extends State<AppShell>
     );
   }
 
-  Widget _buildAnimatedContent(BuildContext context, ThemeData theme,
-      bool shouldHideLeading, bool useNativeTitle,
-      {required bool showHeader}) {
+  Widget _buildAnimatedContent(
+    BuildContext context,
+    ThemeData theme,
+    bool shouldHideLeading,
+    bool useNativeTitle, {
+    required bool showHeader,
+  }) {
     final content = Column(
       children: [
         if (showHeader)
@@ -401,9 +402,7 @@ class _AppShellState extends State<AppShell>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!shouldHideLeading && widget.leading != null) ...[
-                  HeaderLeadingTransition(
-                    child: widget.leading!,
-                  ),
+                  HeaderLeadingTransition(child: widget.leading!),
                   const SizedBox(width: 14),
                 ],
                 if (!useNativeTitle)
@@ -411,9 +410,7 @@ class _AppShellState extends State<AppShell>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SharedHeaderTitle(
-                          title: widget.title,
-                        ),
+                        SharedHeaderTitle(title: widget.title),
                         if (widget.subtitle.trim().isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(
@@ -505,10 +502,7 @@ class _AppShellState extends State<AppShell>
       duration: AppMotion.pageEnter,
       curve: AppMotion.pageIn,
       builder: (context, value, animatedChild) {
-        return Opacity(
-          opacity: value,
-          child: animatedChild,
-        );
+        return Opacity(opacity: value, child: animatedChild);
       },
       child: content,
     );
@@ -786,8 +780,10 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator> {
         _isNearTop(notification.metrics) &&
         notification.overscroll < 0) {
       _setUserPulling(true);
-      final nextPull = (_pullExtent + (-notification.overscroll))
-          .clamp(0.0, _maxPullDistance);
+      final nextPull = (_pullExtent + (-notification.overscroll)).clamp(
+        0.0,
+        _maxPullDistance,
+      );
       _setPullExtent(nextPull);
       _setRefreshArmed(nextPull >= _triggerDistance);
       return false;

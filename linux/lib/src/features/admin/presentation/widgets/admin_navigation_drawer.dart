@@ -31,8 +31,9 @@ class AdminNavigationDrawer extends StatelessWidget {
             backgroundColor: scheme.surfaceContainerLow,
             indicatorColor: scheme.secondaryContainer,
             surfaceTintColor: Colors.transparent,
-            selectedIndex:
-                effectiveSelectedIndex >= 0 ? effectiveSelectedIndex : null,
+            selectedIndex: effectiveSelectedIndex >= 0
+                ? effectiveSelectedIndex
+                : null,
             tilePadding: const EdgeInsets.symmetric(horizontal: 4),
             onDestinationSelected: (index) async {
               if (index < 0 || index >= destinations.length) {
@@ -62,9 +63,9 @@ class AdminNavigationDrawer extends StatelessWidget {
                 child: Text(
                   l10n.adminDrawerSections,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

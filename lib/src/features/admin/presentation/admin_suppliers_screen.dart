@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
-import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_supplier_list_module.dart';
 
 class AdminSuppliersScreen extends StatefulWidget {
@@ -46,6 +46,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   int _customerOffset = 0;
   String _searchQuery = '';
   Map<String, String> _assignedRoleLabels = const <String, String>{};
+  bool _openingRoute = false;
 
   @override
   void initState() {
@@ -200,15 +201,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
     final results = await Future.wait([
       if (shouldLoadSuppliers)
-        _safeLoadAdminSuppliers(
-          limit: _pageSize,
-          offset: _supplierOffset,
-        ),
+        _safeLoadAdminSuppliers(limit: _pageSize, offset: _supplierOffset),
       if (shouldLoadCustomers)
-        _safeLoadAdminCustomers(
-          limit: _pageSize,
-          offset: _customerOffset,
-        ),
+        _safeLoadAdminCustomers(limit: _pageSize, offset: _customerOffset),
     ]);
     if (!mounted) {
       return;
@@ -409,20 +404,19 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
     if (item.kind == AdminUserKind.werka) {
-      final result =
-          await Navigator.of(context).pushNamed(AppRoutes.adminWerka);
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminWerka);
       changed = result == true;
     } else if (item.kind == AdminUserKind.customer) {
-      final result = await Navigator.of(context).pushNamed(
-        AppRoutes.adminCustomerDetail,
-        arguments: item.id,
-      );
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item.id);
       changed = result == true;
     } else {
-      final result = await Navigator.of(context).pushNamed(
-        AppRoutes.adminSupplierDetail,
-        arguments: item.id,
-      );
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminSupplierDetail, arguments: item.id);
       changed = result == true;
     }
     if (changed && mounted) {
@@ -461,9 +455,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       customerHasMore: _customerHasMore,
       supplierOffset: _supplierOffset,
       customerOffset: _customerOffset,
-      assignedRoleLabels: Map<String, String>.unmodifiable(
-        _assignedRoleLabels,
-      ),
+      assignedRoleLabels: Map<String, String>.unmodifiable(_assignedRoleLabels),
     );
   }
 
@@ -472,6 +464,18 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (value.trim().isNotEmpty) {
       unawaited(_loadAllRemaining());
     }
+  }
+
+  void _openDrawerRoute(String routeName) {
+    if (_openingRoute) {
+      return;
+    }
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == routeName) {
+      return;
+    }
+    _openingRoute = true;
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   List<AdminUserListEntry> _visibleItems() {
@@ -489,17 +493,26 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = Localizations.of<AppLocalizations>(
-      context,
-      AppLocalizations,
-    );
     final visibleItems = _visibleItems();
     return AppShell(
       animateOnEnter: false,
-      title: l10n?.adminUsersTitle ?? 'Users',
+      drawer: AdminNavigationDrawer(
+        selectedIndex: 1,
+        selectedRouteName: AppRoutes.adminSuppliers,
+        onNavigate: _openDrawerRoute,
+      ),
+      title: '',
       subtitle: '',
       nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      titleWidget: _AdminUserSearchField(
+        controller: _searchController,
+        inAppBar: true,
+        onChanged: _onSearchChanged,
+        onClear: () {
+          _searchController.clear();
+          _onSearchChanged('');
+        },
+      ),
       contentPadding: EdgeInsets.zero,
       bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
       child: _initialLoading
@@ -510,14 +523,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(0, 4, 0, 116),
                 children: [
-                  _AdminUserSearchField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    onClear: () {
-                      _searchController.clear();
-                      _onSearchChanged('');
-                    },
-                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: AdminSupplierListModule(
@@ -544,46 +549,85 @@ class _AdminUserSearchField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.inAppBar = false,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final bool inAppBar;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final field = ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return TextField(
+          controller: controller,
+          onChanged: onChanged,
+          textInputAction: TextInputAction.search,
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Foydalanuvchi qidirish',
+            isDense: inAppBar,
+            prefixIcon: inAppBar
+                ? IconButton(
+                    icon: const Icon(Icons.menu_rounded),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).openAppDrawerTooltip,
+                    onPressed: () =>
+                        AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+                  )
+                : const Icon(Icons.search_rounded),
+            prefixIconConstraints: inAppBar
+                ? const BoxConstraints(minWidth: 48, minHeight: 48)
+                : null,
+            suffixIcon: hasText
+                ? IconButton(
+                    tooltip: 'Tozalash',
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                  )
+                : null,
+            filled: true,
+            fillColor: scheme.surfaceContainerHighest,
+            contentPadding: inAppBar
+                ? const EdgeInsets.symmetric(vertical: 12)
+                : const EdgeInsets.symmetric(vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        );
+      },
+    );
+    if (inAppBar) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: SizedBox(
+          height: AppTheme.appBarHeight,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(height: 46, width: double.infinity, child: field),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          final hasText = controller.text.trim().isNotEmpty;
-          return TextField(
-            controller: controller,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Foydalanuvchi qidirish',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: hasText
-                  ? IconButton(
-                      tooltip: 'Tozalash',
-                      onPressed: onClear,
-                      icon: const Icon(Icons.close_rounded),
-                    )
-                  : null,
-              filled: true,
-              fillColor: scheme.surfaceContainer,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(22),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          );
-        },
-      ),
+      child: field,
     );
   }
 }

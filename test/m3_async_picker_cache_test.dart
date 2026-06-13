@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/widgets/shell/app_loading_indicator.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,8 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   setUp(M3AsyncPickerSheet.clearMemoryCache);
 
-  testWidgets('async picker reuses cached first page for same cache key',
-      (tester) async {
+  testWidgets('async picker reuses cached first page for same cache key', (
+    tester,
+  ) async {
     var loadCalls = 0;
 
     await tester.pumpWidget(
@@ -64,8 +65,9 @@ void main() {
     expect(find.text('Server'), findsNothing);
   });
 
-  testWidgets('stale async request cannot flash empty state during search',
-      (tester) async {
+  testWidgets('stale async request cannot flash empty state during search', (
+    tester,
+  ) async {
     final firstPage = Completer<List<_PickerItem>>();
     final searchPage = Completer<List<_PickerItem>>();
     final queries = <String>[];
@@ -107,8 +109,9 @@ void main() {
     expect(find.text('Hozircha yozuv yo‘q'), findsNothing);
   });
 
-  testWidgets('async picker caches first page even when sheet is dismissed',
-      (tester) async {
+  testWidgets('async picker caches first page even when sheet is dismissed', (
+    tester,
+  ) async {
     final firstPage = Completer<List<_PickerItem>>();
     var loadCalls = 0;
 
@@ -165,8 +168,9 @@ void main() {
     expect(find.text('Server again'), findsNothing);
   });
 
-  testWidgets('async picker can create a searched item from empty state',
-      (tester) async {
+  testWidgets('async picker can create a searched item from empty state', (
+    tester,
+  ) async {
     _PickerItem? selected;
 
     await tester.pumpWidget(

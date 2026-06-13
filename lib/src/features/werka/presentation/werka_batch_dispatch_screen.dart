@@ -21,8 +21,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 int _compareSupplierItemsByName(SupplierItem left, SupplierItem right) {
-  final nameCompare =
-      left.name.toLowerCase().compareTo(right.name.toLowerCase());
+  final nameCompare = left.name.toLowerCase().compareTo(
+    right.name.toLowerCase(),
+  );
   if (nameCompare != 0) {
     return nameCompare;
   }
@@ -33,8 +34,9 @@ int _compareCustomerItemOptionsByName(
   CustomerItemOption left,
   CustomerItemOption right,
 ) {
-  final itemCompare =
-      left.itemName.toLowerCase().compareTo(right.itemName.toLowerCase());
+  final itemCompare = left.itemName.toLowerCase().compareTo(
+    right.itemName.toLowerCase(),
+  );
   if (itemCompare != 0) {
     return itemCompare;
   }
@@ -138,24 +140,25 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
 
   Future<void> _pickCustomer() async {
     if (_previewMode) {
-      final previewCustomers = _selectedItem == null
-          ? _previewCustomers
-          : _previewOptions
-              .where((item) => item.itemCode == _selectedItem!.code)
-              .map(_customerFromOption)
-              .fold<List<CustomerDirectoryEntry>>(<CustomerDirectoryEntry>[], (
-              result,
-              customer,
-            ) {
-              if (result.any((item) => item.ref == customer.ref)) {
-                return result;
-              }
-              return [...result, customer];
-            })
-        ..sort((left, right) => compareCustomerNamesForDefault(
-              left.name,
-              right.name,
-            ));
+      final previewCustomers =
+          _selectedItem == null
+                ? _previewCustomers
+                : _previewOptions
+                      .where((item) => item.itemCode == _selectedItem!.code)
+                      .map(_customerFromOption)
+                      .fold<List<CustomerDirectoryEntry>>(
+                        <CustomerDirectoryEntry>[],
+                        (result, customer) {
+                          if (result.any((item) => item.ref == customer.ref)) {
+                            return result;
+                          }
+                          return [...result, customer];
+                        },
+                      )
+            ..sort(
+              (left, right) =>
+                  compareCustomerNamesForDefault(left.name, right.name),
+            );
       final picked = await showModalBottomSheet<CustomerDirectoryEntry>(
         context: context,
         isDismissible: true,
@@ -171,10 +174,8 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
             items: previewCustomers,
             itemTitle: (item) => item.name,
             itemSubtitle: (item) => item.phone,
-            matchesQuery: (item, query) => searchMatches(query, [
-              item.name,
-              item.phone,
-            ]),
+            matchesQuery: (item, query) =>
+                searchMatches(query, [item.name, item.phone]),
             onSelected: (item) => Navigator.of(context).pop(item),
           );
         },
@@ -349,11 +350,11 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
             cacheKey: 'werka:customer-items:${_selectedCustomer!.ref}',
             loadPage: (query, offset, limit) =>
                 MobileApi.instance.werkaCustomerItems(
-              customerRef: _selectedCustomer!.ref,
-              query: query,
-              offset: offset,
-              limit: limit,
-            ),
+                  customerRef: _selectedCustomer!.ref,
+                  query: query,
+                  offset: offset,
+                  limit: limit,
+                ),
             itemTitle: (item) => item.name,
             itemSubtitle: (item) => item.code,
             onSelected: (item) => Navigator.of(context).pop(item),
@@ -387,10 +388,10 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
           cacheKey: 'werka:customer-item-options',
           loadPage: (query, offset, limit) =>
               MobileApi.instance.werkaCustomerItemOptions(
-            query: query,
-            offset: offset,
-            limit: limit,
-          ),
+                query: query,
+                offset: offset,
+                limit: limit,
+              ),
           itemTitle: (item) => item.itemName,
           itemSubtitle: (item) => '${item.customerName} • ${item.itemCode}',
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -434,9 +435,9 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
       _drafts.add(line);
       _prepareNextLine();
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.batchDraftAdded)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.batchDraftAdded)));
   }
 
   Future<void> _openReview({bool saveCurrentLine = false}) async {
@@ -461,28 +462,30 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
       });
     }
 
-    final updated =
-        await Navigator.of(context).push<List<_WerkaBatchDraftLine>>(
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-          ? fullscreen_cupertino.CupertinoPageRoute<List<_WerkaBatchDraftLine>>(
-              builder: (context) => _WerkaBatchDispatchReviewScreen(
-                initialLines: lines,
-                previewMode: _previewMode,
-              ),
-              settings: const RouteSettings(
-                name: 'werka-batch-dispatch-review',
-              ),
-            )
-          : MaterialPageRoute<List<_WerkaBatchDraftLine>>(
-              builder: (context) => _WerkaBatchDispatchReviewScreen(
-                initialLines: lines,
-                previewMode: _previewMode,
-              ),
-              settings: const RouteSettings(
-                name: 'werka-batch-dispatch-review',
-              ),
-            ),
-    );
+    final updated = await Navigator.of(context)
+        .push<List<_WerkaBatchDraftLine>>(
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+              ? fullscreen_cupertino.CupertinoPageRoute<
+                  List<_WerkaBatchDraftLine>
+                >(
+                  builder: (context) => _WerkaBatchDispatchReviewScreen(
+                    initialLines: lines,
+                    previewMode: _previewMode,
+                  ),
+                  settings: const RouteSettings(
+                    name: 'werka-batch-dispatch-review',
+                  ),
+                )
+              : MaterialPageRoute<List<_WerkaBatchDraftLine>>(
+                  builder: (context) => _WerkaBatchDispatchReviewScreen(
+                    initialLines: lines,
+                    previewMode: _previewMode,
+                  ),
+                  settings: const RouteSettings(
+                    name: 'werka-batch-dispatch-review',
+                  ),
+                ),
+        );
     if (updated == null || !mounted) {
       return;
     }
@@ -507,9 +510,7 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
       elevation: 0,
       minimumSize: const Size.fromHeight(58),
       alignment: Alignment.centerLeft,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       padding: const EdgeInsets.symmetric(horizontal: 16),
     );
     final qtyInputDecoration = InputDecoration(
@@ -701,8 +702,9 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: _qtyController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   onChanged: (_) => setState(() {}),
                   decoration: qtyInputDecoration,
                 ),
@@ -721,8 +723,9 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            _hasCurrentValidLine ? _saveCurrentLine : null,
+                        onPressed: _hasCurrentValidLine
+                            ? _saveCurrentLine
+                            : null,
                         child: Text(l10n.addAnotherAction),
                       ),
                     ),
@@ -732,8 +735,8 @@ class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
                         onPressed: _hasCurrentValidLine
                             ? () => _openReview(saveCurrentLine: true)
                             : _drafts.length >= 2
-                                ? () => _openReview()
-                                : null,
+                            ? () => _openReview()
+                            : null,
                         child: Text(l10n.confirmTitle),
                       ),
                     ),
@@ -822,8 +825,9 @@ class _WerkaBatchDispatchReviewScreenState
             createdCount: _lines.length,
             failedCount: 0,
             returnRouteName: AppRoutes.werkaBatchDispatch,
-            returnLabel:
-                context.l10n.backToFlow(context.l10n.batchDispatchTitle),
+            returnLabel: context.l10n.backToFlow(
+              context.l10n.batchDispatchTitle,
+            ),
           ),
         ),
       );
@@ -864,9 +868,7 @@ class _WerkaBatchDispatchReviewScreenState
       if (record == null) {
         continue;
       }
-      WerkaRuntimeStore.instance.recordCreatedPending(
-        _recordFromIssue(record),
-      );
+      WerkaRuntimeStore.instance.recordCreatedPending(_recordFromIssue(record));
     }
 
     RefreshHub.instance.emit('werka');
@@ -885,8 +887,9 @@ class _WerkaBatchDispatchReviewScreenState
             createdCount: createdCount,
             failedCount: 0,
             returnRouteName: AppRoutes.werkaBatchDispatch,
-            returnLabel:
-                context.l10n.backToFlow(context.l10n.batchDispatchTitle),
+            returnLabel: context.l10n.backToFlow(
+              context.l10n.batchDispatchTitle,
+            ),
           ),
         ),
       );
@@ -1028,16 +1031,18 @@ class _WerkaBatchDispatchReviewScreenState
                               ),
                             ),
                             IconButton(
-                              tooltip: MaterialLocalizations.of(context)
-                                  .deleteButtonTooltip,
+                              tooltip: MaterialLocalizations.of(
+                                context,
+                              ).deleteButtonTooltip,
                               onPressed: _submitting
                                   ? null
                                   : () {
                                       final localID = _lines[index].localID;
                                       setState(() {
                                         _lines = _lines
-                                            .where((item) =>
-                                                item.localID != localID)
+                                            .where(
+                                              (item) => item.localID != localID,
+                                            )
                                             .toList();
                                       });
                                     },

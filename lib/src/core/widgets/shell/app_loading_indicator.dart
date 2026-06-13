@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:loading_indicator_m3e/loading_indicator_m3e.dart';
 
 class AppLoadingIndicator extends StatelessWidget {
-  const AppLoadingIndicator({
-    super.key,
-    this.size = 64,
-    this.glyphSize = 38,
-  });
+  const AppLoadingIndicator({super.key, this.size = 64, this.glyphSize = 38});
 
   final double size;
   final double glyphSize;
@@ -23,10 +19,7 @@ class AppLoadingIndicator extends StatelessWidget {
           scale: scale,
           child: ExpressiveLoadingIndicator(
             color: scheme.primary,
-            constraints: const BoxConstraints.tightFor(
-              width: 48,
-              height: 48,
-            ),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             semanticsLabel: 'Loading',
           ),
         ),

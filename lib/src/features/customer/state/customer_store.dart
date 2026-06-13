@@ -28,23 +28,16 @@ class CustomerStore extends ChangeNotifier {
   bool get loaded => _loaded;
   Object? get error => _error;
 
-  List<DispatchRecord> get pendingItems =>
-      CustomerDeliveryRuntimeStore.instance.applyStatusList(
-        CustomerStatusKind.pending,
-        _pendingItems,
-      );
+  List<DispatchRecord> get pendingItems => CustomerDeliveryRuntimeStore.instance
+      .applyStatusList(CustomerStatusKind.pending, _pendingItems);
 
-  List<DispatchRecord> get confirmedItems =>
-      CustomerDeliveryRuntimeStore.instance.applyStatusList(
-        CustomerStatusKind.confirmed,
-        _confirmedItems,
-      );
+  List<DispatchRecord> get confirmedItems => CustomerDeliveryRuntimeStore
+      .instance
+      .applyStatusList(CustomerStatusKind.confirmed, _confirmedItems);
 
-  List<DispatchRecord> get rejectedItems =>
-      CustomerDeliveryRuntimeStore.instance.applyStatusList(
-        CustomerStatusKind.rejected,
-        _rejectedItems,
-      );
+  List<DispatchRecord> get rejectedItems => CustomerDeliveryRuntimeStore
+      .instance
+      .applyStatusList(CustomerStatusKind.rejected, _rejectedItems);
 
   List<DispatchRecord> get historyItems =>
       CustomerDeliveryRuntimeStore.instance.applyHistory(_historyItems);
@@ -155,7 +148,8 @@ class CustomerStore extends ChangeNotifier {
     };
     final result = byId.values.toList()
       ..sort(
-          (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel));
+        (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel),
+      );
     return result;
   }
 

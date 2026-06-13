@@ -11,10 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class WerkaDetailScreen extends StatefulWidget {
-  const WerkaDetailScreen({
-    super.key,
-    required this.record,
-  });
+  const WerkaDetailScreen({super.key, required this.record});
 
   final DispatchRecord record;
 
@@ -77,8 +74,9 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
   }
 
   Future<void> _submit() async {
-    final double acceptedQty =
-        fullReturnMode ? 0.0 : (double.tryParse(controller.text.trim()) ?? 0.0);
+    final double acceptedQty = fullReturnMode
+        ? 0.0
+        : (double.tryParse(controller.text.trim()) ?? 0.0);
     if (acceptedQty <= 0) {
       if (fullReturnMode) {
         // full return mode handles zero accepted qty
@@ -158,15 +156,16 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
       if (!mounted) {
         return;
       }
-      Navigator.of(context)
-          .pushNamed(AppRoutes.werkaSuccess, arguments: accepted);
+      Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaSuccess, arguments: accepted);
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Qabul qilish bo‘lmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Qabul qilish bo‘lmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -182,10 +181,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 168.0;
     final detailRows = <({String label, String value})>[
       (label: 'Supplier', value: widget.record.supplierName),
-      (
-        label: 'Mahsulot',
-        value: widget.record.itemName,
-      ),
+      (label: 'Mahsulot', value: widget.record.itemName),
       (
         label: 'Jo‘natilgan',
         value:
@@ -253,10 +249,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
           ),
           if (fullReturnMode) ...[
             const SizedBox(height: 28),
-            Text(
-              'Sabab',
-              style: textTheme.titleMedium,
-            ),
+            Text('Sabab', style: textTheme.titleMedium),
             const SizedBox(height: 10),
             ..._returnReasons.map(
               (reason) => InkWell(
@@ -275,12 +268,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
                         size: 22,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          reason,
-                          style: textTheme.bodyLarge,
-                        ),
-                      ),
+                      Expanded(child: Text(reason, style: textTheme.bodyLarge)),
                     ],
                   ),
                 ),
@@ -309,10 +297,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
               labelText: 'Qaytarilayotgan',
             ),
             const SizedBox(height: 18),
-            Text(
-              'Sabab',
-              style: textTheme.titleMedium,
-            ),
+            Text('Sabab', style: textTheme.titleMedium),
             const SizedBox(height: 10),
             ..._returnReasons.map(
               (reason) => InkWell(
@@ -331,12 +316,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
                         size: 22,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          reason,
-                          style: textTheme.bodyLarge,
-                        ),
-                      ),
+                      Expanded(child: Text(reason, style: textTheme.bodyLarge)),
                     ],
                   ),
                 ),
@@ -352,8 +332,12 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
     required ColorScheme scheme,
     String? labelText,
     required String hintText,
-    EdgeInsetsGeometry contentPadding =
-        const EdgeInsets.fromLTRB(18, 14, 18, 14),
+    EdgeInsetsGeometry contentPadding = const EdgeInsets.fromLTRB(
+      18,
+      14,
+      18,
+      14,
+    ),
   }) {
     final borderRadius = BorderRadius.circular(14);
     final enabledBorder = OutlineInputBorder(
@@ -610,10 +594,7 @@ class _MaxNumericValueFormatter extends TextInputFormatter {
 }
 
 class _WerkaDetailInfoRow extends StatelessWidget {
-  const _WerkaDetailInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _WerkaDetailInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;

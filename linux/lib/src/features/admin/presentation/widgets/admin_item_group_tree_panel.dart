@@ -155,8 +155,8 @@ class _TreeNodeCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -206,9 +206,11 @@ class _TreeNodeCard extends StatelessWidget {
                           padding: const EdgeInsets.only(left: 10),
                           child: Column(
                             children: [
-                              for (int index = 0;
-                                  index < node.children.length;
-                                  index++) ...[
+                              for (
+                                int index = 0;
+                                index < node.children.length;
+                                index++
+                              ) ...[
                                 _TreeNodeCard(
                                   node: node.children[index],
                                   depth: depth + 1,
@@ -234,10 +236,7 @@ class _TreeNodeCard extends StatelessWidget {
 }
 
 class _TreeBadge extends StatelessWidget {
-  const _TreeBadge({
-    required this.label,
-    required this.filled,
-  });
+  const _TreeBadge({required this.label, required this.filled});
 
   final String label;
   final bool filled;
@@ -256,11 +255,11 @@ class _TreeBadge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: filled
-                  ? colorScheme.onPrimaryContainer
-                  : colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
-            ),
+          color: filled
+              ? colorScheme.onPrimaryContainer
+              : colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

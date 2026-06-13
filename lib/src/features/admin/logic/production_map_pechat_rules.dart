@@ -43,8 +43,8 @@ int? productionMapRecommendedPechatColorCount({
     requiredColorCount = rollCount > 8
         ? 9
         : rollCount > 7
-            ? 8
-            : 7;
+        ? 8
+        : 7;
   }
   if (hasWidth) {
     final rubberSize = productionMapRubberSizeFromWidth(widthMm);
@@ -54,8 +54,8 @@ int? productionMapRecommendedPechatColorCount({
     final rubberColorCount = rubberSize > 1000
         ? 9
         : rubberSize > 800
-            ? 8
-            : 7;
+        ? 8
+        : 7;
     requiredColorCount = math.max(requiredColorCount, rubberColorCount);
   }
   return requiredColorCount == 0 ? null : requiredColorCount;
@@ -131,8 +131,9 @@ String productionMapPechatCompatibilitySummary({
   if (compatible.isEmpty) {
     return 'Mos pechat topilmadi';
   }
-  final compatibleText =
-      compatible.map(productionMapPechatApparatusLabel).join(', ');
+  final compatibleText = compatible
+      .map(productionMapPechatApparatusLabel)
+      .join(', ');
   if (recommended == null) {
     return 'Mos pechat: $compatibleText';
   }
@@ -153,7 +154,8 @@ bool productionMapPechatCanMoveOrder({
   if (recommended != null && apparatusColorCount < recommended) {
     return false;
   }
-  final movingDown = sourceApparatusColorCount != null &&
+  final movingDown =
+      sourceApparatusColorCount != null &&
       apparatusColorCount < sourceApparatusColorCount;
   if (movingDown) {
     if (widthMm == null || widthMm <= 0) {
@@ -186,16 +188,20 @@ String productionMapWarehouseBaseTitle(String title) {
 }
 
 bool productionMapIsLaminatsiyaApparatus(String title) {
-  return productionMapWarehouseBaseTitle(title)
-      .toLowerCase()
-      .contains('laminatsiya');
+  return productionMapWarehouseBaseTitle(
+    title,
+  ).toLowerCase().contains('laminatsiya');
 }
 
 bool productionMapTextIsFlexoOrder(Iterable<String> values) {
   final haystack = values.join(' ').toLowerCase();
-  return const ['fleksa', 'fleska', 'flex', 'flexe', 'flexo'].any(
-    haystack.contains,
-  );
+  return const [
+    'fleksa',
+    'fleska',
+    'flex',
+    'flexe',
+    'flexo',
+  ].any(haystack.contains);
 }
 
 bool productionMapIsFlexoOrder(ProductionMapDefinition map) {
@@ -204,10 +210,7 @@ bool productionMapIsFlexoOrder(ProductionMapDefinition map) {
     map.productCode,
     map.code,
     for (final node in map.nodes)
-      if (node.kind != 'apparatus') ...[
-        node.title,
-        node.itemCode,
-      ],
+      if (node.kind != 'apparatus') ...[node.title, node.itemCode],
   ]);
 }
 
@@ -288,7 +291,8 @@ bool productionMapCanMoveOrderToApparatus({
   if (isFlexoOrder) {
     return false;
   }
-  final sourceColorCount = productionMapPechatColorCount(fromApparatus) ??
+  final sourceColorCount =
+      productionMapPechatColorCount(fromApparatus) ??
       productionMapOrderPechatColorCount(
         nodes
             .where((node) => node.kind == 'apparatus')
@@ -366,16 +370,18 @@ List<ProductionMapNode>? productionMapReassignApparatusNodes({
 }) {
   final to = toApparatus.trim();
   var changed = false;
-  final next = nodes.map((node) {
-    if (node.kind == 'apparatus' &&
-        productionMapApparatusNodeMatchesFrom(
-          nodeTitle: node.title,
-          fromApparatus: fromApparatus,
-        )) {
-      changed = true;
-      return node.copyWith(title: to);
-    }
-    return node;
-  }).toList(growable: false);
+  final next = nodes
+      .map((node) {
+        if (node.kind == 'apparatus' &&
+            productionMapApparatusNodeMatchesFrom(
+              nodeTitle: node.title,
+              fromApparatus: fromApparatus,
+            )) {
+          changed = true;
+          return node.copyWith(title: to);
+        }
+        return node;
+      })
+      .toList(growable: false);
   return changed ? next : null;
 }

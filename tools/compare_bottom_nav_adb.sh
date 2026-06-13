@@ -4,7 +4,7 @@
 set -euo pipefail
 
 PKG_DRIVE="com.google.android.apps.docs"
-PKG_ACCORD="com.example.erpnext_stock_mobile"
+PKG_ACCORD="com.example.accord_mobile_v2"
 TMP="${TMPDIR:-/tmp}"
 
 dump_ui() {

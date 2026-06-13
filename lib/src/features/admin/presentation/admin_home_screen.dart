@@ -72,10 +72,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   Future<void> _openAndReload(String routeName) async {
@@ -163,9 +160,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ] else
                   SmoothAppear(
                     delay: const Duration(milliseconds: 20),
-                    child: _AdminActionList(
-                      onOpenRoute: _openAndReload,
-                    ),
+                    child: _AdminActionList(onOpenRoute: _openAndReload),
                   ),
               ],
             ),
@@ -177,9 +172,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 }
 
 class _AdminActionList extends StatelessWidget {
-  const _AdminActionList({
-    required this.onOpenRoute,
-  });
+  const _AdminActionList({required this.onOpenRoute});
 
   final ValueChanged<String> onOpenRoute;
 
@@ -228,10 +221,7 @@ class _AdminActionCard extends StatelessWidget {
             Icon(action.icon, size: 23, color: scheme.onSurfaceVariant),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                action.title,
-                style: theme.textTheme.titleMedium,
-              ),
+              child: Text(action.title, style: theme.textTheme.titleMedium),
             ),
             Icon(
               Icons.chevron_right_rounded,

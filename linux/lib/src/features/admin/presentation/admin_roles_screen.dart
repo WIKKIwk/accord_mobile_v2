@@ -74,10 +74,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       return;
     }
     _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      routeName,
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
   Future<void> _openRoleEditor(
@@ -286,8 +283,9 @@ class _RolesTabState extends State<_RolesTab> {
                   expanded: _expandedRoleId == widget.data.roles[index].id,
                   onExpandedChanged: (expanded) {
                     setState(() {
-                      _expandedRoleId =
-                          expanded ? widget.data.roles[index].id : null;
+                      _expandedRoleId = expanded
+                          ? widget.data.roles[index].id
+                          : null;
                     });
                   },
                   onEdit: widget.data.roles[index].system
@@ -637,10 +635,7 @@ class _AdminRoleEditorSheetState extends State<_AdminRoleEditorSheet> {
 }
 
 class _RoleAssignmentSheet extends StatelessWidget {
-  const _RoleAssignmentSheet({
-    required this.principal,
-    required this.roles,
-  });
+  const _RoleAssignmentSheet({required this.principal, required this.roles});
 
   final _RolePrincipal principal;
   final List<AdminRoleDefinition> roles;
@@ -788,14 +783,15 @@ class _AdminRolesData {
   }
 
   _AdminRolesData upsertAssignment(AdminRoleAssignment assignment) {
-    final nextAssignments = assignments
-        .where(
-          (item) =>
-              item.principalRole != assignment.principalRole ||
-              item.principalRef != assignment.principalRef,
-        )
-        .toList()
-      ..add(assignment);
+    final nextAssignments =
+        assignments
+            .where(
+              (item) =>
+                  item.principalRole != assignment.principalRole ||
+                  item.principalRef != assignment.principalRef,
+            )
+            .toList()
+          ..add(assignment);
     return copyWith(assignments: nextAssignments);
   }
 
@@ -853,10 +849,7 @@ String _roleDefinitionLabel(BuildContext context, AdminRoleDefinition role) {
   return context.l10n.systemRoleLabel(role.id, role.label);
 }
 
-String _roleDefinitionSummary(
-  AppLocalizations l10n,
-  AdminRoleDefinition role,
-) {
+String _roleDefinitionSummary(AppLocalizations l10n, AdminRoleDefinition role) {
   final baseRole = role.baseRole;
   if (baseRole == null) {
     return l10n.adminRoleKindLabel(role.system);
@@ -887,7 +880,8 @@ String _capabilityLabel(
   String code,
   List<AdminCapability> capabilities,
 ) {
-  final fallback = capabilities
+  final fallback =
+      capabilities
           .where((capability) => capability.code == code)
           .map((capability) => capability.label)
           .letFirstOrNull() ??

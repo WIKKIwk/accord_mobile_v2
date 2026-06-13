@@ -12,9 +12,7 @@ class NativeSystemDockLayoutReserve extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: nativeSystemDockLayoutReserveHeight(context),
-    );
+    return SizedBox(height: nativeSystemDockLayoutReserveHeight(context));
   }
 }
 

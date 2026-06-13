@@ -1,13 +1,13 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_daily_calendar_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_monthly_calendar_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_sent_hub_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_yearly_calendar_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_list_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_period_screen.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_daily_calendar_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_monthly_calendar_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_sent_hub_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_yearly_calendar_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_list_screen.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_period_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,8 +30,9 @@ Widget _wrap(Widget child) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('monthly archive list screen builds without exception',
-      (tester) async {
+  testWidgets('monthly archive list screen builds without exception', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         const WerkaArchiveListScreen(
@@ -49,12 +50,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('period screen opens monthly calendar without exception',
-      (tester) async {
+  testWidgets('period screen opens monthly calendar without exception', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _wrap(
-        const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent),
-      ),
+      _wrap(const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent)),
     );
 
     await tester.pumpAndSettle();
@@ -66,13 +66,10 @@ void main() {
     expect(find.byType(WerkaArchiveMonthlyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('archive screen opens sent archive hub without exception',
-      (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        const WerkaArchiveScreen(),
-      ),
-    );
+  testWidgets('archive screen opens sent archive hub without exception', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_wrap(const WerkaArchiveScreen()));
 
     await tester.pumpAndSettle();
     await tester.tap(find.text('Jo\'natilgan'));
@@ -83,12 +80,11 @@ void main() {
     expect(find.byType(WerkaArchiveSentHubScreen), findsOneWidget);
   });
 
-  testWidgets('period screen opens daily calendar without exception',
-      (tester) async {
+  testWidgets('period screen opens daily calendar without exception', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _wrap(
-        const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent),
-      ),
+      _wrap(const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent)),
     );
 
     await tester.pumpAndSettle();
@@ -100,12 +96,11 @@ void main() {
     expect(find.byType(WerkaArchiveDailyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('period screen opens yearly calendar without exception',
-      (tester) async {
+  testWidgets('period screen opens yearly calendar without exception', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _wrap(
-        const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent),
-      ),
+      _wrap(const WerkaArchivePeriodScreen(kind: WerkaArchiveKind.sent)),
     );
 
     await tester.pumpAndSettle();
@@ -117,8 +112,9 @@ void main() {
     expect(find.byType(WerkaArchiveYearlyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('daily calendar opens list when active day is tapped',
-      (tester) async {
+  testWidgets('daily calendar opens list when active day is tapped', (
+    tester,
+  ) async {
     Future<WerkaArchiveResponse> archiveLoader({
       required WerkaArchiveKind kind,
       required WerkaArchivePeriod period,
@@ -132,9 +128,7 @@ void main() {
         to: to,
         summary: const WerkaArchiveSummary(
           recordCount: 1,
-          totalsByUOM: [
-            ArchiveTotalByUOM(uom: 'Kg', qty: 3),
-          ],
+          totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
         items: const [
           DispatchRecord(
@@ -176,8 +170,9 @@ void main() {
     expect(find.byType(WerkaArchiveListScreen), findsOneWidget);
   });
 
-  testWidgets('monthly calendar opens list when month is tapped',
-      (tester) async {
+  testWidgets('monthly calendar opens list when month is tapped', (
+    tester,
+  ) async {
     Future<WerkaArchiveResponse> archiveLoader({
       required WerkaArchiveKind kind,
       required WerkaArchivePeriod period,
@@ -191,9 +186,7 @@ void main() {
         to: to,
         summary: const WerkaArchiveSummary(
           recordCount: 1,
-          totalsByUOM: [
-            ArchiveTotalByUOM(uom: 'Kg', qty: 3),
-          ],
+          totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
         items: const [
           DispatchRecord(
@@ -249,9 +242,7 @@ void main() {
         to: to,
         summary: const WerkaArchiveSummary(
           recordCount: 1,
-          totalsByUOM: [
-            ArchiveTotalByUOM(uom: 'Kg', qty: 3),
-          ],
+          totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
         items: const [
           DispatchRecord(

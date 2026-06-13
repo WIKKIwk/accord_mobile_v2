@@ -17,10 +17,7 @@ extension MobileApiAuthProfile on MobileApi {
     final http.Response response = await http.post(
       Uri.parse('$baseUrl/v1/mobile/auth/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'phone': phone,
-        'code': code,
-      }),
+      body: jsonEncode({'phone': phone, 'code': code}),
     );
 
     if (response.statusCode != 200) {
@@ -37,7 +34,8 @@ extension MobileApiAuthProfile on MobileApi {
     profileJson['assigned_apparatus'] =
         json['assigned_apparatus'] as List<dynamic>? ?? [];
     final SessionProfile profile = SessionProfile.fromJson(profileJson);
-    final WerkaHomeData? werkaHome = profile.role == UserRole.werka &&
+    final WerkaHomeData? werkaHome =
+        profile.role == UserRole.werka &&
             json['werka_home'] is Map<String, dynamic>
         ? WerkaHomeData.fromJson(json['werka_home'] as Map<String, dynamic>)
         : null;
@@ -69,10 +67,7 @@ extension MobileApiAuthProfile on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/push/token'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'token': trimmedToken,
-          'platform': platform,
-        }),
+        body: jsonEncode({'token': trimmedToken, 'platform': platform}),
       ),
     );
     debugPrint(
@@ -93,8 +88,9 @@ extension MobileApiAuthProfile on MobileApi {
       'push unregister request token=${maskPushToken(tokenValue.trim())}',
     );
     await http.delete(
-      Uri.parse('$baseUrl/v1/mobile/push/token')
-          .replace(queryParameters: {'token': tokenValue}),
+      Uri.parse(
+        '$baseUrl/v1/mobile/push/token',
+      ).replace(queryParameters: {'token': tokenValue}),
       headers: _headers(token),
     );
   }
@@ -155,23 +151,17 @@ extension MobileApiAuthProfile on MobileApi {
     required List<int> bytes,
     required String filename,
   }) async {
-    final streamed = await _sendMultipartAuthorized(
-      () {
-        final request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$baseUrl/v1/mobile/profile/avatar'),
-        );
-        request.headers.addAll(_headers(requireToken()));
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'avatar',
-            bytes,
-            filename: filename,
-          ),
-        );
-        return request.send();
-      },
-    );
+    final streamed = await _sendMultipartAuthorized(() {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/v1/mobile/profile/avatar'),
+      );
+      request.headers.addAll(_headers(requireToken()));
+      request.files.add(
+        http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
+      );
+      return request.send();
+    });
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 200) {
       throw Exception('Avatar upload failed');

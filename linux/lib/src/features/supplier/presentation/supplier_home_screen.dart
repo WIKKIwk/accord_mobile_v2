@@ -100,9 +100,7 @@ class _SupplierHomeScreenState extends State<SupplierHomeScreen>
               child: ListView(
                 physics: const TopRefreshScrollPhysics(),
                 padding: EdgeInsets.zero,
-                children: [
-                  AppRetryState(onRetry: _reload),
-                ],
+                children: [AppRetryState(onRetry: _reload)],
               ),
             );
           }
@@ -140,9 +138,7 @@ class _SupplierHomeScreenState extends State<SupplierHomeScreen>
 }
 
 class _SupplierSummaryCard extends StatelessWidget {
-  const _SupplierSummaryCard({
-    required this.summary,
-  });
+  const _SupplierSummaryCard({required this.summary});
 
   final SupplierHomeSummary summary;
 
@@ -207,8 +203,10 @@ class _SupplierSummarySegmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final BorderRadius radius =
-        M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
+    final BorderRadius radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      cornerRadius,
+    );
     final Color bg = switch (theme.brightness) {
       Brightness.dark => scheme.surfaceContainerLow,
       Brightness.light => scheme.surfaceContainerHighest,
@@ -227,10 +225,7 @@ class _SupplierSummarySegmentCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: radius,
-          ),
+          decoration: BoxDecoration(color: bg, borderRadius: radius),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 66),
             child: Padding(
@@ -257,11 +252,7 @@ class _SupplierSummarySegmentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: accent,
-                  ),
+                  Icon(Icons.chevron_right_rounded, size: 22, color: accent),
                 ],
               ),
             ),
@@ -273,9 +264,7 @@ class _SupplierSummarySegmentCard extends StatelessWidget {
 }
 
 class _SupplierPendingSection extends StatelessWidget {
-  const _SupplierPendingSection({
-    required this.items,
-  });
+  const _SupplierPendingSection({required this.items});
 
   final List<DispatchRecord> items;
 
@@ -291,9 +280,7 @@ class _SupplierPendingSection extends StatelessWidget {
         margin: EdgeInsets.zero,
         color: scheme.surfaceContainerLow,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
           child: Column(
@@ -309,8 +296,9 @@ class _SupplierPendingSection extends StatelessWidget {
               const SizedBox(height: 14),
               Card.filled(
                 margin: EdgeInsets.zero,
-                color:
-                    isDark ? const Color(0xFF2A2931) : scheme.surfaceContainer,
+                color: isDark
+                    ? const Color(0xFF2A2931)
+                    : scheme.surfaceContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
@@ -358,10 +346,9 @@ class _SupplierPendingRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return PressableScale(
-      onTap: () => Navigator.of(context).pushNamed(
-        AppRoutes.notificationDetail,
-        arguments: record.id,
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.notificationDetail, arguments: record.id),
       child: SizedBox(
         width: double.infinity,
         child: Material(
@@ -373,10 +360,9 @@ class _SupplierPendingRow extends StatelessWidget {
               bottomLeft: Radius.circular(isLast ? 24 : 0),
               bottomRight: Radius.circular(isLast ? 24 : 0),
             ),
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.notificationDetail,
-              arguments: record.id,
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushNamed(AppRoutes.notificationDetail, arguments: record.id),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Row(

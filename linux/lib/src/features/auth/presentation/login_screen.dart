@@ -16,11 +16,7 @@ import 'welcome_screen.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    super.key,
-    this.onBack,
-    this.useSharedBackground = false,
-  });
+  const LoginScreen({super.key, this.onBack, this.useSharedBackground = false});
 
   final VoidCallback? onBack;
   final bool useSharedBackground;
@@ -147,8 +143,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final bool testModeEnabled =
-          await TestModeController.instance.isEnabled();
+      final bool testModeEnabled = await TestModeController.instance
+          .isEnabled();
       if (testModeEnabled) {
         await AppSession.instance.setSession(
           token: 'test-mode-token',
@@ -187,18 +183,15 @@ class _LoginScreenState extends State<LoginScreen> {
           text.contains('Failed host lookup') ||
           text.contains('Connection refused') ||
           text.contains('timed out')) {
-        showNetworkRequiredDialog(
-          context,
-          message: l10n.connectInternetPrompt,
-        );
+        showNetworkRequiredDialog(context, message: l10n.connectInternetPrompt);
       }
     }
   }
 
   void _openPostLoginRoute(BuildContext context, String routeName) {
-    final PageRoute<dynamic> targetRoute = AppRouter.onGenerateRoute(
-      RouteSettings(name: routeName),
-    ) as PageRoute<dynamic>;
+    final PageRoute<dynamic> targetRoute =
+        AppRouter.onGenerateRoute(RouteSettings(name: routeName))
+            as PageRoute<dynamic>;
 
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder<dynamic>(
@@ -206,11 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
         transitionDuration: const Duration(milliseconds: 420),
         reverseTransitionDuration: const Duration(milliseconds: 260),
         pageBuilder: (context, animation, secondaryAnimation) {
-          return targetRoute.buildPage(
-            context,
-            animation,
-            secondaryAnimation,
-          );
+          return targetRoute.buildPage(context, animation, secondaryAnimation);
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final Animation<double> fade = CurvedAnimation(
@@ -218,34 +207,30 @@ class _LoginScreenState extends State<LoginScreen> {
             curve: Curves.easeOutCubic,
             reverseCurve: Curves.easeInCubic,
           );
-          final Animation<Offset> lift = Tween<Offset>(
-            begin: const Offset(0, 0.035),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            ),
-          );
-          final Animation<double> scale = Tween<double>(
-            begin: 0.992,
-            end: 1,
-          ).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            ),
-          );
+          final Animation<Offset> lift =
+              Tween<Offset>(
+                begin: const Offset(0, 0.035),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                ),
+              );
+          final Animation<double> scale = Tween<double>(begin: 0.992, end: 1)
+              .animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                ),
+              );
           return FadeTransition(
             opacity: fade,
             child: SlideTransition(
               position: lift,
-              child: ScaleTransition(
-                scale: scale,
-                child: child,
-              ),
+              child: ScaleTransition(scale: scale, child: child),
             ),
           );
         },
@@ -266,10 +251,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final scheme = theme.colorScheme;
         final l10n = AppLocalizations.of(context);
         final bool isDark = ThemeController.instance.isDark;
-        final Color authBackgroundColor =
-            isDark ? const Color(0xFF000000) : scheme.surfaceContainerLow;
-        final Color inputFillColor =
-            isDark ? const Color(0xFF000000) : scheme.surface;
+        final Color authBackgroundColor = isDark
+            ? const Color(0xFF000000)
+            : scheme.surfaceContainerLow;
+        final Color inputFillColor = isDark
+            ? const Color(0xFF000000)
+            : scheme.surface;
         final darkTheme = theme.copyWith(
           colorScheme: scheme.copyWith(
             surface: const Color(0xFF000000),
@@ -361,8 +348,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final double topSpacing =
-                            constraints.maxHeight >= 760 ? 160 : 120;
+                        final double topSpacing = constraints.maxHeight >= 760
+                            ? 160
+                            : 120;
                         return SingleChildScrollView(
                           physics: const ClampingScrollPhysics(),
                           child: Align(
@@ -391,10 +379,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         l10n.signInTitle,
                                         style: theme.textTheme.displaySmall
                                             ?.copyWith(
-                                          fontSize: 40,
-                                          letterSpacing: -1.4,
-                                          height: 1.02,
-                                        ),
+                                              fontSize: 40,
+                                              letterSpacing: -1.4,
+                                              height: 1.02,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(height: 28),
@@ -451,8 +439,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     if (errorText != null) ...[
                                       const SizedBox(height: 14),
                                       SmoothAppear(
-                                        delay:
-                                            const Duration(milliseconds: 210),
+                                        delay: const Duration(
+                                          milliseconds: 210,
+                                        ),
                                         offset: const Offset(0, 8),
                                         child: _LoginErrorBanner(
                                           message: errorText!,
@@ -468,8 +457,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                           milliseconds: 260,
                                         ),
                                         curve: Curves.easeOutCubic,
-                                        opacity:
-                                            (_canSubmit || loading) ? 1 : 0,
+                                        opacity: (_canSubmit || loading)
+                                            ? 1
+                                            : 0,
                                         child: AnimatedSlide(
                                           duration: const Duration(
                                             milliseconds: 260,
@@ -484,17 +474,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                               onPressed: loading
                                                   ? null
                                                   : _canSubmit
-                                                      ? () =>
-                                                          submitLogin(context)
-                                                      : null,
+                                                  ? () => submitLogin(context)
+                                                  : null,
                                               child: loading
                                                   ? const SizedBox(
                                                       height: 18,
                                                       width: 18,
                                                       child:
                                                           CircularProgressIndicator(
-                                                        strokeWidth: 2.2,
-                                                      ),
+                                                            strokeWidth: 2.2,
+                                                          ),
                                                     )
                                                   : Text(l10n.loginAction),
                                             ),
@@ -522,9 +511,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class _LoginErrorBanner extends StatelessWidget {
-  const _LoginErrorBanner({
-    required this.message,
-  });
+  const _LoginErrorBanner({required this.message});
 
   final String message;
 
@@ -541,10 +528,7 @@ class _LoginErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline_rounded,
-            color: scheme.onErrorContainer,
-          ),
+          Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

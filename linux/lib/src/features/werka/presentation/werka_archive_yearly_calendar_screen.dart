@@ -23,7 +23,8 @@ class WerkaArchiveYearlyCalendarScreen extends StatefulWidget {
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })? archiveLoader;
+  })?
+  archiveLoader;
 
   @override
   State<WerkaArchiveYearlyCalendarScreen> createState() =>
@@ -52,12 +53,7 @@ class _WerkaArchiveYearlyCalendarScreenState
   }) {
     final loader = widget.archiveLoader;
     if (loader != null) {
-      return loader(
-        kind: kind,
-        period: period,
-        from: from,
-        to: to,
-      );
+      return loader(kind: kind, period: period, from: from, to: to);
     }
     return MobileApi.instance.werkaArchive(
       kind: kind,
@@ -166,7 +162,7 @@ class _WerkaArchiveYearlyCalendarScreenState
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final years = [
-      for (int year = _startYear; year <= _startYear + 11; year++) year
+      for (int year = _startYear; year <= _startYear + 11; year++) year,
     ];
 
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -289,8 +285,9 @@ class _YearCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border:
-                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
+              border: active
+                  ? Border.all(color: scheme.primary, width: 1.2)
+                  : null,
             ),
             child: Text(
               '$year',

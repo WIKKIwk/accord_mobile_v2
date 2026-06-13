@@ -39,9 +39,9 @@ extension MobileApiCustomer on MobileApi {
   ) async {
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/customer/status-details').replace(
-          queryParameters: {'kind': kind.name},
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/customer/status-details',
+        ).replace(queryParameters: {'kind': kind.name}),
         headers: _headers(requireToken()),
       ),
     );
@@ -59,9 +59,9 @@ extension MobileApiCustomer on MobileApi {
   ) async {
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/customer/detail').replace(
-          queryParameters: {'delivery_note_id': deliveryNoteID},
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/customer/detail',
+        ).replace(queryParameters: {'delivery_note_id': deliveryNoteID}),
         headers: _headers(requireToken()),
       ),
     );

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_batch_qr.dart';
-import 'package:erpnext_stock_mobile/src/features/werka/presentation/werka_archive_batch_qr_lookup_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_batch_qr.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_batch_qr_lookup_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,8 +126,9 @@ void main() {
     expect(resolved.name, 'Fallback Customer');
   });
 
-  testWidgets('batch QR result submits exact item to preferred customer',
-      (tester) async {
+  testWidgets('batch QR result submits exact item to preferred customer', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final payload = WerkaArchiveBatchQrPayload.tryParse(
       _archiveUrl([
@@ -161,16 +162,8 @@ void main() {
         ),
       ],
       customers: const [
-        CustomerDirectoryEntry(
-          ref: 'saidamin',
-          name: 'saidamin',
-          phone: '',
-        ),
-        CustomerDirectoryEntry(
-          ref: 'umar-oboy',
-          name: 'Umar Oboy',
-          phone: '',
-        ),
+        CustomerDirectoryEntry(ref: 'saidamin', name: 'saidamin', phone: ''),
+        CustomerDirectoryEntry(ref: 'umar-oboy', name: 'Umar Oboy', phone: ''),
       ],
     );
 
@@ -201,10 +194,9 @@ void main() {
 }
 
 String _archiveUrl(List<String> lines) {
-  final encoded = base64Url.encode(utf8.encode(lines.join('\n'))).replaceAll(
-        '=',
-        '',
-      );
+  final encoded = base64Url
+      .encode(utf8.encode(lines.join('\n')))
+      .replaceAll('=', '');
   return 'https://scan.wspace.sbs/A/$encoded';
 }
 

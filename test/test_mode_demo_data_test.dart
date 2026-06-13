@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
-import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

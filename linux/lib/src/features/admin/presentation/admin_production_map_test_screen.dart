@@ -48,10 +48,7 @@ String _formulaInternalText(String expression) {
 }
 
 class _FormulaVariable {
-  const _FormulaVariable({
-    required this.label,
-    required this.token,
-  });
+  const _FormulaVariable({required this.label, required this.token});
 
   final String label;
   final String token;
@@ -132,10 +129,9 @@ class _FormulaAutocompleteController extends TextEditingController {
         TextSpan(
           text: ghost,
           style: baseStyle.copyWith(
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withValues(alpha: 0.42),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.42),
           ),
         ),
       ],
@@ -192,10 +188,7 @@ class _AdminProductionMapTestScreenState
       title: 'Katta partiyami?',
       x: 420,
       y: 296,
-      formula: ProductionFormula(
-        target: '',
-        expression: 'order_qty >= 100',
-      ),
+      formula: ProductionFormula(target: '', expression: 'order_qty >= 100'),
     ),
     const ProductionMapNode(
       id: 'end',
@@ -242,9 +235,9 @@ class _AdminProductionMapTestScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Map saqlanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Map saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => saving = false);
@@ -302,9 +295,9 @@ class _AdminProductionMapTestScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hisoblash bajarilmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Hisoblash bajarilmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => running = false);
@@ -327,59 +320,59 @@ class _AdminProductionMapTestScreenState
     final end = nodes.firstWhere((node) => node.kind == 'end');
     return switch (kind) {
       'location' => ProductionMapNode(
-          id: id,
-          kind: 'location',
-          title: 'ERPNext location',
-          x: end.x,
-          y: end.y - 132,
-        ),
+        id: id,
+        kind: 'location',
+        title: 'ERPNext location',
+        x: end.x,
+        y: end.y - 132,
+      ),
       'material' => ProductionMapNode(
-          id: id,
-          kind: 'material',
-          title: 'Material tanlash',
-          itemCode: 'CPP',
-          qtyFormula: 'order_qty',
-          fromLocation: 'Location',
-          x: end.x,
-          y: end.y - 132,
-        ),
+        id: id,
+        kind: 'material',
+        title: 'Material tanlash',
+        itemCode: 'CPP',
+        qtyFormula: 'order_qty',
+        fromLocation: 'Location',
+        x: end.x,
+        y: end.y - 132,
+      ),
       'formula' => ProductionMapNode(
-          id: id,
-          kind: 'formula',
-          title: 'Hisob kitob',
-          x: end.x,
-          y: end.y - 132,
-          formula: const ProductionFormula(
-            target: 'result_kg',
-            expression: 'order_qty',
-          ),
+        id: id,
+        kind: 'formula',
+        title: 'Hisob kitob',
+        x: end.x,
+        y: end.y - 132,
+        formula: const ProductionFormula(
+          target: 'result_kg',
+          expression: 'order_qty',
         ),
+      ),
       'wait' => ProductionMapNode(
-          id: id,
-          kind: 'wait',
-          title: 'Material kutish',
-          x: end.x,
-          y: end.y - 132,
-        ),
+        id: id,
+        kind: 'wait',
+        title: 'Material kutish',
+        x: end.x,
+        y: end.y - 132,
+      ),
       'output' => ProductionMapNode(
-          id: id,
-          kind: 'output',
-          title: 'Natija chiqarish',
-          itemCode: productCode,
-          qtyFormula: 'order_qty',
-          toLocation: 'Tayyor mahsulot location',
-          x: end.x,
-          y: end.y - 132,
-        ),
+        id: id,
+        kind: 'output',
+        title: 'Natija chiqarish',
+        itemCode: productCode,
+        qtyFormula: 'order_qty',
+        toLocation: 'Tayyor mahsulot location',
+        x: end.x,
+        y: end.y - 132,
+      ),
       _ => ProductionMapNode(
-          id: id,
-          kind: 'task',
-          title: 'Ishlov jarayoni',
-          roleCode: 'worker',
-          qtyFormula: 'order_qty',
-          x: end.x,
-          y: end.y - 132,
-        ),
+        id: id,
+        kind: 'task',
+        title: 'Ishlov jarayoni',
+        roleCode: 'worker',
+        qtyFormula: 'order_qty',
+        x: end.x,
+        y: end.y - 132,
+      ),
     };
   }
 
@@ -388,10 +381,7 @@ class _AdminProductionMapTestScreenState
     final previous = nodes[endIndex - 1];
     final end = nodes[endIndex];
     final placedNode = _placeNode(
-      node.copyWith(
-        x: previous.x,
-        y: previous.y + _nodeStepY,
-      ),
+      node.copyWith(x: previous.x, y: previous.y + _nodeStepY),
       ignoreIds: {end.id},
     );
     nodes.insert(endIndex, placedNode);
@@ -481,15 +471,19 @@ class _AdminProductionMapTestScreenState
       if (target == null) {
         return;
       }
-      final exists = edges.any((edge) =>
-          edge.from == fromID &&
-          edge.to == target.id &&
-          edge.branch.trim().toLowerCase() == branchKey);
+      final exists = edges.any(
+        (edge) =>
+            edge.from == fromID &&
+            edge.to == target.id &&
+            edge.branch.trim().toLowerCase() == branchKey,
+      );
       if (!exists) {
         if (branchKey.isNotEmpty) {
-          edges.removeWhere((edge) =>
-              edge.from == fromID &&
-              edge.branch.trim().toLowerCase() == branchKey);
+          edges.removeWhere(
+            (edge) =>
+                edge.from == fromID &&
+                edge.branch.trim().toLowerCase() == branchKey,
+          );
         }
         edges.add(
           ProductionMapEdge(from: fromID, to: target.id, branch: branchKey),
@@ -560,10 +554,7 @@ class _AdminProductionMapTestScreenState
     for (var row = 0; row < 80; row++) {
       for (final column in const [0, -1, 1, -2, 2, -3, 3, -4, 4]) {
         final position = _clampNodePosition(
-          Offset(
-            origin.dx + column * _nodeStepX,
-            origin.dy + row * _nodeStepY,
-          ),
+          Offset(origin.dx + column * _nodeStepX, origin.dy + row * _nodeStepY),
         );
         final key = '${position.dx}:${position.dy}';
         if (!tried.add(key)) {
@@ -616,10 +607,14 @@ class _AdminProductionMapTestScreenState
     if (!aRect.overlaps(bRect)) {
       return Offset.zero;
     }
-    final overlapX =
-        math.min(aRect.right - bRect.left, bRect.right - aRect.left);
-    final overlapY =
-        math.min(aRect.bottom - bRect.top, bRect.bottom - aRect.top);
+    final overlapX = math.min(
+      aRect.right - bRect.left,
+      bRect.right - aRect.left,
+    );
+    final overlapY = math.min(
+      aRect.bottom - bRect.top,
+      bRect.bottom - aRect.top,
+    );
     if (overlapX <= 0 || overlapY <= 0) {
       return Offset.zero;
     }
@@ -661,10 +656,7 @@ class _AdminProductionMapTestScreenState
   }
 
   bool _nodeOverlapsAny(ProductionMapNode node) {
-    return _positionOverlapsAny(
-      Offset(node.x, node.y),
-      nodeID: node.id,
-    );
+    return _positionOverlapsAny(Offset(node.x, node.y), nodeID: node.id);
   }
 
   Offset _clampNodePosition(Offset position) {
@@ -709,10 +701,7 @@ class _AdminProductionMapTestScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (context) => _MapInfoSheet(
-        mapID: mapID,
-        title: mapTitle,
-      ),
+      builder: (context) => _MapInfoSheet(mapID: mapID, title: mapTitle),
     );
     if (edited == null || !mounted) {
       return;
@@ -925,10 +914,7 @@ class _AdminProductionMapTestScreenState
           if (nav.canPop()) {
             nav.pop();
           } else {
-            nav.pushNamedAndRemoveUntil(
-              AppRoutes.adminHome,
-              (route) => false,
-            );
+            nav.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false);
           }
         },
       ),
@@ -1035,14 +1021,17 @@ class _PlainActionButtonState extends State<_PlainActionButton> {
             highlightColor: scheme.onPrimary.withValues(alpha: 0.08),
             onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
             onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-            onTapCancel:
-                enabled ? () => setState(() => _pressed = false) : null,
+            onTapCancel: enabled
+                ? () => setState(() => _pressed = false)
+                : null,
             onTap: widget.onTap,
             child: Opacity(
               opacity: enabled ? 1 : 0.48,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 13,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1054,9 +1043,9 @@ class _PlainActionButtonState extends State<_PlainActionButton> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: foreground,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          color: foreground,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
@@ -1092,19 +1081,15 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
           child: GestureDetector(
             onTap: () {},
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: media.height * 0.9,
-              ),
+              constraints: BoxConstraints(maxHeight: media.height * 0.9),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainer,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
                 ),
-                child: SafeArea(
-                  top: false,
-                  child: child,
-                ),
+                child: SafeArea(top: false, child: child),
               ),
             ),
           ),
@@ -1258,8 +1243,8 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                               },
                               onDelete:
                                   node.kind == 'start' || node.kind == 'end'
-                                      ? null
-                                      : () => widget.onNodeDelete(node),
+                                  ? null
+                                  : () => widget.onNodeDelete(node),
                               onConnectionDragStart: (globalPosition) {
                                 final canvasPosition = _globalToCanvas(
                                   globalPosition,
@@ -1289,8 +1274,8 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                                 widget.onConnectionCancel();
                               },
                               floating: false,
-                              highlighted: widget.connectingFromNodeID ==
-                                      node.id ||
+                              highlighted:
+                                  widget.connectingFromNodeID == node.id ||
                                   widget.runVisitedNodeIDs.contains(node.id),
                               awaiting: widget.runAwaitingNodeID == node.id,
                             ),
@@ -1303,15 +1288,17 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                               child: _BranchAddButton(
                                 branch: 'true',
                                 onConnectionDragStart: (globalPosition) {
-                                  final canvasPosition =
-                                      _globalToCanvas(globalPosition);
+                                  final canvasPosition = _globalToCanvas(
+                                    globalPosition,
+                                  );
                                   _lastConnectionPosition = canvasPosition;
                                   widget.onConnectionStart(node.id, 'true');
                                   widget.onConnectionUpdate(canvasPosition);
                                 },
                                 onConnectionDragUpdate: (globalPosition) {
-                                  final canvasPosition =
-                                      _globalToCanvas(globalPosition);
+                                  final canvasPosition = _globalToCanvas(
+                                    globalPosition,
+                                  );
                                   _lastConnectionPosition = canvasPosition;
                                   widget.onConnectionUpdate(canvasPosition);
                                 },
@@ -1336,15 +1323,17 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                               child: _BranchAddButton(
                                 branch: 'false',
                                 onConnectionDragStart: (globalPosition) {
-                                  final canvasPosition =
-                                      _globalToCanvas(globalPosition);
+                                  final canvasPosition = _globalToCanvas(
+                                    globalPosition,
+                                  );
                                   _lastConnectionPosition = canvasPosition;
                                   widget.onConnectionStart(node.id, 'false');
                                   widget.onConnectionUpdate(canvasPosition);
                                 },
                                 onConnectionDragUpdate: (globalPosition) {
-                                  final canvasPosition =
-                                      _globalToCanvas(globalPosition);
+                                  final canvasPosition = _globalToCanvas(
+                                    globalPosition,
+                                  );
                                   _lastConnectionPosition = canvasPosition;
                                   widget.onConnectionUpdate(canvasPosition);
                                 },
@@ -1492,10 +1481,7 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
     final end = isWarehouseTarget
         ? _warehousePortCenter(toRect, fromRect.center)
         : _edgeAnchor(toRect, fromRect.center);
-    return Offset(
-      (start.dx + end.dx) / 2,
-      (start.dy + end.dy) / 2,
-    );
+    return Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
   }
 
   ProductionMapNode? _nodeByID(String id) {
@@ -1628,10 +1614,7 @@ class _BranchAddButton extends StatelessWidget {
 }
 
 class _EdgeDeleteButton extends StatelessWidget {
-  const _EdgeDeleteButton({
-    required this.edge,
-    required this.onTap,
-  });
+  const _EdgeDeleteButton({required this.edge, required this.onTap});
 
   final ProductionMapEdge edge;
   final VoidCallback onTap;
@@ -1649,7 +1632,8 @@ class _EdgeDeleteButton extends StatelessWidget {
       message: 'Yo‘lni uzish',
       child: Material(
         key: ValueKey(
-            'production-map-edge-delete-${edge.from}-${edge.to}-${edge.branch}'),
+          'production-map-edge-delete-${edge.from}-${edge.to}-${edge.branch}',
+        ),
         color: scheme.surface,
         shape: const CircleBorder(),
         elevation: 2,
@@ -1659,11 +1643,7 @@ class _EdgeDeleteButton extends StatelessWidget {
           onTap: onTap,
           child: SizedBox.square(
             dimension: 26,
-            child: Icon(
-              Icons.close_rounded,
-              size: 17,
-              color: color,
-            ),
+            child: Icon(Icons.close_rounded, size: 17, color: color),
           ),
         ),
       ),
@@ -1725,9 +1705,7 @@ class _MapCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final byID = {
-      for (final node in nodes) node.id: node,
-    };
+    final byID = {for (final node in nodes) node.id: node};
     for (final edge in edges) {
       final from = byID[edge.from];
       final to = byID[edge.to];
@@ -1823,8 +1801,10 @@ class _MapCanvasPainter extends CustomPainter {
     if (branchKey.isNotEmpty) {
       _paintBranchLabel(
         canvas,
-        Offset((start.dx + previewEnd.dx) / 2,
-            (start.dy + previewEnd.dy) / 2 - 16),
+        Offset(
+          (start.dx + previewEnd.dx) / 2,
+          (start.dy + previewEnd.dy) / 2 - 16,
+        ),
         productionMapBranchDisplayLabel(branchKey),
         color,
       );
@@ -2084,8 +2064,8 @@ class _MapNodeVisual extends StatelessWidget {
             border: awaiting
                 ? Border.all(color: scheme.error, width: 3)
                 : highlighted
-                    ? Border.all(color: scheme.primary, width: 2)
-                    : null,
+                ? Border.all(color: scheme.primary, width: 2)
+                : null,
             boxShadow: floating
                 ? [
                     BoxShadow(
@@ -2294,8 +2274,8 @@ class _WarehouseLocationNode extends StatelessWidget {
     final borderColor = awaiting
         ? scheme.error
         : highlighted
-            ? scheme.primary
-            : scheme.outlineVariant;
+        ? scheme.primary
+        : scheme.outlineVariant;
     return Semantics(
       button: true,
       label: '${node.title} location',
@@ -2352,9 +2332,9 @@ class _WarehouseLocationNode extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: scheme.onPrimaryContainer,
-                            ),
+                          fontWeight: FontWeight.w900,
+                          color: scheme.onPrimaryContainer,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -2362,9 +2342,10 @@ class _WarehouseLocationNode extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onPrimaryContainer
-                                  .withValues(alpha: 0.74),
-                            ),
+                          color: scheme.onPrimaryContainer.withValues(
+                            alpha: 0.74,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -2405,10 +2386,7 @@ class _WarehouseLocationNode extends StatelessWidget {
 }
 
 class _WarehouseMiniButton extends StatelessWidget {
-  const _WarehouseMiniButton({
-    required this.icon,
-    required this.scheme,
-  });
+  const _WarehouseMiniButton({required this.icon, required this.scheme});
 
   final IconData icon;
   final ColorScheme scheme;
@@ -2423,11 +2401,7 @@ class _WarehouseMiniButton extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(7),
-        child: Icon(
-          icon,
-          size: 18,
-          color: scheme.onSurfaceVariant,
-        ),
+        child: Icon(icon, size: 18, color: scheme.onSurfaceVariant),
       ),
     );
   }
@@ -2491,10 +2465,9 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
             Center(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.45),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: const SizedBox(width: 44, height: 4),
@@ -2503,14 +2476,15 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
             const SizedBox(height: 18),
             Text(
               'Node sozlash',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 14),
             _SheetField(
-              label:
-                  widget.node.kind == 'location' ? 'ERPNext location' : 'Nomi',
+              label: widget.node.kind == 'location'
+                  ? 'ERPNext location'
+                  : 'Nomi',
               controller: _title,
             ),
             if (widget.node.kind == 'material' ||
@@ -2533,15 +2507,9 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
                 controller: _qtyFormula,
               ),
               const SizedBox(height: 10),
-              _SheetField(
-                label: 'Qayerdan',
-                controller: _fromLocation,
-              ),
+              _SheetField(label: 'Qayerdan', controller: _fromLocation),
               const SizedBox(height: 10),
-              _SheetField(
-                label: 'Qayerga',
-                controller: _toLocation,
-              ),
+              _SheetField(label: 'Qayerga', controller: _toLocation),
             ],
             if (widget.node.kind == 'formula') ...[
               const SizedBox(height: 10),
@@ -2588,15 +2556,16 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
         toLocation: isLocation ? '' : _toLocation.text.trim(),
         x: widget.node.x,
         y: widget.node.y,
-        formula: !isLocation &&
+        formula:
+            !isLocation &&
                 (widget.node.kind == 'formula' ||
                     widget.node.kind == 'condition')
             ? ProductionFormula(
                 target: widget.node.kind == 'condition'
                     ? ''
                     : formulaTarget.isEmpty
-                        ? 'result'
-                        : formulaTarget,
+                    ? 'result'
+                    : formulaTarget,
                 expression: formulaExpression.isEmpty
                     ? widget.node.formula?.expression ?? 'order_qty'
                     : formulaExpression,
@@ -2608,20 +2577,14 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
 }
 
 class _MapInfo {
-  const _MapInfo({
-    required this.mapID,
-    required this.title,
-  });
+  const _MapInfo({required this.mapID, required this.title});
 
   final String mapID;
   final String title;
 }
 
 class _MapInfoSheet extends StatefulWidget {
-  const _MapInfoSheet({
-    required this.mapID,
-    required this.title,
-  });
+  const _MapInfoSheet({required this.mapID, required this.title});
 
   final String mapID;
   final String title;
@@ -2658,10 +2621,9 @@ class _MapInfoSheetState extends State<_MapInfoSheet> {
           Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(99),
               ),
               child: const SizedBox(width: 44, height: 4),
@@ -2670,9 +2632,9 @@ class _MapInfoSheetState extends State<_MapInfoSheet> {
           const SizedBox(height: 18),
           Text(
             'Map sozlash',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 14),
           _SheetField(label: 'Map ID', controller: _mapID),
@@ -2709,20 +2671,14 @@ class _RunMapSheet extends StatefulWidget {
 }
 
 class _RunMapInput {
-  const _RunMapInput({
-    required this.orderQty,
-    required this.variables,
-  });
+  const _RunMapInput({required this.orderQty, required this.variables});
 
   final double orderQty;
   final Map<String, double> variables;
 }
 
 class _RuntimeVariableInput {
-  const _RuntimeVariableInput({
-    required this.name,
-    required this.value,
-  });
+  const _RuntimeVariableInput({required this.name, required this.value});
 
   final String name;
   final double value;
@@ -2749,10 +2705,9 @@ class _RunMapSheetState extends State<_RunMapSheet> {
           Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(99),
               ),
               child: const SizedBox(width: 44, height: 4),
@@ -2761,16 +2716,14 @@ class _RunMapSheetState extends State<_RunMapSheet> {
           const SizedBox(height: 18),
           Text(
             'Production hisob',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _qty,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: 'Buyurtma miqdori',
               border: OutlineInputBorder(
@@ -2808,10 +2761,7 @@ class _RunMapSheetState extends State<_RunMapSheet> {
       return;
     }
     Navigator.of(context).pop(
-      _RunMapInput(
-        orderQty: qty,
-        variables: _parseVariables(_variables.text),
-      ),
+      _RunMapInput(orderQty: qty, variables: _parseVariables(_variables.text)),
     );
   }
 
@@ -2872,10 +2822,9 @@ class _RunResultSheetState extends State<_RunResultSheet> {
           Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(99),
               ),
               child: const SizedBox(width: 44, height: 4),
@@ -2884,9 +2833,9 @@ class _RunResultSheetState extends State<_RunResultSheet> {
           const SizedBox(height: 18),
           Text(
             'Run natijasi',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
           if (result.awaitingVariable.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -2955,14 +2904,16 @@ class _RunResultSheetState extends State<_RunResultSheet> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.engineering_rounded),
                 title: Text(task.title),
-                subtitle: Text([
-                  if (task.roleCode.trim().isNotEmpty) task.roleCode,
-                  if (task.itemCode.trim().isNotEmpty) task.itemCode,
-                  if (task.fromLocation.trim().isNotEmpty ||
-                      task.toLocation.trim().isNotEmpty)
-                    '${task.fromLocation.trim().isEmpty ? '—' : task.fromLocation} → ${task.toLocation.trim().isEmpty ? '—' : task.toLocation}',
-                  task.taskKind,
-                ].join(' · ')),
+                subtitle: Text(
+                  [
+                    if (task.roleCode.trim().isNotEmpty) task.roleCode,
+                    if (task.itemCode.trim().isNotEmpty) task.itemCode,
+                    if (task.fromLocation.trim().isNotEmpty ||
+                        task.toLocation.trim().isNotEmpty)
+                      '${task.fromLocation.trim().isEmpty ? '—' : task.fromLocation} → ${task.toLocation.trim().isEmpty ? '—' : task.toLocation}',
+                    task.taskKind,
+                  ].join(' · '),
+                ),
                 trailing: Text(_formatQty(task.qty)),
               ),
           ],
@@ -2979,8 +2930,9 @@ class _RunResultSheetState extends State<_RunResultSheet> {
   }
 
   void _continueWithTypedValue() {
-    final value =
-        double.tryParse(_runtimeValue.text.trim().replaceAll(',', '.'));
+    final value = double.tryParse(
+      _runtimeValue.text.trim().replaceAll(',', '.'),
+    );
     if (value == null) {
       return;
     }
@@ -2992,17 +2944,12 @@ class _RunResultSheetState extends State<_RunResultSheet> {
     if (name.isEmpty) {
       return;
     }
-    Navigator.of(context).pop(
-      _RuntimeVariableInput(name: name, value: value),
-    );
+    Navigator.of(context).pop(_RuntimeVariableInput(name: name, value: value));
   }
 }
 
 class _SheetField extends StatelessWidget {
-  const _SheetField({
-    required this.label,
-    required this.controller,
-  });
+  const _SheetField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
@@ -3020,10 +2967,7 @@ class _SheetField extends StatelessWidget {
 }
 
 class _FormulaSheetField extends StatefulWidget {
-  const _FormulaSheetField({
-    required this.label,
-    required this.controller,
-  });
+  const _FormulaSheetField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
@@ -3103,10 +3047,7 @@ class _FormulaSheetFieldState extends State<_FormulaSheetField> {
 }
 
 class _FormulaEditorSheet extends StatefulWidget {
-  const _FormulaEditorSheet({
-    required this.title,
-    required this.expression,
-  });
+  const _FormulaEditorSheet({required this.title, required this.expression});
 
   final String title;
   final String expression;
@@ -3145,8 +3086,10 @@ class _FormulaEditorSheetState extends State<_FormulaEditorSheet> {
     setState(() => _suggestion = next);
   }
 
-  void _insertVariable(_FormulaVariable variable,
-      {bool addTrailingSpace = false}) {
+  void _insertVariable(
+    _FormulaVariable variable, {
+    bool addTrailingSpace = false,
+  }) {
     final selection = _expression.selection;
     final text = _expression.text;
     final cursor = selection.isValid ? selection.baseOffset : text.length;
@@ -3171,14 +3114,13 @@ class _FormulaEditorSheetState extends State<_FormulaEditorSheet> {
   }
 
   void _save() {
-    Navigator.of(context).pop(
-      _formulaInternalText(_expression.text.trim()),
-    );
+    Navigator.of(context).pop(_formulaInternalText(_expression.text.trim()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.bodyLarge ??
+    final textStyle =
+        Theme.of(context).textTheme.bodyLarge ??
         const TextStyle(fontSize: 16, height: 1.35);
     return _DismissibleBottomSheetFrame(
       child: SingleChildScrollView(
@@ -3190,10 +3132,9 @@ class _FormulaEditorSheetState extends State<_FormulaEditorSheet> {
             Center(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.45),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: const SizedBox(width: 44, height: 4),
@@ -3202,9 +3143,9 @@ class _FormulaEditorSheetState extends State<_FormulaEditorSheet> {
             const SizedBox(height: 18),
             Text(
               '${widget.title} yozish',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 14),
             TextField(

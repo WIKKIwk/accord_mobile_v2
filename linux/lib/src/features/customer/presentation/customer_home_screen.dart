@@ -15,10 +15,7 @@ import 'widgets/customer_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
-  const CustomerHomeScreen({
-    super.key,
-    this.showShell = true,
-  });
+  const CustomerHomeScreen({super.key, this.showShell = true});
 
   final bool showShell;
 
@@ -63,20 +60,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _openDetail(String deliveryNoteID) async {
-    final changed = await Navigator.of(context).pushNamed(
-      AppRoutes.customerDetail,
-      arguments: deliveryNoteID,
-    );
+    final changed = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.customerDetail, arguments: deliveryNoteID);
     if (changed == true) {
       await _reload();
     }
   }
 
   Future<void> _openStatus(CustomerStatusKind kind) async {
-    await Navigator.of(context).pushNamed(
-      AppRoutes.customerStatusDetail,
-      arguments: kind,
-    );
+    await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.customerStatusDetail, arguments: kind);
     if (!mounted) return;
     await _reload();
   }
@@ -175,15 +170,11 @@ class _QuietPanel extends StatelessWidget {
     return Card.filled(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      color: color ??
+      color:
+          color ??
           (isDark ? const Color(0xFF25242B) : scheme.surfaceContainerLow),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Padding(
-        padding: padding,
-        child: child,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -339,10 +330,7 @@ class _CustomerStatusRow extends StatelessWidget {
                         ),
                       );
                     },
-                    child: Text(
-                      value,
-                      key: ValueKey<String>(value),
-                    ),
+                    child: Text(value, key: ValueKey<String>(value)),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -440,9 +428,9 @@ class _CustomerEmptyState extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
       child: Text(
         context.l10n.noShipments,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
       ),
     );
   }

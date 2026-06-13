@@ -21,7 +21,8 @@ class AdminAparatchiApparatusCard extends StatefulWidget {
       _AdminAparatchiApparatusCardState();
 }
 
-class _AdminAparatchiApparatusCardState extends State<AdminAparatchiApparatusCard> {
+class _AdminAparatchiApparatusCardState
+    extends State<AdminAparatchiApparatusCard> {
   bool _loading = true;
   bool _saving = false;
   Object? _error;
@@ -48,8 +49,10 @@ class _AdminAparatchiApparatusCardState extends State<AdminAparatchiApparatusCar
       ]);
       final assignments = results[0] as List<AdminRoleAssignment>;
       final apparatus = results[1] as List<AdminWarehouse>;
-      final assignment =
-          adminAssignmentForCustomerRef(assignments, widget.customerRef);
+      final assignment = adminAssignmentForCustomerRef(
+        assignments,
+        widget.customerRef,
+      );
       if (!mounted) {
         return;
       }
@@ -89,17 +92,17 @@ class _AdminAparatchiApparatusCardState extends State<AdminAparatchiApparatusCar
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aparatlar saqlandi')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Aparatlar saqlandi')));
       await _load();
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Aparatlar saqlanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Aparatlar saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -129,7 +132,10 @@ class _AdminAparatchiApparatusCardState extends State<AdminAparatchiApparatusCar
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: _load, child: const Text('Qayta urinish')),
+              OutlinedButton(
+                onPressed: _load,
+                child: const Text('Qayta urinish'),
+              ),
             ],
           ),
         ),
@@ -147,10 +153,7 @@ class _AdminAparatchiApparatusCardState extends State<AdminAparatchiApparatusCar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Aparatchi aparatlari',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Aparatchi aparatlari', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
               'Bu foydalanuvchi faqat tanlangan aparat ketma-ketligini ko‘radi.',

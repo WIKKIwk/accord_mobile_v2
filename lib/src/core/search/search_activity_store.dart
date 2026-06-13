@@ -107,9 +107,7 @@ class SearchActivityStore {
         }
         return left.key.compareTo(right.key);
       });
-    _itemCounts = Map<String, int>.fromEntries(
-      entries.take(_maxStoredItems),
-    );
+    _itemCounts = Map<String, int>.fromEntries(entries.take(_maxStoredItems));
   }
 
   String _currentScope() {

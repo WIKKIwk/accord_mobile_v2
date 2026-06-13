@@ -29,7 +29,8 @@ class SupplierNotificationsScreen extends StatefulWidget {
 }
 
 class _SupplierNotificationsScreenState
-    extends State<SupplierNotificationsScreen> with WidgetsBindingObserver {
+    extends State<SupplierNotificationsScreen>
+    with WidgetsBindingObserver {
   Set<String> _highlightedUnreadIds = <String>{};
   int _refreshVersion = 0;
   double _cardStretch = 0.0;
@@ -119,10 +120,9 @@ class _SupplierNotificationsScreenState
     setState(() {
       _highlightedUnreadIds.remove(receiptId);
     });
-    await Navigator.of(context).pushNamed(
-      AppRoutes.notificationDetail,
-      arguments: receiptId,
-    );
+    await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.notificationDetail, arguments: receiptId);
   }
 
   @override
@@ -260,9 +260,7 @@ class _SupplierNotificationsScreenState
               child: ListView(
                 physics: const TopRefreshScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(0, 0, 0, bottomPadding),
-                children: [
-                  AppRetryState(onRetry: _reload),
-                ],
+                children: [AppRetryState(onRetry: _reload)],
               ),
             );
           }
@@ -280,9 +278,8 @@ class _SupplierNotificationsScreenState
                     child: Text(
                       context.l10n.noNotifications,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -300,10 +297,7 @@ class _SupplierNotificationsScreenState
                 padding: EdgeInsets.fromLTRB(0, 0, 0, bottomPadding),
                 children: [
                   TweenAnimationBuilder<double>(
-                    tween: Tween<double>(
-                      begin: 1.0,
-                      end: 1.0 + _cardStretch,
-                    ),
+                    tween: Tween<double>(begin: 1.0, end: 1.0 + _cardStretch),
                     duration: const Duration(milliseconds: 110),
                     curve: Curves.easeOutCubic,
                     builder: (context, scaleY, child) {
@@ -322,13 +316,16 @@ class _SupplierNotificationsScreenState
                       ),
                       child: Column(
                         children: [
-                          for (int index = 0;
-                              index < orderedItems.length;
-                              index++) ...[
+                          for (
+                            int index = 0;
+                            index < orderedItems.length;
+                            index++
+                          ) ...[
                             _SupplierNotificationRow(
                               record: orderedItems[index],
-                              highlighted: _highlightedUnreadIds
-                                  .contains(orderedItems[index].id),
+                              highlighted: _highlightedUnreadIds.contains(
+                                orderedItems[index].id,
+                              ),
                               onTap: () => _openDetail(orderedItems[index].id),
                             ),
                             if (index != orderedItems.length - 1)
@@ -337,9 +334,9 @@ class _SupplierNotificationsScreenState
                                 thickness: 1,
                                 indent: 18,
                                 endIndent: 18,
-                                color: Theme.of(context)
-                                    .dividerColor
-                                    .withValues(alpha: 0.55),
+                                color: Theme.of(
+                                  context,
+                                ).dividerColor.withValues(alpha: 0.55),
                               ),
                           ],
                         ],
@@ -405,12 +402,10 @@ class _SupplierNotificationRow extends StatelessWidget {
                   child: Text(
                     notificationTitle(record),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: highlighted
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer
-                              : null,
-                        ),
+                      color: highlighted
+                          ? Theme.of(context).colorScheme.onSecondaryContainer
+                          : null,
+                    ),
                   ),
                 ),
                 _NotificationStatusBadge(
@@ -423,10 +418,10 @@ class _SupplierNotificationRow extends StatelessWidget {
             Text(
               _secondary(record),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: highlighted
-                        ? Theme.of(context).colorScheme.onSecondaryContainer
-                        : null,
-                  ),
+                color: highlighted
+                    ? Theme.of(context).colorScheme.onSecondaryContainer
+                    : null,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -437,12 +432,10 @@ class _SupplierNotificationRow extends StatelessWidget {
                   child: Text(
                     _metricLine(record),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: highlighted
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer
-                              : null,
-                        ),
+                      color: highlighted
+                          ? Theme.of(context).colorScheme.onSecondaryContainer
+                          : null,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -451,10 +444,10 @@ class _SupplierNotificationRow extends StatelessWidget {
                 Text(
                   record.createdLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: highlighted
-                            ? Theme.of(context).colorScheme.onSecondaryContainer
-                            : null,
-                      ),
+                    color: highlighted
+                        ? Theme.of(context).colorScheme.onSecondaryContainer
+                        : null,
+                  ),
                 ),
               ],
             ),
@@ -483,10 +476,7 @@ String notificationTitle(DispatchRecord record) {
 }
 
 class _NotificationStatusBadge extends StatelessWidget {
-  const _NotificationStatusBadge({
-    required this.status,
-    required this.note,
-  });
+  const _NotificationStatusBadge({required this.status, required this.note});
 
   final DispatchStatus status;
   final String note;

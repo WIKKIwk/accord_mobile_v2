@@ -41,9 +41,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     Locale('ru'),
   ];
 
-  late final AnimationController _headlineController =
-      AnimationController(vsync: this)
-        ..addStatusListener(_handleHeadlineStatus);
+  late final AnimationController _headlineController = AnimationController(
+    vsync: this,
+  )..addStatusListener(_handleHeadlineStatus);
 
   Timer? _headlineTimer;
   int _headlineIndex = 0;
@@ -139,13 +139,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final double headlineFontSize = 46;
     final double headlineLineHeight = 1.02 * headlineFontSize;
     final double headlineHeight = headlineLineHeight * 3.15;
-    final TextStyle? primaryButtonLabelStyle =
-        theme.textTheme.labelMedium?.copyWith(
-      color: scheme.onPrimary,
-      fontWeight: FontWeight.w700,
-      fontSize: 18,
-      letterSpacing: -0.2,
-    );
+    final TextStyle? primaryButtonLabelStyle = theme.textTheme.labelMedium
+        ?.copyWith(
+          color: scheme.onPrimary,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+          letterSpacing: -0.2,
+        );
     final double primaryButtonWidth = _measurePrimaryButtonWidth(
       context,
       displayL10n.getStarted,
@@ -392,21 +392,24 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             children: [
               _SelectionOption(
                 title: l10n.uzbek,
-                active: LocaleController.instance.hasExplicitSelection &&
+                active:
+                    LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'uz',
                 onTap: () => Navigator.of(context).pop(const Locale('uz')),
               ),
               const SizedBox(height: 10),
               _SelectionOption(
                 title: l10n.english,
-                active: LocaleController.instance.hasExplicitSelection &&
+                active:
+                    LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'en',
                 onTap: () => Navigator.of(context).pop(const Locale('en')),
               ),
               const SizedBox(height: 10),
               _SelectionOption(
                 title: l10n.russian,
-                active: LocaleController.instance.hasExplicitSelection &&
+                active:
+                    LocaleController.instance.hasExplicitSelection &&
                     currentLocale.languageCode == 'ru',
                 onTap: () => Navigator.of(context).pop(const Locale('ru')),
               ),
@@ -596,9 +599,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          nextEnabled ? 'Test rejim yondi' : 'Test rejim o‘chdi',
-        ),
+        content: Text(nextEnabled ? 'Test rejim yondi' : 'Test rejim o‘chdi'),
       ),
     );
   }
@@ -607,8 +608,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     return locale.languageCode == 'uz'
         ? l10n.uzbek
         : locale.languageCode == 'ru'
-            ? l10n.russian
-            : l10n.english;
+        ? l10n.russian
+        : l10n.english;
   }
 
   String _themeLabel(AppLocalizations l10n, AppThemeVariant variant) {
@@ -649,28 +650,25 @@ class _HeadlineMotionText extends StatelessWidget {
     final double opacity = phase == 'idle'
         ? 1
         : isExiting
-            ? 1 - t
-            : t;
+        ? 1 - t
+        : t;
     final double dx = isExiting
         ? 24 * t
         : isEntering
-            ? -24 * (1 - t)
-            : 0;
+        ? -24 * (1 - t)
+        : 0;
     final double sigma = phase == 'idle'
         ? 0.01
         : isExiting
-            ? 2.8 * t
-            : 2.8 * (1 - t);
+        ? 2.8 * t
+        : 2.8 * (1 - t);
 
     return Opacity(
       opacity: opacity.clamp(0.0, 1.0),
       child: Transform.translate(
         offset: Offset(dx, 0),
         child: ImageFiltered(
-          imageFilter: ui.ImageFilter.blur(
-            sigmaX: sigma,
-            sigmaY: sigma * 0.2,
-          ),
+          imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma * 0.2),
           child: child,
         ),
       ),
@@ -696,21 +694,18 @@ class _SoftBlurMotionText extends StatelessWidget {
     final double opacity = phase == 'idle'
         ? 1
         : isExiting
-            ? 1 - t
-            : t;
+        ? 1 - t
+        : t;
     final double sigma = phase == 'idle'
         ? 0.01
         : isExiting
-            ? 3.2 * t
-            : 3.2 * (1 - t);
+        ? 3.2 * t
+        : 3.2 * (1 - t);
 
     return Opacity(
       opacity: opacity.clamp(0.0, 1.0),
       child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(
-          sigmaX: sigma,
-          sigmaY: sigma * 0.22,
-        ),
+        imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma * 0.22),
         child: child,
       ),
     );
@@ -763,8 +758,9 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
       return;
     }
 
-    final int elapsedMicros =
-        lastTick == null ? 16667 : (elapsed - lastTick).inMicroseconds;
+    final int elapsedMicros = lastTick == null
+        ? 16667
+        : (elapsed - lastTick).inMicroseconds;
     final double dt = (elapsedMicros / Duration.microsecondsPerSecond)
         .clamp(1 / 120, 1 / 24)
         .toDouble();
@@ -788,18 +784,12 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     }
 
     _oval = _AmbientBody(
-      position: Offset(
-        _sceneSize.width * 0.46,
-        _sceneSize.height * 0.90,
-      ),
+      position: Offset(_sceneSize.width * 0.46, _sceneSize.height * 0.90),
       velocity: const Offset(4, -2),
       mass: 0.92,
     );
     _cookie = _AmbientBody(
-      position: Offset(
-        _sceneSize.width * 0.56,
-        _sceneSize.height * 0.15,
-      ),
+      position: Offset(_sceneSize.width * 0.56, _sceneSize.height * 0.15),
       velocity: const Offset(-1, 1),
       mass: 1.0,
     );
@@ -831,10 +821,7 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
       dt: dt,
     );
     _applyOvalBounceLift(dt: dt);
-    _applyCookieGravity(
-      anchor: cookieAnchor,
-      dt: dt,
-    );
+    _applyCookieGravity(anchor: cookieAnchor, dt: dt);
 
     _oval.position += _oval.velocity * dt;
     _cookie.position += _cookie.velocity * dt;
@@ -847,8 +834,9 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     _oval.velocity *= ovalDrag;
     _cookie.velocity *= cookieDrag;
     _ovalBounceLift = math.max(0.0, _ovalBounceLift - (dt * 420)).toDouble();
-    _cookieBounceLift =
-        math.max(0.0, _cookieBounceLift - (dt * 540)).toDouble();
+    _cookieBounceLift = math
+        .max(0.0, _cookieBounceLift - (dt * 540))
+        .toDouble();
     _impactEnergy = math.max(0.0, _impactEnergy - (dt * 1.9)).toDouble();
   }
 
@@ -865,24 +853,16 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     body.velocity += acceleration * dt;
   }
 
-  void _applyOvalBounceLift({
-    required double dt,
-  }) {
+  void _applyOvalBounceLift({required double dt}) {
     final double lift = _ovalBounceLift;
     if (lift <= 0) {
       return;
     }
-    final Offset acceleration = Offset(
-      0,
-      -lift - (_oval.velocity.dy * 0.1),
-    );
+    final Offset acceleration = Offset(0, -lift - (_oval.velocity.dy * 0.1));
     _oval.velocity += acceleration * dt;
   }
 
-  void _applyCookieGravity({
-    required Offset anchor,
-    required double dt,
-  }) {
+  void _applyCookieGravity({required Offset anchor, required double dt}) {
     final double dx = anchor.dx - _cookie.position.dx;
     final double horizontalPull = dx * 0.75;
     final double downwardPull = 110;
@@ -902,19 +882,25 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     final double cookieMaxX = _sceneSize.width + (metrics.cookieRadius * 0.12);
     if (_cookie.position.dx < cookieMinX) {
       _cookie.position = Offset(cookieMinX, _cookie.position.dy);
-      _cookie.velocity =
-          Offset(_cookie.velocity.dx.abs() * 0.72, _cookie.velocity.dy);
+      _cookie.velocity = Offset(
+        _cookie.velocity.dx.abs() * 0.72,
+        _cookie.velocity.dy,
+      );
     } else if (_cookie.position.dx > cookieMaxX) {
       _cookie.position = Offset(cookieMaxX, _cookie.position.dy);
-      _cookie.velocity =
-          Offset(-_cookie.velocity.dx.abs() * 0.72, _cookie.velocity.dy);
+      _cookie.velocity = Offset(
+        -_cookie.velocity.dx.abs() * 0.72,
+        _cookie.velocity.dy,
+      );
     }
 
     final double cookieMinY = metrics.cookieRadius * 0.35;
     if (_cookie.position.dy < cookieMinY) {
       _cookie.position = Offset(_cookie.position.dx, cookieMinY);
-      _cookie.velocity =
-          Offset(_cookie.velocity.dx, _cookie.velocity.dy.abs() * 0.35);
+      _cookie.velocity = Offset(
+        _cookie.velocity.dx,
+        _cookie.velocity.dy.abs() * 0.35,
+      );
     }
 
     final double ovalMinX = _sceneSize.width * 0.28;
@@ -924,8 +910,10 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
       _oval.velocity = Offset(_oval.velocity.dx.abs() * 0.4, _oval.velocity.dy);
     } else if (_oval.position.dx > ovalMaxX) {
       _oval.position = Offset(ovalMaxX, _oval.position.dy);
-      _oval.velocity =
-          Offset(-_oval.velocity.dx.abs() * 0.4, _oval.velocity.dy);
+      _oval.velocity = Offset(
+        -_oval.velocity.dx.abs() * 0.4,
+        _oval.velocity.dy,
+      );
     }
   }
 
@@ -954,24 +942,19 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     );
     if (relativeVelocity < 0) {
       const double restitution = 0.96;
-      final double impulse = (-(1 + restitution) * relativeVelocity) /
+      final double impulse =
+          (-(1 + restitution) * relativeVelocity) /
           ((1 / _oval.mass) + (1 / _cookie.mass));
       _oval.velocity -= normal * (impulse / _oval.mass);
       _cookie.velocity += normal * (impulse / _cookie.mass);
       if (normal.dy < -0.18) {
         _oval.velocity += Offset(0, -68 - (penetration * 2.2));
         _ovalBounceLift = math
-            .max(
-              _ovalBounceLift,
-              300 + (penetration * 11),
-            )
+            .max(_ovalBounceLift, 300 + (penetration * 11))
             .toDouble();
         _cookie.velocity += Offset(0, -185 - (penetration * 4.8));
         _cookieBounceLift = math
-            .max(
-              _cookieBounceLift,
-              980 + (penetration * 26),
-            )
+            .max(_cookieBounceLift, 980 + (penetration * 26))
             .toDouble();
       }
       _impactEnergy = math
@@ -1098,8 +1081,9 @@ class _AmbientOutlinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final _AmbientSceneMetrics metrics = _AmbientSceneMetrics.fromSize(size);
-    final double impact =
-        Curves.easeOut.transform(impactEnergy.clamp(0.0, 1.0).toDouble());
+    final double impact = Curves.easeOut.transform(
+      impactEnergy.clamp(0.0, 1.0).toDouble(),
+    );
     final double ovalStrokeWidth = isDarkBackground ? 2.0 : 2.35;
     final double ovalAlpha = isDarkBackground ? 0.28 : 0.46;
     final double accentStrokeWidth = isDarkBackground ? 1.45 : 1.7;
@@ -1277,10 +1261,7 @@ class _ShapeProfile {
 }
 
 class _ShapeCollisionInfo {
-  const _ShapeCollisionInfo({
-    required this.normal,
-    required this.penetration,
-  });
+  const _ShapeCollisionInfo({required this.normal, required this.penetration});
 
   final Offset normal;
   final double penetration;
@@ -1421,13 +1402,9 @@ class _WelcomeSelectionRowState extends State<_WelcomeSelectionRow> {
                 color: scheme.onSurface.withValues(alpha: 0.88),
               ),
               const SizedBox(width: 14),
-              Expanded(
-                child: widget.label,
-              ),
+              Expanded(child: widget.label),
               const SizedBox(width: 12),
-              Flexible(
-                child: widget.value,
-              ),
+              Flexible(child: widget.value),
             ],
           ),
         ),
@@ -1459,9 +1436,7 @@ class _SelectionSheet extends StatelessWidget {
         width: double.infinity,
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(28),
-          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           border: Border.all(
             color: scheme.outlineVariant.withValues(alpha: 0.65),
           ),
@@ -1485,10 +1460,7 @@ class _SelectionSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      title,
-                      style: theme.textTheme.titleLarge,
-                    ),
+                    child: Text(title, style: theme.textTheme.titleLarge),
                   ),
                   if (trailing != null) ...[
                     const SizedBox(width: 12),
@@ -1602,15 +1574,13 @@ class _SelectionOption extends StatelessWidget {
                 child: Text(
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color:
-                        active ? scheme.onSecondaryContainer : scheme.onSurface,
+                    color: active
+                        ? scheme.onSecondaryContainer
+                        : scheme.onSurface,
                   ),
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 12),
-                trailing!,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 12), trailing!],
               const SizedBox(width: 12),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
@@ -1620,8 +1590,9 @@ class _SelectionOption extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: active ? scheme.primary : Colors.transparent,
                   shape: BoxShape.circle,
-                  border:
-                      active ? null : Border.all(color: scheme.outlineVariant),
+                  border: active
+                      ? null
+                      : Border.all(color: scheme.outlineVariant),
                 ),
                 child: active
                     ? Icon(
@@ -1686,75 +1657,75 @@ class _ThemeSelectionOption extends StatelessWidget {
 List<Color> _themeSwatches(AppThemeVariant variant) {
   return switch (variant) {
     AppThemeVariant.classic => const [
-        Color(0xFF324670),
-        Color(0xFFD8E2FF),
-        Color(0xFF53627F),
-      ],
+      Color(0xFF324670),
+      Color(0xFFD8E2FF),
+      Color(0xFF53627F),
+    ],
     AppThemeVariant.earthy => const [
-        Color(0xFF8A7650),
-        Color(0xFFDBCEA5),
-        Color(0xFF8E977D),
-      ],
+      Color(0xFF8A7650),
+      Color(0xFFDBCEA5),
+      Color(0xFF8E977D),
+    ],
     AppThemeVariant.blush => const [
-        Color(0xFFF5AFAF),
-        Color(0xFFF9DFDF),
-        Color(0xFFFBEFEF),
-      ],
+      Color(0xFFF5AFAF),
+      Color(0xFFF9DFDF),
+      Color(0xFFFBEFEF),
+    ],
     AppThemeVariant.moss => const [
-        Color(0xFF84B179),
-        Color(0xFFC7EABB),
-        Color(0xFFA2CB8B),
-      ],
+      Color(0xFF84B179),
+      Color(0xFFC7EABB),
+      Color(0xFFA2CB8B),
+    ],
     AppThemeVariant.lavender => const [
-        Color(0xFF4D4C7D),
-        Color(0xFFD8B9C3),
-        Color(0xFF827397),
-      ],
+      Color(0xFF4D4C7D),
+      Color(0xFFD8B9C3),
+      Color(0xFF827397),
+    ],
     AppThemeVariant.slate => const [
-        Color(0xFF30364F),
-        Color(0xFFACBAC4),
-        Color(0xFFE1D9BC),
-      ],
+      Color(0xFF30364F),
+      Color(0xFFACBAC4),
+      Color(0xFFE1D9BC),
+    ],
     AppThemeVariant.blackEdition => const [
-        Color(0xFF000000),
-        Color(0xFF0D0F10),
-        Color(0xFF202427),
-        Color(0xFFAEB4BA),
-      ],
+      Color(0xFF000000),
+      Color(0xFF0D0F10),
+      Color(0xFF202427),
+      Color(0xFFAEB4BA),
+    ],
     AppThemeVariant.ocean => const [
-        Color(0xFF1C4D8D),
-        Color(0xFF4988C4),
-        Color(0xFFBDE8F5),
-      ],
+      Color(0xFF1C4D8D),
+      Color(0xFF4988C4),
+      Color(0xFFBDE8F5),
+    ],
     AppThemeVariant.bingsu => const [
-        Color(0xFFE5DFE5),
-        Color(0xFF8E7381),
-        Color(0xFF4A3E45),
-        Color(0xFFF2F0F2),
-      ],
+      Color(0xFFE5DFE5),
+      Color(0xFF8E7381),
+      Color(0xFF4A3E45),
+      Color(0xFFF2F0F2),
+    ],
     AppThemeVariant.bliss => const [
-        Color(0xFFFFFFFF),
-        Color(0xFFEFD9CE),
-        Color(0xFF635A5A),
-        Color(0xFFFCFAF9),
-      ],
+      Color(0xFFFFFFFF),
+      Color(0xFFEFD9CE),
+      Color(0xFF635A5A),
+      Color(0xFFFCFAF9),
+    ],
     AppThemeVariant.dollar => const [
-        Color(0xFF5E635E),
-        Color(0xFF7A8B7A),
-        Color(0xFF96A176),
-        Color(0xFF4A4F4A),
-      ],
+      Color(0xFF5E635E),
+      Color(0xFF7A8B7A),
+      Color(0xFF96A176),
+      Color(0xFF4A4F4A),
+    ],
     AppThemeVariant.fleuriste => const [
-        Color(0xFF0A140F),
-        Color(0xFF4A5F58),
-        Color(0xFF633F4D),
-        Color(0xFF0D1A14),
-      ],
+      Color(0xFF0A140F),
+      Color(0xFF4A5F58),
+      Color(0xFF633F4D),
+      Color(0xFF0D1A14),
+    ],
     AppThemeVariant.paleNimbus => const [
-        Color(0xFFFFFFE3),
-        Color(0xFFA3FFD1),
-        Color(0xFFFFA3A3),
-        Color(0xFFFFFFF0),
-      ],
+      Color(0xFFFFFFE3),
+      Color(0xFFA3FFD1),
+      Color(0xFFFFA3A3),
+      Color(0xFFFFFFF0),
+    ],
   };
 }

@@ -1,10 +1,11 @@
-import 'package:erpnext_stock_mobile/src/core/widgets/feedback/m3_confirm_dialog.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/m3_confirm_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('confirm dialog can blur background when requested',
-      (tester) async {
+  testWidgets('confirm dialog can blur background when requested', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(

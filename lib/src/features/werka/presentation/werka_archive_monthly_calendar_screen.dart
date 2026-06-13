@@ -23,7 +23,8 @@ class WerkaArchiveMonthlyCalendarScreen extends StatefulWidget {
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })? archiveLoader;
+  })?
+  archiveLoader;
 
   @override
   State<WerkaArchiveMonthlyCalendarScreen> createState() =>
@@ -52,12 +53,7 @@ class _WerkaArchiveMonthlyCalendarScreenState
   }) {
     final loader = widget.archiveLoader;
     if (loader != null) {
-      return loader(
-        kind: kind,
-        period: period,
-        from: from,
-        to: to,
-      );
+      return loader(kind: kind, period: period, from: from, to: to);
     }
     return MobileApi.instance.werkaArchive(
       kind: kind,
@@ -283,8 +279,9 @@ class _MonthCell extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border:
-                  active ? Border.all(color: scheme.primary, width: 1.2) : null,
+              border: active
+                  ? Border.all(color: scheme.primary, width: 1.2)
+                  : null,
             ),
             child: Text(
               label,

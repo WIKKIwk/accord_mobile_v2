@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/core/theme/app_theme.dart';
-import 'package:erpnext_stock_mobile/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

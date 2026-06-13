@@ -1,6 +1,6 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/session/state/app_session.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -68,31 +68,33 @@ void main() {
     expect(AppSession.instance.homeRoute, AppRoutes.adminHome);
   });
 
-  test('admin catalog capabilities win over shared gscale capabilities',
-      () async {
-    await AppSession.instance.setSession(
-      token: 'token',
-      profile: const SessionProfile(
-        role: UserRole.customer,
-        displayName: 'Custom operator',
-        legalName: '',
-        ref: 'custom',
-        phone: '',
-        avatarUrl: '',
-        capabilities: [
-          'catalog.item.read',
-          'catalog.item.create',
-          'gscale.print',
-          'rps.batch.manage',
-        ],
-      ),
-    );
+  test(
+    'admin catalog capabilities win over shared gscale capabilities',
+    () async {
+      await AppSession.instance.setSession(
+        token: 'token',
+        profile: const SessionProfile(
+          role: UserRole.customer,
+          displayName: 'Custom operator',
+          legalName: '',
+          ref: 'custom',
+          phone: '',
+          avatarUrl: '',
+          capabilities: [
+            'catalog.item.read',
+            'catalog.item.create',
+            'gscale.print',
+            'rps.batch.manage',
+          ],
+        ),
+      );
 
-    expect(AppSession.instance.homeRoute, AppRoutes.adminHome);
-    expect(AppSession.instance.can('gscale.print'), isTrue);
-    expect(AppSession.instance.profile?.accessRole, isNull);
-    expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isTrue);
-  });
+      expect(AppSession.instance.homeRoute, AppRoutes.adminHome);
+      expect(AppSession.instance.can('gscale.print'), isTrue);
+      expect(AppSession.instance.profile?.accessRole, isNull);
+      expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isTrue);
+    },
+  );
 
   test('gscale only capabilities still open gscale mode', () async {
     await AppSession.instance.setSession(

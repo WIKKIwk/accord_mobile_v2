@@ -50,11 +50,7 @@ extension MobileApiAdminItemGroups on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'name': name,
-          'parent': parent,
-          'is_group': isGroup,
-        }),
+        body: jsonEncode({'name': name, 'parent': parent, 'is_group': isGroup}),
       ),
     );
     if (response.statusCode != 200) {
@@ -74,10 +70,7 @@ extension MobileApiAdminItemGroups on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'name': name,
-          'parent': parent,
-        }),
+        body: jsonEncode({'name': name, 'parent': parent}),
       ),
     );
     if (response.statusCode != 200) {

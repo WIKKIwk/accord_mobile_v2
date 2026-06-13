@@ -19,7 +19,7 @@ class SupplierStore extends ChangeNotifier {
   final Map<SupplierStatusKind, bool> _loadingBreakdown = {};
   final Map<SupplierStatusKind, Object?> _breakdownErrors = {};
   final Map<SupplierStatusKind, List<SupplierStatusBreakdownEntry>>
-      _breakdownItems = {};
+  _breakdownItems = {};
   final Map<String, bool> _loadingDetail = {};
   final Map<String, Object?> _detailErrors = {};
   final Map<String, List<DispatchRecord>> _detailItems = {};
@@ -128,14 +128,13 @@ class SupplierStore extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
-    await Future.wait([
-      refreshSummary(),
-      refreshHistory(),
-    ]);
+    await Future.wait([refreshSummary(), refreshHistory()]);
   }
 
-  Future<void> bootstrapBreakdown(SupplierStatusKind kind,
-      {bool force = false}) async {
+  Future<void> bootstrapBreakdown(
+    SupplierStatusKind kind, {
+    bool force = false,
+  }) async {
     if (loadingBreakdown(kind)) return;
     if (_breakdownItems.containsKey(kind) && !force) return;
     await refreshBreakdown(kind);
@@ -146,8 +145,9 @@ class SupplierStore extends ChangeNotifier {
     _loadingBreakdown[kind] = true;
     _breakdownErrors[kind] = null;
     try {
-      _breakdownItems[kind] =
-          await MobileApi.instance.supplierStatusBreakdown(kind);
+      _breakdownItems[kind] = await MobileApi.instance.supplierStatusBreakdown(
+        kind,
+      );
     } catch (error) {
       _breakdownErrors[kind] = error;
     } finally {
@@ -156,8 +156,11 @@ class SupplierStore extends ChangeNotifier {
     }
   }
 
-  Future<void> bootstrapDetail(SupplierStatusKind kind, String itemCode,
-      {bool force = false}) async {
+  Future<void> bootstrapDetail(
+    SupplierStatusKind kind,
+    String itemCode, {
+    bool force = false,
+  }) async {
     final key = _detailKey(kind, itemCode);
     if (_loadingDetail[key] == true) return;
     if (_detailItems.containsKey(key) && !force) return;

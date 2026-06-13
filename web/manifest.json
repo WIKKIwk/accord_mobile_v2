@@ -1,6 +1,6 @@
 {
-    "name": "erpnext_stock_mobile",
-    "short_name": "erpnext_stock_mobile",
+    "name": "Accord Mobile V2",
+    "short_name": "Accord V2",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

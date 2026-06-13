@@ -71,9 +71,7 @@ class ErpnextStockMobileApp extends StatelessWidget {
             );
             final wrapped = DockGestureOverlay(
               child: NetworkRequirementRuntime(
-                child: NotificationRuntime(
-                  child: AppLockGate(child: current),
-                ),
+                child: NotificationRuntime(child: AppLockGate(child: current)),
               ),
             );
             return Localizations.override(
@@ -90,7 +88,8 @@ class ErpnextStockMobileApp extends StatelessWidget {
             overscroll: false,
           ),
           onGenerateRoute: AppRouter.onGenerateRoute,
-          initialRoute: AppPreview.startDirectPreviewRoute &&
+          initialRoute:
+              AppPreview.startDirectPreviewRoute &&
                   AppPreview.initialRouteOverride != null
               ? AppPreview.initialRouteOverride!
               : AppRoutes.login,

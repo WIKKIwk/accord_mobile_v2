@@ -1,13 +1,13 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/core/test_mode/test_mode_controller.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_calculate_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_production_map_test_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/models/production_map_models.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/state/calculate_order_store.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,8 +35,9 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('zakaz create page shows production map link after calculation',
-      (tester) async {
+  testWidgets('zakaz create page shows production map link after calculation', (
+    tester,
+  ) async {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(tester, template: _template(itemCode: 'ITEM-1'));
 
@@ -57,8 +58,9 @@ void main() {
     expect(find.text('Production mapga ulash'), findsNothing);
   });
 
-  testWidgets('product picker selects assigned customer automatically',
-      (tester) async {
+  testWidgets('product picker selects assigned customer automatically', (
+    tester,
+  ) async {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(tester);
 
@@ -72,8 +74,9 @@ void main() {
     expect(find.text('Demo haridor'), findsOneWidget);
   });
 
-  testWidgets('product picker asks before recreating existing quick order',
-      (tester) async {
+  testWidgets('product picker asks before recreating existing quick order', (
+    tester,
+  ) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.upsertCalculateOrderTemplate(
       _template(itemCode: 'DEMO-HOTLUNCH'),
@@ -88,17 +91,11 @@ void main() {
     expect(find.text('Bu tezkor zakazlar ro‘yxatida bor'), findsOneWidget);
     expect(find.text('Qaytadan yaratmoqchimisiz?'), findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byType(Row),
-        matching: find.text('Yo‘q'),
-      ),
+      find.descendant(of: find.byType(Row), matching: find.text('Yo‘q')),
       findsWidgets,
     );
     expect(
-      find.descendant(
-        of: find.byType(Row),
-        matching: find.text('Ha'),
-      ),
+      find.descendant(of: find.byType(Row), matching: find.text('Ha')),
       findsWidgets,
     );
 
@@ -116,16 +113,13 @@ void main() {
     expect(find.text('Hotlunch'), findsWidgets);
   });
 
-  testWidgets('saved quick order opens zakaz from stored source map',
-      (tester) async {
+  testWidgets('saved quick order opens zakaz from stored source map', (
+    tester,
+  ) async {
     await TestModeController.instance.setEnabled(true);
     const sourceMapId = 'zakaz-template-1';
     await MobileApi.instance.adminSaveProductionMap(
-      _dirtyMap(
-        id: sourceMapId,
-        code: '4444',
-        orderNumber: '4444',
-      ),
+      _dirtyMap(id: sourceMapId, code: '4444', orderNumber: '4444'),
     );
     await MobileApi.instance.upsertCalculateOrderTemplate(
       _template(itemCode: 'ITEM-1', sourceMapId: sourceMapId),
@@ -165,38 +159,29 @@ void main() {
       ),
       isTrue,
     );
-    expect(
-      maps.any((item) => item.map.id == sourceMapId),
-      isTrue,
-    );
+    expect(maps.any((item) => item.map.id == sourceMapId), isTrue);
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('production map link opens stored quick order map',
-      (tester) async {
+  testWidgets('production map link opens stored quick order map', (
+    tester,
+  ) async {
     await TestModeController.instance.setEnabled(true);
     const sourceMapId = 'zakaz-template-map';
-    final source = _dirtyMap(
-      id: sourceMapId,
-      code: '4444',
-      orderNumber: '4444',
-    ).copyWith(
-      nodes: [
-        ..._map(
-          id: sourceMapId,
-          code: '4444',
-          orderNumber: '4444',
-        ).nodes,
-        const ProductionMapNode(
-          id: 'stored_apparatus',
-          kind: 'apparatus',
-          title: 'Stored pechat',
-          roleCode: 'apparatus',
-          x: 700,
-          y: 164,
-        ),
-      ],
-    );
+    final source = _dirtyMap(id: sourceMapId, code: '4444', orderNumber: '4444')
+        .copyWith(
+          nodes: [
+            ..._map(id: sourceMapId, code: '4444', orderNumber: '4444').nodes,
+            const ProductionMapNode(
+              id: 'stored_apparatus',
+              kind: 'apparatus',
+              title: 'Stored pechat',
+              roleCode: 'apparatus',
+              x: 700,
+              y: 164,
+            ),
+          ],
+        );
     await MobileApi.instance.adminSaveProductionMap(source);
     ProductionMapTestArgs? openedArgs;
     await _pumpCalculateScreen(

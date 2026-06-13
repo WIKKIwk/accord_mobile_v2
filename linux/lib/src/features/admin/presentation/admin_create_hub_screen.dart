@@ -20,10 +20,7 @@ class AdminCreateHubScreen extends StatelessWidget {
           if (nav.canPop()) {
             nav.pop();
           } else {
-            nav.pushNamedAndRemoveUntil(
-              AppRoutes.adminHome,
-              (route) => false,
-            );
+            nav.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false);
           }
         },
       ),
@@ -42,8 +39,9 @@ class AdminCreateHubScreen extends StatelessWidget {
                 _CreateHubRow(
                   title: context.l10n.adminCreateUserTitle,
                   subtitle: context.l10n.adminCreateUserSubtitle,
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.adminUserCreate),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.adminUserCreate),
                 ),
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
@@ -56,15 +54,17 @@ class AdminCreateHubScreen extends StatelessWidget {
                 _CreateHubRow(
                   title: context.l10n.adminCreateItemTitle,
                   subtitle: context.l10n.adminCreateItemSubtitle,
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.adminItemCreate),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.adminItemCreate),
                 ),
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
                   title: context.l10n.adminCreateItemGroupTitle,
                   subtitle: context.l10n.adminCreateItemGroupSubtitle,
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.adminItemGroupCreate),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.adminItemGroupCreate),
                 ),
               ],
             ),
@@ -99,15 +99,9 @@ class _CreateHubRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text(title, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),

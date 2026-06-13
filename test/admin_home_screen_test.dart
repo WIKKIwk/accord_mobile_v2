@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/core/theme/app_theme.dart';
-import 'package:erpnext_stock_mobile/src/core/theme/theme_controller.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_home_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_navigation_drawer.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/presentation/profile_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_home_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_navigation_drawer.dart';
+import 'package:accord_mobile_v2/src/features/shared/presentation/profile_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,8 +22,9 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('custom catalog role opens admin home without summary request',
-      (tester) async {
+  testWidgets('custom catalog role opens admin home without summary request', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
@@ -68,8 +69,9 @@ void main() {
     }, createHttpClient: (_) => _RecordingHttpClient(seenRequests));
   });
 
-  testWidgets('custom catalog role drawer hides blocked admin routes',
-      (tester) async {
+  testWidgets('custom catalog role drawer hides blocked admin routes', (
+    tester,
+  ) async {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.customer,
@@ -98,10 +100,7 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: AdminNavigationDrawer(
-            selectedIndex: 0,
-            onNavigate: (_) {},
-          ),
+          body: AdminNavigationDrawer(selectedIndex: 0, onNavigate: (_) {}),
         ),
       ),
     );
@@ -139,10 +138,7 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: AdminNavigationDrawer(
-            selectedIndex: 0,
-            onNavigate: (_) {},
-          ),
+          body: AdminNavigationDrawer(selectedIndex: 0, onNavigate: (_) {}),
         ),
       ),
     );
@@ -152,8 +148,9 @@ void main() {
     expect(find.text('Aparat guruhlari'), findsOneWidget);
   });
 
-  testWidgets('custom catalog profile home returns to capability home route',
-      (tester) async {
+  testWidgets('custom catalog profile home returns to capability home route', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

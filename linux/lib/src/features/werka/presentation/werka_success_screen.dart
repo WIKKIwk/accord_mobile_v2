@@ -123,10 +123,9 @@ class WerkaSuccessScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                _targetRoute,
-                (route) => route.isFirst,
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(_targetRoute, (route) => route.isFirst),
               child: Text(_ctaLabel(l10n)),
             ),
           ),

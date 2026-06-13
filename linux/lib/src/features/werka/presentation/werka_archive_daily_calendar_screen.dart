@@ -23,7 +23,8 @@ class WerkaArchiveDailyCalendarScreen extends StatefulWidget {
     required WerkaArchivePeriod period,
     DateTime? from,
     DateTime? to,
-  })? archiveLoader;
+  })?
+  archiveLoader;
 
   @override
   State<WerkaArchiveDailyCalendarScreen> createState() =>
@@ -65,12 +66,7 @@ class _WerkaArchiveDailyCalendarScreenState
   }) {
     final loader = widget.archiveLoader;
     if (loader != null) {
-      return loader(
-        kind: kind,
-        period: period,
-        from: from,
-        to: to,
-      );
+      return loader(kind: kind, period: period, from: from, to: to);
     }
     return MobileApi.instance.werkaArchive(
       kind: kind,
@@ -298,8 +294,11 @@ class _WerkaArchiveDailyCalendarScreenState
                               child: CalendarDatePicker(
                                 initialDate: _selectedDate ?? _displayMonth,
                                 firstDate: DateTime(DateTime.now().year - 5),
-                                lastDate:
-                                    DateTime(DateTime.now().year + 1, 12, 31),
+                                lastDate: DateTime(
+                                  DateTime.now().year + 1,
+                                  12,
+                                  31,
+                                ),
                                 currentDate: DateTime.now(),
                                 onDisplayedMonthChanged: (value) {
                                   final nextMonth = DateTime(
@@ -340,10 +339,7 @@ class _WerkaArchiveDailyCalendarScreenState
 }
 
 class _AnimatedCalendarReveal extends StatelessWidget {
-  const _AnimatedCalendarReveal({
-    required this.open,
-    required this.child,
-  });
+  const _AnimatedCalendarReveal({required this.open, required this.child});
 
   final bool open;
   final Widget child;

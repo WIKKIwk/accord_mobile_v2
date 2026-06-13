@@ -6,12 +6,7 @@ import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
-enum AdminDockTab {
-  home,
-  suppliers,
-  settings,
-  activity,
-}
+enum AdminDockTab { home, suppliers, settings, activity }
 
 class AdminDock extends StatelessWidget {
   const AdminDock({
@@ -29,10 +24,7 @@ class AdminDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = Localizations.of<AppLocalizations>(
-      context,
-      AppLocalizations,
-    );
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final homeLabel = l10n?.adminHomeNavTitle ?? 'Uy';
     final usersLabel = l10n?.adminUsersTitle ?? 'Foydalanuvchilar';
     final createLabel = l10n?.adminCreateTitle ?? 'Yangi';
@@ -49,7 +41,8 @@ class AdminDock extends StatelessWidget {
           createLabel: createLabel,
           activityLabel: activityLabel,
         );
-        final effectiveShowPrimaryFab = showPrimaryFab &&
+        final effectiveShowPrimaryFab =
+            showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab &&
             destinations.any((destination) => destination.primary);
         final selectedIndex = destinations.indexWhere(
@@ -82,7 +75,8 @@ class AdminDock extends StatelessWidget {
               );
             }
 
-            final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+            final useNativeDock =
+                NativeDockBridge.isSupportedPlatform &&
                 NativeDockBridge.instance.supportsSystemDock;
             if (useNativeDock) {
               NativeDockBridge.instance.register(

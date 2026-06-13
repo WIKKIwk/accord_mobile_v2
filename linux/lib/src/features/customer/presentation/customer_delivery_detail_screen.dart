@@ -13,10 +13,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 
 class CustomerDeliveryDetailScreen extends StatefulWidget {
-  const CustomerDeliveryDetailScreen({
-    super.key,
-    required this.deliveryNoteID,
-  });
+  const CustomerDeliveryDetailScreen({super.key, required this.deliveryNoteID});
 
   final String deliveryNoteID;
 
@@ -32,10 +29,10 @@ class _CustomerDeliveryDetailScreenState
   static const int _minRejectCommentLength = 3;
 
   List<String> _rejectReasons(AppLocalizations l10n) => <String>[
-        l10n.rejectReasonDefective,
-        l10n.rejectReasonWrongItem,
-        l10n.rejectReasonQtyMismatch,
-      ];
+    l10n.rejectReasonDefective,
+    l10n.rejectReasonWrongItem,
+    l10n.rejectReasonQtyMismatch,
+  ];
 
   @override
   void initState() {
@@ -44,8 +41,9 @@ class _CustomerDeliveryDetailScreenState
   }
 
   Future<void> _reload() async {
-    final future =
-        MobileApi.instance.customerDeliveryDetail(widget.deliveryNoteID);
+    final future = MobileApi.instance.customerDeliveryDetail(
+      widget.deliveryNoteID,
+    );
     setState(() => _future = future);
     await future;
   }
@@ -127,7 +125,8 @@ class _CustomerDeliveryDetailScreenState
             final hasLongEnoughComment =
                 trimmedComment.runes.length >= _minRejectCommentLength;
             final parsedReturnedQty = _parseQty(qtyController.text);
-            final validQty = !requireQtyEntry ||
+            final validQty =
+                !requireQtyEntry ||
                 (parsedReturnedQty != null &&
                     parsedReturnedQty > 0 &&
                     (allowFullReturn
@@ -180,8 +179,9 @@ class _CustomerDeliveryDetailScreenState
                           borderRadius: BorderRadius.circular(16),
                           onTap: () {
                             setLocalState(() {
-                              selectedReason =
-                                  selectedReason == item ? null : item;
+                              selectedReason = selectedReason == item
+                                  ? null
+                                  : item;
                             });
                           },
                           child: Padding(
@@ -198,8 +198,9 @@ class _CustomerDeliveryDetailScreenState
                                 Expanded(
                                   child: Text(
                                     item,
-                                    style:
-                                        Theme.of(context).textTheme.bodyLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyLarge,
                                   ),
                                 ),
                               ],
@@ -400,8 +401,9 @@ class _CustomerDeliveryDetailScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _DetailLine(
-                                label: context.l10n.customerLabel,
-                                value: record.supplierName),
+                              label: context.l10n.customerLabel,
+                              value: record.supplierName,
+                            ),
                             const SizedBox(height: 12),
                             _DetailLine(
                               label: context.l10n.itemLabel,
@@ -513,8 +515,9 @@ class _CustomerDeliveryDetailScreenState
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.tonal(
-                                    onPressed:
-                                        _submitting ? null : _acceptPartial,
+                                    onPressed: _submitting
+                                        ? null
+                                        : _acceptPartial,
                                     child: Text(
                                       context.l10n.partialAcceptAction,
                                     ),
@@ -534,11 +537,10 @@ class _CustomerDeliveryDetailScreenState
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.tonal(
-                                    onPressed:
-                                        _submitting ? null : _reportClaim,
-                                    child: Text(
-                                      context.l10n.reportIssueAction,
-                                    ),
+                                    onPressed: _submitting
+                                        ? null
+                                        : _reportClaim,
+                                    child: Text(context.l10n.reportIssueAction),
                                   ),
                                 ),
                               ],
@@ -600,8 +602,9 @@ class _CustomerDetailSectionHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color:
-            isDark ? scheme.surfaceContainerHigh : scheme.surfaceContainerHigh,
+        color: isDark
+            ? scheme.surfaceContainerHigh
+            : scheme.surfaceContainerHigh,
         borderRadius: topRounded
             ? const BorderRadius.only(
                 topLeft: Radius.circular(20),
@@ -612,19 +615,16 @@ class _CustomerDetailSectionHeader extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     );
   }
 }
 
 class _DetailLine extends StatelessWidget {
-  const _DetailLine({
-    required this.label,
-    required this.value,
-  });
+  const _DetailLine({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -648,8 +648,10 @@ class _DetailLine extends StatelessWidget {
         const SizedBox(height: 6),
         _isStatus
             ? Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(14),

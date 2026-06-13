@@ -81,9 +81,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.settingsSaved)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.settingsSaved)));
     } finally {
       if (mounted) {
         setState(() => saving = false);
@@ -140,8 +140,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.l10n.erpConnectionTitle,
-                          style: theme.textTheme.titleLarge),
+                      Text(
+                        context.l10n.erpConnectionTitle,
+                        style: theme.textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         context.l10n.erpConnectionSubtitle,
@@ -151,15 +153,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      _SettingsField(
-                        label: 'ERP URL',
-                        controller: erpUrl,
-                      ),
+                      _SettingsField(label: 'ERP URL', controller: erpUrl),
                       const SizedBox(height: 14),
-                      _SettingsField(
-                        label: 'API Key',
-                        controller: apiKey,
-                      ),
+                      _SettingsField(label: 'API Key', controller: apiKey),
                       const SizedBox(height: 14),
                       _SettingsField(
                         label: 'API Secret',
@@ -171,10 +167,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         controller: warehouse,
                       ),
                       const SizedBox(height: 14),
-                      _SettingsField(
-                        label: 'Default UOM',
-                        controller: uom,
-                      ),
+                      _SettingsField(label: 'Default UOM', controller: uom),
                     ],
                   ),
                 ),
@@ -184,8 +177,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.l10n.adminSettingsSectionTitle,
-                          style: theme.textTheme.titleLarge),
+                      Text(
+                        context.l10n.adminSettingsSectionTitle,
+                        style: theme.textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         context.l10n.adminSettingsSectionSubtitle,
@@ -236,10 +231,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 }
 
 class _SettingsField extends StatelessWidget {
-  const _SettingsField({
-    required this.label,
-    required this.controller,
-  });
+  const _SettingsField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
@@ -248,9 +240,7 @@ class _SettingsField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-      ),
+      decoration: InputDecoration(labelText: label),
     );
   }
 }

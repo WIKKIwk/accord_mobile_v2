@@ -3,18 +3,13 @@ import 'widgets/pin_entry_scaffold.dart';
 import 'package:flutter/material.dart';
 
 class PinSetupConfirmArgs {
-  const PinSetupConfirmArgs({
-    required this.firstPin,
-  });
+  const PinSetupConfirmArgs({required this.firstPin});
 
   final String firstPin;
 }
 
 class PinSetupConfirmScreen extends StatefulWidget {
-  const PinSetupConfirmScreen({
-    super.key,
-    required this.args,
-  });
+  const PinSetupConfirmScreen({super.key, required this.args});
 
   final PinSetupConfirmArgs args;
 

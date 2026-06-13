@@ -55,9 +55,7 @@ class NativeDockBridge extends NavigatorObserver with ChangeNotifier {
     _pendingState = state;
     _tapHandlers
       ..clear()
-      ..addEntries(
-        state.items.map((item) => MapEntry(item.id, item.onTap)),
-      );
+      ..addEntries(state.items.map((item) => MapEntry(item.id, item.onTap)));
     _holdHandlers
       ..clear()
       ..addEntries(
@@ -146,10 +144,7 @@ class NativeDockBridge extends NavigatorObserver with ChangeNotifier {
       return;
     }
     try {
-      await _channel.invokeMethod(
-        'setDockState',
-        nextState.toMap(),
-      );
+      await _channel.invokeMethod('setDockState', nextState.toMap());
       _lastSyncedState = nextState;
     } catch (_) {}
   }
@@ -225,10 +220,10 @@ class NativeDockState {
   });
 
   const NativeDockState.hidden()
-      : visible = false,
-        compact = true,
-        tightToEdges = true,
-        items = const <NativeDockItem>[];
+    : visible = false,
+      compact = true,
+      tightToEdges = true,
+      items = const <NativeDockItem>[];
 
   final bool visible;
   final bool compact;
@@ -254,12 +249,8 @@ class NativeDockState {
   }
 
   @override
-  int get hashCode => Object.hash(
-        visible,
-        compact,
-        tightToEdges,
-        Object.hashAll(items),
-      );
+  int get hashCode =>
+      Object.hash(visible, compact, tightToEdges, Object.hashAll(items));
 }
 
 class NativeDockItem {
@@ -329,17 +320,17 @@ class NativeDockItem {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        label,
-        iconCodePoint,
-        selectedIconCodePoint,
-        symbol,
-        selectedSymbol,
-        active,
-        primary,
-        showBadge,
-        routeName,
-        replaceStack,
-        onHoldComplete != null,
-      );
+    id,
+    label,
+    iconCodePoint,
+    selectedIconCodePoint,
+    symbol,
+    selectedSymbol,
+    active,
+    primary,
+    showBadge,
+    routeName,
+    replaceStack,
+    onHoldComplete != null,
+  );
 }

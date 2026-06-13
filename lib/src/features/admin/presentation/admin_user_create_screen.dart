@@ -97,24 +97,21 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
-          _RoleSelector(
-            choice: _choice,
-            onTap: _openRolePicker,
-          ),
+          _RoleSelector(choice: _choice, onTap: _openRolePicker),
           Expanded(
             child: switch (kind) {
               _AdminUserCreateKind.werka => _WerkaCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.customer => _CustomerCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.supplier => _SupplierCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
+                assignedRole: _choice.customRole,
+              ),
               _AdminUserCreateKind.custom => _CustomRoleCreateTab(
-                  assignedRole: _choice.customRole!,
-                ),
+                assignedRole: _choice.customRole!,
+              ),
             },
           ),
         ],
@@ -208,10 +205,7 @@ bool _isAssignableRole(AdminRoleDefinition role) {
 }
 
 class _RoleSelector extends StatelessWidget {
-  const _RoleSelector({
-    required this.choice,
-    required this.onTap,
-  });
+  const _RoleSelector({required this.choice, required this.onTap});
 
   final _AdminUserCreateChoice choice;
   final VoidCallback onTap;
@@ -495,12 +489,15 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
         await MobileApi.instance.adminUpsertRoleAssignment(
           adminAparatchiAssignmentUpsert(
             principalRef: user.ref,
-            assignedApparatus: selectedApparatus.toList(growable: false)..sort(),
+            assignedApparatus: selectedApparatus.toList(growable: false)
+              ..sort(),
           ),
         );
         await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
       } else {
-        final principalRole = _principalRoleForAssignedRole(widget.assignedRole);
+        final principalRole = _principalRoleForAssignedRole(
+          widget.assignedRole,
+        );
         await _assignCustomRole(widget.assignedRole, principalRole, user.ref);
       }
       if (!mounted) {
@@ -575,9 +572,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           child: FilledButton(
             onPressed: saving ? null : _create,
-            child: Text(
-              saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
-            ),
+            child: Text(saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash'),
           ),
         ),
       ],
@@ -752,8 +747,9 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
               regenerating: regenerating,
               retryAfterSec: _retryAfterSec,
               onCopy: werkaCode.trim().isEmpty ? null : _copyCode,
-              onRegenerate:
-                  regenerating || _retryAfterSec > 0 ? null : _regenerate,
+              onRegenerate: regenerating || _retryAfterSec > 0
+                  ? null
+                  : _regenerate,
             ),
             if (_retryAfterSec > 0) ...[
               const SizedBox(height: 12),

@@ -12,10 +12,7 @@ const double _drawerOpenDragDistance = 48;
 const double _drawerOpenDragVelocity = 450;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
-Widget _appShellStyleLinearProgress(
-  ThemeData theme, {
-  double? value,
-}) {
+Widget _appShellStyleLinearProgress(ThemeData theme, {double? value}) {
   return LinearProgressIndicator(
     minHeight: 3,
     value: value,
@@ -58,12 +55,14 @@ class AppShell extends StatefulWidget {
     this.preferNativeTitle = false,
     this.nativeTopBar = false,
     this.nativeTitleTextStyle,
+    this.titleWidget,
     this.backgroundColor,
     this.appBarBottomLoading = false,
   });
 
   final String title;
   final String subtitle;
+  final Widget? titleWidget;
   final Widget child;
   final Widget? leading;
   final List<Widget>? actions;
@@ -107,8 +106,9 @@ class _AppShellState extends State<AppShell>
         curve: AppMotion.expressiveSpatialDefault,
         reverseCurve: AppMotion.expressiveSpatialDefault.flipped,
       );
-      _expressiveDrawerController!
-          .addStatusListener(_expressiveDrawerStatusChanged);
+      _expressiveDrawerController!.addStatusListener(
+        _expressiveDrawerStatusChanged,
+      );
     }
   }
 
@@ -197,7 +197,7 @@ class _AppShellState extends State<AppShell>
     if (widget.leading != null) {
       return widget.leading;
     }
-    if (widget.drawer != null) {
+    if (widget.drawer != null && widget.titleWidget == null) {
       return IconButton(
         icon: const Icon(Icons.menu),
         tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
@@ -238,8 +238,6 @@ class _AppShellState extends State<AppShell>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final Color shellBackground =
-        widget.backgroundColor ?? AppTheme.shellStart(context);
     final useNativeTitle =
         NativeBackButtonBridge.useNativeNavigationTitleWhenPossible(
       context,
@@ -267,7 +265,7 @@ class _AppShellState extends State<AppShell>
       extendBody: true,
       appBar: widget.nativeTopBar
           ? AppBar(
-              title: _nativeAppBarTitle(theme),
+              title: widget.titleWidget ?? _nativeAppBarTitle(theme),
               leading: _nativeAppBarLeading(shouldHideLeading),
               automaticallyImplyLeading: shouldHideLeading
                   ? false
@@ -280,7 +278,9 @@ class _AppShellState extends State<AppShell>
               elevation: 0,
               scrolledUnderElevation: 0,
               toolbarHeight: AppTheme.appBarHeight,
-              titleSpacing: compactTitleNearLeading ? 0 : 20,
+              titleSpacing: widget.titleWidget != null
+                  ? 10
+                  : (compactTitleNearLeading ? 0 : 20),
               centerTitle: false,
               bottom: widget.appBarBottomLoading
                   ? PreferredSize(
@@ -292,10 +292,7 @@ class _AppShellState extends State<AppShell>
           : null,
       bottomNavigationBar: widget.bottom == null
           ? null
-          : Padding(
-              padding: widget.bottomPadding,
-              child: widget.bottom!,
-            ),
+          : Padding(padding: widget.bottomPadding, child: widget.bottom!),
       body: SafeArea(
         bottom: false,
         child: _buildAnimatedContent(
@@ -313,9 +310,8 @@ class _AppShellState extends State<AppShell>
         _expressiveDrawerCurve != null) {
       final controller = _expressiveDrawerController!;
       final curved = _expressiveDrawerCurve!;
-      return DecoratedBox(
-        decoration: BoxDecoration(color: shellBackground),
-        child: AnimatedBuilder(
+      return _shellRoot(
+        AnimatedBuilder(
           animation: controller,
           builder: (context, _) {
             // Scrim faqat chiziqli [0,1] progress bilan — Expressive cubic overshoot
@@ -355,11 +351,13 @@ class _AppShellState extends State<AppShell>
                         behavior: HitTestBehavior.opaque,
                         onTap: _expressiveCloseDrawer,
                         child: Semantics(
-                          label: MaterialLocalizations.of(context)
-                              .modalBarrierDismissLabel,
+                          label: MaterialLocalizations.of(
+                            context,
+                          ).modalBarrierDismissLabel,
                           child: ColoredBox(
-                            color:
-                                Colors.black.withValues(alpha: 0.54 * linearT),
+                            color: Colors.black.withValues(
+                              alpha: 0.54 * linearT,
+                            ),
                           ),
                         ),
                       ),
@@ -383,15 +381,32 @@ class _AppShellState extends State<AppShell>
       );
     }
 
-    return DecoratedBox(
-      decoration: BoxDecoration(color: shellBackground),
-      child: scaffold,
+    return _shellRoot(scaffold);
+  }
+
+  Widget _shellRoot(Widget child) {
+    final decorated = DecoratedBox(
+      decoration: BoxDecoration(
+        color: widget.backgroundColor ?? AppTheme.shellStart(context),
+      ),
+      child: child,
+    );
+    if (widget.drawer == null) {
+      return decorated;
+    }
+    return AppShellDrawerScope(
+      openDrawer: _openExpressiveDrawer,
+      child: decorated,
     );
   }
 
-  Widget _buildAnimatedContent(BuildContext context, ThemeData theme,
-      bool shouldHideLeading, bool useNativeTitle,
-      {required bool showHeader}) {
+  Widget _buildAnimatedContent(
+    BuildContext context,
+    ThemeData theme,
+    bool shouldHideLeading,
+    bool useNativeTitle, {
+    required bool showHeader,
+  }) {
     final content = Column(
       children: [
         if (showHeader)
@@ -401,9 +416,7 @@ class _AppShellState extends State<AppShell>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!shouldHideLeading && widget.leading != null) ...[
-                  HeaderLeadingTransition(
-                    child: widget.leading!,
-                  ),
+                  HeaderLeadingTransition(child: widget.leading!),
                   const SizedBox(width: 14),
                 ],
                 if (!useNativeTitle)
@@ -411,9 +424,7 @@ class _AppShellState extends State<AppShell>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SharedHeaderTitle(
-                          title: widget.title,
-                        ),
+                        SharedHeaderTitle(title: widget.title),
                         if (widget.subtitle.trim().isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(
@@ -505,10 +516,7 @@ class _AppShellState extends State<AppShell>
       duration: AppMotion.pageEnter,
       curve: AppMotion.pageIn,
       builder: (context, value, animatedChild) {
-        return Opacity(
-          opacity: value,
-          child: animatedChild,
-        );
+        return Opacity(opacity: value, child: animatedChild);
       },
       child: content,
     );
@@ -786,8 +794,10 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator> {
         _isNearTop(notification.metrics) &&
         notification.overscroll < 0) {
       _setUserPulling(true);
-      final nextPull = (_pullExtent + (-notification.overscroll))
-          .clamp(0.0, _maxPullDistance);
+      final nextPull = (_pullExtent + (-notification.overscroll)).clamp(
+        0.0,
+        _maxPullDistance,
+      );
       _setPullExtent(nextPull);
       _setRefreshArmed(nextPull >= _triggerDistance);
       return false;
@@ -887,4 +897,21 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator> {
       ),
     );
   }
+}
+
+class AppShellDrawerScope extends InheritedWidget {
+  const AppShellDrawerScope({
+    super.key,
+    required this.openDrawer,
+    required super.child,
+  });
+
+  final VoidCallback openDrawer;
+
+  static AppShellDrawerScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<AppShellDrawerScope>();
+  }
+
+  @override
+  bool updateShouldNotify(covariant AppShellDrawerScope oldWidget) => false;
 }

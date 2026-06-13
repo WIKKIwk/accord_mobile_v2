@@ -100,11 +100,7 @@ int searchRelevanceScore({
   required String primary,
   Iterable<String> secondary = const <String>[],
 }) {
-  return _scoreSearchRelevance(
-    query,
-    primary: primary,
-    secondary: secondary,
-  );
+  return _scoreSearchRelevance(query, primary: primary, secondary: secondary);
 }
 
 int _scoreSearchRelevance(
@@ -118,8 +114,12 @@ int _scoreSearchRelevance(
     return 0;
   }
 
-  var best =
-      _scoreField(normalizedQuery, compactQuery, primary, isPrimary: true);
+  var best = _scoreField(
+    normalizedQuery,
+    compactQuery,
+    primary,
+    isPrimary: true,
+  );
   for (final value in secondary) {
     final score = _scoreField(
       normalizedQuery,
@@ -164,8 +164,9 @@ int _scoreField(
       .split(RegExp(r'[^a-z0-9]+'))
       .where((token) => token.isNotEmpty)
       .toList(growable: false);
-  if (tokens
-      .any((token) => token == compactQuery || token == normalizedQuery)) {
+  if (tokens.any(
+    (token) => token == compactQuery || token == normalizedQuery,
+  )) {
     return weight + 7600;
   }
   if (tokens.any((token) => token.startsWith(compactQuery))) {
@@ -195,8 +196,11 @@ int _scoreField(
   return 0;
 }
 
-bool _startsWithFuzzy(String compactValue, String compactQuery,
-    {required int maxDistance}) {
+bool _startsWithFuzzy(
+  String compactValue,
+  String compactQuery, {
+  required int maxDistance,
+}) {
   if (compactValue.length < compactQuery.length) {
     return false;
   }
@@ -205,14 +209,19 @@ bool _startsWithFuzzy(String compactValue, String compactQuery,
       null;
 }
 
-bool _containsFuzzy(String compactValue, String compactQuery,
-    {required int maxDistance}) {
+bool _containsFuzzy(
+  String compactValue,
+  String compactQuery, {
+  required int maxDistance,
+}) {
   if (compactQuery.isEmpty || compactValue.length < compactQuery.length) {
     return false;
   }
-  for (var start = 0;
-      start <= compactValue.length - compactQuery.length;
-      start++) {
+  for (
+    var start = 0;
+    start <= compactValue.length - compactQuery.length;
+    start++
+  ) {
     final slice = compactValue.substring(start, start + compactQuery.length);
     if (_boundedLevenshtein(slice, compactQuery, maxDistance: maxDistance) !=
         null) {
@@ -222,8 +231,11 @@ bool _containsFuzzy(String compactValue, String compactQuery,
   return false;
 }
 
-int? _boundedLevenshtein(String left, String right,
-    {required int maxDistance}) {
+int? _boundedLevenshtein(
+  String left,
+  String right, {
+  required int maxDistance,
+}) {
   if ((left.length - right.length).abs() > maxDistance) {
     return null;
   }
@@ -253,9 +265,8 @@ int? _boundedLevenshtein(String left, String right,
   return distance <= maxDistance ? distance : null;
 }
 
-String _compactForSearch(String input) => normalizeForSearch(
-      input,
-    ).replaceAll(RegExp(r'[^a-z0-9]+'), '');
+String _compactForSearch(String input) =>
+    normalizeForSearch(input).replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
 String _mapRune(String char) {
   switch (char) {

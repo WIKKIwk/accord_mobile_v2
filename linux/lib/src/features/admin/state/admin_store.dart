@@ -75,10 +75,7 @@ class AdminStore extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
-    await Future.wait([
-      refreshSummary(),
-      refreshActivity(),
-    ]);
+    await Future.wait([refreshSummary(), refreshActivity()]);
   }
 
   void clear() {

@@ -1,6 +1,6 @@
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/widgets/admin_create_hub_sheet.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,8 +27,9 @@ Widget _wrap(Widget child, {List<NavigatorObserver> observers = const []}) {
 }
 
 void main() {
-  testWidgets('admin create hub groups user creation into one action',
-      (tester) async {
+  testWidgets('admin create hub groups user creation into one action', (
+    tester,
+  ) async {
     final observer = _RouteObserver();
 
     await tester.pumpWidget(
@@ -51,9 +52,13 @@ void main() {
     expect(find.text('Foydalanuvchi qo‘shish'), findsOneWidget);
     expect(find.byKey(const ValueKey('admin-hub-user-create')), findsOneWidget);
     expect(
-        find.byKey(const ValueKey('admin-hub-supplier-create')), findsNothing);
+      find.byKey(const ValueKey('admin-hub-supplier-create')),
+      findsNothing,
+    );
     expect(
-        find.byKey(const ValueKey('admin-hub-customer-create')), findsNothing);
+      find.byKey(const ValueKey('admin-hub-customer-create')),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('admin-hub-werka-create')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('admin-hub-user-create')));

@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:erpnext_stock_mobile/src/core/localization/app_localizations.dart';
-import 'package:erpnext_stock_mobile/src/core/session/session.dart';
-import 'package:erpnext_stock_mobile/src/core/theme/app_theme.dart';
-import 'package:erpnext_stock_mobile/src/core/theme/theme_controller.dart';
-import 'package:erpnext_stock_mobile/src/features/admin/presentation/admin_roles_screen.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_roles_screen.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,8 +34,9 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('admin role screen loads roles and saves a custom role',
-      (tester) async {
+  testWidgets('admin role screen loads roles and saves a custom role', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final seenBodies = <String>[];
     final client = _AdminRolesHttpClient(seenRequests, seenBodies);
@@ -65,10 +66,14 @@ void main() {
       expect(seenRequests, contains('GET /v1/mobile/admin/roles'));
       expect(seenRequests, contains('GET /v1/mobile/admin/role-assignments'));
       expect(seenRequests, contains('GET /v1/mobile/admin/settings'));
-      expect(seenRequests,
-          contains('GET /v1/mobile/admin/suppliers/list?limit=100'));
-      expect(seenRequests,
-          contains('GET /v1/mobile/admin/customers/list?limit=100'));
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/suppliers/list?limit=100'),
+      );
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/customers/list?limit=100'),
+      );
       expect(find.text('Rollar'), findsWidgets);
       expect(find.text('Admin'), findsOneWidget);
       expect(find.textContaining('Role huquqlarini ko‘rish'), findsNothing);
@@ -80,8 +85,9 @@ void main() {
 
       expect(find.textContaining('Role huquqlarini ko‘rish'), findsOneWidget);
 
-      await tester
-          .tap(find.byKey(const ValueKey('admin-role-details-scale_operator')));
+      await tester.tap(
+        find.byKey(const ValueKey('admin-role-details-scale_operator')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Role huquqlarini ko‘rish'), findsNothing);
@@ -162,8 +168,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin role screen edits an existing custom role',
-      (tester) async {
+  testWidgets('admin role screen edits an existing custom role', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final seenBodies = <String>[];
     final client = _AdminRolesHttpClient(seenRequests, seenBodies);
@@ -210,8 +217,9 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin role assignments save selected system user role',
-      (tester) async {
+  testWidgets('admin role assignments save selected system user role', (
+    tester,
+  ) async {
     final seenRequests = <String>[];
     final seenBodies = <String>[];
     final client = _AdminRolesHttpClient(seenRequests, seenBodies);
@@ -252,45 +260,46 @@ void main() {
   });
 
   testWidgets(
-      'admin role assignments keep werka principal when directories are empty',
-      (tester) async {
-    final seenRequests = <String>[];
-    final seenBodies = <String>[];
-    final client = _AdminRolesHttpClient(
-      seenRequests,
-      seenBodies,
-      blankWerkaName: true,
-      emptyDirectories: true,
-      emptyAssignments: true,
-    );
-
-    await HttpOverrides.runZoned(() async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
-          locale: const Locale('uz'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminRolesScreen(),
-        ),
+    'admin role assignments keep werka principal when directories are empty',
+    (tester) async {
+      final seenRequests = <String>[];
+      final seenBodies = <String>[];
+      final client = _AdminRolesHttpClient(
+        seenRequests,
+        seenBodies,
+        blankWerkaName: true,
+        emptyDirectories: true,
+        emptyAssignments: true,
       );
 
-      await _pumpUntilFound(tester, find.text('Biriktirish'));
-      await tester.tap(find.text('Biriktirish'));
-      await tester.pumpAndSettle();
+      await HttpOverrides.runZoned(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(AppThemeVariant.earthy),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminRolesScreen(),
+          ),
+        );
 
-      expect(find.text('Omborchi'), findsWidgets);
-      expect(find.widgetWithText(OutlinedButton, 'Tanlash'), findsOneWidget);
-      expect(find.text('Supplier'), findsNothing);
-      expect(find.text('Customer'), findsNothing);
-      expect(tester.takeException(), isNull);
-    }, createHttpClient: (_) => client);
-  });
+        await _pumpUntilFound(tester, find.text('Biriktirish'));
+        await tester.tap(find.text('Biriktirish'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Omborchi'), findsWidgets);
+        expect(find.widgetWithText(OutlinedButton, 'Tanlash'), findsOneWidget);
+        expect(find.text('Supplier'), findsNothing);
+        expect(find.text('Customer'), findsNothing);
+        expect(tester.takeException(), isNull);
+      }, createHttpClient: (_) => client);
+    },
+  );
 }
 
 Future<void> _pumpUntilFound(
@@ -438,11 +447,7 @@ class _AdminRolesHttpClient implements HttpClient {
           body = emptyDirectories
               ? const []
               : const [
-                  {
-                    'ref': 'CUS-1',
-                    'name': 'Customer',
-                    'phone': '+9982',
-                  },
+                  {'ref': 'CUS-1', 'name': 'Customer', 'phone': '+9982'},
                 ];
         case 'PUT /v1/mobile/admin/roles':
           body = const {
@@ -491,10 +496,7 @@ class _AdminRolesHttpClient implements HttpClient {
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
-  _FakeHttpClientRequest({
-    required this.response,
-    required this.onClose,
-  });
+  _FakeHttpClientRequest({required this.response, required this.onClose});
 
   final _FakeHttpClientResponse response;
   final ValueChanged<String> onClose;
@@ -576,11 +578,9 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
 class _FakeHttpClientResponse extends StreamView<List<int>>
     implements HttpClientResponse {
-  _FakeHttpClientResponse({
-    required String body,
-    required this.statusCode,
-  })  : _headers = _FakeHttpHeaders(),
-        super(Stream<List<int>>.fromIterable([utf8.encode(body)]));
+  _FakeHttpClientResponse({required String body, required this.statusCode})
+    : _headers = _FakeHttpHeaders(),
+      super(Stream<List<int>>.fromIterable([utf8.encode(body)]));
 
   final _FakeHttpHeaders _headers;
 
@@ -630,8 +630,7 @@ class _FakeHttpClientResponse extends StreamView<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) =>
-      Future<HttpClientResponse>.value(this);
+  ]) => Future<HttpClientResponse>.value(this);
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

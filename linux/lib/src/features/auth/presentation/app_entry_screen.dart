@@ -86,8 +86,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       final scheme = Theme.of(context).colorScheme;
       final Color authBackgroundColor =
           Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF000000)
-              : scheme.surfaceContainerLow;
+          ? const Color(0xFF000000)
+          : scheme.surfaceContainerLow;
       final Widget currentScreen = _showWelcome
           ? WelcomeScreen(
               key: const ValueKey<String>('welcome-screen'),
@@ -117,9 +117,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
         fit: StackFit.expand,
         children: [
           DecoratedBox(
-            decoration: BoxDecoration(
-              color: authBackgroundColor,
-            ),
+            decoration: BoxDecoration(color: authBackgroundColor),
             child: IgnorePointer(
               child: AuthAmbientOutlineBackground(
                 outlineColor: scheme.outlineVariant,
@@ -136,10 +134,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
+              return FadeTransition(opacity: animation, child: child);
             },
             child: currentScreen,
           ),
@@ -148,14 +143,14 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     }
 
     return AppShell(
-      title: 'Accord',
+      title: 'Accord Mobile V2',
       subtitle: '',
       child: Center(
         child: _navigated
             ? const SizedBox.shrink()
             : _booting
-                ? const AppLoadingIndicator()
-                : const SizedBox.shrink(),
+            ? const AppLoadingIndicator()
+            : const SizedBox.shrink(),
       ),
     );
   }

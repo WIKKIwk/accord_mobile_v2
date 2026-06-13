@@ -8,7 +8,7 @@ class LocalNotificationService {
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'accord_updates',
-    'Accord Updates',
+    'Accord Mobile V2 Updates',
     description: 'Supplier va werka holatlari uchun system bildirishnomalar',
     importance: Importance.max,
     playSound: true,
@@ -23,8 +23,9 @@ class LocalNotificationService {
       return;
     }
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings();
     const linuxSettings = LinuxInitializationSettings(
       defaultActionName: 'Open notification',
@@ -37,23 +38,25 @@ class LocalNotificationService {
     );
     await _plugin.initialize(settings: settings);
 
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await android?.createNotificationChannel(_channel);
     _initialized = true;
   }
 
   Future<void> requestPermission() async {
     await initialize();
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    await ios?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    await ios?.requestPermissions(alert: true, badge: true, sound: true);
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await android?.requestNotificationsPermission();
   }
 

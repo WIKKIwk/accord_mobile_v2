@@ -1,23 +1,23 @@
 import 'dart:async';
 
-import 'package:erpnext_stock_mobile/src/app/app_router.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
-import 'package:erpnext_stock_mobile/src/features/supplier/presentation/supplier_confirm_screen.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/supplier/presentation/supplier_confirm_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('supplier confirm ignores repeated taps while submitting',
-      (tester) async {
+  testWidgets('supplier confirm ignores repeated taps while submitting', (
+    tester,
+  ) async {
     final completer = Completer<DispatchRecord>();
     var submitCalls = 0;
 
     await tester.pumpWidget(
       MaterialApp(
         routes: {
-          AppRoutes.supplierSuccess: (_) => const Scaffold(
-                body: SizedBox.shrink(),
-              ),
+          AppRoutes.supplierSuccess: (_) =>
+              const Scaffold(body: SizedBox.shrink()),
         },
         home: SupplierConfirmScreen(
           args: const SupplierConfirmArgs(

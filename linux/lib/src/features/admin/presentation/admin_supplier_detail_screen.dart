@@ -14,10 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class AdminSupplierDetailScreen extends StatefulWidget {
-  const AdminSupplierDetailScreen({
-    super.key,
-    required this.supplierRef,
-  });
+  const AdminSupplierDetailScreen({super.key, required this.supplierRef});
 
   final String supplierRef;
 
@@ -49,8 +46,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   }
 
   Future<AdminSupplierDetail> _loadDetail() async {
-    final detail =
-        await MobileApi.instance.adminSupplierDetail(widget.supplierRef);
+    final detail = await MobileApi.instance.adminSupplierDetail(
+      widget.supplierRef,
+    );
     _setRetryAfter(detail.codeRetryAfterSec);
     return detail;
   }
@@ -110,9 +108,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
             controller: controller,
             keyboardType: TextInputType.phone,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '+998901234567',
-            ),
+            decoration: const InputDecoration(hintText: '+998901234567'),
           ),
           actions: [
             TextButton(
@@ -147,9 +143,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Telefon saqlanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => _savingPhone = false);
@@ -160,8 +156,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   Future<void> _regenerateCode() async {
     setState(() => _regeneratingCode = true);
     try {
-      final updated = await MobileApi.instance
-          .adminRegenerateSupplierCode(widget.supplierRef);
+      final updated = await MobileApi.instance.adminRegenerateSupplierCode(
+        widget.supplierRef,
+      );
       _setRetryAfter(updated.codeRetryAfterSec);
       _changed = true;
       setState(() {
@@ -207,9 +204,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Code nusxalandi')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
   }
 
   @override
@@ -236,9 +233,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
               return const Center(child: AppLoadingIndicator());
             }
             if (snapshot.hasError) {
-              return Center(
-                child: AppRetryState(onRetry: _reload),
-              );
+              return Center(child: AppRetryState(onRetry: _reload));
             }
 
             final detail = snapshot.data!;
@@ -353,8 +348,8 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 IconButton(
                                   onPressed:
                                       _regeneratingCode || _retryAfterSec > 0
-                                          ? null
-                                          : _regenerateCode,
+                                      ? null
+                                      : _regenerateCode,
                                   icon: _regeneratingCode
                                       ? const SizedBox(
                                           height: 18,
@@ -388,8 +383,8 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 _savingStatus
                                     ? 'Saqlanmoqda...'
                                     : detail.blocked
-                                        ? 'Unblock qilish'
-                                        : 'Block qilish',
+                                    ? 'Unblock qilish'
+                                    : 'Block qilish',
                               ),
                             ),
                           ),
@@ -432,9 +427,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(context).pushNamed(
-                                    AppRoutes.adminSupplierItemsView,
-                                    arguments: widget.supplierRef,
-                                  ),
+                                        AppRoutes.adminSupplierItemsView,
+                                        arguments: widget.supplierRef,
+                                      ),
                                   child: const Text('Ko‘rish'),
                                 ),
                               ),
@@ -443,9 +438,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(context).pushNamed(
-                                    AppRoutes.adminSupplierItemsAdd,
-                                    arguments: widget.supplierRef,
-                                  ),
+                                        AppRoutes.adminSupplierItemsAdd,
+                                        arguments: widget.supplierRef,
+                                      ),
                                   child: const Text('Qo‘shish'),
                                 ),
                               ),

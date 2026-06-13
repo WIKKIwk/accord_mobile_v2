@@ -62,8 +62,9 @@ class NativeBackButtonBridge extends NavigatorObserver {
     final useNative = visible || allowWithoutBackButton;
     instance._syncVisibleFromBuild(visible);
     instance._syncNavigationBarVisibleFromBuild(useNative);
-    instance
-        ._syncThemeFromBuild(Theme.of(context).brightness == Brightness.dark);
+    instance._syncThemeFromBuild(
+      Theme.of(context).brightness == Brightness.dark,
+    );
     instance._syncTitleFromBuild(useNative ? title : null);
     return useNative;
   }
@@ -76,7 +77,9 @@ class NativeBackButtonBridge extends NavigatorObserver {
 
   @override
   void didStartUserGesture(
-      Route<dynamic> route, Route<dynamic>? previousRoute) {
+    Route<dynamic> route,
+    Route<dynamic>? previousRoute,
+  ) {
     super.didStartUserGesture(route, previousRoute);
     if (!_initialized) {
       return;
@@ -107,10 +110,7 @@ class NativeBackButtonBridge extends NavigatorObserver {
   }
 
   @override
-  void didReplace({
-    Route<dynamic>? newRoute,
-    Route<dynamic>? oldRoute,
-  }) {
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     _scheduleSync();
   }

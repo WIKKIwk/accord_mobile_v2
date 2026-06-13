@@ -54,13 +54,7 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
   }
 
   bool _matchesQuery(SupplierItem item, String query) {
-    return searchMatches(
-      query,
-      [
-        item.name,
-        item.code,
-      ],
-    );
+    return searchMatches(query, [item.name, item.code]);
   }
 
   @override
@@ -71,10 +65,7 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
       title: 'Mahsulot tanlash',
       subtitle: '',
       contentPadding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
-      bottom: const SupplierDock(
-        activeTab: null,
-        centerActive: true,
-      ),
+      bottom: const SupplierDock(activeTab: null, centerActive: true),
       child: Column(
         children: [
           TextField(
@@ -110,9 +101,7 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      children: [
-                        AppRetryState(onRetry: _reload),
-                      ],
+                      children: [AppRetryState(onRetry: _reload)],
                     ),
                   );
                 }
@@ -192,17 +181,19 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
                                 filtered.map((item) => item.code).join('|'),
                               ),
                               children: [
-                                for (int index = 0;
-                                    index < filtered.length;
-                                    index++) ...[
+                                for (
+                                  int index = 0;
+                                  index < filtered.length;
+                                  index++
+                                ) ...[
                                   _SupplierItemRow(
                                     item: filtered[index],
                                     delay: Duration(milliseconds: index * 24),
                                     onTap: () =>
                                         Navigator.of(context).pushNamed(
-                                      AppRoutes.supplierQty,
-                                      arguments: filtered[index],
-                                    ),
+                                          AppRoutes.supplierQty,
+                                          arguments: filtered[index],
+                                        ),
                                   ),
                                   if (index != filtered.length - 1)
                                     Divider(
@@ -210,8 +201,9 @@ class _SupplierItemPickerScreenState extends State<SupplierItemPickerScreen>
                                       thickness: 1,
                                       indent: 18,
                                       endIndent: 18,
-                                      color: AppTheme.cardBorder(context)
-                                          .withValues(alpha: 0.55),
+                                      color: AppTheme.cardBorder(
+                                        context,
+                                      ).withValues(alpha: 0.55),
                                     ),
                                 ],
                               ],

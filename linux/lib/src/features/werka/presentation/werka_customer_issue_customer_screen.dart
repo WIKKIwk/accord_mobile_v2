@@ -18,10 +18,7 @@ import 'widgets/werka_dock.dart';
 import 'package:flutter/material.dart';
 
 class WerkaCustomerIssueCustomerScreen extends StatefulWidget {
-  const WerkaCustomerIssueCustomerScreen({
-    super.key,
-    this.prefill,
-  });
+  const WerkaCustomerIssueCustomerScreen({super.key, this.prefill});
 
   final WerkaCustomerIssuePrefillArgs? prefill;
 
@@ -248,11 +245,11 @@ class _WerkaCustomerIssueCustomerScreenState
             cacheKey: 'werka:issue-customer-items:${_selectedCustomer!.ref}',
             loadPage: (query, offset, limit) =>
                 MobileApi.instance.werkaCustomerItems(
-              customerRef: _selectedCustomer!.ref,
-              query: query,
-              offset: offset,
-              limit: limit,
-            ),
+                  customerRef: _selectedCustomer!.ref,
+                  query: query,
+                  offset: offset,
+                  limit: limit,
+                ),
             itemTitle: (item) => item.name,
             itemSubtitle: (item) => item.code,
             onSelected: (item) => Navigator.of(context).pop(item),
@@ -289,10 +286,10 @@ class _WerkaCustomerIssueCustomerScreenState
           cacheKey: 'werka:issue-customer-item-options',
           loadPage: (query, offset, limit) =>
               MobileApi.instance.werkaCustomerItemOptions(
-            query: query,
-            offset: offset,
-            limit: limit,
-          ),
+                query: query,
+                offset: offset,
+                limit: limit,
+              ),
           itemTitle: (item) => item.itemName,
           itemSubtitle: (item) => '${item.customerName} • ${item.itemCode}',
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -322,9 +319,9 @@ class _WerkaCustomerIssueCustomerScreenState
     }
     final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
     if (qty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.qtyRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.qtyRequired)));
       return;
     }
 
@@ -344,20 +341,14 @@ class _WerkaCustomerIssueCustomerScreenState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l10n.confirmTitle,
-                  style: theme.textTheme.headlineMedium,
-                ),
+                Text(l10n.confirmTitle, style: theme.textTheme.headlineMedium),
                 const SizedBox(height: 18),
                 Text(
                   _selectedCustomer!.name,
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  _selectedItem!.name,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(_selectedItem!.name, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 6),
                 Text(
                   '${qty.toStringAsFixed(0)} ${_selectedItem!.uom}',
@@ -472,11 +463,11 @@ class _WerkaCustomerIssueCustomerScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-              ? l10n.insufficientStockMessage
-              : l10n.customerIssueFailed(error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+          ? l10n.insufficientStockMessage
+          : l10n.customerIssueFailed(error);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -491,7 +482,8 @@ class _WerkaCustomerIssueCustomerScreenState
     final scheme = theme.colorScheme;
     final canSubmit =
         _selectedCustomer != null && _selectedItem != null && !_submitting;
-    final customerLabel = _selectedCustomer?.name ??
+    final customerLabel =
+        _selectedCustomer?.name ??
         (_prefillCustomerLoading
             ? 'Customer tanlanmoqda...'
             : l10n.selectCustomer);
@@ -504,9 +496,7 @@ class _WerkaCustomerIssueCustomerScreenState
       elevation: 0,
       minimumSize: const Size.fromHeight(58),
       alignment: Alignment.centerLeft,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       padding: const EdgeInsets.symmetric(horizontal: 18),
     );
     final qtyInputDecoration = InputDecoration(
@@ -652,8 +642,9 @@ class _WerkaCustomerIssueCustomerScreenState
                 const SizedBox(height: 6),
                 TextField(
                   controller: _qtyController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: qtyInputDecoration,
                 ),
               ],
@@ -662,9 +653,7 @@ class _WerkaCustomerIssueCustomerScreenState
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: canSubmit ? _submit : null,
-                  child: Text(
-                    _submitting ? l10n.pinSaving : l10n.confirmTitle,
-                  ),
+                  child: Text(_submitting ? l10n.pinSaving : l10n.confirmTitle),
                 ),
               ),
             ],
@@ -697,10 +686,7 @@ class _QrPrefillBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.qr_code_2_rounded,
-            color: scheme.onPrimaryContainer,
-          ),
+          Icon(Icons.qr_code_2_rounded, color: scheme.onPrimaryContainer),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

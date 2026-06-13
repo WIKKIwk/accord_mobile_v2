@@ -2,11 +2,8 @@ import '../../../shared/models/app_models.dart';
 import 'admin_item_group_selected_items.dart';
 import 'package:flutter/material.dart';
 
-typedef ItemGroupItemsLoader = Future<List<SupplierItem>> Function(
-  String group,
-  int limit,
-  int offset,
-);
+typedef ItemGroupItemsLoader =
+    Future<List<SupplierItem>> Function(String group, int limit, int offset);
 
 class AdminItemGroupItemsTab extends StatefulWidget {
   const AdminItemGroupItemsTab({
@@ -177,8 +174,9 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
                 ),
               ),
               IconButton.filledTonal(
-                onPressed:
-                    selected == null || selected.isEmpty ? null : _refreshItems,
+                onPressed: selected == null || selected.isEmpty
+                    ? null
+                    : _refreshItems,
                 icon: const Icon(Icons.refresh_rounded),
               ),
             ],
@@ -264,9 +262,7 @@ class _GroupSelector extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant),
-        ),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       height: 48,
       child: ListView.separated(
@@ -301,8 +297,9 @@ class _GroupTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground =
-        selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    final foreground = selected
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -322,10 +319,11 @@ class _GroupTabButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: foreground,
-                            fontWeight:
-                                selected ? FontWeight.w800 : FontWeight.w600,
-                          ),
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -336,8 +334,9 @@ class _GroupTabButton extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: colorScheme.primary,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(8),
+                    ),
                   ),
                 ),
               ],
@@ -405,11 +404,7 @@ class _ItemsBody extends StatelessWidget {
 }
 
 class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({
-    required this.text,
-    this.actionText,
-    this.onAction,
-  });
+  const _NoticeCard({required this.text, this.actionText, this.onAction});
 
   final String text;
   final String? actionText;
@@ -422,9 +417,7 @@ class _NoticeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -436,10 +429,7 @@ class _NoticeCard extends StatelessWidget {
           ),
           if (actionText != null && onAction != null) ...[
             const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: onAction,
-              child: Text(actionText!),
-            ),
+            OutlinedButton(onPressed: onAction, child: Text(actionText!)),
           ],
         ],
       ),

@@ -1,10 +1,11 @@
-import 'package:erpnext_stock_mobile/src/core/widgets/navigation/app_navigation_bar.dart';
+import 'package:accord_mobile_v2/src/core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('primary navigation button is tappable and sized like before',
-      (tester) async {
+  testWidgets('primary navigation button is tappable and sized like before', (
+    tester,
+  ) async {
     int selectedIndex = -1;
 
     await tester.pumpWidget(
@@ -45,8 +46,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final buttonFinder =
-        find.byKey(const ValueKey('app-primary-navigation-button'));
+    final buttonFinder = find.byKey(
+      const ValueKey('app-primary-navigation-button'),
+    );
     final navBarFinder = find.byType(NavigationBar);
     expect(buttonFinder, findsOneWidget);
     expect(navBarFinder, findsOneWidget);
@@ -187,8 +189,9 @@ void main() {
     expect(tester.getSize(hostFinder).height, closeTo(84.0, 0.01));
   });
 
-  testWidgets('primary destination can be hidden without breaking taps',
-      (tester) async {
+  testWidgets('primary destination can be hidden without breaking taps', (
+    tester,
+  ) async {
     int selectedIndex = -1;
 
     await tester.pumpWidget(
@@ -232,8 +235,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('app-primary-navigation-button')),
-        findsNothing);
+    expect(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+      findsNothing,
+    );
 
     await tester.tap(find.text('Files'));
     await tester.pumpAndSettle();

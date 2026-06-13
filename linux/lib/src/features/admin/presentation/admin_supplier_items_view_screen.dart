@@ -9,10 +9,7 @@ import 'widgets/admin_dock.dart';
 import 'package:flutter/material.dart';
 
 class AdminSupplierItemsViewScreen extends StatefulWidget {
-  const AdminSupplierItemsViewScreen({
-    super.key,
-    required this.supplierRef,
-  });
+  const AdminSupplierItemsViewScreen({super.key, required this.supplierRef});
 
   final String supplierRef;
 
@@ -37,10 +34,12 @@ class _AdminSupplierItemsViewScreenState
   Future<void> _load() async {
     setState(() => loading = true);
     try {
-      final detail =
-          await MobileApi.instance.adminSupplierDetail(widget.supplierRef);
-      final assigned = await MobileApi.instance
-          .adminAssignedSupplierItems(widget.supplierRef);
+      final detail = await MobileApi.instance.adminSupplierDetail(
+        widget.supplierRef,
+      );
+      final assigned = await MobileApi.instance.adminAssignedSupplierItems(
+        widget.supplierRef,
+      );
       if (!mounted) {
         return;
       }
@@ -192,8 +191,10 @@ class ItemsTableHeader extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child:
-                Text('Mahsulot', style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              'Mahsulot',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           Expanded(
             flex: 2,

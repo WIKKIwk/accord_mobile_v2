@@ -85,9 +85,7 @@ class WerkaAiSearchService {
         case 'invalid_image':
           throw WerkaAiSearchException(l10n.imagePickFailed);
         default:
-          throw WerkaAiSearchException(
-            l10n.aiSearchFailed(error.message),
-          );
+          throw WerkaAiSearchException(l10n.aiSearchFailed(error.message));
       }
     }
   }

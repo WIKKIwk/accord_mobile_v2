@@ -218,10 +218,7 @@ class GScaleRpsBatchPrintRequest {
 }
 
 class GScaleRpsBatchResponse {
-  const GScaleRpsBatchResponse({
-    required this.ok,
-    required this.batch,
-  });
+  const GScaleRpsBatchResponse({required this.ok, required this.batch});
 
   factory GScaleRpsBatchResponse.fromJson(Map<String, dynamic> json) {
     final batch = (json['batch'] as Map?)?.cast<String, dynamic>() ?? const {};

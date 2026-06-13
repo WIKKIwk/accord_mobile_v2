@@ -12,10 +12,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationRuntime extends StatefulWidget {
-  const NotificationRuntime({
-    super.key,
-    required this.child,
-  });
+  const NotificationRuntime({super.key, required this.child});
 
   final Widget child;
 
@@ -110,8 +107,11 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
         final next = _signature(record);
         final old = previous[record.id];
         if ((old == null || old != next) &&
-            _shouldSurfaceForCurrentProfile(profile, record,
-                hadPrevious: old != null)) {
+            _shouldSurfaceForCurrentProfile(
+              profile,
+              record,
+              hadPrevious: old != null,
+            )) {
           await NotificationUnreadStore.instance.markUnread(
             profile: profile,
             ids: [record.id],

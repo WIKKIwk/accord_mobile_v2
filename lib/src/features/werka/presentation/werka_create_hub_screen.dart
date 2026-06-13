@@ -36,9 +36,9 @@ class WerkaCreateHubScreen extends StatelessWidget {
                   _CreateHubRow(
                     title: l10n.unannouncedTitle,
                     description: l10n.unannouncedDescription,
-                    onTap: () => Navigator.of(context).pushNamed(
-                      AppRoutes.werkaUnannouncedSupplier,
-                    ),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.werkaUnannouncedSupplier),
                     isFirst: true,
                   ),
                   Divider(
@@ -51,9 +51,9 @@ class WerkaCreateHubScreen extends StatelessWidget {
                   _CreateHubRow(
                     title: l10n.customerIssueTitle,
                     description: l10n.customerIssueDescription,
-                    onTap: () => Navigator.of(context).pushNamed(
-                      AppRoutes.werkaCustomerIssueCustomer,
-                    ),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.werkaCustomerIssueCustomer),
                   ),
                   Divider(
                     height: 1,
@@ -65,9 +65,9 @@ class WerkaCreateHubScreen extends StatelessWidget {
                   _CreateHubRow(
                     title: l10n.batchDispatchTitle,
                     description: l10n.batchDispatchDescription,
-                    onTap: () => Navigator.of(context).pushNamed(
-                      AppRoutes.werkaBatchDispatch,
-                    ),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.werkaBatchDispatch),
                     isLast: true,
                   ),
                 ],

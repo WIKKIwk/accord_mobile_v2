@@ -1,5 +1,5 @@
-import 'package:erpnext_stock_mobile/src/features/gscale/gscale_catalog.dart';
-import 'package:erpnext_stock_mobile/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/gscale/gscale_catalog.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -20,23 +20,20 @@ void main() {
   });
 
   test('admin supplier items map default warehouse for selected item', () {
-    final warehouses = gscaleWarehousesFromSupplierItems(
-      const [
-        SupplierItem(
-          code: 'ITEM-001',
-          name: 'Rice',
-          uom: 'kg',
-          warehouse: 'Stores - CH',
-        ),
-        SupplierItem(
-          code: 'ITEM-002',
-          name: 'Sugar',
-          uom: 'kg',
-          warehouse: 'Stores - B',
-        ),
-      ],
-      itemCode: 'ITEM-001',
-    );
+    final warehouses = gscaleWarehousesFromSupplierItems(const [
+      SupplierItem(
+        code: 'ITEM-001',
+        name: 'Rice',
+        uom: 'kg',
+        warehouse: 'Stores - CH',
+      ),
+      SupplierItem(
+        code: 'ITEM-002',
+        name: 'Sugar',
+        uom: 'kg',
+        warehouse: 'Stores - B',
+      ),
+    ], itemCode: 'ITEM-001');
 
     expect(warehouses, hasLength(1));
     expect(warehouses.single.warehouse, 'Stores - CH');

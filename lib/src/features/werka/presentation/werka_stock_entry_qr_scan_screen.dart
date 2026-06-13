@@ -165,9 +165,9 @@ class _WerkaStockEntryQrScanScreenState
         _processing = false;
         _statusText = message;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       await _startScanner();
     }
   }
@@ -179,9 +179,10 @@ class _WerkaStockEntryQrScanScreenState
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',
         'stock_entry_lookup_bad_request' => 'Barcode bo‘sh yoki noto‘g‘ri.',
-        _ => error.message.isEmpty
-            ? 'Barcode tekshirishda xatolik.'
-            : error.message,
+        _ =>
+          error.message.isEmpty
+              ? 'Barcode tekshirishda xatolik.'
+              : error.message,
       };
     }
     return 'Barcode tekshirishda xatolik.';
@@ -204,9 +205,11 @@ class _WerkaStockEntryQrScanScreenState
         return queryBarcode;
       }
 
-      final segments = uri.pathSegments.where((segment) {
-        return segment.trim().isNotEmpty;
-      }).toList(growable: false);
+      final segments = uri.pathSegments
+          .where((segment) {
+            return segment.trim().isNotEmpty;
+          })
+          .toList(growable: false);
       if (segments.isEmpty) {
         return null;
       }
@@ -243,8 +246,9 @@ class _WerkaStockEntryQrScanScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final backgroundColor =
-        _scannerSupported ? Colors.black : scheme.surfaceContainerLow;
+    final backgroundColor = _scannerSupported
+        ? Colors.black
+        : scheme.surfaceContainerLow;
     final appBarTheme = theme.appBarTheme.copyWith(
       backgroundColor: backgroundColor,
       foregroundColor: _scannerSupported ? Colors.white : scheme.onSurface,
@@ -289,9 +293,7 @@ class _WerkaStockEntryQrScanScreenState
                       placeholderBuilder: (context) {
                         return const ColoredBox(
                           color: Colors.black,
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
+                          child: Center(child: CircularProgressIndicator()),
                         );
                       },
                     ),
@@ -325,14 +327,14 @@ class _WerkaStockEntryQrScanScreenState
                               builder: (context, constraints) {
                                 final double frameWidth =
                                     (constraints.maxWidth * 0.78).clamp(
-                                  220.0,
-                                  320.0,
-                                );
+                                      220.0,
+                                      320.0,
+                                    );
                                 final double frameHeight =
                                     (constraints.maxHeight * 0.42).clamp(
-                                  220.0,
-                                  340.0,
-                                );
+                                      220.0,
+                                      340.0,
+                                    );
                                 return Center(
                                   child: Container(
                                     width: frameWidth,
@@ -345,8 +347,9 @@ class _WerkaStockEntryQrScanScreenState
                                         ),
                                         width: 2.5,
                                       ),
-                                      color:
-                                          Colors.white.withValues(alpha: 0.04),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.04,
+                                      ),
                                     ),
                                     child: Stack(
                                       children: [
@@ -396,9 +399,7 @@ class _WerkaStockEntryQrScanScreenState
 }
 
 class _TorchButton extends StatelessWidget {
-  const _TorchButton({
-    required this.controller,
-  });
+  const _TorchButton({required this.controller});
 
   final MobileScannerController controller;
 
@@ -430,9 +431,7 @@ class _TorchButton extends StatelessWidget {
                 : Colors.black.withValues(alpha: 0.42),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: Colors.white.withValues(alpha: 0.28),
-              ),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -454,10 +453,7 @@ class _TorchButton extends StatelessWidget {
 }
 
 class _ScanStatusPill extends StatelessWidget {
-  const _ScanStatusPill({
-    required this.text,
-    required this.isBusy,
-  });
+  const _ScanStatusPill({required this.text, required this.isBusy});
 
   final String text;
   final bool isBusy;
@@ -473,9 +469,7 @@ class _ScanStatusPill extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.18),
-          ),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -504,9 +498,9 @@ class _ScanStatusPill extends StatelessWidget {
                 child: Text(
                   text,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -518,10 +512,7 @@ class _ScanStatusPill extends StatelessWidget {
 }
 
 class _ScannerErrorView extends StatelessWidget {
-  const _ScannerErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ScannerErrorView({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -559,8 +550,8 @@ class _ScannerErrorView extends StatelessWidget {
                       message,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     FilledButton.tonalIcon(
@@ -582,9 +573,7 @@ class _ScannerErrorView extends StatelessWidget {
 }
 
 class _UnsupportedScannerView extends StatelessWidget {
-  const _UnsupportedScannerView({
-    required this.onBack,
-  });
+  const _UnsupportedScannerView({required this.onBack});
 
   final VoidCallback onBack;
 

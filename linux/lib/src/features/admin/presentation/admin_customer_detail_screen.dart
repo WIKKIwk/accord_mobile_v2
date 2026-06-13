@@ -116,9 +116,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
             controller: controller,
             keyboardType: TextInputType.phone,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '+998901234567',
-            ),
+            decoration: const InputDecoration(hintText: '+998901234567'),
           ),
           actions: [
             TextButton(
@@ -155,9 +153,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Telefon saqlanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => _savingPhone = false);
@@ -168,8 +166,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   Future<void> _regenerateCode() async {
     setState(() => _regeneratingCode = true);
     try {
-      final updated = await MobileApi.instance
-          .adminRegenerateCustomerCode(widget.customerRef);
+      final updated = await MobileApi.instance.adminRegenerateCustomerCode(
+        widget.customerRef,
+      );
       _changed = true;
       if (!mounted) {
         return;
@@ -180,9 +179,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Code yangilanmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Code yangilanmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => _regeneratingCode = false);
@@ -195,9 +194,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Code nusxalandi')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
   }
 
   Future<void> _removeCustomer() async {
@@ -226,9 +225,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Customer chiqarilmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Customer chiqarilmadi: $error')));
     } finally {
       if (mounted) {
         setState(() => _removing = false);
@@ -275,8 +274,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       return;
     }
     final assignedCodes = detail.assignedItems.map((item) => item.code).toSet();
-    final availableItems =
-        allItems.where((item) => !assignedCodes.contains(item.code)).toList();
+    final availableItems = allItems
+        .where((item) => !assignedCodes.contains(item.code))
+        .toList();
     if (availableItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Biriktirilmagan mahsulot topilmadi')),
@@ -319,9 +319,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       if (!mounted) {
         return false;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mahsulot uzilmadi: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Mahsulot uzilmadi: $error')));
       return false;
     } finally {
       if (mounted) {
@@ -334,7 +334,8 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final showFlutterBackButton = !useNativeBackButton(context);
-    final AdminCustomerDetail detail = _detail ??
+    final AdminCustomerDetail detail =
+        _detail ??
         AdminCustomerDetail(
           ref: widget.customerRef,
           name: _loading ? 'Yuklanmoqda...' : 'Customer',
@@ -381,10 +382,10 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 statusLabel: _loading
                     ? 'Yuklanmoqda'
                     : _loadError != null
-                        ? 'Xato'
-                        : _detail == null
-                            ? 'Bo‘sh'
-                            : 'Tayyor',
+                    ? 'Xato'
+                    : _detail == null
+                    ? 'Bo‘sh'
+                    : 'Tayyor',
                 savingPhone: _savingPhone || _loading,
                 regeneratingCode: _regeneratingCode,
                 removing: _removing,
@@ -579,9 +580,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
       color: scheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.7),
-        ),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -613,7 +612,8 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               child: FilledButton.tonal(
                 onPressed: savingPhone ? null : () => onAddPhone(detail),
                 child: Text(
-                    savingPhone ? 'Saqlanmoqda...' : 'Telefonni yangilash'),
+                  savingPhone ? 'Saqlanmoqda...' : 'Telefonni yangilash',
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -660,8 +660,10 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 18),
-            Text('Biriktirilgan mahsulotlar',
-                style: theme.textTheme.titleLarge),
+            Text(
+              'Biriktirilgan mahsulotlar',
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 10),
             Text(
               detail.assignedItems.isEmpty
@@ -679,11 +681,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                     onPressed: detail.assignedItems.isEmpty
                         ? null
                         : () => _showAssignedItemsSheet(
-                              context,
-                              detail,
-                              onRemoveItem: onRemoveItem,
-                              removingItemCode: removingItemCode,
-                            ),
+                            context,
+                            detail,
+                            onRemoveItem: onRemoveItem,
+                            removingItemCode: removingItemCode,
+                          ),
                     child: const Text('Ko‘rish'),
                   ),
                 ),
@@ -701,8 +703,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: removing ? null : onRemove,
-                child:
-                    Text(removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish'),
+                child: Text(
+                  removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+                ),
               ),
             ),
           ],
@@ -794,15 +797,16 @@ Future<void> _showAssignedItemsSheet(
                                               item.code,
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
-                                                color: scheme.onSurfaceVariant,
-                                              ),
+                                                    color:
+                                                        scheme.onSurfaceVariant,
+                                                  ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       IconButton(
-                                        onPressed: activeRemovingCode ==
-                                                item.code
+                                        onPressed:
+                                            activeRemovingCode == item.code
                                             ? null
                                             : () async {
                                                 setModalState(() {
@@ -816,12 +820,14 @@ Future<void> _showAssignedItemsSheet(
                                                 }
                                                 if (removed) {
                                                   setModalState(() {
-                                                    collapsingCodes
-                                                        .add(item.code);
+                                                    collapsingCodes.add(
+                                                      item.code,
+                                                    );
                                                   });
                                                   await Future<void>.delayed(
                                                     const Duration(
-                                                        milliseconds: 180),
+                                                      milliseconds: 180,
+                                                    ),
                                                   );
                                                   if (!context.mounted) {
                                                     return;
@@ -832,8 +838,9 @@ Future<void> _showAssignedItemsSheet(
                                                           current.code ==
                                                           item.code,
                                                     );
-                                                    collapsingCodes
-                                                        .remove(item.code);
+                                                    collapsingCodes.remove(
+                                                      item.code,
+                                                    );
                                                     activeRemovingCode = null;
                                                   });
                                                 } else {
@@ -848,8 +855,8 @@ Future<void> _showAssignedItemsSheet(
                                                 width: 18,
                                                 child:
                                                     CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : const Icon(Icons.remove_rounded),
                                       ),
@@ -871,10 +878,7 @@ Future<void> _showAssignedItemsSheet(
 }
 
 class _DetailField extends StatelessWidget {
-  const _DetailField({
-    this.value,
-    this.child,
-  });
+  const _DetailField({this.value, this.child});
 
   final String? value;
   final Widget? child;
@@ -888,7 +892,8 @@ class _DetailField extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
       ),
-      child: child ??
+      child:
+          child ??
           Text(
             (value ?? '').trim().isEmpty ? 'Kiritilmagan' : value!,
             style: Theme.of(context).textTheme.titleMedium,

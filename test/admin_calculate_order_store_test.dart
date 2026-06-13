@@ -1,52 +1,57 @@
 import 'dart:convert';
 
-import 'package:erpnext_stock_mobile/src/features/admin/state/calculate_order_store.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('loads and mutates calculate orders through the server client',
-      () async {
-    final client = _FakeCalculateOrderTemplateClient();
-    final store = CalculateOrderTemplateStore(client: client);
+  test(
+    'loads and mutates calculate orders through the server client',
+    () async {
+      final client = _FakeCalculateOrderTemplateClient();
+      final store = CalculateOrderTemplateStore(client: client);
 
-    await store.load();
-    expect(client.listCalls, 1);
-    expect(store.templates, isEmpty);
+      await store.load();
+      expect(client.listCalls, 1);
+      expect(store.templates, isEmpty);
 
-    await store
-        .upsert(_template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 530));
-    await store
-        .upsert(_template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 630));
+      await store.upsert(
+        _template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 530),
+      );
+      await store.upsert(
+        _template(code: 'Z-CPP-1', name: 'CPP 600', widthMm: 630),
+      );
 
-    expect(client.upsertCalls, 2);
-    expect(client.listCalls, 3);
-    expect(store.templates, hasLength(1));
-    expect(store.templates.single.code, 'Z-CPP-1');
-    expect(store.templates.single.name, 'CPP 600');
-    expect(store.templates.single.widthMm, 630);
+      expect(client.upsertCalls, 2);
+      expect(client.listCalls, 3);
+      expect(store.templates, hasLength(1));
+      expect(store.templates.single.code, 'Z-CPP-1');
+      expect(store.templates.single.name, 'CPP 600');
+      expect(store.templates.single.widthMm, 630);
 
-    await store
-        .upsert(_template(code: 'Z-CPP-2', name: 'CPP 600', widthMm: 700));
-    expect(store.templates, hasLength(2));
-    final first = store.templates.firstWhere(
-      (template) => template.code == 'Z-CPP-1',
-    );
-    expect(first.materialDisplay, isEmpty);
-    expect(first.imageId, 'img-1');
-    expect(first.customerRef, 'CUST-001');
-    expect(first.itemCode, 'ITEM-001');
-    expect(jsonEncode(first.toJson()), isNot(contains('"kg"')));
+      await store.upsert(
+        _template(code: 'Z-CPP-2', name: 'CPP 600', widthMm: 700),
+      );
+      expect(store.templates, hasLength(2));
+      final first = store.templates.firstWhere(
+        (template) => template.code == 'Z-CPP-1',
+      );
+      expect(first.materialDisplay, isEmpty);
+      expect(first.imageId, 'img-1');
+      expect(first.customerRef, 'CUST-001');
+      expect(first.itemCode, 'ITEM-001');
+      expect(jsonEncode(first.toJson()), isNot(contains('"kg"')));
 
-    await store.delete(first.id);
-    await store.delete(
-      store.templates.firstWhere((template) => template.code == 'Z-CPP-2').id,
-    );
+      await store.delete(first.id);
+      await store.delete(
+        store.templates.firstWhere((template) => template.code == 'Z-CPP-2').id,
+      );
 
-    expect(client.deleteCalls, 2);
-    expect(store.templates, isEmpty);
-  });
+      expect(client.deleteCalls, 2);
+      expect(store.templates, isEmpty);
+    },
+  );
 
   test('load hides duplicate calculate orders with the same code', () async {
     final client = _FakeCalculateOrderTemplateClient();

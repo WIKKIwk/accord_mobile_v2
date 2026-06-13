@@ -30,7 +30,9 @@ Future<void> main() async {
   );
   await _runStartupStep('session', AppSession.instance.load);
   await _runStartupStep(
-      'notification unread store', NotificationUnreadStore.instance.load);
+    'notification unread store',
+    NotificationUnreadStore.instance.load,
+  );
   await _runStartupStep('security', SecurityController.instance.load);
   await _runStartupStep('theme', ThemeController.instance.load);
   await _runStartupStep('locale', LocaleController.instance.load);

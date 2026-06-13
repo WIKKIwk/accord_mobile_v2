@@ -4,9 +4,9 @@ extension MobileApiRezka on MobileApi {
   Future<RezkaSourceResponse> rezkaSource({required String barcode}) async {
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/rezka/source').replace(
-          queryParameters: {'barcode': barcode.trim()},
-        ),
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/rezka/source',
+        ).replace(queryParameters: {'barcode': barcode.trim()}),
         headers: _headers(requireToken()),
       ),
     );
@@ -55,10 +55,7 @@ extension MobileApiRezka on MobileApi {
 }
 
 class RezkaSourceResponse {
-  const RezkaSourceResponse({
-    required this.ok,
-    required this.source,
-  });
+  const RezkaSourceResponse({required this.ok, required this.source});
 
   factory RezkaSourceResponse.fromJson(Map<String, dynamic> json) {
     final sourceJson =
@@ -198,9 +195,9 @@ class RezkaSplitResponse {
       sourceBarcode: _rezkaText(json['source_barcode']),
       outputs: outputsJson is List
           ? outputsJson
-              .whereType<Map<String, dynamic>>()
-              .map(RezkaOutputLabel.fromJson)
-              .toList(growable: false)
+                .whereType<Map<String, dynamic>>()
+                .map(RezkaOutputLabel.fromJson)
+                .toList(growable: false)
           : const <RezkaOutputLabel>[],
     );
   }

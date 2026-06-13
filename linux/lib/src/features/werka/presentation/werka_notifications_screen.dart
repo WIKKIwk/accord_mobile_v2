@@ -76,8 +76,9 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
     final hidden = NotificationHiddenStore.instance.hiddenIdsForProfile(
       AppSession.instance.profile,
     );
-    final visibleItems =
-        current.where((item) => !hidden.contains(item.id)).toList();
+    final visibleItems = current
+        .where((item) => !hidden.contains(item.id))
+        .toList();
     if (visibleItems.isEmpty) {
       _showTopInfoBanner(context.l10n.noNotifications);
       return;
@@ -120,8 +121,8 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
         content: Text(message),
         contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
         forceActionsBelow: false,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         actions: const [SizedBox.shrink()],
@@ -175,16 +176,14 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
     });
     if (record.recordType == 'delivery_note' ||
         record.eventType.startsWith('customer_delivery_')) {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.werkaCustomerDeliveryDetail,
-        arguments: record,
-      );
+      await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.werkaCustomerDeliveryDetail, arguments: record);
       return;
     }
-    await Navigator.of(context).pushNamed(
-      AppRoutes.notificationDetail,
-      arguments: record.id,
-    );
+    await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.notificationDetail, arguments: record.id);
   }
 
   @override
@@ -297,11 +296,12 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
         final hidden = NotificationHiddenStore.instance.hiddenIdsForProfile(
           AppSession.instance.profile,
         );
-        final items = ((store.loaded
-                ? store.items
-                : (_cachedItems ?? <DispatchRecord>[])))
-            .where((item) => !hidden.contains(item.id))
-            .toList();
+        final items =
+            ((store.loaded
+                    ? store.items
+                    : (_cachedItems ?? <DispatchRecord>[])))
+                .where((item) => !hidden.contains(item.id))
+                .toList();
         final appBarBottomLoading =
             store.loading && !store.loaded && items.isEmpty;
 
@@ -322,10 +322,7 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 ),
-                icon: Icon(
-                  Icons.clear_all_rounded,
-                  color: scheme.primary,
-                ),
+                icon: Icon(Icons.clear_all_rounded, color: scheme.primary),
               ),
             ),
           ],
@@ -339,10 +336,12 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
             child: Builder(
               builder: (context) {
                 final orderedItems = [
-                  ...items
-                      .where((item) => _highlightedUnreadIds.contains(item.id)),
                   ...items.where(
-                      (item) => !_highlightedUnreadIds.contains(item.id)),
+                    (item) => _highlightedUnreadIds.contains(item.id),
+                  ),
+                  ...items.where(
+                    (item) => !_highlightedUnreadIds.contains(item.id),
+                  ),
                 ];
                 if (store.loading && !store.loaded && items.isEmpty) {
                   return const SizedBox.expand();
@@ -354,9 +353,7 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
                     child: ListView(
                       physics: const TopRefreshScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
-                      children: [
-                        AppRetryState(onRetry: _reload),
-                      ],
+                      children: [AppRetryState(onRetry: _reload)],
                     ),
                   );
                 }
@@ -369,7 +366,9 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final emptyHeight = math.max(
-                            0.0, constraints.maxHeight - bottomPadding);
+                          0.0,
+                          constraints.maxHeight - bottomPadding,
+                        );
                         return ListView(
                           physics: const TopRefreshScrollPhysics(),
                           padding: EdgeInsets.only(bottom: bottomPadding),
@@ -379,7 +378,8 @@ class _WerkaNotificationsScreenState extends State<WerkaNotificationsScreen>
                               child: Center(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 24),
+                                    horizontal: 24,
+                                  ),
                                   child: Text(
                                     context.l10n.noNotifications,
                                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -557,10 +557,7 @@ class _WerkaNotificationSegmentTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  record.createdLabel,
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text(record.createdLabel, style: theme.textTheme.bodySmall),
               ],
             ),
           ],
@@ -587,9 +584,7 @@ String _notificationTitle(BuildContext context, DispatchRecord record) {
 }
 
 class _NotificationStatusBadge extends StatelessWidget {
-  const _NotificationStatusBadge({
-    required this.status,
-  });
+  const _NotificationStatusBadge({required this.status});
 
   final DispatchStatus status;
 

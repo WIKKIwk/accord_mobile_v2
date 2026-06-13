@@ -107,7 +107,8 @@ class WerkaRuntimeStore extends ChangeNotifier {
     }
     final result = byId.values.toList();
     result.sort(
-        (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel));
+      (a, b) => compareCreatedLabelsDesc(a.createdLabel, b.createdLabel),
+    );
     return result;
   }
 
@@ -162,9 +163,4 @@ class _WerkaMutation {
   final DateTime createdAt;
 }
 
-enum _WerkaBucket {
-  pending,
-  confirmed,
-  returned,
-  other,
-}
+enum _WerkaBucket { pending, confirmed, returned, other }

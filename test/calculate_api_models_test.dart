@@ -1,4 +1,4 @@
-import 'package:erpnext_stock_mobile/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,7 +19,7 @@ void main() {
           'base_length': 9302.33,
           'waste_length': 465.12,
           'rounded_length': 10000,
-        }
+        },
       ],
     });
 

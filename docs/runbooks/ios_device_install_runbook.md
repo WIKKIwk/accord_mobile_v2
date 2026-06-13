@@ -18,7 +18,7 @@ Important:
 
 ## Current Project Facts
 
-- iPhone bundle id: `com.example.erpnextStockMobile`
+- iPhone bundle id: `com.example.accordMobileV2`
 - development team: `CJHQMW57FJ`
 - working signing identity:
   - `Apple Development: qurbonovabdulfattox@icloud.com (337B9K86L2)`
@@ -53,7 +53,7 @@ Example working device:
 ```bash
 xcrun devicectl device uninstall app \
   --device 00008030-000E09812150802E \
-  com.example.erpnextStockMobile
+  com.example.accordMobileV2
 ```
 
 Expected success:
@@ -119,7 +119,7 @@ Expected success:
 
 ```text
 App installed:
-• bundleID: com.example.erpnextStockMobile
+• bundleID: com.example.accordMobileV2
 ```
 
 ## 6. Launch the app from tooling if needed
@@ -127,7 +127,7 @@ App installed:
 ```bash
 xcrun devicectl device process launch \
   --device 00008030-000E09812150802E \
-  com.example.erpnextStockMobile \
+  com.example.accordMobileV2 \
   --terminate-existing \
   --activate
 ```

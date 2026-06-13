@@ -1,49 +1,37 @@
-enum UserRole {
-  supplier,
-  werka,
-  customer,
-  admin,
-}
+enum UserRole { supplier, werka, customer, admin }
 
 UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
   return roleValue == 'werka'
       ? UserRole.werka
       : roleValue == 'customer'
-          ? UserRole.customer
-          : roleValue == 'admin'
-              ? UserRole.admin
-              : UserRole.supplier;
+      ? UserRole.customer
+      : roleValue == 'admin'
+      ? UserRole.admin
+      : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
   return role == UserRole.werka
       ? 'werka'
       : role == UserRole.customer
-          ? 'customer'
-          : role == UserRole.admin
-              ? 'admin'
-              : 'supplier';
+      ? 'customer'
+      : role == UserRole.admin
+      ? 'admin'
+      : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
   return role == UserRole.werka
       ? 'Werka'
       : role == UserRole.customer
-          ? 'Haridor'
-          : role == UserRole.admin
-              ? 'Admin'
-              : 'Ta\'minotchi';
+      ? 'Haridor'
+      : role == UserRole.admin
+      ? 'Admin'
+      : 'Ta\'minotchi';
 }
 
-enum DispatchStatus {
-  draft,
-  pending,
-  accepted,
-  partial,
-  rejected,
-  cancelled,
-}
+enum DispatchStatus { draft, pending, accepted, partial, rejected, cancelled }
 
 const String customerDeliveryResultEventPrefix = 'customer_delivery_result:';
 
@@ -261,11 +249,7 @@ class WerkaCustomerIssueBatchLineRequest {
   final double qty;
 
   Map<String, dynamic> toJson() {
-    return {
-      'customer_ref': customerRef,
-      'item_code': itemCode,
-      'qty': qty,
-    };
+    return {'customer_ref': customerRef, 'item_code': itemCode, 'qty': qty};
   }
 }
 
@@ -388,11 +372,7 @@ class CustomerHomeSummary {
   }
 }
 
-enum CustomerStatusKind {
-  pending,
-  confirmed,
-  rejected,
-}
+enum CustomerStatusKind { pending, confirmed, rejected }
 
 enum CustomerDeliveryResponseMode {
   acceptAll,
@@ -414,11 +394,7 @@ String customerDeliveryResponseModeApiValue(CustomerDeliveryResponseMode mode) {
   }
 }
 
-enum SupplierStatusKind {
-  pending,
-  submitted,
-  returned,
-}
+enum SupplierStatusKind { pending, submitted, returned }
 
 class SupplierStatusBreakdownEntry {
   const SupplierStatusBreakdownEntry({
@@ -481,10 +457,7 @@ class WerkaHomeSummary {
 }
 
 class WerkaHomeData {
-  const WerkaHomeData({
-    required this.summary,
-    required this.pendingItems,
-  });
+  const WerkaHomeData({required this.summary, required this.pendingItems});
 
   final WerkaHomeSummary summary;
   final List<DispatchRecord> pendingItems;
@@ -502,30 +475,14 @@ class WerkaHomeData {
   }
 }
 
-enum WerkaStatusKind {
-  pending,
-  confirmed,
-  returned,
-}
+enum WerkaStatusKind { pending, confirmed, returned }
 
-enum WerkaArchiveKind {
-  received,
-  sent,
-  returned,
-}
+enum WerkaArchiveKind { received, sent, returned }
 
-enum WerkaArchivePeriod {
-  daily,
-  monthly,
-  yearly,
-  custom,
-}
+enum WerkaArchivePeriod { daily, monthly, yearly, custom }
 
 class ArchiveTotalByUOM {
-  const ArchiveTotalByUOM({
-    required this.uom,
-    required this.qty,
-  });
+  const ArchiveTotalByUOM({required this.uom, required this.qty});
 
   final String uom;
   final double qty;
@@ -564,8 +521,9 @@ class WerkaArchiveSummary {
     return WerkaArchiveSummary(
       recordCount: (json['record_count'] as num?)?.toInt() ?? 0,
       totalsByUOM: totals
-          .map((item) =>
-              ArchiveTotalByUOM.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => ArchiveTotalByUOM.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -769,10 +727,7 @@ class NotificationComment {
 }
 
 class NotificationDetail {
-  const NotificationDetail({
-    required this.record,
-    required this.comments,
-  });
+  const NotificationDetail({required this.record, required this.comments});
 
   final DispatchRecord record;
   final List<NotificationComment> comments;
@@ -783,8 +738,10 @@ class NotificationDetail {
         json['record'] as Map<String, dynamic>? ?? <String, dynamic>{},
       ),
       comments: (json['comments'] as List<dynamic>? ?? [])
-          .map((item) =>
-              NotificationComment.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                NotificationComment.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -1407,11 +1364,7 @@ class AdminCustomerDetail {
   }
 }
 
-enum AdminUserKind {
-  supplier,
-  werka,
-  customer,
-}
+enum AdminUserKind { supplier, werka, customer }
 
 class AdminUserListEntry {
   const AdminUserListEntry({
@@ -1438,8 +1391,8 @@ class AdminUserListEntry {
     return kind == AdminUserKind.werka
         ? 'Werka'
         : kind == AdminUserKind.customer
-            ? 'Customer'
-            : 'Supplier';
+        ? 'Customer'
+        : 'Supplier';
   }
 }
 

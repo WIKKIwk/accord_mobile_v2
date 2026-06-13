@@ -7,23 +7,17 @@ extension MobileApiWerka on MobileApi {
     required List<int> bytes,
     required String filename,
   }) async {
-    final streamed = await _sendMultipartAuthorized(
-      () {
-        final request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$baseUrl/v1/mobile/werka/ai-search-suggestion'),
-        );
-        request.headers.addAll(_headers(requireToken()));
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'image',
-            bytes,
-            filename: filename,
-          ),
-        );
-        return request.send();
-      },
-    );
+    final streamed = await _sendMultipartAuthorized(() {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/v1/mobile/werka/ai-search-suggestion'),
+      );
+      request.headers.addAll(_headers(requireToken()));
+      request.files.add(
+        http.MultipartFile.fromBytes('image', bytes, filename: filename),
+      );
+      return request.send();
+    });
     final response = await http.Response.fromStream(streamed);
     Map<String, dynamic>? payload;
     if (response.body.trim().isNotEmpty) {
@@ -36,8 +30,8 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: (payload?['code'] as String? ?? 'werka_ai_search_failed').trim(),
-        message:
-            (payload?['error'] as String? ?? 'Werka AI search failed').trim(),
+        message: (payload?['error'] as String? ?? 'Werka AI search failed')
+            .trim(),
         statusCode: response.statusCode,
       );
     }
@@ -128,9 +122,8 @@ extension MobileApiWerka on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-          (item) => SupplierDirectoryEntry.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              SupplierDirectoryEntry.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -141,7 +134,10 @@ extension MobileApiWerka on MobileApi {
     int offset = 0,
   }) async {
     return _fetchWerkaCustomers(
-        query: query.trim(), limit: limit, offset: offset);
+      query: query.trim(),
+      limit: limit,
+      offset: offset,
+    );
   }
 
   Future<List<CustomerDirectoryEntry>> werkaCustomersForItem({
@@ -191,11 +187,11 @@ extension MobileApiWerka on MobileApi {
     final filtered = query.trim().isEmpty
         ? candidates
         : candidates
-            .where(
-              (customer) =>
-                  _matchesCustomer(customer, query.trim().toLowerCase()),
-            )
-            .toList();
+              .where(
+                (customer) =>
+                    _matchesCustomer(customer, query.trim().toLowerCase()),
+              )
+              .toList();
 
     filtered.sort(
       (left, right) => compareCustomerNamesForDefault(left.name, right.name),
@@ -204,8 +200,9 @@ extension MobileApiWerka on MobileApi {
     if (offset >= filtered.length) {
       return const <CustomerDirectoryEntry>[];
     }
-    final end =
-        (offset + limit) > filtered.length ? filtered.length : offset + limit;
+    final end = (offset + limit) > filtered.length
+        ? filtered.length
+        : offset + limit;
     return filtered.sublist(offset, end);
   }
 
@@ -232,9 +229,8 @@ extension MobileApiWerka on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-          (item) => CustomerDirectoryEntry.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              CustomerDirectoryEntry.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -492,9 +488,9 @@ extension MobileApiWerka on MobileApi {
   ) async {
     final http.Response response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/werka/status-breakdown').replace(
-          queryParameters: {'kind': kind.name},
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/werka/status-breakdown',
+        ).replace(queryParameters: {'kind': kind.name}),
         headers: _headers(requireToken()),
       ),
     );
@@ -504,9 +500,8 @@ extension MobileApiWerka on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-          (item) => WerkaStatusBreakdownEntry.fromJson(
-            item as Map<String, dynamic>,
-          ),
+          (item) =>
+              WerkaStatusBreakdownEntry.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -518,10 +513,7 @@ extension MobileApiWerka on MobileApi {
     final http.Response response = await _sendAuthorized(
       () => http.get(
         Uri.parse('$baseUrl/v1/mobile/werka/status-details').replace(
-          queryParameters: {
-            'kind': kind.name,
-            'supplier_ref': supplierRef,
-          },
+          queryParameters: {'kind': kind.name, 'supplier_ref': supplierRef},
         ),
         headers: _headers(requireToken()),
       ),
@@ -583,9 +575,9 @@ extension MobileApiWerka on MobileApi {
     }
     final http.Response response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/werka/archive').replace(
-          queryParameters: queryParameters,
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/werka/archive',
+        ).replace(queryParameters: queryParameters),
         headers: _headers(requireToken()),
       ),
     );
@@ -613,9 +605,9 @@ extension MobileApiWerka on MobileApi {
     }
     final response = await _sendAuthorized(
       () => http.get(
-        Uri.parse('$baseUrl/v1/mobile/werka/archive/pdf').replace(
-          queryParameters: queryParameters,
-        ),
+        Uri.parse(
+          '$baseUrl/v1/mobile/werka/archive/pdf',
+        ).replace(queryParameters: queryParameters),
         headers: _headers(requireToken()),
       ),
     );
@@ -623,8 +615,9 @@ extension MobileApiWerka on MobileApi {
       throw Exception('Werka archive pdf failed');
     }
     final disposition = response.headers['content-disposition'] ?? '';
-    final filenameMatch =
-        RegExp(r'filename=\"?([^\";]+)\"?').firstMatch(disposition);
+    final filenameMatch = RegExp(
+      r'filename=\"?([^\";]+)\"?',
+    ).firstMatch(disposition);
     final filename = (filenameMatch?.group(1) ?? 'werka-archive.pdf').trim();
     return DownloadedFile(
       filename: filename,
@@ -676,7 +669,8 @@ extension MobileApiWerka on MobileApi {
     final normalizedQuery = query.toLowerCase();
     final optionLists = await Future.wait(
       customers.map((customer) async {
-        final customerMatches = normalizedQuery.isNotEmpty &&
+        final customerMatches =
+            normalizedQuery.isNotEmpty &&
             _matchesCustomer(customer, normalizedQuery);
         final items = await werkaCustomerItems(
           customerRef: customer.ref,
@@ -747,8 +741,8 @@ extension MobileApiWerka on MobileApi {
 
   int _compareSupplierItems(SupplierItem left, SupplierItem right) {
     final nameCompare = left.name.toLowerCase().compareTo(
-          right.name.toLowerCase(),
-        );
+      right.name.toLowerCase(),
+    );
     if (nameCompare != 0) {
       return nameCompare;
     }
@@ -759,8 +753,9 @@ extension MobileApiWerka on MobileApi {
     CustomerItemOption left,
     CustomerItemOption right,
   ) {
-    final itemCompare =
-        left.itemName.toLowerCase().compareTo(right.itemName.toLowerCase());
+    final itemCompare = left.itemName.toLowerCase().compareTo(
+      right.itemName.toLowerCase(),
+    );
     if (itemCompare != 0) {
       return itemCompare;
     }
