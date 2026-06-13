@@ -1896,8 +1896,8 @@ void main() {
         ),
         findsOneWidget,
       );
-      final assignedToEightMaps = await MobileApi.instance
-          .adminProductionMaps();
+      final assignedToEightMaps =
+          await MobileApi.instance.adminProductionMaps();
       expect(
         _alternativeAssignedTitles(assignedToEightMaps, 'zakaz-skip-7-8'),
         ['8 ta rangli pechat', '8 ta rangli pechat'],

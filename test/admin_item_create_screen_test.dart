@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/admin_item_group_tree_entry.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_create_screen.dart';
@@ -12,9 +13,49 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+Future<void> _pumpAdminItemCreateScreen(
+  WidgetTester tester, {
+  bool waitForItems = false,
+}) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  final deadline = waitForItems ? 30 : 10;
+  for (var i = 0; i < deadline; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (waitForItems && find.text('Item 001').evaluate().isNotEmpty) {
+      return;
+    }
+  }
+}
+
+Future<void> _openCreateItemTab(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(Tab, 'Item yaratish'));
+  await tester.pump();
+  for (var i = 0; i < 30; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.text('All Item Groups').evaluate().isNotEmpty) {
+      return;
+    }
+  }
+}
+
+Finder _createTabTextFieldAt(int index) {
+  return find.byKey(
+    index == 0
+        ? const ValueKey('admin-item-create-code')
+        : const ValueKey('admin-item-create-name'),
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await TestModeController.instance.setEnabled(false);
+  });
 
   setUp(() {
     AdminItemsListTab.clearMemoryCache();
@@ -56,11 +97,21 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'test');
-      await tester.enterText(find.byType(TextField).at(1), 'test');
-      await tester.tap(find.widgetWithText(FilledButton, 'Item yaratish'));
-      await tester.pumpAndSettle();
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.enterText(_createTabTextFieldAt(0), 'test');
+      await tester.enterText(_createTabTextFieldAt(1), 'test');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      await tester
+          .tap(find.byKey(const ValueKey('admin-item-create-submit')).first);
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('Item allaqachon yaratilgan').evaluate().isNotEmpty) {
+          break;
+        }
+      }
 
       expect(
         seenRequests,
@@ -102,9 +153,16 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All Item Groups').first);
-      await tester.pumpAndSettle();
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-group-picker')).first,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-item-create-group-picker')).first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Item group tanlang'), findsOneWidget);
       expect(find.text('Item group qidiring'), findsOneWidget);
@@ -145,13 +203,11 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
 
-      expect(find.text('Item yaratish'), findsNWidgets(2));
+      expect(find.widgetWithText(Tab, 'Item yaratish'), findsOneWidget);
       expect(find.text('Itemlar'), findsOneWidget);
-
-      await tester.tap(find.byType(Tab).last);
-      await tester.pumpAndSettle();
+      expect(find.text('Mahsulot qidirish'), findsOneWidget);
 
       expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=80'));
       expect(find.text('Item 001'), findsOneWidget);
@@ -164,7 +220,8 @@ void main() {
         matching: find.byType(Scrollable),
       );
       await tester.drag(itemListScroll.last, const Offset(0, -6000));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(
         seenRequests,
@@ -228,9 +285,7 @@ void main() {
           home: const AdminItemCreateScreen(),
         ),
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Itemlar'));
-      await tester.pumpAndSettle();
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
     }
 
     await HttpOverrides.runZoned(() async {
@@ -266,7 +321,6 @@ void main() {
       await tester.fling(itemListScroll.last, const Offset(0, 360), 1200);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      await tester.pumpAndSettle();
 
       expect(
         seenRequests
@@ -305,11 +359,32 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All Item Groups').first);
-      await tester.pumpAndSettle();
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-group-picker')).first,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-item-create-group-picker')).first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.scrollUntilVisible(
+        find.text('Homashyo'),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
 
-      final allTop = tester.getTopLeft(find.text('All Item Groups').last).dy;
+      final allTop = tester
+          .getTopLeft(
+            find
+                .descendant(
+                  of: find.byType(Scrollable).last,
+                  matching: find.text('All Item Groups'),
+                )
+                .first,
+          )
+          .dy;
       final homashyoTop = tester.getTopLeft(find.text('Homashyo')).dy;
 
       expect(allTop, lessThan(homashyoTop));
@@ -396,51 +471,51 @@ class _AdminItemCreateHttpClient implements HttpClient {
     final Object body = switch (key) {
       'GET /v1/mobile/admin/settings' => {'default_uom': 'Kg'},
       'GET /v1/mobile/admin/item-groups' => const [
-        'All Item Groups',
-        'Group A',
-        'Group B',
-      ],
+          'All Item Groups',
+          'Group A',
+          'Group B',
+        ],
       'GET /v1/mobile/admin/item-groups/tree' => const [
-        {
-          'name': 'Metal',
-          'item_group_name': 'Metal',
-          'parent_item_group': 'Homashyo',
-          'is_group': false,
-        },
-        {
-          'name': 'Group B',
-          'item_group_name': 'Group B',
-          'parent_item_group': 'All Item Groups',
-          'is_group': false,
-        },
-        {
-          'name': 'All Item Groups',
-          'item_group_name': 'All Item Groups',
-          'parent_item_group': '',
-          'is_group': true,
-        },
-        {
-          'name': 'Homashyo',
-          'item_group_name': 'Homashyo',
-          'parent_item_group': 'All Item Groups',
-          'is_group': true,
-        },
-        {
-          'name': 'Plastic',
-          'item_group_name': 'Plastic',
-          'parent_item_group': 'Homashyo',
-          'is_group': false,
-        },
-      ],
+          {
+            'name': 'Metal',
+            'item_group_name': 'Metal',
+            'parent_item_group': 'Homashyo',
+            'is_group': false,
+          },
+          {
+            'name': 'Group B',
+            'item_group_name': 'Group B',
+            'parent_item_group': 'All Item Groups',
+            'is_group': false,
+          },
+          {
+            'name': 'All Item Groups',
+            'item_group_name': 'All Item Groups',
+            'parent_item_group': '',
+            'is_group': true,
+          },
+          {
+            'name': 'Homashyo',
+            'item_group_name': 'Homashyo',
+            'parent_item_group': 'All Item Groups',
+            'is_group': true,
+          },
+          {
+            'name': 'Plastic',
+            'item_group_name': 'Plastic',
+            'parent_item_group': 'Homashyo',
+            'is_group': false,
+          },
+        ],
       'GET /v1/mobile/admin/items?q=test&limit=5' => const [
-        {
-          'code': 'test',
-          'name': 'test',
-          'uom': 'Kg',
-          'warehouse': 'Stores - A',
-          'item_group': 'All Item Groups',
-        },
-      ],
+          {
+            'code': 'test',
+            'name': 'test',
+            'uom': 'Kg',
+            'warehouse': 'Stores - A',
+            'item_group': 'All Item Groups',
+          },
+        ],
       'POST /v1/mobile/admin/items' => {'error': 'admin item create failed'},
       _ => throw StateError('Unhandled request: $key'),
     };
@@ -559,9 +634,9 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 class _FakeHttpClientResponse extends StreamView<List<int>>
     implements HttpClientResponse {
   _FakeHttpClientResponse({required String body, required this.statusCode})
-    : _bytes = utf8.encode(body),
-      _headers = _FakeHttpHeaders(),
-      super(Stream<List<int>>.value(utf8.encode(body))) {
+      : _bytes = utf8.encode(body),
+        _headers = _FakeHttpHeaders(),
+        super(Stream<List<int>>.value(utf8.encode(body))) {
     _headers.set('content-type', 'application/json; charset=utf-8');
     _headers.contentLength = _bytes.length;
   }

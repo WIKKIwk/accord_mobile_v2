@@ -25,11 +25,16 @@ class AdminItemCreateScreen extends StatefulWidget {
 class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     with SingleTickerProviderStateMixin {
   static const int _tabCount = 3;
+  static const int _itemsTabIndex = 0;
 
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
   final TextEditingController itemGroup = TextEditingController();
   final TextEditingController uom = TextEditingController(text: 'Kg');
+  final TextEditingController _itemsSearchController = TextEditingController();
+  final FocusNode _itemsSearchFocusNode = FocusNode();
+  final GlobalKey<_AdminItemsListTabState> _itemsListTabKey =
+      GlobalKey<_AdminItemsListTabState>();
   late final Future<List<String>> itemGroupsFuture;
   late final TabController _tabController;
   bool saving = false;
@@ -43,18 +48,34 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       vsync: this,
       initialIndex: initialIndex,
     );
+    _itemsSearchFocusNode.addListener(_handleItemsSearchFocus);
     itemGroupsFuture = _loadItemGroups();
     _hydrateDefaultUom();
   }
 
   @override
   void dispose() {
+    _itemsSearchFocusNode.removeListener(_handleItemsSearchFocus);
+    _itemsSearchFocusNode.dispose();
+    _itemsSearchController.dispose();
     _tabController.dispose();
     code.dispose();
     name.dispose();
     itemGroup.dispose();
     uom.dispose();
     super.dispose();
+  }
+
+  void _handleItemsSearchFocus() {
+    if (_itemsSearchFocusNode.hasFocus) {
+      _activateItemsTab();
+    }
+  }
+
+  void _activateItemsTab() {
+    if (_tabController.index != _itemsTabIndex) {
+      _tabController.animateTo(_itemsTabIndex);
+    }
   }
 
   Future<void> _hydrateDefaultUom() async {
@@ -144,11 +165,9 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     final normalizedCode = itemCode.toLowerCase();
     final normalizedName = itemName.toLowerCase();
     return items.any((item) {
-      final codeMatches =
-          normalizedCode.isNotEmpty &&
+      final codeMatches = normalizedCode.isNotEmpty &&
           item.code.trim().toLowerCase() == normalizedCode;
-      final nameMatches =
-          normalizedName.isNotEmpty &&
+      final nameMatches = normalizedName.isNotEmpty &&
           item.name.trim().toLowerCase() == normalizedName;
       return codeMatches || nameMatches;
     });
@@ -173,11 +192,9 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
             final normalizedQuery = query.trim().toLowerCase();
             final filtered = normalizedQuery.isEmpty
                 ? groups
-                : groups
-                      .where((group) {
-                        return group.toLowerCase().contains(normalizedQuery);
-                      })
-                      .toList(growable: false);
+                : groups.where((group) {
+                    return group.toLowerCase().contains(normalizedQuery);
+                  }).toList(growable: false);
             return filtered.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (group) => group,
@@ -197,10 +214,21 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Item qo‘shish',
+      title: '',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      titleWidget: _AdminItemProductSearchField(
+        controller: _itemsSearchController,
+        focusNode: _itemsSearchFocusNode,
+        onActivate: _activateItemsTab,
+        onChanged: (value) =>
+            _itemsListTabKey.currentState?.notifySearchChanged(value),
+        onClear: () {
+          _itemsSearchController.clear();
+          _itemsListTabKey.currentState?.notifySearchChanged('');
+        },
+      ),
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
       child: Column(
@@ -208,8 +236,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
           TabBar(
             controller: _tabController,
             tabs: const [
-              Tab(text: 'Item yaratish'),
               Tab(text: 'Itemlar'),
+              Tab(text: 'Item yaratish'),
               Tab(text: "Group ko'chirish"),
             ],
           ),
@@ -217,6 +245,21 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
+                AdminItemsListTab(
+                  key: _itemsListTabKey,
+                  searchController: _itemsSearchController,
+                  embeddedSearchInAppBar: true,
+                  loadItemsPage: ({
+                    required query,
+                    required limit,
+                    required offset,
+                  }) =>
+                      MobileApi.instance.adminItemsPage(
+                    query: query,
+                    limit: limit,
+                    offset: offset,
+                  ),
+                ),
                 _CreateItemTab(
                   code: code,
                   name: name,
@@ -227,15 +270,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                   onSyncItemGroup: _syncItemGroupSelection,
                   onOpenItemGroupPicker: _openItemGroupPicker,
                   onSave: saving ? null : _save,
-                ),
-                AdminItemsListTab(
-                  loadItemsPage:
-                      ({required query, required limit, required offset}) =>
-                          MobileApi.instance.adminItemsPage(
-                            query: query,
-                            limit: limit,
-                            offset: offset,
-                          ),
                 ),
                 const AdminItemGroupBulkMoveTab(embedded: true),
               ],
@@ -276,11 +310,13 @@ class _CreateItemTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       children: [
         TextField(
+          key: const ValueKey('admin-item-create-code'),
           controller: code,
           decoration: const InputDecoration(labelText: 'Item code'),
         ),
         const SizedBox(height: 12),
         TextField(
+          key: const ValueKey('admin-item-create-name'),
           controller: name,
           decoration: const InputDecoration(labelText: 'Item name'),
         ),
@@ -293,23 +329,22 @@ class _CreateItemTab extends StatelessWidget {
                 !snapshot.hasError) {
               onSyncItemGroup(groups);
             }
-            final selectedGroup = itemGroup.text.trim().isEmpty
-                ? null
-                : itemGroup.text.trim();
+            final selectedGroup =
+                itemGroup.text.trim().isEmpty ? null : itemGroup.text.trim();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Item group',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 const SizedBox(height: 6),
                 _TapBox(
-                  onTap:
-                      snapshot.connectionState == ConnectionState.done &&
+                  key: const ValueKey('admin-item-create-group-picker'),
+                  onTap: snapshot.connectionState == ConnectionState.done &&
                           !snapshot.hasError &&
                           !saving
                       ? () => onOpenItemGroupPicker(groups)
@@ -335,7 +370,9 @@ class _CreateItemTab extends StatelessWidget {
                             selectedGroup ?? 'Group tanlang',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
                                 ?.copyWith(
                                   color: selectedGroup == null
                                       ? Theme.of(
@@ -368,6 +405,7 @@ class _CreateItemTab extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
+            key: const ValueKey('admin-item-create-submit'),
             onPressed: onSave,
             child: Text(saving ? 'Yaratilmoqda...' : 'Item yaratish'),
           ),
@@ -377,17 +415,23 @@ class _CreateItemTab extends StatelessWidget {
   }
 }
 
-typedef AdminItemsPageLoader =
-    Future<List<SupplierItem>> Function({
-      required String query,
-      required int limit,
-      required int offset,
-    });
+typedef AdminItemsPageLoader = Future<List<SupplierItem>> Function({
+  required String query,
+  required int limit,
+  required int offset,
+});
 
 class AdminItemsListTab extends StatefulWidget {
-  const AdminItemsListTab({super.key, required this.loadItemsPage});
+  const AdminItemsListTab({
+    super.key,
+    required this.loadItemsPage,
+    this.searchController,
+    this.embeddedSearchInAppBar = false,
+  });
 
   final AdminItemsPageLoader loadItemsPage;
+  final TextEditingController? searchController;
+  final bool embeddedSearchInAppBar;
 
   static void clearMemoryCache() {
     _AdminItemsListTabState._memoryCache = null;
@@ -404,7 +448,8 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
   static _AdminItemsMemoryCache? _memoryCache;
 
   final ScrollController _scrollController = ScrollController();
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
+  late final bool _ownsSearchController;
   Timer? _debounce;
   String _query = '';
   List<SupplierItem> _items = const <SupplierItem>[];
@@ -419,6 +464,8 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
   @override
   void initState() {
     super.initState();
+    _ownsSearchController = widget.searchController == null;
+    _searchController = widget.searchController ?? TextEditingController();
     _scrollController.addListener(_handleScroll);
     if (!_restoreMemoryCache()) {
       _loadFirstPage(forceRefresh: true);
@@ -430,8 +477,14 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     _debounce?.cancel();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
-    _searchController.dispose();
+    if (_ownsSearchController) {
+      _searchController.dispose();
+    }
     super.dispose();
+  }
+
+  void notifySearchChanged(String value) {
+    _handleSearchChanged(value);
   }
 
   void _handleSearchChanged(String value) {
@@ -543,22 +596,24 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
         padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          SearchBar(
-            controller: _searchController,
-            hintText: 'Mahsulot qidirish',
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-              EdgeInsets.symmetric(horizontal: 18),
+          if (!widget.embeddedSearchInAppBar) ...[
+            SearchBar(
+              controller: _searchController,
+              hintText: 'Mahsulot qidirish',
+              constraints: const BoxConstraints(minHeight: 58),
+              padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                EdgeInsets.symmetric(horizontal: 18),
+              ),
+              leading: Icon(
+                Icons.search_rounded,
+                size: 26,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              elevation: const WidgetStatePropertyAll<double>(0),
+              onChanged: _handleSearchChanged,
             ),
-            leading: Icon(
-              Icons.search_rounded,
-              size: 26,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            elevation: const WidgetStatePropertyAll<double>(0),
-            onChanged: _handleSearchChanged,
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           _AdminItemsListBody(
             items: _items,
             initialLoading: _initialLoading,
@@ -737,9 +792,9 @@ class _AdminItemRow extends StatelessWidget {
         context,
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: scheme.onSurfaceVariant,
-        height: 1.05,
-      ),
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
     );
   }
 }
@@ -784,11 +839,10 @@ List<String> orderAdminItemGroupsByParent(
 
   for (var index = 0; index < entries.length; index++) {
     final entry = entries[index];
-    final name =
-        (entry.itemGroupName.trim().isNotEmpty
-                ? entry.itemGroupName
-                : entry.name)
-            .trim();
+    final name = (entry.itemGroupName.trim().isNotEmpty
+            ? entry.itemGroupName
+            : entry.name)
+        .trim();
     if (name.isEmpty || !names.add(name)) {
       continue;
     }
@@ -823,15 +877,15 @@ List<String> orderAdminItemGroupsByParent(
     enqueue('All Item Groups');
   }
 
-  final roots =
-      names.where((name) {
-        final parent = parentByName[name] ?? '';
-        return parent.isEmpty || parent == name || !names.contains(parent);
-      }).toList()..sort((left, right) {
-        return (indexByName[left] ?? 1 << 20).compareTo(
-          indexByName[right] ?? 1 << 20,
-        );
-      });
+  final roots = names.where((name) {
+    final parent = parentByName[name] ?? '';
+    return parent.isEmpty || parent == name || !names.contains(parent);
+  }).toList()
+    ..sort((left, right) {
+      return (indexByName[left] ?? 1 << 20).compareTo(
+        indexByName[right] ?? 1 << 20,
+      );
+    });
 
   for (final root in roots) {
     enqueue(root);
@@ -854,8 +908,85 @@ List<String> orderAdminItemGroupsByParent(
   return ordered;
 }
 
+class _AdminItemProductSearchField extends StatelessWidget {
+  const _AdminItemProductSearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.onActivate,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onActivate;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final field = ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onTap: onActivate,
+          onChanged: onChanged,
+          textInputAction: TextInputAction.search,
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Mahsulot qidirish',
+            isDense: true,
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: hasText
+                ? IconButton(
+                    tooltip: 'Tozalash',
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                  )
+                : null,
+            filled: true,
+            fillColor: scheme.surfaceContainerHighest,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        );
+      },
+    );
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: SizedBox(
+        height: AppTheme.appBarHeight,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            height: 46,
+            width: double.infinity,
+            child: field,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TapBox extends StatelessWidget {
   const _TapBox({
+    super.key,
     required this.child,
     required this.onTap,
     required this.borderRadius,
