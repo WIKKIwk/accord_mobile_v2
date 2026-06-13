@@ -583,7 +583,7 @@ class _AdminUserSearchField extends StatelessWidget {
                   )
                 : const Icon(Icons.search_rounded),
             prefixIconConstraints: inAppBar
-                ? const BoxConstraints(minWidth: 48, minHeight: 48)
+                ? const BoxConstraints(minWidth: 50, minHeight: 50)
                 : null,
             suffixIcon: hasText
                 ? IconButton(
@@ -620,7 +620,7 @@ class _AdminUserSearchField extends StatelessWidget {
           height: AppTheme.appBarHeight,
           child: Align(
             alignment: Alignment.center,
-            child: SizedBox(height: 46, width: double.infinity, child: field),
+            child: SizedBox(height: 50, width: double.infinity, child: field),
           ),
         ),
       );
