@@ -968,41 +968,49 @@ class _AdminItemProductSearchField extends StatelessWidget {
               Expanded(
                 child: SizedBox(
                   height: 58,
-                  child: Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [
-                      TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        onTap: onActivate,
-                        onChanged: onChanged,
-                        textInputAction: TextInputAction.search,
-                        textAlignVertical: TextAlignVertical.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        decoration: const InputDecoration(
-                          isDense: false,
-                          constraints: BoxConstraints.tightFor(height: 58),
-                          filled: false,
-                          contentPadding: EdgeInsets.zero,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                        ),
-                      ),
-                      if (!hasText)
-                        IgnorePointer(
-                          child: Text(
-                            'Mahsulot qidirish',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w400,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (_) => onActivate(),
+                    child: Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            height: 20,
+                            child: EditableText(
+                              controller: controller,
+                              focusNode: focusNode,
+                              onChanged: onChanged,
+                              textInputAction: TextInputAction.search,
+                              maxLines: 1,
+                              cursorColor: scheme.primary,
+                              backgroundCursorColor:
+                                  scheme.surfaceContainerHighest,
+                              style: theme.textTheme.bodyMedium!.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                                height: 1.2,
+                              ),
                             ),
                           ),
                         ),
-                    ],
+                        if (!hasText)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IgnorePointer(
+                              child: Text(
+                                'Mahsulot qidirish',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
