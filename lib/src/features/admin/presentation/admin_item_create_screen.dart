@@ -979,7 +979,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
       child: SizedBox(
         height: AppTheme.appBarHeight,
         child: Align(
-          alignment: Alignment.topCenter,
+          alignment: Alignment.center,
           child: SizedBox(
             height: 46,
             width: double.infinity,
