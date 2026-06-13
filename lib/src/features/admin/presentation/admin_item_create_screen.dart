@@ -971,7 +971,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w400,
             ),
-            constraints: const BoxConstraints(minHeight: 58),
+            constraints: const BoxConstraints(minHeight: 62),
             isDense: true,
             suffixIcon: hasText
                 ? IconButton(
@@ -1022,7 +1022,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: SizedBox(
-                  height: 58,
+                  height: 62,
                   child: field,
                 ),
               ),
