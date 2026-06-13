@@ -107,7 +107,7 @@ The main app reads its backend base URL from:
 
 If no value is passed, the app defaults to:
 
-- `https://core.wspace.sbs`
+- `https://mini-rs-erp-test.wspace.sbs`
 
 GScale mode reads its default server URL from:
 

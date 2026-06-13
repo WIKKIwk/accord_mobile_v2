@@ -1,6 +1,6 @@
 HOST_OS := $(shell uname -s)
-API_URL ?= https://core.wspace.sbs
-LOCAL_API_URL ?= http://127.0.0.1:8081
+API_URL ?= https://mini-rs-erp-test.wspace.sbs
+LOCAL_API_URL ?= http://127.0.0.1:18081
 ifeq ($(HOST_OS),Darwin)
 JDK_HOME ?= /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 else

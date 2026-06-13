@@ -6,5 +6,5 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
 flutter pub get
-API_URL="${MOBILE_API_BASE_URL:-https://core.wspace.sbs}"
+API_URL="${MOBILE_API_BASE_URL:-https://mini-rs-erp-test.wspace.sbs}"
 flutter run -d linux --dart-define=MOBILE_API_BASE_URL="$API_URL"

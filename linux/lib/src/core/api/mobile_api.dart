@@ -60,7 +60,7 @@ class MobileApi {
 
   static const String baseUrl = String.fromEnvironment(
     'MOBILE_API_BASE_URL',
-    defaultValue: 'https://core.wspace.sbs',
+    defaultValue: 'https://mini-rs-erp-test.wspace.sbs',
   );
 
   Map<String, String> _headers(String token) {
