@@ -955,65 +955,64 @@ class _AdminItemProductSearchField extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final hasText = controller.text.trim().isNotEmpty;
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onTap: onActivate,
-          onChanged: onChanged,
-          textInputAction: TextInputAction.search,
-          textAlignVertical: TextAlignVertical.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-            fontWeight: FontWeight.w400,
+        return Container(
+          height: 58,
+          decoration: BoxDecoration(
+            color: searchFill,
+            borderRadius: BorderRadius.circular(999),
           ),
-          decoration: InputDecoration(
-            hintText: 'Mahsulot qidirish',
-            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+          alignment: Alignment.center,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            onTap: onActivate,
+            onChanged: onChanged,
+            textInputAction: TextInputAction.search,
+            textAlignVertical: TextAlignVertical.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w400,
             ),
-            isDense: false,
-            constraints: const BoxConstraints.tightFor(height: 58),
-            suffixIcon: hasText
-                ? IconButton(
-                    tooltip: 'Tozalash',
-                    onPressed: onClear,
-                    icon: const Icon(Icons.close_rounded),
-                  )
-                : null,
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 48,
-              minHeight: 58,
-            ),
-            filled: true,
-            fillColor: searchFill,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 18),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(999),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(999),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(999),
-              borderSide: BorderSide.none,
+            decoration: InputDecoration(
+              hintText: 'Mahsulot qidirish',
+              hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+              ),
+              isDense: false,
+              constraints: const BoxConstraints.tightFor(height: 58),
+              suffixIcon: hasText
+                  ? IconButton(
+                      tooltip: 'Tozalash',
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  : null,
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 48,
+                minHeight: 58,
+              ),
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
             ),
           ),
         );
       },
     );
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
+    return Transform.translate(
+      offset: const Offset(-8, 0),
       child: SizedBox(
+        width: MediaQuery.sizeOf(context).width - 20,
         height: AppTheme.appBarHeight,
         child: Align(
           alignment: Alignment.center,
           child: Row(
             children: [
               SizedBox.square(
-                dimension: 40,
+                dimension: 38,
                 child: IconButton(
                   tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                   style: IconButton.styleFrom(padding: EdgeInsets.zero),
@@ -1024,13 +1023,13 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: SizedBox(height: 58, child: field),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               SizedBox.square(
-                dimension: 40,
+                dimension: 38,
                 child: IconButton.filledTonal(
                   tooltip: 'Profil',
                   style: IconButton.styleFrom(padding: EdgeInsets.zero),
