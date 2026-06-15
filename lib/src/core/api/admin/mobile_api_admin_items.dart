@@ -110,7 +110,7 @@ extension MobileApiAdminItems on MobileApi {
     }
     const pageSize = 200;
     final items = <SupplierItem>[];
-    for (var offset = 0; ; offset += pageSize) {
+    for (var offset = 0;; offset += pageSize) {
       final page = await adminItemsPage(
         query: query,
         group: group,
@@ -227,6 +227,7 @@ extension MobileApiAdminItems on MobileApi {
     required String name,
     required String uom,
     required String itemGroup,
+    String customerRef = '',
   }) async {
     final response = await _sendAuthorized(
       () => http.post(
@@ -238,6 +239,7 @@ extension MobileApiAdminItems on MobileApi {
           'name': name,
           'uom': uom,
           'item_group': itemGroup,
+          if (customerRef.trim().isNotEmpty) 'customer_ref': customerRef.trim(),
         }),
       ),
     );

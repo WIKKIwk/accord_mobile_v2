@@ -38,6 +38,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       GlobalKey<_AdminItemsListTabState>();
   late final Future<List<String>> itemGroupsFuture;
   late final TabController _tabController;
+  CustomerDirectoryEntry? selectedCustomer;
   bool saving = false;
 
   @override
@@ -118,6 +119,11 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   }
 
   Future<void> _save() async {
+    final group = itemGroup.text.trim();
+    if (_isFinishedGoodsGroup(group) && selectedCustomer == null) {
+      showAdminTopNotice(context, 'Tayyor mahsulot uchun customer tanlang');
+      return;
+    }
     setState(() => saving = true);
     try {
       if (await _itemAlreadyExists()) {
@@ -130,13 +136,17 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         code: code.text.trim(),
         name: name.text.trim(),
         uom: uom.text.trim(),
-        itemGroup: itemGroup.text.trim(),
+        itemGroup: group,
+        customerRef: _isFinishedGoodsGroup(group)
+            ? selectedCustomer?.ref.trim() ?? ''
+            : '',
       );
       if (!mounted) {
         return;
       }
       code.clear();
       name.clear();
+      selectedCustomer = null;
       if (!mounted) {
         return;
       }
@@ -209,7 +219,45 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
     setState(() {
       itemGroup.text = picked;
+      if (!_isFinishedGoodsGroup(picked)) {
+        selectedCustomer = null;
+      }
     });
+  }
+
+  Future<void> _openCustomerPicker() async {
+    final picked = await showModalBottomSheet<CustomerDirectoryEntry>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<CustomerDirectoryEntry>(
+          title: 'Customer tanlang',
+          hintText: 'Customer qidiring',
+          pageSize: 50,
+          cacheKey: 'admin:item-create-customers',
+          loadPage: (query, offset, limit) {
+            return MobileApi.instance.adminCustomers(
+              query: query,
+              limit: limit,
+              offset: offset,
+            );
+          },
+          itemTitle: (customer) => customer.name,
+          itemSubtitle: (customer) => '${customer.ref} • ${customer.phone}',
+          onSelected: (customer) => Navigator.of(context).pop(customer),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => selectedCustomer = picked);
   }
 
   @override
@@ -280,10 +328,14 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                   name: name,
                   itemGroup: itemGroup,
                   uom: uom,
+                  selectedCustomer: selectedCustomer,
                   itemGroupsFuture: itemGroupsFuture,
                   saving: saving,
                   onSyncItemGroup: _syncItemGroupSelection,
                   onOpenItemGroupPicker: _openItemGroupPicker,
+                  onOpenCustomerPicker: _openCustomerPicker,
+                  onClearCustomer: () =>
+                      setState(() => selectedCustomer = null),
                   onSave: saving ? null : _save,
                 ),
                 const AdminItemGroupBulkMoveTab(embedded: true),
@@ -302,10 +354,13 @@ class _CreateItemTab extends StatelessWidget {
     required this.name,
     required this.itemGroup,
     required this.uom,
+    required this.selectedCustomer,
     required this.itemGroupsFuture,
     required this.saving,
     required this.onSyncItemGroup,
     required this.onOpenItemGroupPicker,
+    required this.onOpenCustomerPicker,
+    required this.onClearCustomer,
     required this.onSave,
   });
 
@@ -313,10 +368,13 @@ class _CreateItemTab extends StatelessWidget {
   final TextEditingController name;
   final TextEditingController itemGroup;
   final TextEditingController uom;
+  final CustomerDirectoryEntry? selectedCustomer;
   final Future<List<String>> itemGroupsFuture;
   final bool saving;
   final ValueChanged<List<String>> onSyncItemGroup;
   final ValueChanged<List<String>> onOpenItemGroupPicker;
+  final VoidCallback onOpenCustomerPicker;
+  final VoidCallback onClearCustomer;
   final VoidCallback? onSave;
 
   @override
@@ -346,6 +404,7 @@ class _CreateItemTab extends StatelessWidget {
             }
             final selectedGroup =
                 itemGroup.text.trim().isEmpty ? null : itemGroup.text.trim();
+            final requiresCustomer = _isFinishedGoodsGroup(selectedGroup ?? '');
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -408,6 +467,78 @@ class _CreateItemTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (requiresCustomer) ...[
+                  Text(
+                    'Customer',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  _TapBox(
+                    key: const ValueKey('admin-item-create-customer-picker'),
+                    onTap: saving ? null : onOpenCustomerPicker,
+                    borderRadius: 14,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedCustomer == null
+                                  ? 'Customer tanlang'
+                                  : selectedCustomer!.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(
+                                    color: selectedCustomer == null
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          if (selectedCustomer != null) ...[
+                            const SizedBox(width: 10),
+                            IconButton(
+                              tooltip: 'Tozalash',
+                              onPressed: saving ? null : onClearCustomer,
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ] else ...[
+                            const SizedBox(width: 10),
+                            Icon(
+                              Icons.expand_more_rounded,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ],
             );
           },
@@ -428,6 +559,10 @@ class _CreateItemTab extends StatelessWidget {
       ],
     );
   }
+}
+
+bool _isFinishedGoodsGroup(String group) {
+  return group.trim().toLowerCase() == 'tayyor mahsulot';
 }
 
 typedef AdminItemsPageLoader = Future<List<SupplierItem>> Function({
