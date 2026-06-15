@@ -11,6 +11,7 @@ final Map<String, Map<String, List<String>>> _testModeDailyApparatusSequences =
     {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final List<AdminWorker> _testModeWorkers = [];
+final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 
@@ -1088,6 +1089,117 @@ extension MobileApiAdmin on MobileApi {
     }
     return AdminWorker.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminWorkerGroup>> adminWorkerGroups({
+    String apparatus = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final key = apparatus.trim().toLowerCase();
+      return _testModeWorkerGroups
+          .where(
+            (group) =>
+                key.isEmpty || group.apparatus.trim().toLowerCase() == key,
+          )
+          .map(_hydrateTestModeWorkerGroup)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/worker-groups').replace(
+          queryParameters: {
+            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker groups failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => AdminWorkerGroup.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<AdminWorkerGroup> adminSaveWorkerGroup(AdminWorkerGroup group) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalized = _normalizeTestModeWorkerGroup(group);
+      final key = normalized.apparatus.trim().toLowerCase();
+      final code = normalized.groupCode.trim().toUpperCase();
+      final oppositeCode = code == 'A' ? 'B' : 'A';
+      final oppositeShift = normalized.shift == 'day' ? 'night' : 'day';
+      final existingOpposite = _testModeWorkerGroups
+          .where(
+            (item) =>
+                item.apparatus.trim().toLowerCase() == key &&
+                item.groupCode.trim().toUpperCase() == oppositeCode,
+          )
+          .cast<AdminWorkerGroup?>()
+          .firstWhere((item) => item != null, orElse: () => null);
+      final movedIds = normalized.workerIds.toSet();
+      _testModeWorkerGroups.removeWhere(
+        (item) => item.apparatus.trim().toLowerCase() == key,
+      );
+      _testModeWorkerGroups.add(normalized);
+      _testModeWorkerGroups.add(
+        (existingOpposite ??
+                AdminWorkerGroup(
+                  apparatus: normalized.apparatus,
+                  groupCode: oppositeCode,
+                  shift: oppositeShift,
+                ))
+            .copyWith(
+          apparatus: normalized.apparatus,
+          groupCode: oppositeCode,
+          shift: oppositeShift,
+          workerIds: [
+            for (final id in existingOpposite?.workerIds ?? const <String>[])
+              if (!movedIds.contains(id)) id,
+          ],
+        ),
+      );
+      return _hydrateTestModeWorkerGroup(normalized);
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/worker-groups'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(group.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker group save failed');
+    }
+    return AdminWorkerGroup.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  AdminWorkerGroup _normalizeTestModeWorkerGroup(AdminWorkerGroup group) {
+    final workerIds = group.workerIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    return AdminWorkerGroup(
+      apparatus: group.apparatus.trim(),
+      groupCode: group.groupCode.trim().toUpperCase(),
+      shift: group.shift.trim().toLowerCase() == 'night' ? 'night' : 'day',
+      workerIds: workerIds,
+    );
+  }
+
+  AdminWorkerGroup _hydrateTestModeWorkerGroup(AdminWorkerGroup group) {
+    return group.copyWith(
+      workers: [
+        for (final id in group.workerIds)
+          for (final worker in _testModeWorkers)
+            if (worker.id == id) worker,
+      ],
     );
   }
 

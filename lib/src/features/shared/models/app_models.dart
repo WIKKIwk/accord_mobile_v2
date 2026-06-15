@@ -1301,6 +1301,63 @@ class AdminWorker {
   }
 }
 
+class AdminWorkerGroup {
+  const AdminWorkerGroup({
+    required this.apparatus,
+    required this.groupCode,
+    required this.shift,
+    this.workerIds = const [],
+    this.workers = const [],
+  });
+
+  final String apparatus;
+  final String groupCode;
+  final String shift;
+  final List<String> workerIds;
+  final List<AdminWorker> workers;
+
+  factory AdminWorkerGroup.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerGroup(
+      apparatus: json['apparatus'] as String? ?? '',
+      groupCode: json['group_code'] as String? ?? '',
+      shift: json['shift'] as String? ?? '',
+      workerIds: [
+        for (final item in (json['worker_ids'] as List<dynamic>? ?? const []))
+          if (item is String) item,
+      ],
+      workers: [
+        for (final item in (json['workers'] as List<dynamic>? ?? const []))
+          if (item is Map<String, dynamic>) AdminWorker.fromJson(item),
+      ],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'apparatus': apparatus,
+      'group_code': groupCode,
+      'shift': shift,
+      'worker_ids': workerIds,
+    };
+  }
+
+  AdminWorkerGroup copyWith({
+    String? apparatus,
+    String? groupCode,
+    String? shift,
+    List<String>? workerIds,
+    List<AdminWorker>? workers,
+  }) {
+    return AdminWorkerGroup(
+      apparatus: apparatus ?? this.apparatus,
+      groupCode: groupCode ?? this.groupCode,
+      shift: shift ?? this.shift,
+      workerIds: workerIds ?? this.workerIds,
+      workers: workers ?? this.workers,
+    );
+  }
+}
+
 class AdminSupplierSummary {
   const AdminSupplierSummary({
     required this.totalSuppliers,
