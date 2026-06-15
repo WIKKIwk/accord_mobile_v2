@@ -4,6 +4,8 @@ import '../../native_back_button_bridge.dart';
 import '../../native_dock_bridge.dart';
 import '../display/shared_header_title.dart';
 import 'app_loading_indicator.dart';
+import '../navigation/dock_gesture_overlay.dart';
+import '../navigation/dock_system_bottom_inset.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,8 @@ const double _drawerOpenDragDistance = 48;
 const double _drawerOpenDragVelocity = 450;
 const double _contentHorizontalInset = 6;
 const double _contentTopCornerRadius = 18;
+const double _contentBottomCornerRadius = 18;
+const double _contentBottomDockHeight = 60;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
 Widget _appShellStyleLinearProgress(ThemeData theme, {double? value}) {
@@ -392,11 +396,10 @@ class _AppShellState extends State<AppShell>
   }
 
   Widget _shellRoot(Widget child) {
+    final theme = Theme.of(context);
     final decorated = DecoratedBox(
       decoration: BoxDecoration(
-        color: widget.backgroundColor ??
-            Theme.of(context).appBarTheme.backgroundColor ??
-            Theme.of(context).colorScheme.surfaceContainer,
+        color: _shellChromeColor(theme),
       ),
       child: child,
     );
@@ -416,7 +419,7 @@ class _AppShellState extends State<AppShell>
     bool useNativeTitle, {
     required bool showHeader,
   }) {
-    final content = Column(
+    final contentColumn = Column(
       children: [
         if (showHeader)
           Padding(
@@ -464,66 +467,73 @@ class _AppShellState extends State<AppShell>
             padding: const EdgeInsets.symmetric(
               horizontal: _contentHorizontalInset,
             ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(_contentTopCornerRadius),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: ColoredBox(
-                color: widget.backgroundColor ?? AppTheme.shellStart(context),
-                child: Container(
-                  width: double.infinity,
-                  padding: widget.contentPadding,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      widget.child,
-                      if (widget.bottom != null &&
-                          widget.bottomDockFadeStrength != null)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: IgnorePointer(
-                            child: AnimatedBuilder(
-                              animation: widget.bottomDockFadeStrength!,
-                              builder: (context, _) {
-                                final fade = widget
-                                    .bottomDockFadeStrength!.value
-                                    .clamp(0.0, 1.0);
-                                if (fade <= 0.002) {
-                                  return const SizedBox.shrink();
-                                }
-                                final Color chrome =
-                                    theme.navigationBarTheme.backgroundColor ??
-                                        theme.colorScheme.surface;
-                                // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
-                                final peakAlpha = 0.26 * fade;
-                                return SizedBox(
-                                  height: 72 +
-                                      MediaQuery.viewPaddingOf(context).bottom,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        stops: const [0.0, 0.5, 1.0],
-                                        colors: [
-                                          Colors.transparent,
-                                          chrome.withValues(
-                                            alpha: peakAlpha * 0.35,
-                                          ),
-                                          chrome.withValues(alpha: peakAlpha),
-                                        ],
+            child: Padding(
+              padding: EdgeInsets.only(bottom: _contentBottomInset(context)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(_contentTopCornerRadius),
+                  bottom: widget.bottom == null
+                      ? Radius.zero
+                      : const Radius.circular(_contentBottomCornerRadius),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ColoredBox(
+                  color: widget.backgroundColor ?? AppTheme.shellStart(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: widget.contentPadding,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        widget.child,
+                        if (widget.bottom != null &&
+                            widget.bottomDockFadeStrength != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: IgnorePointer(
+                              child: AnimatedBuilder(
+                                animation: widget.bottomDockFadeStrength!,
+                                builder: (context, _) {
+                                  final fade = widget
+                                      .bottomDockFadeStrength!.value
+                                      .clamp(0.0, 1.0);
+                                  if (fade <= 0.002) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final Color chrome = theme
+                                          .navigationBarTheme.backgroundColor ??
+                                      theme.colorScheme.surface;
+                                  // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
+                                  final peakAlpha = 0.26 * fade;
+                                  return SizedBox(
+                                    height: 72 +
+                                        MediaQuery.viewPaddingOf(context)
+                                            .bottom,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          stops: const [0.0, 0.5, 1.0],
+                                          colors: [
+                                            Colors.transparent,
+                                            chrome.withValues(
+                                              alpha: peakAlpha * 0.35,
+                                            ),
+                                            chrome.withValues(alpha: peakAlpha),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -532,6 +542,7 @@ class _AppShellState extends State<AppShell>
         ),
       ],
     );
+    final content = contentColumn;
 
     if (!widget.animateOnEnter) {
       return content;
@@ -546,6 +557,25 @@ class _AppShellState extends State<AppShell>
       },
       child: content,
     );
+  }
+
+  Color _shellChromeColor(ThemeData theme) {
+    return widget.backgroundColor ??
+        theme.appBarTheme.backgroundColor ??
+        theme.colorScheme.surfaceContainer;
+  }
+
+  double _contentBottomInset(BuildContext context) {
+    if (widget.bottom == null) {
+      return 0;
+    }
+    final viewMetrics = MediaQueryData.fromView(View.of(context));
+    return _contentBottomDockHeight +
+        dockLayoutBottomInset(
+          viewMetrics,
+          thinGestureBottom:
+              DockGestureOverlayScope.thinGestureBottomOf(context),
+        );
   }
 }
 
