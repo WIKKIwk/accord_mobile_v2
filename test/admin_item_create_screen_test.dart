@@ -209,7 +209,7 @@ void main() {
       expect(find.text('Itemlar'), findsOneWidget);
       expect(find.text('Mahsulot qidirish'), findsOneWidget);
       expect(tester.widget<EditableText>(find.byType(EditableText)).textAlign,
-          TextAlign.center);
+          TextAlign.start);
 
       expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=80'));
       expect(find.text('Item 001'), findsOneWidget);

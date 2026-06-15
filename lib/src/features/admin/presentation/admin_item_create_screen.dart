@@ -1087,9 +1087,10 @@ class _AdminItemProductSearchField extends StatelessWidget {
       scheme.surfaceContainerHighest,
     );
     final field = ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, focusNode]),
       builder: (context, _) {
         final hasText = controller.text.trim().isNotEmpty;
+        final showHint = !hasText && !focusNode.hasFocus;
         return Container(
           height: 58,
           decoration: BoxDecoration(
@@ -1117,7 +1118,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
                               controller: controller,
                               focusNode: focusNode,
                               onChanged: onChanged,
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.start,
                               textInputAction: TextInputAction.search,
                               maxLines: 1,
                               cursorColor: scheme.primary,
@@ -1134,14 +1135,19 @@ class _AdminItemProductSearchField extends StatelessWidget {
                         if (!hasText)
                           Align(
                             alignment: Alignment.center,
-                            child: IgnorePointer(
-                              child: Text(
-                                'Mahsulot qidirish',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.2,
+                            child: AnimatedOpacity(
+                              opacity: showHint ? 1 : 0,
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOut,
+                              child: IgnorePointer(
+                                child: Text(
+                                  'Mahsulot qidirish',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.2,
+                                  ),
                                 ),
                               ),
                             ),
