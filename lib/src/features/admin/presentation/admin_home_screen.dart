@@ -186,7 +186,7 @@ class _AdminActionList extends StatelessWidget {
   Widget build(BuildContext context) {
     final actions = _adminHomeActions(context);
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       children: [
         for (var i = 0; i < actions.length; i++)
           _AdminActionCard(
@@ -357,7 +357,7 @@ class _AdminSummaryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       children: [
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.top,
@@ -405,7 +405,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
