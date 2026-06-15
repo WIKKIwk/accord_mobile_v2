@@ -2228,7 +2228,8 @@ class _DailyWorkModulePageState extends State<_DailyWorkModulePage> {
                     Expanded(
                       child: _DailyDropZone(
                         sourceKey: widget.selectedDateKey,
-                        targetKey: widget.selectedDateKey,
+                        dropTargetKey: widget.selectedDateKey,
+                        actionTargetKey: _dailyUnassignedSourceKey,
                         emptyMessage:
                             '${widget.selectedDateLabel} uchun zakaz yo‘q',
                         orders: widget.topOrders,
@@ -2255,7 +2256,8 @@ class _DailyWorkModulePageState extends State<_DailyWorkModulePage> {
                 flex: bottomFlex,
                 child: _DailyDropZone(
                   sourceKey: widget.sourceKey,
-                  targetKey: widget.selectedDateKey,
+                  dropTargetKey: widget.sourceKey,
+                  actionTargetKey: widget.selectedDateKey,
                   emptyMessage: widget.sourceKey == widget.selectedDateKey
                       ? 'Bu kun yuqorida tanlangan'
                       : '${widget.sourceLabel} bo‘sh',
@@ -2276,7 +2278,8 @@ class _DailyWorkModulePageState extends State<_DailyWorkModulePage> {
 class _DailyDropZone extends StatelessWidget {
   const _DailyDropZone({
     required this.sourceKey,
-    required this.targetKey,
+    required this.dropTargetKey,
+    required this.actionTargetKey,
     required this.emptyMessage,
     required this.orders,
     required this.readOnly,
@@ -2285,7 +2288,8 @@ class _DailyDropZone extends StatelessWidget {
   });
 
   final String sourceKey;
-  final String targetKey;
+  final String dropTargetKey;
+  final String actionTargetKey;
   final String emptyMessage;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
@@ -2297,7 +2301,7 @@ class _DailyDropZone extends StatelessWidget {
   }) onMove;
 
   bool get _canMoveFromThisZone =>
-      !readOnly && !saveInFlight && sourceKey != targetKey;
+      !readOnly && !saveInFlight && sourceKey != actionTargetKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2305,13 +2309,13 @@ class _DailyDropZone extends StatelessWidget {
       onWillAcceptWithDetails: (details) =>
           !readOnly &&
           !saveInFlight &&
-          details.data.fromKey != targetKey &&
-          targetKey.isNotEmpty,
+          details.data.fromKey != dropTargetKey &&
+          dropTargetKey.isNotEmpty,
       onAcceptWithDetails: (details) {
         onMove(
           orders: details.data.orders,
           fromKey: details.data.fromKey,
-          toKey: targetKey,
+          toKey: dropTargetKey,
         );
       },
       builder: (context, candidate, rejected) {
@@ -2339,7 +2343,7 @@ class _DailyDropZone extends StatelessWidget {
                 slot: slot,
                 fromKey: sourceKey,
                 toKey: _canMoveFromThisZone
-                    ? targetKey
+                    ? actionTargetKey
                     : _dailyUnassignedSourceKey,
                 canMove: !readOnly && !saveInFlight,
                 moveUp: _canMoveFromThisZone,
