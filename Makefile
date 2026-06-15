@@ -12,8 +12,11 @@ MOCK_DIR ?= /tmp/accord_mobile_mock
 RUST_BACKEND_ROOT ?= ../accord_mobile_server_rs
 
 ifeq ($(HOST_OS),Darwin)
-RUN_DEVICE ?= chrome
+RUN_DEVICE ?= web-server
 RUN_DART_DEFINES ?= --dart-define=APP_FORCE_DEVICE_PREVIEW=true
+RUN_WEB_HOST ?= 127.0.0.1
+RUN_WEB_PORT ?= 61896
+RUN_BROWSER_APP ?= ChatGPT Atlas
 else
 RUN_DEVICE ?= linux
 RUN_DART_DEFINES ?=
@@ -23,6 +26,8 @@ CHROME_PROFILE_DIR := $(shell mktemp -d /tmp/accord-mobile-chrome.XXXXXX)
 CHROME_WEB_BROWSER_FLAGS := --web-browser-flag=--disable-web-security --web-browser-flag=--disable-site-isolation-trials --web-browser-flag=--user-data-dir=$(CHROME_PROFILE_DIR)
 ifeq ($(RUN_DEVICE),chrome)
 RUN_BROWSER_FLAGS := $(CHROME_WEB_BROWSER_FLAGS)
+else ifeq ($(RUN_DEVICE),web-server)
+RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST) --web-port=$(RUN_WEB_PORT)
 else
 RUN_BROWSER_FLAGS :=
 endif
@@ -156,6 +161,11 @@ remote-stop:
 	@./tools/runtime/stop_remote_core.sh
 
 run: $(RUN_PREREQ) deps
+ifeq ($(RUN_DEVICE),web-server)
+ifeq ($(HOST_OS),Darwin)
+	@(sleep 4; open -a "$(RUN_BROWSER_APP)" "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)") >/dev/null 2>&1 &
+endif
+endif
 	@flutter run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
 
 oneni:
