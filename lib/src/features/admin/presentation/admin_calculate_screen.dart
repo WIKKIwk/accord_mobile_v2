@@ -104,18 +104,18 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   List<TextEditingController> get _calculationInputControllers => [
-    _product,
-    _kg,
-    _widthMm,
-    _wastePercent,
-    _rollCount,
-    _firstMaterial,
-    _firstMicron,
-    _secondMaterial,
-    _secondMicron,
-    _thirdMaterial,
-    _thirdMicron,
-  ];
+        _product,
+        _kg,
+        _widthMm,
+        _wastePercent,
+        _rollCount,
+        _firstMaterial,
+        _firstMicron,
+        _secondMaterial,
+        _secondMicron,
+        _thirdMaterial,
+        _thirdMicron,
+      ];
 
   void _handleCalculationInputChanged() {
     if (_applyingTemplate || !mounted) {
@@ -150,9 +150,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _kg.clear();
       _widthMm.text = _fmtInput(template.widthMm);
       _wastePercent.text = _fmtInput(template.wastePercent);
-      _rollCount.text = template.rollCount == null
-          ? ''
-          : _fmtInput(template.rollCount!);
+      _rollCount.text =
+          template.rollCount == null ? '' : _fmtInput(template.rollCount!);
       _firstMaterial.text = template.firstLayerMaterial;
       _firstMicron.text = template.firstLayerMicron;
       _secondMaterial.text = template.secondLayerMaterial;
@@ -245,6 +244,32 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _applyTemplate(saved);
       _editingAllFields = false;
     });
+  }
+
+  Future<void> _viewProductionMap() async {
+    final sourceMapId = _sourceMapId.trim();
+    if (sourceMapId.isEmpty) {
+      showAdminTopNotice(context, 'Bu tezkor zakazga map ulanmagan');
+      return;
+    }
+    try {
+      final source = await MobileApi.instance.adminProductionMap(sourceMapId);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).pushNamed(
+        AppRoutes.adminProductionMapTest,
+        arguments: ProductionMapTestArgs(
+          orderContext: _buildProductionMapOrderContext(),
+          savedMap: source.map.withoutAlternativeAssignments(),
+          readOnly: true,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
+      }
+    }
   }
 
   ProductionMapOrderContext _buildProductionMapOrderContext() {
@@ -436,9 +461,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     setState(() {
       _productCustomerGeneration++;
       _customerRef = picked.ref;
-      _customer.text = picked.name.trim().isEmpty
-          ? picked.ref
-          : picked.name.trim();
+      _customer.text =
+          picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
       _itemCode = '';
       _product.clear();
     });
@@ -459,9 +483,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           pageSize: 80,
-          supportingText: _customer.text.trim().isEmpty
-              ? null
-              : _customer.text.trim(),
+          supportingText:
+              _customer.text.trim().isEmpty ? null : _customer.text.trim(),
           cacheKey: _customerRef.trim().isEmpty
               ? 'calculate:items'
               : 'calculate:customer-items:${_customerRef.trim()}',
@@ -502,9 +525,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     setState(() {
       _productCustomerGeneration = generation;
       _itemCode = picked.code;
-      _product.text = picked.name.trim().isEmpty
-          ? picked.code
-          : picked.name.trim();
+      _product.text =
+          picked.name.trim().isEmpty ? picked.code : picked.name.trim();
     });
     if (shouldAutoSelectCustomer) {
       unawaited(_autoSelectCustomerForProduct(picked, generation));
@@ -535,9 +557,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       }
       setState(() {
         _customerRef = customer.ref;
-        _customer.text = customer.name.trim().isEmpty
-            ? customer.ref
-            : customer.name.trim();
+        _customer.text =
+            customer.name.trim().isEmpty ? customer.ref : customer.name.trim();
       });
     } catch (_) {
       return;
@@ -834,6 +855,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           response: freshResult,
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _parseRequiredDouble(_widthMm.text),
+          onViewMap: _sourceMapId.trim().isEmpty ? null : _viewProductionMap,
         ),
         if (_sourceMapId.trim().isNotEmpty) ...[
           const SizedBox(height: 18),
@@ -850,15 +872,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 18),
-        OutlinedButton.icon(
-          onPressed: _openProductionMap,
-          icon: const Icon(Icons.account_tree_outlined),
-          label: const Text('Production mapga ulash'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
+        if (_editingAllFields) ...[
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: _openProductionMap,
+            icon: const Icon(Icons.account_tree_outlined),
+            label: const Text('Production mapga ulash'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
           ),
-        ),
+        ],
       ],
     ];
   }
@@ -885,9 +909,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children = _editingAllFields
-        ? _fullEditChildren()
-        : _compactTemplateChildren();
+    final children =
+        _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
     final resolvedName = _resolvedOrderName().trim();
     final pageTitle = resolvedName.isEmpty || resolvedName == 'Zakaz'
         ? 'Zakaz yaratish'
@@ -1056,9 +1079,8 @@ class _SavedTemplateSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final imageTitle = imageName.trim().isEmpty
-        ? 'Rasm biriktirilgan'
-        : imageName.trim();
+    final imageTitle =
+        imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
@@ -1341,11 +1363,13 @@ class _ResultPanel extends StatelessWidget {
     required this.response,
     required this.rollCount,
     required this.widthMm,
+    this.onViewMap,
   });
 
   final CalculateResponse response;
   final double? rollCount;
   final double widthMm;
+  final VoidCallback? onViewMap;
 
   @override
   Widget build(BuildContext context) {
@@ -1361,11 +1385,27 @@ class _ResultPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Natija',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Natija',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (onViewMap != null)
+                TextButton.icon(
+                  onPressed: onViewMap,
+                  icon: const Icon(Icons.account_tree_outlined, size: 18),
+                  label: const Text('Map ko‘rish'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           _ResultMultilineRow(
@@ -1507,9 +1547,9 @@ class _ErrorPanel extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: scheme.onErrorContainer,
-          fontWeight: FontWeight.w700,
-        ),
+              color: scheme.onErrorContainer,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -1593,9 +1633,8 @@ class _PickerInput extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: empty
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
+                        color:
+                            empty ? scheme.onSurfaceVariant : scheme.onSurface,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1692,8 +1731,8 @@ class _ImageUploadInput extends StatelessWidget {
                     Text(
                       hasImage
                           ? (imageName.trim().isEmpty
-                                ? 'Rasm tanlangan'
-                                : imageName.trim())
+                              ? 'Rasm tanlangan'
+                              : imageName.trim())
                           : 'Rasm tanlash',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1852,9 +1891,8 @@ class _TextInput extends StatelessWidget {
         controller: controller,
         minLines: minLines,
         maxLines: maxLines,
-        textInputAction: maxLines == 1
-            ? TextInputAction.next
-            : TextInputAction.newline,
+        textInputAction:
+            maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
         decoration: InputDecoration(labelText: label),
         validator: required ? _requiredText : null,
       ),
@@ -1892,8 +1930,8 @@ class _NumberInput extends StatelessWidget {
         validator: required
             ? (allowZero ? _requiredNonNegativeNumber : _requiredPositiveNumber)
             : (allowZero
-                  ? _optionalNonNegativeNumber
-                  : _optionalPositiveNumber),
+                ? _optionalNonNegativeNumber
+                : _optionalPositiveNumber),
       ),
     );
   }

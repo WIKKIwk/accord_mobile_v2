@@ -228,6 +228,84 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('production map read only hides editing controls', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          readOnly: true,
+          savedMap: ProductionMapDefinition(
+            id: 'zakaz-read-only',
+            title: 'Read only order',
+            productCode: 'ITEM-RO',
+            orderNumber: '8888',
+            nodes: [
+              ProductionMapNode(
+                id: 'start',
+                kind: 'start',
+                title: 'Start',
+                x: 420,
+                y: 32,
+              ),
+              ProductionMapNode(
+                id: 'apparatus',
+                kind: 'apparatus',
+                title: 'Pechat',
+                x: 420,
+                y: 164,
+              ),
+              ProductionMapNode(
+                id: 'end',
+                kind: 'end',
+                title: 'Read only product',
+                itemCode: 'ITEM-RO',
+                x: 420,
+                y: 296,
+              ),
+            ],
+            edges: [
+              ProductionMapEdge(from: 'start', to: 'apparatus'),
+              ProductionMapEdge(from: 'apparatus', to: 'end'),
+            ],
+          ),
+          orderContext: ProductionMapOrderContext(
+            orderName: 'Read only order',
+            productName: 'Read only product',
+            itemCode: 'ITEM-RO',
+            rollCount: 7,
+            widthMm: 650,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('production-map-save')), findsNothing);
+    expect(find.bySemanticsLabel('Element qo‘shish'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('production-map-node-connect-start')),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.close_rounded), findsNothing);
+
+    await tester.tap(find.text('Pechat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saqlash'), findsNothing);
+  });
+
   testWidgets('production map canvas pinches over node cards', (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);

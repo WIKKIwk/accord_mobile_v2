@@ -289,8 +289,8 @@ class AppRouter {
       case AppRoutes.werkaCustomerIssueCustomer:
         final WerkaCustomerIssuePrefillArgs? args =
             settings.arguments is WerkaCustomerIssuePrefillArgs
-            ? settings.arguments as WerkaCustomerIssuePrefillArgs
-            : null;
+                ? settings.arguments as WerkaCustomerIssuePrefillArgs
+                : null;
         return _buildRoute(
           settings,
           WerkaCustomerIssueCustomerScreen(prefill: args),
@@ -298,8 +298,8 @@ class AppRouter {
       case AppRoutes.werkaUnannouncedSupplier:
         final WerkaUnannouncedPrefillArgs? args =
             settings.arguments is WerkaUnannouncedPrefillArgs
-            ? settings.arguments as WerkaUnannouncedPrefillArgs
-            : null;
+                ? settings.arguments as WerkaUnannouncedPrefillArgs
+                : null;
         return _buildRoute(
           settings,
           WerkaUnannouncedSupplierScreen(prefill: args),
@@ -355,11 +355,11 @@ class AppRouter {
       case AppRoutes.werkaArchiveList:
         final WerkaArchiveListArgs args =
             settings.arguments is WerkaArchiveListArgs
-            ? settings.arguments as WerkaArchiveListArgs
-            : const WerkaArchiveListArgs(
-                kind: WerkaArchiveKind.sent,
-                period: WerkaArchivePeriod.daily,
-              );
+                ? settings.arguments as WerkaArchiveListArgs
+                : const WerkaArchiveListArgs(
+                    kind: WerkaArchiveKind.sent,
+                    period: WerkaArchivePeriod.daily,
+                  );
         return _buildRoute(settings, WerkaArchiveListScreen(args: args));
       case AppRoutes.werkaStatusBreakdown:
         final WerkaStatusKind kind = settings.arguments as WerkaStatusKind;
@@ -413,8 +413,8 @@ class AppRouter {
       case AppRoutes.adminCalculate:
         final CalculateOrderTemplate? template =
             settings.arguments is CalculateOrderTemplate
-            ? settings.arguments as CalculateOrderTemplate
-            : null;
+                ? settings.arguments as CalculateOrderTemplate
+                : null;
         return _buildRoute(settings, AdminCalculateScreen(template: template));
       case AppRoutes.adminCalculateOrders:
         return _buildRoute(settings, const AdminCalculateOrdersScreen());
@@ -427,22 +427,22 @@ class AppRouter {
       case AppRoutes.adminProductionMapTest:
         final ProductionMapTestArgs? args =
             settings.arguments is ProductionMapTestArgs
-            ? settings.arguments as ProductionMapTestArgs
-            : null;
-        final ProductionMapOrderContext? orderContext =
-            args?.orderContext ??
+                ? settings.arguments as ProductionMapTestArgs
+                : null;
+        final ProductionMapOrderContext? orderContext = args?.orderContext ??
             (settings.arguments is ProductionMapOrderContext
                 ? settings.arguments as ProductionMapOrderContext
                 : null);
         final ProductionMapSaved? savedMap =
             settings.arguments is ProductionMapSaved
-            ? settings.arguments as ProductionMapSaved
-            : null;
+                ? settings.arguments as ProductionMapSaved
+                : null;
         return _buildRoute(
           settings,
           AdminProductionMapTestScreen(
             orderContext: orderContext,
             savedMap: args?.savedMap ?? savedMap?.map,
+            readOnly: args?.readOnly ?? false,
           ),
         );
       case AppRoutes.adminProductionMapOrders:
@@ -482,9 +482,8 @@ class AppRouter {
       case AppRoutes.adminInactiveSuppliers:
         return _buildRoute(settings, const AdminInactiveSuppliersScreen());
       case AppRoutes.adminItemCreate:
-        final int initialTabIndex = settings.arguments is int
-            ? settings.arguments as int
-            : 0;
+        final int initialTabIndex =
+            settings.arguments is int ? settings.arguments as int : 0;
         return _buildRoute(
           settings,
           AdminItemCreateScreen(initialTabIndex: initialTabIndex),

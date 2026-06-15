@@ -35,7 +35,8 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('zakaz create page shows production map link after calculation', (
+  testWidgets(
+      'saved quick order edit hides production map link after calculation', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -50,7 +51,8 @@ void main() {
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Production mapga ulash'), findsOneWidget);
+    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Map ko‘rish'), findsNothing);
 
     await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
     await tester.pumpAndSettle();
@@ -163,25 +165,25 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('production map link opens stored quick order map', (
+  testWidgets('saved quick order shows stored map read-only from result card', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
     const sourceMapId = 'zakaz-template-map';
-    final source = _dirtyMap(id: sourceMapId, code: '4444', orderNumber: '4444')
-        .copyWith(
-          nodes: [
-            ..._map(id: sourceMapId, code: '4444', orderNumber: '4444').nodes,
-            const ProductionMapNode(
-              id: 'stored_apparatus',
-              kind: 'apparatus',
-              title: 'Stored pechat',
-              roleCode: 'apparatus',
-              x: 700,
-              y: 164,
-            ),
-          ],
-        );
+    final source =
+        _dirtyMap(id: sourceMapId, code: '7777', orderNumber: '7777').copyWith(
+      nodes: [
+        ..._map(id: sourceMapId, code: '7777', orderNumber: '7777').nodes,
+        const ProductionMapNode(
+          id: 'stored_apparatus',
+          kind: 'apparatus',
+          title: 'Stored pechat',
+          roleCode: 'apparatus',
+          x: 700,
+          y: 164,
+        ),
+      ],
+    );
     await MobileApi.instance.adminSaveProductionMap(source);
     ProductionMapTestArgs? openedArgs;
     await _pumpCalculateScreen(
@@ -200,14 +202,14 @@ void main() {
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Production mapga ulash'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Production mapga ulash'));
+    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Map ko‘rish'), findsOneWidget);
+
+    await tester.tap(find.text('Map ko‘rish'));
     await tester.pumpAndSettle();
 
     expect(openedArgs, isNotNull);
+    expect(openedArgs!.readOnly, isTrue);
     expect(openedArgs!.savedMap?.id, sourceMapId);
     expect(
       openedArgs!.savedMap!.nodes.any((node) => node.id == 'stored_apparatus'),
