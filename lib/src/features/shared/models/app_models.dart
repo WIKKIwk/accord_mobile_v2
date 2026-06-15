@@ -1420,6 +1420,23 @@ class AdminSuppliersPage {
   }
 }
 
+class AdminUserListPage {
+  const AdminUserListPage({required this.items, required this.hasMore});
+
+  final List<AdminUserListEntry> items;
+  final bool hasMore;
+
+  factory AdminUserListPage.fromJson(Map<String, dynamic> json) {
+    return AdminUserListPage(
+      items: (json['items'] as List<dynamic>? ?? const [])
+          .map((item) =>
+              AdminUserListEntry.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      hasMore: json['has_more'] as bool? ?? false,
+    );
+  }
+}
+
 class AdminSupplierDetail {
   const AdminSupplierDetail({
     required this.ref,
@@ -1536,6 +1553,28 @@ class AdminUserListEntry {
   final AdminUserKind kind;
   final bool blocked;
   final String? roleLabelOverride;
+
+  factory AdminUserListEntry.fromJson(Map<String, dynamic> json) {
+    final source = (json['source'] as String? ?? '').trim().toLowerCase();
+    final principalRole = userRoleFromJson(
+      json['principal_role'] as String? ?? source,
+    );
+    final kind = source == 'werka' || principalRole == UserRole.werka
+        ? AdminUserKind.werka
+        : source == 'customer' || principalRole == UserRole.customer
+            ? AdminUserKind.customer
+            : AdminUserKind.supplier;
+    final entityRef = (json['entity_ref'] as String? ?? '').trim();
+    final rawId = (json['id'] as String? ?? '').trim();
+    return AdminUserListEntry(
+      id: entityRef.isNotEmpty ? entityRef : rawId,
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      kind: kind,
+      blocked: json['blocked'] as bool? ?? false,
+      roleLabelOverride: json['role_label'] as String?,
+    );
+  }
 
   String get roleLabel {
     final override = roleLabelOverride?.trim() ?? '';

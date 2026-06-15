@@ -1288,6 +1288,38 @@ extension MobileApiAdmin on MobileApi {
         .toList();
   }
 
+  Future<AdminUserListPage> adminUserList({
+    String query = '',
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.userListPage(
+        query: query,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/users/list').replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (limit > 0) 'limit': '$limit',
+            if (offset > 0) 'offset': '$offset',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin user list failed');
+    }
+    return AdminUserListPage.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminSupplierSummary> adminSupplierSummary() async {
     if (await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.supplierSummary;

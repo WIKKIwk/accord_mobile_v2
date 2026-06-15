@@ -193,21 +193,17 @@ class TestModeDemoData {
   }) {
     final normalizedQuery = query.trim().toLowerCase();
     final normalizedGroup = group.trim().toLowerCase();
-    final filtered = items
-        .where((item) {
-          final matchesGroup =
-              normalizedGroup.isEmpty ||
-              item.itemGroup.toLowerCase() == normalizedGroup;
-          final matchesQuery =
-              normalizedQuery.isEmpty ||
-              item.code.toLowerCase().contains(normalizedQuery) ||
-              item.name.toLowerCase().contains(normalizedQuery) ||
-              item.uom.toLowerCase().contains(normalizedQuery) ||
-              item.warehouse.toLowerCase().contains(normalizedQuery) ||
-              item.itemGroup.toLowerCase().contains(normalizedQuery);
-          return matchesGroup && matchesQuery;
-        })
-        .toList(growable: false);
+    final filtered = items.where((item) {
+      final matchesGroup = normalizedGroup.isEmpty ||
+          item.itemGroup.toLowerCase() == normalizedGroup;
+      final matchesQuery = normalizedQuery.isEmpty ||
+          item.code.toLowerCase().contains(normalizedQuery) ||
+          item.name.toLowerCase().contains(normalizedQuery) ||
+          item.uom.toLowerCase().contains(normalizedQuery) ||
+          item.warehouse.toLowerCase().contains(normalizedQuery) ||
+          item.itemGroup.toLowerCase().contains(normalizedQuery);
+      return matchesGroup && matchesQuery;
+    }).toList(growable: false);
     return _page(filtered, limit: limit, offset: offset);
   }
 
@@ -220,6 +216,52 @@ class TestModeDemoData {
     int offset = 0,
   }) {
     return _page(customers, limit: limit, offset: offset);
+  }
+
+  static AdminUserListPage userListPage({
+    String query = '',
+    int limit = 20,
+    int offset = 0,
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final entries = <AdminUserListEntry>[
+      const AdminUserListEntry(
+        id: 'werka',
+        name: 'Werka',
+        phone: '+99888862440',
+        kind: AdminUserKind.werka,
+      ),
+      for (final supplier in suppliers)
+        AdminUserListEntry(
+          id: supplier.ref,
+          name: supplier.name,
+          phone: supplier.phone,
+          kind: AdminUserKind.supplier,
+          blocked: supplier.blocked,
+          roleLabelOverride: roleAssignments
+                  .any((assignment) => assignment.principalRef == supplier.ref)
+              ? 'Demo admin'
+              : null,
+        ),
+      for (final customer in customers)
+        AdminUserListEntry(
+          id: customer.ref,
+          name: customer.name,
+          phone: customer.phone,
+          kind: AdminUserKind.customer,
+        ),
+    ].where((entry) {
+      return normalizedQuery.isEmpty ||
+          entry.name.toLowerCase().contains(normalizedQuery) ||
+          entry.phone.toLowerCase().contains(normalizedQuery) ||
+          entry.id.toLowerCase().contains(normalizedQuery) ||
+          entry.roleLabel.toLowerCase().contains(normalizedQuery);
+    }).toList(growable: false);
+    final page = _page(entries, limit: limit, offset: offset);
+    return AdminUserListPage(
+      items: page,
+      hasMore: offset + page.length < entries.length,
+    );
   }
 
   static AdminSupplierDetail supplierDetail(String ref) {
@@ -267,13 +309,13 @@ class TestModeDemoData {
     final start = offset <= 0
         ? 0
         : offset >= source.length
-        ? source.length
-        : offset;
+            ? source.length
+            : offset;
     final end = limit <= 0
         ? source.length
         : start + limit >= source.length
-        ? source.length
-        : start + limit;
+            ? source.length
+            : start + limit;
     return source.sublist(start, end);
   }
 }

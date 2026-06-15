@@ -112,15 +112,16 @@ void main() {
     tester,
   ) async {
     final client = _AdminUsersHttpClient(
-      suppliers: List<Object>.generate(
+      users: List<Object>.generate(
         50,
         (index) => {
-          'ref': 'SUP-$index',
+          'id': 'supplier:SUP-$index',
+          'source': 'supplier',
+          'entity_ref': 'SUP-$index',
           'name': 'Supplier $index',
           'phone': '99890000$index',
-          'code': 'S$index',
+          'role_label': 'Supplier',
           'blocked': false,
-          'removed': false,
         },
       ),
     );
@@ -147,13 +148,83 @@ void main() {
 
       expect(
         client.requests,
-        contains('GET /v1/mobile/admin/suppliers/list?limit=50'),
+        contains('GET /v1/mobile/admin/users/list?limit=50'),
       );
       expect(
         client.requests,
-        isNot(
-            contains('GET /v1/mobile/admin/suppliers/list?limit=50&offset=50')),
+        isNot(contains('GET /v1/mobile/admin/users/list?limit=50&offset=50')),
       );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin users list opens from one merged paged endpoint', (
+    tester,
+  ) async {
+    final client = _AdminUsersHttpClient(
+      users: const [
+        {
+          'id': 'supplier:SUP-1',
+          'source': 'supplier',
+          'entity_ref': 'SUP-1',
+          'name': 'Supplier One',
+          'phone': '998900001',
+          'role_label': 'Supplier',
+          'blocked': false,
+        },
+        {
+          'id': 'customer:CUS-1',
+          'source': 'customer',
+          'entity_ref': 'CUS-1',
+          'name': 'Customer One',
+          'phone': '998900002',
+          'role_label': 'Item yaratuvchi',
+          'blocked': false,
+        },
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/users/list?limit=50'),
+      );
+      expect(client.requests, isNot(contains('GET /v1/mobile/admin/settings')));
+      expect(
+        client.requests,
+        isNot(contains('GET /v1/mobile/admin/suppliers/list?limit=50')),
+      );
+      expect(
+        client.requests,
+        isNot(contains('GET /v1/mobile/admin/customers/list?limit=50')),
+      );
+      for (var i = 0;
+          i < 20 && find.text('Supplier One').evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.text('Supplier One'), findsOneWidget);
+      expect(find.text('Customer One'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
@@ -161,9 +232,9 @@ void main() {
 }
 
 class _AdminUsersHttpClient implements HttpClient {
-  _AdminUsersHttpClient({this.suppliers = const <Object>[]});
+  _AdminUsersHttpClient({this.users = const <Object>[]});
 
-  final List<Object> suppliers;
+  final List<Object> users;
   final List<String> requests = <String>[];
   bool createdCustomer = false;
 
@@ -175,6 +246,30 @@ class _AdminUsersHttpClient implements HttpClient {
 
     Object body;
     var statusCode = HttpStatus.ok;
+    if (key.startsWith('GET /v1/mobile/admin/users/list')) {
+      body = {
+        'items': createdCustomer && users.isEmpty
+            ? const [
+                {
+                  'id': 'customer:CUS-1',
+                  'source': 'customer',
+                  'entity_ref': 'CUS-1',
+                  'name': 'chichqoq',
+                  'phone': '998901234567',
+                  'role_label': 'Item yaratuvchi',
+                  'blocked': false,
+                },
+              ]
+            : users,
+        'has_more': false,
+      };
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
     switch (key) {
       case 'GET /v1/mobile/admin/settings':
         body = const {
@@ -182,10 +277,6 @@ class _AdminUsersHttpClient implements HttpClient {
           'werka_phone': '',
           'werka_code': 'WERKA-1',
         };
-      case 'GET /v1/mobile/admin/suppliers/list?limit=50':
-        body = suppliers;
-      case 'GET /v1/mobile/admin/suppliers/list?limit=50&offset=50':
-        body = const [];
       case 'GET /v1/mobile/admin/customers/list?limit=50':
         body = createdCustomer
             ? const [

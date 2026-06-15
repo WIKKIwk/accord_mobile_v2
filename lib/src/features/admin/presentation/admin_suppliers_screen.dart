@@ -38,14 +38,12 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final List<AdminUserListEntry> _items = [];
+  Timer? _searchDebounce;
   bool _initialLoading = true;
   bool _loadingMore = false;
-  bool _supplierHasMore = true;
-  bool _customerHasMore = true;
-  int _supplierOffset = 0;
-  int _customerOffset = 0;
+  bool _hasMore = true;
+  int _offset = 0;
   String _searchQuery = '';
-  Map<String, String> _assignedRoleLabels = const <String, String>{};
   bool _openingRoute = false;
 
   @override
@@ -60,6 +58,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   void dispose() {
     _usersChanged.removeListener(_handleUsersChanged);
     _scrollController.removeListener(_handleScroll);
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -77,7 +76,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (!_scrollController.hasClients ||
         _initialLoading ||
         _loadingMore ||
-        (!_supplierHasMore && !_customerHasMore)) {
+        !_hasMore) {
       return;
     }
     final viewport = _scrollController.position.viewportDimension;
@@ -96,38 +95,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       setState(() {
         _initialLoading = true;
         _loadingMore = false;
-        _supplierHasMore = true;
-        _customerHasMore = true;
-        _supplierOffset = 0;
-        _customerOffset = 0;
+        _hasMore = true;
+        _offset = 0;
         _items.clear();
       });
     }
 
-    final results = await Future.wait([
-      _safeLoadAdminSettings(),
-      _safeLoadAdminSuppliers(limit: _pageSize, offset: 0),
-      _safeLoadAdminCustomers(limit: _pageSize, offset: 0),
-      _safeLoadAdminRoles(),
-      _safeLoadAdminRoleAssignments(),
-    ]);
-
-    final settings = results[0] as AdminSettings;
-    final suppliers = results[1] as List<AdminSupplier>;
-    final customers = results[2] as List<CustomerDirectoryEntry>;
-    final roles = results[3] as List<AdminRoleDefinition>;
-    final assignments = results[4] as List<AdminRoleAssignment>;
-    final assignedRoleLabels = _buildAssignedRoleLabels(roles, assignments);
-
-    final items = <AdminUserListEntry>[
-      ..._werkaItem(settings, assignedRoleLabels),
-      ..._mapSuppliers(suppliers, assignedRoleLabels),
-      ..._mapCustomers(customers, assignedRoleLabels),
-    ];
-    final supplierHasMore = suppliers.length == _pageSize;
-    final supplierOffset = suppliers.length;
-    final customerHasMore = customers.length == _pageSize;
-    final customerOffset = customers.length;
+    final page = await _safeLoadAdminUserList(limit: _pageSize, offset: 0);
 
     if (!mounted) {
       return;
@@ -135,12 +109,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     setState(() {
       _items
         ..clear()
-        ..addAll(items);
-      _supplierHasMore = supplierHasMore;
-      _customerHasMore = customerHasMore;
-      _supplierOffset = supplierOffset;
-      _customerOffset = customerOffset;
-      _assignedRoleLabels = assignedRoleLabels;
+        ..addAll(page.items);
+      _hasMore = page.hasMore;
+      _offset = page.items.length;
       _initialLoading = false;
       _loadingMore = false;
     });
@@ -151,7 +122,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (_loadingMore || _initialLoading) {
       return;
     }
-    if (!_supplierHasMore && !_customerHasMore) {
+    if (!_hasMore) {
       return;
     }
 
@@ -169,212 +140,34 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _loadNextPages() async {
-    final shouldLoadSuppliers = _supplierHasMore;
-    final shouldLoadCustomers = _customerHasMore;
-    if (!shouldLoadSuppliers && !shouldLoadCustomers) {
-      return;
-    }
-
-    final results = await Future.wait([
-      if (shouldLoadSuppliers)
-        _safeLoadAdminSuppliers(limit: _pageSize, offset: _supplierOffset),
-      if (shouldLoadCustomers)
-        _safeLoadAdminCustomers(limit: _pageSize, offset: _customerOffset),
-    ]);
+    final page =
+        await _safeLoadAdminUserList(limit: _pageSize, offset: _offset);
     if (!mounted) {
       return;
     }
 
-    var resultIndex = 0;
-    final suppliers = shouldLoadSuppliers
-        ? results[resultIndex++] as List<AdminSupplier>
-        : const <AdminSupplier>[];
-    final customers = shouldLoadCustomers
-        ? results[resultIndex] as List<CustomerDirectoryEntry>
-        : const <CustomerDirectoryEntry>[];
-
     setState(() {
-      if (shouldLoadSuppliers) {
-        _items.addAll(_mapSuppliers(suppliers, _assignedRoleLabels));
-        _supplierOffset += suppliers.length;
-        if (suppliers.length < _pageSize) {
-          _supplierHasMore = false;
-        }
-      }
-      if (shouldLoadCustomers) {
-        _items.addAll(_mapCustomers(customers, _assignedRoleLabels));
-        _customerOffset += customers.length;
-        if (customers.length < _pageSize) {
-          _customerHasMore = false;
-        }
-      }
+      _items.addAll(page.items);
+      _offset += page.items.length;
+      _hasMore = page.hasMore;
     });
     _saveCache();
   }
 
-  Future<List<AdminSupplier>> _safeLoadAdminSuppliers({
+  Future<AdminUserListPage> _safeLoadAdminUserList({
     required int limit,
     required int offset,
   }) async {
     try {
-      return await MobileApi.instance.adminSuppliers(
+      return await MobileApi.instance.adminUserList(
+        query: _searchQuery,
         limit: limit,
         offset: offset,
       );
     } catch (error) {
-      debugPrint('admin suppliers page failed: $error');
-      return const <AdminSupplier>[];
+      debugPrint('admin user list failed: $error');
+      return const AdminUserListPage(items: [], hasMore: false);
     }
-  }
-
-  Future<List<CustomerDirectoryEntry>> _safeLoadAdminCustomers({
-    required int limit,
-    required int offset,
-  }) async {
-    try {
-      return await MobileApi.instance.adminCustomers(
-        limit: limit,
-        offset: offset,
-      );
-    } catch (error) {
-      debugPrint('admin customers page failed: $error');
-      return const <CustomerDirectoryEntry>[];
-    }
-  }
-
-  Future<AdminSettings> _safeLoadAdminSettings() async {
-    try {
-      return await MobileApi.instance.adminSettings();
-    } catch (error) {
-      debugPrint('admin settings failed: $error');
-      return const AdminSettings(
-        erpUrl: '',
-        erpApiKey: '',
-        erpApiSecret: '',
-        defaultTargetWarehouse: '',
-        defaultUom: '',
-        werkaPhone: '',
-        werkaName: '',
-        werkaCode: '',
-        werkaCodeLocked: false,
-        werkaCodeRetryAfterSec: 0,
-        adminPhone: '',
-        adminName: '',
-      );
-    }
-  }
-
-  Future<List<AdminRoleDefinition>> _safeLoadAdminRoles() async {
-    try {
-      return await MobileApi.instance.adminRoles();
-    } catch (error) {
-      debugPrint('admin roles failed: $error');
-      return const <AdminRoleDefinition>[];
-    }
-  }
-
-  Future<List<AdminRoleAssignment>> _safeLoadAdminRoleAssignments() async {
-    try {
-      return await MobileApi.instance.adminRoleAssignments();
-    } catch (error) {
-      debugPrint('admin role assignments failed: $error');
-      return const <AdminRoleAssignment>[];
-    }
-  }
-
-  Map<String, String> _buildAssignedRoleLabels(
-    List<AdminRoleDefinition> roles,
-    List<AdminRoleAssignment> assignments,
-  ) {
-    final roleLabelsById = <String, String>{
-      for (final role in roles) role.id: role.label,
-    };
-    return <String, String>{
-      for (final assignment in assignments)
-        if ((roleLabelsById[assignment.roleId] ?? '').trim().isNotEmpty)
-          _principalKey(assignment.principalRole, assignment.principalRef):
-              roleLabelsById[assignment.roleId]!,
-    };
-  }
-
-  String _assignedRoleLabel(
-    Map<String, String> labels,
-    UserRole role,
-    String ref,
-  ) {
-    return labels[_principalKey(role, ref)] ?? '';
-  }
-
-  String _principalKey(UserRole role, String ref) {
-    return '${userRoleToJson(role)}:${ref.trim()}';
-  }
-
-  List<AdminUserListEntry> _werkaItem(
-    AdminSettings settings,
-    Map<String, String> assignedRoleLabels,
-  ) {
-    if (settings.werkaName.trim().isEmpty &&
-        settings.werkaPhone.trim().isEmpty) {
-      return const <AdminUserListEntry>[];
-    }
-    return [
-      AdminUserListEntry(
-        id: 'werka',
-        name: settings.werkaName.trim().isEmpty
-            ? 'Werka'
-            : settings.werkaName.trim(),
-        phone: settings.werkaPhone.trim(),
-        kind: AdminUserKind.werka,
-        roleLabelOverride: _assignedRoleLabel(
-          assignedRoleLabels,
-          UserRole.werka,
-          'werka',
-        ),
-      ),
-    ];
-  }
-
-  List<AdminUserListEntry> _mapSuppliers(
-    List<AdminSupplier> suppliers,
-    Map<String, String> assignedRoleLabels,
-  ) {
-    return suppliers
-        .map(
-          (item) => AdminUserListEntry(
-            id: item.ref,
-            name: item.name,
-            phone: item.phone,
-            kind: AdminUserKind.supplier,
-            blocked: item.blocked,
-            roleLabelOverride: _assignedRoleLabel(
-              assignedRoleLabels,
-              UserRole.supplier,
-              item.ref,
-            ),
-          ),
-        )
-        .toList();
-  }
-
-  List<AdminUserListEntry> _mapCustomers(
-    List<CustomerDirectoryEntry> customers,
-    Map<String, String> assignedRoleLabels,
-  ) {
-    return customers
-        .map(
-          (item) => AdminUserListEntry(
-            id: item.ref,
-            name: item.name,
-            phone: item.phone,
-            kind: AdminUserKind.customer,
-            roleLabelOverride: _assignedRoleLabel(
-              assignedRoleLabels,
-              UserRole.customer,
-              item.ref,
-            ),
-          ),
-        )
-        .toList();
   }
 
   Future<void> _openUser(AdminUserListEntry item) async {
@@ -410,11 +203,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _items
           ..clear()
           ..addAll(cache.items);
-        _supplierHasMore = cache.supplierHasMore;
-        _customerHasMore = cache.customerHasMore;
-        _supplierOffset = cache.supplierOffset;
-        _customerOffset = cache.customerOffset;
-        _assignedRoleLabels = cache.assignedRoleLabels;
+        _hasMore = cache.hasMore;
+        _offset = cache.offset;
+        _searchQuery = cache.query;
+        _searchController.text = cache.query;
         _initialLoading = false;
         _loadingMore = false;
       });
@@ -425,16 +217,18 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   void _saveCache() {
     _cache = _AdminSuppliersCache(
       items: List<AdminUserListEntry>.unmodifiable(_items),
-      supplierHasMore: _supplierHasMore,
-      customerHasMore: _customerHasMore,
-      supplierOffset: _supplierOffset,
-      customerOffset: _customerOffset,
-      assignedRoleLabels: Map<String, String>.unmodifiable(_assignedRoleLabels),
+      hasMore: _hasMore,
+      offset: _offset,
+      query: _searchQuery,
     );
   }
 
   void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      _searchQuery = value.trim();
+      unawaited(_bootstrap(forceRefresh: true));
+    });
   }
 
   void _openDrawerRoute(String routeName) {
@@ -449,24 +243,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
-  List<AdminUserListEntry> _visibleItems() {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _items;
-    }
-    return _items.where((item) {
-      return item.name.toLowerCase().contains(query) ||
-          item.phone.toLowerCase().contains(query) ||
-          item.id.toLowerCase().contains(query) ||
-          item.roleLabel.toLowerCase().contains(query);
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final visibleItems = _visibleItems();
-    final showFooter = visibleItems.isNotEmpty &&
-        (_loadingMore || _supplierHasMore || _customerHasMore);
+    final visibleItems = _items;
+    final showFooter = visibleItems.isNotEmpty && (_loadingMore || _hasMore);
     return AppShell(
       animateOnEnter: false,
       drawer: AdminNavigationDrawer(
@@ -632,17 +412,13 @@ class _AdminUserSearchField extends StatelessWidget {
 class _AdminSuppliersCache {
   const _AdminSuppliersCache({
     required this.items,
-    required this.supplierHasMore,
-    required this.customerHasMore,
-    required this.supplierOffset,
-    required this.customerOffset,
-    required this.assignedRoleLabels,
+    required this.hasMore,
+    required this.offset,
+    required this.query,
   });
 
   final List<AdminUserListEntry> items;
-  final bool supplierHasMore;
-  final bool customerHasMore;
-  final int supplierOffset;
-  final int customerOffset;
-  final Map<String, String> assignedRoleLabels;
+  final bool hasMore;
+  final int offset;
+  final String query;
 }
