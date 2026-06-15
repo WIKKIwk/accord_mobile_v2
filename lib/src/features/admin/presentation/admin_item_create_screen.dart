@@ -1107,16 +1107,17 @@ class _AdminItemProductSearchField extends StatelessWidget {
                     behavior: HitTestBehavior.translucent,
                     onPointerDown: (_) => onActivate(),
                     child: Stack(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       children: [
                         Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: Alignment.center,
                           child: SizedBox(
                             height: 20,
                             child: EditableText(
                               controller: controller,
                               focusNode: focusNode,
                               onChanged: onChanged,
+                              textAlign: TextAlign.center,
                               textInputAction: TextInputAction.search,
                               maxLines: 1,
                               cursorColor: scheme.primary,
@@ -1132,10 +1133,11 @@ class _AdminItemProductSearchField extends StatelessWidget {
                         ),
                         if (!hasText)
                           Align(
-                            alignment: Alignment.centerLeft,
+                            alignment: Alignment.center,
                             child: IgnorePointer(
                               child: Text(
                                 'Mahsulot qidirish',
+                                textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w400,
