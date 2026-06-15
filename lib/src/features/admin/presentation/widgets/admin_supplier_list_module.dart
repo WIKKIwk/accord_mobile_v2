@@ -29,7 +29,7 @@ class AdminSupplierListModule extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       children: [
         for (int index = 0; index < items.length; index++)
-          _AdminUserRow(
+          AdminSupplierListRow(
             slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
               index,
               items.length,
@@ -42,8 +42,9 @@ class AdminSupplierListModule extends StatelessWidget {
   }
 }
 
-class _AdminUserRow extends StatelessWidget {
-  const _AdminUserRow({
+class AdminSupplierListRow extends StatelessWidget {
+  const AdminSupplierListRow({
+    super.key,
     required this.slot,
     required this.item,
     required this.onTap,
@@ -107,9 +108,9 @@ class _AdminUserRow extends StatelessWidget {
         context,
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: scheme.onSurfaceVariant,
-        height: 1.05,
-      ),
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
     );
   }
 }

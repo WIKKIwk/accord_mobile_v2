@@ -6,18 +6,21 @@ import 'dart:typed_data';
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
-import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,
@@ -74,20 +77,24 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(0), 'chichqoq');
       await tester.enterText(find.byType(TextField).at(1), '998901234567');
-      await tester.tap(
-        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      final saveButton = find.widgetWithText(
+        FilledButton,
+        'Foydalanuvchi saqlash',
       );
+      tester.widget<FilledButton>(saveButton).onPressed!();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'chichqoq');
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       expect(
         find.descendant(
-          of: find.byType(AdminSupplierListModule),
+          of: find.byType(ListView),
           matching: find.text('chichqoq'),
         ),
         findsOneWidget,
@@ -100,15 +107,71 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
   });
+
+  testWidgets('admin users list does not eagerly load every page on open', (
+    tester,
+  ) async {
+    final client = _AdminUsersHttpClient(
+      suppliers: List<Object>.generate(
+        50,
+        (index) => {
+          'ref': 'SUP-$index',
+          'name': 'Supplier $index',
+          'phone': '99890000$index',
+          'code': 'S$index',
+          'blocked': false,
+          'removed': false,
+        },
+      ),
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/suppliers/list?limit=50'),
+      );
+      expect(
+        client.requests,
+        isNot(
+            contains('GET /v1/mobile/admin/suppliers/list?limit=50&offset=50')),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
 }
 
 class _AdminUsersHttpClient implements HttpClient {
+  _AdminUsersHttpClient({this.suppliers = const <Object>[]});
+
+  final List<Object> suppliers;
+  final List<String> requests = <String>[];
   bool createdCustomer = false;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
     final key =
         '$method ${url.path}${url.query.isEmpty ? '' : '?${url.query}'}';
+    requests.add(key);
 
     Object body;
     var statusCode = HttpStatus.ok;
@@ -120,6 +183,8 @@ class _AdminUsersHttpClient implements HttpClient {
           'werka_code': 'WERKA-1',
         };
       case 'GET /v1/mobile/admin/suppliers/list?limit=50':
+        body = suppliers;
+      case 'GET /v1/mobile/admin/suppliers/list?limit=50&offset=50':
         body = const [];
       case 'GET /v1/mobile/admin/customers/list?limit=50':
         body = createdCustomer
@@ -272,7 +337,7 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 class _FakeHttpClientResponse extends Stream<List<int>>
     implements HttpClientResponse {
   _FakeHttpClientResponse({required String body, required this.statusCode})
-    : _bytes = utf8.encode(body);
+      : _bytes = utf8.encode(body);
 
   final List<int> _bytes;
 
@@ -327,7 +392,8 @@ class _FakeHttpClientResponse extends Stream<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) => throw UnsupportedError('redirect');
+  ]) =>
+      throw UnsupportedError('redirect');
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

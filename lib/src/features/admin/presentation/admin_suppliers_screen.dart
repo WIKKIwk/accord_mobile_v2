@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -39,7 +40,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   final List<AdminUserListEntry> _items = [];
   bool _initialLoading = true;
   bool _loadingMore = false;
-  bool _loadingAll = false;
   bool _supplierHasMore = true;
   bool _customerHasMore = true;
   int _supplierOffset = 0;
@@ -77,7 +77,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     if (!_scrollController.hasClients ||
         _initialLoading ||
         _loadingMore ||
-        _loadingAll ||
         (!_supplierHasMore && !_customerHasMore)) {
       return;
     }
@@ -97,7 +96,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       setState(() {
         _initialLoading = true;
         _loadingMore = false;
-        _loadingAll = false;
         _supplierHasMore = true;
         _customerHasMore = true;
         _supplierOffset = 0;
@@ -147,11 +145,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       _loadingMore = false;
     });
     _saveCache();
-    unawaited(_loadAllRemaining());
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || _loadingAll || _initialLoading) {
+    if (_loadingMore || _initialLoading) {
       return;
     }
     if (!_supplierHasMore && !_customerHasMore) {
@@ -167,27 +164,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     } finally {
       if (mounted) {
         setState(() => _loadingMore = false);
-      }
-    }
-  }
-
-  Future<void> _loadAllRemaining() async {
-    if (_loadingAll || _loadingMore || _initialLoading) {
-      return;
-    }
-    if (!_supplierHasMore && !_customerHasMore) {
-      return;
-    }
-    if (mounted) {
-      setState(() => _loadingAll = true);
-    }
-    try {
-      while (mounted && (_supplierHasMore || _customerHasMore)) {
-        await _loadNextPages();
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loadingAll = false);
       }
     }
   }
@@ -441,10 +417,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _assignedRoleLabels = cache.assignedRoleLabels;
         _initialLoading = false;
         _loadingMore = false;
-        _loadingAll = false;
       });
     }
-    unawaited(_loadAllRemaining());
     return true;
   }
 
@@ -461,9 +435,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   void _onSearchChanged(String value) {
     setState(() => _searchQuery = value);
-    if (value.trim().isNotEmpty) {
-      unawaited(_loadAllRemaining());
-    }
   }
 
   void _openDrawerRoute(String routeName) {
@@ -494,6 +465,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   @override
   Widget build(BuildContext context) {
     final visibleItems = _visibleItems();
+    final showFooter = visibleItems.isNotEmpty &&
+        (_loadingMore || _supplierHasMore || _customerHasMore);
     return AppShell(
       animateOnEnter: false,
       drawer: AdminNavigationDrawer(
@@ -519,25 +492,49 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
           ? const Center(child: AppLoadingIndicator())
           : AppRefreshIndicator(
               onRefresh: _reload,
-              child: ListView(
+              child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(0, 4, 0, 116),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: AdminSupplierListModule(
-                      items: visibleItems,
-                      onTapUser: _openUser,
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 116),
+                itemCount: visibleItems.isEmpty
+                    ? 1
+                    : visibleItems.length + (showFooter ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (visibleItems.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        'Userlar topilmadi',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    );
+                  }
+                  if (index >= visibleItems.length) {
+                    if (_loadingMore) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 14),
+                        child: Center(child: AppLoadingIndicator()),
+                      );
+                    }
+                    return const SizedBox(height: 14);
+                  }
+                  final item = visibleItems[index];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
                     ),
-                  ),
-                  if (_loadingMore || _loadingAll)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 14),
-                      child: Center(child: AppLoadingIndicator()),
-                    )
-                  else if (_supplierHasMore || _customerHasMore)
-                    const SizedBox(height: 14),
-                ],
+                    child: AdminSupplierListRow(
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index,
+                        visibleItems.length,
+                      ),
+                      item: item,
+                      onTap: () => _openUser(item),
+                    ),
+                  );
+                },
               ),
             ),
     );
