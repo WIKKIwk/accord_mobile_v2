@@ -286,6 +286,12 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         routeName: AppRoutes.adminItemGroupCreate,
       ),
       const _AdminHubActionCandidate(
+        key: ValueKey('admin-hub-apparatus-create'),
+        title: 'Aparat qo\'shish',
+        icon: Icons.precision_manufacturing_outlined,
+        routeName: AppRoutes.adminApparatusCreate,
+      ),
+      const _AdminHubActionCandidate(
         key: ValueKey('admin-hub-calculate-order-create'),
         title: 'Zakaz yaratish',
         icon: Icons.add_task_outlined,

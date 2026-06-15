@@ -10,7 +10,12 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 class AdminApparatusGroupsScreen extends StatefulWidget {
-  const AdminApparatusGroupsScreen({super.key});
+  const AdminApparatusGroupsScreen({
+    super.key,
+    this.focusApparatusName = false,
+  });
+
+  final bool focusApparatusName;
 
   @override
   State<AdminApparatusGroupsScreen> createState() =>
@@ -21,6 +26,7 @@ class _AdminApparatusGroupsScreenState
     extends State<AdminApparatusGroupsScreen> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _apparatusName = TextEditingController();
+  final FocusNode _apparatusNameFocus = FocusNode();
   List<AdminWarehouse> _apparatus = const [];
   List<AdminApparatusGroup> _groups = const [];
   final Set<String> _selected = {};
@@ -32,12 +38,20 @@ class _AdminApparatusGroupsScreenState
   void initState() {
     super.initState();
     _load();
+    if (widget.focusApparatusName) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _apparatusNameFocus.requestFocus();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _name.dispose();
     _apparatusName.dispose();
+    _apparatusNameFocus.dispose();
     super.dispose();
   }
 
@@ -174,6 +188,7 @@ class _AdminApparatusGroupsScreenState
                 const SizedBox(height: 12),
                 TextField(
                   controller: _apparatusName,
+                  focusNode: _apparatusNameFocus,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _createApparatus(),
                   decoration: const InputDecoration(

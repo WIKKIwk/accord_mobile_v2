@@ -132,6 +132,7 @@ class AppRoutes {
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminApparatusGroups = '/admin-apparatus-groups';
+  static const String adminApparatusCreate = '/admin-apparatus-create';
   static const String apparatusQueue = '/apparatus-queue';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminUserCreate = '/admin-user-create';
@@ -168,6 +169,7 @@ class AppRouter {
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminApparatusGroups,
+    AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
     AppRoutes.adminSuppliers,
     AppRoutes.adminUserCreate,
@@ -208,6 +210,7 @@ class AppRouter {
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminApparatusGroups,
+    AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
     AppRoutes.adminCalculate,
     AppRoutes.adminCalculateOrders,
@@ -446,6 +449,11 @@ class AppRouter {
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
       case AppRoutes.adminApparatusGroups:
         return _buildRoute(settings, const AdminApparatusGroupsScreen());
+      case AppRoutes.adminApparatusCreate:
+        return _buildRoute(
+          settings,
+          const AdminApparatusGroupsScreen(focusApparatusName: true),
+        );
       case AppRoutes.apparatusQueue:
         return _buildRoute(
           settings,
@@ -623,6 +631,7 @@ class AppRouter {
       'production.map.manage',
     },
     AppRoutes.adminApparatusGroups: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminApparatusCreate: {'admin.access', 'production.map.manage'},
     AppRoutes.apparatusQueue: {
       'apparatus.queue.read',
       'apparatus.queue.manage',
