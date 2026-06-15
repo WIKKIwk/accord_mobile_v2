@@ -2343,6 +2343,7 @@ class _DailyDropZone extends StatelessWidget {
                     : _dailyUnassignedSourceKey,
                 canMove: !readOnly && !saveInFlight,
                 moveUp: _canMoveFromThisZone,
+                canReturnToUnassigned: !_isDailyUnassignedSource(sourceKey),
                 onMove: onMove,
               ),
             );
@@ -2362,6 +2363,7 @@ class _DailyOrderTile extends StatelessWidget {
     required this.toKey,
     required this.canMove,
     required this.moveUp,
+    required this.canReturnToUnassigned,
     required this.onMove,
   });
 
@@ -2372,6 +2374,7 @@ class _DailyOrderTile extends StatelessWidget {
   final String toKey;
   final bool canMove;
   final bool moveUp;
+  final bool canReturnToUnassigned;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
     required String fromKey,
@@ -2382,20 +2385,39 @@ class _DailyOrderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final payload = _DailyMovePayload(orders: [order], fromKey: fromKey);
+    final trailing = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (canReturnToUnassigned)
+          IconButton(
+            tooltip: 'Tanlanmaganga qaytarish',
+            onPressed: canMove
+                ? () => onMove(
+                      orders: [order],
+                      fromKey: fromKey,
+                      toKey: _dailyUnassignedSourceKey,
+                    )
+                : null,
+            icon: Icon(Icons.close_rounded, color: scheme.onSurfaceVariant),
+          ),
+        if (moveUp)
+          IconButton(
+            tooltip: 'Kunlik rejaga olish',
+            onPressed: canMove
+                ? () => onMove(orders: [order], fromKey: fromKey, toKey: toKey)
+                : null,
+            icon: Icon(
+              Icons.keyboard_arrow_up_rounded,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
     final card = _OpenedOrderCardRow(
       slot: slot,
       order: order,
       leading: _OpenedOrderIndexBadge(index: index),
-      trailing: IconButton(
-        tooltip: moveUp ? 'Kunlik rejaga olish' : 'Tanlanmaganga qaytarish',
-        onPressed: canMove
-            ? () => onMove(orders: [order], fromKey: fromKey, toKey: toKey)
-            : null,
-        icon: Icon(
-          moveUp ? Icons.keyboard_arrow_up_rounded : Icons.close_rounded,
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
+      trailing: trailing,
     );
     if (!canMove) {
       return card;
