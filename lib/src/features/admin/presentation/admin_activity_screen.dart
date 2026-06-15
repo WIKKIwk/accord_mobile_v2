@@ -28,9 +28,14 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
   @override
   void initState() {
     super.initState();
-    AdminStore.instance.bootstrapActivity();
-    NotificationHiddenStore.instance.load().then((_) {
-      if (mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      AdminStore.instance.bootstrapActivity();
+      NotificationHiddenStore.instance.load().then((_) {
+        if (mounted) setState(() {});
+      });
     });
     RefreshHub.instance.addListener(_handlePushRefresh);
   }
@@ -142,36 +147,29 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
 
           return AppRefreshIndicator(
             onRefresh: _reload,
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.only(top: 4),
-              children: [_AdminActivitySection(items: items)],
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 4,
+                    right: 4,
+                    top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                  ),
+                  child: _AdminActivityCard(
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      items.length,
+                    ),
+                    item: items[index],
+                  ),
+                );
+              },
             ),
           );
         },
       ),
-    );
-  }
-}
-
-class _AdminActivitySection extends StatelessWidget {
-  const _AdminActivitySection({required this.items});
-
-  final List<DispatchRecord> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      children: [
-        for (int index = 0; index < items.length; index++)
-          _AdminActivityCard(
-            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-              index,
-              items.length,
-            ),
-            item: items[index],
-          ),
-      ],
     );
   }
 }
@@ -199,22 +197,22 @@ class _AdminActivityCard extends StatelessWidget {
       title: item.supplierName,
       value: item.createdLabel,
       titleStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-        fontSize: 14.5,
-        fontWeight: FontWeight.w600,
-        color: scheme.onSurface,
-        height: 1.15,
-      ),
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+            height: 1.15,
+          ),
       subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 12.0,
-        fontWeight: FontWeight.w500,
-        color: scheme.onSurfaceVariant,
-        height: 1.2,
-      ),
+            fontSize: 12.0,
+            fontWeight: FontWeight.w500,
+            color: scheme.onSurfaceVariant,
+            height: 1.2,
+          ),
       valueStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 11.5,
-        color: scheme.onSurfaceVariant,
-        fontWeight: FontWeight.w500,
-      ),
+            fontSize: 11.5,
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
       subtitle: _metricLine(),
       leading: _ActivityStatusBadge(status: item.status),
       showChevron: false,

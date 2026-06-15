@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
@@ -5,8 +7,10 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/display/motion_widgets.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_navigation_drawer.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/presentation/profile_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +24,48 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('admin home defers summary load until after first frame', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['party.supplier.read'],
+    );
+    AdminStore.instance.clear();
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminHomeScreen(),
+        ),
+      );
+
+      expect(seenRequests, isEmpty);
+      expect(AdminStore.instance.loadingSummary, isFalse);
+      for (var i = 0; i < 20 && seenRequests.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(seenRequests, contains('GET /v1/mobile/admin/suppliers/summary'));
+    }, createHttpClient: (_) => _SummaryHttpClient(seenRequests));
   });
 
   testWidgets('custom catalog role opens admin home without summary request', (
@@ -61,6 +107,12 @@ void main() {
 
       expect(find.text('Item qo‘shish'), findsOneWidget);
       expect(find.text('GScale'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is SmoothAppear,
+        ),
+        findsNothing,
+      );
       expect(find.text('Uy'), findsOneWidget);
       expect(find.text('Foydalanuvchilar'), findsNothing);
       expect(find.text('Faoliyat'), findsNothing);
@@ -205,4 +257,120 @@ class _RecordingHttpClient extends Fake implements HttpClient {
     seenRequests.add('GET ${url.path}');
     throw UnsupportedError('unexpected HTTP request: $url');
   }
+}
+
+class _SummaryHttpClient extends Fake implements HttpClient {
+  _SummaryHttpClient(this.seenRequests);
+
+  final List<String> seenRequests;
+
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) async {
+    seenRequests.add('$method ${url.path}');
+    return _SummaryHttpClientRequest();
+  }
+
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) => openUrl('GET', url);
+}
+
+class _SummaryHttpClientRequest extends Fake implements HttpClientRequest {
+  @override
+  bool followRedirects = true;
+
+  @override
+  int maxRedirects = 5;
+
+  @override
+  int contentLength = -1;
+
+  @override
+  bool persistentConnection = true;
+
+  @override
+  bool bufferOutput = true;
+
+  @override
+  Encoding get encoding => utf8;
+
+  @override
+  set encoding(Encoding value) {}
+
+  @override
+  HttpHeaders get headers => _SummaryHttpHeaders();
+
+  @override
+  Future<HttpClientResponse> close() async => _SummaryHttpClientResponse();
+}
+
+class _SummaryHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  final List<int> _bytes = utf8.encode(
+    '{"total_suppliers":1,"active_suppliers":1,"blocked_suppliers":0}',
+  );
+
+  @override
+  int get statusCode => HttpStatus.ok;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int>)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return Stream<List<int>>.fromIterable([_bytes]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  @override
+  int get contentLength => _bytes.length;
+
+  @override
+  HttpHeaders get headers => _SummaryHttpHeaders();
+
+  @override
+  bool get isRedirect => false;
+
+  @override
+  List<RedirectInfo> get redirects => const <RedirectInfo>[];
+
+  @override
+  String get reasonPhrase => '';
+
+  @override
+  bool get persistentConnection => false;
+
+  @override
+  X509Certificate? get certificate => null;
+
+  @override
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
+
+  @override
+  Future<Socket> detachSocket() => throw UnsupportedError('detachSocket');
+
+  @override
+  Future<HttpClientResponse> redirect([
+    String? method,
+    Uri? url,
+    bool? followLoops,
+  ]) =>
+      throw UnsupportedError('redirect');
+
+  @override
+  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SummaryHttpHeaders extends Fake implements HttpHeaders {
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {}
+
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {}
 }

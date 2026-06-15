@@ -7,7 +7,6 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
-import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/admin_store.dart';
@@ -32,9 +31,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   void initState() {
     super.initState();
-    if (_canLoadSummary) {
-      AdminStore.instance.bootstrapSummary();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _canLoadSummary) {
+        AdminStore.instance.bootstrapSummary();
+      }
+    });
     RefreshHub.instance.addListener(_handlePushRefresh);
   }
 
@@ -141,34 +142,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 children: [
                   const SizedBox(height: _adminHomePanelCardGap),
                   if (canLoadSummary) ...[
-                    SmoothAppear(
-                      delay: const Duration(milliseconds: 20),
-                      child: _AdminSummaryList(
-                        summary: summaryValue,
-                        onTapTotal: () =>
-                            _openAndReload(AppRoutes.adminSuppliers),
-                        onTapActive: () =>
-                            _openAndReload(AppRoutes.adminSuppliers),
-                        onTapBlocked: () =>
-                            _openAndReload(AppRoutes.adminInactiveSuppliers),
-                      ),
+                    _AdminSummaryList(
+                      summary: summaryValue,
+                      onTapTotal: () =>
+                          _openAndReload(AppRoutes.adminSuppliers),
+                      onTapActive: () =>
+                          _openAndReload(AppRoutes.adminSuppliers),
+                      onTapBlocked: () =>
+                          _openAndReload(AppRoutes.adminInactiveSuppliers),
                     ),
                     if (summaryValue.blockedSuppliers > 0) ...[
                       const SizedBox(height: 16),
-                      SmoothAppear(
-                        delay: const Duration(milliseconds: 80),
-                        child: _AdminBlockedSuppliersSection(
-                          count: summaryValue.blockedSuppliers,
-                          onTap: () =>
-                              _openAndReload(AppRoutes.adminInactiveSuppliers),
-                        ),
+                      _AdminBlockedSuppliersSection(
+                        count: summaryValue.blockedSuppliers,
+                        onTap: () =>
+                            _openAndReload(AppRoutes.adminInactiveSuppliers),
                       ),
                     ],
                   ] else
-                    SmoothAppear(
-                      delay: const Duration(milliseconds: 20),
-                      child: _AdminActionList(onOpenRoute: _openAndReload),
-                    ),
+                    _AdminActionList(onOpenRoute: _openAndReload),
                 ],
               ),
             );
