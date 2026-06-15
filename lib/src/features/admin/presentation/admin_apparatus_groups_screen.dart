@@ -13,9 +13,11 @@ class AdminApparatusGroupsScreen extends StatefulWidget {
   const AdminApparatusGroupsScreen({
     super.key,
     this.focusApparatusName = false,
+    this.createOnly = false,
   });
 
   final bool focusApparatusName;
+  final bool createOnly;
 
   @override
   State<AdminApparatusGroupsScreen> createState() =>
@@ -162,11 +164,13 @@ class _AdminApparatusGroupsScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 112;
     return AppShell(
-      title: 'Aparat guruhlari',
+      title: widget.createOnly ? 'Aparat qo\'shish' : 'Aparat guruhlari',
       subtitle: '',
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminApparatusGroups,
+        selectedRouteName: widget.createOnly
+            ? AppRoutes.adminApparatusCreate
+            : AppRoutes.adminApparatusGroups,
         onNavigate: (route) =>
             Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false),
       ),
@@ -178,14 +182,16 @@ class _AdminApparatusGroupsScreenState
           : ListView(
               padding: EdgeInsets.fromLTRB(12, 10, 12, bottomPadding),
               children: [
-                TextField(
-                  controller: _name,
-                  decoration: const InputDecoration(
-                    labelText: 'Guruh nomi',
-                    hintText: 'pechat',
+                if (!widget.createOnly) ...[
+                  TextField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'Guruh nomi',
+                      hintText: 'pechat',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 TextField(
                   controller: _apparatusName,
                   focusNode: _apparatusNameFocus,
@@ -207,35 +213,46 @@ class _AdminApparatusGroupsScreenState
                   ),
                 ),
                 const SizedBox(height: 12),
-                for (final item in _apparatus)
-                  CheckboxListTile(
-                    value: _selected.contains(item.warehouse),
-                    title: Text(item.warehouse),
-                    dense: true,
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selected.add(item.warehouse);
-                        } else {
-                          _selected.remove(item.warehouse);
-                        }
-                      });
-                    },
+                if (widget.createOnly)
+                  for (final item in _apparatus)
+                    ListTile(
+                      title: Text(item.warehouse),
+                      dense: true,
+                      leading: const Icon(
+                        Icons.precision_manufacturing_outlined,
+                      ),
+                    )
+                else ...[
+                  for (final item in _apparatus)
+                    CheckboxListTile(
+                      value: _selected.contains(item.warehouse),
+                      title: Text(item.warehouse),
+                      dense: true,
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            _selected.add(item.warehouse);
+                          } else {
+                            _selected.remove(item.warehouse);
+                          }
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(_saving ? 'Saqlanmoqda...' : 'Saqlash'),
                   ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(_saving ? 'Saqlanmoqda...' : 'Saqlash'),
-                ),
-                const SizedBox(height: 20),
-                for (final group in _groups)
-                  ListTile(
-                    title: Text(group.name),
-                    subtitle: Text('${group.apparatus.length} ta aparat'),
-                    trailing: const Icon(Icons.edit_rounded),
-                    onTap: () => _editGroup(group),
-                  ),
+                  const SizedBox(height: 20),
+                  for (final group in _groups)
+                    ListTile(
+                      title: Text(group.name),
+                      subtitle: Text('${group.apparatus.length} ta aparat'),
+                      trailing: const Icon(Icons.edit_rounded),
+                      onTap: () => _editGroup(group),
+                    ),
+                ],
               ],
             ),
     );

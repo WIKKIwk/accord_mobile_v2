@@ -452,7 +452,10 @@ class AppRouter {
       case AppRoutes.adminApparatusCreate:
         return _buildRoute(
           settings,
-          const AdminApparatusGroupsScreen(focusApparatusName: true),
+          const AdminApparatusGroupsScreen(
+            focusApparatusName: true,
+            createOnly: true,
+          ),
         );
       case AppRoutes.apparatusQueue:
         return _buildRoute(
