@@ -192,6 +192,12 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminProductionMapOrders,
     ),
     const _AdminDrawerDestination(
+      icon: Icons.rule_folder_outlined,
+      selectedIcon: Icons.rule_folder_rounded,
+      label: 'Aparat navbati',
+      routeName: AppRoutes.adminQueuePolicies,
+    ),
+    const _AdminDrawerDestination(
       icon: Icons.precision_manufacturing_outlined,
       selectedIcon: Icons.precision_manufacturing_rounded,
       label: 'Aparat guruhlari',

@@ -17,6 +17,7 @@ import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
 import '../features/admin/presentation/admin_production_map_orders_screen.dart';
+import '../features/admin/presentation/admin_queue_policy_screen.dart';
 import '../features/admin/presentation/admin_supplier_create_screen.dart';
 import '../features/admin/presentation/admin_customer_create_screen.dart';
 import '../features/admin/presentation/admin_customer_detail_screen.dart';
@@ -132,6 +133,7 @@ class AppRoutes {
   static const String adminRoles = '/admin-roles';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String adminQueuePolicies = '/admin-queue-policies';
   static const String adminApparatusGroups = '/admin-apparatus-groups';
   static const String adminApparatusCreate = '/admin-apparatus-create';
   static const String apparatusQueue = '/apparatus-queue';
@@ -170,6 +172,7 @@ class AppRouter {
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusGroups,
     AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
@@ -212,6 +215,7 @@ class AppRouter {
     AppRoutes.adminRoles,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusGroups,
     AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
@@ -451,6 +455,8 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.adminQueuePolicies:
+        return _buildRoute(settings, const AdminQueuePolicyScreen());
       case AppRoutes.adminApparatusGroups:
         return _buildRoute(settings, const AdminApparatusGroupsScreen());
       case AppRoutes.adminApparatusCreate:
@@ -636,6 +642,10 @@ class AppRouter {
     AppRoutes.adminRoles: {'role.capability.read'},
     AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapOrders: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminQueuePolicies: {
       'admin.access',
       'production.map.manage',
     },

@@ -7,6 +7,8 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
+    {};
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 bool _testModeForceSequenceSaveFailure = false;
@@ -34,10 +36,58 @@ class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
     required this.queueStates,
+    required this.queuePolicies,
   });
 
   final Map<String, List<String>> sequences;
   final Map<String, Map<String, String>> queueStates;
+  final Map<String, AdminApparatusQueuePolicy> queuePolicies;
+}
+
+enum ApparatusQueuePolicy {
+  strictSequence('strict_sequence'),
+  freePick('free_pick');
+
+  const ApparatusQueuePolicy(this.apiValue);
+
+  final String apiValue;
+
+  static ApparatusQueuePolicy fromRaw(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'free_pick' => ApparatusQueuePolicy.freePick,
+      _ => ApparatusQueuePolicy.strictSequence,
+    };
+  }
+}
+
+class AdminApparatusQueuePolicy {
+  const AdminApparatusQueuePolicy({
+    required this.apparatus,
+    required this.policy,
+    this.locked = false,
+    this.reason = '',
+  });
+
+  final String apparatus;
+  final ApparatusQueuePolicy policy;
+  final bool locked;
+  final String reason;
+
+  factory AdminApparatusQueuePolicy.fromJson(Map<String, dynamic> json) {
+    return AdminApparatusQueuePolicy(
+      apparatus: json['apparatus']?.toString() ?? '',
+      policy: ApparatusQueuePolicy.fromRaw(json['policy']),
+      locked: json['locked'] == true,
+      reason: json['reason']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'apparatus': apparatus,
+        'policy': policy.apiValue,
+        'locked': locked,
+        'reason': reason,
+      };
 }
 
 class AdminProductionMapLiveSnapshot {
@@ -45,11 +95,13 @@ class AdminProductionMapLiveSnapshot {
     required this.maps,
     required this.sequences,
     required this.queueStates,
+    required this.queuePolicies,
   });
 
   final List<ProductionMapSaved> maps;
   final Map<String, List<String>> sequences;
   final Map<String, Map<String, String>> queueStates;
+  final Map<String, AdminApparatusQueuePolicy> queuePolicies;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
@@ -64,6 +116,9 @@ class AdminProductionMapLiveSnapshot {
       ),
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
+      ),
+      queuePolicies: MobileApi.instance.parseApparatusQueuePolicyMap(
+        json['queue_policies'],
       ),
     );
   }
@@ -94,6 +149,8 @@ MobileApiException _adminProductionMapException(
       'previous_stage_not_completed' =>
         'Oldingi bosqich tugallanguncha kutilmoqda',
       'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
+      'queue_policy_locked' =>
+        'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
       'map_not_found' => 'Zakaz topilmadi',
       _ => 'Production map amali bajarilmadi',
     },
@@ -620,6 +677,9 @@ extension MobileApiAdmin on MobileApi {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),
         },
+        queuePolicies: Map<String, AdminApparatusQueuePolicy>.unmodifiable(
+          _testModeApparatusQueuePolicies,
+        ),
       );
     }
     final response = await _sendAuthorized(
@@ -635,7 +695,75 @@ extension MobileApiAdmin on MobileApi {
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
+      queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
     );
+  }
+
+  Future<Map<String, AdminApparatusQueuePolicy>>
+      adminApparatusQueuePolicies() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return Map<String, AdminApparatusQueuePolicy>.unmodifiable(
+        _testModeApparatusQueuePolicies,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-policies'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'queue_policies');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return parseApparatusQueuePolicyMap(payload['policies']);
+  }
+
+  Future<AdminApparatusQueuePolicy> adminUpdateApparatusQueuePolicy({
+    required String apparatus,
+    required ApparatusQueuePolicy policy,
+  }) async {
+    final normalized = apparatus.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final locked = productionMapPechatColorCount(normalized) != null;
+      if (locked && policy != ApparatusQueuePolicy.strictSequence) {
+        throw const MobileApiException(
+          code: 'queue_policy_locked',
+          message: 'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
+        );
+      }
+      final record = AdminApparatusQueuePolicy(
+        apparatus: normalized,
+        policy: locked ? ApparatusQueuePolicy.strictSequence : policy,
+        locked: locked,
+        reason: locked ? 'pechat_always_strict' : '',
+      );
+      _testModeApparatusQueuePolicies[normalized] = record;
+      return record;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-policies'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': normalized,
+          'policy': policy.apiValue,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'queue_policies');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['policy'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'queue_policies',
+        message: 'Production map amali bajarilmadi',
+      );
+    }
+    return AdminApparatusQueuePolicy.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<http.StreamedResponse> adminProductionMapLiveConnect() async {
@@ -695,6 +823,29 @@ extension MobileApiAdmin on MobileApi {
     };
   }
 
+  Map<String, AdminApparatusQueuePolicy> parseApparatusQueuePolicyMap(
+    Object? raw,
+  ) {
+    final values = raw is Map
+        ? raw.values
+        : raw is List
+            ? raw
+            : const [];
+    final policies = <String, AdminApparatusQueuePolicy>{};
+    for (final item in values) {
+      if (item is! Map) {
+        continue;
+      }
+      final policy = AdminApparatusQueuePolicy.fromJson(
+        item.cast<String, dynamic>(),
+      );
+      if (policy.apparatus.trim().isNotEmpty) {
+        policies[policy.apparatus.trim()] = policy;
+      }
+    }
+    return policies;
+  }
+
   Future<Map<String, String>> adminApparatusQueueAction({
     required String apparatus,
     required String orderId,
@@ -710,15 +861,25 @@ extension MobileApiAdmin on MobileApi {
       final states = Map<String, String>.from(
         _testModeApparatusQueueStates[storageKey] ?? const {},
       );
-      final actionable = firstActionableQueueOrderId(
-        sequence: sequence,
-        states: states,
-      );
-      if (actionable != orderId.trim()) {
+      final policy =
+          _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
+      if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
           message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
         );
+      }
+      if (policy == ApparatusQueuePolicy.strictSequence) {
+        final actionable = firstActionableQueueOrderId(
+          sequence: sequence,
+          states: states,
+        );
+        if (actionable != orderId.trim()) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
       if (action == 'start') {
@@ -1511,4 +1672,28 @@ bool _isSameProductionMapOrder(
   return current.id.trim() == next.id.trim() &&
       current.title.trim() == next.title.trim() &&
       current.productCode.trim() == next.productCode.trim();
+}
+
+AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
+  String apparatus,
+  String storageKey,
+) {
+  final title =
+      storageKey.trim().isEmpty ? apparatus.trim() : storageKey.trim();
+  final locked = productionMapPechatColorCount(title) != null ||
+      productionMapPechatColorCount(apparatus) != null;
+  if (locked) {
+    return AdminApparatusQueuePolicy(
+      apparatus: title,
+      policy: ApparatusQueuePolicy.strictSequence,
+      locked: true,
+      reason: 'pechat_always_strict',
+    );
+  }
+  return _testModeApparatusQueuePolicies[title] ??
+      _testModeApparatusQueuePolicies[apparatus.trim()] ??
+      AdminApparatusQueuePolicy(
+        apparatus: title,
+        policy: ApparatusQueuePolicy.strictSequence,
+      );
 }

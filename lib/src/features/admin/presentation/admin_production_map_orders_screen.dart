@@ -136,6 +136,7 @@ class _AdminProductionMapOrdersScreenState
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
+  final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   bool _queueActionInFlight = false;
 
   @override
@@ -308,6 +309,9 @@ class _AdminProductionMapOrdersScreenState
       _queueStatesByApparatus
         ..clear()
         ..addAll(snapshot.queueStates);
+      _queuePoliciesByApparatus
+        ..clear()
+        ..addAll(snapshot.queuePolicies);
       _loading = false;
     });
   }
@@ -357,6 +361,9 @@ class _AdminProductionMapOrdersScreenState
         _queueStatesByApparatus
           ..clear()
           ..addAll(queueSnapshot.queueStates);
+        _queuePoliciesByApparatus
+          ..clear()
+          ..addAll(queueSnapshot.queuePolicies);
       });
     } catch (_) {
       return;
@@ -421,7 +428,8 @@ class _AdminProductionMapOrdersScreenState
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
-        _queueStatesByApparatus.length != snapshot.queueStates.length) {
+        _queueStatesByApparatus.length != snapshot.queueStates.length ||
+        _queuePoliciesByApparatus.length != snapshot.queuePolicies.length) {
       return true;
     }
     for (final entry in snapshot.sequences.entries) {
@@ -435,6 +443,14 @@ class _AdminProductionMapOrdersScreenState
     for (final entry in snapshot.queueStates.entries) {
       final current = _queueStatesByApparatus[entry.key];
       if (current == null || !_stringMapsEqual(current, entry.value)) {
+        return true;
+      }
+    }
+    for (final entry in snapshot.queuePolicies.entries) {
+      final current = _queuePoliciesByApparatus[entry.key];
+      if (current == null ||
+          current.policy != entry.value.policy ||
+          current.locked != entry.value.locked) {
         return true;
       }
     }
@@ -582,6 +598,23 @@ class _AdminProductionMapOrdersScreenState
     return const [];
   }
 
+  ApparatusQueuePolicy _queuePolicyForApparatus(AdminWarehouse apparatus) {
+    final title = apparatus.warehouse.trim();
+    if (productionMapPechatColorCount(title) != null) {
+      return ApparatusQueuePolicy.strictSequence;
+    }
+    final direct = _queuePoliciesByApparatus[title];
+    if (direct != null) {
+      return direct.policy;
+    }
+    for (final entry in _queuePoliciesByApparatus.entries) {
+      if (productionMapWarehouseTitlesMatch(entry.key, title)) {
+        return entry.value.policy;
+      }
+    }
+    return ApparatusQueuePolicy.strictSequence;
+  }
+
   Future<Map<String, String>?> _handleQueueAction({
     required AdminWarehouse apparatus,
     required ProductionMapSaved order,
@@ -633,6 +666,7 @@ class _AdminProductionMapOrdersScreenState
       return const AdminApparatusQueueSnapshot(
         sequences: {},
         queueStates: {},
+        queuePolicies: {},
       );
     }
   }
@@ -705,6 +739,7 @@ class _AdminProductionMapOrdersScreenState
         canManageQueue: _isAssignedWatchApparatus(apparatus),
         initialQueueStates: _queueStatesForApparatus(apparatus),
         queueStatesByApparatus: _queueStatesByApparatus,
+        queuePolicy: _queuePolicyForApparatus(apparatus),
         isOrderReadyForStation: (orderId) {
           final match = _orders
               .where((item) => item.map.id.trim() == orderId.trim())
@@ -3119,6 +3154,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.canManageQueue = false,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
+    this.queuePolicy = ApparatusQueuePolicy.strictSequence,
     this.isOrderReadyForStation,
     this.sequenceOrderIds = const [],
     this.visibleOrderIds = const [],
@@ -3130,6 +3166,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool canManageQueue;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final ApparatusQueuePolicy queuePolicy;
   final bool Function(String orderId)? isOrderReadyForStation;
   final List<String> sequenceOrderIds;
   final List<String> visibleOrderIds;
@@ -3241,7 +3278,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             isOrderReady: widget.isOrderReadyForStation,
           )
         : null;
-    final isActionable = actionableId == orderId;
+    final freePick = widget.queuePolicy == ApparatusQueuePolicy.freePick;
+    final isActionable =
+        widget.canManageQueue && (freePick || actionableId == orderId);
     final showStart = isActionable &&
         chainReady &&
         queueState == ApparatusQueueOrderState.pending;
