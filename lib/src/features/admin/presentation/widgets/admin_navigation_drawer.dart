@@ -34,9 +34,8 @@ class AdminNavigationDrawer extends StatelessWidget {
             backgroundColor: scheme.surfaceContainerLow,
             indicatorColor: scheme.secondaryContainer,
             surfaceTintColor: Colors.transparent,
-            selectedIndex: effectiveSelectedIndex >= 0
-                ? effectiveSelectedIndex
-                : null,
+            selectedIndex:
+                effectiveSelectedIndex >= 0 ? effectiveSelectedIndex : null,
             tilePadding: const EdgeInsets.symmetric(horizontal: 4),
             onDestinationSelected: (index) async {
               if (index < 0 || index >= destinations.length) {
@@ -66,9 +65,9 @@ class AdminNavigationDrawer extends StatelessWidget {
                 child: Text(
                   l10n.adminDrawerSections,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                        color: onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
               ),
             ),
@@ -156,9 +155,15 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminHomeNavTitle,
       routeName: AppRoutes.adminHome,
     ),
-    _AdminDrawerDestination(
+    const _AdminDrawerDestination(
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
+      label: 'Ishchi sozlamalari',
+      routeName: AppRoutes.adminWorkerSettings,
+    ),
+    _AdminDrawerDestination(
+      icon: Icons.manage_accounts_outlined,
+      selectedIcon: Icons.manage_accounts_rounded,
       label: l10n.adminUsersTitle,
       routeName: AppRoutes.adminSuppliers,
     ),

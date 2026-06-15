@@ -45,6 +45,14 @@ class AdminCreateHubScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
+                  title: 'Ishchi sozlamalari',
+                  subtitle: 'Ishchi va darajasini alohida yuritish',
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.adminWorkerSettings),
+                ),
+                const Divider(height: 1, thickness: 1),
+                _CreateHubRow(
                   title: context.l10n.adminErpSettingsTitle,
                   subtitle: context.l10n.adminErpSettingsSubtitle,
                   onTap: () =>

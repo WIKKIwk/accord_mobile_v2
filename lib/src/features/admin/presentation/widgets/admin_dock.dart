@@ -41,8 +41,7 @@ class AdminDock extends StatelessWidget {
           createLabel: createLabel,
           activityLabel: activityLabel,
         );
-        final effectiveShowPrimaryFab =
-            showPrimaryFab &&
+        final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab &&
             destinations.any((destination) => destination.primary);
         final selectedIndex = destinations.indexWhere(
@@ -75,8 +74,7 @@ class AdminDock extends StatelessWidget {
               );
             }
 
-            final useNativeDock =
-                NativeDockBridge.isSupportedPlatform &&
+            final useNativeDock = NativeDockBridge.isSupportedPlatform &&
                 NativeDockBridge.instance.supportsSystemDock;
             if (useNativeDock) {
               NativeDockBridge.instance.register(
@@ -177,7 +175,7 @@ List<_AdminDockDestination> _visibleDestinations({
       label: usersLabel,
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
-      routeName: AppRoutes.adminSuppliers,
+      routeName: AppRoutes.adminWorkerSettings,
     ),
     _AdminDockDestination(
       id: 'admin-create',

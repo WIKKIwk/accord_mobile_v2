@@ -5,36 +5,36 @@ UserRole userRoleFromJson(String? value) {
   return roleValue == 'werka'
       ? UserRole.werka
       : roleValue == 'customer'
-      ? UserRole.customer
-      : roleValue == 'aparatchi'
-      ? UserRole.aparatchi
-      : roleValue == 'admin'
-      ? UserRole.admin
-      : UserRole.supplier;
+          ? UserRole.customer
+          : roleValue == 'aparatchi'
+              ? UserRole.aparatchi
+              : roleValue == 'admin'
+                  ? UserRole.admin
+                  : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
   return role == UserRole.werka
       ? 'werka'
       : role == UserRole.customer
-      ? 'customer'
-      : role == UserRole.aparatchi
-      ? 'aparatchi'
-      : role == UserRole.admin
-      ? 'admin'
-      : 'supplier';
+          ? 'customer'
+          : role == UserRole.aparatchi
+              ? 'aparatchi'
+              : role == UserRole.admin
+                  ? 'admin'
+                  : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
   return role == UserRole.werka
       ? 'Werka'
       : role == UserRole.customer
-      ? 'Haridor'
-      : role == UserRole.aparatchi
-      ? 'Aparatchi'
-      : role == UserRole.admin
-      ? 'Admin'
-      : 'Ta\'minotchi';
+          ? 'Haridor'
+          : role == UserRole.aparatchi
+              ? 'Aparatchi'
+              : role == UserRole.admin
+                  ? 'Admin'
+                  : 'Ta\'minotchi';
 }
 
 enum DispatchStatus { draft, pending, accepted, partial, rejected, cancelled }
@@ -134,8 +134,7 @@ class AdminWarehouse {
       warehouse: json['warehouse'] as String? ?? '',
       company: json['company'] as String? ?? '',
       isGroup: json['is_group'] == true,
-      parentWarehouse:
-          (json['parent_warehouse'] as String?) ??
+      parentWarehouse: (json['parent_warehouse'] as String?) ??
           (json['parent'] as String?) ??
           '',
     );
@@ -1262,6 +1261,46 @@ class AdminSupplier {
   }
 }
 
+class AdminWorker {
+  const AdminWorker({
+    required this.id,
+    required this.name,
+    required this.level,
+  });
+
+  final String id;
+  final String name;
+  final String level;
+
+  factory AdminWorker.fromJson(Map<String, dynamic> json) {
+    return AdminWorker(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      level: json['level'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'level': level,
+    };
+  }
+
+  AdminWorker copyWith({
+    String? id,
+    String? name,
+    String? level,
+  }) {
+    return AdminWorker(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      level: level ?? this.level,
+    );
+  }
+}
+
 class AdminSupplierSummary {
   const AdminSupplierSummary({
     required this.totalSuppliers,
@@ -1449,8 +1488,8 @@ class AdminUserListEntry {
     return kind == AdminUserKind.werka
         ? 'Werka'
         : kind == AdminUserKind.customer
-        ? 'Customer'
-        : 'Supplier';
+            ? 'Customer'
+            : 'Supplier';
   }
 }
 

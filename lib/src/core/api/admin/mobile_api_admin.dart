@@ -7,6 +7,7 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+final List<AdminWorker> _testModeWorkers = [];
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 
@@ -469,8 +470,7 @@ extension MobileApiAdmin on MobileApi {
             message: 'Zakaz bu aparatga tushmaydi',
           );
         }
-        final nodes =
-            productionMapReassignAlternativeApparatusAssignment(
+        final nodes = productionMapReassignAlternativeApparatusAssignment(
               nodes: current.map.nodes,
               fromApparatus: fromApparatus,
               toApparatus: toApparatus,
@@ -559,8 +559,7 @@ extension MobileApiAdmin on MobileApi {
           message: 'Zakaz bu aparatga tushmaydi',
         );
       }
-      final nodes =
-          productionMapReassignAlternativeApparatusAssignment(
+      final nodes = productionMapReassignAlternativeApparatusAssignment(
             nodes: current.map.nodes,
             fromApparatus: fromApparatus,
             toApparatus: toApparatus,
@@ -839,6 +838,95 @@ extension MobileApiAdmin on MobileApi {
           (item) => AdminRoleAssignment.fromJson(item as Map<String, dynamic>),
         )
         .toList();
+  }
+
+  Future<List<AdminWorker>> adminWorkers({String query = ''}) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final needle = query.trim().toLowerCase();
+      return _testModeWorkers
+          .where(
+            (worker) =>
+                needle.isEmpty ||
+                worker.name.toLowerCase().contains(needle) ||
+                worker.level.toLowerCase().contains(needle),
+          )
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers').replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin workers failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => AdminWorker.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<AdminWorker> adminCreateWorker({
+    required String name,
+    required String level,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final worker = AdminWorker(
+        id: 'worker-${DateTime.now().microsecondsSinceEpoch}',
+        name: name.trim(),
+        level: level.trim(),
+      );
+      _testModeWorkers.add(worker);
+      return worker;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'name': name, 'level': level}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker create failed');
+    }
+    return AdminWorker.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminWorker> adminUpdateWorkerLevel({
+    required String id,
+    required String level,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeWorkers.indexWhere((worker) => worker.id == id);
+      if (index < 0) {
+        throw Exception('Admin worker not found');
+      }
+      final updated = _testModeWorkers[index].copyWith(level: level.trim());
+      _testModeWorkers[index] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'id': id, 'name': '', 'level': level}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker level update failed');
+    }
+    return AdminWorker.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<AdminRoleAssignment> adminUpsertRoleAssignment(

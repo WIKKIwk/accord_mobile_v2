@@ -26,6 +26,7 @@ import '../features/admin/presentation/admin_supplier_items_view_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
+import '../features/admin/presentation/admin_worker_settings_screen.dart';
 import '../features/admin/models/production_map_models.dart';
 import '../features/admin/state/calculate_order_store.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
@@ -135,6 +136,7 @@ class AppRoutes {
   static const String adminApparatusCreate = '/admin-apparatus-create';
   static const String apparatusQueue = '/apparatus-queue';
   static const String adminSuppliers = '/admin-suppliers';
+  static const String adminWorkerSettings = '/admin-worker-settings';
   static const String adminUserCreate = '/admin-user-create';
   static const String adminSupplierCreate = '/admin-supplier-create';
   static const String adminCustomerCreate = '/admin-customer-create';
@@ -172,6 +174,7 @@ class AppRouter {
     AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
     AppRoutes.adminSuppliers,
+    AppRoutes.adminWorkerSettings,
     AppRoutes.adminUserCreate,
     AppRoutes.adminWerka,
     AppRoutes.profile,
@@ -225,6 +228,7 @@ class AppRouter {
     AppRoutes.adminSupplierItemsView,
     AppRoutes.adminSupplierItemsAdd,
     AppRoutes.adminWerka,
+    AppRoutes.adminWorkerSettings,
   };
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -467,6 +471,8 @@ class AppRouter {
         );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
+      case AppRoutes.adminWorkerSettings:
+        return _buildRoute(settings, const AdminWorkerSettingsScreen());
       case AppRoutes.adminUserCreate:
         return _buildRoute(settings, const AdminUserCreateScreen());
       case AppRoutes.adminSupplierCreate:
@@ -618,6 +624,7 @@ class AppRouter {
     AppRoutes.adminCalculate: {'admin.access', 'production.map.manage'},
     AppRoutes.adminCalculateOrders: {'admin.access', 'production.map.manage'},
     AppRoutes.adminCreateHub: {
+      'admin.access',
       'catalog.item.create',
       'catalog.item_group.manage',
       'party.supplier.manage',
@@ -639,6 +646,7 @@ class AppRouter {
       'apparatus.queue.manage',
     },
     AppRoutes.adminSuppliers: {'party.supplier.read', 'party.customer.read'},
+    AppRoutes.adminWorkerSettings: {'admin.access'},
     AppRoutes.adminUserCreate: {
       'party.supplier.manage',
       'party.customer.manage',
