@@ -137,7 +137,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 physics: const TopRefreshScrollPhysics(),
                 padding: EdgeInsets.only(bottom: bottomPadding),
                 children: [
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   if (canLoadSummary) ...[
                     SmoothAppear(
                       delay: const Duration(milliseconds: 20),

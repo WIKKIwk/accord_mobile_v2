@@ -10,7 +10,8 @@ import 'package:flutter/material.dart';
 const double _drawerEdgeDragWidth = 28;
 const double _drawerOpenDragDistance = 48;
 const double _drawerOpenDragVelocity = 450;
-const double _contentTopCornerRadius = 24;
+const double _contentHorizontalInset = 10;
+const double _contentTopCornerRadius = 18;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
 Widget _appShellStyleLinearProgress(ThemeData theme, {double? value}) {
@@ -459,65 +460,71 @@ class _AppShellState extends State<AppShell>
             ),
           ),
         Expanded(
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(_contentTopCornerRadius),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _contentHorizontalInset,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: ColoredBox(
-              color: widget.backgroundColor ?? AppTheme.shellStart(context),
-              child: Container(
-                width: double.infinity,
-                padding: widget.contentPadding,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    widget.child,
-                    if (widget.bottom != null &&
-                        widget.bottomDockFadeStrength != null)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: IgnorePointer(
-                          child: AnimatedBuilder(
-                            animation: widget.bottomDockFadeStrength!,
-                            builder: (context, _) {
-                              final fade = widget.bottomDockFadeStrength!.value
-                                  .clamp(0.0, 1.0);
-                              if (fade <= 0.002) {
-                                return const SizedBox.shrink();
-                              }
-                              final Color chrome =
-                                  theme.navigationBarTheme.backgroundColor ??
-                                      theme.colorScheme.surface;
-                              // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
-                              final peakAlpha = 0.26 * fade;
-                              return SizedBox(
-                                height: 72 +
-                                    MediaQuery.viewPaddingOf(context).bottom,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      stops: const [0.0, 0.5, 1.0],
-                                      colors: [
-                                        Colors.transparent,
-                                        chrome.withValues(
-                                          alpha: peakAlpha * 0.35,
-                                        ),
-                                        chrome.withValues(alpha: peakAlpha),
-                                      ],
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(_contentTopCornerRadius),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ColoredBox(
+                color: widget.backgroundColor ?? AppTheme.shellStart(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: widget.contentPadding,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      widget.child,
+                      if (widget.bottom != null &&
+                          widget.bottomDockFadeStrength != null)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: AnimatedBuilder(
+                              animation: widget.bottomDockFadeStrength!,
+                              builder: (context, _) {
+                                final fade = widget
+                                    .bottomDockFadeStrength!.value
+                                    .clamp(0.0, 1.0);
+                                if (fade <= 0.002) {
+                                  return const SizedBox.shrink();
+                                }
+                                final Color chrome =
+                                    theme.navigationBarTheme.backgroundColor ??
+                                        theme.colorScheme.surface;
+                                // Oldin ~0.92 taga — endi faqat scroll yaqinida va pastda yengil.
+                                final peakAlpha = 0.26 * fade;
+                                return SizedBox(
+                                  height: 72 +
+                                      MediaQuery.viewPaddingOf(context).bottom,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        stops: const [0.0, 0.5, 1.0],
+                                        colors: [
+                                          Colors.transparent,
+                                          chrome.withValues(
+                                            alpha: peakAlpha * 0.35,
+                                          ),
+                                          chrome.withValues(alpha: peakAlpha),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
