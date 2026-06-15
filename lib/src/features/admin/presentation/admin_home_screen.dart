@@ -97,6 +97,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AppShell(
       drawer: AdminNavigationDrawer(
@@ -110,62 +111,67 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: AnimatedBuilder(
-        animation: AdminStore.instance,
-        builder: (context, _) {
-          final store = AdminStore.instance;
-          final canLoadSummary = _canLoadSummary;
-          if (canLoadSummary && store.loadingSummary && !store.loadedSummary) {
-            return const Center(child: AppLoadingIndicator());
-          }
-          if (canLoadSummary &&
-              store.summaryError != null &&
-              !store.loadedSummary) {
-            return AppRetryState(onRetry: _reload);
-          }
+      child: ColoredBox(
+        color: scheme.surfaceContainerHighest,
+        child: AnimatedBuilder(
+          animation: AdminStore.instance,
+          builder: (context, _) {
+            final store = AdminStore.instance;
+            final canLoadSummary = _canLoadSummary;
+            if (canLoadSummary &&
+                store.loadingSummary &&
+                !store.loadedSummary) {
+              return const Center(child: AppLoadingIndicator());
+            }
+            if (canLoadSummary &&
+                store.summaryError != null &&
+                !store.loadedSummary) {
+              return AppRetryState(onRetry: _reload);
+            }
 
-          final summaryValue = store.summary;
-          return AppRefreshIndicator(
-            onRefresh: _reload,
-            allowRefreshOnShortContent: true,
-            child: ListView(
-              physics: const TopRefreshScrollPhysics(),
-              padding: EdgeInsets.only(bottom: bottomPadding),
-              children: [
-                const SizedBox(height: 4),
-                if (canLoadSummary) ...[
-                  SmoothAppear(
-                    delay: const Duration(milliseconds: 20),
-                    child: _AdminSummaryList(
-                      summary: summaryValue,
-                      onTapTotal: () =>
-                          _openAndReload(AppRoutes.adminSuppliers),
-                      onTapActive: () =>
-                          _openAndReload(AppRoutes.adminSuppliers),
-                      onTapBlocked: () =>
-                          _openAndReload(AppRoutes.adminInactiveSuppliers),
-                    ),
-                  ),
-                  if (summaryValue.blockedSuppliers > 0) ...[
-                    const SizedBox(height: 16),
+            final summaryValue = store.summary;
+            return AppRefreshIndicator(
+              onRefresh: _reload,
+              allowRefreshOnShortContent: true,
+              child: ListView(
+                physics: const TopRefreshScrollPhysics(),
+                padding: EdgeInsets.only(bottom: bottomPadding),
+                children: [
+                  const SizedBox(height: 4),
+                  if (canLoadSummary) ...[
                     SmoothAppear(
-                      delay: const Duration(milliseconds: 80),
-                      child: _AdminBlockedSuppliersSection(
-                        count: summaryValue.blockedSuppliers,
-                        onTap: () =>
+                      delay: const Duration(milliseconds: 20),
+                      child: _AdminSummaryList(
+                        summary: summaryValue,
+                        onTapTotal: () =>
+                            _openAndReload(AppRoutes.adminSuppliers),
+                        onTapActive: () =>
+                            _openAndReload(AppRoutes.adminSuppliers),
+                        onTapBlocked: () =>
                             _openAndReload(AppRoutes.adminInactiveSuppliers),
                       ),
                     ),
-                  ],
-                ] else
-                  SmoothAppear(
-                    delay: const Duration(milliseconds: 20),
-                    child: _AdminActionList(onOpenRoute: _openAndReload),
-                  ),
-              ],
-            ),
-          );
-        },
+                    if (summaryValue.blockedSuppliers > 0) ...[
+                      const SizedBox(height: 16),
+                      SmoothAppear(
+                        delay: const Duration(milliseconds: 80),
+                        child: _AdminBlockedSuppliersSection(
+                          count: summaryValue.blockedSuppliers,
+                          onTap: () =>
+                              _openAndReload(AppRoutes.adminInactiveSuppliers),
+                        ),
+                      ),
+                    ],
+                  ] else
+                    SmoothAppear(
+                      delay: const Duration(milliseconds: 20),
+                      child: _AdminActionList(onOpenRoute: _openAndReload),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -213,6 +219,7 @@ class _AdminActionCard extends StatelessWidget {
       cornerRadius: slot == M3SegmentVerticalSlot.middle
           ? M3SegmentedListGeometry.cornerMiddle
           : M3SegmentedListGeometry.cornerLarge,
+      backgroundColor: scheme.surface,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -355,6 +362,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.top,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: 'Jami users',
           value: summary.totalSuppliers.toString(),
           onTap: onTapTotal,
@@ -363,6 +371,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.middle,
           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: 'Faol users',
           value: summary.activeSuppliers.toString(),
           onTap: onTapActive,
@@ -371,6 +380,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.bottom,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: 'Bloklangan users',
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
@@ -402,6 +412,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
           M3SegmentFilledSurface(
             slot: M3SegmentVerticalSlot.top,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
+            backgroundColor: scheme.surface,
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
@@ -426,6 +437,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
           M3SegmentFilledSurface(
             slot: M3SegmentVerticalSlot.bottom,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
+            backgroundColor: scheme.surface,
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
