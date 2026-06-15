@@ -177,7 +177,7 @@ class _QueuePolicyTile extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: scheme.outlineVariant),

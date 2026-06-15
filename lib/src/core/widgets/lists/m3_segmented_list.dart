@@ -111,9 +111,8 @@ abstract final class M3SegmentedListGeometry {
 
 /// MD3 contained list elementi: faqat **to‘ldirilgan fon** (chegara chizig‘i yo‘q), ixtiyoriy bosilish.
 ///
-/// **Qorong‘i temada** kontent odatda asosiy [ColorScheme.surface]ga yaqin — shuning uchun
-/// [surfaceContainerLow] (yuqori zinapoyadan pastroq). **Yorug‘ temada** konteynerlar
-/// odatda [surface]dan to‘qroq — [surfaceContainerHighest] ishlatiladi.
+/// Page background odatda [ColorScheme.surfaceContainerHighest], kartalar esa
+/// [ColorScheme.surface] bo‘ladi.
 class M3SegmentFilledSurface extends StatelessWidget {
   const M3SegmentFilledSurface({
     super.key,
@@ -130,23 +129,17 @@ class M3SegmentFilledSurface extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
 
-  /// `null` — standart [surfaceContainerLow] / [surfaceContainerHighest].
+  /// `null` — standart [ColorScheme.surface].
   final Color? backgroundColor;
   final BorderRadius? borderRadiusOverride;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final brightness = Theme.of(context).brightness;
     final BorderRadius radius =
         borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg =
-        backgroundColor ??
-        switch (brightness) {
-          Brightness.dark => scheme.surfaceContainerLow,
-          Brightness.light => scheme.surfaceContainerHighest,
-        };
+    final Color bg = backgroundColor ?? scheme.surface;
 
     final Widget ink = Ink(
       decoration: BoxDecoration(color: bg, borderRadius: radius),

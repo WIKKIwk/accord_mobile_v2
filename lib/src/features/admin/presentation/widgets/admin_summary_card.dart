@@ -54,16 +54,10 @@ class AdminSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final brightness = Theme.of(context).brightness;
     final BorderRadius radius =
         borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg =
-        backgroundColor ??
-        switch (brightness) {
-          Brightness.dark => scheme.surfaceContainerLow,
-          Brightness.light => scheme.surfaceContainerHighest,
-        };
+    final Color bg = backgroundColor ?? scheme.surface;
     final bool showValue = value.trim().isNotEmpty;
 
     final Widget ink = Ink(

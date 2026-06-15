@@ -3016,7 +3016,7 @@ class _ApparatusRow extends StatelessWidget {
     );
     return Material(
       color:
-          selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+          selected ? scheme.primaryContainer : scheme.surface,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -3450,7 +3450,7 @@ class _DetailCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: scheme.outlineVariant),
       ),

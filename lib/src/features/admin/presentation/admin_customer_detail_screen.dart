@@ -583,7 +583,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
 
     return Card.filled(
       margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),

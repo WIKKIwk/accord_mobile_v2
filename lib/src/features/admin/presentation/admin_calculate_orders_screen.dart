@@ -266,7 +266,7 @@ class _OrderRow extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     return Material(
-      color: scheme.surfaceContainerHighest,
+      color: scheme.surface,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(

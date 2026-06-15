@@ -248,7 +248,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                   delay: const Duration(milliseconds: 20),
                   child: Card.filled(
                     margin: EdgeInsets.zero,
-                    color: scheme.surfaceContainerLow,
+                    color: scheme.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -398,7 +398,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                   delay: const Duration(milliseconds: 60),
                   child: Card.filled(
                     margin: EdgeInsets.zero,
-                    color: scheme.surfaceContainerLow,
+                    color: scheme.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
                     ),

@@ -986,8 +986,8 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.surface,
-      cardColor: colorScheme.surfaceContainerLow,
+      scaffoldBackgroundColor: colorScheme.surfaceContainerHighest,
+      cardColor: colorScheme.surface,
       dividerColor: colorScheme.outlineVariant,
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
@@ -1159,13 +1159,13 @@ class AppTheme {
       Theme.of(context).brightness == Brightness.dark;
 
   static Color shellStart(BuildContext context) =>
-      Theme.of(context).colorScheme.surface;
+      Theme.of(context).colorScheme.surfaceContainerHighest;
 
   static Color shellEnd(BuildContext context) =>
-      Theme.of(context).colorScheme.surface;
+      Theme.of(context).colorScheme.surfaceContainerHighest;
 
   static Color cardBackground(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerLow;
+      Theme.of(context).colorScheme.surface;
 
   static Color cardBorder(BuildContext context) =>
       Theme.of(context).colorScheme.outlineVariant;

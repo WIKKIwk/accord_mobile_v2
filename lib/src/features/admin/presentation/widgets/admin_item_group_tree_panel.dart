@@ -108,7 +108,7 @@ class _TreeNodeCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: depth == 0
-            ? colorScheme.surfaceContainerLow
+            ? colorScheme.surface
             : colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
