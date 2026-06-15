@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 const double _drawerEdgeDragWidth = 28;
 const double _drawerOpenDragDistance = 48;
 const double _drawerOpenDragVelocity = 450;
-const double _contentHorizontalInset = 10;
+const double _contentHorizontalInset = 6;
 const double _contentTopCornerRadius = 18;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
