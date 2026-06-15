@@ -1239,7 +1239,12 @@ class _AdminItemProductSearchField extends StatelessWidget {
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
                   ),
-                  Expanded(child: field),
+                  Expanded(
+                    child: Transform.translate(
+                      offset: const Offset(0, -4),
+                      child: field,
+                    ),
+                  ),
                   AnimatedContainer(
                     width: searchActive ? 0 : 6,
                     duration: const Duration(milliseconds: 180),
