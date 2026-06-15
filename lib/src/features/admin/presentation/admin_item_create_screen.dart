@@ -761,7 +761,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
         onRefresh: () => _loadFirstPage(forceRefresh: true),
         child: ListView(
           controller: _scrollController,
-          padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
+          padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             if (!widget.embeddedSearchInAppBar) ...[

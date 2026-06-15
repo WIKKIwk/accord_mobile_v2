@@ -274,7 +274,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
               onRefresh: _reload,
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 116),
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
                 itemCount: visibleItems.isEmpty
                     ? 1
                     : visibleItems.length + (showFooter ? 1 : 0),
