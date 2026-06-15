@@ -16,6 +16,7 @@ import 'admin_production_map_test_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1742,6 +1743,14 @@ class _ImagePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (localPath.trim().isNotEmpty) {
+      if (kIsWeb) {
+        return Image.network(
+          localPath,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _ImagePlaceholder(color: scheme.primary),
+        );
+      }
       return Image.file(File(localPath), fit: BoxFit.cover);
     }
     if (imageUrl.trim().isNotEmpty) {
