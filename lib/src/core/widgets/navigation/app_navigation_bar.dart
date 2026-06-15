@@ -63,6 +63,9 @@ class AppNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color navigationBarBackground =
+        theme.navigationBarTheme.backgroundColor ?? theme.colorScheme.surface;
     final MediaQueryData viewMetrics = MediaQueryData.fromView(
       View.of(context),
     );
@@ -157,6 +160,7 @@ class AppNavigationBar extends StatelessWidget {
                               enabled: barSelectionVisible,
                               height: height,
                               child: NavigationBar(
+                                backgroundColor: navigationBarBackground,
                                 height: height,
                                 selectedIndex: barSelectedIndex,
                                 labelBehavior:
