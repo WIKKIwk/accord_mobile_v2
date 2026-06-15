@@ -4,6 +4,7 @@ final List<ProductionMapSaved> _testModeProductionMaps = [];
 final List<AdminApparatusGroup> _testModeApparatusGroups = [
   ...TestModeDemoData.apparatusGroups,
 ];
+final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 bool _testModeForceSequenceSaveFailure = false;

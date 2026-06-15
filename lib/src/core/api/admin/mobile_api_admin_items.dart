@@ -169,7 +169,10 @@ extension MobileApiAdminItems on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
       final normalizedParent = parent.trim().toLowerCase();
-      return TestModeDemoData.warehouses
+      return [
+        ...TestModeDemoData.warehouses,
+        ..._testModeApparatusWarehouses,
+      ]
           .where(
             (warehouse) =>
                 (normalized.isEmpty ||
@@ -200,6 +203,49 @@ extension MobileApiAdminItems on MobileApi {
     return json
         .map((item) => AdminWarehouse.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<AdminWarehouse> adminCreateApparatus(String warehouse) async {
+    final name = warehouse.trim();
+    if (name.isEmpty) {
+      throw Exception('Admin apparatus name required');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final item = AdminWarehouse(
+        warehouse: name,
+        company: '',
+        isGroup: false,
+        parentWarehouse: 'aparat - A',
+      );
+      final index = _testModeApparatusWarehouses.indexWhere(
+        (existing) => existing.warehouse.toLowerCase() == name.toLowerCase(),
+      );
+      if (index >= 0) {
+        _testModeApparatusWarehouses[index] = item;
+      } else {
+        _testModeApparatusWarehouses.add(item);
+      }
+      _testModeApparatusWarehouses.sort(
+        (left, right) => left.warehouse.toLowerCase().compareTo(
+              right.warehouse.toLowerCase(),
+            ),
+      );
+      return item;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'warehouse': name}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin apparatus create failed');
+    }
+    return AdminWarehouse.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<AdminItemGroupBulkMoveResult> adminMoveItemsToGroup({

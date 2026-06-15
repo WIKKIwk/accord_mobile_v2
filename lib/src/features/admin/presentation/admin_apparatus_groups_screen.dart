@@ -20,11 +20,13 @@ class AdminApparatusGroupsScreen extends StatefulWidget {
 class _AdminApparatusGroupsScreenState
     extends State<AdminApparatusGroupsScreen> {
   final TextEditingController _name = TextEditingController();
+  final TextEditingController _apparatusName = TextEditingController();
   List<AdminWarehouse> _apparatus = const [];
   List<AdminApparatusGroup> _groups = const [];
   final Set<String> _selected = {};
   bool _loading = true;
   bool _saving = false;
+  bool _creatingApparatus = false;
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _AdminApparatusGroupsScreenState
   @override
   void dispose() {
     _name.dispose();
+    _apparatusName.dispose();
     super.dispose();
   }
 
@@ -102,6 +105,45 @@ class _AdminApparatusGroupsScreenState
     }
   }
 
+  Future<void> _createApparatus() async {
+    final name = _apparatusName.text.trim();
+    if (name.isEmpty || _creatingApparatus) {
+      showAdminTopNotice(context, 'Aparat nomi kerak');
+      return;
+    }
+    setState(() => _creatingApparatus = true);
+    try {
+      final created = await MobileApi.instance.adminCreateApparatus(name);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final key = created.warehouse.toLowerCase();
+        final next = [
+          for (final item in _apparatus)
+            if (item.warehouse.toLowerCase() != key) item,
+          created,
+        ]..sort(
+            (left, right) => left.warehouse.toLowerCase().compareTo(
+                  right.warehouse.toLowerCase(),
+                ),
+          );
+        _apparatus = next;
+        _selected.add(created.warehouse);
+        _apparatusName.clear();
+      });
+      showAdminTopNotice(context, 'Aparat qo\'shildi');
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Aparat qo\'shilmadi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _creatingApparatus = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 112;
@@ -127,6 +169,26 @@ class _AdminApparatusGroupsScreenState
                   decoration: const InputDecoration(
                     labelText: 'Guruh nomi',
                     hintText: 'pechat',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _apparatusName,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _createApparatus(),
+                  decoration: const InputDecoration(
+                    labelText: 'Aparat nomi',
+                    hintText: 'Bobst 1',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _creatingApparatus ? null : _createApparatus,
+                  icon: const Icon(Icons.precision_manufacturing_outlined),
+                  label: Text(
+                    _creatingApparatus
+                        ? 'Qo\'shilmoqda...'
+                        : 'Aparat qo\'shish',
                   ),
                 ),
                 const SizedBox(height: 12),
