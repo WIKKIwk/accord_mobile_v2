@@ -7,6 +7,8 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, List<String>> _testModeDailyWorkSequences = {};
+final Map<String, Map<String, List<String>>> _testModeDailyApparatusSequences =
+    {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final List<AdminWorker> _testModeWorkers = [];
 bool _testModeForceSequenceSaveFailure = false;
@@ -34,11 +36,13 @@ class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
     required this.dailySequences,
+    required this.dailyApparatusSequences,
     required this.queueStates,
   });
 
   final Map<String, List<String>> sequences;
   final Map<String, List<String>> dailySequences;
+  final Map<String, Map<String, List<String>>> dailyApparatusSequences;
   final Map<String, Map<String, String>> queueStates;
 }
 
@@ -47,12 +51,14 @@ class AdminProductionMapLiveSnapshot {
     required this.maps,
     required this.sequences,
     required this.dailySequences,
+    required this.dailyApparatusSequences,
     required this.queueStates,
   });
 
   final List<ProductionMapSaved> maps;
   final Map<String, List<String>> sequences;
   final Map<String, List<String>> dailySequences;
+  final Map<String, Map<String, List<String>>> dailyApparatusSequences;
   final Map<String, Map<String, String>> queueStates;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
@@ -68,6 +74,9 @@ class AdminProductionMapLiveSnapshot {
       ),
       dailySequences: MobileApi.instance.parseApparatusSequenceMap(
         json['daily_sequences'],
+      ),
+      dailyApparatusSequences: MobileApi.instance.parseNestedSequenceMap(
+        json['daily_apparatus_sequences'],
       ),
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
@@ -627,6 +636,14 @@ extension MobileApiAdmin on MobileApi {
           for (final entry in _testModeDailyWorkSequences.entries)
             entry.key: List<String>.unmodifiable(entry.value),
         },
+        dailyApparatusSequences: {
+          for (final dateEntry in _testModeDailyApparatusSequences.entries)
+            dateEntry.key: {
+              for (final apparatusEntry in dateEntry.value.entries)
+                apparatusEntry.key:
+                    List<String>.unmodifiable(apparatusEntry.value),
+            },
+        },
         queueStates: {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),
@@ -646,6 +663,8 @@ extension MobileApiAdmin on MobileApi {
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
       dailySequences: await adminProductionMapDailySequences(),
+      dailyApparatusSequences:
+          await adminProductionMapDailyApparatusSequences(),
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
     );
   }
@@ -668,6 +687,36 @@ extension MobileApiAdmin on MobileApi {
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return parseApparatusSequenceMap(payload['sequences']);
+  }
+
+  Future<Map<String, Map<String, List<String>>>>
+      adminProductionMapDailyApparatusSequences() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return {
+        for (final dateEntry in _testModeDailyApparatusSequences.entries)
+          dateEntry.key: {
+            for (final apparatusEntry in dateEntry.value.entries)
+              apparatusEntry.key:
+                  List<String>.unmodifiable(apparatusEntry.value),
+          },
+      };
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/daily-apparatus-sequence',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'production_map_daily_apparatus',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return parseNestedSequenceMap(payload['sequences']);
   }
 
   Future<http.StreamedResponse> adminProductionMapLiveConnect() async {
@@ -693,6 +742,23 @@ extension MobileApiAdmin on MobileApi {
           if (entry.value is List)
             for (final id in entry.value as List) id.toString(),
         ],
+    };
+  }
+
+  Map<String, Map<String, List<String>>> parseNestedSequenceMap(Object? raw) {
+    if (raw is! Map) {
+      return const {};
+    }
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString(): {
+          if (entry.value is Map)
+            for (final nested in (entry.value as Map).entries)
+              nested.key.toString(): [
+                if (nested.value is List)
+                  for (final id in nested.value as List) id.toString(),
+              ],
+        },
     };
   }
 
@@ -836,6 +902,46 @@ extension MobileApiAdmin on MobileApi {
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_daily');
+    }
+  }
+
+  Future<void> adminSaveProductionMapDailyApparatusSequence({
+    required String workDate,
+    required String apparatus,
+    required List<String> orderIds,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final dateSequences = _testModeDailyApparatusSequences.putIfAbsent(
+          workDate.trim(), () => {});
+      if (orderIds.isEmpty) {
+        dateSequences.remove(apparatus.trim());
+        if (dateSequences.isEmpty) {
+          _testModeDailyApparatusSequences.remove(workDate.trim());
+        }
+      } else {
+        dateSequences[apparatus.trim()] = List<String>.from(orderIds);
+      }
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/daily-apparatus-sequence',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'work_date': workDate,
+          'apparatus': apparatus,
+          'order_ids': orderIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'production_map_daily_apparatus',
+      );
     }
   }
 

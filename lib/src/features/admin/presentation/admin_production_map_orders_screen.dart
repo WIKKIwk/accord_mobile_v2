@@ -175,9 +175,12 @@ class _AdminProductionMapOrdersScreenState
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, List<String>> _dailySequenceByDate = {};
+  final Map<String, Map<String, List<String>>> _dailySequenceByDateApparatus =
+      {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   bool _queueActionInFlight = false;
   bool _dailySaveInFlight = false;
+  String _selectedSequenceDate = _dateKey(DateTime.now());
   String _selectedDailyDate = _dateKey(DateTime.now());
   String _dailySourceKey = _dailyUnassignedSourceKey;
 
@@ -351,6 +354,9 @@ class _AdminProductionMapOrdersScreenState
       _dailySequenceByDate
         ..clear()
         ..addAll(snapshot.dailySequences);
+      _dailySequenceByDateApparatus
+        ..clear()
+        ..addAll(snapshot.dailyApparatusSequences);
       _queueStatesByApparatus
         ..clear()
         ..addAll(snapshot.queueStates);
@@ -403,6 +409,9 @@ class _AdminProductionMapOrdersScreenState
         _dailySequenceByDate
           ..clear()
           ..addAll(queueSnapshot.dailySequences);
+        _dailySequenceByDateApparatus
+          ..clear()
+          ..addAll(queueSnapshot.dailyApparatusSequences);
         _queueStatesByApparatus
           ..clear()
           ..addAll(queueSnapshot.queueStates);
@@ -471,6 +480,8 @@ class _AdminProductionMapOrdersScreenState
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
         _dailySequenceByDate.length != snapshot.dailySequences.length ||
+        _dailySequenceByDateApparatus.length !=
+            snapshot.dailyApparatusSequences.length ||
         _queueStatesByApparatus.length != snapshot.queueStates.length) {
       return true;
     }
@@ -488,6 +499,20 @@ class _AdminProductionMapOrdersScreenState
           current.length != entry.value.length ||
           !_stringListsEqual(current, entry.value)) {
         return true;
+      }
+    }
+    for (final entry in snapshot.dailyApparatusSequences.entries) {
+      final current = _dailySequenceByDateApparatus[entry.key];
+      if (current == null || current.length != entry.value.length) {
+        return true;
+      }
+      for (final nested in entry.value.entries) {
+        final currentIds = current[nested.key];
+        if (currentIds == null ||
+            currentIds.length != nested.value.length ||
+            !_stringListsEqual(currentIds, nested.value)) {
+          return true;
+        }
       }
     }
     for (final entry in snapshot.queueStates.entries) {
@@ -691,6 +716,7 @@ class _AdminProductionMapOrdersScreenState
       return const AdminApparatusQueueSnapshot(
         sequences: {},
         dailySequences: {},
+        dailyApparatusSequences: {},
         queueStates: {},
       );
     }
@@ -825,6 +851,24 @@ class _AdminProductionMapOrdersScreenState
     setState(() => _selectedApparatus = picked);
   }
 
+  Future<void> _pickSequenceDate() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _DailySourcePickerSheet(
+        title: 'Kun tanlang',
+        sourceKeys: _dailyDateKeys(),
+        selectedKey: _selectedSequenceDate,
+        orderCountFor: (key) => _dailyOrdersForKey(key).length,
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _selectedSequenceDate = picked);
+  }
+
   void _syncModuleFromTab() {
     final module = _modules[_tabController.index];
     if (_module != module) {
@@ -882,6 +926,72 @@ class _AdminProductionMapOrdersScreenState
     return [
       for (final id in sequence)
         if (byId.containsKey(id.trim())) byId[id.trim()]!,
+    ];
+  }
+
+  List<String> _dailyApparatusSequenceOrderIds({
+    required String dateKey,
+    required AdminWarehouse apparatus,
+  }) {
+    final dateSequences = _dailySequenceByDateApparatus[dateKey];
+    if (dateSequences == null) {
+      return const [];
+    }
+    final title = apparatus.warehouse.trim();
+    final direct = dateSequences[title];
+    if (direct != null) {
+      return direct;
+    }
+    final color = productionMapPechatColorCount(title);
+    if (color != null) {
+      for (final entry in dateSequences.entries) {
+        if (productionMapPechatColorCount(entry.key) == color) {
+          return entry.value;
+        }
+      }
+    }
+    return const [];
+  }
+
+  List<ProductionMapSaved> _baseOrdersForApparatus(AdminWarehouse apparatus) {
+    final title = apparatus.warehouse.trim();
+    return _orders.where((order) {
+      if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
+        return false;
+      }
+      final hasAlternative = _hasAlternativeApparatus(order.map);
+      if (hasAlternative) {
+        return _alternativeOrderAssignedToApparatus(order.map, apparatus);
+      }
+      return productionMapMapHasWorkStageForStation(
+        map: order.map,
+        station: title,
+      );
+    }).toList();
+  }
+
+  List<ProductionMapSaved> _ordersForDailyApparatus({
+    required AdminWarehouse apparatus,
+    required String dateKey,
+  }) {
+    final dailyIds = _dailySequenceByDate[dateKey] ?? const <String>[];
+    if (dailyIds.isEmpty) {
+      return const [];
+    }
+    final dailyIdSet = {for (final id in dailyIds) id.trim()};
+    final filtered = _baseOrdersForApparatus(apparatus)
+        .where((order) => dailyIdSet.contains(order.map.id.trim()))
+        .toList(growable: false);
+    final byId = {for (final order in filtered) order.map.id.trim(): order};
+    final sequence = _dailyApparatusSequenceOrderIds(
+      dateKey: dateKey,
+      apparatus: apparatus,
+    );
+    return [
+      for (final id in sequence)
+        if (byId.containsKey(id.trim())) byId.remove(id.trim())!,
+      for (final id in dailyIds)
+        if (byId.containsKey(id.trim())) byId.remove(id.trim())!,
     ];
   }
 
@@ -1029,20 +1139,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    final filtered = _orders.where((order) {
-      if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
-        return false;
-      }
-      final hasAlternative = _hasAlternativeApparatus(order.map);
-      if (hasAlternative) {
-        return _alternativeOrderAssignedToApparatus(order.map, apparatus);
-      }
-      return productionMapMapHasWorkStageForStation(
-        map: order.map,
-        station: title,
-      );
-    }).toList();
+    final filtered = _baseOrdersForApparatus(apparatus);
     final sequence = _sequenceOrderIdsForApparatus(apparatus);
     if (sequence.isEmpty) {
       return filtered;
@@ -1087,7 +1184,10 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final orders = List<ProductionMapSaved>.from(
-      _ordersForApparatus(apparatus),
+      _ordersForDailyApparatus(
+        apparatus: apparatus,
+        dateKey: _selectedSequenceDate,
+      ),
     );
     if (oldIndex == newIndex) {
       return;
@@ -1096,22 +1196,34 @@ class _AdminProductionMapOrdersScreenState
         orders.map((order) => order.map.id).toList(growable: false);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
+    final dateKey = _selectedSequenceDate;
     final apparatusKey = apparatus.warehouse.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     setState(() {
-      _sequenceByApparatus[apparatusKey] = orderIds;
+      final dateSequences = Map<String, List<String>>.from(
+        _dailySequenceByDateApparatus[dateKey] ?? const {},
+      );
+      dateSequences[apparatusKey] = orderIds;
+      _dailySequenceByDateApparatus[dateKey] = dateSequences;
     });
-    await _persistSequence(apparatusKey, orderIds, previousOrderIds);
+    await _persistDailyApparatusSequence(
+      dateKey: dateKey,
+      apparatus: apparatusKey,
+      orderIds: orderIds,
+      previousOrderIds: previousOrderIds,
+    );
   }
 
-  Future<void> _persistSequence(
-    String apparatus,
-    List<String> orderIds,
-    List<String> previousOrderIds,
-  ) async {
+  Future<void> _persistDailyApparatusSequence({
+    required String dateKey,
+    required String apparatus,
+    required List<String> orderIds,
+    required List<String> previousOrderIds,
+  }) async {
     try {
-      await MobileApi.instance.adminSaveProductionMapSequence(
+      await MobileApi.instance.adminSaveProductionMapDailyApparatusSequence(
+        workDate: dateKey,
         apparatus: apparatus,
         orderIds: orderIds,
       );
@@ -1120,7 +1232,11 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       setState(() {
-        _sequenceByApparatus[apparatus] = previousOrderIds;
+        final dateSequences = Map<String, List<String>>.from(
+          _dailySequenceByDateApparatus[dateKey] ?? const {},
+        );
+        dateSequences[apparatus] = previousOrderIds;
+        _dailySequenceByDateApparatus[dateKey] = dateSequences;
       });
       showAdminTopNotice(
         context,
@@ -1685,12 +1801,18 @@ class _AdminProductionMapOrdersScreenState
                                   _OpenedOrderModule.sequence =>
                                     _SequenceModulePage(
                                       bottomPadding: bottomPadding,
+                                      dateLabel: _dailyDateLabel(
+                                        _selectedSequenceDate,
+                                      ),
                                       apparatus: _selectedApparatus,
                                       orders: _selectedApparatus == null
                                           ? const []
-                                          : _ordersForApparatus(
-                                              _selectedApparatus!),
+                                          : _ordersForDailyApparatus(
+                                              apparatus: _selectedApparatus!,
+                                              dateKey: _selectedSequenceDate,
+                                            ),
                                       readOnly: widget.readOnly,
+                                      onPickDate: _pickSequenceDate,
                                       onPickApparatus: _pickSequenceApparatus,
                                       onReorder: (oldIndex, newIndex) {
                                         unawaited(
@@ -1938,18 +2060,22 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
 class _SequenceModulePage extends StatelessWidget {
   const _SequenceModulePage({
     required this.bottomPadding,
+    required this.dateLabel,
     required this.apparatus,
     required this.orders,
     required this.readOnly,
+    required this.onPickDate,
     required this.onPickApparatus,
     required this.onReorder,
     required this.onTapOrder,
   });
 
   final double bottomPadding;
+  final String dateLabel;
   final AdminWarehouse? apparatus;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
+  final VoidCallback onPickDate;
   final VoidCallback onPickApparatus;
   final ReorderCallback onReorder;
   final ValueChanged<ProductionMapSaved>? onTapOrder;
@@ -2019,9 +2145,11 @@ class _SequenceModulePage extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: _SequenceApparatusSelector(
-              selected: selected,
-              onTap: onPickApparatus,
+            child: _SequenceHeaderSelectors(
+              dateLabel: dateLabel,
+              apparatus: selected,
+              onPickDate: onPickDate,
+              onPickApparatus: onPickApparatus,
             ),
           ),
           Expanded(
@@ -2066,7 +2194,12 @@ class _SequenceModulePage extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
       children: [
-        _SequenceApparatusSelector(selected: selected, onTap: onPickApparatus),
+        _SequenceHeaderSelectors(
+          dateLabel: dateLabel,
+          apparatus: selected,
+          onPickDate: onPickDate,
+          onPickApparatus: onPickApparatus,
+        ),
         if (selected == null)
           const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
         else
@@ -2076,70 +2209,96 @@ class _SequenceModulePage extends StatelessWidget {
   }
 }
 
-class _SequenceApparatusSelector extends StatelessWidget {
-  const _SequenceApparatusSelector({
-    required this.selected,
+class _SequenceHeaderSelectors extends StatelessWidget {
+  const _SequenceHeaderSelectors({
+    required this.dateLabel,
+    required this.apparatus,
+    required this.onPickDate,
+    required this.onPickApparatus,
+  });
+
+  final String dateLabel;
+  final AdminWarehouse? apparatus;
+  final VoidCallback onPickDate;
+  final VoidCallback onPickApparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: _SequencePillSelector(
+              icon: Icons.calendar_today_rounded,
+              label: dateLabel,
+              onTap: onPickDate,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 2,
+            child: _SequencePillSelector(
+              icon: Icons.precision_manufacturing_rounded,
+              label: apparatus?.warehouse.trim().isNotEmpty == true
+                  ? apparatus!.warehouse.trim()
+                  : 'Aparat tanlang',
+              onTap: onPickApparatus,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SequencePillSelector extends StatelessWidget {
+  const _SequencePillSelector({
+    required this.icon,
+    required this.label,
     required this.onTap,
   });
 
-  final AdminWarehouse? selected;
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final selectedTitle = selected?.warehouse.trim() ?? '';
-    final hasValue = selectedTitle.isNotEmpty;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Semantics(
-        button: true,
-        label: 'Aparatlar',
-        child: Align(
-          alignment: Alignment.center,
-          child: Material(
-            color: scheme.primaryContainer,
-            borderRadius: BorderRadius.circular(999),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(999),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.precision_manufacturing_rounded,
-                      size: 16,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        hasValue ? selectedTitle : 'Aparat tanlang',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: scheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w800,
-                            ),
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(999),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: scheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ],
                 ),
               ),
-            ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 18,
+                color: scheme.onPrimaryContainer,
+              ),
+            ],
           ),
         ),
       ),
