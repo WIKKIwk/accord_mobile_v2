@@ -210,6 +210,20 @@ void main() {
       expect(find.text('Mahsulot qidirish'), findsOneWidget);
       expect(tester.widget<EditableText>(find.byType(EditableText)).textAlign,
           TextAlign.start);
+      expect(
+          find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
+
+      await tester.tap(find.byType(EditableText));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('admin-item-search-close')),
+          findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('admin-item-search-close')));
+      await tester.pumpAndSettle();
+
+      expect(
+          find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
 
       expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=80'));
       expect(find.text('Item 001'), findsOneWidget);

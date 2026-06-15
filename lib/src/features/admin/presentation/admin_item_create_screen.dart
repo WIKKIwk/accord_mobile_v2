@@ -1101,23 +1101,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
           alignment: Alignment.center,
           child: Row(
             children: [
-              if (searchActive)
-                SizedBox.square(
-                  dimension: 48,
-                  child: IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).backButtonTooltip,
-                    style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 18),
+              const SizedBox(width: 18),
               Expanded(
                 child: SizedBox(
                   height: 58,
@@ -1174,7 +1158,20 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   ),
                 ),
               ),
-              if (hasText)
+              if (searchActive)
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    key: const ValueKey('admin-item-search-close'),
+                    tooltip: 'Yopish',
+                    onPressed: focusNode.unfocus,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else if (hasText)
                 SizedBox.square(
                   dimension: 48,
                   child: IconButton(
