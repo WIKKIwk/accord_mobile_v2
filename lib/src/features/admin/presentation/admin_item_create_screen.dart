@@ -1241,7 +1241,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
                   ),
                   Expanded(
                     child: Transform.translate(
-                      offset: const Offset(0, -4),
+                      offset: const Offset(0, -1),
                       child: field,
                     ),
                   ),
