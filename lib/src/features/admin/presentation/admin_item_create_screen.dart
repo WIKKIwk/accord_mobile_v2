@@ -1086,12 +1086,13 @@ class _AdminItemProductSearchField extends StatelessWidget {
       scheme.outlineVariant.withValues(alpha: 0.22),
       scheme.surfaceContainerHighest,
     );
-    final field = ListenableBuilder(
+    return ListenableBuilder(
       listenable: Listenable.merge([controller, focusNode]),
       builder: (context, _) {
         final hasText = controller.text.trim().isNotEmpty;
-        final showHint = !hasText && !focusNode.hasFocus;
-        return Container(
+        final searchActive = focusNode.hasFocus;
+        final showHint = !hasText && !searchActive;
+        final field = Container(
           height: 58,
           decoration: BoxDecoration(
             color: searchFill,
@@ -1100,7 +1101,23 @@ class _AdminItemProductSearchField extends StatelessWidget {
           alignment: Alignment.center,
           child: Row(
             children: [
-              const SizedBox(width: 18),
+              if (searchActive)
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
+                    style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 18),
               Expanded(
                 child: SizedBox(
                   height: 58,
@@ -1174,47 +1191,80 @@ class _AdminItemProductSearchField extends StatelessWidget {
             ],
           ),
         );
-      },
-    );
-    return Transform.translate(
-      offset: const Offset(-8, 0),
-      child: SizedBox(
-        width: MediaQuery.sizeOf(context).width - 20,
-        height: AppTheme.appBarHeight,
-        child: Align(
-          alignment: Alignment.center,
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 38,
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: scheme.onSurfaceVariant,
+        return Transform.translate(
+          offset: const Offset(-8, 0),
+          child: SizedBox(
+            width: MediaQuery.sizeOf(context).width - 20,
+            height: AppTheme.appBarHeight,
+            child: Align(
+              alignment: Alignment.center,
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 38,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: ClipRect(
+                      child: AnimatedOpacity(
+                        opacity: searchActive ? 0 : 1,
+                        duration: const Duration(milliseconds: 120),
+                        child: IconButton(
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).backButtonTooltip,
+                          style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: Icon(
+                            Icons.arrow_back_rounded,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(child: field),
-              const SizedBox(width: 6),
-              SizedBox.square(
-                dimension: 38,
-                child: IconButton.filledTonal(
-                  tooltip: 'Profil',
-                  style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.profile,
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 6,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
                   ),
-                  icon: const Icon(Icons.person_rounded, size: 22),
-                ),
+                  Expanded(child: field),
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 6,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                  ),
+                  AnimatedContainer(
+                    width: searchActive ? 0 : 38,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: ClipRect(
+                      child: AnimatedSlide(
+                        offset: searchActive ? const Offset(1, 0) : Offset.zero,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        child: AnimatedOpacity(
+                          opacity: searchActive ? 0 : 1,
+                          duration: const Duration(milliseconds: 120),
+                          child: IconButton.filledTonal(
+                            tooltip: 'Profil',
+                            style: IconButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                            ),
+                            onPressed: () => Navigator.of(context).pushNamed(
+                              AppRoutes.profile,
+                            ),
+                            icon: const Icon(Icons.person_rounded, size: 22),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
