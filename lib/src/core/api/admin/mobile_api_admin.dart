@@ -6,6 +6,7 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 ];
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
+final Map<String, List<String>> _testModeDailyWorkSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final List<AdminWorker> _testModeWorkers = [];
 bool _testModeForceSequenceSaveFailure = false;
@@ -32,10 +33,12 @@ class ProductionMapSaveWithOrderResult {
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
+    required this.dailySequences,
     required this.queueStates,
   });
 
   final Map<String, List<String>> sequences;
+  final Map<String, List<String>> dailySequences;
   final Map<String, Map<String, String>> queueStates;
 }
 
@@ -43,11 +46,13 @@ class AdminProductionMapLiveSnapshot {
   const AdminProductionMapLiveSnapshot({
     required this.maps,
     required this.sequences,
+    required this.dailySequences,
     required this.queueStates,
   });
 
   final List<ProductionMapSaved> maps;
   final Map<String, List<String>> sequences;
+  final Map<String, List<String>> dailySequences;
   final Map<String, Map<String, String>> queueStates;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
@@ -60,6 +65,9 @@ class AdminProductionMapLiveSnapshot {
       ],
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
+      ),
+      dailySequences: MobileApi.instance.parseApparatusSequenceMap(
+        json['daily_sequences'],
       ),
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
@@ -615,6 +623,10 @@ extension MobileApiAdmin on MobileApi {
           for (final entry in _testModeApparatusSequences.entries)
             entry.key: List<String>.unmodifiable(entry.value),
         },
+        dailySequences: {
+          for (final entry in _testModeDailyWorkSequences.entries)
+            entry.key: List<String>.unmodifiable(entry.value),
+        },
         queueStates: {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),
@@ -633,8 +645,29 @@ extension MobileApiAdmin on MobileApi {
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
+      dailySequences: await adminProductionMapDailySequences(),
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
     );
+  }
+
+  Future<Map<String, List<String>>> adminProductionMapDailySequences() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return {
+        for (final entry in _testModeDailyWorkSequences.entries)
+          entry.key: List<String>.unmodifiable(entry.value),
+      };
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/daily-sequence'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_daily');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return parseApparatusSequenceMap(payload['sequences']);
   }
 
   Future<http.StreamedResponse> adminProductionMapLiveConnect() async {
@@ -780,6 +813,29 @@ extension MobileApiAdmin on MobileApi {
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_sequence');
+    }
+  }
+
+  Future<void> adminSaveProductionMapDailySequence({
+    required String workDate,
+    required List<String> orderIds,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeDailyWorkSequences[workDate.trim()] = List<String>.from(
+        orderIds,
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/daily-sequence'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'work_date': workDate, 'order_ids': orderIds}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_daily');
     }
   }
 
