@@ -326,9 +326,27 @@ class _AdminProductionMapTestScreenState
         : _orderMode
             ? _orderFlowEdges()
             : _defaultTestEdges();
+    _syncNextNodeIndexFromExistingNodes();
     _orderNumber = savedMap?.orderNumber.trim() ?? '';
     _templateDraft = widget.orderContext?.templateDraft;
     unawaited(_loadApparatusGroups());
+  }
+
+  void _syncNextNodeIndexFromExistingNodes() {
+    var maxIndex = 0;
+    for (final node in nodes) {
+      final match = RegExp(r'_(\d+)$').firstMatch(node.id.trim());
+      if (match == null) {
+        continue;
+      }
+      final value = int.tryParse(match.group(1) ?? '');
+      if (value != null && value > maxIndex) {
+        maxIndex = value;
+      }
+    }
+    if (maxIndex >= _nextNodeIndex) {
+      _nextNodeIndex = maxIndex + 1;
+    }
   }
 
   Future<void> _loadApparatusGroups() async {

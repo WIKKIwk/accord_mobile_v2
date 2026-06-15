@@ -611,6 +611,142 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('reopened saved map appends skipped apparatus group after tail', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    final orderNumber =
+        '${DateTime.now().microsecondsSinceEpoch.remainder(9000) + 1000}';
+    final mapId = 'zakaz-reopen-chain-test-$orderNumber';
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapTestScreen(
+          savedMap: ProductionMapDefinition(
+            id: mapId,
+            title: 'Reopened chain order',
+            productCode: 'ITEM-REOPEN-CHAIN',
+            code: orderNumber,
+            orderNumber: orderNumber,
+            rollCount: 7,
+            widthMm: 650,
+            nodes: [
+              const ProductionMapNode(
+                id: 'start',
+                kind: 'start',
+                title: 'Start',
+                x: 420,
+                y: 32,
+              ),
+              const ProductionMapNode(
+                id: 'order',
+                kind: 'task',
+                title: 'Reopened chain order',
+                roleCode: 'zakaz',
+                x: 420,
+                y: 164,
+              ),
+              const ProductionMapNode(
+                id: 'apparatus_1',
+                kind: 'apparatus',
+                title: '7 ta rangli pechat',
+                alternativeGroupId: 'alt_pechat_1',
+                alternativeGroupLabel: 'pechat',
+                x: 280,
+                y: 296,
+              ),
+              const ProductionMapNode(
+                id: 'apparatus_2',
+                kind: 'apparatus',
+                title: '8 ta rangli pechat',
+                alternativeGroupId: 'alt_pechat_1',
+                alternativeGroupLabel: 'pechat',
+                x: 560,
+                y: 296,
+              ),
+              const ProductionMapNode(
+                id: 'end',
+                kind: 'end',
+                title: 'reopen chain product',
+                itemCode: 'ITEM-REOPEN-CHAIN',
+                x: 420,
+                y: 428,
+              ),
+            ],
+            edges: [
+              const ProductionMapEdge(from: 'start', to: 'order'),
+              const ProductionMapEdge(from: 'order', to: 'apparatus_1'),
+              const ProductionMapEdge(from: 'order', to: 'apparatus_2'),
+              const ProductionMapEdge(from: 'apparatus_1', to: 'end'),
+              const ProductionMapEdge(from: 'apparatus_2', to: 'end'),
+            ],
+          ),
+          orderContext: const ProductionMapOrderContext(
+            orderName: 'Reopened chain order',
+            productName: 'reopen chain product',
+            itemCode: 'ITEM-REOPEN-CHAIN',
+            rollCount: 7,
+            widthMm: 650,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tapMapTool(tester, 'Laminatsiya');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+
+    final saved = await MobileApi.instance.adminProductionMap(
+      mapId,
+    );
+    final map = saved.map;
+    final ids = map.nodes.map((node) => node.id).toList(growable: false);
+    final pechatNodes = map.nodes
+        .where((node) => node.title.trim().contains('rangli pechat'))
+        .toList(growable: false);
+    final laminatsiyaNodes = map.nodes
+        .where((node) => node.title.trim().contains('Laminatsiya'))
+        .toList(growable: false);
+
+    expect(ids.toSet().length, ids.length);
+    expect(laminatsiyaNodes, hasLength(2));
+    for (final pechat in pechatNodes) {
+      expect(
+        map.edges.any(
+          (edge) =>
+              edge.from == pechat.id &&
+              laminatsiyaNodes.any((node) => node.id == edge.to),
+        ),
+        isTrue,
+      );
+      expect(
+        map.edges.any((edge) => edge.from == pechat.id && edge.to == 'end'),
+        isFalse,
+      );
+    }
+    for (final laminatsiya in laminatsiyaNodes) {
+      expect(
+        map.edges
+            .any((edge) => edge.from == laminatsiya.id && edge.to == 'end'),
+        isTrue,
+      );
+    }
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('production map can add kk product and pick item', (
     tester,
   ) async {
