@@ -16,6 +16,8 @@ import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_summary_card.dart';
 import 'package:flutter/material.dart';
 
+const double _adminHomePanelCardGap = 4;
+
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
 
@@ -137,7 +139,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 physics: const TopRefreshScrollPhysics(),
                 padding: EdgeInsets.only(bottom: bottomPadding),
                 children: [
-                  const SizedBox(height: M3SegmentedListGeometry.gap),
+                  const SizedBox(height: _adminHomePanelCardGap),
                   if (canLoadSummary) ...[
                     SmoothAppear(
                       delay: const Duration(milliseconds: 20),
@@ -187,7 +189,7 @@ class _AdminActionList extends StatelessWidget {
     final actions = _adminHomeActions(context);
     return M3SegmentSpacedColumn(
       padding: const EdgeInsets.symmetric(
-        horizontal: M3SegmentedListGeometry.gap,
+        horizontal: _adminHomePanelCardGap,
       ),
       children: [
         for (var i = 0; i < actions.length; i++)
@@ -360,7 +362,7 @@ class _AdminSummaryList extends StatelessWidget {
   Widget build(BuildContext context) {
     return M3SegmentSpacedColumn(
       padding: const EdgeInsets.symmetric(
-        horizontal: M3SegmentedListGeometry.gap,
+        horizontal: _adminHomePanelCardGap,
       ),
       children: [
         AdminSummaryCard(
@@ -410,7 +412,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: M3SegmentedListGeometry.gap,
+        horizontal: _adminHomePanelCardGap,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
