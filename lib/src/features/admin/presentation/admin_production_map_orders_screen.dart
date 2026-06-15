@@ -27,54 +27,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-enum _OpenedOrderModule { orders, move, sequence, daily }
+enum _OpenedOrderModule { orders, move, sequence }
 
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',
 );
-const _dailyUnassignedSourceKey = '__unassigned__';
 
 bool _isMoveUnassignedApparatus(AdminWarehouse? apparatus) {
   return apparatus?.parentWarehouse == _moveUnassignedWarehouse.parentWarehouse;
-}
-
-bool _isDailyUnassignedSource(String key) => key == _dailyUnassignedSourceKey;
-
-String _dateKey(DateTime date) {
-  final local = DateTime(date.year, date.month, date.day);
-  return [
-    local.year.toString().padLeft(4, '0'),
-    local.month.toString().padLeft(2, '0'),
-    local.day.toString().padLeft(2, '0'),
-  ].join('-');
-}
-
-DateTime _parseDateKey(String key) {
-  final parts = key.split('-');
-  if (parts.length != 3) {
-    return DateTime.now();
-  }
-  return DateTime(
-    int.tryParse(parts[0]) ?? DateTime.now().year,
-    int.tryParse(parts[1]) ?? DateTime.now().month,
-    int.tryParse(parts[2]) ?? DateTime.now().day,
-  );
-}
-
-String _dailyDateLabel(String key) {
-  final today = DateTime.now();
-  final todayKey = _dateKey(today);
-  final tomorrowKey = _dateKey(today.add(const Duration(days: 1)));
-  if (key == todayKey) {
-    return 'Bugun';
-  }
-  if (key == tomorrowKey) {
-    return 'Ertaga';
-  }
-  final date = _parseDateKey(key);
-  return '${date.day.toString().padLeft(2, '0')}.'
-      '${date.month.toString().padLeft(2, '0')}.${date.year}';
 }
 
 String _openedOrderDisplayCode(ProductionMapDefinition map) {
@@ -174,15 +135,8 @@ class _AdminProductionMapOrdersScreenState
   List<ProductionMapSaved> _orders = const [];
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
-  final Map<String, List<String>> _dailySequenceByDate = {};
-  final Map<String, Map<String, List<String>>> _dailySequenceByDateApparatus =
-      {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   bool _queueActionInFlight = false;
-  bool _dailySaveInFlight = false;
-  String _selectedSequenceDate = _dateKey(DateTime.now());
-  String _selectedDailyDate = _dateKey(DateTime.now());
-  String _dailySourceKey = _dailyUnassignedSourceKey;
 
   @override
   void initState() {
@@ -351,12 +305,6 @@ class _AdminProductionMapOrdersScreenState
       _sequenceByApparatus
         ..clear()
         ..addAll(snapshot.sequences);
-      _dailySequenceByDate
-        ..clear()
-        ..addAll(snapshot.dailySequences);
-      _dailySequenceByDateApparatus
-        ..clear()
-        ..addAll(snapshot.dailyApparatusSequences);
       _queueStatesByApparatus
         ..clear()
         ..addAll(snapshot.queueStates);
@@ -406,12 +354,6 @@ class _AdminProductionMapOrdersScreenState
         _sequenceByApparatus
           ..clear()
           ..addAll(queueSnapshot.sequences);
-        _dailySequenceByDate
-          ..clear()
-          ..addAll(queueSnapshot.dailySequences);
-        _dailySequenceByDateApparatus
-          ..clear()
-          ..addAll(queueSnapshot.dailyApparatusSequences);
         _queueStatesByApparatus
           ..clear()
           ..addAll(queueSnapshot.queueStates);
@@ -479,9 +421,6 @@ class _AdminProductionMapOrdersScreenState
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
     if (_sequenceByApparatus.length != snapshot.sequences.length ||
-        _dailySequenceByDate.length != snapshot.dailySequences.length ||
-        _dailySequenceByDateApparatus.length !=
-            snapshot.dailyApparatusSequences.length ||
         _queueStatesByApparatus.length != snapshot.queueStates.length) {
       return true;
     }
@@ -491,28 +430,6 @@ class _AdminProductionMapOrdersScreenState
           current.length != entry.value.length ||
           !_stringListsEqual(current, entry.value)) {
         return true;
-      }
-    }
-    for (final entry in snapshot.dailySequences.entries) {
-      final current = _dailySequenceByDate[entry.key];
-      if (current == null ||
-          current.length != entry.value.length ||
-          !_stringListsEqual(current, entry.value)) {
-        return true;
-      }
-    }
-    for (final entry in snapshot.dailyApparatusSequences.entries) {
-      final current = _dailySequenceByDateApparatus[entry.key];
-      if (current == null || current.length != entry.value.length) {
-        return true;
-      }
-      for (final nested in entry.value.entries) {
-        final currentIds = current[nested.key];
-        if (currentIds == null ||
-            currentIds.length != nested.value.length ||
-            !_stringListsEqual(currentIds, nested.value)) {
-          return true;
-        }
       }
     }
     for (final entry in snapshot.queueStates.entries) {
@@ -715,8 +632,6 @@ class _AdminProductionMapOrdersScreenState
     } catch (_) {
       return const AdminApparatusQueueSnapshot(
         sequences: {},
-        dailySequences: {},
-        dailyApparatusSequences: {},
         queueStates: {},
       );
     }
@@ -851,24 +766,6 @@ class _AdminProductionMapOrdersScreenState
     setState(() => _selectedApparatus = picked);
   }
 
-  Future<void> _pickSequenceDate() async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _DailySourcePickerSheet(
-        title: 'Kun tanlang',
-        sourceKeys: _dailyDateKeys(),
-        selectedKey: _selectedSequenceDate,
-        orderCountFor: (key) => _dailyOrdersForKey(key).length,
-      ),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() => _selectedSequenceDate = picked);
-  }
-
   void _syncModuleFromTab() {
     final module = _modules[_tabController.index];
     if (_module != module) {
@@ -895,64 +792,6 @@ class _AdminProductionMapOrdersScreenState
     }).toList(growable: false);
   }
 
-  List<String> _dailyDateKeys() {
-    final today = DateTime.now();
-    final keys = <String>{
-      for (var offset = 0; offset <= 7; offset++)
-        _dateKey(today.add(Duration(days: offset))),
-      ..._dailySequenceByDate.keys,
-      _selectedDailyDate,
-    }.toList();
-    keys.sort();
-    return keys;
-  }
-
-  String _dailySourceLabel(String key) {
-    if (_isDailyUnassignedSource(key)) {
-      return 'Tanlanmagan zakazlar';
-    }
-    return _dailyDateLabel(key);
-  }
-
-  List<ProductionMapSaved> _dailyOrdersForKey(String key) {
-    if (_isDailyUnassignedSource(key)) {
-      return _unassignedDailyOrders();
-    }
-    final sequence = _dailySequenceByDate[key] ?? const <String>[];
-    if (sequence.isEmpty) {
-      return const [];
-    }
-    final byId = {for (final order in _orders) order.map.id.trim(): order};
-    return [
-      for (final id in sequence)
-        if (byId.containsKey(id.trim())) byId[id.trim()]!,
-    ];
-  }
-
-  List<String> _dailyApparatusSequenceOrderIds({
-    required String dateKey,
-    required AdminWarehouse apparatus,
-  }) {
-    final dateSequences = _dailySequenceByDateApparatus[dateKey];
-    if (dateSequences == null) {
-      return const [];
-    }
-    final title = apparatus.warehouse.trim();
-    final direct = dateSequences[title];
-    if (direct != null) {
-      return direct;
-    }
-    final color = productionMapPechatColorCount(title);
-    if (color != null) {
-      for (final entry in dateSequences.entries) {
-        if (productionMapPechatColorCount(entry.key) == color) {
-          return entry.value;
-        }
-      }
-    }
-    return const [];
-  }
-
   List<ProductionMapSaved> _baseOrdersForApparatus(AdminWarehouse apparatus) {
     final title = apparatus.warehouse.trim();
     return _orders.where((order) {
@@ -968,174 +807,6 @@ class _AdminProductionMapOrdersScreenState
         station: title,
       );
     }).toList();
-  }
-
-  List<ProductionMapSaved> _ordersForDailyApparatus({
-    required AdminWarehouse apparatus,
-    required String dateKey,
-  }) {
-    final dailyIds = _dailySequenceByDate[dateKey] ?? const <String>[];
-    if (dailyIds.isEmpty) {
-      return const [];
-    }
-    final dailyIdSet = {for (final id in dailyIds) id.trim()};
-    final filtered = _baseOrdersForApparatus(apparatus)
-        .where((order) => dailyIdSet.contains(order.map.id.trim()))
-        .toList(growable: false);
-    final byId = {for (final order in filtered) order.map.id.trim(): order};
-    final sequence = _dailyApparatusSequenceOrderIds(
-      dateKey: dateKey,
-      apparatus: apparatus,
-    );
-    return [
-      for (final id in sequence)
-        if (byId.containsKey(id.trim())) byId.remove(id.trim())!,
-      for (final id in dailyIds)
-        if (byId.containsKey(id.trim())) byId.remove(id.trim())!,
-    ];
-  }
-
-  List<ProductionMapSaved> _unassignedDailyOrders() {
-    final assigned = <String>{
-      for (final ids in _dailySequenceByDate.values)
-        for (final id in ids)
-          if (id.trim().isNotEmpty) id.trim(),
-    };
-    return _orders
-        .where((order) => !assigned.contains(order.map.id.trim()))
-        .toList(growable: false);
-  }
-
-  Future<void> _pickDailyDate() async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _DailySourcePickerSheet(
-        title: 'Kun tanlang',
-        sourceKeys: _dailyDateKeys(),
-        selectedKey: _selectedDailyDate,
-        orderCountFor: (key) => _dailyOrdersForKey(key).length,
-      ),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _selectedDailyDate = picked;
-      if (_dailySourceKey == picked) {
-        _dailySourceKey = _dailyUnassignedSourceKey;
-      }
-    });
-  }
-
-  Future<void> _pickDailySource() async {
-    final sourceKeys = <String>[
-      _dailyUnassignedSourceKey,
-      ..._dailyDateKeys(),
-    ];
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _DailySourcePickerSheet(
-        title: 'Pastki zona',
-        sourceKeys: sourceKeys,
-        selectedKey: _dailySourceKey,
-        orderCountFor: (key) => _dailyOrdersForKey(key).length,
-      ),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() => _dailySourceKey = picked);
-  }
-
-  Future<void> _moveDailyOrders({
-    required List<ProductionMapSaved> orders,
-    required String fromKey,
-    required String toKey,
-  }) async {
-    if (widget.readOnly ||
-        _dailySaveInFlight ||
-        orders.isEmpty ||
-        fromKey == toKey) {
-      return;
-    }
-    final movingIds = {
-      for (final order in orders)
-        if (order.map.id.trim().isNotEmpty) order.map.id.trim(),
-    };
-    if (movingIds.isEmpty) {
-      return;
-    }
-    final previous = {
-      for (final entry in _dailySequenceByDate.entries)
-        entry.key: List<String>.from(entry.value),
-    };
-    final next = {
-      for (final entry in _dailySequenceByDate.entries)
-        entry.key: [
-          for (final id in entry.value)
-            if (!movingIds.contains(id.trim())) id.trim(),
-        ],
-    };
-    if (!_isDailyUnassignedSource(toKey)) {
-      final target = next[toKey] ?? <String>[];
-      target.addAll(movingIds.where((id) => !target.contains(id)));
-      next[toKey] = target;
-    }
-    next.removeWhere((_, ids) => ids.isEmpty);
-    final changedKeys = <String>{
-      ...previous.keys,
-      ...next.keys,
-    }.where((key) {
-      final before = previous[key] ?? const <String>[];
-      final after = next[key] ?? const <String>[];
-      return before.length != after.length || !_stringListsEqual(before, after);
-    }).toList(growable: false);
-    setState(() {
-      _dailySaveInFlight = true;
-      _dailySequenceByDate
-        ..clear()
-        ..addAll(next);
-    });
-    try {
-      for (final key in changedKeys) {
-        await MobileApi.instance.adminSaveProductionMapDailySequence(
-          workDate: key,
-          orderIds: next[key] ?? const <String>[],
-        );
-      }
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(
-        context,
-        orders.length == 1
-            ? 'Zakaz kunlik rejaga ko‘chirildi'
-            : '${orders.length} ta zakaz kunlik rejaga ko‘chirildi',
-      );
-      unawaited(_refreshQueueSnapshot());
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _dailySequenceByDate
-          ..clear()
-          ..addAll(previous);
-      });
-      showAdminTopNotice(
-        context,
-        error is MobileApiException ? error.message : 'Kunlik reja saqlanmadi',
-      );
-    } finally {
-      _dailySaveInFlight = false;
-      if (mounted) {
-        setState(() {});
-      }
-    }
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
@@ -1184,10 +855,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final orders = List<ProductionMapSaved>.from(
-      _ordersForDailyApparatus(
-        apparatus: apparatus,
-        dateKey: _selectedSequenceDate,
-      ),
+      _ordersForApparatus(apparatus),
     );
     if (oldIndex == newIndex) {
       return;
@@ -1196,34 +864,26 @@ class _AdminProductionMapOrdersScreenState
         orders.map((order) => order.map.id).toList(growable: false);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
-    final dateKey = _selectedSequenceDate;
     final apparatusKey = apparatus.warehouse.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     setState(() {
-      final dateSequences = Map<String, List<String>>.from(
-        _dailySequenceByDateApparatus[dateKey] ?? const {},
-      );
-      dateSequences[apparatusKey] = orderIds;
-      _dailySequenceByDateApparatus[dateKey] = dateSequences;
+      _sequenceByApparatus[apparatusKey] = orderIds;
     });
-    await _persistDailyApparatusSequence(
-      dateKey: dateKey,
+    await _persistApparatusSequence(
       apparatus: apparatusKey,
       orderIds: orderIds,
       previousOrderIds: previousOrderIds,
     );
   }
 
-  Future<void> _persistDailyApparatusSequence({
-    required String dateKey,
+  Future<void> _persistApparatusSequence({
     required String apparatus,
     required List<String> orderIds,
     required List<String> previousOrderIds,
   }) async {
     try {
-      await MobileApi.instance.adminSaveProductionMapDailyApparatusSequence(
-        workDate: dateKey,
+      await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: apparatus,
         orderIds: orderIds,
       );
@@ -1232,11 +892,7 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       setState(() {
-        final dateSequences = Map<String, List<String>>.from(
-          _dailySequenceByDateApparatus[dateKey] ?? const {},
-        );
-        dateSequences[apparatus] = previousOrderIds;
-        _dailySequenceByDateApparatus[dateKey] = dateSequences;
+        _sequenceByApparatus[apparatus] = previousOrderIds;
       });
       showAdminTopNotice(
         context,
@@ -1750,8 +1406,7 @@ class _AdminProductionMapOrdersScreenState
           : AdminDock(
               activeTab: AdminDockTab.home,
               showPrimaryFab: _module != _OpenedOrderModule.sequence &&
-                  _module != _OpenedOrderModule.move &&
-                  _module != _OpenedOrderModule.daily,
+                  _module != _OpenedOrderModule.move,
             ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
@@ -1801,18 +1456,13 @@ class _AdminProductionMapOrdersScreenState
                                   _OpenedOrderModule.sequence =>
                                     _SequenceModulePage(
                                       bottomPadding: bottomPadding,
-                                      dateLabel: _dailyDateLabel(
-                                        _selectedSequenceDate,
-                                      ),
                                       apparatus: _selectedApparatus,
                                       orders: _selectedApparatus == null
                                           ? const []
-                                          : _ordersForDailyApparatus(
-                                              apparatus: _selectedApparatus!,
-                                              dateKey: _selectedSequenceDate,
+                                          : _ordersForApparatus(
+                                              _selectedApparatus!,
                                             ),
                                       readOnly: widget.readOnly,
-                                      onPickDate: _pickSequenceDate,
                                       onPickApparatus: _pickSequenceApparatus,
                                       onReorder: (oldIndex, newIndex) {
                                         unawaited(
@@ -1872,31 +1522,6 @@ class _AdminProductionMapOrdersScreenState
                                       },
                                       onMove: _moveOrdersBetweenApparatus,
                                     ),
-                                  _OpenedOrderModule.daily =>
-                                    _DailyWorkModulePage(
-                                      selectedDateKey: _selectedDailyDate,
-                                      sourceKey: _dailySourceKey,
-                                      topOrders: _dailyOrdersForKey(
-                                        _selectedDailyDate,
-                                      ),
-                                      bottomOrders:
-                                          _dailySourceKey == _selectedDailyDate
-                                              ? const []
-                                              : _dailyOrdersForKey(
-                                                  _dailySourceKey,
-                                                ),
-                                      readOnly: widget.readOnly,
-                                      saveInFlight: _dailySaveInFlight,
-                                      selectedDateLabel: _dailyDateLabel(
-                                        _selectedDailyDate,
-                                      ),
-                                      sourceLabel: _dailySourceLabel(
-                                        _dailySourceKey,
-                                      ),
-                                      onPickDate: _pickDailyDate,
-                                      onPickSource: _pickDailySource,
-                                      onMove: _moveDailyOrders,
-                                    ),
                                 },
                             ],
                           ),
@@ -1952,7 +1577,6 @@ class _AdminProductionMapOrdersScreenState
       _OpenedOrderModule.orders => 'Zakazlar',
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
       _OpenedOrderModule.move => 'Ko‘chirish',
-      _OpenedOrderModule.daily => 'Kunlik ishlar',
     };
   }
 }
@@ -2060,22 +1684,18 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
 class _SequenceModulePage extends StatelessWidget {
   const _SequenceModulePage({
     required this.bottomPadding,
-    required this.dateLabel,
     required this.apparatus,
     required this.orders,
     required this.readOnly,
-    required this.onPickDate,
     required this.onPickApparatus,
     required this.onReorder,
     required this.onTapOrder,
   });
 
   final double bottomPadding;
-  final String dateLabel;
   final AdminWarehouse? apparatus;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
-  final VoidCallback onPickDate;
   final VoidCallback onPickApparatus;
   final ReorderCallback onReorder;
   final ValueChanged<ProductionMapSaved>? onTapOrder;
@@ -2146,9 +1766,7 @@ class _SequenceModulePage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: _SequenceHeaderSelectors(
-              dateLabel: dateLabel,
               apparatus: selected,
-              onPickDate: onPickDate,
               onPickApparatus: onPickApparatus,
             ),
           ),
@@ -2195,9 +1813,7 @@ class _SequenceModulePage extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
       children: [
         _SequenceHeaderSelectors(
-          dateLabel: dateLabel,
           apparatus: selected,
-          onPickDate: onPickDate,
           onPickApparatus: onPickApparatus,
         ),
         if (selected == null)
@@ -2211,15 +1827,11 @@ class _SequenceModulePage extends StatelessWidget {
 
 class _SequenceHeaderSelectors extends StatelessWidget {
   const _SequenceHeaderSelectors({
-    required this.dateLabel,
     required this.apparatus,
-    required this.onPickDate,
     required this.onPickApparatus,
   });
 
-  final String dateLabel;
   final AdminWarehouse? apparatus;
-  final VoidCallback onPickDate;
   final VoidCallback onPickApparatus;
 
   @override
@@ -2229,14 +1841,6 @@ class _SequenceHeaderSelectors extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Flexible(
-            child: _SequencePillSelector(
-              icon: Icons.calendar_today_rounded,
-              label: dateLabel,
-              onTap: onPickDate,
-            ),
-          ),
-          const SizedBox(width: 8),
           Flexible(
             flex: 2,
             child: _SequencePillSelector(
@@ -2297,593 +1901,6 @@ class _SequencePillSelector extends StatelessWidget {
                 Icons.expand_more_rounded,
                 size: 18,
                 color: scheme.onPrimaryContainer,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyWorkModulePage extends StatefulWidget {
-  const _DailyWorkModulePage({
-    required this.selectedDateKey,
-    required this.sourceKey,
-    required this.topOrders,
-    required this.bottomOrders,
-    required this.readOnly,
-    required this.saveInFlight,
-    required this.selectedDateLabel,
-    required this.sourceLabel,
-    required this.onPickDate,
-    required this.onPickSource,
-    required this.onMove,
-  });
-
-  final String selectedDateKey;
-  final String sourceKey;
-  final List<ProductionMapSaved> topOrders;
-  final List<ProductionMapSaved> bottomOrders;
-  final bool readOnly;
-  final bool saveInFlight;
-  final String selectedDateLabel;
-  final String sourceLabel;
-  final VoidCallback onPickDate;
-  final VoidCallback onPickSource;
-  final Future<void> Function({
-    required List<ProductionMapSaved> orders,
-    required String fromKey,
-    required String toKey,
-  }) onMove;
-
-  @override
-  State<_DailyWorkModulePage> createState() => _DailyWorkModulePageState();
-}
-
-class _DailyWorkModulePageState extends State<_DailyWorkModulePage> {
-  double _topZoneRatio = 0.5;
-
-  void _resizeDailyZones(double delta, double availableHeight) {
-    if (!availableHeight.isFinite || availableHeight <= 0) {
-      return;
-    }
-    final next = (_topZoneRatio + delta / availableHeight).clamp(0.24, 0.76);
-    if (next == _topZoneRatio) {
-      return;
-    }
-    setState(() => _topZoneRatio = next);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final viewMetrics = MediaQueryData.fromView(View.of(context));
-    final dockInset = dockLayoutBottomInset(
-      viewMetrics,
-      thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
-    );
-    final bottomInset = 60 + dockInset;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomInset),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final availableHeight = constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : MediaQuery.sizeOf(context).height * 0.7;
-          final topFlex = (_topZoneRatio.clamp(0.24, 0.76) * 1000).round();
-          final bottomFlex = 1000 - topFlex;
-          return Column(
-            children: [
-              Expanded(
-                flex: topFlex,
-                child: Column(
-                  children: [
-                    _DailyZoneHeader(
-                      icon: Icons.calendar_today_rounded,
-                      label: widget.selectedDateLabel,
-                      onTap: widget.onPickDate,
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _DailyDropZone(
-                        sourceKey: widget.selectedDateKey,
-                        dropTargetKey: widget.selectedDateKey,
-                        actionTargetKey: _dailyUnassignedSourceKey,
-                        emptyMessage:
-                            '${widget.selectedDateLabel} uchun zakaz yo‘q',
-                        orders: widget.topOrders,
-                        readOnly: widget.readOnly,
-                        saveInFlight: widget.saveInFlight,
-                        onMove: widget.onMove,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: _DailyBoundary(
-                  sourceKey: widget.sourceKey,
-                  label: widget.sourceLabel,
-                  onTap: widget.onPickSource,
-                  onVerticalDragUpdate: (delta) {
-                    _resizeDailyZones(delta, availableHeight);
-                  },
-                ),
-              ),
-              Expanded(
-                flex: bottomFlex,
-                child: _DailyDropZone(
-                  sourceKey: widget.sourceKey,
-                  dropTargetKey: widget.sourceKey,
-                  actionTargetKey: widget.selectedDateKey,
-                  emptyMessage: widget.sourceKey == widget.selectedDateKey
-                      ? 'Bu kun yuqorida tanlangan'
-                      : '${widget.sourceLabel} bo‘sh',
-                  orders: widget.bottomOrders,
-                  readOnly: widget.readOnly,
-                  saveInFlight: widget.saveInFlight,
-                  onMove: widget.onMove,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _DailyDropZone extends StatelessWidget {
-  const _DailyDropZone({
-    required this.sourceKey,
-    required this.dropTargetKey,
-    required this.actionTargetKey,
-    required this.emptyMessage,
-    required this.orders,
-    required this.readOnly,
-    required this.saveInFlight,
-    required this.onMove,
-  });
-
-  final String sourceKey;
-  final String dropTargetKey;
-  final String actionTargetKey;
-  final String emptyMessage;
-  final List<ProductionMapSaved> orders;
-  final bool readOnly;
-  final bool saveInFlight;
-  final Future<void> Function({
-    required List<ProductionMapSaved> orders,
-    required String fromKey,
-    required String toKey,
-  }) onMove;
-
-  bool get _canMoveFromThisZone =>
-      !readOnly && !saveInFlight && sourceKey != actionTargetKey;
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<_DailyMovePayload>(
-      onWillAcceptWithDetails: (details) =>
-          !readOnly &&
-          !saveInFlight &&
-          details.data.fromKey != dropTargetKey &&
-          dropTargetKey.isNotEmpty,
-      onAcceptWithDetails: (details) {
-        onMove(
-          orders: details.data.orders,
-          fromKey: details.data.fromKey,
-          toKey: dropTargetKey,
-        );
-      },
-      builder: (context, candidate, rejected) {
-        if (orders.isEmpty) {
-          return _DailyEmptyZone(message: emptyMessage);
-        }
-        return ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            final order = orders[index];
-            final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
-              index,
-              orders.length,
-            );
-            return Padding(
-              key: ValueKey('daily-$sourceKey-${order.map.id}'),
-              padding: EdgeInsets.only(
-                bottom:
-                    index < orders.length - 1 ? M3SegmentedListGeometry.gap : 0,
-              ),
-              child: _DailyOrderTile(
-                order: order,
-                index: index,
-                slot: slot,
-                fromKey: sourceKey,
-                toKey: _canMoveFromThisZone
-                    ? actionTargetKey
-                    : _dailyUnassignedSourceKey,
-                canMove: !readOnly && !saveInFlight,
-                moveUp: _canMoveFromThisZone,
-                canReturnToUnassigned: !_isDailyUnassignedSource(sourceKey),
-                onMove: onMove,
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _DailyOrderTile extends StatelessWidget {
-  const _DailyOrderTile({
-    required this.order,
-    required this.index,
-    required this.slot,
-    required this.fromKey,
-    required this.toKey,
-    required this.canMove,
-    required this.moveUp,
-    required this.canReturnToUnassigned,
-    required this.onMove,
-  });
-
-  final ProductionMapSaved order;
-  final int index;
-  final M3SegmentVerticalSlot slot;
-  final String fromKey;
-  final String toKey;
-  final bool canMove;
-  final bool moveUp;
-  final bool canReturnToUnassigned;
-  final Future<void> Function({
-    required List<ProductionMapSaved> orders,
-    required String fromKey,
-    required String toKey,
-  }) onMove;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final payload = _DailyMovePayload(orders: [order], fromKey: fromKey);
-    final trailing = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (canReturnToUnassigned)
-          IconButton(
-            tooltip: 'Tanlanmaganga qaytarish',
-            onPressed: canMove
-                ? () => onMove(
-                      orders: [order],
-                      fromKey: fromKey,
-                      toKey: _dailyUnassignedSourceKey,
-                    )
-                : null,
-            icon: Icon(Icons.close_rounded, color: scheme.onSurfaceVariant),
-          ),
-        if (moveUp)
-          IconButton(
-            tooltip: 'Kunlik rejaga olish',
-            onPressed: canMove
-                ? () => onMove(orders: [order], fromKey: fromKey, toKey: toKey)
-                : null,
-            icon: Icon(
-              Icons.keyboard_arrow_up_rounded,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-      ],
-    );
-    final card = _OpenedOrderCardRow(
-      slot: slot,
-      order: order,
-      leading: _OpenedOrderIndexBadge(index: index),
-      trailing: trailing,
-    );
-    if (!canMove) {
-      return card;
-    }
-    return LongPressDraggable<_DailyMovePayload>(
-      data: payload,
-      axis: Axis.vertical,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.sizeOf(context).width - 24,
-          child: _OpenedOrderCardRow(
-            slot: M3SegmentVerticalSlot.top,
-            order: order,
-            borderRadiusOverride: BorderRadius.circular(
-              M3SegmentedListGeometry.cornerLarge,
-            ),
-            leading: _OpenedOrderIndexBadge(index: index),
-            trailing: Icon(
-              Icons.drag_handle_rounded,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-      childWhenDragging: const SizedBox.shrink(),
-      child: card,
-    );
-  }
-}
-
-class _DailyMovePayload {
-  const _DailyMovePayload({required this.orders, required this.fromKey});
-
-  final List<ProductionMapSaved> orders;
-  final String fromKey;
-}
-
-class _DailyZoneHeader extends StatelessWidget {
-  const _DailyZoneHeader({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Align(
-      alignment: Alignment.center,
-      child: Material(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: scheme.onPrimaryContainer),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.expand_more_rounded,
-                  size: 18,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyBoundary extends StatelessWidget {
-  const _DailyBoundary({
-    required this.sourceKey,
-    required this.label,
-    required this.onTap,
-    required this.onVerticalDragUpdate,
-  });
-
-  final String sourceKey;
-  final String label;
-  final VoidCallback onTap;
-  final ValueChanged<double> onVerticalDragUpdate;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerMove: (event) => onVerticalDragUpdate(event.delta.dy),
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Row(
-          children: [
-            Expanded(child: Divider(color: scheme.outlineVariant)),
-            IgnorePointer(
-              child: _DailyZoneHeader(
-                icon: _isDailyUnassignedSource(sourceKey)
-                    ? Icons.inbox_rounded
-                    : Icons.event_available_rounded,
-                label: label,
-                onTap: onTap,
-              ),
-            ),
-            Expanded(child: Divider(color: scheme.outlineVariant)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyEmptyZone extends StatelessWidget {
-  const _DailyEmptyZone({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-      ),
-    );
-  }
-}
-
-class _DailySourcePickerSheet extends StatelessWidget {
-  const _DailySourcePickerSheet({
-    required this.title,
-    required this.sourceKeys,
-    required this.selectedKey,
-    required this.orderCountFor,
-  });
-
-  final String title;
-  final List<String> sourceKeys;
-  final String selectedKey;
-  final int Function(String key) orderCountFor;
-
-  @override
-  Widget build(BuildContext context) {
-    final sheetHeight = (MediaQuery.sizeOf(context).height * 0.52).clamp(
-      360.0,
-      520.0,
-    );
-    return SafeArea(
-      child: SizedBox(
-        height: sheetHeight.toDouble(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                children: [
-                  M3SegmentSpacedColumn(
-                    children: [
-                      for (var index = 0; index < sourceKeys.length; index++)
-                        _DailySourceRow(
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            sourceKeys.length,
-                          ),
-                          sourceKey: sourceKeys[index],
-                          selected: sourceKeys[index] == selectedKey,
-                          orderCount: orderCountFor(sourceKeys[index]),
-                          onTap: () =>
-                              Navigator.of(context).pop(sourceKeys[index]),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DailySourceRow extends StatelessWidget {
-  const _DailySourceRow({
-    required this.slot,
-    required this.sourceKey,
-    required this.selected,
-    required this.orderCount,
-    required this.onTap,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final String sourceKey;
-  final bool selected;
-  final int orderCount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
-    final isUnassigned = _isDailyUnassignedSource(sourceKey);
-    return Material(
-      color:
-          selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-      borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 32,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? scheme.surface.withValues(alpha: 0.72)
-                        : scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isUnassigned
-                        ? Icons.inbox_rounded
-                        : Icons.event_available_rounded,
-                    color: scheme.onPrimaryContainer,
-                    size: 17,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isUnassigned
-                          ? 'Tanlanmagan zakazlar'
-                          : _dailyDateLabel(sourceKey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$orderCount ta zakaz',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.05,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.chevron_right_rounded,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ],
           ),
