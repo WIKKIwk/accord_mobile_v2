@@ -1192,7 +1192,7 @@ class _AdminItemProductSearchField extends StatelessWidget {
           ),
         );
         return Transform.translate(
-          offset: const Offset(-8, 0),
+          offset: searchActive ? Offset.zero : const Offset(-8, 0),
           child: SizedBox(
             width: MediaQuery.sizeOf(context).width - 20,
             height: AppTheme.appBarHeight,
