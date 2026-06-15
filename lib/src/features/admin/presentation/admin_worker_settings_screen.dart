@@ -34,6 +34,8 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
   late Future<List<AdminWorker>> _future;
   bool _saving = false;
   bool _openingRoute = false;
+  String _statusMessage = '';
+  bool _statusIsError = false;
 
   @override
   void initState() {
@@ -69,12 +71,23 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
         level: _selectedLevel,
       );
       _nameController.clear();
-      _selectedLevel = adminWorkerLevels.first;
-      _reload();
       if (mounted) {
+        setState(() {
+          _selectedLevel = adminWorkerLevels.first;
+          _statusMessage = 'Ishchi qo‘shildi';
+          _statusIsError = false;
+          _future = _load();
+        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Ishchi saqlandi')));
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Ishchi qo‘shilmadi';
+          _statusIsError = true;
+        });
       }
     } finally {
       if (mounted) {
@@ -84,11 +97,26 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
   }
 
   Future<void> _updateLevel(AdminWorker worker, String level) async {
-    await MobileApi.instance.adminUpdateWorkerLevel(
-      id: worker.id,
-      level: level,
-    );
-    _reload();
+    try {
+      await MobileApi.instance.adminUpdateWorkerLevel(
+        id: worker.id,
+        level: level,
+      );
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Ishchi darajasi saqlandi';
+          _statusIsError = false;
+          _future = _load();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Ishchi darajasi saqlanmadi';
+          _statusIsError = true;
+        });
+      }
+    }
   }
 
   void _openDrawerRoute(String routeName) {
@@ -125,6 +153,13 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 116),
           children: [
+            if (_statusMessage.isNotEmpty) ...[
+              _WorkerStatusBanner(
+                message: _statusMessage,
+                isError: _statusIsError,
+              ),
+              const SizedBox(height: 10),
+            ],
             SoftCard(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
               child: Column(
@@ -173,6 +208,11 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
                     child: Center(child: AppLoadingIndicator()),
                   );
                 }
+                if (snapshot.hasError) {
+                  return const SoftCard(
+                    child: Center(child: Text('Ishchilar yuklanmadi')),
+                  );
+                }
                 final workers = snapshot.data ?? const <AdminWorker>[];
                 if (workers.isEmpty) {
                   return const SoftCard(
@@ -195,6 +235,42 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _WorkerStatusBanner extends StatelessWidget {
+  const _WorkerStatusBanner({
+    required this.message,
+    required this.isError,
+  });
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            isError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
+            color: isError ? scheme.error : scheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isError ? scheme.error : scheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

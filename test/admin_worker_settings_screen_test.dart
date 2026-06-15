@@ -60,6 +60,7 @@ void main() {
     await tester.tap(find.text('Ishchi qo‘shish'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Ishchi qo‘shildi'), findsOneWidget);
     expect(find.text('Ali ishchi'), findsOneWidget);
     expect(find.text('Master'), findsWidgets);
   });
