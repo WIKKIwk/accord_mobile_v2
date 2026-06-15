@@ -72,6 +72,9 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     if (_itemsSearchFocusNode.hasFocus) {
       _activateItemsTab();
     }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _activateItemsTab() {
@@ -263,6 +266,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final searchActive = _itemsSearchFocusNode.hasFocus;
     return AppShell(
       title: '',
       subtitle: '',
@@ -284,24 +288,35 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
-          Material(
-            color: theme.appBarTheme.backgroundColor ??
-                theme.colorScheme.surfaceContainer,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: theme.colorScheme.primary,
-              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-              labelStyle: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w400,
-              ),
-              unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w400,
-              ),
-              tabs: const [
-                Tab(height: 38, text: 'Itemlar'),
-                Tab(height: 38, text: 'Item yaratish'),
-                Tab(height: 38, text: "Group ko'chirish"),
-              ],
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: searchActive
+                  ? const SizedBox.shrink()
+                  : Material(
+                      color: theme.appBarTheme.backgroundColor ??
+                          theme.colorScheme.surfaceContainer,
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: theme.colorScheme.primary,
+                        unselectedLabelColor:
+                            theme.colorScheme.onSurfaceVariant,
+                        labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w400,
+                        ),
+                        unselectedLabelStyle:
+                            theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w400,
+                        ),
+                        tabs: const [
+                          Tab(height: 38, text: 'Itemlar'),
+                          Tab(height: 38, text: 'Item yaratish'),
+                          Tab(height: 38, text: "Group ko'chirish"),
+                        ],
+                      ),
+                    ),
             ),
           ),
           Expanded(
