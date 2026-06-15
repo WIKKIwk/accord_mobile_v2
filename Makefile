@@ -163,7 +163,13 @@ remote-stop:
 run: $(RUN_PREREQ) deps
 ifeq ($(RUN_DEVICE),web-server)
 ifeq ($(HOST_OS),Darwin)
-	@(sleep 4; open -a "$(RUN_BROWSER_APP)" "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)") >/dev/null 2>&1 &
+	@(for i in $$(seq 1 120); do \
+		if curl -fsS "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)/main.dart.js" >/dev/null 2>&1; then \
+			open -a "$(RUN_BROWSER_APP)" "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)"; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done) >/dev/null 2>&1 &
 endif
 endif
 	@flutter run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
