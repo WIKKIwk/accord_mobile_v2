@@ -1265,14 +1265,16 @@ class AdminWorker {
   const AdminWorker({
     required this.id,
     required this.name,
-    this.phone = '',
+    Object? phone = '',
     required this.level,
-  });
+  }) : _phone = phone;
 
   final String id;
   final String name;
-  final String phone;
+  final Object? _phone;
   final String level;
+
+  String get phone => _phone is String ? _phone.trim() : '';
 
   factory AdminWorker.fromJson(Map<String, dynamic> json) {
     return AdminWorker(
