@@ -1306,6 +1306,11 @@ class AdminWorkerGroup {
     required this.apparatus,
     required this.groupCode,
     required this.shift,
+    this.startTime = '08:00',
+    this.endTime = '20:00',
+    this.workDaysPerWeek = 6,
+    this.startDay = 'monday',
+    this.accountingEnabled = false,
     this.workerIds = const [],
     this.workers = const [],
   });
@@ -1313,6 +1318,11 @@ class AdminWorkerGroup {
   final String apparatus;
   final String groupCode;
   final String shift;
+  final String startTime;
+  final String endTime;
+  final int workDaysPerWeek;
+  final String startDay;
+  final bool accountingEnabled;
   final List<String> workerIds;
   final List<AdminWorker> workers;
 
@@ -1321,6 +1331,11 @@ class AdminWorkerGroup {
       apparatus: json['apparatus'] as String? ?? '',
       groupCode: json['group_code'] as String? ?? '',
       shift: json['shift'] as String? ?? '',
+      startTime: json['start_time'] as String? ?? '08:00',
+      endTime: json['end_time'] as String? ?? '20:00',
+      workDaysPerWeek: json['work_days_per_week'] as int? ?? 6,
+      startDay: json['start_day'] as String? ?? 'monday',
+      accountingEnabled: json['accounting_enabled'] == true,
       workerIds: [
         for (final item in (json['worker_ids'] as List<dynamic>? ?? const []))
           if (item is String) item,
@@ -1337,6 +1352,11 @@ class AdminWorkerGroup {
       'apparatus': apparatus,
       'group_code': groupCode,
       'shift': shift,
+      'start_time': startTime,
+      'end_time': endTime,
+      'work_days_per_week': workDaysPerWeek,
+      'start_day': startDay,
+      'accounting_enabled': accountingEnabled,
       'worker_ids': workerIds,
     };
   }
@@ -1345,6 +1365,11 @@ class AdminWorkerGroup {
     String? apparatus,
     String? groupCode,
     String? shift,
+    String? startTime,
+    String? endTime,
+    int? workDaysPerWeek,
+    String? startDay,
+    bool? accountingEnabled,
     List<String>? workerIds,
     List<AdminWorker>? workers,
   }) {
@@ -1352,6 +1377,11 @@ class AdminWorkerGroup {
       apparatus: apparatus ?? this.apparatus,
       groupCode: groupCode ?? this.groupCode,
       shift: shift ?? this.shift,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      workDaysPerWeek: workDaysPerWeek ?? this.workDaysPerWeek,
+      startDay: startDay ?? this.startDay,
+      accountingEnabled: accountingEnabled ?? this.accountingEnabled,
       workerIds: workerIds ?? this.workerIds,
       workers: workers ?? this.workers,
     );
@@ -1535,7 +1565,7 @@ class AdminCustomerDetail {
   }
 }
 
-enum AdminUserKind { supplier, werka, customer }
+enum AdminUserKind { supplier, werka, customer, worker }
 
 class AdminUserListEntry {
   const AdminUserListEntry({
@@ -1559,11 +1589,13 @@ class AdminUserListEntry {
     final principalRole = userRoleFromJson(
       json['principal_role'] as String? ?? source,
     );
-    final kind = source == 'werka' || principalRole == UserRole.werka
-        ? AdminUserKind.werka
-        : source == 'customer' || principalRole == UserRole.customer
-            ? AdminUserKind.customer
-            : AdminUserKind.supplier;
+    final kind = source == 'worker'
+        ? AdminUserKind.worker
+        : source == 'werka' || principalRole == UserRole.werka
+            ? AdminUserKind.werka
+            : source == 'customer' || principalRole == UserRole.customer
+                ? AdminUserKind.customer
+                : AdminUserKind.supplier;
     final entityRef = (json['entity_ref'] as String? ?? '').trim();
     final rawId = (json['id'] as String? ?? '').trim();
     return AdminUserListEntry(
@@ -1585,7 +1617,9 @@ class AdminUserListEntry {
         ? 'Werka'
         : kind == AdminUserKind.customer
             ? 'Customer'
-            : 'Supplier';
+            : kind == AdminUserKind.worker
+                ? 'Ishchi'
+                : 'Supplier';
   }
 }
 

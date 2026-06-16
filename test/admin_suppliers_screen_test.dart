@@ -87,6 +87,8 @@ void main() {
 
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Haridor'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'chichqoq');
       for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
         await tester.pump(const Duration(milliseconds: 50));
@@ -224,7 +226,72 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
       expect(find.text('Supplier One'), findsOneWidget);
+      expect(find.text('Customer One'), findsNothing);
+
+      await tester.tap(find.text('Haridor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Customer One'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin users list filters workers from worker list', (
+    tester,
+  ) async {
+    final client = _AdminUsersHttpClient(
+      users: const [
+        {
+          'id': 'supplier:SUP-1',
+          'source': 'supplier',
+          'entity_ref': 'SUP-1',
+          'name': 'Supplier One',
+          'phone': '998900001',
+          'role_label': 'Supplier',
+          'blocked': false,
+        },
+      ],
+      workers: const [
+        {'id': 'worker-1', 'name': 'Jasur worker', 'level': 'Master'},
+        {'id': 'worker-2', 'name': 'Ali worker', 'level': 'Brigader'},
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0;
+          i < 20 && find.text('Supplier One').evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.text('Omborchi'), findsOneWidget);
+      expect(find.text('Haridor'), findsOneWidget);
+      expect(find.text('Ta’minotchi'), findsOneWidget);
+      expect(find.text('Ishchi'), findsOneWidget);
+      expect(find.text('Supplier One'), findsOneWidget);
+      expect(find.text('Jasur worker'), findsNothing);
+
+      await tester.tap(find.text('Ishchi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Supplier One'), findsNothing);
+      expect(find.text('Jasur worker'), findsOneWidget);
+      expect(find.text('Ali worker'), findsOneWidget);
+      expect(find.textContaining('Master'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
@@ -232,9 +299,13 @@ void main() {
 }
 
 class _AdminUsersHttpClient implements HttpClient {
-  _AdminUsersHttpClient({this.users = const <Object>[]});
+  _AdminUsersHttpClient({
+    this.users = const <Object>[],
+    this.workers = const <Object>[],
+  });
 
   final List<Object> users;
+  final List<Object> workers;
   final List<String> requests = <String>[];
   bool createdCustomer = false;
 
@@ -263,6 +334,15 @@ class _AdminUsersHttpClient implements HttpClient {
             : users,
         'has_more': false,
       };
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
+    if (key.startsWith('GET /v1/mobile/admin/workers')) {
+      body = workers;
       return _FakeHttpClientRequest(
         response: _FakeHttpClientResponse(
           body: jsonEncode(body),

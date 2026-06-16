@@ -24,7 +24,20 @@ class AdminSuppliersScreen extends StatefulWidget {
   State<AdminSuppliersScreen> createState() => _AdminSuppliersScreenState();
 }
 
-class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
+const List<AdminUserKind> _adminUserTabKinds = [
+  AdminUserKind.werka,
+  AdminUserKind.customer,
+  AdminUserKind.supplier,
+  AdminUserKind.worker,
+];
+
+int _adminUserKindIndex(AdminUserKind kind) {
+  final index = _adminUserTabKinds.indexOf(kind);
+  return index < 0 ? 2 : index;
+}
+
+class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
+    with SingleTickerProviderStateMixin {
   static const int _pageSize = 50;
   static const double _prefetchExtentAfterFactor = 2.5;
   static _AdminSuppliersCache? _cache;
@@ -35,9 +48,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     _usersChanged.value++;
   }
 
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final List<AdminUserListEntry> _items = [];
+  final List<AdminWorker> _workers = [];
   Timer? _searchDebounce;
   bool _initialLoading = true;
   bool _loadingMore = false;
@@ -45,23 +58,38 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   int _offset = 0;
   String _searchQuery = '';
   bool _openingRoute = false;
+  AdminUserKind _selectedKind = AdminUserKind.supplier;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _adminUserTabKinds.length,
+      initialIndex: _adminUserKindIndex(_selectedKind),
+      vsync: this,
+    )..addListener(_handleKindTabChanged);
     _usersChanged.addListener(_handleUsersChanged);
-    _scrollController.addListener(_handleScroll);
     _bootstrap();
   }
 
   @override
   void dispose() {
     _usersChanged.removeListener(_handleUsersChanged);
-    _scrollController.removeListener(_handleScroll);
+    _tabController.removeListener(_handleKindTabChanged);
     _searchDebounce?.cancel();
-    _scrollController.dispose();
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleKindTabChanged() {
+    final next = _adminUserTabKinds[_tabController.index];
+    if (_selectedKind == next) {
+      return;
+    }
+    setState(() => _selectedKind = next);
+    _saveCache();
   }
 
   void _handleUsersChanged() {
@@ -72,16 +100,16 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     await _bootstrap(forceRefresh: true);
   }
 
-  void _handleScroll() {
-    if (!_scrollController.hasClients ||
-        _initialLoading ||
+  void _handleScrollMetrics(ScrollMetrics metrics) {
+    if (_initialLoading ||
         _loadingMore ||
+        _selectedKind == AdminUserKind.worker ||
         !_hasMore) {
       return;
     }
-    final viewport = _scrollController.position.viewportDimension;
+    final viewport = metrics.viewportDimension;
     final prefetchExtentAfter = viewport * _prefetchExtentAfterFactor;
-    if (_scrollController.position.extentAfter < prefetchExtentAfter) {
+    if (metrics.extentAfter < prefetchExtentAfter) {
       unawaited(_loadMore());
     }
   }
@@ -98,10 +126,16 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _hasMore = true;
         _offset = 0;
         _items.clear();
+        _workers.clear();
       });
     }
 
-    final page = await _safeLoadAdminUserList(limit: _pageSize, offset: 0);
+    final results = await Future.wait([
+      _safeLoadAdminUserList(limit: _pageSize, offset: 0),
+      _safeLoadWorkers(),
+    ]);
+    final page = results[0] as AdminUserListPage;
+    final workers = results[1] as List<AdminWorker>;
 
     if (!mounted) {
       return;
@@ -110,6 +144,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       _items
         ..clear()
         ..addAll(page.items);
+      _workers
+        ..clear()
+        ..addAll(workers);
       _hasMore = page.hasMore;
       _offset = page.items.length;
       _initialLoading = false;
@@ -119,6 +156,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _loadMore() async {
+    if (_selectedKind == AdminUserKind.worker) {
+      return;
+    }
     if (_loadingMore || _initialLoading) {
       return;
     }
@@ -170,9 +210,23 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
   }
 
+  Future<List<AdminWorker>> _safeLoadWorkers() async {
+    try {
+      return await MobileApi.instance.adminWorkers(query: _searchQuery);
+    } catch (error) {
+      debugPrint('admin workers failed: $error');
+      return const <AdminWorker>[];
+    }
+  }
+
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
-    if (item.kind == AdminUserKind.werka) {
+    if (item.kind == AdminUserKind.worker) {
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminWorkerSettings);
+      changed = result == true;
+    } else if (item.kind == AdminUserKind.werka) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWerka);
@@ -203,23 +257,30 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _items
           ..clear()
           ..addAll(cache.items);
+        _workers
+          ..clear()
+          ..addAll(cache.workers);
         _hasMore = cache.hasMore;
         _offset = cache.offset;
         _searchQuery = cache.query;
+        _selectedKind = cache.selectedKind;
         _searchController.text = cache.query;
         _initialLoading = false;
         _loadingMore = false;
       });
     }
+    _tabController.index = _adminUserKindIndex(cache.selectedKind);
     return true;
   }
 
   void _saveCache() {
     _cache = _AdminSuppliersCache(
       items: List<AdminUserListEntry>.unmodifiable(_items),
+      workers: List<AdminWorker>.unmodifiable(_workers),
       hasMore: _hasMore,
       offset: _offset,
       query: _searchQuery,
+      selectedKind: _selectedKind,
     );
   }
 
@@ -243,10 +304,101 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
   }
 
+  void _selectKind(AdminUserKind kind) {
+    if (_selectedKind == kind) {
+      return;
+    }
+    final index = _adminUserKindIndex(kind);
+    if (_tabController.index != index) {
+      _tabController.animateTo(index);
+    }
+    setState(() => _selectedKind = kind);
+    _saveCache();
+  }
+
+  List<AdminUserListEntry> _visibleItems(AdminUserKind kind) {
+    if (kind == AdminUserKind.worker) {
+      return [
+        for (final worker in _workers)
+          AdminUserListEntry(
+            id: worker.id,
+            name: worker.name,
+            phone: '',
+            kind: AdminUserKind.worker,
+            roleLabelOverride: worker.level,
+          ),
+      ];
+    }
+    return _items.where((item) => item.kind == kind).toList(growable: false);
+  }
+
+  Widget _buildUserList(AdminUserKind kind) {
+    final visibleItems = _visibleItems(kind);
+    final showFooter = kind != AdminUserKind.worker &&
+        visibleItems.isNotEmpty &&
+        (_loadingMore || _hasMore);
+    if (_initialLoading) {
+      return const Center(child: AppLoadingIndicator());
+    }
+    return AppRefreshIndicator(
+      onRefresh: _reload,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (kind == _selectedKind) {
+            _handleScrollMetrics(notification.metrics);
+          }
+          return false;
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
+          itemCount: visibleItems.isEmpty
+              ? 1
+              : visibleItems.length + (showFooter ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (visibleItems.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
+                child: Text(
+                  'Userlar topilmadi',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              );
+            }
+            if (index >= visibleItems.length) {
+              if (_loadingMore) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 14),
+                  child: Center(child: AppLoadingIndicator()),
+                );
+              }
+              return const SizedBox(height: 14);
+            }
+            final item = visibleItems[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+              ),
+              child: AdminSupplierListRow(
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index,
+                  visibleItems.length,
+                ),
+                item: item,
+                onTap: () => _openUser(item),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visibleItems = _items;
-    final showFooter = visibleItems.isNotEmpty && (_loadingMore || _hasMore);
+    final theme = Theme.of(context);
     return AppShell(
       animateOnEnter: false,
       drawer: AdminNavigationDrawer(
@@ -268,55 +420,40 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       ),
       contentPadding: EdgeInsets.zero,
       bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
-      child: _initialLoading
-          ? const Center(child: AppLoadingIndicator())
-          : AppRefreshIndicator(
-              onRefresh: _reload,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
-                itemCount: visibleItems.isEmpty
-                    ? 1
-                    : visibleItems.length + (showFooter ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (visibleItems.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      child: Text(
-                        'Userlar topilmadi',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    );
-                  }
-                  if (index >= visibleItems.length) {
-                    if (_loadingMore) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 14),
-                        child: Center(child: AppLoadingIndicator()),
-                      );
-                    }
-                    return const SizedBox(height: 14);
-                  }
-                  final item = visibleItems[index];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
-                    ),
-                    child: AdminSupplierListRow(
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        index,
-                        visibleItems.length,
-                      ),
-                      item: item,
-                      onTap: () => _openUser(item),
-                    ),
-                  );
-                },
+      child: Column(
+        children: [
+          Material(
+            color: theme.appBarTheme.backgroundColor ??
+                theme.colorScheme.surfaceContainer,
+            child: TabBar(
+              controller: _tabController,
+              onTap: (index) => _selectKind(_adminUserTabKinds[index]),
+              labelColor: theme.colorScheme.primary,
+              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+              labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w400,
               ),
+              unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w400,
+              ),
+              tabs: const [
+                Tab(height: 38, text: 'Omborchi'),
+                Tab(height: 38, text: 'Haridor'),
+                Tab(height: 38, text: 'Ta’minotchi'),
+                Tab(height: 38, text: 'Ishchi'),
+              ],
             ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                for (final kind in _adminUserTabKinds) _buildUserList(kind),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -412,13 +549,17 @@ class _AdminUserSearchField extends StatelessWidget {
 class _AdminSuppliersCache {
   const _AdminSuppliersCache({
     required this.items,
+    required this.workers,
     required this.hasMore,
     required this.offset,
     required this.query,
+    required this.selectedKind,
   });
 
   final List<AdminUserListEntry> items;
+  final List<AdminWorker> workers;
   final bool hasMore;
   final int offset;
   final String query;
+  final AdminUserKind selectedKind;
 }

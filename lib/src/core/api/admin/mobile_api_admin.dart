@@ -22,6 +22,11 @@ void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
   _testModeForceCalculateTemplateSaveFailure = value;
 }
 
+void resetMobileApiTestModeWorkerSettingsData() {
+  _testModeWorkers.clear();
+  _testModeWorkerGroups.clear();
+}
+
 class ProductionMapSaveWithOrderResult {
   const ProductionMapSaveWithOrderResult({
     required this.saved,
@@ -1145,38 +1150,22 @@ extension MobileApiAdmin on MobileApi {
       final normalized = _normalizeTestModeWorkerGroup(group);
       final key = normalized.apparatus.trim().toLowerCase();
       final code = normalized.groupCode.trim().toUpperCase();
-      final oppositeCode = code == 'A' ? 'B' : 'A';
-      final oppositeShift = normalized.shift == 'day' ? 'night' : 'day';
-      final existingOpposite = _testModeWorkerGroups
-          .where(
-            (item) =>
-                item.apparatus.trim().toLowerCase() == key &&
-                item.groupCode.trim().toUpperCase() == oppositeCode,
-          )
-          .cast<AdminWorkerGroup?>()
-          .firstWhere((item) => item != null, orElse: () => null);
-      final movedIds = normalized.workerIds.toSet();
+      final duplicate = _testModeWorkerGroups.any(
+        (item) =>
+            item.apparatus.trim().toLowerCase() == key &&
+            item.groupCode.trim().toUpperCase() != code &&
+            item.workerIds.any(normalized.workerIds.toSet().contains),
+      );
+      if (duplicate) {
+        throw const MobileApiException(
+          code: 'worker_duplicated_in_group',
+          message: 'Ishchi boshqa guruhga ulangan',
+        );
+      }
       _testModeWorkerGroups.removeWhere(
-        (item) => item.apparatus.trim().toLowerCase() == key,
+        (item) => item.groupCode.trim().toUpperCase() == code,
       );
       _testModeWorkerGroups.add(normalized);
-      _testModeWorkerGroups.add(
-        (existingOpposite ??
-                AdminWorkerGroup(
-                  apparatus: normalized.apparatus,
-                  groupCode: oppositeCode,
-                  shift: oppositeShift,
-                ))
-            .copyWith(
-          apparatus: normalized.apparatus,
-          groupCode: oppositeCode,
-          shift: oppositeShift,
-          workerIds: [
-            for (final id in existingOpposite?.workerIds ?? const <String>[])
-              if (!movedIds.contains(id)) id,
-          ],
-        ),
-      );
       return _hydrateTestModeWorkerGroup(normalized);
     }
     final response = await _sendAuthorized(
@@ -1201,10 +1190,19 @@ extension MobileApiAdmin on MobileApi {
         .where((id) => id.isNotEmpty)
         .toSet()
         .toList(growable: false);
+    final groupCode =
+        group.groupCode.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
     return AdminWorkerGroup(
       apparatus: group.apparatus.trim(),
-      groupCode: group.groupCode.trim().toUpperCase(),
-      shift: group.shift.trim().toLowerCase() == 'night' ? 'night' : 'day',
+      groupCode: groupCode,
+      shift: group.shift.trim().isEmpty ? 'kunduz' : group.shift.trim(),
+      startTime:
+          group.startTime.trim().isEmpty ? '08:00' : group.startTime.trim(),
+      endTime: group.endTime.trim().isEmpty ? '20:00' : group.endTime.trim(),
+      workDaysPerWeek: group.workDaysPerWeek.clamp(1, 7).toInt(),
+      startDay:
+          group.startDay.trim().isEmpty ? 'monday' : group.startDay.trim(),
+      accountingEnabled: group.accountingEnabled,
       workerIds: workerIds,
     );
   }

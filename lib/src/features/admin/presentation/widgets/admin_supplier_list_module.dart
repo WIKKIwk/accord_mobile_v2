@@ -79,6 +79,7 @@ class AdminSupplierListRow extends StatelessWidget {
             color: switch (item.kind) {
               AdminUserKind.werka => scheme.primaryContainer,
               AdminUserKind.customer => scheme.tertiaryContainer,
+              AdminUserKind.worker => scheme.surfaceContainerHighest,
               AdminUserKind.supplier => scheme.secondaryContainer,
             },
             shape: BoxShape.circle,
@@ -88,11 +89,13 @@ class AdminSupplierListRow extends StatelessWidget {
               switch (item.kind) {
                 AdminUserKind.werka => Icons.storefront_rounded,
                 AdminUserKind.customer => Icons.groups_rounded,
+                AdminUserKind.worker => Icons.engineering_rounded,
                 AdminUserKind.supplier => Icons.person_rounded,
               },
               color: switch (item.kind) {
                 AdminUserKind.werka => scheme.onPrimaryContainer,
                 AdminUserKind.customer => scheme.onTertiaryContainer,
+                AdminUserKind.worker => scheme.onSurfaceVariant,
                 AdminUserKind.supplier => scheme.onSecondaryContainer,
               },
               size: 16,
