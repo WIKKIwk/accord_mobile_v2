@@ -1466,13 +1466,17 @@ class _AdminProductionMapOrdersScreenState
                   : Column(
                       children: [
                         if (_modules.length > 1)
-                          TabBar(
-                            controller: _tabController,
-                            onTap: (index) => _setModule(_modules[index]),
-                            tabs: [
-                              for (final module in _modules)
-                                Tab(text: _moduleLabel(module)),
-                            ],
+                          Material(
+                            color:
+                                Theme.of(context).colorScheme.surfaceContainer,
+                            child: TabBar(
+                              controller: _tabController,
+                              onTap: (index) => _setModule(_modules[index]),
+                              tabs: [
+                                for (final module in _modules)
+                                  Tab(text: _moduleLabel(module)),
+                              ],
+                            ),
                           ),
                         Expanded(
                           child: TabBarView(
@@ -3015,8 +3019,7 @@ class _ApparatusRow extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     return Material(
-      color:
-          selected ? scheme.primaryContainer : scheme.surface,
+      color: selected ? scheme.primaryContainer : scheme.surface,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
