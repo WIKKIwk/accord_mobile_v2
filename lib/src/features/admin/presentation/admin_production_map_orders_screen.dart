@@ -29,6 +29,9 @@ import 'package:http/http.dart' as http;
 
 enum _OpenedOrderModule { orders, move, sequence }
 
+const double _openedOrderPanelCardGap = 4;
+const double _openedOrderPanelTopGap = 8;
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',
@@ -1637,7 +1640,12 @@ class _OrdersModulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(0, 0, 0, bottomPadding),
+      padding: EdgeInsets.fromLTRB(
+        _openedOrderPanelCardGap,
+        _openedOrderPanelTopGap,
+        _openedOrderPanelCardGap,
+        bottomPadding,
+      ),
       children: [
         if (orders.isEmpty)
           const _EmptyOpenedOrders(message: 'Ochilgan zakaz yo‘q')
@@ -1804,7 +1812,12 @@ class _SequenceModulePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            padding: const EdgeInsets.fromLTRB(
+              _openedOrderPanelCardGap,
+              _openedOrderPanelTopGap,
+              _openedOrderPanelCardGap,
+              0,
+            ),
             child: _SequenceHeaderSelectors(
               apparatus: selected,
               onPickApparatus: onPickApparatus,
@@ -1816,7 +1829,12 @@ class _SequenceModulePage extends StatelessWidget {
                 'sequence-list-${selected.warehouse}-'
                 '${orders.map((order) => order.map.id).join(',')}',
               ),
-              padding: EdgeInsets.fromLTRB(12, 0, 12, bottomPadding),
+              padding: EdgeInsets.fromLTRB(
+                _openedOrderPanelCardGap,
+                0,
+                _openedOrderPanelCardGap,
+                bottomPadding,
+              ),
               buildDefaultDragHandles: false,
               itemCount: orders.length,
               onReorderItem: onReorder,
@@ -1850,7 +1868,12 @@ class _SequenceModulePage extends StatelessWidget {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
+      padding: EdgeInsets.fromLTRB(
+        _openedOrderPanelCardGap,
+        _openedOrderPanelTopGap,
+        _openedOrderPanelCardGap,
+        bottomPadding,
+      ),
       children: [
         _SequenceHeaderSelectors(
           apparatus: selected,
@@ -2057,7 +2080,12 @@ class _MoveModulePageState extends State<_MoveModulePage> {
     );
     final bottomInset = 60 + dockInset;
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        _openedOrderPanelCardGap,
+        _openedOrderPanelTopGap,
+        _openedOrderPanelCardGap,
+        bottomInset,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final availableHeight = constraints.maxHeight.isFinite
@@ -2755,7 +2783,6 @@ class _OpenedOrderList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
       children: [
         for (var index = 0; index < orders.length; index++)
           _OpenedOrderRow(
