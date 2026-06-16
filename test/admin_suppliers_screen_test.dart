@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -140,6 +141,13 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            AppRoutes.adminWorkerDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerDetailScreen(entry: entry);
+            },
+          },
           home: const AdminSuppliersScreen(),
         ),
       );
@@ -199,6 +207,13 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            AppRoutes.adminWorkerDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerDetailScreen(entry: entry);
+            },
+          },
           home: const AdminSuppliersScreen(),
         ),
       );
@@ -270,6 +285,13 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            AppRoutes.adminWorkerDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerDetailScreen(entry: entry);
+            },
+          },
           home: const AdminSuppliersScreen(),
         ),
       );
@@ -296,7 +318,7 @@ void main() {
       await tester.tap(find.text('Jasur worker'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Ishchi ma’lumotlari'), findsOneWidget);
+      expect(find.text('Worker'), findsOneWidget);
       expect(find.text('User ismi'), findsOneWidget);
       expect(find.text('Telefon'), findsOneWidget);
       expect(find.text('Kiritilmagan'), findsOneWidget);
