@@ -15,7 +15,7 @@ ifeq ($(HOST_OS),Darwin)
 RUN_DEVICE ?= web-server
 RUN_DART_DEFINES ?= --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 RUN_WEB_HOST ?= 127.0.0.1
-RUN_WEB_PORT ?= 61896
+RUN_WEB_PORT ?= auto
 RUN_BROWSER_APP ?= ChatGPT Atlas
 else
 RUN_DEVICE ?= linux
@@ -27,7 +27,12 @@ CHROME_WEB_BROWSER_FLAGS := --web-browser-flag=--disable-web-security --web-brow
 ifeq ($(RUN_DEVICE),chrome)
 RUN_BROWSER_FLAGS := $(CHROME_WEB_BROWSER_FLAGS)
 else ifeq ($(RUN_DEVICE),web-server)
-RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST) --web-port=$(RUN_WEB_PORT)
+RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST)
+ifneq ($(strip $(RUN_WEB_PORT)),auto)
+ifneq ($(strip $(RUN_WEB_PORT)),)
+RUN_BROWSER_FLAGS += --web-port=$(RUN_WEB_PORT)
+endif
+endif
 else
 RUN_BROWSER_FLAGS :=
 endif
@@ -163,6 +168,8 @@ remote-stop:
 run: $(RUN_PREREQ) deps
 ifeq ($(RUN_DEVICE),web-server)
 ifeq ($(HOST_OS),Darwin)
+ifneq ($(strip $(RUN_WEB_PORT)),auto)
+ifneq ($(strip $(RUN_WEB_PORT)),)
 	@(for i in $$(seq 1 120); do \
 		if curl -fsS "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)/main.dart.js" >/dev/null 2>&1; then \
 			open -a "$(RUN_BROWSER_APP)" "http://$(RUN_WEB_HOST):$(RUN_WEB_PORT)"; \
@@ -170,6 +177,8 @@ ifeq ($(HOST_OS),Darwin)
 		fi; \
 		sleep 1; \
 	done) >/dev/null 2>&1 &
+endif
+endif
 endif
 endif
 	@flutter run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
