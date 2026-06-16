@@ -3648,7 +3648,6 @@ class _SequenceStepTile extends StatelessWidget {
     final icon = switch (node.kind) {
       'start' => Icons.play_arrow_rounded,
       'apparatus' => Icons.precision_manufacturing_rounded,
-      'kk_product' => Icons.inventory_2_outlined,
       'end' => Icons.flag_rounded,
       _ => Icons.account_tree_outlined,
     };
@@ -3716,7 +3715,6 @@ class _SequenceStepTile extends StatelessWidget {
     return switch (kind) {
       'start' => 'Boshlanish',
       'apparatus' => 'Aparat',
-      'kk_product' => 'KK li mahsulot',
       'end' => 'Yakun',
       _ => kind,
     };

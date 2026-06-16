@@ -46,12 +46,7 @@ String productionMapBranchDisplayLabel(String branch) {
 }
 
 bool productionMapCanCreateEdge(ProductionMapNode from, ProductionMapNode to) {
-  final hasKkProduct = from.kind == 'kk_product' || to.kind == 'kk_product';
-  if (!hasKkProduct) {
-    return true;
-  }
-  return (from.kind == 'kk_product' && to.kind == 'apparatus') ||
-      (from.kind == 'apparatus' && to.kind == 'kk_product');
+  return true;
 }
 
 bool productionMapApparatusMatchesOrder(
@@ -291,10 +286,10 @@ class _AdminProductionMapTestScreenState
   static const _nodeGap = 18.0;
   static const _nodeStepX = 280.0;
   static const _nodeStepY = 132.0;
-  static const _minNodeX = 24.0;
-  static const _minNodeY = 24.0;
-  static const _maxNodeX = 1600.0;
-  static const _maxNodeY = 3200.0;
+  static const _minNodeX = -2400.0;
+  static const _minNodeY = -1600.0;
+  static const _maxNodeX = 6000.0;
+  static const _maxNodeY = 6000.0;
 
   late final bool _orderMode;
   late final List<ProductionMapNode> nodes;
@@ -628,8 +623,6 @@ class _AdminProductionMapTestScreenState
     setState(() {
       if (kind == 'condition') {
         _addConditionBranch(id);
-      } else if (kind == 'kk_product') {
-        _addDetachedNode(_newNode(id, kind));
       } else {
         _insertBeforeEnd(_newNode(id, kind));
       }
@@ -781,13 +774,6 @@ class _AdminProductionMapTestScreenState
             expression: 'order_qty',
           ),
         ),
-      'kk_product' => ProductionMapNode(
-          id: id,
-          kind: 'kk_product',
-          title: 'KK li mahsulot tanlang',
-          x: end.x,
-          y: end.y + _nodeStepY,
-        ),
       _ => ProductionMapNode(
           id: id,
           kind: 'task',
@@ -813,12 +799,6 @@ class _AdminProductionMapTestScreenState
       ..add(ProductionMapEdge(from: previous.id, to: placedNode.id))
       ..add(ProductionMapEdge(from: placedNode.id, to: end.id));
     _pushEndDown();
-  }
-
-  void _addDetachedNode(ProductionMapNode node) {
-    final endIndex = nodes.indexWhere((item) => item.kind == 'end');
-    final placedNode = _placeNode(node);
-    nodes.insert(endIndex < 0 ? nodes.length : endIndex, placedNode);
   }
 
   void _addConditionBranch(String id) {
@@ -1245,47 +1225,6 @@ class _AdminProductionMapTestScreenState
       setState(() => nodes[index] = node.copyWith(title: picked.warehouse));
       return;
     }
-    if (node.kind == 'kk_product') {
-      final picked = await showModalBottomSheet<SupplierItem>(
-        context: context,
-        isDismissible: true,
-        enableDrag: true,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.32),
-        sheetAnimationStyle: kM3PickerSheetAnimation,
-        builder: (context) {
-          return M3AsyncPickerSheet<SupplierItem>(
-            title: 'KK li mahsulot tanlang',
-            hintText: 'Mahsulot qidiring',
-            pageSize: 80,
-            cacheKey: 'production-map:kk-products',
-            loadPage: (query, offset, limit) {
-              return MobileApi.instance.gscaleItemsPage(
-                query: query,
-                offset: offset,
-                limit: limit,
-              );
-            },
-            itemTitle: (item) =>
-                item.name.trim().isEmpty ? item.code : item.name,
-            itemSubtitle: (item) => item.code,
-            onSelected: (item) => Navigator.of(context).pop(item),
-          );
-        },
-      );
-      if (picked == null || !mounted) {
-        return;
-      }
-      setState(() {
-        nodes[index] = node.copyWith(
-          title: picked.name.trim().isEmpty ? picked.code : picked.name.trim(),
-          itemCode: picked.code,
-        );
-      });
-      return;
-    }
     final edited = await showModalBottomSheet<ProductionMapNode>(
       context: context,
       isDismissible: true,
@@ -1363,11 +1302,6 @@ class _AdminProductionMapTestScreenState
           icon: Icons.engineering_rounded,
           onTap: () => _runMapToolAction(() => _addNode('task')),
         ),
-        AdminFabMenuAction(
-          title: 'kk li mahsulot',
-          icon: Icons.inventory_2_rounded,
-          onTap: () => _runMapToolAction(() => _addNode('kk_product')),
-        ),
       ];
     }
     return [
@@ -1380,11 +1314,6 @@ class _AdminProductionMapTestScreenState
         title: 'Aparat',
         icon: Icons.precision_manufacturing_rounded,
         onTap: () => _runMapToolAction(() => _addNode('apparatus')),
-      ),
-      AdminFabMenuAction(
-        title: 'kk li mahsulot',
-        icon: Icons.inventory_2_rounded,
-        onTap: () => _runMapToolAction(() => _addNode('kk_product')),
       ),
       AdminFabMenuAction(
         title: 'Formula',
@@ -2997,7 +2926,6 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   IconData _iconFor(String kind) {
     return switch (kind) {
       'apparatus' => Icons.precision_manufacturing_rounded,
-      'kk_product' => Icons.inventory_2_rounded,
       'formula' => Icons.functions_rounded,
       'condition' => Icons.call_split_rounded,
       'task' => Icons.engineering_rounded,
@@ -3026,7 +2954,6 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   String _labelFor(String kind) {
     return switch (kind) {
       'apparatus' => 'aparat',
-      'kk_product' => 'kk',
       'formula' => 'formula',
       'condition' => 'if',
       'task' => 'ishlov',
@@ -3055,7 +2982,6 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   Color _colorFor(String kind, ColorScheme scheme) {
     return switch (kind) {
       'apparatus' => scheme.secondaryContainer,
-      'kk_product' => scheme.primaryContainer,
       'formula' => scheme.tertiaryContainer,
       'condition' => scheme.primaryContainer,
       'task' => scheme.secondaryContainer,

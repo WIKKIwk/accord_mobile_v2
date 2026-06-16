@@ -112,7 +112,7 @@ void main() {
     expect(find.byKey(const ValueKey('admin-fab-menu-pechat')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-kk li mahsulot')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.byKey(const ValueKey('admin-fab-menu-Formula')), findsNothing);
     expect(
@@ -747,7 +747,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('production map can add kk product and pick item', (
+  testWidgets('production map does not show kk product action', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -774,19 +774,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _tapMapTool(tester, 'kk li mahsulot');
-    await tester.pumpAndSettle();
-    expect(find.text('KK li mahsulot tanlang'), findsOneWidget);
-
-    await tester.tap(find.text('KK li mahsulot tanlang'));
-    await tester.pumpAndSettle();
-    expect(find.text('Mahsulot qidiring'), findsOneWidget);
-
-    await tester.tap(find.text('Hotlunch').last);
+    await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hotlunch'), findsWidgets);
-    expect(find.text('DEMO-HOTLUNCH'), findsWidgets);
+    expect(find.byKey(const ValueKey('admin-fab-menu-kk li mahsulot')),
+        findsNothing);
+    expect(find.text('kk li mahsulot'), findsNothing);
   });
 
   testWidgets('production map apparatus picker shows only recommended pechat', (
@@ -826,12 +819,7 @@ void main() {
     expect(find.text('9 ta rangli pechat'), findsNothing);
   });
 
-  test('kk product edges are allowed only with apparatus nodes', () {
-    const kk = ProductionMapNode(
-      id: 'kk_product_1',
-      kind: 'kk_product',
-      title: 'Hotlunch',
-    );
+  test('production map edges are unrestricted between supported nodes', () {
     const apparatus = ProductionMapNode(
       id: 'apparatus_1',
       kind: 'apparatus',
@@ -844,11 +832,10 @@ void main() {
     );
     const start = ProductionMapNode(id: 'start', kind: 'start', title: 'Start');
 
-    expect(productionMapCanCreateEdge(kk, apparatus), isTrue);
-    expect(productionMapCanCreateEdge(apparatus, kk), isTrue);
-    expect(productionMapCanCreateEdge(kk, task), isFalse);
-    expect(productionMapCanCreateEdge(start, kk), isFalse);
+    expect(productionMapCanCreateEdge(start, task), isTrue);
+    expect(productionMapCanCreateEdge(task, start), isTrue);
     expect(productionMapCanCreateEdge(task, apparatus), isTrue);
+    expect(productionMapCanCreateEdge(apparatus, task), isTrue);
   });
 
   test(
