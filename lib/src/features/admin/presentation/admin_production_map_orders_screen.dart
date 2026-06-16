@@ -1424,6 +1424,7 @@ class _AdminProductionMapOrdersScreenState
       title: widget.workerMode ? workerTitle : '',
       subtitle: widget.workerMode ? 'Kuzatish' : '',
       nativeTopBar: true,
+      nativeTopBarBottomInset: 3,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       titleWidget: widget.workerMode
           ? null
@@ -1469,16 +1470,13 @@ class _AdminProductionMapOrdersScreenState
                           Material(
                             color:
                                 Theme.of(context).colorScheme.surfaceContainer,
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: TabBar(
-                                controller: _tabController,
-                                onTap: (index) => _setModule(_modules[index]),
-                                tabs: [
-                                  for (final module in _modules)
-                                    Tab(height: 38, text: _moduleLabel(module)),
-                                ],
-                              ),
+                            child: TabBar(
+                              controller: _tabController,
+                              onTap: (index) => _setModule(_modules[index]),
+                              tabs: [
+                                for (final module in _modules)
+                                  Tab(height: 38, text: _moduleLabel(module)),
+                              ],
                             ),
                           ),
                         Expanded(

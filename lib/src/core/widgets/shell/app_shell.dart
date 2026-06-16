@@ -65,6 +65,7 @@ class AppShell extends StatefulWidget {
     this.automaticallyImplyNativeLeading = true,
     this.backgroundColor,
     this.appBarBottomLoading = false,
+    this.nativeTopBarBottomInset = 0,
   });
 
   final String title;
@@ -89,6 +90,7 @@ class AppShell extends StatefulWidget {
 
   /// [nativeTopBar] bo‘lsa, AppBar ostida indeterminate chiziqli yuklanish (Google uslubi).
   final bool appBarBottomLoading;
+  final double nativeTopBarBottomInset;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -293,10 +295,24 @@ class _AppShellState extends State<AppShell>
                   ? 10
                   : (compactTitleNearLeading ? 0 : 20),
               centerTitle: false,
-              bottom: widget.appBarBottomLoading
+              bottom: widget.appBarBottomLoading ||
+                      widget.nativeTopBarBottomInset > 0
                   ? PreferredSize(
-                      preferredSize: const Size.fromHeight(3),
-                      child: _appShellStyleLinearProgress(theme),
+                      preferredSize: Size.fromHeight(
+                        (widget.nativeTopBarBottomInset > 0
+                                ? widget.nativeTopBarBottomInset
+                                : 0) +
+                            (widget.appBarBottomLoading ? 3 : 0),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.nativeTopBarBottomInset > 0)
+                            SizedBox(height: widget.nativeTopBarBottomInset),
+                          if (widget.appBarBottomLoading)
+                            _appShellStyleLinearProgress(theme),
+                        ],
+                      ),
                     )
                   : null,
             )

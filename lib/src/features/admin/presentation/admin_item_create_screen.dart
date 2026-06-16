@@ -271,6 +271,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      nativeTopBarBottomInset: 3,
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       titleWidget: _AdminItemProductSearchField(
