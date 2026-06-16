@@ -323,7 +323,22 @@ void main() {
       expect(find.text('Telefon'), findsOneWidget);
       expect(find.text('Kiritilmagan'), findsOneWidget);
       expect(find.text('Telefon raqami kiritish'), findsOneWidget);
+      expect(find.text('Code'), findsOneWidget);
+      expect(find.text('Hali generatsiya qilinmagan'), findsOneWidget);
       expect(find.text('worker-1'), findsOneWidget);
+
+      final refreshButton = find.ancestor(
+        of: find.byIcon(Icons.refresh_rounded),
+        matching: find.byType(IconButton),
+      );
+      tester.widget<IconButton>(refreshButton).onPressed!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('401234567890'), findsOneWidget);
+      expect(
+        client.requests,
+        contains('POST /v1/mobile/admin/workers/code/regenerate?id=worker-1'),
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
@@ -340,6 +355,7 @@ class _AdminUsersHttpClient implements HttpClient {
   final List<Object> workers;
   final List<String> requests = <String>[];
   bool createdCustomer = false;
+  final Map<String, String> workerCodes = <String, String>{};
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -349,6 +365,61 @@ class _AdminUsersHttpClient implements HttpClient {
 
     Object body;
     var statusCode = HttpStatus.ok;
+    if (key.startsWith('GET /v1/mobile/admin/workers/detail')) {
+      final id = url.queryParameters['id'] ?? '';
+      final worker = workers.cast<Map<String, Object?>>().firstWhere(
+            (item) => item['id'] == id,
+            orElse: () => <String, Object?>{},
+          );
+      if (worker.isEmpty) {
+        statusCode = HttpStatus.notFound;
+        body = {'error': 'worker not found'};
+      } else {
+        body = {
+          'id': worker['id'],
+          'name': worker['name'],
+          'phone': worker['phone'] ?? '',
+          'level': worker['level'] ?? '',
+          'code': workerCodes[id] ?? '',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
+    if (key.startsWith('POST /v1/mobile/admin/workers/code/regenerate')) {
+      final id = url.queryParameters['id'] ?? '';
+      final worker = workers.cast<Map<String, Object?>>().firstWhere(
+            (item) => item['id'] == id,
+            orElse: () => <String, Object?>{},
+          );
+      if (worker.isEmpty) {
+        statusCode = HttpStatus.notFound;
+        body = {'error': 'worker not found'};
+      } else {
+        workerCodes[id] = '401234567890';
+        body = {
+          'id': worker['id'],
+          'name': worker['name'],
+          'phone': worker['phone'] ?? '',
+          'level': worker['level'] ?? '',
+          'code': workerCodes[id],
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
     if (key.startsWith('GET /v1/mobile/admin/users/list')) {
       body = {
         'items': createdCustomer && users.isEmpty

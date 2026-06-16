@@ -11,6 +11,7 @@ final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
+final Map<String, String> _testModeWorkerCodes = {};
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 
@@ -25,6 +26,7 @@ void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
 void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
+  _testModeWorkerCodes.clear();
 }
 
 class ProductionMapSaveWithOrderResult {
@@ -1139,6 +1141,73 @@ extension MobileApiAdmin on MobileApi {
       throw Exception('Admin worker phone update failed');
     }
     return AdminWorker.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminWorkerDetail> adminWorkerDetail(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final worker = _testModeWorkers.firstWhere(
+        (worker) => worker.id == id,
+        orElse: () => throw Exception('Admin worker not found'),
+      );
+      return AdminWorkerDetail(
+        id: worker.id,
+        name: worker.name,
+        phone: worker.phone,
+        level: worker.level,
+        code: _testModeWorkerCodes[worker.id] ?? '',
+        codeLocked: false,
+        codeRetryAfterSec: 0,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/workers/detail',
+        ).replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker detail failed');
+    }
+    return AdminWorkerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminWorkerDetail> adminRegenerateWorkerCode(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final worker = _testModeWorkers.firstWhere(
+        (worker) => worker.id == id,
+        orElse: () => throw Exception('Admin worker not found'),
+      );
+      final code =
+          '40${DateTime.now().microsecondsSinceEpoch.toString().padLeft(10, '0').substring(0, 10)}';
+      _testModeWorkerCodes[worker.id] = code;
+      return AdminWorkerDetail(
+        id: worker.id,
+        name: worker.name,
+        phone: worker.phone,
+        level: worker.level,
+        code: code,
+        codeLocked: false,
+        codeRetryAfterSec: 0,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/workers/code/regenerate',
+        ).replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker code regenerate failed');
+    }
+    return AdminWorkerDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

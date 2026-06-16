@@ -1309,6 +1309,58 @@ class AdminWorker {
   }
 }
 
+class AdminWorkerDetail {
+  const AdminWorkerDetail({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.level,
+    required this.code,
+    required this.codeLocked,
+    required this.codeRetryAfterSec,
+  });
+
+  final String id;
+  final String name;
+  final String phone;
+  final String level;
+  final String code;
+  final bool codeLocked;
+  final int codeRetryAfterSec;
+
+  factory AdminWorkerDetail.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerDetail(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      level: json['level'] as String? ?? '',
+      code: json['code'] as String? ?? '',
+      codeLocked: json['code_locked'] as bool? ?? false,
+      codeRetryAfterSec: json['code_retry_after_sec'] as int? ?? 0,
+    );
+  }
+
+  AdminWorkerDetail copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? level,
+    String? code,
+    bool? codeLocked,
+    int? codeRetryAfterSec,
+  }) {
+    return AdminWorkerDetail(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      level: level ?? this.level,
+      code: code ?? this.code,
+      codeLocked: codeLocked ?? this.codeLocked,
+      codeRetryAfterSec: codeRetryAfterSec ?? this.codeRetryAfterSec,
+    );
+  }
+}
+
 class AdminWorkerGroup {
   const AdminWorkerGroup({
     required this.apparatus,

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
@@ -21,11 +24,80 @@ class AdminWorkerDetailScreen extends StatefulWidget {
 }
 
 class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
-  late String _phone = widget.entry.phone;
+  AdminWorkerDetail? _detail;
+  Object? _loadError;
+  bool _loading = true;
   bool _savingPhone = false;
+  bool _regeneratingCode = false;
+  bool _changed = false;
+  int _retryAfterSec = 0;
+  Timer? _retryTimer;
 
-  Future<void> _addPhone() async {
-    final controller = TextEditingController(text: _phone);
+  String get _workerId => widget.entry.id.trim();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_reload());
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _setRetryAfter(int seconds) {
+    _retryTimer?.cancel();
+    _retryAfterSec = seconds > 0 ? seconds : 0;
+    if (_retryAfterSec <= 0) {
+      return;
+    }
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _retryAfterSec <= 1) {
+        timer.cancel();
+        if (mounted) {
+          setState(() => _retryAfterSec = 0);
+        }
+        return;
+      }
+      setState(() => _retryAfterSec -= 1);
+    });
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final detail =
+          await MobileApi.instance.adminWorkerDetail(_workerId).timeout(
+                const Duration(seconds: 15),
+                onTimeout: () => throw Exception('Worker detail timeout'),
+              );
+      if (!mounted) {
+        return;
+      }
+      _setRetryAfter(detail.codeRetryAfterSec);
+      setState(() {
+        _detail = detail;
+        _loadError = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loadError = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _addPhone(AdminWorkerDetail detail) async {
+    final controller = TextEditingController(text: detail.phone);
     final phone = await showDialog<String>(
       context: context,
       builder: (context) {
@@ -84,13 +156,16 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     setState(() => _savingPhone = true);
     try {
       final updated = await MobileApi.instance.adminUpdateWorkerPhone(
-        id: widget.entry.id,
+        id: detail.id,
         phone: phone,
       );
       if (!mounted) {
         return;
       }
-      setState(() => _phone = updated.phone);
+      _changed = true;
+      setState(() {
+        _detail = detail.copyWith(phone: updated.phone);
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -105,30 +180,101 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     }
   }
 
+  Future<void> _regenerateCode() async {
+    setState(() => _regeneratingCode = true);
+    try {
+      final updated = await MobileApi.instance.adminRegenerateWorkerCode(
+        _workerId,
+      );
+      if (!mounted) {
+        return;
+      }
+      _changed = true;
+      _setRetryAfter(updated.codeRetryAfterSec);
+      setState(() => _detail = updated);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Code yangilanmadi: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _regeneratingCode = false);
+      }
+    }
+  }
+
+  Future<void> _copyCode(String code) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AppShell(
-      title: 'Worker',
-      subtitle: '',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      contentPadding: EdgeInsets.zero,
-      bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          _workerDetailPanelGap,
-          _workerDetailPanelGap,
-          _workerDetailPanelGap,
-          116,
-        ),
-        children: [
-          _WorkerDetailCard(
-            entry: widget.entry,
-            phone: _phone,
-            savingPhone: _savingPhone,
-            onAddPhone: _addPhone,
+    final detail = _detail ??
+        AdminWorkerDetail(
+          id: _workerId,
+          name: widget.entry.name,
+          phone: _loading ? 'Yuklanmoqda...' : widget.entry.phone,
+          level: widget.entry.roleLabel,
+          code: _loading ? 'Yuklanmoqda...' : '',
+          codeLocked: false,
+          codeRetryAfterSec: _retryAfterSec,
+        );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        Navigator.of(context).pop(_changed);
+      },
+      child: AppShell(
+        title: 'Worker',
+        subtitle: '',
+        nativeTopBar: true,
+        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+        contentPadding: EdgeInsets.zero,
+        bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            _workerDetailPanelGap,
+            _workerDetailPanelGap,
+            _workerDetailPanelGap,
+            116,
           ),
-        ],
+          children: [
+            _WorkerDetailCard(
+              detail: detail,
+              statusLabel: _loading
+                  ? 'Yuklanmoqda'
+                  : _loadError != null
+                      ? 'Xato'
+                      : 'Tayyor',
+              savingPhone: _savingPhone || _loading,
+              regeneratingCode: _regeneratingCode,
+              onAddPhone: _addPhone,
+              onRegenerateCode: _regenerateCode,
+              onCopyCode: _copyCode,
+            ),
+            if (_loadError != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton(
+                style: _workerDetailOutlinedButtonStyle(),
+                onPressed: _reload,
+                child: const Text('Qayta yuklash'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -136,16 +282,22 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 
 class _WorkerDetailCard extends StatelessWidget {
   const _WorkerDetailCard({
-    required this.entry,
-    required this.phone,
+    required this.detail,
+    required this.statusLabel,
     required this.savingPhone,
+    required this.regeneratingCode,
     required this.onAddPhone,
+    required this.onRegenerateCode,
+    required this.onCopyCode,
   });
 
-  final AdminUserListEntry entry;
-  final String phone;
+  final AdminWorkerDetail detail;
+  final String statusLabel;
   final bool savingPhone;
-  final VoidCallback onAddPhone;
+  final bool regeneratingCode;
+  final Future<void> Function(AdminWorkerDetail detail) onAddPhone;
+  final Future<void> Function() onRegenerateCode;
+  final Future<void> Function(String code) onCopyCode;
 
   @override
   Widget build(BuildContext context) {
@@ -167,44 +319,89 @@ class _WorkerDetailCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    entry.name,
+                    detail.name,
                     style: theme.textTheme.headlineMedium,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const _WorkerStatusChip(label: 'Tayyor'),
+                _WorkerStatusChip(label: statusLabel),
               ],
             ),
             const SizedBox(height: 18),
             const _WorkerDetailLabel('Ref'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: entry.id),
+            _WorkerDetailField(value: detail.id),
             const SizedBox(height: 14),
             const _WorkerDetailLabel('User ismi'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: entry.name),
+            _WorkerDetailField(value: detail.name),
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Telefon'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: phone),
-            if (phone.trim().isEmpty) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonal(
-                  style: _workerDetailButtonStyle(),
-                  onPressed: savingPhone ? null : onAddPhone,
-                  child: Text(
-                    savingPhone ? 'Saqlanmoqda...' : 'Telefon raqami kiritish',
+            _WorkerDetailField(value: detail.phone),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                style: _workerDetailButtonStyle(),
+                onPressed: savingPhone ? null : () => onAddPhone(detail),
+                child: Text(
+                  savingPhone
+                      ? 'Saqlanmoqda...'
+                      : detail.phone.trim().isEmpty
+                          ? 'Telefon raqami kiritish'
+                          : 'Telefonni yangilash',
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const _WorkerDetailLabel('Code'),
+            const SizedBox(height: 6),
+            _WorkerDetailField(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      detail.code.trim().isEmpty
+                          ? 'Hali generatsiya qilinmagan'
+                          : detail.code,
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
+                  if (detail.code.trim().isNotEmpty)
+                    IconButton(
+                      onPressed: () => onCopyCode(detail.code),
+                      icon: const Icon(Icons.content_copy_outlined),
+                    ),
+                  IconButton(
+                    onPressed: regeneratingCode || detail.codeLocked
+                        ? null
+                        : onRegenerateCode,
+                    icon: regeneratingCode
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            ),
+            if (detail.codeRetryAfterSec > 0) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
             ],
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Daraja'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: entry.roleLabel),
+            _WorkerDetailField(value: detail.level),
           ],
         ),
       ),
@@ -224,9 +421,10 @@ class _WorkerDetailLabel extends StatelessWidget {
 }
 
 class _WorkerDetailField extends StatelessWidget {
-  const _WorkerDetailField({required this.value});
+  const _WorkerDetailField({this.value = '', this.child});
 
   final String value;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -238,10 +436,11 @@ class _WorkerDetailField extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
       ),
-      child: Text(
-        resolved,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
+      child: child ??
+          Text(
+            resolved,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
     );
   }
 }
