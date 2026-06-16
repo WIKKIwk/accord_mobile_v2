@@ -117,6 +117,7 @@ class _AdminProductionMapOrdersScreenState
     extends State<AdminProductionMapOrdersScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   late TabController _tabController;
   bool _openingRoute = false;
   bool _loading = true;
@@ -175,6 +176,7 @@ class _AdminProductionMapOrdersScreenState
     }
     _tabController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -812,22 +814,34 @@ class _AdminProductionMapOrdersScreenState
   }
 
   List<ProductionMapSaved> _visibleOrders() {
+    return _filterOrdersBySearch(_orders);
+  }
+
+  List<ProductionMapSaved> _filterOrdersBySearch(
+    List<ProductionMapSaved> orders,
+  ) {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) {
-      return _orders;
+      return orders;
     }
-    return _orders.where((order) {
-      final map = order.map;
-      final haystack = [
-        _openedOrderDisplayCode(map),
-        map.code,
-        map.orderNumber,
-        map.title,
-        map.productCode,
-        for (final node in map.nodes) node.title,
-      ].join(' ').toLowerCase();
-      return haystack.contains(query);
-    }).toList(growable: false);
+    return orders.where(_orderMatchesSearch).toList(growable: false);
+  }
+
+  bool _orderMatchesSearch(ProductionMapSaved order) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return true;
+    }
+    final map = order.map;
+    final haystack = [
+      _openedOrderDisplayCode(map),
+      map.code,
+      map.orderNumber,
+      map.title,
+      map.productCode,
+      for (final node in map.nodes) node.title,
+    ].join(' ').toLowerCase();
+    return haystack.contains(query);
   }
 
   List<ProductionMapSaved> _baseOrdersForApparatus(AdminWarehouse apparatus) {
@@ -850,15 +864,18 @@ class _AdminProductionMapOrdersScreenState
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
     final filtered = _baseOrdersForApparatus(apparatus);
     final sequence = _sequenceOrderIdsForApparatus(apparatus);
+    List<ProductionMapSaved> ordered;
     if (sequence.isEmpty) {
-      return filtered;
+      ordered = filtered;
+    } else {
+      final byId = {for (final order in filtered) order.map.id: order};
+      ordered = [
+        for (final id in sequence)
+          if (byId.containsKey(id)) byId.remove(id)!,
+        ...byId.values,
+      ];
     }
-    final byId = {for (final order in filtered) order.map.id: order};
-    return [
-      for (final id in sequence)
-        if (byId.containsKey(id)) byId.remove(id)!,
-      ...byId.values,
-    ];
+    return widget.workerMode ? _filterOrdersBySearch(ordered) : ordered;
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({
@@ -1406,13 +1423,6 @@ class _AdminProductionMapOrdersScreenState
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final workerTitle = () {
-      final name = AppSession.instance.profile?.displayName.trim() ?? '';
-      if (name.isNotEmpty) {
-        return name;
-      }
-      return userRoleLabel(UserRole.aparatchi);
-    }();
     return AppShell(
       drawer: widget.workerMode
           ? AparatchiNavigationDrawer(
@@ -1424,21 +1434,19 @@ class _AdminProductionMapOrdersScreenState
               selectedRouteName: AppRoutes.adminProductionMapOrders,
               onNavigate: _openDrawerRoute,
             ),
-      title: widget.workerMode ? workerTitle : '',
-      subtitle: widget.workerMode ? 'Kuzatish' : '',
+      title: '',
+      subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      titleWidget: widget.workerMode
-          ? null
-          : _OpenedOrderSearchField(
-              controller: _searchController,
-              inAppBar: true,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              onClear: () {
-                _searchController.clear();
-                setState(() => _searchQuery = '');
-              },
-            ),
+      titleWidget: _OpenedOrderSearchField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        onChanged: (value) => setState(() => _searchQuery = value),
+        onClear: () {
+          _searchController.clear();
+          setState(() => _searchQuery = '');
+        },
+      ),
       bottom: widget.workerMode
           ? const AparatchiDock(activeTab: AparatchiDockTab.home)
           : AdminDock(
@@ -1582,16 +1590,21 @@ class _AdminProductionMapOrdersScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-          tabs: [
-            for (final item in _apparatus)
-              Tab(text: productionMapPechatTabLabel(item.warehouse)),
-          ],
+        Material(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+            tabs: [
+              for (final item in _apparatus)
+                Tab(
+                  height: 38,
+                  text: productionMapPechatTabLabel(item.warehouse),
+                ),
+            ],
+          ),
         ),
         Expanded(
           child: TabBarView(
@@ -2686,89 +2699,175 @@ class _ApparatusPickerList extends StatelessWidget {
 class _OpenedOrderSearchField extends StatelessWidget {
   const _OpenedOrderSearchField({
     required this.controller,
+    required this.focusNode,
     required this.onChanged,
     required this.onClear,
-    this.inAppBar = false,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
-  final bool inAppBar;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final field = ListenableBuilder(
-      listenable: controller,
+    final searchFill = Color.alphaBlend(
+      scheme.outlineVariant.withValues(alpha: 0.22),
+      scheme.surfaceContainerHighest,
+    );
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller, focusNode]),
       builder: (context, _) {
         final hasText = controller.text.trim().isNotEmpty;
-        return TextField(
-          controller: controller,
-          onChanged: onChanged,
-          textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyLarge,
-          decoration: InputDecoration(
-            hintText: 'Ochilgan zakaz qidirish',
-            isDense: inAppBar,
-            prefixIcon: inAppBar
-                ? IconButton(
-                    icon: const Icon(Icons.menu_rounded),
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).openAppDrawerTooltip,
-                    onPressed: () =>
-                        AppShellDrawerScope.maybeOf(context)?.openDrawer(),
-                  )
-                : const Icon(Icons.search_rounded),
-            prefixIconConstraints: inAppBar
-                ? const BoxConstraints(minWidth: 58, minHeight: 58)
-                : null,
-            suffixIcon: hasText
-                ? IconButton(
+        final searchActive = focusNode.hasFocus;
+        final showHint = !hasText && !searchActive;
+        final field = Container(
+          height: 58,
+          decoration: BoxDecoration(
+            color: searchFill,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            children: [
+              const SizedBox(width: 18),
+              Expanded(
+                child: SizedBox(
+                  height: 58,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Align(
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            height: 20,
+                            child: EditableText(
+                              controller: controller,
+                              focusNode: focusNode,
+                              onChanged: onChanged,
+                              textAlign: TextAlign.start,
+                              textInputAction: TextInputAction.search,
+                              maxLines: 1,
+                              cursorColor: scheme.primary,
+                              backgroundCursorColor:
+                                  scheme.surfaceContainerHighest,
+                              style: theme.textTheme.bodyMedium!.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!hasText)
+                          Align(
+                            alignment: Alignment.center,
+                            child: AnimatedOpacity(
+                              opacity: showHint ? 1 : 0,
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOut,
+                              child: IgnorePointer(
+                                child: Text(
+                                  'Ochilgan zakaz qidirish',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (searchActive)
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    tooltip: 'Yopish',
+                    onPressed: focusNode.unfocus,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else if (hasText)
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
                     tooltip: 'Tozalash',
                     onPressed: onClear,
-                    icon: const Icon(Icons.close_rounded),
-                  )
-                : null,
-            filled: true,
-            fillColor: inAppBar
-                ? scheme.surfaceContainerHighest
-                : scheme.surfaceContainer,
-            contentPadding: inAppBar
-                ? const EdgeInsets.symmetric(vertical: 12)
-                : const EdgeInsets.symmetric(vertical: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 18),
+            ],
+          ),
+        );
+        return SizedBox(
+          width: MediaQuery.sizeOf(context).width - 20,
+          height: AppTheme.appBarHeight,
+          child: Align(
+            alignment: Alignment.center,
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  width: searchActive ? 0 : 38,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: ClipRect(
+                    child: AnimatedOpacity(
+                      opacity: searchActive ? 0 : 1,
+                      duration: const Duration(milliseconds: 120),
+                      child: IconButton(
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).openAppDrawerTooltip,
+                        style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () =>
+                            AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+                        icon: Icon(
+                          Icons.menu_rounded,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  width: searchActive ? 0 : 6,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                ),
+                Expanded(
+                  child: Transform.translate(
+                    offset: const Offset(0, -1),
+                    child: field,
+                  ),
+                ),
+                AnimatedContainer(
+                  width: searchActive ? 0 : 18,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                ),
+              ],
             ),
           ),
         );
       },
-    );
-    if (inAppBar) {
-      return Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: SizedBox(
-          height: AppTheme.appBarHeight,
-          child: Align(
-            alignment: Alignment.center,
-            child: SizedBox(height: 58, width: double.infinity, child: field),
-          ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: field,
     );
   }
 }

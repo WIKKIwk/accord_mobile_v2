@@ -2238,7 +2238,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Zakazlar'), findsNothing);
-    expect(find.text('Kuzatish'), findsOneWidget);
+    expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
     expect(find.text('7 ta rangli pechat'), findsOneWidget);
     expect(find.text('Aparatlar'), findsNothing);
