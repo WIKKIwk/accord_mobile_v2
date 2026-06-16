@@ -1429,7 +1429,7 @@ class _AdminProductionMapTestScreenState
             ),
             if (!widget.readOnly)
               Positioned(
-                left: 16,
+                left: 10,
                 bottom: fabBottom,
                 child: AdminFabOverlayActionMenu(
                   actions: _mapToolActions(),
