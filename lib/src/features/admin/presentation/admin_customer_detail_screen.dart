@@ -11,6 +11,11 @@ import 'widgets/admin_dock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+const double _customerDetailPanelGap = 4;
+const double _customerDetailCardRadius = 18;
+const double _customerDetailFieldRadius = 14;
+const double _customerDetailButtonRadius = 14;
+
 class AdminCustomerDetailScreen extends StatefulWidget {
   const AdminCustomerDetailScreen({
     super.key,
@@ -112,25 +117,62 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     final phone = await showDialog<String>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Telefon raqam qo‘shish'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.phone,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: '+998901234567'),
+        final cancelStyle = OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('Saqlash'),
-            ),
-          ],
+          minimumSize: const Size(0, 54),
+        );
+        final saveStyle = FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
+          ),
+          minimumSize: const Size(0, 54),
+        );
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_customerDetailCardRadius),
+          ),
+          title: const Text('Telefon raqam qo‘shish'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '+998901234567',
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(_customerDetailFieldRadius),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: cancelStyle,
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: saveStyle,
+                      onPressed: () =>
+                          Navigator.of(context).pop(controller.text.trim()),
+                      child: const Text('Saqlash'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -357,10 +399,15 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        contentPadding: EdgeInsets.zero,
         bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
         child: ListView(
-          padding: const EdgeInsets.only(top: 4, bottom: 116),
+          padding: const EdgeInsets.fromLTRB(
+            _customerDetailPanelGap,
+            _customerDetailPanelGap,
+            _customerDetailPanelGap,
+            116,
+          ),
           children: [
             _AdminCustomerDetailCard(
               detail: detail,
@@ -568,7 +615,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       color: scheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(_customerDetailCardRadius),
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       child: Padding(
@@ -599,6 +646,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonal(
+                style: _customerDetailButtonStyle(),
                 onPressed: savingPhone ? null : () => onAddPhone(detail),
                 child: Text(
                   savingPhone ? 'Saqlanmoqda...' : 'Telefonni yangilash',
@@ -667,6 +715,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
+                    style: _customerDetailOutlinedButtonStyle(),
                     onPressed: detail.assignedItems.isEmpty
                         ? null
                         : () => _showAssignedItemsSheet(
@@ -681,6 +730,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
+                    style: _customerDetailOutlinedButtonStyle(),
                     onPressed: addingItem ? null : onAddItem,
                     child: Text(addingItem ? 'Qo‘shilmoqda...' : 'Qo‘shish'),
                   ),
@@ -691,6 +741,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
+                style: _customerDetailOutlinedButtonStyle(),
                 onPressed: removing ? null : onRemove,
                 child: Text(
                   removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
@@ -878,7 +929,7 @@ class _DetailField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(_customerDetailFieldRadius),
       ),
       child: child ??
           Text(
@@ -887,6 +938,24 @@ class _DetailField extends StatelessWidget {
           ),
     );
   }
+}
+
+ButtonStyle _customerDetailButtonStyle() {
+  return FilledButton.styleFrom(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
+    ),
+    minimumSize: const Size(0, 54),
+  );
+}
+
+ButtonStyle _customerDetailOutlinedButtonStyle() {
+  return OutlinedButton.styleFrom(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
+    ),
+    minimumSize: const Size(0, 54),
+  );
 }
 
 class _StatusChip extends StatelessWidget {

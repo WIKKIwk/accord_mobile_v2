@@ -222,10 +222,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
     if (item.kind == AdminUserKind.worker) {
-      final result = await Navigator.of(
-        context,
-      ).pushNamed(AppRoutes.adminWorkerSettings);
-      changed = result == true;
+      await _showWorkerDetail(item);
+      return;
     } else if (item.kind == AdminUserKind.werka) {
       final result = await Navigator.of(
         context,
@@ -245,6 +243,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     if (changed && mounted) {
       await _bootstrap(forceRefresh: true);
     }
+  }
+
+  Future<void> _showWorkerDetail(AdminUserListEntry item) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (context) => _WorkerUserDetailSheet(item: item),
+    );
   }
 
   bool _restoreCache() {
@@ -562,4 +569,116 @@ class _AdminSuppliersCache {
   final int offset;
   final String query;
   final AdminUserKind selectedKind;
+}
+
+class _WorkerUserDetailSheet extends StatelessWidget {
+  const _WorkerUserDetailSheet({required this.item});
+
+  final AdminUserListEntry item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        18,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ishchi ma’lumotlari',
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Card.filled(
+            margin: EdgeInsets.zero,
+            color: scheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                M3SegmentedListGeometry.cornerLarge,
+              ),
+              side: BorderSide(
+                color: scheme.outlineVariant.withValues(alpha: 0.7),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(item.name, style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 14),
+                  const _WorkerDetailLabel('User ismi'),
+                  const SizedBox(height: 6),
+                  _WorkerDetailField(value: item.name),
+                  const SizedBox(height: 12),
+                  const _WorkerDetailLabel('Telefon'),
+                  const SizedBox(height: 6),
+                  _WorkerDetailField(value: item.phone),
+                  const SizedBox(height: 12),
+                  const _WorkerDetailLabel('Daraja'),
+                  const SizedBox(height: 6),
+                  _WorkerDetailField(value: item.roleLabel),
+                  const SizedBox(height: 12),
+                  const _WorkerDetailLabel('ID'),
+                  const SizedBox(height: 6),
+                  _WorkerDetailField(value: item.id),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkerDetailLabel extends StatelessWidget {
+  const _WorkerDetailLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.bodySmall);
+  }
+}
+
+class _WorkerDetailField extends StatelessWidget {
+  const _WorkerDetailField({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = value.trim().isEmpty ? 'Kiritilmagan' : value.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        resolved,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+  }
 }

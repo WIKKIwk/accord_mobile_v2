@@ -35,6 +35,12 @@ void main() {
     expect(find.text('comfi'), findsWidgets);
     expect(find.text('+998901000333'), findsOneWidget);
     expect(find.text('30SFT8WLPTR9'), findsOneWidget);
+
+    await tester.tap(find.text('Telefonni yangilash'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.widgetWithText(OutlinedButton, 'Bekor qilish'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
   });
 
   testWidgets('admin customer detail renders with semantics enabled', (
