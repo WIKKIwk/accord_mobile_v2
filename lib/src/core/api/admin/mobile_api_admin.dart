@@ -222,7 +222,8 @@ MobileApiException _adminProductionMapException(
         'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
-      'raw_material_mismatch' => 'Bu homashyo ushbu zakaz uchun biriktirilmagan',
+      'raw_material_mismatch' =>
+        'Bu homashyo ushbu zakaz uchun biriktirilmagan',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'map_not_found' => 'Zakaz topilmadi',
@@ -869,8 +870,7 @@ extension MobileApiAdmin on MobileApi {
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
         .map(
-          (item) =>
-              AdminRawMaterialRule.fromJson(item as Map<String, dynamic>),
+          (item) => AdminRawMaterialRule.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }
@@ -911,8 +911,7 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
-  Future<List<AdminRawMaterialAssignment>>
-      adminRawMaterialAssignments() async {
+  Future<List<AdminRawMaterialAssignment>> adminRawMaterialAssignments() async {
     if (await TestModeController.instance.isEnabled()) {
       return List<AdminRawMaterialAssignment>.unmodifiable(
         _testModeRawMaterialAssignments,
@@ -940,35 +939,19 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminRawMaterialAssignment> adminAssignRawMaterialToOrder({
     required String orderId,
     required String barcode,
-    required String itemCode,
-    required String itemName,
-    required String itemGroup,
   }) async {
     final body = {
       'order_id': orderId.trim(),
       'barcode': barcode.trim(),
-      'item_code': itemCode.trim(),
-      'item_name': itemName.trim(),
-      'item_group': itemGroup.trim(),
     };
     if (await TestModeController.instance.isEnabled()) {
-      var apparatus = '';
-      for (final rule in _testModeRawMaterialRules.values) {
-        final hasGroup = rule.itemGroups.any(
-          (item) => item.toLowerCase() == itemGroup.trim().toLowerCase(),
-        );
-        if (hasGroup) {
-          apparatus = rule.apparatus;
-          break;
-        }
-      }
       final assignment = AdminRawMaterialAssignment(
         orderId: body['order_id']!,
-        apparatus: apparatus,
+        apparatus: '',
         barcode: body['barcode']!,
-        itemCode: body['item_code']!,
-        itemName: body['item_name']!,
-        itemGroup: body['item_group']!,
+        itemCode: '',
+        itemName: '',
+        itemGroup: '',
         assignedByRef: AppSession.instance.profile?.ref ?? '',
         assignedByName: AppSession.instance.profile?.displayName ?? '',
       );

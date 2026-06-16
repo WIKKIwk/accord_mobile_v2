@@ -3,9 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_raw_material_assignment_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,49 +19,6 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
-  });
-
-  tearDown(() {
-    AppSession.instance.token = null;
-    AppSession.instance.profile = null;
-  });
-
-  test('queue action sends material barcode when provided', () async {
-    final seenRequests = <String>[];
-    AppSession.instance.token = 'token';
-    AppSession.instance.profile = const SessionProfile(
-      role: UserRole.aparatchi,
-      displayName: 'Aparatchi',
-      legalName: '',
-      ref: 'ap-1',
-      phone: '',
-      avatarUrl: '',
-      capabilities: ['apparatus.queue.manage'],
-    );
-
-    await HttpOverrides.runZoned(() async {
-      final states = await MobileApi.instance.adminApparatusQueueAction(
-        apparatus: 'Pechat',
-        orderId: 'zakaz-1',
-        action: 'start',
-        materialBarcode: 'RM-001',
-      );
-
-      expect(states, {'zakaz-1': 'in_progress'});
-      expect(
-        seenRequests,
-        contains(
-          'BODY POST /v1/mobile/admin/production-maps/queue-action '
-          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"start",'
-          '"material_barcode":"RM-001"}',
-        ),
-      );
-    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
-  });
-
-  test('raw material rule and assignment endpoints use backend contract',
-      () async {
-    final seenRequests = <String>[];
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,
@@ -65,75 +27,86 @@ void main() {
       ref: 'admin',
       phone: '',
       avatarUrl: '',
-      capabilities: ['raw_material.rule.manage', 'raw_material.assign'],
+      capabilities: ['admin.access', 'raw_material.assign'],
     );
+  });
+
+  tearDown(() {
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
+
+  testWidgets('assignment screen only asks for scan and order', (tester) async {
+    final seenRequests = <String>[];
 
     await HttpOverrides.runZoned(() async {
-      final rule = await MobileApi.instance.adminSaveRawMaterialRule(
-        apparatus: 'Pechat',
-        itemGroups: const ['Kraska'],
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
       );
-      final assignment = await MobileApi.instance.adminAssignRawMaterialToOrder(
-        orderId: 'zakaz-1',
-        barcode: 'RM-001',
-      );
+      await tester.pumpAndSettle();
 
-      expect(rule.apparatus, 'Pechat');
-      expect(rule.itemGroups, ['Kraska']);
-      expect(assignment.orderId, 'zakaz-1');
-      expect(assignment.barcode, 'RM-001');
+      expect(seenRequests, contains('GET /v1/mobile/admin/production-maps'));
       expect(
         seenRequests,
-        contains(
-          'BODY PUT /v1/mobile/admin/raw-material-rules '
-          '{"apparatus":"Pechat","item_groups":["Kraska"]}',
-        ),
+        contains('GET /v1/mobile/admin/raw-material-assignments'),
       );
-      expect(
-        seenRequests,
-        contains(
-          'BODY POST /v1/mobile/admin/raw-material-assignments '
-          '{"order_id":"zakaz-1","barcode":"RM-001"}',
-        ),
-      );
-    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+      expect(seenRequests, isNot(contains('GET /v1/mobile/admin/items')));
+      expect(find.text('Zakaz'), findsOneWidget);
+      expect(find.text('QR skanerlash'), findsOneWidget);
+      expect(find.text('Homashyo QR / barcode'), findsNothing);
+      expect(find.text('Homashyo'), findsNothing);
+      expect(find.text('Item code'), findsNothing);
+      expect(find.text('Item nomi'), findsNothing);
+      expect(find.text('Item group'), findsNothing);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 }
 
-class _RawMaterialApiHttpClient implements HttpClient {
-  _RawMaterialApiHttpClient(this.seenRequests);
+class _RawMaterialAssignmentHttpClient implements HttpClient {
+  _RawMaterialAssignmentHttpClient(this.seenRequests);
 
   final List<String> seenRequests;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
-    final key =
-        '$method ${url.path}${url.query.isEmpty ? '' : '?${url.query}'}';
+    final key = '$method ${url.path}';
     seenRequests.add(key);
 
     Object body;
     switch (key) {
-      case 'POST /v1/mobile/admin/production-maps/queue-action':
-        body = const {
-          'states': {'zakaz-1': 'in_progress'},
-        };
-      case 'PUT /v1/mobile/admin/raw-material-rules':
-        body = const {
-          'apparatus': 'Pechat',
-          'item_groups': ['Kraska'],
-        };
-      case 'POST /v1/mobile/admin/raw-material-assignments':
-        body = const {
-          'order_id': 'zakaz-1',
-          'apparatus': 'Pechat',
-          'barcode': 'RM-001',
-          'item_code': 'KR-1',
-          'item_name': 'Qora kraska',
-          'item_group': 'Kraska',
-          'assigned_by_ref': 'admin',
-          'assigned_by_name': 'Admin',
-          'assigned_at': '2026-06-16T10:00:00Z',
-        };
+      case 'GET /v1/mobile/admin/production-maps':
+        body = const [
+          {
+            'map': {
+              'id': 'zakaz-1',
+              'product_code': 'PR-1',
+              'title': 'Zakaz 1',
+              'code': 'Z-1',
+              'nodes': [],
+              'edges': [],
+            },
+            'program': {
+              'map_id': 'zakaz-1',
+              'product_code': 'PR-1',
+              'operations': [],
+            },
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-assignments':
+        body = const [];
+      case 'GET /v1/mobile/admin/items':
+        body = const [];
       default:
         body = {'error': 'Unhandled request: $key'};
         return _FakeHttpClientRequest(
@@ -157,10 +130,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   }
 
   @override
-  Future<HttpClientRequest> postUrl(Uri url) => openUrl('POST', url);
-
-  @override
-  Future<HttpClientRequest> putUrl(Uri url) => openUrl('PUT', url);
+  Future<HttpClientRequest> getUrl(Uri url) => openUrl('GET', url);
 
   @override
   void close({bool force = false}) {}
@@ -174,6 +144,7 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
   final _FakeHttpClientResponse response;
   final BytesBuilder _body = BytesBuilder();
+  final _headers = _FakeHttpHeaders();
 
   @override
   bool persistentConnection = true;
@@ -220,8 +191,6 @@ class _FakeHttpClientRequest implements HttpClientRequest {
     }
     return response;
   }
-
-  final _headers = _FakeHttpHeaders();
 
   @override
   HttpHeaders get headers => _headers;
