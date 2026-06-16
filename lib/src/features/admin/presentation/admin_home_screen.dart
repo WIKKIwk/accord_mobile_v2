@@ -299,6 +299,16 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminApparatusGroups,
     ),
     const _AdminHomeAction(
+      title: 'Homashyo qoidalari',
+      icon: Icons.rule_rounded,
+      routeName: AppRoutes.adminRawMaterialRules,
+    ),
+    const _AdminHomeAction(
+      title: 'Homashyoni zakazga ulash',
+      icon: Icons.qr_code_scanner_rounded,
+      routeName: AppRoutes.adminRawMaterialAssignments,
+    ),
+    const _AdminHomeAction(
       title: 'reja menu',
       icon: Icons.account_tree_outlined,
       routeName: AppRoutes.adminProductionMapOrders,

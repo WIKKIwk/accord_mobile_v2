@@ -9,6 +9,8 @@ final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
+final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
+final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 final Map<String, String> _testModeWorkerCodes = {};
@@ -97,6 +99,66 @@ class AdminApparatusQueuePolicy {
       };
 }
 
+class AdminRawMaterialRule {
+  const AdminRawMaterialRule({
+    required this.apparatus,
+    required this.itemGroups,
+  });
+
+  final String apparatus;
+  final List<String> itemGroups;
+
+  factory AdminRawMaterialRule.fromJson(Map<String, dynamic> json) {
+    final rawGroups = json['item_groups'];
+    return AdminRawMaterialRule(
+      apparatus: json['apparatus']?.toString() ?? '',
+      itemGroups: [
+        if (rawGroups is List)
+          for (final item in rawGroups)
+            if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ],
+    );
+  }
+}
+
+class AdminRawMaterialAssignment {
+  const AdminRawMaterialAssignment({
+    required this.orderId,
+    required this.apparatus,
+    required this.barcode,
+    required this.itemCode,
+    required this.itemName,
+    required this.itemGroup,
+    this.assignedByRef = '',
+    this.assignedByName = '',
+    this.assignedAt = '',
+  });
+
+  final String orderId;
+  final String apparatus;
+  final String barcode;
+  final String itemCode;
+  final String itemName;
+  final String itemGroup;
+  final String assignedByRef;
+  final String assignedByName;
+  final String assignedAt;
+
+  factory AdminRawMaterialAssignment.fromJson(Map<String, dynamic> json) {
+    return AdminRawMaterialAssignment(
+      orderId: json['order_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      barcode: json['barcode']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      itemGroup: json['item_group']?.toString() ?? '',
+      assignedByRef: json['assigned_by_ref']?.toString() ?? '',
+      assignedByName: json['assigned_by_name']?.toString() ?? '',
+      assignedAt: json['assigned_at']?.toString() ?? '',
+    );
+  }
+}
+
 class AdminProductionMapLiveSnapshot {
   const AdminProductionMapLiveSnapshot({
     required this.maps,
@@ -158,6 +220,11 @@ MobileApiException _adminProductionMapException(
       'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
       'queue_policy_locked' =>
         'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
+      'raw_material_scan_required' =>
+        'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
+      'raw_material_mismatch' => 'Bu homashyo ushbu zakaz uchun biriktirilmagan',
+      'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
+      'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'map_not_found' => 'Zakaz topilmadi',
       _ => 'Production map amali bajarilmadi',
     },
@@ -786,6 +853,149 @@ extension MobileApiAdmin on MobileApi {
     return _sendAuthorizedStream(() => http.Client().send(request));
   }
 
+  Future<List<AdminRawMaterialRule>> adminRawMaterialRules() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeRawMaterialRules.values.toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-rules'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_rules');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+          (item) =>
+              AdminRawMaterialRule.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<AdminRawMaterialRule> adminSaveRawMaterialRule({
+    required String apparatus,
+    required List<String> itemGroups,
+  }) async {
+    final normalizedApparatus = apparatus.trim();
+    final normalizedGroups = itemGroups
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (await TestModeController.instance.isEnabled()) {
+      final rule = AdminRawMaterialRule(
+        apparatus: normalizedApparatus,
+        itemGroups: normalizedGroups,
+      );
+      _testModeRawMaterialRules[normalizedApparatus] = rule;
+      return rule;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-rules'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': normalizedApparatus,
+          'item_groups': normalizedGroups,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_rules');
+    }
+    return AdminRawMaterialRule.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminRawMaterialAssignment>>
+      adminRawMaterialAssignments() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return List<AdminRawMaterialAssignment>.unmodifiable(
+        _testModeRawMaterialAssignments,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_assignments');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+          (item) => AdminRawMaterialAssignment.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<AdminRawMaterialAssignment> adminAssignRawMaterialToOrder({
+    required String orderId,
+    required String barcode,
+    required String itemCode,
+    required String itemName,
+    required String itemGroup,
+  }) async {
+    final body = {
+      'order_id': orderId.trim(),
+      'barcode': barcode.trim(),
+      'item_code': itemCode.trim(),
+      'item_name': itemName.trim(),
+      'item_group': itemGroup.trim(),
+    };
+    if (await TestModeController.instance.isEnabled()) {
+      var apparatus = '';
+      for (final rule in _testModeRawMaterialRules.values) {
+        final hasGroup = rule.itemGroups.any(
+          (item) => item.toLowerCase() == itemGroup.trim().toLowerCase(),
+        );
+        if (hasGroup) {
+          apparatus = rule.apparatus;
+          break;
+        }
+      }
+      final assignment = AdminRawMaterialAssignment(
+        orderId: body['order_id']!,
+        apparatus: apparatus,
+        barcode: body['barcode']!,
+        itemCode: body['item_code']!,
+        itemName: body['item_name']!,
+        itemGroup: body['item_group']!,
+        assignedByRef: AppSession.instance.profile?.ref ?? '',
+        assignedByName: AppSession.instance.profile?.displayName ?? '',
+      );
+      _testModeRawMaterialAssignments.removeWhere(
+        (item) =>
+            item.orderId.trim() == assignment.orderId.trim() &&
+            item.barcode.trim() == assignment.barcode.trim(),
+      );
+      _testModeRawMaterialAssignments.add(assignment);
+      return assignment;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_assignments');
+    }
+    return AdminRawMaterialAssignment.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Map<String, List<String>> parseApparatusSequenceMap(Object? raw) {
     if (raw is! Map) {
       return const {};
@@ -857,6 +1067,7 @@ extension MobileApiAdmin on MobileApi {
     required String apparatus,
     required String orderId,
     required String action,
+    String materialBarcode = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -914,6 +1125,7 @@ extension MobileApiAdmin on MobileApi {
       _testModeApparatusQueueStates[storageKey] = states;
       return Map<String, String>.unmodifiable(states);
     }
+    final trimmedBarcode = materialBarcode.trim();
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
@@ -923,6 +1135,7 @@ extension MobileApiAdmin on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (trimmedBarcode.isNotEmpty) 'material_barcode': trimmedBarcode,
         }),
       ),
     );

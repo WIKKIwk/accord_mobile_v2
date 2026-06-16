@@ -56,6 +56,8 @@ class AppSession {
       'admin.activity.read',
       'werka.code.manage',
       'production.map.manage',
+      'raw_material.rule.manage',
+      'raw_material.assign',
     ])) {
       return '/admin-home';
     }

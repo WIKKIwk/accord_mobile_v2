@@ -203,6 +203,18 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       label: 'Aparat guruhlari',
       routeName: AppRoutes.adminApparatusGroups,
     ),
+    const _AdminDrawerDestination(
+      icon: Icons.rule_outlined,
+      selectedIcon: Icons.rule_rounded,
+      label: 'Homashyo qoidalari',
+      routeName: AppRoutes.adminRawMaterialRules,
+    ),
+    const _AdminDrawerDestination(
+      icon: Icons.qr_code_scanner_outlined,
+      selectedIcon: Icons.qr_code_scanner_rounded,
+      label: 'Homashyoni ulash',
+      routeName: AppRoutes.adminRawMaterialAssignments,
+    ),
     _AdminDrawerDestination(
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,

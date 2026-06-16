@@ -67,6 +67,42 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 
+  test('raw material admin routes follow raw material capabilities', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Raw material manager',
+      legalName: '',
+      ref: 'werka',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.rule.manage'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialRules), isTrue);
+    expect(AppSession.instance.homeRoute, AppRoutes.adminHome);
+    expect(
+      AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments),
+      isFalse,
+    );
+
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Raw material assigner',
+      legalName: '',
+      ref: 'werka',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialRules), isFalse);
+    expect(
+      AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments),
+      isTrue,
+    );
+  });
+
   test('production map route stays open for admin access', () {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

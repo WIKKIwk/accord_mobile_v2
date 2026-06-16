@@ -18,6 +18,7 @@ import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
 import '../../shared/models/app_models.dart';
+import 'raw_material_scan_dialog.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
@@ -632,7 +633,7 @@ class _AdminProductionMapOrdersScreenState
     _queueActionInFlight = true;
     setState(() {});
     try {
-      final states = await MobileApi.instance.adminApparatusQueueAction(
+      final states = await _submitQueueAction(
         apparatus: apparatusKey,
         orderId: order.map.id,
         action: action,
@@ -649,6 +650,41 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return null;
       }
+      if (error is MobileApiException &&
+          error.code == 'raw_material_scan_required' &&
+          action == 'start') {
+        final barcode = await showRawMaterialScanDialog(context);
+        if (!mounted || barcode == null || barcode.trim().isEmpty) {
+          return null;
+        }
+        try {
+          final states = await _submitQueueAction(
+            apparatus: apparatusKey,
+            orderId: order.map.id,
+            action: action,
+            materialBarcode: barcode,
+          );
+          if (!mounted) {
+            return null;
+          }
+          setState(() {
+            _queueStatesByApparatus[apparatusKey] = states;
+          });
+          unawaited(_refreshLive());
+          return states;
+        } catch (retryError) {
+          if (!mounted) {
+            return null;
+          }
+          showAdminTopNotice(
+            context,
+            retryError is MobileApiException
+                ? retryError.message
+                : 'Navbat amali bajarilmadi',
+          );
+          return null;
+        }
+      }
       showAdminTopNotice(
         context,
         error is MobileApiException
@@ -662,6 +698,20 @@ class _AdminProductionMapOrdersScreenState
         setState(() {});
       }
     }
+  }
+
+  Future<Map<String, String>> _submitQueueAction({
+    required String apparatus,
+    required String orderId,
+    required String action,
+    String materialBarcode = '',
+  }) {
+    return MobileApi.instance.adminApparatusQueueAction(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: action,
+      materialBarcode: materialBarcode,
+    );
   }
 
   Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
