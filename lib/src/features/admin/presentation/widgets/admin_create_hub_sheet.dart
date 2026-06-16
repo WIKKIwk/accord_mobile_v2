@@ -520,15 +520,18 @@ class _AdminFabOverlayActionMenuState extends State<AdminFabOverlayActionMenu> {
 
   @override
   void dispose() {
-    _removeOverlay();
+    _removeOverlay(notify: false);
     super.dispose();
   }
 
-  void _removeOverlay() {
+  void _removeOverlay({bool notify = true}) {
     final entry = _entry;
     _entry = null;
     if (entry?.mounted ?? false) {
       entry!.remove();
+    }
+    if (notify && mounted) {
+      setState(() {});
     }
   }
 
@@ -555,11 +558,18 @@ class _AdminFabOverlayActionMenuState extends State<AdminFabOverlayActionMenu> {
       },
     );
     _entry = entry;
+    setState(() {});
     Overlay.of(context, rootOverlay: true).insert(entry);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_entry != null) {
+      return const SizedBox(
+        width: _AdminCreateHubOverlayState._fabClosedSize,
+        height: _AdminCreateHubOverlayState._fabClosedSize,
+      );
+    }
     return _AdminMorphFabButton(
       fabMorphAnimation: const AlwaysStoppedAnimation<double>(0),
       effectsAnimation: const AlwaysStoppedAnimation<double>(0),

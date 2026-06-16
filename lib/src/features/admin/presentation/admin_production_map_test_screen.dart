@@ -1349,8 +1349,9 @@ class _AdminProductionMapTestScreenState
       height: _productionMapDockHeight,
       systemBottomInset: systemBottomInset,
     );
-    final fabBottom = appNavigationBarPrimaryButtonBottom(
-      dockHeight: dockHeight,
+    final fabBottom = math.max(
+      0.0,
+      appNavigationBarPrimaryButtonBottom(dockHeight: dockHeight) - dockHeight,
     );
     // System back (swipe) must also return the saved template to the caller.
     return PopScope(
