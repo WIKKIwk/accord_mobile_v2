@@ -2,11 +2,12 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../../core/widgets/navigation/native_back_button.dart';
+import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'dart:async';
 
 import 'widgets/admin_aparatchi_apparatus_card.dart';
+import 'widgets/admin_dock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -275,9 +276,8 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
       return;
     }
     final assignedCodes = detail.assignedItems.map((item) => item.code).toSet();
-    final availableItems = allItems
-        .where((item) => !assignedCodes.contains(item.code))
-        .toList();
+    final availableItems =
+        allItems.where((item) => !assignedCodes.contains(item.code)).toList();
     if (availableItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Biriktirilmagan mahsulot topilmadi')),
@@ -333,10 +333,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final showFlutterBackButton = !useNativeBackButton(context);
-    final AdminCustomerDetail detail =
-        _detail ??
+    final AdminCustomerDetail detail = _detail ??
         AdminCustomerDetail(
           ref: widget.customerRef,
           name: _loading ? 'Yuklanmoqda...' : 'Customer',
@@ -355,61 +352,47 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         }
         Navigator.of(context).pop(_changed);
       },
-      child: Scaffold(
-        backgroundColor: AppTheme.shellStart(context),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-            children: [
-              Row(
-                children: [
-                  if (showFlutterBackButton) ...[
-                    NativeBackButtonSlot(
-                      onPressed: () => Navigator.of(context).pop(_changed),
-                    ),
-                    const SizedBox(width: 14),
-                  ],
-                  Expanded(
-                    child: Text(
-                      'Customer',
-                      style: theme.textTheme.headlineMedium,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _AdminCustomerDetailCard(
-                detail: detail,
-                statusLabel: _loading
-                    ? 'Yuklanmoqda'
-                    : _loadError != null
-                    ? 'Xato'
-                    : _detail == null
-                    ? 'Bo‘sh'
-                    : 'Tayyor',
-                savingPhone: _savingPhone || _loading,
-                regeneratingCode: _regeneratingCode,
-                removing: _removing,
-                addingItem: _addingItem,
-                removingItemCode: _removingItemCode,
-                onAddPhone: _addPhone,
-                onAddItem: _addItem,
-                onRemoveItem: _removeItem,
-                onRegenerateCode: _regenerateCode,
-                onCopyCode: _copyCode,
-                onRemove: _removeCustomer,
-              ),
+      child: AppShell(
+        title: 'Customer',
+        subtitle: '',
+        nativeTopBar: true,
+        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+        contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+        child: ListView(
+          padding: const EdgeInsets.only(top: 4, bottom: 116),
+          children: [
+            _AdminCustomerDetailCard(
+              detail: detail,
+              statusLabel: _loading
+                  ? 'Yuklanmoqda'
+                  : _loadError != null
+                      ? 'Xato'
+                      : _detail == null
+                          ? 'Bo‘sh'
+                          : 'Tayyor',
+              savingPhone: _savingPhone || _loading,
+              regeneratingCode: _regeneratingCode,
+              removing: _removing,
+              addingItem: _addingItem,
+              removingItemCode: _removingItemCode,
+              onAddPhone: _addPhone,
+              onAddItem: _addItem,
+              onRemoveItem: _removeItem,
+              onRegenerateCode: _regenerateCode,
+              onCopyCode: _copyCode,
+              onRemove: _removeCustomer,
+            ),
+            const SizedBox(height: 12),
+            AdminAparatchiApparatusCard(
+              customerRef: widget.customerRef,
+              onChanged: () => _changed = true,
+            ),
+            if (_loadError != null) ...[
               const SizedBox(height: 12),
-              AdminAparatchiApparatusCard(
-                customerRef: widget.customerRef,
-                onChanged: () => _changed = true,
-              ),
-              if (_loadError != null) ...[
-                const SizedBox(height: 12),
-                AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
-              ],
+              AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -687,11 +670,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                     onPressed: detail.assignedItems.isEmpty
                         ? null
                         : () => _showAssignedItemsSheet(
-                            context,
-                            detail,
-                            onRemoveItem: onRemoveItem,
-                            removingItemCode: removingItemCode,
-                          ),
+                              context,
+                              detail,
+                              onRemoveItem: onRemoveItem,
+                              removingItemCode: removingItemCode,
+                            ),
                     child: const Text('Ko‘rish'),
                   ),
                 ),
@@ -803,16 +786,15 @@ Future<void> _showAssignedItemsSheet(
                                               item.code,
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
-                                                    color:
-                                                        scheme.onSurfaceVariant,
-                                                  ),
+                                                color: scheme.onSurfaceVariant,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       IconButton(
-                                        onPressed:
-                                            activeRemovingCode == item.code
+                                        onPressed: activeRemovingCode ==
+                                                item.code
                                             ? null
                                             : () async {
                                                 setModalState(() {
@@ -861,8 +843,8 @@ Future<void> _showAssignedItemsSheet(
                                                 width: 18,
                                                 child:
                                                     CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
+                                                  strokeWidth: 2,
+                                                ),
                                               )
                                             : const Icon(Icons.remove_rounded),
                                       ),
@@ -898,8 +880,7 @@ class _DetailField extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
       ),
-      child:
-          child ??
+      child: child ??
           Text(
             (value ?? '').trim().isEmpty ? 'Kiritilmagan' : value!,
             style: Theme.of(context).textTheme.titleMedium,

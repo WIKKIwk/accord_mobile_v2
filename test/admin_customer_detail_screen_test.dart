@@ -1,4 +1,5 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_customer_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_dock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,9 +27,11 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(tester.takeException(), isNull);
+    expect(find.text('Customer'), findsOneWidget);
+    expect(find.byType(AdminDock), findsOneWidget);
     expect(find.text('comfi'), findsWidgets);
     expect(find.text('+998901000333'), findsOneWidget);
     expect(find.text('30SFT8WLPTR9'), findsOneWidget);
@@ -58,7 +61,7 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(tester.takeException(), isNull);
     expect(find.text('comfi'), findsWidgets);

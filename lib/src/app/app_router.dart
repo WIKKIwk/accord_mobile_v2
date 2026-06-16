@@ -486,7 +486,12 @@ class AppRouter {
       case AppRoutes.adminCustomerCreate:
         return _buildRoute(settings, const AdminCustomerCreateScreen());
       case AppRoutes.adminCustomerDetail:
-        final String customerRef = settings.arguments as String;
+        final String customerRef = settings.arguments is String
+            ? (settings.arguments as String).trim()
+            : '';
+        if (customerRef.isEmpty) {
+          return _buildRoute(settings, const AdminSuppliersScreen());
+        }
         return _buildRoute(
           settings,
           AdminCustomerDetailScreen(customerRef: customerRef),
