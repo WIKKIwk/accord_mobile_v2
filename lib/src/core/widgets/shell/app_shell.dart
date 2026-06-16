@@ -65,7 +65,7 @@ class AppShell extends StatefulWidget {
     this.automaticallyImplyNativeLeading = true,
     this.backgroundColor,
     this.appBarBottomLoading = false,
-    this.nativeTopBarBottomInset = 0,
+    this.nativeTopBarBottomInset = 3,
   });
 
   final String title;

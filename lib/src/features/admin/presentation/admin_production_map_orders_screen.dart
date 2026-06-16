@@ -1427,7 +1427,6 @@ class _AdminProductionMapOrdersScreenState
       title: widget.workerMode ? workerTitle : '',
       subtitle: widget.workerMode ? 'Kuzatish' : '',
       nativeTopBar: true,
-      nativeTopBarBottomInset: 3,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       titleWidget: widget.workerMode
           ? null
