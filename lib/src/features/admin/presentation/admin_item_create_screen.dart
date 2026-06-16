@@ -296,8 +296,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
               child: searchActive
                   ? const SizedBox.shrink()
                   : Material(
-                      color: theme.appBarTheme.backgroundColor ??
-                          theme.colorScheme.surfaceContainer,
+                      color: theme.colorScheme.surfaceContainer,
                       child: TabBar(
                         controller: _tabController,
                         labelColor: theme.colorScheme.primary,
