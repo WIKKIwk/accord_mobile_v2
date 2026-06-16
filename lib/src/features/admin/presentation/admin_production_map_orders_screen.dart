@@ -1474,7 +1474,7 @@ class _AdminProductionMapOrdersScreenState
                               onTap: (index) => _setModule(_modules[index]),
                               tabs: [
                                 for (final module in _modules)
-                                  Tab(text: _moduleLabel(module)),
+                                  Tab(height: 38, text: _moduleLabel(module)),
                               ],
                             ),
                           ),
