@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -9,10 +10,100 @@ const double _workerDetailPanelGap = 4;
 const double _workerDetailCardRadius = 18;
 const double _workerDetailFieldRadius = 14;
 
-class AdminWorkerDetailScreen extends StatelessWidget {
+class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({super.key, required this.entry});
 
   final AdminUserListEntry entry;
+
+  @override
+  State<AdminWorkerDetailScreen> createState() =>
+      _AdminWorkerDetailScreenState();
+}
+
+class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
+  late String _phone = widget.entry.phone;
+  bool _savingPhone = false;
+
+  Future<void> _addPhone() async {
+    final controller = TextEditingController(text: _phone);
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_workerDetailCardRadius),
+          ),
+          title: const Text('Telefon raqam qo‘shish'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '+998901234567',
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(_workerDetailFieldRadius),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: _workerDetailOutlinedButtonStyle(),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: _workerDetailButtonStyle(),
+                      onPressed: () =>
+                          Navigator.of(context).pop(controller.text.trim()),
+                      child: const Text('Saqlash'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    if (phone == null || phone.trim().isEmpty) {
+      return;
+    }
+
+    setState(() => _savingPhone = true);
+    try {
+      final updated = await MobileApi.instance.adminUpdateWorkerPhone(
+        id: widget.entry.id,
+        phone: phone,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _phone = updated.phone);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _savingPhone = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +122,12 @@ class AdminWorkerDetailScreen extends StatelessWidget {
           116,
         ),
         children: [
-          _WorkerDetailCard(entry: entry),
+          _WorkerDetailCard(
+            entry: widget.entry,
+            phone: _phone,
+            savingPhone: _savingPhone,
+            onAddPhone: _addPhone,
+          ),
         ],
       ),
     );
@@ -39,9 +135,17 @@ class AdminWorkerDetailScreen extends StatelessWidget {
 }
 
 class _WorkerDetailCard extends StatelessWidget {
-  const _WorkerDetailCard({required this.entry});
+  const _WorkerDetailCard({
+    required this.entry,
+    required this.phone,
+    required this.savingPhone,
+    required this.onAddPhone,
+  });
 
   final AdminUserListEntry entry;
+  final String phone;
+  final bool savingPhone;
+  final VoidCallback onAddPhone;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +187,20 @@ class _WorkerDetailCard extends StatelessWidget {
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Telefon'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: entry.phone),
+            _WorkerDetailField(value: phone),
+            if (phone.trim().isEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonal(
+                  style: _workerDetailButtonStyle(),
+                  onPressed: savingPhone ? null : onAddPhone,
+                  child: Text(
+                    savingPhone ? 'Saqlanmoqda...' : 'Telefon raqami kiritish',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Daraja'),
             const SizedBox(height: 6),
@@ -152,4 +269,22 @@ class _WorkerStatusChip extends StatelessWidget {
       ),
     );
   }
+}
+
+ButtonStyle _workerDetailButtonStyle() {
+  return FilledButton.styleFrom(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
+    ),
+    minimumSize: const Size(0, 54),
+  );
+}
+
+ButtonStyle _workerDetailOutlinedButtonStyle() {
+  return OutlinedButton.styleFrom(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
+    ),
+    minimumSize: const Size(0, 54),
+  );
 }

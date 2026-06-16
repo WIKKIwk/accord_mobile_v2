@@ -1063,6 +1063,7 @@ extension MobileApiAdmin on MobileApi {
       final worker = AdminWorker(
         id: 'worker-${DateTime.now().microsecondsSinceEpoch}',
         name: name.trim(),
+        phone: '',
         level: level.trim(),
       );
       _testModeWorkers.add(worker);
@@ -1107,6 +1108,35 @@ extension MobileApiAdmin on MobileApi {
     );
     if (response.statusCode != 200) {
       throw Exception('Admin worker level update failed');
+    }
+    return AdminWorker.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminWorker> adminUpdateWorkerPhone({
+    required String id,
+    required String phone,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeWorkers.indexWhere((worker) => worker.id == id);
+      if (index < 0) {
+        throw Exception('Admin worker not found');
+      }
+      final updated = _testModeWorkers[index].copyWith(phone: phone.trim());
+      _testModeWorkers[index] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => http.put(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'id': id, 'phone': phone}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker phone update failed');
     }
     return AdminWorker.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

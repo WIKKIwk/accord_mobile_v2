@@ -649,7 +649,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 style: _customerDetailButtonStyle(),
                 onPressed: savingPhone ? null : () => onAddPhone(detail),
                 child: Text(
-                  savingPhone ? 'Saqlanmoqda...' : 'Telefonni yangilash',
+                  savingPhone
+                      ? 'Saqlanmoqda...'
+                      : detail.phone.trim().isEmpty
+                          ? 'Telefon raqami kiritish'
+                          : 'Telefonni yangilash',
                 ),
               ),
             ),

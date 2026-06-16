@@ -322,6 +322,7 @@ void main() {
       expect(find.text('User ismi'), findsOneWidget);
       expect(find.text('Telefon'), findsOneWidget);
       expect(find.text('Kiritilmagan'), findsOneWidget);
+      expect(find.text('Telefon raqami kiritish'), findsOneWidget);
       expect(find.text('worker-1'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());

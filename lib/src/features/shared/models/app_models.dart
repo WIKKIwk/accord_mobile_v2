@@ -1265,17 +1265,20 @@ class AdminWorker {
   const AdminWorker({
     required this.id,
     required this.name,
+    this.phone = '',
     required this.level,
   });
 
   final String id;
   final String name;
+  final String phone;
   final String level;
 
   factory AdminWorker.fromJson(Map<String, dynamic> json) {
     return AdminWorker(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
       level: json['level'] as String? ?? '',
     );
   }
@@ -1284,6 +1287,7 @@ class AdminWorker {
     return {
       'id': id,
       'name': name,
+      'phone': phone,
       'level': level,
     };
   }
@@ -1291,11 +1295,13 @@ class AdminWorker {
   AdminWorker copyWith({
     String? id,
     String? name,
+    String? phone,
     String? level,
   }) {
     return AdminWorker(
       id: id ?? this.id,
       name: name ?? this.name,
+      phone: phone ?? this.phone,
       level: level ?? this.level,
     );
   }

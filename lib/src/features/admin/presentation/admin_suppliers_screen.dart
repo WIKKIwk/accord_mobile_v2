@@ -323,7 +323,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
           AdminUserListEntry(
             id: worker.id,
             name: worker.name,
-            phone: '',
+            phone: worker.phone,
             kind: AdminUserKind.worker,
             roleLabelOverride: worker.level,
           ),
