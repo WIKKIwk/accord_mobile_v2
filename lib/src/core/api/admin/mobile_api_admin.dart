@@ -223,10 +223,12 @@ MobileApiException _adminProductionMapException(
         'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
-      'raw_material_mismatch' =>
-        'Bu homashyo ushbu zakaz uchun biriktirilmagan',
+      'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
+      'raw_material_group_not_allowed' =>
+        'Bu homashyo ish boshlash uchun mos emas',
+      'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
       'map_not_found' => 'Zakaz topilmadi',
       _ => 'Production map amali bajarilmadi',
     },

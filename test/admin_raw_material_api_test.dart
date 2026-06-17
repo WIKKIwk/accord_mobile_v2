@@ -54,6 +54,42 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('queue action explains incompatible raw material scan', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminApparatusQueueAction(
+          apparatus: 'Pechat',
+          orderId: 'zakaz-1',
+          action: 'start',
+          materialBarcode: 'OTHER-RM',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu homashyo ish boshlash uchun mos emas',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionErrorCode: 'raw_material_group_not_allowed',
+            ));
+  });
+
   test('raw material rule and assignment endpoints use backend contract',
       () async {
     final seenRequests = <String>[];
@@ -101,9 +137,13 @@ void main() {
 }
 
 class _RawMaterialApiHttpClient implements HttpClient {
-  _RawMaterialApiHttpClient(this.seenRequests);
+  _RawMaterialApiHttpClient(
+    this.seenRequests, {
+    this.queueActionErrorCode = '',
+  });
 
   final List<String> seenRequests;
+  final String queueActionErrorCode;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -114,6 +154,17 @@ class _RawMaterialApiHttpClient implements HttpClient {
     Object body;
     switch (key) {
       case 'POST /v1/mobile/admin/production-maps/queue-action':
+        if (queueActionErrorCode.isNotEmpty) {
+          body = {'error': queueActionErrorCode};
+          return _FakeHttpClientRequest(
+            response: _FakeHttpClientResponse(
+              body: jsonEncode(body),
+              statusCode: HttpStatus.badRequest,
+              requestKey: key,
+              seenRequests: seenRequests,
+            ),
+          );
+        }
         body = const {
           'states': {'zakaz-1': 'in_progress'},
         };
