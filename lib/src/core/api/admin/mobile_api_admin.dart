@@ -150,16 +150,19 @@ class AdminApparatusQueuePolicy {
 class AdminRawMaterialRule {
   const AdminRawMaterialRule({
     required this.apparatus,
+    required this.requiresMaterial,
     required this.itemGroups,
   });
 
   final String apparatus;
+  final bool requiresMaterial;
   final List<String> itemGroups;
 
   factory AdminRawMaterialRule.fromJson(Map<String, dynamic> json) {
     final rawGroups = json['item_groups'];
     return AdminRawMaterialRule(
       apparatus: json['apparatus']?.toString() ?? '',
+      requiresMaterial: json['requires_material'] == true,
       itemGroups: [
         if (rawGroups is List)
           for (final item in rawGroups)
@@ -998,6 +1001,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminRawMaterialRule> adminSaveRawMaterialRule({
     required String apparatus,
+    bool requiresMaterial = false,
     required List<String> itemGroups,
   }) async {
     final normalizedApparatus = apparatus.trim();
@@ -1008,6 +1012,7 @@ extension MobileApiAdmin on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final rule = AdminRawMaterialRule(
         apparatus: normalizedApparatus,
+        requiresMaterial: requiresMaterial,
         itemGroups: normalizedGroups,
       );
       _testModeRawMaterialRules[normalizedApparatus] = rule;
@@ -1020,6 +1025,7 @@ extension MobileApiAdmin on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'apparatus': normalizedApparatus,
+          'requires_material': requiresMaterial,
           'item_groups': normalizedGroups,
         }),
       ),

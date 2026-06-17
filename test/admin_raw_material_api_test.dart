@@ -107,6 +107,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       final rule = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: 'Pechat',
+        requiresMaterial: true,
         itemGroups: const ['Kraska'],
       );
       final assignment = await MobileApi.instance.adminAssignRawMaterialToOrder(
@@ -115,6 +116,7 @@ void main() {
       );
 
       expect(rule.apparatus, 'Pechat');
+      expect(rule.requiresMaterial, isTrue);
       expect(rule.itemGroups, ['Kraska']);
       expect(assignment.orderId, 'zakaz-1');
       expect(assignment.barcode, 'RM-001');
@@ -122,7 +124,7 @@ void main() {
         seenRequests,
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
-          '{"apparatus":"Pechat","item_groups":["Kraska"]}',
+          '{"apparatus":"Pechat","requires_material":true,"item_groups":["Kraska"]}',
         ),
       );
       expect(
@@ -207,6 +209,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
       case 'PUT /v1/mobile/admin/raw-material-rules':
         body = const {
           'apparatus': 'Pechat',
+          'requires_material': true,
           'item_groups': ['Kraska'],
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':

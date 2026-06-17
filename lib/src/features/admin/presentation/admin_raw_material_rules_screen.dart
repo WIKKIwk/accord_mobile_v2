@@ -24,6 +24,7 @@ class _AdminRawMaterialRulesScreenState
   late Future<_RawMaterialRulesData> _future;
   List<AdminRawMaterialRule> _rules = const [];
   String _selectedApparatus = '';
+  bool _selectedRequiresMaterial = false;
   bool _saving = false;
 
   @override
@@ -70,13 +71,32 @@ class _AdminRawMaterialRulesScreenState
 
   void _fillGroupsFor(String apparatus) {
     final normalized = apparatus.trim();
-    for (final rule in _rules) {
-      if (rule.apparatus.trim() == normalized) {
-        _groupsController.text = rule.itemGroups.join(', ');
-        return;
-      }
+    final rule = _ruleFor(normalized);
+    if (rule != null) {
+      _groupsController.text = rule.itemGroups.join(', ');
+      _selectedRequiresMaterial = rule.requiresMaterial;
+      return;
     }
     _groupsController.clear();
+    _selectedRequiresMaterial = false;
+  }
+
+  AdminRawMaterialRule? _ruleFor(String apparatus) {
+    final normalized = apparatus.trim();
+    for (final rule in _rules) {
+      if (rule.apparatus.trim() == normalized) {
+        return rule;
+      }
+    }
+    return null;
+  }
+
+  void _replaceRule(AdminRawMaterialRule saved) {
+    _rules = [
+      for (final rule in _rules)
+        if (rule.apparatus.trim() != saved.apparatus.trim()) rule,
+      saved,
+    ];
   }
 
   List<String> _groupsFromInput() {
@@ -121,17 +141,15 @@ class _AdminRawMaterialRulesScreenState
     try {
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatus,
+        requiresMaterial: _selectedRequiresMaterial,
         itemGroups: groups,
       );
       if (!mounted) {
         return;
       }
       setState(() {
-        _rules = [
-          for (final rule in _rules)
-            if (rule.apparatus.trim() != saved.apparatus.trim()) rule,
-          saved,
-        ];
+        _replaceRule(saved);
+        _selectedRequiresMaterial = saved.requiresMaterial;
       });
       showAdminTopNotice(context, 'Homashyo qoidasi saqlandi');
     } catch (error) {
@@ -143,6 +161,48 @@ class _AdminRawMaterialRulesScreenState
         error is MobileApiException
             ? error.message
             : 'Homashyo qoidasi saqlanmadi',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _setRequiresMaterial(
+    AdminWarehouse apparatus,
+    bool requiresMaterial,
+  ) async {
+    final apparatusName = apparatus.warehouse.trim();
+    final rule = _ruleFor(apparatusName);
+    if (rule == null || rule.itemGroups.isEmpty || _saving) {
+      showAdminTopNotice(context, 'Avval homashyo qoidasi saqlang');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final saved = await MobileApi.instance.adminSaveRawMaterialRule(
+        apparatus: apparatusName,
+        requiresMaterial: requiresMaterial,
+        itemGroups: rule.itemGroups,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _replaceRule(saved);
+        if (_selectedApparatus.trim() == saved.apparatus.trim()) {
+          _selectedRequiresMaterial = saved.requiresMaterial;
+        }
+      });
+      showAdminTopNotice(context, 'Majburiylik saqlandi');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        error is MobileApiException ? error.message : 'Majburiylik saqlanmadi',
       );
     } finally {
       if (mounted) {
@@ -179,39 +239,71 @@ class _AdminRawMaterialRulesScreenState
           }
           final data = snapshot.data!;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
-          return ListView(
-            padding: EdgeInsets.fromLTRB(0, 6, 0, bottomPadding),
-            children: [
-              _RuleEditor(
-                apparatus: data.apparatus,
-                selectedApparatus: _selectedApparatus,
-                rawMaterialGroups: data.rawMaterialGroups,
-                groupsController: _groupsController,
-                saving: _saving,
-                onApparatusChanged: (value) {
-                  setState(() {
-                    _selectedApparatus = value;
-                    _fillGroupsFor(value);
-                  });
-                },
-                onPickGroups: () => _pickGroups(data.rawMaterialGroups),
-                onSave: _save,
-              ),
-              const SizedBox(height: 12),
-              for (final rule in _rules)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _RuleTile(
-                    rule: rule,
-                    onTap: () {
-                      setState(() {
-                        _selectedApparatus = rule.apparatus;
-                        _fillGroupsFor(rule.apparatus);
-                      });
-                    },
+          return DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  clipBehavior: Clip.antiAlias,
+                  child: const TabBar(
+                    tabs: [
+                      Tab(text: 'Qoidalar'),
+                      Tab(text: 'Majburiylik'),
+                    ],
                   ),
                 ),
-            ],
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      ListView(
+                        padding: EdgeInsets.fromLTRB(0, 10, 0, bottomPadding),
+                        children: [
+                          _RuleEditor(
+                            apparatus: data.apparatus,
+                            selectedApparatus: _selectedApparatus,
+                            rawMaterialGroups: data.rawMaterialGroups,
+                            groupsController: _groupsController,
+                            saving: _saving,
+                            onApparatusChanged: (value) {
+                              setState(() {
+                                _selectedApparatus = value;
+                                _fillGroupsFor(value);
+                              });
+                            },
+                            onPickGroups: () =>
+                                _pickGroups(data.rawMaterialGroups),
+                            onSave: _save,
+                          ),
+                          const SizedBox(height: 12),
+                          for (final rule in _rules)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _RuleTile(
+                                rule: rule,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedApparatus = rule.apparatus;
+                                    _fillGroupsFor(rule.apparatus);
+                                  });
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                      _RequiredMaterialsTab(
+                        apparatus: data.apparatus,
+                        rules: _rules,
+                        saving: _saving,
+                        bottomPadding: bottomPadding,
+                        onChanged: _setRequiresMaterial,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -444,8 +536,99 @@ class _RuleTile extends StatelessWidget {
         onTap: onTap,
         leading: const Icon(Icons.precision_manufacturing_rounded),
         title: Text(rule.apparatus),
-        subtitle: Text(rule.itemGroups.join(', ')),
+        subtitle: Text(
+          '${rule.itemGroups.join(', ')}\n'
+          '${rule.requiresMaterial ? 'Homashyo majburiy' : 'Homashyo ixtiyoriy'}',
+        ),
+        isThreeLine: true,
         trailing: const Icon(Icons.chevron_right_rounded),
+      ),
+    );
+  }
+}
+
+class _RequiredMaterialsTab extends StatelessWidget {
+  const _RequiredMaterialsTab({
+    required this.apparatus,
+    required this.rules,
+    required this.saving,
+    required this.bottomPadding,
+    required this.onChanged,
+  });
+
+  final List<AdminWarehouse> apparatus;
+  final List<AdminRawMaterialRule> rules;
+  final bool saving;
+  final double bottomPadding;
+  final void Function(AdminWarehouse apparatus, bool requiresMaterial)
+      onChanged;
+
+  AdminRawMaterialRule? _ruleFor(AdminWarehouse apparatus) {
+    final normalized = apparatus.warehouse.trim();
+    for (final rule in rules) {
+      if (rule.apparatus.trim() == normalized) {
+        return rule;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(0, 10, 0, bottomPadding),
+      itemCount: apparatus.length,
+      itemBuilder: (context, index) {
+        final item = apparatus[index];
+        final rule = _ruleFor(item);
+        final hasRule = rule != null && rule.itemGroups.isNotEmpty;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _RequiredMaterialTile(
+            apparatus: item,
+            rule: rule,
+            enabled: hasRule && !saving,
+            onChanged: onChanged,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RequiredMaterialTile extends StatelessWidget {
+  const _RequiredMaterialTile({
+    required this.apparatus,
+    required this.rule,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final AdminWarehouse apparatus;
+  final AdminRawMaterialRule? rule;
+  final bool enabled;
+  final void Function(AdminWarehouse apparatus, bool requiresMaterial)
+      onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final groups = rule?.itemGroups.join(', ') ?? '';
+    return Material(
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SwitchListTile(
+        value: rule?.requiresMaterial ?? false,
+        onChanged: enabled ? (value) => onChanged(apparatus, value) : null,
+        secondary: const Icon(Icons.fact_check_rounded),
+        title: Text(apparatus.warehouse.trim()),
+        subtitle: Text(
+          groups.isEmpty ? 'Avval homashyo guruhi tanlang' : groups,
+        ),
       ),
     );
   }
