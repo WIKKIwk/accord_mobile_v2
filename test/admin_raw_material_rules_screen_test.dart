@@ -67,12 +67,67 @@ void main() {
       expect(find.text('Tayyor mahsulot'), findsNothing);
     }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
   });
+
+  testWidgets('required switch does not fake success when backend ignores flag',
+      (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialRulesScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Majburiylik').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Backend majburiylikni saqlamadi'), findsOneWidget);
+      expect(find.text('Majburiylik saqlandi'), findsNothing);
+      expect(
+        seenRequests,
+        contains(
+          'BODY PUT /v1/mobile/admin/raw-material-rules '
+          '{"apparatus":"Pechat","requires_material":true,"item_groups":["Kraska"]}',
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+    },
+        createHttpClient: (_) => _RawMaterialRulesHttpClient(
+              seenRequests,
+              initialRules: const [
+                {
+                  'apparatus': 'Pechat',
+                  'requires_material': false,
+                  'item_groups': ['Kraska'],
+                },
+              ],
+            ));
+  });
 }
 
 class _RawMaterialRulesHttpClient implements HttpClient {
-  _RawMaterialRulesHttpClient(this.seenRequests);
+  _RawMaterialRulesHttpClient(
+    this.seenRequests, {
+    this.initialRules = const [],
+  });
 
   final List<String> seenRequests;
+  final List<Map<String, Object>> initialRules;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -90,7 +145,12 @@ class _RawMaterialRulesHttpClient implements HttpClient {
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-rules':
-        body = const [];
+        body = initialRules;
+      case 'PUT /v1/mobile/admin/raw-material-rules':
+        body = {
+          'apparatus': 'Pechat',
+          'item_groups': ['Kraska'],
+        };
       case 'GET /v1/mobile/admin/item-groups/tree':
         body = const [
           {
@@ -130,6 +190,9 @@ class _RawMaterialRulesHttpClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> getUrl(Uri url) => openUrl('GET', url);
+
+  @override
+  Future<HttpClientRequest> putUrl(Uri url) => openUrl('PUT', url);
 
   @override
   void close({bool force = false}) {}

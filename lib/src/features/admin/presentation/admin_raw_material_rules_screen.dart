@@ -189,6 +189,14 @@ class _AdminRawMaterialRulesScreenState
       if (!mounted) {
         return;
       }
+      if (saved.requiresMaterial != requiresMaterial) {
+        showAdminTopNotice(
+          context,
+          'Backend majburiylikni saqlamadi',
+          icon: Icons.error_rounded,
+        );
+        return;
+      }
       setState(() {
         _replaceRule(saved);
         if (_selectedApparatus.trim() == saved.apparatus.trim()) {
