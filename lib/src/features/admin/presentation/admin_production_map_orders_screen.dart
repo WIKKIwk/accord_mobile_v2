@@ -3527,15 +3527,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _materialsLoading = false;
         _materialsError = '';
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
+        _materialAssignments = const [];
         _materialsLoading = false;
-        _materialsError = error is MobileApiException
-            ? error.message
-            : 'Homashyolar yuklanmadi';
+        _materialsError = '';
       });
     }
   }
