@@ -24,6 +24,9 @@ class _AdminRawMaterialAssignmentScreenState
   List<AdminRawMaterialAssignment> _assignments = const [];
   String _selectedOrderId = '';
   String _scannedBarcode = '';
+  AdminRawMaterialLookup? _scannedMaterial;
+  String _scanLookupError = '';
+  bool _scanLookupLoading = false;
   bool _saving = false;
 
   @override
@@ -62,9 +65,37 @@ class _AdminRawMaterialAssignmentScreenState
     if (!mounted || barcode == null || barcode.trim().isEmpty) {
       return;
     }
+    final normalized = rawMaterialBarcodeFromQr(barcode);
     setState(() {
-      _scannedBarcode = barcode.trim();
+      _scannedBarcode = normalized;
+      _scannedMaterial = null;
+      _scanLookupError = '';
+      _scanLookupLoading = true;
     });
+    try {
+      final detail = await MobileApi.instance.adminRawMaterialLookup(
+        barcode: normalized,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _scannedMaterial = detail;
+        _scanLookupError = '';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _scanLookupError =
+            error is MobileApiException ? error.message : 'Homashyo topilmadi';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _scanLookupLoading = false);
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -144,6 +175,9 @@ class _AdminRawMaterialAssignmentScreenState
                 orders: data.orders,
                 selectedOrderId: _selectedOrderId,
                 scannedBarcode: _scannedBarcode,
+                scannedMaterial: _scannedMaterial,
+                scanLookupError: _scanLookupError,
+                scanLookupLoading: _scanLookupLoading,
                 saving: _saving,
                 onOrderChanged: (value) {
                   setState(() => _selectedOrderId = value);
@@ -180,6 +214,9 @@ class _AssignmentEditor extends StatelessWidget {
     required this.orders,
     required this.selectedOrderId,
     required this.scannedBarcode,
+    required this.scannedMaterial,
+    required this.scanLookupError,
+    required this.scanLookupLoading,
     required this.saving,
     required this.onOrderChanged,
     required this.onScan,
@@ -189,6 +226,9 @@ class _AssignmentEditor extends StatelessWidget {
   final List<ProductionMapSaved> orders;
   final String selectedOrderId;
   final String scannedBarcode;
+  final AdminRawMaterialLookup? scannedMaterial;
+  final String scanLookupError;
+  final bool scanLookupLoading;
   final bool saving;
   final ValueChanged<String> onOrderChanged;
   final VoidCallback onScan;
@@ -240,16 +280,11 @@ class _AssignmentEditor extends StatelessWidget {
             ),
             if (scannedBarcode.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('Skaner: ${scannedBarcode.trim()}'),
-                ),
+              _ScannedRawMaterialCard(
+                barcode: scannedBarcode,
+                detail: scannedMaterial,
+                loading: scanLookupLoading,
+                error: scanLookupError,
               ),
             ],
             const SizedBox(height: 10),
@@ -302,6 +337,125 @@ class _AssignmentTile extends StatelessWidget {
   }
 }
 
+class _ScannedRawMaterialCard extends StatelessWidget {
+  const _ScannedRawMaterialCard({
+    required this.barcode,
+    required this.detail,
+    required this.loading,
+    required this.error,
+  });
+
+  final String barcode;
+  final AdminRawMaterialLookup? detail;
+  final bool loading;
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final detail = this.detail;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.inventory_2_rounded, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Homashyo ma’lumoti',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                if (loading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _MaterialInfoRow(label: 'QR', value: barcode.trim()),
+            if (detail != null) ...[
+              _MaterialInfoRow(label: 'Ombor', value: detail.warehouse),
+              _MaterialInfoRow(label: 'Turi', value: detail.itemGroup),
+              _MaterialInfoRow(label: 'Nomi', value: detail.itemName),
+              _MaterialInfoRow(
+                label: 'Miqdori',
+                value: _formatQty(detail.qty, detail.uom),
+              ),
+              _MaterialInfoRow(label: 'Item code', value: detail.itemCode),
+            ],
+            if (error.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                error.trim(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialInfoRow extends StatelessWidget {
+  const _MaterialInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 82,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              cleanValue,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _orderLabel(ProductionMapSaved order) {
   final map = order.map;
   final code = map.code.trim().isNotEmpty
@@ -311,4 +465,11 @@ String _orderLabel(ProductionMapSaved order) {
           : map.id.trim();
   final title = map.title.trim().isNotEmpty ? map.title.trim() : 'Zakaz';
   return '$code · $title';
+}
+
+String _formatQty(double value, String uom) {
+  final qty = value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+  return [qty, if (uom.trim().isNotEmpty) uom.trim()].join(' ');
 }

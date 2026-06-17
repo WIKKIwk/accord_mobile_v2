@@ -160,6 +160,38 @@ class AdminRawMaterialAssignment {
   }
 }
 
+class AdminRawMaterialLookup {
+  const AdminRawMaterialLookup({
+    required this.barcode,
+    required this.warehouse,
+    required this.itemCode,
+    required this.itemName,
+    required this.itemGroup,
+    required this.qty,
+    required this.uom,
+  });
+
+  final String barcode;
+  final String warehouse;
+  final String itemCode;
+  final String itemName;
+  final String itemGroup;
+  final double qty;
+  final String uom;
+
+  factory AdminRawMaterialLookup.fromJson(Map<String, dynamic> json) {
+    return AdminRawMaterialLookup(
+      barcode: json['barcode']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      itemGroup: json['item_group']?.toString() ?? '',
+      qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      uom: json['uom']?.toString() ?? '',
+    );
+  }
+}
+
 class AdminProductionMapLiveSnapshot {
   const AdminProductionMapLiveSnapshot({
     required this.maps,
@@ -978,6 +1010,37 @@ extension MobileApiAdmin on MobileApi {
       throw _adminProductionMapException(response, 'raw_material_assignments');
     }
     return AdminRawMaterialAssignment.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminRawMaterialLookup> adminRawMaterialLookup({
+    required String barcode,
+  }) async {
+    final normalized = barcode.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminRawMaterialLookup(
+        barcode: normalized,
+        warehouse: '',
+        itemCode: '',
+        itemName: '',
+        itemGroup: '',
+        qty: 0,
+        uom: '',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/raw-material-assignments/lookup',
+        ).replace(queryParameters: {'barcode': normalized}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_assignments');
+    }
+    return AdminRawMaterialLookup.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

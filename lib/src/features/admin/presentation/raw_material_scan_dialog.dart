@@ -168,13 +168,16 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      FilledButton.icon(
-                        onPressed: () => _complete(_manualController.text),
-                        icon: const Icon(Icons.check_rounded),
-                        label: Text(
-                          'OK',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: scheme.onPrimary,
+                      SizedBox(
+                        width: 92,
+                        child: FilledButton.icon(
+                          onPressed: () => _complete(_manualController.text),
+                          icon: const Icon(Icons.check_rounded),
+                          label: Text(
+                            'OK',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.onPrimary,
+                            ),
                           ),
                         ),
                       ),

@@ -71,6 +71,54 @@ void main() {
       expect(find.text('Item group'), findsNothing);
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
+
+  testWidgets('assignment screen shows scanned raw material details', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('QR skanerlash'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '30AA');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA',
+        ),
+      );
+      expect(find.text('Homashyo ma’lumoti'), findsOneWidget);
+      expect(find.text('Ombor'), findsOneWidget);
+      expect(find.text('Kalidor'), findsOneWidget);
+      expect(find.text('Turi'), findsOneWidget);
+      expect(find.text('Kraska'), findsOneWidget);
+      expect(find.text('Nomi'), findsOneWidget);
+      expect(find.text('Black ink'), findsOneWidget);
+      expect(find.text('Miqdori'), findsOneWidget);
+      expect(find.text('12 Kg'), findsOneWidget);
+      expect(find.text('Item code'), findsOneWidget);
+      expect(find.text('INK-BLACK'), findsOneWidget);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
 }
 
 class _RawMaterialAssignmentHttpClient implements HttpClient {
@@ -80,7 +128,8 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
-    final key = '$method ${url.path}';
+    final key =
+        '$method ${url.path}${url.query.isEmpty ? '' : '?${url.query}'}';
     seenRequests.add(key);
 
     Object body;
@@ -105,6 +154,16 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments':
         body = const [];
+      case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
+        body = const {
+          'barcode': '30AA',
+          'warehouse': 'Kalidor',
+          'item_code': 'INK-BLACK',
+          'item_name': 'Black ink',
+          'item_group': 'Kraska',
+          'qty': 12,
+          'uom': 'Kg',
+        };
       case 'GET /v1/mobile/admin/items':
         body = const [];
       default:
