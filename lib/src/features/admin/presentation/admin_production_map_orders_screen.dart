@@ -683,6 +683,7 @@ class _AdminProductionMapOrdersScreenState
     required AdminWarehouse apparatus,
     required ProductionMapSaved order,
     required String action,
+    List<String> materialBarcodes = const [],
   }) async {
     if (_queueActionInFlight) {
       return null;
@@ -695,6 +696,7 @@ class _AdminProductionMapOrdersScreenState
         apparatus: apparatusKey,
         orderId: order.map.id,
         action: action,
+        materialBarcodes: materialBarcodes,
       );
       if (!mounted) {
         return null;
@@ -707,41 +709,6 @@ class _AdminProductionMapOrdersScreenState
     } catch (error) {
       if (!mounted) {
         return null;
-      }
-      if (error is MobileApiException &&
-          error.code == 'raw_material_scan_required' &&
-          action == 'start') {
-        final barcode = await showRawMaterialScanDialog(context);
-        if (!mounted || barcode == null || barcode.trim().isEmpty) {
-          return null;
-        }
-        try {
-          final states = await _submitQueueAction(
-            apparatus: apparatusKey,
-            orderId: order.map.id,
-            action: action,
-            materialBarcode: barcode,
-          );
-          if (!mounted) {
-            return null;
-          }
-          setState(() {
-            _queueStatesByApparatus[apparatusKey] = states;
-          });
-          unawaited(_refreshLive());
-          return states;
-        } catch (retryError) {
-          if (!mounted) {
-            return null;
-          }
-          showAdminTopNotice(
-            context,
-            retryError is MobileApiException
-                ? retryError.message
-                : 'Navbat amali bajarilmadi',
-          );
-          return null;
-        }
       }
       showAdminTopNotice(
         context,
@@ -762,13 +729,13 @@ class _AdminProductionMapOrdersScreenState
     required String apparatus,
     required String orderId,
     required String action,
-    String materialBarcode = '',
+    List<String> materialBarcodes = const [],
   }) {
     return MobileApi.instance.adminApparatusQueueAction(
       apparatus: apparatus,
       orderId: orderId,
       action: action,
-      materialBarcode: materialBarcode,
+      materialBarcodes: materialBarcodes,
     );
   }
 
@@ -3501,6 +3468,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     required AdminWarehouse apparatus,
     required ProductionMapSaved order,
     required String action,
+    List<String> materialBarcodes,
   })? onQueueAction;
 
   @override
@@ -3510,12 +3478,18 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   late Map<String, String> _queueStates;
+  List<AdminRawMaterialAssignment> _materialAssignments = const [];
+  final Set<String> _scannedMaterialBarcodes = {};
   bool _actionInFlight = false;
+  bool _materialsLoading = true;
+  String _materialsError = '';
+  bool _mapExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
+    unawaited(_loadMaterialAssignments());
   }
 
   @override
@@ -3534,6 +3508,35 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
     if (!mapEquals(_queueStates, nextStates)) {
       setState(() => _queueStates = Map<String, String>.from(nextStates));
+    }
+  }
+
+  Future<void> _loadMaterialAssignments() async {
+    setState(() {
+      _materialsLoading = true;
+      _materialsError = '';
+    });
+    try {
+      final assignments =
+          await MobileApi.instance.adminRawMaterialAssignments();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _materialAssignments = assignments;
+        _materialsLoading = false;
+        _materialsError = '';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _materialsLoading = false;
+        _materialsError = error is MobileApiException
+            ? error.message
+            : 'Homashyolar yuklanmadi';
+      });
     }
   }
 
@@ -3559,11 +3562,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (apparatus == null || onQueueAction == null || _actionInFlight) {
       return;
     }
+    final materialAssignments = _stationMaterialAssignments();
+    if (action == 'start' &&
+        materialAssignments.isNotEmpty &&
+        !_allMaterialsScanned(materialAssignments)) {
+      showAdminTopNotice(context, 'Avval hamma homashyoni QR scan qiling');
+      return;
+    }
     setState(() => _actionInFlight = true);
     final states = await onQueueAction(
       apparatus: apparatus,
       order: widget.order,
       action: action,
+      materialBarcodes: action == 'start'
+          ? materialAssignments.map((item) => item.barcode).toList()
+          : const [],
     );
     if (!mounted) {
       return;
@@ -3576,6 +3589,66 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     });
   }
 
+  Future<void> _scanMaterial() async {
+    final materialAssignments = _stationMaterialAssignments();
+    if (materialAssignments.isEmpty) {
+      return;
+    }
+    final barcode = await showRawMaterialScanDialog(context);
+    if (!mounted || barcode == null || barcode.trim().isEmpty) {
+      return;
+    }
+    final normalized = _materialBarcodeKey(rawMaterialBarcodeFromQr(barcode));
+    final match = materialAssignments
+        .where((item) => _materialBarcodeKey(item.barcode) == normalized)
+        .cast<AdminRawMaterialAssignment?>()
+        .firstWhere((item) => item != null, orElse: () => null);
+    if (match == null) {
+      showAdminTopNotice(context, 'Bu homashyo zakazga mos emas');
+      return;
+    }
+    setState(() {
+      _scannedMaterialBarcodes.add(_materialBarcodeKey(match.barcode));
+    });
+    if (_allMaterialsScanned(materialAssignments)) {
+      showAdminTopNotice(context, 'Homashyolar tasdiqlandi');
+    }
+  }
+
+  List<AdminRawMaterialAssignment> _stationMaterialAssignments() {
+    final orderId = widget.order.map.id.trim();
+    final station = widget.apparatus?.warehouse.trim() ?? '';
+    final result = _materialAssignments.where((assignment) {
+      if (assignment.orderId.trim() != orderId) {
+        return false;
+      }
+      if (station.isEmpty) {
+        return true;
+      }
+      return productionMapWarehouseTitlesMatch(assignment.apparatus, station);
+    }).toList();
+    result.sort((left, right) {
+      final leftTitle =
+          left.itemName.trim().isEmpty ? left.itemCode : left.itemName;
+      final rightTitle =
+          right.itemName.trim().isEmpty ? right.itemCode : right.itemName;
+      return leftTitle.toLowerCase().compareTo(rightTitle.toLowerCase());
+    });
+    return result;
+  }
+
+  bool _allMaterialsScanned(List<AdminRawMaterialAssignment> assignments) {
+    if (assignments.isEmpty) {
+      return true;
+    }
+    return assignments.every(
+      (assignment) => _scannedMaterialBarcodes
+          .contains(_materialBarcodeKey(assignment.barcode)),
+    );
+  }
+
+  String _materialBarcodeKey(String value) => value.trim().toUpperCase();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -3585,6 +3658,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final orderId = map.id.trim();
     final station = widget.apparatus?.warehouse.trim() ?? '';
     final queueState = apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
+    final materialAssignments = _stationMaterialAssignments();
+    final hasMaterialAssignments = materialAssignments.isNotEmpty;
+    final allMaterialsScanned = _allMaterialsScanned(materialAssignments);
     final chainReady = station.isEmpty ||
         productionMapOrderReadyForStation(
           map: map,
@@ -3649,10 +3725,38 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 _DetailRow(label: 'Mahsulot', value: _productTitle(map)),
               ],
             ),
+            const SizedBox(height: 14),
+            _AssignedMaterialsCard(
+              assignments: materialAssignments,
+              loading: _materialsLoading,
+              error: _materialsError,
+              scannedBarcodes: _scannedMaterialBarcodes,
+            ),
+            if (showStart && hasMaterialAssignments) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _actionInFlight || allMaterialsScanned
+                    ? null
+                    : () => unawaited(_scanMaterial()),
+                icon: Icon(
+                  allMaterialsScanned
+                      ? Icons.check_circle_rounded
+                      : Icons.qr_code_scanner_rounded,
+                ),
+                label: Text(
+                  allMaterialsScanned
+                      ? 'Homashyolar tasdiqlandi'
+                      : 'Homashyo QR scan',
+                ),
+              ),
+            ],
             if (showStart || showComplete) ...[
               const SizedBox(height: 14),
               FilledButton(
-                onPressed: _actionInFlight
+                onPressed: _actionInFlight ||
+                        (showStart &&
+                            hasMaterialAssignments &&
+                            !allMaterialsScanned)
                     ? null
                     : () => unawaited(
                           _runQueueAction(showStart ? 'start' : 'complete'),
@@ -3681,38 +3785,67 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               ),
             ],
             const SizedBox(height: 14),
-            Text(
-              'Ketma-ketlik',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => setState(() => _mapExpanded = !_mapExpanded),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
+                child: Row(
                   children: [
-                    for (var index = 0; index < steps.length; index++)
-                      _SequenceStepTile(
-                        node: steps[index],
-                        index: index,
-                        isLast: index == steps.length - 1,
-                        status: _nodeStatus(
-                          steps[index],
-                          orderId: orderId,
-                          currentStation: station,
+                    Expanded(
+                      child: Text(
+                        'Mapni ko‘rish',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        current: _nodeMatchesStation(steps[index], station),
                       ),
+                    ),
+                    AnimatedRotation(
+                      turns: _mapExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
                   ],
                 ),
               ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: _mapExpanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: scheme.outlineVariant),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            children: [
+                              for (var index = 0; index < steps.length; index++)
+                                _SequenceStepTile(
+                                  node: steps[index],
+                                  index: index,
+                                  isLast: index == steps.length - 1,
+                                  status: _nodeStatus(
+                                    steps[index],
+                                    orderId: orderId,
+                                    currentStation: station,
+                                  ),
+                                  current: _nodeMatchesStation(
+                                    steps[index],
+                                    station,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         );
@@ -3859,6 +3992,159 @@ class _DetailRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AssignedMaterialsCard extends StatelessWidget {
+  const _AssignedMaterialsCard({
+    required this.assignments,
+    required this.loading,
+    required this.error,
+    required this.scannedBarcodes,
+  });
+
+  final List<AdminRawMaterialAssignment> assignments;
+  final bool loading;
+  final String error;
+  final Set<String> scannedBarcodes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Biriktirilgan homashyolar',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (loading)
+              Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Yuklanmoqda',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              )
+            else if (error.trim().isNotEmpty)
+              Text(
+                error,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else if (assignments.isEmpty)
+              Text(
+                'Homashyo biriktirilmagan',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (var index = 0; index < assignments.length; index++) ...[
+                    _AssignedMaterialTile(
+                      assignment: assignments[index],
+                      scanned: scannedBarcodes.contains(
+                        assignments[index].barcode.trim().toUpperCase(),
+                      ),
+                    ),
+                    if (index != assignments.length - 1)
+                      Divider(height: 14, color: scheme.outlineVariant),
+                  ],
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AssignedMaterialTile extends StatelessWidget {
+  const _AssignedMaterialTile({
+    required this.assignment,
+    required this.scanned,
+  });
+
+  final AdminRawMaterialAssignment assignment;
+  final bool scanned;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = assignment.itemName.trim().isEmpty
+        ? assignment.itemCode.trim()
+        : assignment.itemName.trim();
+    final meta = [
+      if (assignment.itemCode.trim().isNotEmpty) assignment.itemCode.trim(),
+      if (assignment.itemGroup.trim().isNotEmpty) assignment.itemGroup.trim(),
+      assignment.barcode.trim(),
+    ].where((item) => item.isNotEmpty).join(' • ');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          scanned ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          color: scanned ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.isEmpty ? assignment.barcode : title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                meta,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

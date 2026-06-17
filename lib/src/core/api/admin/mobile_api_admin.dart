@@ -201,7 +201,9 @@ class AdminRawMaterialAssignment {
       itemName: json['item_name']?.toString() ?? '',
       itemGroup: json['item_group']?.toString() ?? '',
       assignedByRef: json['assigned_by_ref']?.toString() ?? '',
-      assignedByName: json['assigned_by_name']?.toString() ?? '',
+      assignedByName: json['assigned_by_display_name']?.toString() ??
+          json['assigned_by_name']?.toString() ??
+          '',
       assignedAt: json['assigned_at']?.toString() ?? '',
     );
   }
@@ -1201,6 +1203,7 @@ extension MobileApiAdmin on MobileApi {
     required String orderId,
     required String action,
     String materialBarcode = '',
+    List<String> materialBarcodes = const [],
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -1238,6 +1241,39 @@ extension MobileApiAdmin on MobileApi {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
+        final requiredMaterials = _testModeRawMaterialAssignments.where(
+          (assignment) =>
+              assignment.orderId.trim() == orderId.trim() &&
+              productionMapWarehouseTitlesMatch(
+                assignment.apparatus,
+                apparatus,
+              ),
+        );
+        final requiredBarcodes = {
+          for (final assignment in requiredMaterials)
+            assignment.barcode.trim().toUpperCase(),
+        }..remove('');
+        final scannedBarcodes = {
+          for (final barcode in [
+            ...materialBarcodes,
+            if (materialBarcode.trim().isNotEmpty) materialBarcode,
+          ])
+            barcode.trim().toUpperCase(),
+        }..remove('');
+        if (requiredBarcodes.isNotEmpty && scannedBarcodes.isEmpty) {
+          throw const MobileApiException(
+            code: 'raw_material_scan_required',
+            message:
+                'Ishni boshlash uchun biriktirilgan homashyolarni skaner qiling',
+          );
+        }
+        if (requiredBarcodes.isNotEmpty &&
+            !setEquals(requiredBarcodes, scannedBarcodes)) {
+          throw const MobileApiException(
+            code: 'raw_material_mismatch',
+            message: 'Bu homashyo ish boshlash uchun mos emas',
           );
         }
         states[orderId.trim()] = 'in_progress';
@@ -1279,6 +1315,10 @@ extension MobileApiAdmin on MobileApi {
       return Map<String, String>.unmodifiable(states);
     }
     final trimmedBarcode = materialBarcode.trim();
+    final trimmedBarcodes = [
+      for (final barcode in materialBarcodes)
+        if (barcode.trim().isNotEmpty) barcode.trim(),
+    ];
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
@@ -1288,7 +1328,9 @@ extension MobileApiAdmin on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
-          if (trimmedBarcode.isNotEmpty) 'material_barcode': trimmedBarcode,
+          if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
+          if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
+            'material_barcode': trimmedBarcode,
         }),
       ),
     );
