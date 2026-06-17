@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -3175,28 +3176,23 @@ class _OpenedOrderTitleLine extends StatelessWidget {
     required this.map,
     required this.theme,
     required this.scheme,
-    this.titleStyle,
-    this.codeStyle,
   });
 
   final ProductionMapDefinition map;
   final ThemeData theme;
   final ColorScheme scheme;
-  final TextStyle? titleStyle;
-  final TextStyle? codeStyle;
 
   @override
   Widget build(BuildContext context) {
     final code = _openedOrderDisplayCode(map);
     final title = _openedOrderPrimaryTitle(map);
-    final resolvedTitleStyle = titleStyle ??
+    final resolvedTitleStyle =
         theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
-    final resolvedCodeStyle = codeStyle ??
-        theme.textTheme.labelMedium?.copyWith(
-          color: scheme.onSurfaceVariant,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
-        );
+    final resolvedCodeStyle = theme.textTheme.labelMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.2,
+    );
     if (code.isEmpty) {
       return Text(
         title,
@@ -3586,7 +3582,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = widget.order.map;
-    final steps = _linearNodes(map);
     final orderId = map.id.trim();
     final station = widget.apparatus?.warehouse.trim() ?? '';
     final queueState = apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
@@ -3644,20 +3639,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           controller: controller,
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
-            _OpenedOrderTitleLine(
-              map: map,
-              theme: theme,
-              scheme: scheme,
-              titleStyle: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-              codeStyle: theme.textTheme.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(height: 12),
             _DetailCard(
               children: [
                 if (_openedOrderDisplayCode(map).isNotEmpty)
@@ -3665,11 +3646,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                     label: 'Zakaz kodi',
                     value: _openedOrderDisplayCode(map),
                   ),
-                if (map.orderNumber.trim().isNotEmpty)
-                  _DetailRow(label: 'Zakaz raqami', value: map.orderNumber),
                 _DetailRow(label: 'Mahsulot', value: _productTitle(map)),
-                if (map.productCode.trim().isNotEmpty)
-                  _DetailRow(label: 'Kod', value: map.productCode),
               ],
             ),
             if (showStart || showComplete) ...[
@@ -3705,31 +3682,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ],
             const SizedBox(height: 14),
             Text(
-              'Ketma-ketlik',
+              'Map',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < steps.length; index++)
-                      _SequenceStepTile(
-                        node: steps[index],
-                        index: index,
-                        isLast: index == steps.length - 1,
-                      ),
-                  ],
-                ),
-              ),
+            _ProductionMapCoordinateView(
+              map: map,
+              orderId: orderId,
+              currentStation: station,
+              localQueueStates: _queueStates,
+              queueStatesByApparatus: widget.queueStatesByApparatus,
             ),
           ],
         );
@@ -3745,6 +3709,162 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
     }
     return map.title;
+  }
+}
+
+class _ProductionMapCoordinateView extends StatelessWidget {
+  const _ProductionMapCoordinateView({
+    required this.map,
+    required this.orderId,
+    required this.currentStation,
+    required this.localQueueStates,
+    required this.queueStatesByApparatus,
+  });
+
+  static const _nodeSize = Size(92, 54);
+  static const _padding = 24.0;
+
+  final ProductionMapDefinition map;
+  final String orderId;
+  final String currentStation;
+  final Map<String, String> localQueueStates;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final nodes = _layoutNodes(map);
+    if (nodes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: SizedBox(
+        height: 260,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fitted = _fitNodes(
+              nodes: nodes,
+              size: Size(constraints.maxWidth, 260),
+            );
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _ProductionMapEdgePainter(
+                      edges: map.edges,
+                      centers: {
+                        for (final node in fitted)
+                          node.node.id: node.offset +
+                              Offset(
+                                _nodeSize.width / 2,
+                                _nodeSize.height / 2,
+                              ),
+                      },
+                      color: scheme.primary.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ),
+                for (final node in fitted)
+                  Positioned(
+                    left: node.offset.dx,
+                    top: node.offset.dy,
+                    width: _nodeSize.width,
+                    height: _nodeSize.height,
+                    child: _ProductionMapMiniNode(
+                      node: node.node,
+                      status: _nodeStatus(node.node),
+                      current: _nodeMatchesStation(node.node, currentStation),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  List<_MapNodeLayout> _layoutNodes(ProductionMapDefinition map) {
+    final hasCoordinates = map.nodes.any((node) => node.x != 0 || node.y != 0);
+    if (hasCoordinates) {
+      return [
+        for (final node in map.nodes)
+          _MapNodeLayout(node, Offset(node.x, node.y)),
+      ];
+    }
+    final linear = _linearNodes(map);
+    return [
+      for (var index = 0; index < linear.length; index++)
+        _MapNodeLayout(linear[index], Offset(index * 132.0, 0)),
+    ];
+  }
+
+  List<_MapNodeLayout> _fitNodes({
+    required List<_MapNodeLayout> nodes,
+    required Size size,
+  }) {
+    final minX = nodes.map((node) => node.offset.dx).reduce(math.min);
+    final maxX = nodes.map((node) => node.offset.dx).reduce(math.max);
+    final minY = nodes.map((node) => node.offset.dy).reduce(math.min);
+    final maxY = nodes.map((node) => node.offset.dy).reduce(math.max);
+    final spanX = maxX - minX;
+    final spanY = maxY - minY;
+    final availableWidth =
+        math.max(1.0, size.width - _padding * 2 - _nodeSize.width);
+    final availableHeight =
+        math.max(1.0, size.height - _padding * 2 - _nodeSize.height);
+    return [
+      for (final node in nodes)
+        _MapNodeLayout(
+          node.node,
+          Offset(
+            spanX <= 1
+                ? (size.width - _nodeSize.width) / 2
+                : _padding + ((node.offset.dx - minX) / spanX) * availableWidth,
+            spanY <= 1
+                ? (size.height - _nodeSize.height) / 2
+                : _padding +
+                    ((node.offset.dy - minY) / spanY) * availableHeight,
+          ),
+        ),
+    ];
+  }
+
+  ApparatusQueueOrderState? _nodeStatus(ProductionMapNode node) {
+    if (node.kind != 'apparatus') {
+      return null;
+    }
+    final station = _nodeStationTitle(node);
+    if (station.isEmpty) {
+      return null;
+    }
+    if (_nodeMatchesStation(node, currentStation)) {
+      return apparatusQueueOrderStateFromRaw(localQueueStates[orderId]);
+    }
+    for (final entry in queueStatesByApparatus.entries) {
+      if (productionMapWarehouseTitlesMatch(entry.key, station)) {
+        return apparatusQueueOrderStateFromRaw(entry.value[orderId]);
+      }
+    }
+    return ApparatusQueueOrderState.pending;
+  }
+
+  bool _nodeMatchesStation(ProductionMapNode node, String station) {
+    return station.trim().isNotEmpty &&
+        productionMapWarehouseTitlesMatch(_nodeStationTitle(node), station);
+  }
+
+  String _nodeStationTitle(ProductionMapNode node) {
+    final assigned = node.alternativeAssignedTitle.trim();
+    if (assigned.isNotEmpty) {
+      return assigned;
+    }
+    return node.title.trim();
   }
 
   List<ProductionMapNode> _linearNodes(ProductionMapDefinition map) {
@@ -3780,6 +3900,176 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       current = next;
     }
     return result.isEmpty ? map.nodes : result;
+  }
+}
+
+class _MapNodeLayout {
+  const _MapNodeLayout(this.node, this.offset);
+
+  final ProductionMapNode node;
+  final Offset offset;
+}
+
+class _ProductionMapMiniNode extends StatelessWidget {
+  const _ProductionMapMiniNode({
+    required this.node,
+    required this.status,
+    required this.current,
+  });
+
+  final ProductionMapNode node;
+  final ApparatusQueueOrderState? status;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final statusColor = _statusColor(scheme);
+    final icon = switch (node.kind) {
+      'start' => Icons.play_arrow_rounded,
+      'apparatus' => Icons.precision_manufacturing_rounded,
+      'end' => Icons.flag_rounded,
+      _ => Icons.account_tree_outlined,
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: status == null ? 0.16 : 0.24),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: current ? scheme.primary : statusColor.withValues(alpha: 0.7),
+          width: current ? 2.4 : 1.2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 15, color: statusColor),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _nodeTitle(node),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              _statusLabel(status, node.kind),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _nodeTitle(ProductionMapNode node) {
+    final assigned = node.alternativeAssignedTitle.trim();
+    if (assigned.isNotEmpty) {
+      return assigned;
+    }
+    return node.title.trim().isEmpty ? node.kind : node.title.trim();
+  }
+
+  Color _statusColor(ColorScheme scheme) {
+    return switch (status) {
+      ApparatusQueueOrderState.inProgress => const Color(0xFFB26A00),
+      ApparatusQueueOrderState.completed => const Color(0xFF2E7D32),
+      ApparatusQueueOrderState.pending => scheme.primary,
+      null => scheme.onSurfaceVariant,
+    };
+  }
+
+  String _statusLabel(ApparatusQueueOrderState? status, String kind) {
+    if (status == null) {
+      return switch (kind) {
+        'start' => 'Start',
+        'end' => 'Finish',
+        _ => kind,
+      };
+    }
+    return switch (status) {
+      ApparatusQueueOrderState.inProgress => 'Jarayonda',
+      ApparatusQueueOrderState.completed => 'Tugagan',
+      ApparatusQueueOrderState.pending => 'Kutmoqda',
+    };
+  }
+}
+
+class _ProductionMapEdgePainter extends CustomPainter {
+  const _ProductionMapEdgePainter({
+    required this.edges,
+    required this.centers,
+    required this.color,
+  });
+
+  final List<ProductionMapEdge> edges;
+  final Map<String, Offset> centers;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    for (final edge in edges) {
+      final from = centers[edge.from];
+      final to = centers[edge.to];
+      if (from == null || to == null) {
+        continue;
+      }
+      final direction = to - from;
+      final distance = direction.distance;
+      if (distance <= 1) {
+        continue;
+      }
+      final unit = Offset(direction.dx / distance, direction.dy / distance);
+      final start = from + unit * 38;
+      final end = to - unit * 42;
+      canvas.drawLine(start, end, paint);
+      _drawArrow(canvas, paint, end, unit);
+    }
+  }
+
+  void _drawArrow(Canvas canvas, Paint paint, Offset tip, Offset unit) {
+    final angle = math.atan2(unit.dy, unit.dx);
+    const size = 8.0;
+    final left = tip -
+        Offset(
+          math.cos(angle - math.pi / 6) * size,
+          math.sin(angle - math.pi / 6) * size,
+        );
+    final right = tip -
+        Offset(
+          math.cos(angle + math.pi / 6) * size,
+          math.sin(angle + math.pi / 6) * size,
+        );
+    canvas.drawLine(tip, left, paint);
+    canvas.drawLine(tip, right, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProductionMapEdgePainter oldDelegate) {
+    return oldDelegate.edges != edges ||
+        oldDelegate.centers != centers ||
+        oldDelegate.color != color;
   }
 }
 
@@ -3841,96 +4131,5 @@ class _DetailRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _SequenceStepTile extends StatelessWidget {
-  const _SequenceStepTile({
-    required this.node,
-    required this.index,
-    required this.isLast,
-  });
-
-  final ProductionMapNode node;
-  final int index;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final icon = switch (node.kind) {
-      'start' => Icons.play_arrow_rounded,
-      'apparatus' => Icons.precision_manufacturing_rounded,
-      'end' => Icons.flag_rounded,
-      _ => Icons.account_tree_outlined,
-    };
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              SizedBox.square(
-                dimension: 34,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 18, color: scheme.onPrimaryContainer),
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 28,
-                  margin: const EdgeInsets.symmetric(vertical: 3),
-                  color: scheme.outlineVariant,
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    node.title.trim().isEmpty
-                        ? 'Qadam ${index + 1}'
-                        : node.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _kindLabel(node.kind),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _kindLabel(String kind) {
-    return switch (kind) {
-      'start' => 'Boshlanish',
-      'apparatus' => 'Aparat',
-      'end' => 'Yakun',
-      _ => kind,
-    };
   }
 }
