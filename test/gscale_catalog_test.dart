@@ -55,6 +55,23 @@ void main() {
       GScaleCatalogItemSource.adminItems,
     );
   });
+
+  test('admin item warehouses include mini erp warehouses', () {
+    final warehouses = mergeGScaleCatalogWarehouses(
+      const [
+        GScaleCatalogWarehouse(warehouse: 'Stores - CH'),
+      ],
+      const [
+        GScaleCatalogWarehouse(warehouse: 'Kalidor'),
+        GScaleCatalogWarehouse(warehouse: 'Ombor'),
+      ],
+    );
+
+    expect(
+      warehouses.map((warehouse) => warehouse.warehouse),
+      ['Stores - CH', 'Kalidor', 'Ombor'],
+    );
+  });
 }
 
 CustomerItemOption _option({

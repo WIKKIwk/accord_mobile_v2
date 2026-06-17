@@ -171,6 +171,7 @@ extension MobileApiAdminItems on MobileApi {
       final normalizedParent = parent.trim().toLowerCase();
       return [
         ...TestModeDemoData.warehouses,
+        ..._testModeWarehouses,
         ..._testModeApparatusWarehouses,
       ]
           .where(
@@ -203,6 +204,49 @@ extension MobileApiAdminItems on MobileApi {
     return json
         .map((item) => AdminWarehouse.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<AdminWarehouse> adminCreateWarehouse(String warehouse) async {
+    final name = warehouse.trim();
+    if (name.isEmpty) {
+      throw Exception('Admin warehouse name required');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final item = AdminWarehouse(
+        warehouse: name,
+        company: '',
+        isGroup: false,
+        parentWarehouse: '',
+      );
+      final index = _testModeWarehouses.indexWhere(
+        (existing) => existing.warehouse.toLowerCase() == name.toLowerCase(),
+      );
+      if (index >= 0) {
+        _testModeWarehouses[index] = item;
+      } else {
+        _testModeWarehouses.add(item);
+      }
+      _testModeWarehouses.sort(
+        (left, right) => left.warehouse.toLowerCase().compareTo(
+              right.warehouse.toLowerCase(),
+            ),
+      );
+      return item;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'warehouse': name}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse create failed');
+    }
+    return AdminWarehouse.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<AdminWarehouse> adminCreateApparatus(String warehouse) async {
