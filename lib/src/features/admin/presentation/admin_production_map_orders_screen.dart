@@ -3457,9 +3457,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             isOrderReady: widget.isOrderReadyForStation,
           )
         : null;
+    final activeOrderId = widget.canManageQueue
+        ? firstInProgressQueueOrderId(
+            sequence: widget.sequenceOrderIds.isNotEmpty
+                ? widget.sequenceOrderIds
+                : widget.visibleOrderIds,
+            states: _queueStates,
+            visibleOrderIds: widget.visibleOrderIds,
+          )
+        : null;
     final freePick = widget.queuePolicy == ApparatusQueuePolicy.freePick;
-    final isActionable =
-        widget.canManageQueue && (freePick || actionableId == orderId);
+    final isActionable = widget.canManageQueue &&
+        (freePick
+            ? activeOrderId == null || activeOrderId == orderId
+            : actionableId == orderId);
     final showStart = isActionable &&
         chainReady &&
         queueState == ApparatusQueueOrderState.pending;

@@ -206,4 +206,12 @@ void main() {
     );
     expect(actionable, 'zakaz-b');
   });
+
+  test('first actionable prioritizes in progress order', () {
+    final actionable = firstActionableQueueOrderId(
+      sequence: const ['zakaz-a', 'zakaz-b'],
+      states: const {'zakaz-b': 'in_progress'},
+    );
+    expect(actionable, 'zakaz-b');
+  });
 }

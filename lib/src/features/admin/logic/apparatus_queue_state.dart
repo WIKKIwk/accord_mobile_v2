@@ -23,6 +23,14 @@ String? firstActionableQueueOrderId({
       ?.map((id) => id.trim())
       .where((id) => id.isNotEmpty)
       .toSet();
+  final active = firstInProgressQueueOrderId(
+    sequence: sequence,
+    states: states,
+    visibleOrderIds: visible,
+  );
+  if (active != null) {
+    return active;
+  }
   for (final id in sequence) {
     final normalized = id.trim();
     if (normalized.isEmpty) {
@@ -39,6 +47,31 @@ String? firstActionableQueueOrderId({
       continue;
     }
     return normalized;
+  }
+  return null;
+}
+
+String? firstInProgressQueueOrderId({
+  required List<String> sequence,
+  required Map<String, String> states,
+  Iterable<String>? visibleOrderIds,
+}) {
+  final visible = visibleOrderIds
+      ?.map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toSet();
+  for (final id in sequence) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) {
+      continue;
+    }
+    if (visible != null && !visible.contains(normalized)) {
+      continue;
+    }
+    if (apparatusQueueOrderStateFromRaw(states[normalized]) ==
+        ApparatusQueueOrderState.inProgress) {
+      return normalized;
+    }
   }
   return null;
 }
