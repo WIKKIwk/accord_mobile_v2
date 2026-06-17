@@ -141,6 +141,100 @@ class AdminWarehouse {
   }
 }
 
+class AdminWarehouseSummary {
+  const AdminWarehouseSummary({
+    required this.warehouse,
+    required this.productCount,
+    required this.reservedCount,
+    required this.assignmentCount,
+    required this.assignedDisplayNames,
+  });
+
+  final String warehouse;
+  final int productCount;
+  final int reservedCount;
+  final int assignmentCount;
+  final List<String> assignedDisplayNames;
+
+  factory AdminWarehouseSummary.fromJson(Map<String, dynamic> json) {
+    return AdminWarehouseSummary(
+      warehouse: json['warehouse']?.toString() ?? '',
+      productCount: (json['product_count'] as num?)?.toInt() ?? 0,
+      reservedCount: (json['reserved_count'] as num?)?.toInt() ?? 0,
+      assignmentCount: (json['assignment_count'] as num?)?.toInt() ?? 0,
+      assignedDisplayNames:
+          (json['assigned_display_names'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false),
+    );
+  }
+}
+
+class AdminRawMaterialStockEntry {
+  const AdminRawMaterialStockEntry({
+    required this.id,
+    required this.warehouse,
+    required this.itemCode,
+    required this.itemName,
+    required this.barcode,
+    required this.qty,
+    required this.uom,
+    required this.status,
+    required this.reservedOrderId,
+    required this.sourceReceiptId,
+  });
+
+  final String id;
+  final String warehouse;
+  final String itemCode;
+  final String itemName;
+  final String barcode;
+  final double qty;
+  final String uom;
+  final String status;
+  final String reservedOrderId;
+  final String sourceReceiptId;
+
+  factory AdminRawMaterialStockEntry.fromJson(Map<String, dynamic> json) {
+    return AdminRawMaterialStockEntry(
+      id: json['id']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      barcode: json['barcode']?.toString() ?? '',
+      qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      uom: json['uom']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      reservedOrderId: json['reserved_order_id']?.toString() ?? '',
+      sourceReceiptId: json['source_receipt_id']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminWarehouseAssignment {
+  const AdminWarehouseAssignment({
+    required this.warehouse,
+    required this.principalRole,
+    required this.principalRef,
+    required this.displayName,
+  });
+
+  final String warehouse;
+  final UserRole principalRole;
+  final String principalRef;
+  final String displayName;
+
+  factory AdminWarehouseAssignment.fromJson(Map<String, dynamic> json) {
+    return AdminWarehouseAssignment(
+      warehouse: json['warehouse']?.toString() ?? '',
+      principalRole: userRoleFromJson(json['principal_role']?.toString() ?? ''),
+      principalRef: json['principal_ref']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? '',
+    );
+  }
+}
+
 class AdminApparatusGroup {
   const AdminApparatusGroup({required this.name, required this.apparatus});
 

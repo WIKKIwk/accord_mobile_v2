@@ -6,6 +6,7 @@ import '../../features/admin/models/production_map_models.dart';
 import '../../features/shared/models/stock_entry_lookup.dart';
 import '../customer/customer_priority.dart';
 import '../notifications/service/push_messaging_service.dart';
+import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../session/session.dart';
@@ -77,6 +78,23 @@ class MobileApi {
       throw Exception('No session token');
     }
     return token;
+  }
+
+  Uri adminWarehouseLiveUri() {
+    final Uri base = Uri.parse(baseUrl);
+    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return base.replace(
+      scheme: scheme,
+      path: '/v1/mobile/admin/warehouses/live',
+      queryParameters: {'token': requireToken()},
+    );
+  }
+
+  Stream<Map<String, dynamic>> adminWarehouseLiveEvents() async* {
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    yield* connectWarehouseLive(adminWarehouseLiveUri());
   }
 
   Future<http.Response> _sendAuthorized(

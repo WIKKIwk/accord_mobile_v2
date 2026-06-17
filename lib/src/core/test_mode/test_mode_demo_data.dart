@@ -35,6 +35,13 @@ class TestModeDemoData {
       itemGroup: 'Demo xomashyo',
     ),
     SupplierItem(
+      code: 'DEMO-INK',
+      name: 'Demo kraska',
+      uom: 'Kg',
+      warehouse: '',
+      itemGroup: 'Kraska',
+    ),
+    SupplierItem(
       code: 'DEMO-PACK',
       name: 'Qadoq quti',
       uom: 'Dona',
@@ -47,6 +54,13 @@ class TestModeDemoData {
       uom: 'Dona',
       warehouse: 'Tayyor mahsulot ombori - DEMO',
       itemGroup: 'Demo tayyor mahsulotlar',
+    ),
+    SupplierItem(
+      code: 'DEMO-DRINK',
+      name: 'Demo ichimlik',
+      uom: 'Dona',
+      warehouse: '',
+      itemGroup: 'Ichimlik',
     ),
   ];
 
@@ -72,6 +86,21 @@ class TestModeDemoData {
     ),
     AdminWarehouse(warehouse: 'Laminatsiya 1', parentWarehouse: 'aparat - A'),
     AdminWarehouse(warehouse: 'Laminatsiya 2', parentWarehouse: 'aparat - A'),
+  ];
+
+  static const List<AdminRawMaterialStockEntry> rawMaterialStock = [
+    AdminRawMaterialStockEntry(
+      id: 'raw:30aa',
+      warehouse: 'Xomashyo ombori - DEMO',
+      itemCode: 'DEMO-RAW-001',
+      itemName: 'Demo xomashyo rulon',
+      barcode: '30AA',
+      qty: 12,
+      uom: 'Kg',
+      status: 'available',
+      reservedOrderId: '',
+      sourceReceiptId: 'GSR-30AA',
+    ),
   ];
 
   static const List<AdminApparatusGroup> apparatusGroups = [
@@ -150,12 +179,46 @@ class TestModeDemoData {
   ];
 
   static const List<String> itemGroups = [
+    'Homashyo',
+    'Kraska',
+    'Tayyor mahsulot',
+    'Ichimlik',
     'Demo tayyor mahsulotlar',
     'Demo xomashyo',
     'Demo qadoqlash',
   ];
 
   static const List<AdminItemGroupTreeEntry> itemGroupTree = [
+    AdminItemGroupTreeEntry(
+      name: 'all-item-groups',
+      itemGroupName: 'All Item Groups',
+      parentItemGroup: '',
+      isGroup: true,
+    ),
+    AdminItemGroupTreeEntry(
+      name: 'homashyo',
+      itemGroupName: 'Homashyo',
+      parentItemGroup: 'All Item Groups',
+      isGroup: true,
+    ),
+    AdminItemGroupTreeEntry(
+      name: 'kraska',
+      itemGroupName: 'Kraska',
+      parentItemGroup: 'Homashyo',
+      isGroup: true,
+    ),
+    AdminItemGroupTreeEntry(
+      name: 'tayyor-mahsulot',
+      itemGroupName: 'Tayyor mahsulot',
+      parentItemGroup: 'All Item Groups',
+      isGroup: true,
+    ),
+    AdminItemGroupTreeEntry(
+      name: 'ichimlik',
+      itemGroupName: 'Ichimlik',
+      parentItemGroup: 'Tayyor mahsulot',
+      isGroup: true,
+    ),
     AdminItemGroupTreeEntry(
       name: 'demo-ready',
       itemGroupName: 'Demo tayyor mahsulotlar',

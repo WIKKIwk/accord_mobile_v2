@@ -179,6 +179,12 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       label: 'Tezkor zakazlar',
       routeName: AppRoutes.adminCalculateOrders,
     ),
+    const _AdminDrawerDestination(
+      icon: Icons.warehouse_outlined,
+      selectedIcon: Icons.warehouse_rounded,
+      label: 'Ombor',
+      routeName: AppRoutes.adminWarehouses,
+    ),
     _AdminDrawerDestination(
       icon: Icons.admin_panel_settings_outlined,
       selectedIcon: Icons.admin_panel_settings_rounded,

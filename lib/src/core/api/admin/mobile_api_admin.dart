@@ -6,6 +6,7 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 ];
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final List<AdminWarehouse> _testModeWarehouses = [];
+final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
@@ -31,6 +32,21 @@ void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
   _testModeWorkerCodes.clear();
+}
+
+String _adminWarehouseRoleToJson(UserRole role) {
+  switch (role) {
+    case UserRole.admin:
+      return 'admin';
+    case UserRole.supplier:
+      return 'supplier';
+    case UserRole.werka:
+      return 'werka';
+    case UserRole.customer:
+      return 'customer';
+    case UserRole.aparatchi:
+      return 'aparatchi';
+  }
 }
 
 class ProductionMapSaveWithOrderResult {

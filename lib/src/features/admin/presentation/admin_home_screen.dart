@@ -263,6 +263,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.grid_view_rounded,
       routeName: AppRoutes.adminItemBulkMove,
     ),
+    const _AdminHomeAction(
+      title: 'Ombor',
+      icon: Icons.warehouse_rounded,
+      routeName: AppRoutes.adminWarehouses,
+    ),
     _AdminHomeAction(
       title: l10n.adminCreateItemGroupTitle,
       icon: Icons.account_tree_outlined,

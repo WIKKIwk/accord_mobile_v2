@@ -206,6 +206,72 @@ extension MobileApiAdminItems on MobileApi {
         .toList();
   }
 
+  Future<List<AdminWarehouseSummary>> adminWarehouseSummaries({
+    String query = '',
+    int limit = 50,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeWarehouseSummaries(query: query, limit: limit);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses/summary')
+            .replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (limit > 0) 'limit': '$limit',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse summaries failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) =>
+            AdminWarehouseSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<AdminRawMaterialStockEntry>> adminRawMaterialStock({
+    String warehouse = '',
+    int limit = 500,
+  }) async {
+    final normalizedWarehouse = warehouse.trim().toLowerCase();
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.rawMaterialStock
+          .where(
+            (item) =>
+                normalizedWarehouse.isEmpty ||
+                item.warehouse.trim().toLowerCase() == normalizedWarehouse,
+          )
+          .take(limit)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock')
+            .replace(
+          queryParameters: {
+            if (warehouse.trim().isNotEmpty) 'warehouse': warehouse.trim(),
+            if (limit > 0) 'limit': '$limit',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin raw material stock failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) =>
+            AdminRawMaterialStockEntry.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<AdminWarehouse> adminCreateWarehouse(String warehouse) async {
     final name = warehouse.trim();
     if (name.isEmpty) {
@@ -245,6 +311,98 @@ extension MobileApiAdminItems on MobileApi {
       throw Exception('Admin warehouse create failed');
     }
     return AdminWarehouse.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<AdminWarehouseAssignment>> adminWarehouseAssignments({
+    String warehouse = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalized = warehouse.trim().toLowerCase();
+      return _testModeWarehouseAssignments
+          .where(
+            (item) =>
+                normalized.isEmpty ||
+                item.warehouse.trim().toLowerCase() == normalized,
+          )
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments',
+        ).replace(
+          queryParameters: {
+            if (warehouse.trim().isNotEmpty) 'warehouse': warehouse.trim(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse assignments failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+          (item) =>
+              AdminWarehouseAssignment.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<AdminWarehouseAssignment> adminAssignWarehouse({
+    required String warehouse,
+    required UserRole principalRole,
+    required String principalRef,
+    required String displayName,
+  }) async {
+    final normalizedWarehouse = warehouse.trim();
+    final normalizedRef = principalRef.trim();
+    if (normalizedWarehouse.isEmpty || normalizedRef.isEmpty) {
+      throw Exception('Admin warehouse assignment input required');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final assignment = AdminWarehouseAssignment(
+        warehouse: normalizedWarehouse,
+        principalRole: principalRole,
+        principalRef: normalizedRef,
+        displayName: displayName.trim(),
+      );
+      final index = _testModeWarehouseAssignments.indexWhere(
+        (item) =>
+            item.warehouse.trim().toLowerCase() ==
+                normalizedWarehouse.toLowerCase() &&
+            item.principalRole == principalRole &&
+            item.principalRef.trim().toLowerCase() ==
+                normalizedRef.toLowerCase(),
+      );
+      if (index >= 0) {
+        _testModeWarehouseAssignments[index] = assignment;
+      } else {
+        _testModeWarehouseAssignments.add(assignment);
+      }
+      return assignment;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': normalizedWarehouse,
+          'principal_role': _adminWarehouseRoleToJson(principalRole),
+          'principal_ref': normalizedRef,
+          'display_name': displayName.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse assignment failed');
+    }
+    return AdminWarehouseAssignment.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
@@ -340,4 +498,146 @@ extension MobileApiAdminItems on MobileApi {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+}
+
+List<AdminWarehouseSummary> _testModeWarehouseSummaries({
+  required String query,
+  required int limit,
+}) {
+  final normalizedQuery = query.trim().toLowerCase();
+  final warehouses = [
+    ...TestModeDemoData.warehouses,
+    ..._testModeWarehouses,
+  ].where((warehouse) => warehouse.parentWarehouse.trim().isEmpty).toList();
+  final rawWarehouse = _findNamedWarehouse(warehouses, _isRawWarehouseName);
+  final finishedWarehouse =
+      _findNamedWarehouse(warehouses, _isFinishedWarehouseName);
+  final parentByGroup = {
+    for (final group in TestModeDemoData.itemGroupTree)
+      group.name.trim().toLowerCase(): group.parentItemGroup.trim(),
+  };
+  final productCounts = <String, int>{};
+  final stockWarehouseByBarcode = <String, String>{};
+
+  void addProduct(String warehouse) {
+    final normalized = warehouse.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    productCounts[normalized] = (productCounts[normalized] ?? 0) + 1;
+  }
+
+  for (final item in TestModeDemoData.items) {
+    addProduct(
+      item.warehouse.trim().isNotEmpty
+          ? item.warehouse
+          : _warehouseForGroup(
+              item.itemGroup,
+              parentByGroup,
+              rawWarehouse,
+              finishedWarehouse,
+            ),
+    );
+  }
+  for (final stock in TestModeDemoData.rawMaterialStock) {
+    addProduct(stock.warehouse);
+    stockWarehouseByBarcode[stock.barcode.trim().toLowerCase()] =
+        stock.warehouse.trim();
+  }
+
+  final reservedCounts = <String, int>{};
+  for (final assignment in _testModeRawMaterialAssignments) {
+    final warehouse =
+        stockWarehouseByBarcode[assignment.barcode.trim().toLowerCase()] ?? '';
+    if (warehouse.isEmpty) {
+      continue;
+    }
+    reservedCounts[warehouse] = (reservedCounts[warehouse] ?? 0) + 1;
+  }
+
+  final assignmentsByWarehouse = <String, List<AdminWarehouseAssignment>>{};
+  for (final assignment in _testModeWarehouseAssignments) {
+    assignmentsByWarehouse
+        .putIfAbsent(assignment.warehouse.trim(), () => [])
+        .add(assignment);
+  }
+
+  final names = <String>{};
+  for (final warehouse in warehouses) {
+    names.add(warehouse.warehouse.trim());
+  }
+  names.addAll(productCounts.keys);
+  names.addAll(reservedCounts.keys);
+  names.addAll(assignmentsByWarehouse.keys);
+  final summaries = names
+      .where((name) =>
+          name.trim().isNotEmpty &&
+          (normalizedQuery.isEmpty ||
+              name.toLowerCase().contains(normalizedQuery)))
+      .map((warehouse) {
+    final assignments = assignmentsByWarehouse[warehouse] ?? const [];
+    return AdminWarehouseSummary(
+      warehouse: warehouse,
+      productCount: productCounts[warehouse] ?? 0,
+      reservedCount: reservedCounts[warehouse] ?? 0,
+      assignmentCount: assignments.length,
+      assignedDisplayNames: assignments
+          .map((item) => item.displayName.trim().isEmpty
+              ? item.principalRef
+              : item.displayName)
+          .toList(growable: false),
+    );
+  }).toList()
+    ..sort(
+      (left, right) =>
+          left.warehouse.toLowerCase().compareTo(right.warehouse.toLowerCase()),
+    );
+  return summaries.take(limit).toList(growable: false);
+}
+
+String _findNamedWarehouse(
+  List<AdminWarehouse> warehouses,
+  bool Function(String) matcher,
+) {
+  for (final warehouse in warehouses) {
+    final name = warehouse.warehouse.trim();
+    if (matcher(name.toLowerCase())) {
+      return name;
+    }
+  }
+  return '';
+}
+
+String _warehouseForGroup(
+  String group,
+  Map<String, String> parentByGroup,
+  String rawWarehouse,
+  String finishedWarehouse,
+) {
+  var current = group.trim();
+  final visited = <String>{};
+  while (current.isNotEmpty) {
+    final normalized = current.toLowerCase();
+    if (!visited.add(normalized)) {
+      return '';
+    }
+    if (rawWarehouse.isNotEmpty && _isRawWarehouseName(normalized)) {
+      return rawWarehouse;
+    }
+    if (finishedWarehouse.isNotEmpty && _isFinishedWarehouseName(normalized)) {
+      return finishedWarehouse;
+    }
+    current = parentByGroup[normalized] ?? '';
+  }
+  return '';
+}
+
+bool _isRawWarehouseName(String value) {
+  final normalized = value.toLowerCase();
+  return normalized.contains('homashyo') || normalized.contains('xomashyo');
+}
+
+bool _isFinishedWarehouseName(String value) {
+  final normalized = value.toLowerCase();
+  return normalized.contains('tayyor') && normalized.contains('mahsulot');
 }
