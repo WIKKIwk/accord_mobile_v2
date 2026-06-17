@@ -134,16 +134,52 @@ void main() {
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
+
+  test('raw material assignment explains occupied barcode', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-2',
+          barcode: 'RM-001',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu homashyo boshqa zakaz uchun band qilingan',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_already_assigned',
+            ));
+  });
 }
 
 class _RawMaterialApiHttpClient implements HttpClient {
   _RawMaterialApiHttpClient(
     this.seenRequests, {
     this.queueActionErrorCode = '',
+    this.assignmentErrorCode = '',
   });
 
   final List<String> seenRequests;
   final String queueActionErrorCode;
+  final String assignmentErrorCode;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -174,6 +210,17 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'item_groups': ['Kraska'],
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':
+        if (assignmentErrorCode.isNotEmpty) {
+          body = {'error': assignmentErrorCode};
+          return _FakeHttpClientRequest(
+            response: _FakeHttpClientResponse(
+              body: jsonEncode(body),
+              statusCode: HttpStatus.badRequest,
+              requestKey: key,
+              seenRequests: seenRequests,
+            ),
+          );
+        }
         body = const {
           'order_id': 'zakaz-1',
           'apparatus': 'Pechat',

@@ -222,6 +222,27 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+      'quick order details hide duplicate customer and product subtitles',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(
+      tester,
+      template: _template(
+        itemCode: 'Vesta kotta',
+        customer: 'Akfa vesta',
+        customerRef: 'Akfa vesta',
+        product: 'Vesta kotta',
+      ),
+    );
+
+    final customerRows = tester.widgetList<Text>(find.text('Akfa vesta'));
+    final productRows = tester.widgetList<Text>(find.text('Vesta kotta'));
+
+    expect(customerRows.where((widget) => widget.maxLines == 1), isEmpty);
+    expect(productRows.where((widget) => widget.maxLines == 1), isEmpty);
+  });
 }
 
 Future<void> _pumpCalculateScreen(
@@ -265,6 +286,9 @@ Future<void> _pumpCalculateScreen(
 CalculateOrderTemplate _template({
   required String itemCode,
   String sourceMapId = '',
+  String customer = 'Mijoz',
+  String customerRef = 'CUST-001',
+  String product = 'zenit frutto ninja 70 gr',
 }) {
   return CalculateOrderTemplate(
     id: 'template-1',
@@ -272,10 +296,10 @@ CalculateOrderTemplate _template({
     name: 'Zenit order',
     savedAt: DateTime.utc(2026, 6, 11),
     orderNumber: '',
-    customerRef: 'CUST-001',
-    customer: 'Mijoz',
+    customerRef: customerRef,
+    customer: customer,
     itemCode: itemCode,
-    product: 'zenit frutto ninja 70 gr',
+    product: product,
     status: 'Ready',
     materialDisplay: '',
     color: '',

@@ -258,6 +258,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
+      'raw_material_already_assigned' =>
+        'Bu homashyo boshqa zakaz uchun band qilingan',
       'raw_material_group_not_allowed' =>
         'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',

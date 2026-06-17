@@ -1272,6 +1272,7 @@ class _ChecklistRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final value = data.formattedValue;
+    final subtitle = data.displaySubtitle;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1302,10 +1303,10 @@ class _ChecklistRow extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              if (data.subtitle.trim().isNotEmpty) ...[
+              if (subtitle.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Text(
-                  data.subtitle.trim(),
+                  subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1344,6 +1345,18 @@ class _ChecklistRowData {
     final unit = suffix.trim();
     return unit.isEmpty ? trimmed : '$trimmed $unit';
   }
+
+  String get displaySubtitle {
+    final trimmed = subtitle.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    return _sameChecklistText(trimmed, formattedValue) ? '' : trimmed;
+  }
+}
+
+bool _sameChecklistText(String left, String right) {
+  return left.trim().toLowerCase() == right.trim().toLowerCase();
 }
 
 String _layerValue(String material, String micron) {
