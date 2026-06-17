@@ -30,6 +30,16 @@ import 'package:http/http.dart' as http;
 
 enum _OpenedOrderModule { orders, move, sequence }
 
+class _WorkerWatchTab {
+  const _WorkerWatchTab.apparatus(this.apparatus) : isCompleted = false;
+  const _WorkerWatchTab.completed()
+      : apparatus = null,
+        isCompleted = true;
+
+  final AdminWarehouse? apparatus;
+  final bool isCompleted;
+}
+
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
 
@@ -142,6 +152,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
+  List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   bool _queueActionInFlight = false;
 
   @override
@@ -295,7 +306,8 @@ class _AdminProductionMapOrdersScreenState
     if (!mounted) {
       return;
     }
-    if (widget.workerMode && apparatus.length != _apparatus.length) {
+    if (widget.workerMode &&
+        _workerWatchTabCount(apparatus) != _tabController.length) {
       _recreateWorkerTabController(apparatus);
     }
     setState(() {
@@ -318,6 +330,7 @@ class _AdminProductionMapOrdersScreenState
       _queuePoliciesByApparatus
         ..clear()
         ..addAll(snapshot.queuePolicies);
+      _completedWorkerOrders = snapshot.completedOrders;
       _loading = false;
     });
   }
@@ -335,6 +348,7 @@ class _AdminProductionMapOrdersScreenState
         if (widget.workerMode) {
           await _refreshMapsAndApparatus(initial: runInitial);
           await _refreshQueueSnapshot();
+          await _refreshWorkerCompletedOrders();
         } else {
           await Future.wait([
             _refreshMapsAndApparatus(initial: runInitial),
@@ -376,6 +390,24 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
+  Future<void> _refreshWorkerCompletedOrders() async {
+    if (!widget.workerMode) {
+      return;
+    }
+    try {
+      final completed =
+          await MobileApi.instance.adminCompletedProductionMapOrders();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _completedWorkerOrders = completed;
+      });
+    } catch (_) {
+      return;
+    }
+  }
+
   Future<void> _refreshMapsAndApparatus({bool initial = false}) async {
     if (!initial && _mapsRefreshInFlight) {
       return;
@@ -405,7 +437,8 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       if (widget.workerMode &&
-          (initial || apparatus.length != _apparatus.length)) {
+          (initial ||
+              _workerWatchTabCount(apparatus) != _tabController.length)) {
         _recreateWorkerTabController(apparatus);
       }
       setState(() {
@@ -530,8 +563,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _recreateWorkerTabController(List<AdminWarehouse> apparatus) {
-    final length = apparatus.isEmpty ? 1 : apparatus.length;
-    final initialIndex = _initialWatchTabIndex(apparatus).clamp(0, length - 1);
+    final length = _workerWatchTabCount(apparatus);
     if (_tabController.length == length) {
       return;
     }
@@ -539,11 +571,37 @@ class _AdminProductionMapOrdersScreenState
     _tabController = TabController(
       length: length,
       vsync: this,
-      initialIndex: initialIndex,
+      initialIndex: 0,
     );
   }
 
-  int _initialWatchTabIndex(List<AdminWarehouse> apparatus) {
+  int _workerWatchTabCount(List<AdminWarehouse> apparatus) {
+    return apparatus.isEmpty ? 1 : apparatus.length + 1;
+  }
+
+  List<AdminWarehouse> _workerWatchApparatusOrder() {
+    final ordered = List<AdminWarehouse>.from(_apparatus);
+    final index = _initialWatchApparatusIndex(ordered);
+    if (index > 0) {
+      final assigned = ordered.removeAt(index);
+      ordered.insert(0, assigned);
+    }
+    return ordered;
+  }
+
+  List<_WorkerWatchTab> _workerWatchTabs() {
+    final ordered = _workerWatchApparatusOrder();
+    if (ordered.isEmpty) {
+      return const [];
+    }
+    return [
+      _WorkerWatchTab.apparatus(ordered.first),
+      const _WorkerWatchTab.completed(),
+      for (final item in ordered.skip(1)) _WorkerWatchTab.apparatus(item),
+    ];
+  }
+
+  int _initialWatchApparatusIndex(List<AdminWarehouse> apparatus) {
     final assigned = AppSession.instance.profile?.assignedApparatus
             .map((item) => item.trim())
             .where((item) => item.isNotEmpty) ??
@@ -925,7 +983,36 @@ class _AdminProductionMapOrdersScreenState
         ...byId.values,
       ];
     }
+    if (widget.workerMode) {
+      final states = _queueStatesForApparatus(apparatus);
+      ordered = ordered
+          .where(
+            (order) =>
+                apparatusQueueOrderStateFromRaw(
+                  states[order.map.id.trim()],
+                ) !=
+                ApparatusQueueOrderState.completed,
+          )
+          .toList(growable: false);
+    }
     return widget.workerMode ? _filterOrdersBySearch(ordered) : ordered;
+  }
+
+  List<ProductionMapSaved> _workerCompletedOrders() {
+    final byId = {for (final order in _orders) order.map.id.trim(): order};
+    final seen = <String>{};
+    final orders = <ProductionMapSaved>[];
+    for (final completed in _completedWorkerOrders) {
+      final orderId = completed.orderId.trim();
+      if (orderId.isEmpty || !seen.add(orderId)) {
+        continue;
+      }
+      final order = byId[orderId];
+      if (order != null) {
+        orders.add(order);
+      }
+    }
+    return _filterOrdersBySearch(orders);
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({
@@ -1637,6 +1724,7 @@ class _AdminProductionMapOrdersScreenState
         child: _EmptyOpenedOrders(message: 'Aparatlar topilmadi'),
       );
     }
+    final tabs = _workerWatchTabs();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1648,11 +1736,8 @@ class _AdminProductionMapOrdersScreenState
             tabAlignment: TabAlignment.start,
             labelPadding: const EdgeInsets.symmetric(horizontal: 16),
             tabs: [
-              for (final item in _apparatus)
-                Tab(
-                  height: 38,
-                  text: productionMapPechatTabLabel(item.warehouse),
-                ),
+              for (final tab in tabs)
+                Tab(height: 38, text: _workerWatchTabLabel(tab)),
             ],
           ),
         ),
@@ -1660,16 +1745,25 @@ class _AdminProductionMapOrdersScreenState
           child: TabBarView(
             controller: _tabController,
             children: [
-              for (final item in _apparatus)
-                _AparatchiWatchSequencePage(
-                  apparatus: item,
-                  orders: _ordersForApparatus(item),
-                  bottomPadding: bottomPadding,
-                  isAssigned: _isAssignedWatchApparatus(item),
-                  queueStates: _queueStatesForApparatus(item),
-                  onTapOrder: (order) =>
-                      _showWatchOrderDetail(apparatus: item, order: order),
-                ),
+              for (final tab in tabs)
+                if (tab.isCompleted)
+                  _AparatchiCompletedOrdersPage(
+                    orders: _workerCompletedOrders(),
+                    bottomPadding: bottomPadding,
+                    onTapOrder: _showOrderDetail,
+                  )
+                else
+                  _AparatchiWatchSequencePage(
+                    apparatus: tab.apparatus!,
+                    orders: _ordersForApparatus(tab.apparatus!),
+                    bottomPadding: bottomPadding,
+                    isAssigned: _isAssignedWatchApparatus(tab.apparatus!),
+                    queueStates: _queueStatesForApparatus(tab.apparatus!),
+                    onTapOrder: (order) => _showWatchOrderDetail(
+                      apparatus: tab.apparatus!,
+                      order: order,
+                    ),
+                  ),
             ],
           ),
         ),
@@ -1683,6 +1777,13 @@ class _AdminProductionMapOrdersScreenState
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
       _OpenedOrderModule.move => 'Ko‘chirish',
     };
+  }
+
+  String _workerWatchTabLabel(_WorkerWatchTab tab) {
+    if (tab.isCompleted) {
+      return 'Tugallangan';
+    }
+    return productionMapPechatTabLabel(tab.apparatus!.warehouse);
   }
 }
 
@@ -1780,6 +1881,58 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     queueStates[orders[index].map.id.trim()],
                   ),
                 ),
+                order: orders[index],
+                index: index,
+                readOnly: true,
+                onTap: () => onTapOrder(orders[index]),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _AparatchiCompletedOrdersPage extends StatelessWidget {
+  const _AparatchiCompletedOrdersPage({
+    required this.orders,
+    required this.bottomPadding,
+    required this.onTapOrder,
+  });
+
+  final List<ProductionMapSaved> orders;
+  final double bottomPadding;
+  final ValueChanged<ProductionMapSaved> onTapOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Tugallangan zakazlar',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (orders.isEmpty)
+          const _EmptyOpenedOrders(message: 'Tugallangan zakaz yo‘q')
+        else
+          for (var index = 0; index < orders.length; index++)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: index < orders.length - 1 ? 8 : 0,
+              ),
+              child: _SequenceOrderRow(
+                slot: M3SegmentVerticalSlot.top,
+                borderRadiusOverride: BorderRadius.circular(
+                  M3SegmentedListGeometry.cornerLarge,
+                ),
+                backgroundColor: const Color(0xFFC8E6C9),
                 order: orders[index],
                 index: index,
                 readOnly: true,

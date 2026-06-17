@@ -2259,6 +2259,89 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
+  testWidgets('worker completed orders move to own completed tab', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-completed-token',
+      profile: const SessionProfile(
+        role: UserRole.werka,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'worker-completed-1',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['7 ta rangli pechat'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-worker-completed-1',
+        title: 'Worker completed order 1',
+        productCode: 'WCD-A',
+        apparatus: '7 ta rangli pechat',
+        product: 'worker completed mahsulot 1',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-worker-completed-2',
+        title: 'Worker completed order 2',
+        productCode: 'WCD-B',
+        apparatus: '7 ta rangli pechat',
+        product: 'worker completed mahsulot 2',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: '7 ta rangli pechat',
+      orderIds: const [
+        'zakaz-worker-completed-1',
+        'zakaz-worker-completed-2',
+      ],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugallangan'), findsOneWidget);
+    expect(find.textContaining('Worker completed order 1'), findsOneWidget);
+
+    await tester.tap(find.textContaining('worker-completed-1').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Worker completed order 1'), findsNothing);
+
+    await tester.tap(find.text('Tugallangan'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Worker completed order 1'), findsOneWidget);
+    expect(find.textContaining('Worker completed order 2'), findsNothing);
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier', (
     tester,
   ) async {

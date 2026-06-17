@@ -10,6 +10,7 @@ final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
+final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final List<AdminWorker> _testModeWorkers = [];
@@ -52,6 +53,36 @@ class AdminApparatusQueueSnapshot {
   final Map<String, List<String>> sequences;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
+}
+
+class AdminCompletedQueueOrder {
+  const AdminCompletedQueueOrder({
+    required this.apparatus,
+    required this.orderId,
+    required this.completedAtUnix,
+  });
+
+  final String apparatus;
+  final String orderId;
+  final int completedAtUnix;
+
+  factory AdminCompletedQueueOrder.fromJson(Map<String, dynamic> json) {
+    return AdminCompletedQueueOrder(
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class _TestModeCompletedQueueOrder {
+  const _TestModeCompletedQueueOrder({
+    required this.actorRef,
+    required this.order,
+  });
+
+  final String actorRef;
+  final AdminCompletedQueueOrder order;
 }
 
 enum ApparatusQueuePolicy {
@@ -198,15 +229,18 @@ class AdminProductionMapLiveSnapshot {
     required this.sequences,
     required this.queueStates,
     required this.queuePolicies,
+    required this.completedOrders,
   });
 
   final List<ProductionMapSaved> maps;
   final Map<String, List<String>> sequences;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
+  final List<AdminCompletedQueueOrder> completedOrders;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
+    final completedRaw = json['completed_orders'];
     return AdminProductionMapLiveSnapshot(
       maps: [
         if (mapsRaw is List)
@@ -222,6 +256,11 @@ class AdminProductionMapLiveSnapshot {
       queuePolicies: MobileApi.instance.parseApparatusQueuePolicyMap(
         json['queue_policies'],
       ),
+      completedOrders: [
+        if (completedRaw is List)
+          for (final item in completedRaw)
+            AdminCompletedQueueOrder.fromJson(item as Map<String, dynamic>),
+      ],
     );
   }
 }
@@ -811,6 +850,33 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<List<AdminCompletedQueueOrder>>
+      adminCompletedProductionMapOrders() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
+      return [
+        for (final item in _testModeCompletedQueueOrders)
+          if (item.actorRef == actorRef) item.order,
+      ];
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/completed-orders'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'completed_orders');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['completed_orders'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminCompletedQueueOrder.fromJson(item as Map<String, dynamic>),
+    ];
+  }
+
   Future<Map<String, AdminApparatusQueuePolicy>>
       adminApparatusQueuePolicies() async {
     if (await TestModeController.instance.isEnabled()) {
@@ -1167,6 +1233,26 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         states[orderId.trim()] = 'completed';
+        final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
+        final completedOrderId = orderId.trim();
+        if (actorRef.isNotEmpty && completedOrderId.isNotEmpty) {
+          _testModeCompletedQueueOrders.removeWhere(
+            (item) =>
+                item.actorRef == actorRef &&
+                item.order.orderId == completedOrderId,
+          );
+          _testModeCompletedQueueOrders.insert(
+            0,
+            _TestModeCompletedQueueOrder(
+              actorRef: actorRef,
+              order: AdminCompletedQueueOrder(
+                apparatus: storageKey,
+                orderId: completedOrderId,
+                completedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              ),
+            ),
+          );
+        }
       } else {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
