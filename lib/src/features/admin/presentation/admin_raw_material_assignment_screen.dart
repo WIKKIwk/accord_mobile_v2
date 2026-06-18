@@ -115,7 +115,9 @@ class _AdminRawMaterialAssignmentScreenState
         return;
       }
       setState(() {
-        _scannedBarcode = barcode;
+        _scannedBarcode = '';
+        _scannedMaterial = null;
+        _scanLookupError = '';
         _assignments = [
           saved,
           for (final item in _assignments)

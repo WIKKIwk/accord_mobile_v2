@@ -119,6 +119,51 @@ void main() {
       expect(find.text('INK-BLACK'), findsOneWidget);
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
+
+  testWidgets('assignment screen clears scanned detail after save', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('QR skanerlash'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '30AA');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(find.text('Homashyo ma’lumoti'), findsOneWidget);
+
+      await tester.tap(find.text('Ulash'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/raw-material-assignments '
+          '{"order_id":"zakaz-1","barcode":"30AA"}',
+        ),
+      );
+      expect(find.text('Homashyo ma’lumoti'), findsNothing);
+      expect(find.text('zakaz-1 · 30AA'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
 }
 
 class _RawMaterialAssignmentHttpClient implements HttpClient {
@@ -163,6 +208,21 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           'item_group': 'Kraska',
           'qty': 12,
           'uom': 'Kg',
+        };
+      case 'POST /v1/mobile/admin/raw-material-assignments':
+        body = const {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': '30AA',
+          'item_code': 'INK-BLACK',
+          'item_name': 'Black ink',
+          'item_group': 'Kraska',
+          'assigned_by_ref': 'admin',
+          'assigned_by_display_name': 'Admin',
+          'assigned_at': '2026-06-18T08:00:00Z',
+          'stock_status': 'available',
+          'reserved_order_id': '',
+          'stock_warehouse': 'Kalidor',
         };
       case 'GET /v1/mobile/admin/items':
         body = const [];

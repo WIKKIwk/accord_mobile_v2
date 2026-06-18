@@ -266,6 +266,41 @@ void main() {
               assignmentErrorCode: 'raw_material_already_assigned',
             ));
   });
+
+  test('raw material assignment explains barcode already linked to same order',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-1',
+          barcode: 'RM-001',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu homashyo allaqachon shu zakazga ulangan',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_already_assigned_to_order',
+            ));
+  });
 }
 
 class _RawMaterialApiHttpClient implements HttpClient {

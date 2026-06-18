@@ -425,6 +425,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'raw_material_already_assigned' =>
         'Bu homashyo boshqa zakaz uchun band qilingan',
+      'raw_material_already_assigned_to_order' =>
+        'Bu homashyo allaqachon shu zakazga ulangan',
       'raw_material_group_not_allowed' =>
         'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
@@ -1192,6 +1194,22 @@ extension MobileApiAdmin on MobileApi {
         assignedByRef: AppSession.instance.profile?.ref ?? '',
         assignedByName: AppSession.instance.profile?.displayName ?? '',
       );
+      final assignmentBarcode = assignment.barcode.trim().toUpperCase();
+      final existing = _testModeRawMaterialAssignments.where(
+        (item) => item.barcode.trim().toUpperCase() == assignmentBarcode,
+      );
+      for (final item in existing) {
+        if (item.orderId.trim() == assignment.orderId.trim()) {
+          throw const MobileApiException(
+            code: 'raw_material_already_assigned_to_order',
+            message: 'Bu homashyo allaqachon shu zakazga ulangan',
+          );
+        }
+        throw const MobileApiException(
+          code: 'raw_material_already_assigned',
+          message: 'Bu homashyo boshqa zakaz uchun band qilingan',
+        );
+      }
       _testModeRawMaterialAssignments.removeWhere(
         (item) =>
             item.orderId.trim() == assignment.orderId.trim() &&
