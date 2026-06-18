@@ -11,6 +11,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/admin_store.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_summary_card.dart';
 import 'package:flutter/material.dart';
@@ -67,15 +68,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   void _openDrawerRoute(String routeName) {
-    if (_openingRoute) {
-      return;
-    }
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
-    _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   Future<void> _openAndReload(String routeName) async {

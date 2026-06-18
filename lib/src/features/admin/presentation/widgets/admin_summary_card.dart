@@ -12,6 +12,7 @@ class AdminSummaryCard extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.showChevron = true,
+    this.trailing,
     this.titleStyle,
     this.subtitleStyle,
     this.valueStyle,
@@ -36,6 +37,7 @@ class AdminSummaryCard extends StatelessWidget {
   final String? subtitle;
   final Widget? leading;
   final bool showChevron;
+  final Widget? trailing;
   final TextStyle? titleStyle;
   final TextStyle? subtitleStyle;
   final TextStyle? valueStyle;
@@ -120,6 +122,7 @@ class AdminSummaryCard extends StatelessWidget {
                         ),
                   ),
                 ],
+                if (trailing != null) ...[trailing!],
                 if (showChevron) ...[
                   SizedBox(width: showValue ? 8 : 16),
                   Icon(

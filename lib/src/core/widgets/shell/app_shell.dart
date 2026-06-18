@@ -6,6 +6,7 @@ import '../display/shared_header_title.dart';
 import 'app_loading_indicator.dart';
 import '../navigation/dock_gesture_overlay.dart';
 import '../navigation/dock_system_bottom_inset.dart';
+import '../navigation/native_back_button.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
@@ -208,6 +209,14 @@ class _AppShellState extends State<AppShell>
       return widget.leading;
     }
     if (widget.drawer != null && widget.titleWidget == null) {
+      final route = ModalRoute.of(context);
+      final canNavigateBack =
+          (route?.canPop ?? false) && !(route?.isFirst ?? true);
+      if (canNavigateBack) {
+        return NativeBackButtonSlot(
+          onPressed: () => Navigator.of(context).maybePop(),
+        );
+      }
       return IconButton(
         icon: const Icon(Icons.menu),
         tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
@@ -243,6 +252,13 @@ class _AppShellState extends State<AppShell>
         ),
       ],
     );
+  }
+
+  double _drawerEdgeDragTopInset(BuildContext context) {
+    if (!widget.nativeTopBar) {
+      return 0;
+    }
+    return MediaQuery.paddingOf(context).top + AppTheme.appBarHeight;
   }
 
   @override
@@ -361,7 +377,7 @@ class _AppShellState extends State<AppShell>
                   if (!drawerBlocking)
                     PositionedDirectional(
                       start: 0,
-                      top: 0,
+                      top: _drawerEdgeDragTopInset(context),
                       bottom: 0,
                       width: _drawerEdgeDragWidth,
                       child: GestureDetector(

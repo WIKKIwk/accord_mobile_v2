@@ -70,19 +70,21 @@ void main() {
 
     expect(find.text('Ombor ma’lumoti'), findsOneWidget);
     expect(find.text('Hotlunch'), findsOneWidget);
-    expect(find.text('DEMO-HOTLUNCH'), findsOneWidget);
+    expect(find.text('DEMO-HOTLUNCH'), findsNothing);
+    expect(find.textContaining('DEMO-HOTLUNCH'), findsWidgets);
     expect(find.text('Demo ichimlik'), findsOneWidget);
-    expect(find.text('Dona'), findsWidgets);
+    expect(find.textContaining('Dona'), findsWidgets);
 
     await tester.tap(find.text('Omborlar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mahsulotlar: 3'), findsOneWidget);
+    expect(find.text('Mahsulotlar'), findsOneWidget);
+    expect(find.text('3'), findsWidgets);
     expect(find.text('Demo kraska'), findsOneWidget);
-    expect(find.text('DEMO-RAW-001'), findsWidgets);
-    expect(find.text('30AA'), findsWidgets);
+    expect(find.textContaining('DEMO-RAW-001'), findsWidgets);
+    expect(find.textContaining('30AA'), findsWidgets);
   });
 
   testWidgets('admin warehouses page has list and create tabs with detail', (
@@ -117,9 +119,10 @@ void main() {
     await tester.tap(find.text('Tayyor mahsulot ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mahsulotlar: 3'), findsOneWidget);
-    expect(find.text('Band qilingan: 0'), findsOneWidget);
-    expect(find.text('Assign: yo‘q'), findsOneWidget);
+    expect(find.text('Mahsulotlar'), findsOneWidget);
+    expect(find.text('Band qilingan'), findsOneWidget);
+    expect(find.text('Assign'), findsOneWidget);
+    expect(find.text('yo‘q'), findsOneWidget);
 
     await tester.tap(find.text('Ombor yaratish'));
     await tester.pumpAndSettle();

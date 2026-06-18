@@ -26,7 +26,7 @@ class AdminDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final homeLabel = l10n?.adminHomeNavTitle ?? 'Uy';
-    final usersLabel = l10n?.adminWorkersNavTitle ?? 'Ishchilar';
+    final usersLabel = l10n?.adminUsersTitle ?? 'Foydalanuvchilar';
     final createLabel = l10n?.adminCreateTitle ?? 'Yangi';
     final activityLabel = l10n?.adminActivityNavTitle ?? 'Faoliyat';
     return AnimatedBuilder(
@@ -175,7 +175,7 @@ List<_AdminDockDestination> _visibleDestinations({
       label: usersLabel,
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
-      routeName: AppRoutes.adminWorkerSettings,
+      routeName: AppRoutes.adminSuppliers,
     ),
     _AdminDockDestination(
       id: 'admin-create',

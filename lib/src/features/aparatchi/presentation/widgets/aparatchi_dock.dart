@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
@@ -39,9 +40,9 @@ class AparatchiDock extends StatelessWidget {
             if (onTabSelected != null) {
               onTabSelected!(AparatchiDockTab.home);
             } else {
-              Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRootNavigation.replaceRootRoute(
+                context,
                 AppRoutes.apparatusQueue,
-                (route) => false,
               );
             }
             return;
@@ -53,9 +54,7 @@ class AparatchiDock extends StatelessWidget {
             if (onTabSelected != null) {
               onTabSelected!(AparatchiDockTab.profile);
             } else {
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil(AppRoutes.profile, (route) => false);
+              AppRootNavigation.replaceRootRoute(context, AppRoutes.profile);
             }
           }
         }

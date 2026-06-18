@@ -1,4 +1,3 @@
-import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -8,6 +7,8 @@ import '../models/admin_item_group_tree_entry.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'admin_item_group_bulk_move_screen.dart';
+import 'widgets/admin_catalog_search_field.dart';
+import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
@@ -265,7 +266,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final searchActive = _itemsSearchFocusNode.hasFocus;
     return AppShell(
       title: '',
@@ -273,9 +273,10 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      titleWidget: _AdminItemProductSearchField(
+      titleWidget: AdminCatalogSearchField(
         controller: _itemsSearchController,
         focusNode: _itemsSearchFocusNode,
+        hintText: 'Mahsulot qidirish',
         onActivate: _activateItemsTab,
         onChanged: (value) =>
             _itemsListTabKey.currentState?.notifySearchChanged(value),
@@ -283,6 +284,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
           _itemsSearchController.clear();
           _itemsListTabKey.currentState?.notifySearchChanged('');
         },
+        searchCloseKey: const ValueKey('admin-item-search-close'),
       ),
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
@@ -295,26 +297,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
               alignment: Alignment.topCenter,
               child: searchActive
                   ? const SizedBox.shrink()
-                  : Material(
-                      color: theme.colorScheme.surfaceContainer,
-                      child: TabBar(
-                        controller: _tabController,
-                        labelColor: theme.colorScheme.primary,
-                        unselectedLabelColor:
-                            theme.colorScheme.onSurfaceVariant,
-                        labelStyle: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w400,
-                        ),
-                        unselectedLabelStyle:
-                            theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w400,
-                        ),
-                        tabs: const [
-                          Tab(height: 38, text: 'Itemlar'),
-                          Tab(height: 38, text: 'Item yaratish'),
-                          Tab(height: 38, text: "Group ko'chirish"),
-                        ],
-                      ),
+                  : AdminSurfaceTabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(height: 38, text: 'Itemlar'),
+                        Tab(height: 38, text: 'Item yaratish'),
+                        Tab(height: 38, text: "Group ko'chirish"),
+                      ],
                     ),
             ),
           ),
@@ -1075,211 +1064,6 @@ List<String> orderAdminItemGroupsByParent(
     ordered.add(queue[index]);
   }
   return ordered;
-}
-
-class _AdminItemProductSearchField extends StatelessWidget {
-  const _AdminItemProductSearchField({
-    required this.controller,
-    required this.focusNode,
-    required this.onActivate,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final VoidCallback onActivate;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final searchFill = Color.alphaBlend(
-      scheme.outlineVariant.withValues(alpha: 0.22),
-      scheme.surfaceContainerHighest,
-    );
-    return ListenableBuilder(
-      listenable: Listenable.merge([controller, focusNode]),
-      builder: (context, _) {
-        final hasText = controller.text.trim().isNotEmpty;
-        final searchActive = focusNode.hasFocus;
-        final showHint = !hasText && !searchActive;
-        final field = Container(
-          height: 58,
-          decoration: BoxDecoration(
-            color: searchFill,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            children: [
-              const SizedBox(width: 18),
-              Expanded(
-                child: SizedBox(
-                  height: 58,
-                  child: Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: (_) => onActivate(),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Align(
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: 20,
-                            child: EditableText(
-                              controller: controller,
-                              focusNode: focusNode,
-                              onChanged: onChanged,
-                              textAlign: TextAlign.start,
-                              textInputAction: TextInputAction.search,
-                              maxLines: 1,
-                              cursorColor: scheme.primary,
-                              backgroundCursorColor:
-                                  scheme.surfaceContainerHighest,
-                              style: theme.textTheme.bodyMedium!.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w400,
-                                height: 1.2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (!hasText)
-                          Align(
-                            alignment: Alignment.center,
-                            child: AnimatedOpacity(
-                              opacity: showHint ? 1 : 0,
-                              duration: const Duration(milliseconds: 150),
-                              curve: Curves.easeOut,
-                              child: IgnorePointer(
-                                child: Text(
-                                  'Mahsulot qidirish',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (searchActive)
-                SizedBox.square(
-                  dimension: 48,
-                  child: IconButton(
-                    key: const ValueKey('admin-item-search-close'),
-                    tooltip: 'Yopish',
-                    onPressed: focusNode.unfocus,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else if (hasText)
-                SizedBox.square(
-                  dimension: 48,
-                  child: IconButton(
-                    tooltip: 'Tozalash',
-                    onPressed: onClear,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 18),
-            ],
-          ),
-        );
-        return SizedBox(
-          width: MediaQuery.sizeOf(context).width - 20,
-          height: AppTheme.appBarHeight,
-          child: Align(
-            alignment: Alignment.center,
-            child: Row(
-              children: [
-                AnimatedContainer(
-                  width: searchActive ? 0 : 38,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  child: ClipRect(
-                    child: AnimatedOpacity(
-                      opacity: searchActive ? 0 : 1,
-                      duration: const Duration(milliseconds: 120),
-                      child: IconButton(
-                        tooltip: MaterialLocalizations.of(
-                          context,
-                        ).backButtonTooltip,
-                        style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: Icon(
-                          Icons.arrow_back_rounded,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                AnimatedContainer(
-                  width: searchActive ? 0 : 6,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                ),
-                Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, -1),
-                    child: field,
-                  ),
-                ),
-                AnimatedContainer(
-                  width: searchActive ? 0 : 6,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                ),
-                AnimatedContainer(
-                  width: searchActive ? 0 : 38,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  child: ClipRect(
-                    child: AnimatedSlide(
-                      offset: searchActive ? const Offset(1, 0) : Offset.zero,
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
-                      child: AnimatedOpacity(
-                        opacity: searchActive ? 0 : 1,
-                        duration: const Duration(milliseconds: 120),
-                        child: IconButton.filledTonal(
-                          tooltip: 'Profil',
-                          style: IconButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                          ),
-                          onPressed: () => Navigator.of(context).pushNamed(
-                            AppRoutes.profile,
-                          ),
-                          icon: const Icon(Icons.person_rounded, size: 22),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _TapBox extends StatelessWidget {

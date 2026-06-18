@@ -1,16 +1,68 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_item_group_items_tab.dart';
 import 'widgets/admin_item_group_parent_move_tab.dart';
 import 'widgets/admin_item_group_tree_tab.dart';
+import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
-const double _itemGroupCornerRadius = 8;
+const double _itemGroupPanelGap = 4;
+
+InputDecoration _itemGroupFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  OutlineInputBorder outline({Color? color, double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    filled: true,
+    fillColor: scheme.surface,
+    border: outline(),
+    enabledBorder: outline(),
+    focusedBorder: outline(color: scheme.primary, width: 1.2),
+    errorBorder: outline(color: scheme.error),
+    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
+  );
+}
+
+Widget _itemGroupSurfaceCard({
+  required BuildContext context,
+  required Widget child,
+  M3SegmentVerticalSlot? slot,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final resolvedSlot = slot ?? M3SegmentVerticalSlot.top;
+  final radius = M3SegmentedListGeometry.borderRadius(
+    resolvedSlot,
+    slot == null
+        ? M3SegmentedListGeometry.cornerLarge
+        : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
+  );
+  return Material(
+    color: scheme.surface,
+    elevation: 2,
+    shadowColor: scheme.shadow.withValues(alpha: 0.16),
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: radius),
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
+  );
+}
 
 class AdminItemGroupCreateScreen extends StatefulWidget {
   const AdminItemGroupCreateScreen({super.key});
@@ -20,27 +72,29 @@ class AdminItemGroupCreateScreen extends StatefulWidget {
       _AdminItemGroupCreateScreenState();
 }
 
-class _AdminItemGroupCreateScreenState
-    extends State<AdminItemGroupCreateScreen> {
+class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController name = TextEditingController();
   final TextEditingController parent = TextEditingController();
   late Future<List<String>> itemGroupsFuture;
   late Future<List<AdminItemGroupTreeEntry>> itemGroupTreeFuture;
+  late TabController _tabController;
   final List<String> optimisticParentGroups = [];
   bool saving = false;
   bool isGroup = true;
-  bool parentMenuOpen = false;
   String? selectedItemGroup;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     itemGroupsFuture = _loadParentGroups();
     itemGroupTreeFuture = _loadItemGroupTree();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     name.dispose();
     parent.dispose();
     super.dispose();
@@ -104,20 +158,6 @@ class _AdminItemGroupCreateScreenState
     setState(() => selectedItemGroup = group);
   }
 
-  void _toggleParentMenu(bool open) {
-    if (parentMenuOpen == open) {
-      return;
-    }
-    setState(() => parentMenuOpen = open);
-  }
-
-  void _selectParent(String group) {
-    setState(() {
-      parent.text = group;
-      parentMenuOpen = false;
-    });
-  }
-
   void _syncParentSelection(List<String> groups) {
     final current = parent.text.trim();
     if (current.isNotEmpty && groups.contains(current)) {
@@ -129,6 +169,45 @@ class _AdminItemGroupCreateScreenState
     if (fallback.isNotEmpty) {
       parent.text = fallback;
     }
+  }
+
+  Future<void> _openParentPicker(List<String> groups) async {
+    if (saving || groups.isEmpty) {
+      return;
+    }
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<String>(
+          title: 'Parent group tanlang',
+          hintText: 'Parent group qidiring',
+          pageSize: 50,
+          loadPage: (query, offset, limit) async {
+            final normalizedQuery = query.trim().toLowerCase();
+            final filtered = normalizedQuery.isEmpty
+                ? groups
+                : groups.where((group) {
+                    return group.toLowerCase().contains(normalizedQuery);
+                  }).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (group) => group,
+          itemSubtitle: (_) => '',
+          onSelected: (group) => Navigator.of(context).pop(group),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => parent.text = picked);
   }
 
   Future<void> _save() async {
@@ -170,63 +249,61 @@ class _AdminItemGroupCreateScreenState
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
-      child: DefaultTabController(
-        length: 4,
-        child: Column(
-          children: [
-            const TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                Tab(text: 'Group yaratish'),
-                Tab(text: 'Parent ko‘chirish'),
-                Tab(text: 'Tree'),
-                Tab(text: 'Items'),
+      child: Column(
+        children: [
+          AdminSurfaceTabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: const [
+              Tab(height: 38, text: 'Group yaratish'),
+              Tab(height: 38, text: 'Parent ko‘chirish'),
+              Tab(height: 38, text: 'Tree'),
+              Tab(height: 38, text: 'Items'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _CreateGroupTab(
+                  name: name,
+                  parent: parent,
+                  itemGroupsFuture: itemGroupsFuture,
+                  saving: saving,
+                  isGroup: isGroup,
+                  onSyncParent: _syncParentSelection,
+                  onOpenParentPicker: _openParentPicker,
+                  onIsGroupChanged: saving
+                      ? null
+                      : (value) => setState(() => isGroup = value),
+                  onSave: saving ? null : _save,
+                ),
+                AdminItemGroupParentMoveTab(
+                  itemGroupsFuture: itemGroupsFuture,
+                  onMoved: _handleMoved,
+                ),
+                AdminItemGroupTreeTab(
+                  itemGroupTreeFuture: itemGroupTreeFuture,
+                  onRefresh: _reloadItemGroupTree,
+                  onShowItems: _selectItemGroupForItems,
+                  onNavigateToItemsTab: () => _tabController.animateTo(3),
+                ),
+                AdminItemGroupItemsTab(
+                  itemGroupsFuture: itemGroupsFuture,
+                  selectedGroup: selectedItemGroup,
+                  onSelectGroup: _selectItemGroupForItems,
+                  loadItemsPage: (group, limit, offset) =>
+                      MobileApi.instance.adminItemsPage(
+                        group: group,
+                        limit: limit,
+                        offset: offset,
+                      ),
+                ),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _CreateGroupTab(
-                    name: name,
-                    parent: parent,
-                    itemGroupsFuture: itemGroupsFuture,
-                    saving: saving,
-                    isGroup: isGroup,
-                    parentMenuOpen: parentMenuOpen,
-                    onSyncParent: _syncParentSelection,
-                    onToggleParentMenu: _toggleParentMenu,
-                    onSelectParent: _selectParent,
-                    onIsGroupChanged: saving
-                        ? null
-                        : (value) => setState(() => isGroup = value),
-                    onSave: saving ? null : _save,
-                  ),
-                  AdminItemGroupParentMoveTab(
-                    itemGroupsFuture: itemGroupsFuture,
-                    onMoved: _handleMoved,
-                  ),
-                  AdminItemGroupTreeTab(
-                    itemGroupTreeFuture: itemGroupTreeFuture,
-                    onRefresh: _reloadItemGroupTree,
-                    onShowItems: _selectItemGroupForItems,
-                  ),
-                  AdminItemGroupItemsTab(
-                    itemGroupsFuture: itemGroupsFuture,
-                    selectedGroup: selectedItemGroup,
-                    onSelectGroup: _selectItemGroupForItems,
-                    loadItemsPage: (group, limit, offset) =>
-                        MobileApi.instance.adminItemsPage(
-                          group: group,
-                          limit: limit,
-                          offset: offset,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -239,10 +316,8 @@ class _CreateGroupTab extends StatelessWidget {
     required this.itemGroupsFuture,
     required this.saving,
     required this.isGroup,
-    required this.parentMenuOpen,
     required this.onSyncParent,
-    required this.onToggleParentMenu,
-    required this.onSelectParent,
+    required this.onOpenParentPicker,
     required this.onIsGroupChanged,
     required this.onSave,
   });
@@ -252,244 +327,158 @@ class _CreateGroupTab extends StatelessWidget {
   final Future<List<String>> itemGroupsFuture;
   final bool saving;
   final bool isGroup;
-  final bool parentMenuOpen;
   final ValueChanged<List<String>> onSyncParent;
-  final ValueChanged<bool> onToggleParentMenu;
-  final ValueChanged<String> onSelectParent;
+  final Future<void> Function(List<String> groups) onOpenParentPicker;
   final ValueChanged<bool>? onIsGroupChanged;
   final VoidCallback? onSave;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-      children: [
-        TextField(
-          controller: name,
-          decoration: _itemGroupInputDecoration('Group nomi'),
+    final scheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 116;
+    return ColoredBox(
+      color: scheme.surfaceContainerHighest,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          _itemGroupPanelGap,
+          _itemGroupPanelGap,
+          _itemGroupPanelGap,
+          bottomPadding,
         ),
-        const SizedBox(height: 12),
-        FutureBuilder<List<String>>(
-          future: itemGroupsFuture,
-          builder: (context, snapshot) {
-            final groups = snapshot.data ?? const <String>[];
-            if (snapshot.connectionState == ConnectionState.done &&
-                !snapshot.hasError) {
-              onSyncParent(groups);
-            }
-            final selectedParent = parent.text.trim().isEmpty
-                ? null
-                : parent.text.trim();
-            return Column(
+        children: [
+          _itemGroupSurfaceCard(
+            context: context,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Parent group',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                TextField(
+                  controller: name,
+                  textInputAction: TextInputAction.next,
+                  decoration: _itemGroupFieldDecoration(
+                    context,
+                    labelText: 'Group nomi',
                   ),
-                ),
-                const SizedBox(height: 6),
-                _TapBox(
-                  onTap:
-                      snapshot.connectionState == ConnectionState.done &&
-                          !snapshot.hasError &&
-                          !saving
-                      ? () => onToggleParentMenu(!parentMenuOpen)
-                      : null,
-                  borderRadius: _itemGroupCornerRadius,
-                  child: _SelectionBox(
-                    label: selectedParent ?? 'Parent tanlang',
-                    selected: selectedParent != null,
-                  ),
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: parentMenuOpen
-                      ? _ParentMenu(
-                          groups: groups,
-                          selectedParent: selectedParent,
-                          saving: saving,
-                          onSelect: onSelectParent,
-                        )
-                      : const SizedBox.shrink(),
                 ),
                 const SizedBox(height: 12),
+                FutureBuilder<List<String>>(
+                  future: itemGroupsFuture,
+                  builder: (context, snapshot) {
+                    final groups = snapshot.data ?? const <String>[];
+                    if (snapshot.connectionState == ConnectionState.done &&
+                        !snapshot.hasError) {
+                      onSyncParent(groups);
+                    }
+                    final selectedParent = parent.text.trim().isEmpty
+                        ? null
+                        : parent.text.trim();
+                    final pickerReady =
+                        snapshot.connectionState == ConnectionState.done &&
+                        !snapshot.hasError &&
+                        !saving;
+                    return _ItemGroupPickerField(
+                      label: 'Parent group',
+                      value: selectedParent,
+                      placeholder: 'Parent tanlang',
+                      enabled: pickerReady,
+                      onTap: pickerReady
+                          ? () => onOpenParentPicker(groups)
+                          : null,
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: isGroup,
+                  onChanged: onIsGroupChanged,
+                  title: const Text('Ichida yana guruh bo‘ladi'),
+                  subtitle: const Text(
+                    'Parent sifatida ishlatiladigan group uchun yoqing. '
+                    'Oxirgi/leaf group bo‘lsa o‘chiring.',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: onSave,
+                  child: Text(
+                    saving ? 'Yaratilmoqda...' : 'Item Group yaratish',
+                  ),
+                ),
               ],
-            );
-          },
-        ),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          value: isGroup,
-          onChanged: onIsGroupChanged,
-          title: const Text('Ichida yana guruh bo‘ladi'),
-          subtitle: const Text(
-            'Parent sifatida ishlatiladigan group uchun yoqing. '
-            'Oxirgi/leaf group bo‘lsa o‘chiring.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemGroupPickerField extends StatelessWidget {
+  const _ItemGroupPickerField({
+    required this.label,
+    required this.value,
+    required this.placeholder,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final String? value;
+  final String placeholder;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: onSave,
-            child: Text(saving ? 'Yaratilmoqda...' : 'Item Group yaratish'),
+        const SizedBox(height: 6),
+        Material(
+          color: scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      value ?? placeholder,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: value == null
+                            ? scheme.onSurfaceVariant
+                            : scheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SelectionBox extends StatelessWidget {
-  const _SelectionBox({required this.label, required this.selected});
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(_itemGroupCornerRadius),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: selected
-                    ? Theme.of(context).colorScheme.onSurface
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(
-            Icons.expand_more_rounded,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-InputDecoration _itemGroupInputDecoration(String label) {
-  const border = OutlineInputBorder(
-    borderRadius: BorderRadius.all(Radius.circular(_itemGroupCornerRadius)),
-  );
-  return const InputDecoration(
-    labelText: '',
-    border: border,
-    enabledBorder: border,
-    focusedBorder: border,
-  ).copyWith(labelText: label);
-}
-
-class _ParentMenu extends StatelessWidget {
-  const _ParentMenu({
-    required this.groups,
-    required this.selectedParent,
-    required this.saving,
-    required this.onSelect,
-  });
-
-  final List<String> groups;
-  final String? selectedParent;
-  final bool saving;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int index = 0; index < groups.length; index++) ...[
-            if (index > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: Theme.of(
-                  context,
-                ).colorScheme.outlineVariant.withValues(alpha: 0.6),
-              ),
-            Material(
-              color: groups[index] == selectedParent
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: 0.55)
-                  : Colors.transparent,
-              child: InkWell(
-                onTap: saving ? null : () => onSelect(groups[index]),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 13,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          groups[index],
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      if (groups[index] == selectedParent)
-                        const Icon(Icons.check_rounded, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TapBox extends StatelessWidget {
-  const _TapBox({
-    required this.child,
-    required this.onTap,
-    required this.borderRadius,
-  });
-
-  final Widget child;
-  final VoidCallback? onTap;
-  final double borderRadius;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: child,
-      ),
     );
   }
 }

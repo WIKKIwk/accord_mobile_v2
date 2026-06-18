@@ -12,6 +12,7 @@ import '../../shared/models/app_models.dart';
 import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -70,15 +71,11 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
   }
 
   void _openDrawerRoute(String routeName) {
-    if (_openingRoute) {
-      return;
-    }
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
-    _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   Future<void> _openRoleEditor(

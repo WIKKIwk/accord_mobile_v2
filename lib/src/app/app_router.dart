@@ -246,6 +246,8 @@ class AppRouter {
     AppRoutes.adminSupplierItemsAdd,
     AppRoutes.adminWerka,
     AppRoutes.adminWorkerSettings,
+    AppRoutes.adminWarehouses,
+    AppRoutes.adminSuppliers,
   };
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {

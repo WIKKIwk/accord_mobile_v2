@@ -4,8 +4,11 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../state/calculate_order_store.dart';
+import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -20,6 +23,7 @@ class AdminCalculateOrdersScreen extends StatefulWidget {
 class _AdminCalculateOrdersScreenState
     extends State<AdminCalculateOrdersScreen> {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   bool _openingRoute = false;
   bool _loading = true;
   String _searchQuery = '';
@@ -32,6 +36,7 @@ class _AdminCalculateOrdersScreenState
 
   @override
   void dispose() {
+    _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -45,15 +50,11 @@ class _AdminCalculateOrdersScreenState
   }
 
   void _openDrawerRoute(String routeName) {
-    if (_openingRoute) {
-      return;
-    }
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
-    _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   void _openTemplate(CalculateOrderTemplate template) {
@@ -107,101 +108,59 @@ class _AdminCalculateOrdersScreenState
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final scheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 240.0;
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
         selectedRouteName: AppRoutes.adminCalculateOrders,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Tezkor zakazlar',
+      title: '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      titleWidget: AdminCatalogSearchField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        hintText: 'Zakaz qidirish',
+        onChanged: _onSearchChanged,
+        onClear: () {
+          _searchController.clear();
+          _onSearchChanged('');
+        },
+      ),
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: _loading
-          ? const Center(child: AppLoadingIndicator())
-          : AnimatedBuilder(
-              animation: CalculateOrderTemplateStore.instance,
-              builder: (context, _) {
-                final templates =
-                    CalculateOrderTemplateStore.instance.templates;
-                final visibleTemplates = _visibleTemplates(templates);
-                return ListView(
-                  padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
-                  children: [
-                    _OrderSearchField(
-                      controller: _searchController,
-                      onChanged: _onSearchChanged,
-                      onClear: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
-                    ),
-                    if (templates.isEmpty)
-                      const _EmptyOrders(message: 'Saqlangan zakaz yo‘q')
-                    else if (visibleTemplates.isEmpty)
-                      const _EmptyOrders(message: 'Zakaz topilmadi')
-                    else
-                      _OrderListModule(
-                        templates: visibleTemplates,
-                        onTapTemplate: _openTemplate,
-                        onDeleteTemplate: _deleteTemplate,
-                      ),
-                  ],
-                );
-              },
-            ),
-    );
-  }
-}
-
-class _OrderSearchField extends StatelessWidget {
-  const _OrderSearchField({
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          final hasText = controller.text.trim().isNotEmpty;
-          return TextField(
-            controller: controller,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Zakaz qidirish',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: hasText
-                  ? IconButton(
-                      tooltip: 'Tozalash',
-                      onPressed: onClear,
-                      icon: const Icon(Icons.close_rounded),
-                    )
-                  : null,
-              filled: true,
-              fillColor: scheme.surfaceContainer,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(22),
-                borderSide: BorderSide.none,
+      child: ColoredBox(
+        color: scheme.surfaceContainerHighest,
+        child: _loading
+            ? const Center(child: AppLoadingIndicator())
+            : AnimatedBuilder(
+                animation: CalculateOrderTemplateStore.instance,
+                builder: (context, _) {
+                  final templates =
+                      CalculateOrderTemplateStore.instance.templates;
+                  final visibleTemplates = _visibleTemplates(templates);
+                  return ListView(
+                    padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+                    children: [
+                      if (templates.isEmpty)
+                        const _EmptyOrders(message: 'Saqlangan zakaz yo‘q')
+                      else if (visibleTemplates.isEmpty)
+                        const _EmptyOrders(message: 'Zakaz topilmadi')
+                      else
+                        _OrderListModule(
+                          templates: visibleTemplates,
+                          onTapTemplate: _openTemplate,
+                          onDeleteTemplate: _deleteTemplate,
+                        ),
+                    ],
+                  );
+                },
               ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -221,7 +180,7 @@ class _OrderListModule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return M3SegmentSpacedColumn(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.zero,
       children: [
         for (int index = 0; index < templates.length; index++)
           _OrderRow(
@@ -253,85 +212,52 @@ class _OrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final subtitle = [
       if (template.customer.trim().isNotEmpty) template.customer.trim(),
       if (template.product.trim().isNotEmpty) template.product.trim(),
       if (template.widthMm > 0) '${_fmt(template.widthMm)} mm',
       if (template.wastePercent >= 0) 'Atxod ${_fmt(template.wastePercent)}%',
     ].join(' • ');
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
-    return Material(
-      color: scheme.surface,
-      borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 30,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.calculate_outlined,
-                    color: scheme.onPrimaryContainer,
-                    size: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _orderTitle(template),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.05,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'O‘chirish',
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
+
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: scheme.surface,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+      value: '',
+      showChevron: true,
+      onTap: onTap,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.calculate_outlined,
+            size: 16,
+            color: scheme.onSecondaryContainer,
           ),
         ),
+      ),
+      title: _orderTitle(template),
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      trailing: IconButton(
+        tooltip: 'O‘chirish',
+        onPressed: onDelete,
+        icon: const Icon(Icons.delete_outline_rounded),
       ),
     );
   }
@@ -344,22 +270,14 @@ class _EmptyOrders extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(18),
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outlineVariant),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-      child: Text(
-        message,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w800,
-        ),
-      ),
+      child: Text(message, textAlign: TextAlign.center),
     );
   }
 }

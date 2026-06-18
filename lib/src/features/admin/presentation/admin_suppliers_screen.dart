@@ -11,6 +11,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_supplier_list_module.dart';
 
 class AdminSuppliersScreen extends StatefulWidget {
@@ -293,15 +294,11 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   }
 
   void _openDrawerRoute(String routeName) {
-    if (_openingRoute) {
-      return;
-    }
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
-    _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   void _selectKind(AdminUserKind kind) {

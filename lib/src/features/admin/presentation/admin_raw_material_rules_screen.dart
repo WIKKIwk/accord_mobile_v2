@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -7,8 +8,40 @@ import '../../shared/models/app_models.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
+
+const double _rawMaterialRulesPanelGap = 4;
+
+InputDecoration _rawMaterialRuleFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? hintText,
+  Widget? suffixIcon,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  OutlineInputBorder outline({Color? color, double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: scheme.surface,
+    border: outline(),
+    enabledBorder: outline(),
+    focusedBorder: outline(color: scheme.primary, width: 1.2),
+    errorBorder: outline(color: scheme.error),
+    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
+  );
+}
 
 class AdminRawMaterialRulesScreen extends StatefulWidget {
   const AdminRawMaterialRulesScreen({super.key});
@@ -19,9 +52,11 @@ class AdminRawMaterialRulesScreen extends StatefulWidget {
 }
 
 class _AdminRawMaterialRulesScreenState
-    extends State<AdminRawMaterialRulesScreen> {
+    extends State<AdminRawMaterialRulesScreen>
+    with SingleTickerProviderStateMixin {
   final _groupsController = TextEditingController();
   late Future<_RawMaterialRulesData> _future;
+  late TabController _tabController;
   List<AdminRawMaterialRule> _rules = const [];
   String _selectedApparatus = '';
   bool _selectedRequiresMaterial = false;
@@ -30,11 +65,13 @@ class _AdminRawMaterialRulesScreenState
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _future = _load();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _groupsController.dispose();
     super.dispose();
   }
@@ -66,7 +103,7 @@ class _AdminRawMaterialRulesScreenState
     if (current == routeName) {
       return;
     }
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   void _fillGroupsFor(String apparatus) {
@@ -231,7 +268,7 @@ class _AdminRawMaterialRulesScreenState
       subtitle: '',
       nativeTopBar: true,
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
-      contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+      contentPadding: EdgeInsets.zero,
       child: FutureBuilder<_RawMaterialRulesData>(
         future: _future,
         builder: (context, snapshot) {
@@ -247,26 +284,28 @@ class _AdminRawMaterialRulesScreenState
           }
           final data = snapshot.data!;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
-          return DefaultTabController(
-            length: 2,
-            child: Column(
-              children: [
-                Material(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.antiAlias,
-                  child: const TabBar(
-                    tabs: [
-                      Tab(text: 'Qoidalar'),
-                      Tab(text: 'Majburiylik'),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      ListView(
-                        padding: EdgeInsets.fromLTRB(0, 10, 0, bottomPadding),
+          return Column(
+            children: [
+              AdminSurfaceTabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(height: 38, text: 'Qoidalar'),
+                  Tab(height: 38, text: 'Majburiylik'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: ListView(
+                        padding: EdgeInsets.fromLTRB(
+                          _rawMaterialRulesPanelGap,
+                          10,
+                          _rawMaterialRulesPanelGap,
+                          bottomPadding,
+                        ),
                         children: [
                           _RuleEditor(
                             apparatus: data.apparatus,
@@ -284,34 +323,45 @@ class _AdminRawMaterialRulesScreenState
                                 _pickGroups(data.rawMaterialGroups),
                             onSave: _save,
                           ),
-                          const SizedBox(height: 12),
-                          for (final rule in _rules)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _RuleTile(
-                                rule: rule,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedApparatus = rule.apparatus;
-                                    _fillGroupsFor(rule.apparatus);
-                                  });
-                                },
-                              ),
+                          if (_rules.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            M3SegmentSpacedColumn(
+                              padding: EdgeInsets.zero,
+                              children: [
+                                for (var index = 0; index < _rules.length; index++)
+                                  _RuleTile(
+                                    slot:
+                                        M3SegmentedListGeometry
+                                            .standaloneListSlotForIndex(
+                                      index,
+                                      _rules.length,
+                                    ),
+                                    rule: _rules[index],
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedApparatus = _rules[index].apparatus;
+                                        _fillGroupsFor(_rules[index].apparatus);
+                                      });
+                                      _tabController.animateTo(0);
+                                    },
+                                  ),
+                              ],
                             ),
+                          ],
                         ],
                       ),
-                      _RequiredMaterialsTab(
-                        apparatus: data.apparatus,
-                        rules: _rules,
-                        saving: _saving,
-                        bottomPadding: bottomPadding,
-                        onChanged: _setRequiresMaterial,
-                      ),
-                    ],
-                  ),
+                    ),
+                    _RequiredMaterialsTab(
+                      apparatus: data.apparatus,
+                      rules: _rules,
+                      saving: _saving,
+                      bottomPadding: bottomPadding,
+                      onChanged: _setRequiresMaterial,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
@@ -374,16 +424,15 @@ class _RuleEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
+    return Material(
       color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -391,9 +440,9 @@ class _RuleEditor extends StatelessWidget {
               key: ValueKey(selectedApparatus),
               initialValue:
                   selectedApparatus.isEmpty ? null : selectedApparatus,
-              decoration: const InputDecoration(
+              decoration: _rawMaterialRuleFieldDecoration(
+                context,
                 labelText: 'Aparat',
-                border: OutlineInputBorder(),
               ),
               items: [
                 for (final item in apparatus)
@@ -417,11 +466,11 @@ class _RuleEditor extends StatelessWidget {
               onTap: saving ? null : onPickGroups,
               minLines: 1,
               maxLines: 3,
-              decoration: const InputDecoration(
+              decoration: _rawMaterialRuleFieldDecoration(
+                context,
                 labelText: 'Homashyo guruhlari',
                 hintText: 'Tanlang',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.arrow_drop_down_rounded),
+                suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
               ),
             ),
             const SizedBox(height: 10),
@@ -524,8 +573,13 @@ class _RawMaterialGroupPickerDialogState
 }
 
 class _RuleTile extends StatelessWidget {
-  const _RuleTile({required this.rule, required this.onTap});
+  const _RuleTile({
+    required this.slot,
+    required this.rule,
+    required this.onTap,
+  });
 
+  final M3SegmentVerticalSlot slot;
   final AdminRawMaterialRule rule;
   final VoidCallback onTap;
 
@@ -533,23 +587,80 @@ class _RuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
     return Material(
       color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        leading: const Icon(Icons.precision_manufacturing_rounded),
-        title: Text(rule.apparatus),
-        subtitle: Text(
-          '${rule.itemGroups.join(', ')}\n'
-          '${rule.requiresMaterial ? 'Homashyo majburiy' : 'Homashyo ixtiyoriy'}',
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 30,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.precision_manufacturing_rounded,
+                    size: 16,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      rule.apparatus,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      rule.itemGroups.join(', '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      rule.requiresMaterial
+                          ? 'Homashyo majburiy'
+                          : 'Homashyo ixtiyoriy',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.05,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
-        isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right_rounded),
       ),
     );
   }
@@ -584,7 +695,7 @@ class _RequiredMaterialsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: EdgeInsets.fromLTRB(0, 10, 0, bottomPadding),
+      padding: EdgeInsets.fromLTRB(12, 10, 12, bottomPadding),
       itemCount: apparatus.length,
       itemBuilder: (context, index) {
         final item = apparatus[index];

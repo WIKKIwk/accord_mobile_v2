@@ -15,6 +15,7 @@ import '../logic/production_map_pechat_rules.dart';
 import 'admin_production_map_test_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -175,15 +176,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   void _openDrawerRoute(String routeName) {
-    if (_openingRoute) {
-      return;
-    }
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
-    _openingRoute = true;
-    Navigator.of(context).pushNamedAndRemoveUntil(routeName, (route) => false);
+    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   Future<void> _openOrders() async {
@@ -312,6 +309,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       final source = await MobileApi.instance.adminProductionMap(sourceMapId);
       final sourceMap = source.map.withoutAlternativeAssignments();
       final normalizedOrder = orderNumber.trim();
+      final kg = _parseRequiredDouble(_kg.text);
+      final baseLength = _result != null && _result!.results.isNotEmpty
+          ? _result!.results.first.baseLength
+          : null;
       final clonedMap = sourceMap.copyWith(
         id: 'zakaz-$normalizedOrder',
         title: _resolvedOrderName(),
@@ -322,12 +323,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             : sourceMap.productCode,
         rollCount: _parseOptionalDouble(_rollCount.text),
         widthMm: _parseOptionalDouble(_widthMm.text),
+        orderKg: kg,
+        baseLength: baseLength,
       );
       final draft = _buildTemplateDraft().copyWith(
         id: '',
         code: normalizedOrder,
         orderNumber: normalizedOrder,
-        kg: _parseRequiredDouble(_kg.text),
+        kg: kg,
         sourceMapId: sourceMapId,
       );
       final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
@@ -908,6 +911,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final children =
         _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
@@ -933,14 +937,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       bottom: const AdminDock(activeTab: AdminDockTab.home),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
-            children: children,
+      child: ColoredBox(
+        color: scheme.surfaceContainerHighest,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+              children: children,
+            ),
           ),
         ),
       ),
@@ -1081,106 +1088,119 @@ class _SavedTemplateSummary extends StatelessWidget {
     final scheme = theme.colorScheme;
     final imageTitle =
         imageName.trim().isEmpty ? 'Rasm biriktirilgan' : imageName.trim();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+    final resolvedTitle = title.trim().isEmpty ? 'Zakaz' : title.trim();
+
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title.trim().isEmpty ? 'Zakaz' : title.trim(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              resolvedTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (imageUrl.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _showCalculateImageDialog(context, imageUrl),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: AspectRatio(
+                    aspectRatio: 2.35,
+                    child: _ImagePreview(localPath: '', imageUrl: imageUrl),
                   ),
                 ),
               ),
-            ],
-          ),
-          if (imageUrl.trim().isNotEmpty) ...[
-            const SizedBox(height: 14),
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => _showCalculateImageDialog(context, imageUrl),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: AspectRatio(
-                  aspectRatio: 2.35,
-                  child: _ImagePreview(localPath: '', imageUrl: imageUrl),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              imageTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (imageSizeBytes > 0)
+              const SizedBox(height: 6),
               Text(
-                _formatBytes(imageSizeBytes),
+                imageTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-          ],
-          const SizedBox(height: 16),
-          _ChecklistSection(
-            title: 'Buyurtma',
-            rows: [
-              _ChecklistRowData('Mijoz', customer, subtitle: customerRef),
-              _ChecklistRowData('Mahsulot', product, subtitle: itemCode),
-              _ChecklistRowData('Status', status),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _ChecklistSection(
-            title: 'Parametrlar',
-            rows: [
-              _ChecklistRowData('Razmer', widthMm, suffix: 'mm'),
-              _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _ChecklistSection(
-            title: 'Qavatlar',
-            rows: [
-              _ChecklistRowData(
-                '1-qavat',
-                _layerValue(firstLayerMaterial, firstLayerMicron),
-              ),
-              _ChecklistRowData(
-                '2-qavat',
-                _layerValue(secondLayerMaterial, secondLayerMicron),
-              ),
-              if (thirdLayerMaterial.trim().isNotEmpty ||
-                  thirdLayerMicron.trim().isNotEmpty)
-                _ChecklistRowData(
-                  '3-qavat',
-                  _layerValue(thirdLayerMaterial, thirdLayerMicron),
+              if (imageSizeBytes > 0)
+                Text(
+                  _formatBytes(imageSizeBytes),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
             ],
-          ),
-          if (note.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
             _ChecklistSection(
-              title: 'Izoh',
-              rows: [_ChecklistRowData('', note)],
+              title: 'Buyurtma',
+              rows: [
+                _ChecklistRowData('Mijoz', customer, subtitle: customerRef),
+                _ChecklistRowData('Mahsulot', product, subtitle: itemCode),
+                _ChecklistRowData('Status', status),
+              ],
             ),
+            const _ReceiptDivider(),
+            _ChecklistSection(
+              title: 'Parametrlar',
+              rows: [
+                _ChecklistRowData('Razmer', widthMm, suffix: 'mm'),
+                _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
+              ],
+            ),
+            const _ReceiptDivider(),
+            _ChecklistSection(
+              title: 'Qavatlar',
+              rows: [
+                _ChecklistRowData(
+                  '1-qavat',
+                  _layerValue(firstLayerMaterial, firstLayerMicron),
+                ),
+                _ChecklistRowData(
+                  '2-qavat',
+                  _layerValue(secondLayerMaterial, secondLayerMicron),
+                ),
+                if (thirdLayerMaterial.trim().isNotEmpty ||
+                    thirdLayerMicron.trim().isNotEmpty)
+                  _ChecklistRowData(
+                    '3-qavat',
+                    _layerValue(thirdLayerMaterial, thirdLayerMicron),
+                  ),
+              ],
+            ),
+            if (note.trim().isNotEmpty) ...[
+              const _ReceiptDivider(),
+              _ChecklistSection(
+                title: 'Izoh',
+                rows: [_ChecklistRowData('', note)],
+              ),
+            ],
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReceiptDivider extends StatelessWidget {
+  const _ReceiptDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: Theme.of(context).colorScheme.outlineVariant,
       ),
     );
   }
@@ -1239,6 +1259,7 @@ class _ChecklistSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final visibleRows = rows.where((row) => row.hasValue).toList();
     if (visibleRows.isEmpty) {
       return const SizedBox.shrink();
@@ -1248,15 +1269,14 @@ class _ChecklistSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w900,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
-        for (var i = 0; i < visibleRows.length; i++) ...[
+        for (var i = 0; i < visibleRows.length; i++)
           _ChecklistRow(data: visibleRows[i]),
-          if (i != visibleRows.length - 1) const SizedBox(height: 8),
-        ],
       ],
     );
   }
@@ -1273,51 +1293,64 @@ class _ChecklistRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final value = data.formattedValue;
     final subtitle = data.displaySubtitle;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (data.label.trim().isNotEmpty) ...[
+    final hasLabel = data.label.trim().isNotEmpty;
+
+    if (!hasLabel) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           SizedBox(
-            width: 92,
+            width: 96,
             child: Text(
               data.label,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                maxLines: data.label.trim().isEmpty ? 4 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
                 Text(
-                  subtitle,
-                  maxLines: 1,
+                  value,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1906,11 +1939,37 @@ class _TextInput extends StatelessWidget {
         maxLines: maxLines,
         textInputAction:
             maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
-        decoration: InputDecoration(labelText: label),
+        decoration: _surfaceFieldDecoration(context, labelText: label),
         validator: required ? _requiredText : null,
       ),
     );
   }
+}
+
+InputDecoration _surfaceFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? suffixText,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  OutlineInputBorder outline({Color? color, double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    suffixText: suffixText,
+    filled: true,
+    fillColor: scheme.surface,
+    border: outline(),
+    enabledBorder: outline(),
+    focusedBorder: outline(color: scheme.primary, width: 1.2),
+    errorBorder: outline(color: scheme.error),
+    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
+  );
 }
 
 class _NumberInput extends StatelessWidget {
@@ -1939,7 +1998,11 @@ class _NumberInput extends StatelessWidget {
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
         ],
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(labelText: label, suffixText: suffixText),
+        decoration: _surfaceFieldDecoration(
+          context,
+          labelText: label,
+          suffixText: suffixText,
+        ),
         validator: required
             ? (allowZero ? _requiredNonNegativeNumber : _requiredPositiveNumber)
             : (allowZero
@@ -1970,7 +2033,11 @@ class _IntegerInput extends StatelessWidget {
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(labelText: label, suffixText: suffixText),
+        decoration: _surfaceFieldDecoration(
+          context,
+          labelText: label,
+          suffixText: suffixText,
+        ),
         validator: _optionalPositiveInteger,
       ),
     );

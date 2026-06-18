@@ -828,7 +828,7 @@ class _PinDigitButtonState extends State<_PinDigitButton> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final idleColor = scheme.surfaceContainerHigh.withValues(alpha: 0.78);
+    final idleColor = scheme.surfaceContainer;
     final pressedColor = scheme.secondaryContainer.withValues(alpha: 0.78);
     final foreground = scheme.onSurface;
     final overlayColor = scheme.secondaryContainer.withValues(alpha: 0.22);
@@ -1020,7 +1020,7 @@ class _PinActionButtonState extends State<_PinActionButton> {
     final scheme = Theme.of(context).colorScheme;
     final idleColor = widget.emphasized
         ? scheme.primaryContainer
-        : scheme.surfaceContainerHigh.withValues(alpha: 0.78);
+        : scheme.surfaceContainer;
     final pressedColor = widget.emphasized
         ? Color.alphaBlend(
             scheme.primary.withValues(alpha: 0.18),

@@ -160,7 +160,16 @@ void main() {
         ),
       );
       expect(find.text('Homashyo ma’lumoti'), findsNothing);
-      expect(find.text('zakaz-1 · 30AA'), findsOneWidget);
+      expect(find.text('zakaz-1'), findsOneWidget);
+      expect(find.text('30AA'), findsOneWidget);
+      await tester.tap(find.text('zakaz-1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kim uladi'), findsOneWidget);
+      expect(find.text('Admin'), findsOneWidget);
+      expect(find.text('Aparat'), findsOneWidget);
+      expect(find.text('Pechat'), findsOneWidget);
+      expect(find.text('Ombor'), findsOneWidget);
+      expect(find.text('Kalidor'), findsOneWidget);
       await tester.pump(const Duration(seconds: 2));
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });

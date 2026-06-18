@@ -3,6 +3,7 @@ import '../../../core/security/state/security_controller.dart';
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
@@ -28,6 +29,59 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+const double _profilePanelGap = 4;
+
+InputDecoration _profileFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? hintText,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  OutlineInputBorder outline({Color? color, double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    filled: true,
+    fillColor: scheme.surface,
+    border: outline(),
+    enabledBorder: outline(),
+    focusedBorder: outline(color: scheme.primary, width: 1.2),
+    errorBorder: outline(color: scheme.error),
+    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
+  );
+}
+
+Widget _profileSurfaceCard({
+  required BuildContext context,
+  required Widget child,
+  M3SegmentVerticalSlot? slot,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final resolvedSlot = slot ?? M3SegmentVerticalSlot.top;
+  final radius = M3SegmentedListGeometry.borderRadius(
+    resolvedSlot,
+    slot == null
+        ? M3SegmentedListGeometry.cornerLarge
+        : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
+  );
+  return Material(
+    color: scheme.surface,
+    elevation: 2,
+    shadowColor: scheme.shadow.withValues(alpha: 0.16),
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: radius),
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
+  );
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -407,198 +461,168 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             _ProfileShellKind.none => null,
           },
-          contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
-          child: AppRefreshIndicator(
-            onRefresh: _refreshProfile,
-            child: ListView(
-              physics: const TopRefreshScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(0, 0, 0, bottomPadding),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
-                  child: SmoothAppear(
+          contentPadding: EdgeInsets.zero,
+          child: ColoredBox(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: AppRefreshIndicator(
+              onRefresh: _refreshProfile,
+              child: ListView(
+                physics: const TopRefreshScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  _profilePanelGap,
+                  _profilePanelGap,
+                  _profilePanelGap,
+                  bottomPadding,
+                ),
+                children: [
+                  SmoothAppear(
                     delay: const Duration(milliseconds: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Stack(
-                              children: [
-                                _AvatarPreview(
-                                  displayName: displayName,
-                                  cachedAvatar: cachedAvatar,
-                                  pendingAvatarBytes: pendingAvatarBytes,
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: GestureDetector(
-                                    onTap: savingAvatar ? null : _pickAvatar,
-                                    child: Container(
-                                      height: 32,
-                                      width: 32,
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerLow,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.camera_alt_rounded,
-                                        size: 16,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                    child: _profileSurfaceCard(
+                      context: context,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Stack(
                                 children: [
-                                  Text(
-                                    displayName,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  _AvatarPreview(
+                                    displayName: displayName,
+                                    cachedAvatar: cachedAvatar,
+                                    pendingAvatarBytes: pendingAvatarBytes,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    subtitle,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  if (current.phone.trim().isNotEmpty) ...[
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.phone_rounded,
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: GestureDetector(
+                                      onTap: savingAvatar ? null : _pickAvatar,
+                                      child: Container(
+                                        height: 32,
+                                        width: 32,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.camera_alt_rounded,
                                           size: 16,
                                           color: Theme.of(
                                             context,
-                                          ).colorScheme.onSurfaceVariant,
+                                          ).colorScheme.onPrimary,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            current.phone,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ],
-                                  if (effectiveLegalName.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.badge_rounded,
-                                          size: 16,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            effectiveLegalName,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                  ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            _ThemeIconToggle(
-                              isDark: ThemeController.instance.isDark,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: nicknameController,
-                          onChanged: (_) => setState(() {}),
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      displayName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      subtitle,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    if (current.phone.trim().isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.phone_rounded,
+                                            size: 16,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              current.phone,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    if (effectiveLegalName.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.badge_rounded,
+                                            size: 16,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              effectiveLegalName,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                          cursorColor: Theme.of(context).colorScheme.primary,
-                          decoration: InputDecoration(
-                            labelText: l10n.nicknameLabel,
-                            hintText: l10n.nicknameHint,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
+                              const SizedBox(width: 12),
+                              _ThemeIconToggle(
+                                isDark: ThemeController.instance.isDark,
                               ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 1.5,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).colorScheme.error,
-                                width: 1.5,
-                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: nicknameController,
+                            onChanged: (_) => setState(() {}),
+                            decoration: _profileFieldDecoration(
+                              context,
+                              labelText: l10n.nicknameLabel,
+                              hintText: l10n.nicknameHint,
                             ),
                           ),
-                        ),
-                        if (_hasProfileChanges) ...[
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
+                          if (_hasProfileChanges) ...[
+                            const SizedBox(height: 14),
+                            FilledButton.icon(
                               onPressed: savingProfileChanges
                                   ? null
                                   : _saveProfileChanges,
@@ -613,70 +637,70 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   : const Icon(Icons.check_rounded),
                               label: Text(l10n.save),
                             ),
+                          ],
+                          if (pendingAvatarBytes != null) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              l10n.selectedImageNotice,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                          const SizedBox(height: 18),
+                          _LanguagePreferenceRow(
+                            currentLocale: LocaleController.instance.locale,
                           ),
-                        ],
-                        if (pendingAvatarBytes != null) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 16),
+                          _ThemePreferenceRow(
+                            variant: ThemeController.instance.variant,
+                          ),
+                          const SizedBox(height: 24),
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withValues(alpha: 0.55),
+                          ),
+                          const SizedBox(height: 24),
                           Text(
-                            l10n.selectedImageNotice,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            l10n.securityTitle,
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                        ],
-                        const SizedBox(height: 18),
-                        _LanguagePreferenceRow(
-                          currentLocale: LocaleController.instance.locale,
-                        ),
-                        const SizedBox(height: 16),
-                        _ThemePreferenceRow(
-                          variant: ThemeController.instance.variant,
-                        ),
-                        const SizedBox(height: 24),
-                        Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.outlineVariant.withValues(alpha: 0.55),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          l10n.securityTitle,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 14),
-                        _ProfileActionButton(
-                          primary: true,
-                          onPressed: savingPin ? null : _showPinFlow,
-                          label: savingPin
-                              ? l10n.pinSaving
-                              : hasPin
-                              ? l10n.pinChange
-                              : l10n.pinSet,
-                        ),
-                        if (hasPin) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 14),
                           _ProfileActionButton(
-                            primary: false,
-                            onPressed: savingPin ? null : _removePin,
-                            label: l10n.pinRemove,
+                            primary: true,
+                            onPressed: savingPin ? null : _showPinFlow,
+                            label: savingPin
+                                ? l10n.pinSaving
+                                : hasPin
+                                ? l10n.pinChange
+                                : l10n.pinSet,
+                          ),
+                          if (hasPin) ...[
+                            const SizedBox(height: 10),
+                            _ProfileActionButton(
+                              primary: false,
+                              onPressed: savingPin ? null : _removePin,
+                              label: l10n.pinRemove,
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _BiometricPreferenceRow(
+                            enabled: biometricEnabled,
+                            interactive: hasPin && !savingBiometric,
+                            onChanged: (value) => _toggleBiometric(value),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        _BiometricPreferenceRow(
-                          enabled: biometricEnabled,
-                          interactive: hasPin && !savingBiometric,
-                          onChanged: (value) => _toggleBiometric(value),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 14),
-                  _ProfilePanel(child: Text(errorMessage!)),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    _ProfilePanel(child: Text(errorMessage!)),
+                  ],
                 ],
-                const SizedBox(height: 12),
-              ],
+              ),
             ),
           ),
         );
@@ -713,7 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (current == route) {
       return;
     }
-    Navigator.of(context).pushReplacementNamed(route);
+    AppRootNavigation.replaceRootRoute(context, route);
   }
 }
 
@@ -737,12 +761,7 @@ class _ProfilePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      child: Padding(padding: const EdgeInsets.all(20), child: child),
-    );
+    return _profileSurfaceCard(context: context, child: child);
   }
 }
 
@@ -751,77 +770,80 @@ class _LanguagePreferenceRow extends StatelessWidget {
 
   final Locale currentLocale;
 
+  Future<void> _openLanguagePicker(BuildContext context) async {
+    final l10n = context.l10n;
+    final picked = await showModalBottomSheet<Locale>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
+      builder: (context) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).maybePop(),
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: GestureDetector(
+                onTap: () {},
+                child: _ProfileSelectionSheet(
+                  title: l10n.languageTitle,
+                  subtitle: l10n.languageBody,
+                  child: M3SegmentSpacedColumn(
+                    children: [
+                      _ProfileSelectionOption(
+                        index: 0,
+                        itemCount: 3,
+                        title: l10n.uzbek,
+                        subtitle: 'Uzbek',
+                        active: currentLocale.languageCode == 'uz',
+                        onTap: () =>
+                            Navigator.of(context).pop(const Locale('uz')),
+                      ),
+                      _ProfileSelectionOption(
+                        index: 1,
+                        itemCount: 3,
+                        title: l10n.english,
+                        subtitle: 'English',
+                        active: currentLocale.languageCode == 'en',
+                        onTap: () =>
+                            Navigator.of(context).pop(const Locale('en')),
+                      ),
+                      _ProfileSelectionOption(
+                        index: 2,
+                        itemCount: 3,
+                        title: l10n.russian,
+                        subtitle: 'Russian',
+                        active: currentLocale.languageCode == 'ru',
+                        onTap: () =>
+                            Navigator.of(context).pop(const Locale('ru')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null) {
+      return;
+    }
+    await LocaleController.instance.setLocale(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () async {
-        final picked = await showModalBottomSheet<Locale>(
-          context: context,
-          isDismissible: true,
-          enableDrag: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          sheetAnimationStyle: AppMotion.sheetEaseOut,
-          builder: (context) {
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: SafeArea(
-                top: false,
-                bottom: false,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: _ProfileSelectionSheet(
-                      title: l10n.languageTitle,
-                      subtitle: l10n.languageBody,
-                      child: M3SegmentSpacedColumn(
-                        children: [
-                          _ProfileSelectionOption(
-                            index: 0,
-                            itemCount: 3,
-                            title: l10n.uzbek,
-                            subtitle: 'Uzbek',
-                            active: currentLocale.languageCode == 'uz',
-                            onTap: () =>
-                                Navigator.of(context).pop(const Locale('uz')),
-                          ),
-                          _ProfileSelectionOption(
-                            index: 1,
-                            itemCount: 3,
-                            title: l10n.english,
-                            subtitle: 'English',
-                            active: currentLocale.languageCode == 'en',
-                            onTap: () =>
-                                Navigator.of(context).pop(const Locale('en')),
-                          ),
-                          _ProfileSelectionOption(
-                            index: 2,
-                            itemCount: 3,
-                            title: l10n.russian,
-                            subtitle: 'Russian',
-                            active: currentLocale.languageCode == 'ru',
-                            onTap: () =>
-                                Navigator.of(context).pop(const Locale('ru')),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-        if (picked == null) {
-          return;
-        }
-        await LocaleController.instance.setLocale(picked);
-      },
+      onTap: () => _openLanguagePicker(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -870,230 +892,249 @@ class _ThemePreferenceRow extends StatelessWidget {
 
   final AppThemeVariant variant;
 
+  String _themeLabel(AppLocalizations l10n) {
+    return switch (variant) {
+      AppThemeVariant.classic => l10n.themeClassicLabel,
+      AppThemeVariant.blush => l10n.themeBlushLabel,
+      AppThemeVariant.moss => l10n.themeMossLabel,
+      AppThemeVariant.lavender => l10n.themeLavenderLabel,
+      AppThemeVariant.slate => l10n.themeSlateLabel,
+      AppThemeVariant.ocean => l10n.themeOceanLabel,
+      AppThemeVariant.blackEdition => l10n.themeBlackEditionLabel,
+      AppThemeVariant.bingsu => l10n.themeBingsuLabel,
+      AppThemeVariant.bliss => l10n.themeBlissLabel,
+      AppThemeVariant.dollar => l10n.themeDollarLabel,
+      AppThemeVariant.fleuriste => l10n.themeFleuristeLabel,
+      AppThemeVariant.paleNimbus => l10n.themePaleNimbusLabel,
+      AppThemeVariant.earthy => l10n.themeEarthLabel,
+    };
+  }
+
+  Future<void> _openThemePicker(BuildContext context) async {
+    final l10n = context.l10n;
+    final picked = await showModalBottomSheet<AppThemeVariant>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
+      builder: (context) {
+        final mediaQuery = MediaQuery.of(context);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {},
+              child: _ProfileSelectionSheet(
+                title: l10n.themeTitle,
+                subtitle: l10n.themeBody,
+                maxHeight: mediaQuery.size.height * 0.72,
+                bottomPadding: mediaQuery.padding.bottom + 24,
+                child: M3SegmentSpacedColumn(
+                  children: [
+                    _ThemeSelectionOption(
+                      index: 0,
+                      itemCount: 13,
+                      title: l10n.themeClassicLabel,
+                      active: variant == AppThemeVariant.classic,
+                      swatches: const [
+                        Color(0xFF324670),
+                        Color(0xFFD8E2FF),
+                        Color(0xFF53627F),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.classic),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 1,
+                      itemCount: 13,
+                      title: l10n.themeEarthLabel,
+                      active: variant == AppThemeVariant.earthy,
+                      swatches: const [
+                        Color(0xFF8A7650),
+                        Color(0xFFDBCEA5),
+                        Color(0xFF8E977D),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.earthy),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 2,
+                      itemCount: 13,
+                      title: l10n.themeBlushLabel,
+                      active: variant == AppThemeVariant.blush,
+                      swatches: const [
+                        Color(0xFFF5AFAF),
+                        Color(0xFFF9DFDF),
+                        Color(0xFFFBEFEF),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.blush),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 3,
+                      itemCount: 13,
+                      title: l10n.themeMossLabel,
+                      active: variant == AppThemeVariant.moss,
+                      swatches: const [
+                        Color(0xFF84B179),
+                        Color(0xFFC7EABB),
+                        Color(0xFFA2CB8B),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.moss),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 4,
+                      itemCount: 13,
+                      title: l10n.themeLavenderLabel,
+                      active: variant == AppThemeVariant.lavender,
+                      swatches: const [
+                        Color(0xFF4D4C7D),
+                        Color(0xFFD8B9C3),
+                        Color(0xFF827397),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.lavender),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 5,
+                      itemCount: 13,
+                      title: l10n.themeSlateLabel,
+                      active: variant == AppThemeVariant.slate,
+                      swatches: const [
+                        Color(0xFF30364F),
+                        Color(0xFFACBAC4),
+                        Color(0xFFE1D9BC),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.slate),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 6,
+                      itemCount: 13,
+                      title: l10n.themeBlackEditionLabel,
+                      active: variant == AppThemeVariant.blackEdition,
+                      swatches: const [
+                        Color(0xFF000000),
+                        Color(0xFF0D0F10),
+                        Color(0xFF202427),
+                        Color(0xFFAEB4BA),
+                      ],
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(AppThemeVariant.blackEdition),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 7,
+                      itemCount: 13,
+                      title: l10n.themeOceanLabel,
+                      active: variant == AppThemeVariant.ocean,
+                      swatches: const [
+                        Color(0xFF1C4D8D),
+                        Color(0xFF4988C4),
+                        Color(0xFFBDE8F5),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.ocean),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 8,
+                      itemCount: 13,
+                      title: l10n.themeBingsuLabel,
+                      active: variant == AppThemeVariant.bingsu,
+                      swatches: const [
+                        Color(0xFFE5DFE5),
+                        Color(0xFF8E7381),
+                        Color(0xFF4A3E45),
+                        Color(0xFFF2F0F2),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.bingsu),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 9,
+                      itemCount: 13,
+                      title: l10n.themeBlissLabel,
+                      active: variant == AppThemeVariant.bliss,
+                      swatches: const [
+                        Color(0xFFFFFFFF),
+                        Color(0xFFEFD9CE),
+                        Color(0xFF635A5A),
+                        Color(0xFFFCFAF9),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.bliss),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 10,
+                      itemCount: 13,
+                      title: l10n.themeDollarLabel,
+                      active: variant == AppThemeVariant.dollar,
+                      swatches: const [
+                        Color(0xFF5E635E),
+                        Color(0xFF7A8B7A),
+                        Color(0xFF96A176),
+                        Color(0xFF4A4F4A),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.dollar),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 11,
+                      itemCount: 13,
+                      title: l10n.themeFleuristeLabel,
+                      active: variant == AppThemeVariant.fleuriste,
+                      swatches: const [
+                        Color(0xFF0A140F),
+                        Color(0xFF4A5F58),
+                        Color(0xFF633F4D),
+                        Color(0xFF0D1A14),
+                      ],
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(AppThemeVariant.fleuriste),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 12,
+                      itemCount: 13,
+                      title: l10n.themePaleNimbusLabel,
+                      active: variant == AppThemeVariant.paleNimbus,
+                      swatches: const [
+                        Color(0xFFFFFFE3),
+                        Color(0xFFA3FFD1),
+                        Color(0xFFFFA3A3),
+                        Color(0xFFFFFFF0),
+                      ],
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(AppThemeVariant.paleNimbus),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null) {
+      return;
+    }
+    await ThemeController.instance.setVariant(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () async {
-        final picked = await showModalBottomSheet<AppThemeVariant>(
-          context: context,
-          isDismissible: true,
-          enableDrag: true,
-          isScrollControlled: true,
-          useSafeArea: false,
-          backgroundColor: Colors.transparent,
-          sheetAnimationStyle: AppMotion.sheetEaseOut,
-          builder: (context) {
-            final mediaQuery = MediaQuery.of(context);
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: _ProfileSelectionSheet(
-                    title: l10n.themeTitle,
-                    subtitle: l10n.themeBody,
-                    maxHeight: mediaQuery.size.height * 0.72,
-                    bottomPadding: mediaQuery.padding.bottom + 24,
-                    child: M3SegmentSpacedColumn(
-                      children: [
-                        _ThemeSelectionOption(
-                          index: 0,
-                          itemCount: 13,
-                          title: l10n.themeClassicLabel,
-                          active: variant == AppThemeVariant.classic,
-                          swatches: const [
-                            Color(0xFF324670),
-                            Color(0xFFD8E2FF),
-                            Color(0xFF53627F),
-                          ],
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(AppThemeVariant.classic),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 1,
-                          itemCount: 13,
-                          title: l10n.themeEarthLabel,
-                          active: variant == AppThemeVariant.earthy,
-                          swatches: const [
-                            Color(0xFF8A7650),
-                            Color(0xFFDBCEA5),
-                            Color(0xFF8E977D),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.earthy),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 2,
-                          itemCount: 13,
-                          title: l10n.themeBlushLabel,
-                          active: variant == AppThemeVariant.blush,
-                          swatches: const [
-                            Color(0xFFF5AFAF),
-                            Color(0xFFF9DFDF),
-                            Color(0xFFFBEFEF),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.blush),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 3,
-                          itemCount: 13,
-                          title: l10n.themeMossLabel,
-                          active: variant == AppThemeVariant.moss,
-                          swatches: const [
-                            Color(0xFF84B179),
-                            Color(0xFFC7EABB),
-                            Color(0xFFA2CB8B),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.moss),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 4,
-                          itemCount: 13,
-                          title: l10n.themeLavenderLabel,
-                          active: variant == AppThemeVariant.lavender,
-                          swatches: const [
-                            Color(0xFF4D4C7D),
-                            Color(0xFFD8B9C3),
-                            Color(0xFF827397),
-                          ],
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(AppThemeVariant.lavender),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 5,
-                          itemCount: 13,
-                          title: l10n.themeSlateLabel,
-                          active: variant == AppThemeVariant.slate,
-                          swatches: const [
-                            Color(0xFF30364F),
-                            Color(0xFFACBAC4),
-                            Color(0xFFE1D9BC),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.slate),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 6,
-                          itemCount: 13,
-                          title: l10n.themeBlackEditionLabel,
-                          active: variant == AppThemeVariant.blackEdition,
-                          swatches: const [
-                            Color(0xFF000000),
-                            Color(0xFF0D0F10),
-                            Color(0xFF202427),
-                            Color(0xFFAEB4BA),
-                          ],
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(AppThemeVariant.blackEdition),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 7,
-                          itemCount: 13,
-                          title: l10n.themeOceanLabel,
-                          active: variant == AppThemeVariant.ocean,
-                          swatches: const [
-                            Color(0xFF1C4D8D),
-                            Color(0xFF4988C4),
-                            Color(0xFFBDE8F5),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.ocean),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 8,
-                          itemCount: 13,
-                          title: l10n.themeBingsuLabel,
-                          active: variant == AppThemeVariant.bingsu,
-                          swatches: const [
-                            Color(0xFFE5DFE5),
-                            Color(0xFF8E7381),
-                            Color(0xFF4A3E45),
-                            Color(0xFFF2F0F2),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.bingsu),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 9,
-                          itemCount: 13,
-                          title: l10n.themeBlissLabel,
-                          active: variant == AppThemeVariant.bliss,
-                          swatches: const [
-                            Color(0xFFFFFFFF),
-                            Color(0xFFEFD9CE),
-                            Color(0xFF635A5A),
-                            Color(0xFFFCFAF9),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.bliss),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 10,
-                          itemCount: 13,
-                          title: l10n.themeDollarLabel,
-                          active: variant == AppThemeVariant.dollar,
-                          swatches: const [
-                            Color(0xFF5E635E),
-                            Color(0xFF7A8B7A),
-                            Color(0xFF96A176),
-                            Color(0xFF4A4F4A),
-                          ],
-                          onTap: () =>
-                              Navigator.of(context).pop(AppThemeVariant.dollar),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 11,
-                          itemCount: 13,
-                          title: l10n.themeFleuristeLabel,
-                          active: variant == AppThemeVariant.fleuriste,
-                          swatches: const [
-                            Color(0xFF0A140F),
-                            Color(0xFF4A5F58),
-                            Color(0xFF633F4D),
-                            Color(0xFF0D1A14),
-                          ],
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(AppThemeVariant.fleuriste),
-                        ),
-                        _ThemeSelectionOption(
-                          index: 12,
-                          itemCount: 13,
-                          title: l10n.themePaleNimbusLabel,
-                          active: variant == AppThemeVariant.paleNimbus,
-                          swatches: const [
-                            Color(0xFFFFFFE3),
-                            Color(0xFFA3FFD1),
-                            Color(0xFFFFA3A3),
-                            Color(0xFFFFFFF0),
-                          ],
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(AppThemeVariant.paleNimbus),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-        if (picked == null) {
-          return;
-        }
-        await ThemeController.instance.setVariant(picked);
-      },
+      onTap: () => _openThemePicker(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1123,31 +1164,7 @@ class _ThemePreferenceRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              variant == AppThemeVariant.classic
-                  ? l10n.themeClassicLabel
-                  : variant == AppThemeVariant.blush
-                  ? l10n.themeBlushLabel
-                  : variant == AppThemeVariant.moss
-                  ? l10n.themeMossLabel
-                  : variant == AppThemeVariant.lavender
-                  ? l10n.themeLavenderLabel
-                  : variant == AppThemeVariant.slate
-                  ? l10n.themeSlateLabel
-                  : variant == AppThemeVariant.ocean
-                  ? l10n.themeOceanLabel
-                  : variant == AppThemeVariant.blackEdition
-                  ? l10n.themeBlackEditionLabel
-                  : variant == AppThemeVariant.bingsu
-                  ? l10n.themeBingsuLabel
-                  : variant == AppThemeVariant.bliss
-                  ? l10n.themeBlissLabel
-                  : variant == AppThemeVariant.dollar
-                  ? l10n.themeDollarLabel
-                  : variant == AppThemeVariant.fleuriste
-                  ? l10n.themeFleuristeLabel
-                  : variant == AppThemeVariant.paleNimbus
-                  ? l10n.themePaleNimbusLabel
-                  : l10n.themeEarthLabel,
+              _themeLabel(l10n),
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
@@ -1197,8 +1214,8 @@ class _ProfileSelectionSheet extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight ?? double.infinity),
@@ -1477,30 +1494,10 @@ class _ProfileActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: primary
-          ? FilledButton(
-              onPressed: onPressed,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(label),
-            )
-          : OutlinedButton(
-              onPressed: onPressed,
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(label),
-            ),
-    );
-    return child;
+    if (primary) {
+      return FilledButton(onPressed: onPressed, child: Text(label));
+    }
+    return OutlinedButton(onPressed: onPressed, child: Text(label));
   }
 }
 
