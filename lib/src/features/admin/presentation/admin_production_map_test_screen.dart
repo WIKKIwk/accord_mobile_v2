@@ -22,6 +22,18 @@ import 'package:flutter/services.dart';
 const _maxLaminatsiyaRubberSizeMm = 1050;
 const _productionMapDockHeight = 60.0;
 
+bool _isRezkaProductionNode(ProductionMapNode node) {
+  return node.kind == 'apparatus' &&
+      node.title.trim().toLowerCase().contains('rezka');
+}
+
+String _formatRezkaNumber(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+  return value.toString();
+}
+
 Future<String?> showProductionMapOrderNumberSheet(
   BuildContext context, {
   String initialValue = '',
@@ -639,6 +651,13 @@ class _AdminProductionMapTestScreenState
     }
   }
 
+  void _addRezkaNode() {
+    final id = 'rezka_${_nextNodeIndex++}';
+    setState(() {
+      _insertBeforeEnd(_newNode(id, 'apparatus').copyWith(title: 'Rezka'));
+    });
+  }
+
   Future<void> _addApparatusGroup(AdminApparatusGroup group) async {
     final groupNames =
         group.apparatus.map((item) => item.trim().toLowerCase()).toSet();
@@ -1170,6 +1189,22 @@ class _AdminProductionMapTestScreenState
       return;
     }
     final node = nodes[index];
+    if (_isRezkaProductionNode(node)) {
+      final edited = await showModalBottomSheet<ProductionMapNode>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        builder: (context) => _RezkaNodeEditSheet(node: node),
+      );
+      if (edited == null || !mounted) {
+        return;
+      }
+      setState(() => nodes[index] = edited);
+      return;
+    }
     if (node.kind == 'apparatus') {
       final picked = await showModalBottomSheet<AdminWarehouse>(
         context: context,
@@ -1302,6 +1337,11 @@ class _AdminProductionMapTestScreenState
           icon: Icons.engineering_rounded,
           onTap: () => _runMapToolAction(() => _addNode('task')),
         ),
+        AdminFabMenuAction(
+          title: 'Rezka',
+          icon: Icons.content_cut_rounded,
+          onTap: () => _runMapToolAction(_addRezkaNode),
+        ),
       ];
     }
     return [
@@ -1314,6 +1354,11 @@ class _AdminProductionMapTestScreenState
         title: 'Aparat',
         icon: Icons.precision_manufacturing_rounded,
         onTap: () => _runMapToolAction(() => _addNode('apparatus')),
+      ),
+      AdminFabMenuAction(
+        title: 'Rezka',
+        icon: Icons.content_cut_rounded,
+        onTap: () => _runMapToolAction(_addRezkaNode),
       ),
       AdminFabMenuAction(
         title: 'Formula',
@@ -2964,6 +3009,16 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   }
 
   String _subtitleFor(ProductionMapNode node) {
+    if (_isRezkaProductionNode(node)) {
+      final details = [
+        if (node.rezkaKadrCount != null) '${node.rezkaKadrCount} kadr',
+        if (node.rezkaLabelLength != null)
+          'etiketka ${_formatRezkaNumber(node.rezkaLabelLength!)}',
+      ];
+      if (details.isNotEmpty) {
+        return details.join(' • ');
+      }
+    }
     final formula = node.formula;
     if (formula != null) {
       if (node.kind == 'condition') {
@@ -2998,6 +3053,131 @@ class _NodeEditSheet extends StatefulWidget {
 
   @override
   State<_NodeEditSheet> createState() => _NodeEditSheetState();
+}
+
+class _RezkaNodeEditSheet extends StatefulWidget {
+  const _RezkaNodeEditSheet({required this.node});
+
+  final ProductionMapNode node;
+
+  @override
+  State<_RezkaNodeEditSheet> createState() => _RezkaNodeEditSheetState();
+}
+
+class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
+  late final TextEditingController _title;
+  late final TextEditingController _kadrCount;
+  late final TextEditingController _labelLength;
+
+  @override
+  void initState() {
+    super.initState();
+    _title = TextEditingController(text: widget.node.title);
+    _kadrCount = TextEditingController(
+      text: widget.node.rezkaKadrCount?.toString() ?? '',
+    );
+    _labelLength = TextEditingController(
+      text: widget.node.rezkaLabelLength == null
+          ? ''
+          : _formatRezkaNumber(widget.node.rezkaLabelLength!),
+    );
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _kadrCount.dispose();
+    _labelLength.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _DismissibleBottomSheetFrame(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: const SizedBox(width: 44, height: 4),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Rezka sozlash',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 14),
+            _SheetField(label: 'Nomi', controller: _title),
+            const SizedBox(height: 10),
+            _SheetField(
+              label: 'Kadr soni',
+              controller: _kadrCount,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+            _SheetField(
+              label: 'Etiketka uzunligi',
+              controller: _labelLength,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _PlainActionButton(
+              label: 'Saqlash',
+              icon: Icons.check_rounded,
+              onTap: _save,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _save() {
+    final kadrText = _kadrCount.text.trim();
+    final labelText = _labelLength.text.trim().replaceAll(',', '.');
+    final kadr = kadrText.isEmpty ? null : int.tryParse(kadrText);
+    final label = labelText.isEmpty ? null : double.tryParse(labelText);
+    if ((kadrText.isNotEmpty && (kadr == null || kadr <= 0)) ||
+        (labelText.isNotEmpty && (label == null || label <= 0))) {
+      showAdminTopNotice(context, 'Rezka qiymatlarini to‘g‘ri kiriting');
+      return;
+    }
+    final title = _title.text.trim();
+    Navigator.of(context).pop(
+      ProductionMapNode(
+        id: widget.node.id,
+        kind: widget.node.kind,
+        title: title.isEmpty ? 'Rezka' : title,
+        formula: widget.node.formula,
+        roleCode: widget.node.roleCode,
+        itemCode: widget.node.itemCode,
+        qtyFormula: widget.node.qtyFormula,
+        fromLocation: widget.node.fromLocation,
+        toLocation: widget.node.toLocation,
+        alternativeGroupId: widget.node.alternativeGroupId,
+        alternativeGroupLabel: widget.node.alternativeGroupLabel,
+        alternativeAssignedTitle: widget.node.alternativeAssignedTitle,
+        rezkaKadrCount: kadr,
+        rezkaLabelLength: label,
+        x: widget.node.x,
+        y: widget.node.y,
+      ),
+    );
+  }
 }
 
 class _NodeEditSheetState extends State<_NodeEditSheet> {
@@ -3117,15 +3297,21 @@ class _NodeEditSheetState extends State<_NodeEditSheet> {
 }
 
 class _SheetField extends StatelessWidget {
-  const _SheetField({required this.label, required this.controller});
+  const _SheetField({
+    required this.label,
+    required this.controller,
+    this.keyboardType,
+  });
 
   final String label;
   final TextEditingController controller;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),

@@ -110,6 +110,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('admin-fab-menu-pechat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Rezka')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-kk li mahsulot')),
       findsNothing,

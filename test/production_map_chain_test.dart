@@ -79,6 +79,23 @@ void main() {
     );
   });
 
+  test('production map node preserves rezka setup metadata', () {
+    const node = ProductionMapNode(
+      id: 'rezka',
+      kind: 'apparatus',
+      title: 'Rezka',
+      rezkaKadrCount: 4,
+      rezkaLabelLength: 125.5,
+    );
+
+    final restored = ProductionMapNode.fromJson(node.toJson());
+
+    expect(restored.rezkaKadrCount, 4);
+    expect(restored.rezkaLabelLength, 125.5);
+    expect(restored.toJson()['rezka_kadr_count'], 4);
+    expect(restored.toJson()['rezka_label_length'], 125.5);
+  });
+
   test('production map can clear alternative assignment state only', () {
     const assignedNode = ProductionMapNode(
       id: 'apparatus-7',

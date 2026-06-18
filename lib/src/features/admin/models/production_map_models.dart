@@ -114,6 +114,8 @@ class ProductionMapNode {
     this.alternativeGroupId = '',
     this.alternativeGroupLabel = '',
     this.alternativeAssignedTitle = '',
+    this.rezkaKadrCount,
+    this.rezkaLabelLength,
     this.x = 0,
     this.y = 0,
   });
@@ -130,6 +132,8 @@ class ProductionMapNode {
   final String alternativeGroupId;
   final String alternativeGroupLabel;
   final String alternativeAssignedTitle;
+  final int? rezkaKadrCount;
+  final double? rezkaLabelLength;
   final double x;
   final double y;
 
@@ -146,6 +150,8 @@ class ProductionMapNode {
     String? alternativeGroupId,
     String? alternativeGroupLabel,
     String? alternativeAssignedTitle,
+    int? rezkaKadrCount,
+    double? rezkaLabelLength,
     double? x,
     double? y,
   }) {
@@ -164,6 +170,8 @@ class ProductionMapNode {
           alternativeGroupLabel ?? this.alternativeGroupLabel,
       alternativeAssignedTitle:
           alternativeAssignedTitle ?? this.alternativeAssignedTitle,
+      rezkaKadrCount: rezkaKadrCount ?? this.rezkaKadrCount,
+      rezkaLabelLength: rezkaLabelLength ?? this.rezkaLabelLength,
       x: x ?? this.x,
       y: y ?? this.y,
     );
@@ -186,6 +194,8 @@ class ProductionMapNode {
       alternativeGroupLabel: json['alternative_group_label'] as String? ?? '',
       alternativeAssignedTitle:
           json['alternative_assigned_title'] as String? ?? '',
+      rezkaKadrCount: (json['rezka_kadr_count'] as num?)?.toInt(),
+      rezkaLabelLength: (json['rezka_label_length'] as num?)?.toDouble(),
       x: (json['x'] as num?)?.toDouble() ?? 0,
       y: (json['y'] as num?)?.toDouble() ?? 0,
     );
@@ -208,6 +218,8 @@ class ProductionMapNode {
         'alternative_group_label': alternativeGroupLabel.trim(),
       if (alternativeAssignedTitle.trim().isNotEmpty)
         'alternative_assigned_title': alternativeAssignedTitle.trim(),
+      if (rezkaKadrCount != null) 'rezka_kadr_count': rezkaKadrCount,
+      if (rezkaLabelLength != null) 'rezka_label_length': rezkaLabelLength,
       'x': x,
       'y': y,
     };
