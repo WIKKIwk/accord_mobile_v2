@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,7 +17,8 @@ void main() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
   });
 
-  tearDown(() {
+  tearDown(() async {
+    await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -138,6 +140,44 @@ void main() {
               seenRequests,
               queueActionProgress: true,
             ));
+  });
+
+  test('test mode queue resume does not require progress qr', () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Pechat resume',
+      orderIds: const ['zakaz-resume-1'],
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat resume',
+      orderId: 'zakaz-resume-1',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat resume',
+      orderId: 'zakaz-resume-1',
+      action: 'pause',
+      producedQty: 3,
+      uom: 'kg',
+    );
+    final resumed = await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat resume',
+      orderId: 'zakaz-resume-1',
+      action: 'resume',
+    );
+
+    expect(resumed.states, {'zakaz-resume-1': 'in_progress'});
+    expect(resumed.progressBatch, isNull);
   });
 
   test('raw material rule and assignment endpoints use backend contract',

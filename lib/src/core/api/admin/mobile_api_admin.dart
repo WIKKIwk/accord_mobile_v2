@@ -1422,20 +1422,24 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
-        final batch = _testModeProgressBatchesByQr[qrPayload.trim().isEmpty
+        final progressKey = qrPayload.trim().isEmpty
             ? progressBatchId.trim()
-            : qrPayload.trim()];
-        if (batch == null ||
-            batch.status != 'paused' ||
-            batch.orderId != orderId.trim() ||
-            !productionMapWarehouseTitlesMatch(batch.apparatus, storageKey)) {
-          throw const MobileApiException(
-            code: 'progress_batch_not_resumable',
-            message: 'Bu progress QR davom ettirishga yaramaydi',
-          );
+            : qrPayload.trim();
+        AdminProgressBatch? resumed;
+        if (progressKey.isNotEmpty) {
+          final batch = _testModeProgressBatchesByQr[progressKey];
+          if (batch == null ||
+              batch.status != 'paused' ||
+              batch.orderId != orderId.trim() ||
+              !productionMapWarehouseTitlesMatch(batch.apparatus, storageKey)) {
+            throw const MobileApiException(
+              code: 'progress_batch_not_resumable',
+              message: 'Bu progress QR davom ettirishga yaramaydi',
+            );
+          }
+          resumed = batch.copyWith(status: 'resumed');
+          _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
         }
-        final resumed = batch.copyWith(status: 'resumed');
-        _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
         states[orderId.trim()] = 'in_progress';
         _testModeApparatusQueueStates[storageKey] = states;
         return AdminApparatusQueueActionResult(

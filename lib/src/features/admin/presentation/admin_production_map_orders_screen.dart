@@ -4171,7 +4171,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _materialsLoading = true;
   String _materialsError = '';
   bool _mapExpanded = false;
-  AdminProgressBatch? _resumeBatch;
 
   @override
   void initState() {
@@ -4282,15 +4281,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _actionInFlight = false;
       if (states != null) {
         _queueStates = states.states;
-        if (states.progressBatch != null) {
-          _resumeBatch = states.progressBatch;
-        }
-        if (apparatusQueueOrderStateFromRaw(
-              _queueStates[widget.order.map.id.trim()],
-            ) !=
-            ApparatusQueueOrderState.paused) {
-          _resumeBatch = null;
-        }
       }
     });
   }
@@ -4304,58 +4294,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       action,
       producedQty: input.qty,
       uom: input.uom,
-    );
-  }
-
-  Future<void> _scanProgressQr() async {
-    if (_actionInFlight) {
-      return;
-    }
-    final qr = await showRawMaterialScanDialog(context);
-    if (!mounted || qr == null || qr.trim().isEmpty) {
-      return;
-    }
-    setState(() => _actionInFlight = true);
-    try {
-      final batch = await MobileApi.instance.adminProgressQrLookup(qr.trim());
-      if (!mounted) {
-        return;
-      }
-      if (batch.orderId.trim() != widget.order.map.id.trim() ||
-          batch.status != 'paused' ||
-          !productionMapWarehouseTitlesMatch(
-            batch.apparatus,
-            widget.apparatus?.warehouse ?? '',
-          )) {
-        showAdminTopNotice(
-            context, 'Bu progress QR davom ettirishga yaramaydi');
-        return;
-      }
-      setState(() => _resumeBatch = batch);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(
-        context,
-        error is MobileApiException ? error.message : 'Progress QR topilmadi',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _actionInFlight = false);
-      }
-    }
-  }
-
-  Future<void> _resumeFromBatch() async {
-    final batch = _resumeBatch;
-    if (batch == null) {
-      return;
-    }
-    await _runQueueAction(
-      'resume',
-      qrPayload: batch.qrPayload,
-      progressBatchId: batch.batchId,
     );
   }
 
@@ -4560,21 +4498,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             ],
             if (showResume) ...[
               const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed:
-                    _actionInFlight ? null : () => unawaited(_scanProgressQr()),
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text('Progress QR scan'),
+              FilledButton(
+                onPressed: _actionInFlight
+                    ? null
+                    : () => unawaited(_runQueueAction('resume')),
+                child: const Text('Davom ettirish'),
               ),
-              if (_resumeBatch != null) ...[
-                const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: _actionInFlight
-                      ? null
-                      : () => unawaited(_resumeFromBatch()),
-                  child: const Text('Davom ettirish'),
-                ),
-              ],
             ],
             if (showWaitingForPrevious) ...[
               const SizedBox(height: 14),
