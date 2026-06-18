@@ -1324,6 +1324,7 @@ extension MobileApiAdmin on MobileApi {
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
+    String driverUrl = '',
   }) async {
     final result = await adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -1335,6 +1336,7 @@ extension MobileApiAdmin on MobileApi {
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
+      driverUrl: driverUrl,
     );
     return result.states;
   }
@@ -1349,6 +1351,7 @@ extension MobileApiAdmin on MobileApi {
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
+    String driverUrl = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -1551,6 +1554,7 @@ extension MobileApiAdmin on MobileApi {
       for (final barcode in materialBarcodes)
         if (barcode.trim().isNotEmpty) barcode.trim(),
     ];
+    final trimmedDriverUrl = driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
@@ -1568,6 +1572,7 @@ extension MobileApiAdmin on MobileApi {
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)
             'progress_batch_id': progressBatchId.trim(),
+          if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
         }),
       ),
     );

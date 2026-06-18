@@ -112,6 +112,7 @@ void main() {
         action: 'pause',
         producedQty: 12.5,
         uom: 'kg',
+        driverUrl: ' http://127.0.0.1:39117/ ',
       );
       final batch = await MobileApi.instance.adminProgressQrLookup(
         'GSP:PROGRESS-1',
@@ -125,7 +126,8 @@ void main() {
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
           '{"apparatus":"Pechat","order_id":"zakaz-1","action":"pause",'
-          '"produced_qty":12.5,"uom":"kg"}',
+          '"produced_qty":12.5,"uom":"kg",'
+          '"driver_url":"http://127.0.0.1:39117"}',
         ),
       );
       expect(
