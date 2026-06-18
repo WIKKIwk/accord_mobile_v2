@@ -25,6 +25,7 @@ part 'auth/mobile_api_auth_profile.dart';
 part 'calculate/mobile_api_calculate.dart';
 part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
+part 'qolip/mobile_api_qolip.dart';
 part 'rezka/mobile_api_rezka.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';
 part 'werka/mobile_api_werka.dart';

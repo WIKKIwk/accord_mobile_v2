@@ -503,8 +503,45 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
     if (current != null) {
       return current;
     }
-    final next =
-        MobileApi.instance.adminUserList(limit: 500).then((page) => page.items);
+    final next = Future.wait([
+      MobileApi.instance.adminUserList(limit: 500),
+      MobileApi.instance.adminWorkers(),
+      MobileApi.instance.adminRoleAssignments(),
+    ]).then((results) {
+      final page = results[0] as AdminUserListPage;
+      final workers = results[1] as List<AdminWorker>;
+      final assignments = results[2] as List<AdminRoleAssignment>;
+      final workerEntries = workers.map((worker) {
+        final assignment = assignments
+            .where((item) => item.principalRef.trim() == worker.id.trim())
+            .where((item) =>
+                item.principalRole == UserRole.qolipchi ||
+                item.roleId.trim() == 'qolipchi')
+            .cast<AdminRoleAssignment?>()
+            .firstWhere((item) => item != null, orElse: () => null);
+        final role = assignment?.principalRole == UserRole.qolipchi ||
+                assignment?.roleId.trim() == 'qolipchi'
+            ? UserRole.qolipchi
+            : UserRole.aparatchi;
+        return AdminUserListEntry(
+          id: worker.id,
+          name: worker.name,
+          phone: worker.phone,
+          kind: AdminUserKind.worker,
+          principalRole: role,
+          roleLabelOverride: userRoleLabel(role),
+        );
+      });
+      final byKey = <String, AdminUserListEntry>{};
+      for (final item in [...page.items, ...workerEntries]) {
+        final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
+        byKey[key] = item;
+      }
+      return byKey.values.toList(growable: false)
+        ..sort((left, right) => left.name.toLowerCase().compareTo(
+              right.name.toLowerCase(),
+            ));
+    });
     _usersFuture = next;
     return next;
   }
@@ -703,9 +740,8 @@ class _WarehouseSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final assignValue = section.assignmentCount == 0
-        ? 'yo‘q'
-        : '${section.assignmentCount}';
+    final assignValue =
+        section.assignmentCount == 0 ? 'yo‘q' : '${section.assignmentCount}';
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -1251,9 +1287,10 @@ class _WarehouseReservationListModule extends StatelessWidget {
               reservations.length,
             ),
             reservation: reservations[index],
-            expanded: expandedKey == _warehouseReservationCardKey(
-              reservations[index],
-            ),
+            expanded: expandedKey ==
+                _warehouseReservationCardKey(
+                  reservations[index],
+                ),
             onExpandedChanged: (expanded) => onExpandedChanged(
               _warehouseReservationCardKey(reservations[index]),
               expanded,
@@ -1375,7 +1412,8 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
         onTap: () => onExpandedChanged(!expanded),
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(color: scheme.surface, borderRadius: radius),
+          decoration:
+              BoxDecoration(color: scheme.surface, borderRadius: radius),
           child: Padding(
             padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
             child: Column(
@@ -1501,6 +1539,9 @@ class _WarehouseDetailLine extends StatelessWidget {
 }
 
 UserRole _roleForUser(AdminUserListEntry user) {
+  if (user.principalRole == UserRole.qolipchi) {
+    return UserRole.qolipchi;
+  }
   switch (user.kind) {
     case AdminUserKind.supplier:
       return UserRole.supplier;
@@ -1523,7 +1564,8 @@ InputDecoration _warehouseFieldDecoration(
   OutlineInputBorder outline({Color? color, double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+      borderSide:
+          BorderSide(color: color ?? scheme.outlineVariant, width: width),
     );
   }
 
@@ -1554,7 +1596,9 @@ bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {
 List<AdminRawMaterialStockEntry> _availableRawStock(
   List<AdminRawMaterialStockEntry> stock,
 ) {
-  return stock.where((item) => !_isReservedRawStock(item)).toList(growable: false);
+  return stock
+      .where((item) => !_isReservedRawStock(item))
+      .toList(growable: false);
 }
 
 List<AdminRawMaterialStockEntry> _reservedRawStock(

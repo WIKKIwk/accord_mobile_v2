@@ -156,6 +156,13 @@ class TestModeDemoData {
 
   static const List<AdminRoleDefinition> roles = [
     AdminRoleDefinition(
+      id: 'qolipchi',
+      label: 'Qolipchi',
+      baseRole: UserRole.qolipchi,
+      capabilityCodes: ['qolip.manage'],
+      system: true,
+    ),
+    AdminRoleDefinition(
       id: 'demo-admin',
       label: 'Demo admin',
       baseRole: UserRole.admin,

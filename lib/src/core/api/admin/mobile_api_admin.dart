@@ -47,6 +47,8 @@ String _adminWarehouseRoleToJson(UserRole role) {
       return 'customer';
     case UserRole.aparatchi:
       return 'aparatchi';
+    case UserRole.qolipchi:
+      return 'qolipchi';
   }
 }
 

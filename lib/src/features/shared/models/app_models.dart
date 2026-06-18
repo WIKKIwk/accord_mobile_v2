@@ -1,4 +1,4 @@
-enum UserRole { supplier, werka, customer, aparatchi, admin }
+enum UserRole { supplier, werka, customer, aparatchi, qolipchi, admin }
 
 UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
@@ -8,9 +8,11 @@ UserRole userRoleFromJson(String? value) {
           ? UserRole.customer
           : roleValue == 'aparatchi'
               ? UserRole.aparatchi
-              : roleValue == 'admin'
-                  ? UserRole.admin
-                  : UserRole.supplier;
+              : roleValue == 'qolipchi'
+                  ? UserRole.qolipchi
+                  : roleValue == 'admin'
+                      ? UserRole.admin
+                      : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
@@ -20,9 +22,11 @@ String userRoleToJson(UserRole role) {
           ? 'customer'
           : role == UserRole.aparatchi
               ? 'aparatchi'
-              : role == UserRole.admin
-                  ? 'admin'
-                  : 'supplier';
+              : role == UserRole.qolipchi
+                  ? 'qolipchi'
+                  : role == UserRole.admin
+                      ? 'admin'
+                      : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
@@ -32,9 +36,11 @@ String userRoleLabel(UserRole role) {
           ? 'Haridor'
           : role == UserRole.aparatchi
               ? 'Aparatchi'
-              : role == UserRole.admin
-                  ? 'Admin'
-                  : 'Ta\'minotchi';
+              : role == UserRole.qolipchi
+                  ? 'Qolipchi'
+                  : role == UserRole.admin
+                      ? 'Admin'
+                      : 'Ta\'minotchi';
 }
 
 enum DispatchStatus { draft, pending, accepted, partial, rejected, cancelled }
@@ -231,6 +237,84 @@ class AdminWarehouseAssignment {
       principalRole: userRoleFromJson(json['principal_role']?.toString() ?? ''),
       principalRef: json['principal_ref']?.toString() ?? '',
       displayName: json['display_name']?.toString() ?? '',
+    );
+  }
+}
+
+class QolipBlock {
+  const QolipBlock({required this.name, required this.warehouse});
+
+  final String name;
+  final String warehouse;
+
+  factory QolipBlock.fromJson(Map<String, dynamic> json) {
+    return QolipBlock(
+      name: json['name']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+    );
+  }
+}
+
+class QolipProduct {
+  const QolipProduct({
+    required this.code,
+    required this.name,
+    required this.itemGroup,
+  });
+
+  final String code;
+  final String name;
+  final String itemGroup;
+
+  factory QolipProduct.fromJson(Map<String, dynamic> json) {
+    return QolipProduct(
+      code: json['code']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      itemGroup: json['item_group']?.toString() ?? '',
+    );
+  }
+}
+
+class QolipLocationEntry {
+  const QolipLocationEntry({
+    required this.id,
+    required this.block,
+    required this.warehouse,
+    required this.itemCode,
+    required this.itemName,
+    required this.qolipCode,
+    required this.size,
+    required this.quantity,
+    required this.rowLetter,
+    required this.columnNumber,
+    required this.locationLabel,
+  });
+
+  final String id;
+  final String block;
+  final String warehouse;
+  final String itemCode;
+  final String itemName;
+  final String qolipCode;
+  final int size;
+  final int quantity;
+  final String rowLetter;
+  final int? columnNumber;
+  final String locationLabel;
+
+  factory QolipLocationEntry.fromJson(Map<String, dynamic> json) {
+    return QolipLocationEntry(
+      id: json['id']?.toString() ?? '',
+      block: json['block']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      qolipCode: json['qolip_code']?.toString() ?? '',
+      size: (json['size'] as num?)?.toInt() ?? 0,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      rowLetter: json['row_letter']?.toString() ?? '',
+      columnNumber: (json['column_number'] as num?)?.toInt(),
+      locationLabel: json['location_label']?.toString() ?? '',
     );
   }
 }
@@ -1050,6 +1134,8 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
       return const ['customer.access'];
     case UserRole.aparatchi:
       return const ['apparatus.queue.read'];
+    case UserRole.qolipchi:
+      return const ['qolip.manage'];
     case UserRole.admin:
       return const [
         'admin.access',
@@ -1078,6 +1164,7 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
         'gscale.print',
         'rps.batch.manage',
         'rezka.split.manage',
+        'qolip.manage',
       ];
   }
 }
@@ -1727,6 +1814,7 @@ class AdminUserListEntry {
     required this.name,
     required this.phone,
     required this.kind,
+    this.principalRole = UserRole.supplier,
     this.blocked = false,
     this.roleLabelOverride,
   });
@@ -1735,6 +1823,7 @@ class AdminUserListEntry {
   final String name;
   final String phone;
   final AdminUserKind kind;
+  final UserRole principalRole;
   final bool blocked;
   final String? roleLabelOverride;
 
@@ -1757,6 +1846,7 @@ class AdminUserListEntry {
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       kind: kind,
+      principalRole: principalRole,
       blocked: json['blocked'] as bool? ?? false,
       roleLabelOverride: json['role_label'] as String?,
     );
@@ -1772,7 +1862,7 @@ class AdminUserListEntry {
         : kind == AdminUserKind.customer
             ? 'Customer'
             : kind == AdminUserKind.worker
-                ? 'Ishchi'
+                ? userRoleLabel(principalRole)
                 : 'Supplier';
   }
 }

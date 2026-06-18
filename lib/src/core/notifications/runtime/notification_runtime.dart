@@ -154,6 +154,7 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
         await CustomerStore.instance.refresh();
         return CustomerStore.instance.historyItems;
       case UserRole.aparatchi:
+      case UserRole.qolipchi:
       case UserRole.admin:
       case null:
         return const <DispatchRecord>[];

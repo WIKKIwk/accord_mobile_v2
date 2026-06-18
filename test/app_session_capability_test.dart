@@ -134,6 +134,24 @@ void main() {
     expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isTrue);
   });
 
+  test('qolip capability opens qolip home screen', () async {
+    await AppSession.instance.setSession(
+      token: 'token',
+      profile: const SessionProfile(
+        role: UserRole.qolipchi,
+        displayName: 'Qolipchi',
+        legalName: '',
+        ref: 'worker-qolip',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['qolip.manage'],
+      ),
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.qolipHome);
+    expect(AppSession.instance.can('qolip.manage'), isTrue);
+  });
+
   test('empty capability profile falls back to default role access', () {
     const profile = SessionProfile(
       role: UserRole.werka,

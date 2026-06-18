@@ -67,6 +67,9 @@ class AppSession {
     if (profile.hasCapability('rezka.split.manage')) {
       return '/rezka-split';
     }
+    if (profile.hasCapability('qolip.manage')) {
+      return '/qolip';
+    }
     if (profile.hasAnyCapability(const [
       'gscale.print',
       'gscale.catalog.read',
@@ -83,6 +86,8 @@ class AppSession {
         return '/customer-home';
       case UserRole.aparatchi:
         return '/apparatus-queue';
+      case UserRole.qolipchi:
+        return '/qolip';
       case UserRole.admin:
         return '/admin-home';
     }

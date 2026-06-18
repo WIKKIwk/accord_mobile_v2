@@ -289,9 +289,8 @@ class _RolesTabState extends State<_RolesTab> {
                   expanded: _expandedRoleId == widget.data.roles[index].id,
                   onExpandedChanged: (expanded) {
                     setState(() {
-                      _expandedRoleId = expanded
-                          ? widget.data.roles[index].id
-                          : null;
+                      _expandedRoleId =
+                          expanded ? widget.data.roles[index].id : null;
                     });
                   },
                   onEdit: widget.data.roles[index].system
@@ -750,8 +749,8 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
                     FilledButton(
                       onPressed:
                           _roleCanAssignToPrincipal(role, widget.principal)
-                          ? () => _submit(role)
-                          : null,
+                              ? () => _submit(role)
+                              : null,
                       child: const Text('Saqlash'),
                     ),
                   ],
@@ -772,15 +771,16 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
     }
     final principalRole = role.id == 'aparatchi'
         ? UserRole.aparatchi
-        : widget.principal.role;
+        : role.id == 'qolipchi'
+            ? UserRole.qolipchi
+            : widget.principal.role;
     Navigator.of(context).pop(
       AdminRoleAssignment(
         principalRole: principalRole,
         principalRef: widget.principal.ref,
         roleId: role.id,
-        assignedApparatus: _roleNeedsApparatus(role)
-            ? _sortedAssignedApparatus()
-            : const [],
+        assignedApparatus:
+            _roleNeedsApparatus(role) ? _sortedAssignedApparatus() : const [],
       ),
     );
   }
@@ -829,8 +829,7 @@ class _AdminRolesData {
           role: adminCustomerPrincipalRole(assignments, customer.ref),
           ref: customer.ref,
           name: customer.name,
-          icon:
-              adminCustomerPrincipalRole(assignments, customer.ref) ==
+          icon: adminCustomerPrincipalRole(assignments, customer.ref) ==
                   UserRole.aparatchi
               ? Icons.precision_manufacturing_outlined
               : Icons.person_outline_rounded,
@@ -905,14 +904,12 @@ class _AdminRolesData {
   }
 
   _AdminRolesData upsertAssignment(AdminRoleAssignment assignment) {
-    final nextAssignments =
-        assignments
-            .where(
-              (item) =>
-                  item.principalRef.trim() != assignment.principalRef.trim(),
-            )
-            .toList()
-          ..add(assignment);
+    final nextAssignments = assignments
+        .where(
+          (item) => item.principalRef.trim() != assignment.principalRef.trim(),
+        )
+        .toList()
+      ..add(assignment);
     return copyWith(assignments: nextAssignments);
   }
 
@@ -990,6 +987,10 @@ bool _roleCanAssignToPrincipal(
     return principal.role == UserRole.customer ||
         principal.role == UserRole.aparatchi;
   }
+  if (role.id == 'qolipchi') {
+    return principal.role == UserRole.qolipchi ||
+        principal.role == UserRole.aparatchi;
+  }
   if (role.baseRole == null) {
     return true;
   }
@@ -1016,8 +1017,7 @@ String _capabilityLabel(
   String code,
   List<AdminCapability> capabilities,
 ) {
-  final fallback =
-      capabilities
+  final fallback = capabilities
           .where((capability) => capability.code == code)
           .map((capability) => capability.label)
           .letFirstOrNull() ??

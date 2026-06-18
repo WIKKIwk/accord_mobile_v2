@@ -101,17 +101,17 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
           Expanded(
             child: switch (kind) {
               _AdminUserCreateKind.werka => _WerkaCreateTab(
-                assignedRole: _choice.customRole,
-              ),
+                  assignedRole: _choice.customRole,
+                ),
               _AdminUserCreateKind.customer => _CustomerCreateTab(
-                assignedRole: _choice.customRole,
-              ),
+                  assignedRole: _choice.customRole,
+                ),
               _AdminUserCreateKind.supplier => _SupplierCreateTab(
-                assignedRole: _choice.customRole,
-              ),
+                  assignedRole: _choice.customRole,
+                ),
               _AdminUserCreateKind.custom => _CustomRoleCreateTab(
-                assignedRole: _choice.customRole!,
-              ),
+                  assignedRole: _choice.customRole!,
+                ),
             },
           ),
         ],
@@ -747,9 +747,8 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
               regenerating: regenerating,
               retryAfterSec: _retryAfterSec,
               onCopy: werkaCode.trim().isEmpty ? null : _copyCode,
-              onRegenerate: regenerating || _retryAfterSec > 0
-                  ? null
-                  : _regenerate,
+              onRegenerate:
+                  regenerating || _retryAfterSec > 0 ? null : _regenerate,
             ),
             if (_retryAfterSec > 0) ...[
               const SizedBox(height: 12),
@@ -793,6 +792,9 @@ Future<void> _assignCustomRole(
 UserRole _principalRoleForAssignedRole(AdminRoleDefinition role) {
   if (role.id == 'aparatchi') {
     return UserRole.aparatchi;
+  }
+  if (role.id == 'qolipchi') {
+    return UserRole.qolipchi;
   }
   return role.baseRole ?? UserRole.customer;
 }
