@@ -145,6 +145,36 @@ void main() {
             ));
   });
 
+  test('closed production orders endpoint parses full action logs', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['production_map.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final orders = await MobileApi.instance.adminClosedProductionMapOrders();
+
+      expect(orders, hasLength(1));
+      expect(orders.first.orderId, 'zakaz-closed-route');
+      expect(orders.first.orderNumber, '9401');
+      expect(orders.first.closedByRef, 'worker-closed-lamin');
+      expect(orders.first.logs, hasLength(2));
+      expect(orders.first.logs.first.action, 'start');
+      expect(orders.first.logs.last.apparatus, 'Laminatsiya 1');
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/production-maps/closed-orders'),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('test mode queue resume does not require progress qr', () async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = const SessionProfile(
@@ -375,6 +405,48 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'label_item_name': 'Zakaz yarim tayyor',
             'executor_name': 'Aparatchi',
           },
+        };
+      case 'GET /v1/mobile/admin/production-maps/closed-orders':
+        body = const {
+          'ok': true,
+          'closed_orders': [
+            {
+              'order_id': 'zakaz-closed-route',
+              'order_number': '9401',
+              'title': 'Closed route',
+              'product_code': 'PECHAT-9401',
+              'completed_at_unix': 1781780000,
+              'closed_by_role': 'aparatchi',
+              'closed_by_ref': 'worker-closed-lamin',
+              'closed_by_display_name': 'Laminatsiyachi',
+              'logs': [
+                {
+                  'event_id': 'event-1',
+                  'apparatus': '7 ta rangli pechat',
+                  'order_id': 'zakaz-closed-route',
+                  'action': 'start',
+                  'from_state': 'pending',
+                  'to_state': 'in_progress',
+                  'actor_role': 'aparatchi',
+                  'actor_ref': 'worker-closed-pechat',
+                  'actor_display_name': 'Pechatchi',
+                  'created_at_unix': 1781779900,
+                },
+                {
+                  'event_id': 'event-2',
+                  'apparatus': 'Laminatsiya 1',
+                  'order_id': 'zakaz-closed-route',
+                  'action': 'complete',
+                  'from_state': 'in_progress',
+                  'to_state': 'completed',
+                  'actor_role': 'aparatchi',
+                  'actor_ref': 'worker-closed-lamin',
+                  'actor_display_name': 'Laminatsiyachi',
+                  'created_at_unix': 1781780000,
+                },
+              ],
+            },
+          ],
         };
       case 'PUT /v1/mobile/admin/raw-material-rules':
         body = const {

@@ -1419,7 +1419,7 @@ void main() {
     );
   });
 
-  testWidgets('opened orders modules are ordered orders move sequence', (
+  testWidgets('opened orders modules are ordered orders move sequence closed', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -1443,9 +1443,11 @@ void main() {
     final buyurtmalarCenter = tester.getCenter(find.text('Buyurtmalar'));
     final moveCenter = tester.getCenter(find.text('Ko‘chirish'));
     final sequenceCenter = tester.getCenter(find.text('Ketma-ketlik'));
+    final closedCenter = tester.getCenter(find.text('Yopilgan'));
 
     expect(buyurtmalarCenter.dx, lessThan(moveCenter.dx));
     expect(moveCenter.dx, lessThan(sequenceCenter.dx));
+    expect(sequenceCenter.dx, lessThan(closedCenter.dx));
   });
 
   testWidgets('opened orders sequence module picks apparatus and reorders', (
@@ -1490,6 +1492,7 @@ void main() {
     expect(find.text('Buyurtmalar'), findsOneWidget);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
     expect(find.text('Ko‘chirish'), findsOneWidget);
+    expect(find.text('Yopilgan'), findsOneWidget);
 
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
 

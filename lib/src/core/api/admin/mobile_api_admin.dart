@@ -92,6 +92,92 @@ class AdminCompletedQueueOrder {
   }
 }
 
+class AdminProductionOrderLogEntry {
+  const AdminProductionOrderLogEntry({
+    required this.eventId,
+    required this.apparatus,
+    required this.orderId,
+    required this.action,
+    required this.fromState,
+    required this.toState,
+    required this.actorRole,
+    required this.actorRef,
+    required this.actorDisplayName,
+    required this.createdAtUnix,
+  });
+
+  final String eventId;
+  final String apparatus;
+  final String orderId;
+  final String action;
+  final String fromState;
+  final String toState;
+  final String actorRole;
+  final String actorRef;
+  final String actorDisplayName;
+  final int createdAtUnix;
+
+  factory AdminProductionOrderLogEntry.fromJson(Map<String, dynamic> json) {
+    return AdminProductionOrderLogEntry(
+      eventId: json['event_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      action: json['action']?.toString() ?? '',
+      fromState: json['from_state']?.toString() ?? '',
+      toState: json['to_state']?.toString() ?? '',
+      actorRole: json['actor_role']?.toString() ?? '',
+      actorRef: json['actor_ref']?.toString() ?? '',
+      actorDisplayName: json['actor_display_name']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminClosedProductionOrder {
+  const AdminClosedProductionOrder({
+    required this.orderId,
+    required this.orderNumber,
+    required this.title,
+    required this.productCode,
+    required this.completedAtUnix,
+    required this.closedByRole,
+    required this.closedByRef,
+    required this.closedByDisplayName,
+    required this.logs,
+  });
+
+  final String orderId;
+  final String orderNumber;
+  final String title;
+  final String productCode;
+  final int completedAtUnix;
+  final String closedByRole;
+  final String closedByRef;
+  final String closedByDisplayName;
+  final List<AdminProductionOrderLogEntry> logs;
+
+  factory AdminClosedProductionOrder.fromJson(Map<String, dynamic> json) {
+    final logsRaw = json['logs'];
+    return AdminClosedProductionOrder(
+      orderId: json['order_id']?.toString() ?? '',
+      orderNumber: json['order_number']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      productCode: json['product_code']?.toString() ?? '',
+      completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+      closedByRole: json['closed_by_role']?.toString() ?? '',
+      closedByRef: json['closed_by_ref']?.toString() ?? '',
+      closedByDisplayName: json['closed_by_display_name']?.toString() ?? '',
+      logs: [
+        if (logsRaw is List)
+          for (final item in logsRaw)
+            AdminProductionOrderLogEntry.fromJson(
+              (item as Map).cast<String, dynamic>(),
+            ),
+      ],
+    );
+  }
+}
+
 class _TestModeCompletedQueueOrder {
   const _TestModeCompletedQueueOrder({
     required this.actorRef,
@@ -1007,6 +1093,31 @@ extension MobileApiAdmin on MobileApi {
       if (raw is List)
         for (final item in raw)
           AdminCompletedQueueOrder.fromJson(item as Map<String, dynamic>),
+    ];
+  }
+
+  Future<List<AdminClosedProductionOrder>>
+      adminClosedProductionMapOrders() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return const [];
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/closed-orders'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'closed_orders');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['closed_orders'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminClosedProductionOrder.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
     ];
   }
 
