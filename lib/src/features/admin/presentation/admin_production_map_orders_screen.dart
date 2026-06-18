@@ -1066,6 +1066,7 @@ class _AdminProductionMapOrdersScreenState
     required String action,
     List<String> materialBarcodes = const [],
     double? producedQty,
+    double? grossQty,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1084,6 +1085,7 @@ class _AdminProductionMapOrdersScreenState
         action: action,
         materialBarcodes: materialBarcodes,
         producedQty: producedQty,
+        grossQty: grossQty,
         uom: uom,
         qrPayload: qrPayload,
         progressBatchId: progressBatchId,
@@ -1122,6 +1124,7 @@ class _AdminProductionMapOrdersScreenState
     required String action,
     List<String> materialBarcodes = const [],
     double? producedQty,
+    double? grossQty,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1133,6 +1136,7 @@ class _AdminProductionMapOrdersScreenState
       action: action,
       materialBarcodes: materialBarcodes,
       producedQty: producedQty,
+      grossQty: grossQty,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -4165,6 +4169,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     required String action,
     List<String> materialBarcodes,
     double? producedQty,
+    double? grossQty,
     String uom,
     String qrPayload,
     String progressBatchId,
@@ -4258,6 +4263,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _runQueueAction(
     String action, {
     double? producedQty,
+    double? grossQty,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -4284,6 +4290,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           ? materialAssignments.map((item) => item.barcode).toList()
           : const [],
       producedQty: producedQty,
+      grossQty: grossQty,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -4314,8 +4321,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     await _runQueueAction(
       action,
-      producedQty: input.qty,
-      uom: input.uom,
+      producedQty: input.meterQty,
+      grossQty: input.kgQty,
+      uom: 'm',
       driverUrl: printer.driverUrl,
     );
   }
@@ -4679,56 +4687,90 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 }
 
 class _ProgressQtyInput {
-  const _ProgressQtyInput({required this.qty, required this.uom});
+  const _ProgressQtyInput({required this.meterQty, required this.kgQty});
 
-  final double qty;
-  final String uom;
+  final double meterQty;
+  final double kgQty;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
   BuildContext context,
   String action,
 ) async {
-  final qtyController = TextEditingController();
-  final uomController = TextEditingController(text: 'kg');
+  final meterController = TextEditingController();
+  final kgController = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  double? parseQty(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.'));
   final result = await showDialog<_ProgressQtyInput>(
     context: context,
     builder: (context) {
       return AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         title: Text(action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: qtyController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Miqdor'),
-                validator: (value) {
-                  final qty = double.tryParse(
-                    (value ?? '').trim().replaceAll(',', '.'),
-                  );
-                  if (qty == null || !qty.isFinite || qty <= 0) {
-                    return 'Miqdor kiriting';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: uomController,
-                decoration: const InputDecoration(labelText: 'Birlik'),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return 'Birlik kiriting';
-                  }
-                  return null;
-                },
-              ),
-            ],
+        content: SizedBox(
+          width: MediaQuery.sizeOf(context).width,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: meterController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Metraj'),
+                        validator: (value) {
+                          final qty = parseQty(value ?? '');
+                          if (qty == null || !qty.isFinite || qty <= 0) {
+                            return 'Metraj kiriting';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 22),
+                      child: Text('metr'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: kgController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration:
+                            const InputDecoration(labelText: "Og'irlik"),
+                        validator: (value) {
+                          final qty = parseQty(value ?? '');
+                          if (qty == null || !qty.isFinite || qty <= 0) {
+                            return 'Kg kiriting';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 22),
+                      child: Text('kg'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -4743,10 +4785,8 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
               }
               Navigator.of(context).pop(
                 _ProgressQtyInput(
-                  qty: double.parse(
-                    qtyController.text.trim().replaceAll(',', '.'),
-                  ),
-                  uom: uomController.text.trim(),
+                  meterQty: parseQty(meterController.text) ?? 0,
+                  kgQty: parseQty(kgController.text) ?? 0,
                 ),
               );
             },

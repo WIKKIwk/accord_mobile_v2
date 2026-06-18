@@ -1321,6 +1321,7 @@ extension MobileApiAdmin on MobileApi {
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     double? producedQty,
+    double? grossQty,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1333,6 +1334,7 @@ extension MobileApiAdmin on MobileApi {
       materialBarcode: materialBarcode,
       materialBarcodes: materialBarcodes,
       producedQty: producedQty,
+      grossQty: grossQty,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -1348,6 +1350,7 @@ extension MobileApiAdmin on MobileApi {
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     double? producedQty,
+    double? grossQty,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1568,6 +1571,7 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
             'material_barcode': trimmedBarcode,
           if (producedQty != null) 'produced_qty': producedQty,
+          if (grossQty != null) 'gross_qty': grossQty,
           if (uom.trim().isNotEmpty) 'uom': uom.trim(),
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)

@@ -111,7 +111,8 @@ void main() {
         orderId: 'zakaz-1',
         action: 'pause',
         producedQty: 12.5,
-        uom: 'kg',
+        grossQty: 17,
+        uom: 'm',
         driverUrl: ' http://127.0.0.1:39117/ ',
       );
       final batch = await MobileApi.instance.adminProgressQrLookup(
@@ -126,7 +127,7 @@ void main() {
         contains(
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
           '{"apparatus":"Pechat","order_id":"zakaz-1","action":"pause",'
-          '"produced_qty":12.5,"uom":"kg",'
+          '"produced_qty":12.5,"gross_qty":17.0,"uom":"m",'
           '"driver_url":"http://127.0.0.1:39117"}',
         ),
       );
