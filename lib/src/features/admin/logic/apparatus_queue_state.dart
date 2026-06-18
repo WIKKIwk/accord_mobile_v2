@@ -1,11 +1,13 @@
 import 'production_map_pechat_rules.dart';
 
-enum ApparatusQueueOrderState { pending, inProgress, completed }
+enum ApparatusQueueOrderState { pending, inProgress, paused, completed }
 
 ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   switch (raw?.trim().toLowerCase()) {
     case 'in_progress':
       return ApparatusQueueOrderState.inProgress;
+    case 'paused':
+      return ApparatusQueueOrderState.paused;
     case 'completed':
       return ApparatusQueueOrderState.completed;
     default:
@@ -23,7 +25,7 @@ String? firstActionableQueueOrderId({
       ?.map((id) => id.trim())
       .where((id) => id.isNotEmpty)
       .toSet();
-  final active = firstInProgressQueueOrderId(
+  final active = firstActiveQueueOrderId(
     sequence: sequence,
     states: states,
     visibleOrderIds: visible,
@@ -43,7 +45,9 @@ String? firstActionableQueueOrderId({
       continue;
     }
     final state = apparatusQueueOrderStateFromRaw(states[normalized]);
-    if (state == ApparatusQueueOrderState.completed) {
+    if (state == ApparatusQueueOrderState.completed ||
+        state == ApparatusQueueOrderState.paused ||
+        state == ApparatusQueueOrderState.inProgress) {
       continue;
     }
     return normalized;
@@ -52,6 +56,18 @@ String? firstActionableQueueOrderId({
 }
 
 String? firstInProgressQueueOrderId({
+  required List<String> sequence,
+  required Map<String, String> states,
+  Iterable<String>? visibleOrderIds,
+}) {
+  return firstActiveQueueOrderId(
+    sequence: sequence,
+    states: states,
+    visibleOrderIds: visibleOrderIds,
+  );
+}
+
+String? firstActiveQueueOrderId({
   required List<String> sequence,
   required Map<String, String> states,
   Iterable<String>? visibleOrderIds,
@@ -68,8 +84,9 @@ String? firstInProgressQueueOrderId({
     if (visible != null && !visible.contains(normalized)) {
       continue;
     }
-    if (apparatusQueueOrderStateFromRaw(states[normalized]) ==
-        ApparatusQueueOrderState.inProgress) {
+    final state = apparatusQueueOrderStateFromRaw(states[normalized]);
+    if (state == ApparatusQueueOrderState.inProgress ||
+        state == ApparatusQueueOrderState.paused) {
       return normalized;
     }
   }

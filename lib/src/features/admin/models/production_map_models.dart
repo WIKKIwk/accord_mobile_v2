@@ -7,6 +7,8 @@ class ProductionMapDefinition {
     this.orderNumber = '',
     this.rollCount,
     this.widthMm,
+    this.orderKg,
+    this.baseLength,
     required this.nodes,
     required this.edges,
   });
@@ -18,6 +20,8 @@ class ProductionMapDefinition {
   final String orderNumber;
   final double? rollCount;
   final double? widthMm;
+  final double? orderKg;
+  final double? baseLength;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
 
@@ -30,6 +34,8 @@ class ProductionMapDefinition {
       orderNumber: json['order_number'] as String? ?? '',
       rollCount: (json['roll_count'] as num?)?.toDouble(),
       widthMm: (json['width_mm'] as num?)?.toDouble(),
+      orderKg: (json['order_kg'] as num?)?.toDouble(),
+      baseLength: (json['base_length'] as num?)?.toDouble(),
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
           .map(
             (item) => ProductionMapNode.fromJson(item as Map<String, dynamic>),
@@ -52,6 +58,8 @@ class ProductionMapDefinition {
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
+      if (orderKg != null) 'order_kg': orderKg,
+      if (baseLength != null) 'base_length': baseLength,
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
       'edges': edges.map((edge) => edge.toJson()).toList(growable: false),
     };
@@ -65,6 +73,8 @@ class ProductionMapDefinition {
     String? orderNumber,
     double? rollCount,
     double? widthMm,
+    double? orderKg,
+    double? baseLength,
     List<ProductionMapNode>? nodes,
     List<ProductionMapEdge>? edges,
   }) {
@@ -76,6 +86,8 @@ class ProductionMapDefinition {
       orderNumber: orderNumber ?? this.orderNumber,
       rollCount: rollCount ?? this.rollCount,
       widthMm: widthMm ?? this.widthMm,
+      orderKg: orderKg ?? this.orderKg,
+      baseLength: baseLength ?? this.baseLength,
       nodes: nodes ?? this.nodes,
       edges: edges ?? this.edges,
     );

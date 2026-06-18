@@ -12,6 +12,7 @@ final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
+final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final List<AdminWorker> _testModeWorkers = [];
@@ -99,6 +100,80 @@ class _TestModeCompletedQueueOrder {
 
   final String actorRef;
   final AdminCompletedQueueOrder order;
+}
+
+class AdminProgressBatch {
+  const AdminProgressBatch({
+    required this.batchId,
+    required this.sessionId,
+    required this.apparatus,
+    required this.orderId,
+    required this.action,
+    required this.status,
+    required this.producedQty,
+    required this.uom,
+    required this.qrPayload,
+    required this.labelItemCode,
+    required this.labelItemName,
+    required this.executorName,
+  });
+
+  final String batchId;
+  final String sessionId;
+  final String apparatus;
+  final String orderId;
+  final String action;
+  final String status;
+  final double producedQty;
+  final String uom;
+  final String qrPayload;
+  final String labelItemCode;
+  final String labelItemName;
+  final String executorName;
+
+  factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
+    return AdminProgressBatch(
+      batchId: json['batch_id']?.toString() ?? '',
+      sessionId: json['session_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      action: json['action']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      producedQty: (json['produced_qty'] as num?)?.toDouble() ?? 0,
+      uom: json['uom']?.toString() ?? '',
+      qrPayload: json['qr_payload']?.toString() ?? '',
+      labelItemCode: json['label_item_code']?.toString() ?? '',
+      labelItemName: json['label_item_name']?.toString() ?? '',
+      executorName: json['executor_name']?.toString() ?? '',
+    );
+  }
+
+  AdminProgressBatch copyWith({String? status}) {
+    return AdminProgressBatch(
+      batchId: batchId,
+      sessionId: sessionId,
+      apparatus: apparatus,
+      orderId: orderId,
+      action: action,
+      status: status ?? this.status,
+      producedQty: producedQty,
+      uom: uom,
+      qrPayload: qrPayload,
+      labelItemCode: labelItemCode,
+      labelItemName: labelItemName,
+      executorName: executorName,
+    );
+  }
+}
+
+class AdminApparatusQueueActionResult {
+  const AdminApparatusQueueActionResult({
+    required this.states,
+    this.progressBatch,
+  });
+
+  final Map<String, String> states;
+  final AdminProgressBatch? progressBatch;
 }
 
 enum ApparatusQueuePolicy {
@@ -323,6 +398,11 @@ MobileApiException _adminProductionMapException(
       'raw_material_group_not_allowed' =>
         'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
+      'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
+      'progress_batch_not_found' => 'Progress QR topilmadi',
+      'progress_batch_not_resumable' =>
+        'Bu progress QR davom ettirishga yaramaydi',
+      'scale_driver_not_configured' => 'Printer ulanmagan',
       'map_not_found' => 'Zakaz topilmadi',
       _ => 'Production map amali bajarilmadi',
     },
@@ -1210,6 +1290,35 @@ extension MobileApiAdmin on MobileApi {
     required String action,
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
+    double? producedQty,
+    String uom = '',
+    String qrPayload = '',
+    String progressBatchId = '',
+  }) async {
+    final result = await adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: action,
+      materialBarcode: materialBarcode,
+      materialBarcodes: materialBarcodes,
+      producedQty: producedQty,
+      uom: uom,
+      qrPayload: qrPayload,
+      progressBatchId: progressBatchId,
+    );
+    return result.states;
+  }
+
+  Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
+    required String apparatus,
+    required String orderId,
+    required String action,
+    String materialBarcode = '',
+    List<String> materialBarcodes = const [],
+    double? producedQty,
+    String uom = '',
+    String qrPayload = '',
+    String progressBatchId = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -1283,6 +1392,56 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         states[orderId.trim()] = 'in_progress';
+      } else if (action == 'pause') {
+        if (current != ApparatusQueueOrderState.inProgress) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
+        final qty = producedQty ?? 1;
+        final batch = _testModeProgressBatch(
+          apparatus: storageKey,
+          orderId: orderId.trim(),
+          action: 'pause',
+          status: 'paused',
+          producedQty: qty,
+          uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+        );
+        _testModeProgressBatchesByQr[batch.qrPayload] = batch;
+        states[orderId.trim()] = 'paused';
+        _testModeApparatusQueueStates[storageKey] = states;
+        return AdminApparatusQueueActionResult(
+          states: Map<String, String>.unmodifiable(states),
+          progressBatch: batch,
+        );
+      } else if (action == 'resume') {
+        if (current != ApparatusQueueOrderState.paused) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+          );
+        }
+        final batch = _testModeProgressBatchesByQr[qrPayload.trim().isEmpty
+            ? progressBatchId.trim()
+            : qrPayload.trim()];
+        if (batch == null ||
+            batch.status != 'paused' ||
+            batch.orderId != orderId.trim() ||
+            !productionMapWarehouseTitlesMatch(batch.apparatus, storageKey)) {
+          throw const MobileApiException(
+            code: 'progress_batch_not_resumable',
+            message: 'Bu progress QR davom ettirishga yaramaydi',
+          );
+        }
+        final resumed = batch.copyWith(status: 'resumed');
+        _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
+        states[orderId.trim()] = 'in_progress';
+        _testModeApparatusQueueStates[storageKey] = states;
+        return AdminApparatusQueueActionResult(
+          states: Map<String, String>.unmodifiable(states),
+          progressBatch: resumed,
+        );
       } else if (action == 'complete') {
         if (current != ApparatusQueueOrderState.inProgress) {
           throw const MobileApiException(
@@ -1290,6 +1449,15 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
+        final batch = _testModeProgressBatch(
+          apparatus: storageKey,
+          orderId: orderId.trim(),
+          action: 'complete',
+          status: 'completed',
+          producedQty: producedQty ?? 1,
+          uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+        );
+        _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'completed';
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
@@ -1311,6 +1479,11 @@ extension MobileApiAdmin on MobileApi {
             ),
           );
         }
+        _testModeApparatusQueueStates[storageKey] = states;
+        return AdminApparatusQueueActionResult(
+          states: Map<String, String>.unmodifiable(states),
+          progressBatch: batch,
+        );
       } else {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
@@ -1318,7 +1491,9 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       _testModeApparatusQueueStates[storageKey] = states;
-      return Map<String, String>.unmodifiable(states);
+      return AdminApparatusQueueActionResult(
+        states: Map<String, String>.unmodifiable(states),
+      );
     }
     final trimmedBarcode = materialBarcode.trim();
     final trimmedBarcodes = [
@@ -1337,6 +1512,11 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
           if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
             'material_barcode': trimmedBarcode,
+          if (producedQty != null) 'produced_qty': producedQty,
+          if (uom.trim().isNotEmpty) 'uom': uom.trim(),
+          if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
+          if (progressBatchId.trim().isNotEmpty)
+            'progress_batch_id': progressBatchId.trim(),
         }),
       ),
     );
@@ -1346,12 +1526,53 @@ extension MobileApiAdmin on MobileApi {
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = payload['states'];
     if (raw is! Map) {
-      return const {};
+      return const AdminApparatusQueueActionResult(states: {});
     }
-    return {
-      for (final entry in raw.entries)
-        entry.key.toString(): entry.value.toString(),
-    };
+    final progressRaw = payload['progress_batch'];
+    return AdminApparatusQueueActionResult(
+      states: {
+        for (final entry in raw.entries)
+          entry.key.toString(): entry.value.toString(),
+      },
+      progressBatch: progressRaw is Map
+          ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())
+          : null,
+    );
+  }
+
+  Future<AdminProgressBatch> adminProgressQrLookup(String qrPayload) async {
+    final normalized = qrPayload.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final batch = _testModeProgressBatchesByQr[normalized];
+      if (batch == null) {
+        throw const MobileApiException(
+          code: 'progress_batch_not_found',
+          message: 'Progress QR topilmadi',
+        );
+      }
+      return batch;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse(
+            '$baseUrl/v1/mobile/admin/production-maps/progress-qr/lookup'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'qr_payload': normalized}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'progress_batch_not_found');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['batch'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_found',
+        message: 'Progress QR topilmadi',
+      );
+    }
+    return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<void> adminSaveProductionMapSequence({
@@ -2239,4 +2460,32 @@ AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
         apparatus: title,
         policy: ApparatusQueuePolicy.strictSequence,
       );
+}
+
+AdminProgressBatch _testModeProgressBatch({
+  required String apparatus,
+  required String orderId,
+  required String action,
+  required String status,
+  required double producedQty,
+  required String uom,
+}) {
+  final stamp = DateTime.now().microsecondsSinceEpoch;
+  final batchId = 'test-progress-$stamp-$orderId-$action';
+  final qrPayload = 'GSP:$batchId'.toUpperCase();
+  final executor = AppSession.instance.profile?.displayName.trim() ?? '';
+  return AdminProgressBatch(
+    batchId: batchId,
+    sessionId: 'test-session-$orderId',
+    apparatus: apparatus,
+    orderId: orderId,
+    action: action,
+    status: status,
+    producedQty: producedQty,
+    uom: uom,
+    qrPayload: qrPayload,
+    labelItemCode: orderId,
+    labelItemName: '$orderId yarim tayyor, $apparatus holatda, $status',
+    executorName: executor,
+  );
 }

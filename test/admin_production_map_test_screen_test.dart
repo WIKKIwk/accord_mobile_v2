@@ -1440,11 +1440,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final zakazlarCenter = tester.getCenter(find.text('Zakazlar'));
+    final buyurtmalarCenter = tester.getCenter(find.text('Buyurtmalar'));
     final moveCenter = tester.getCenter(find.text('Ko‘chirish'));
     final sequenceCenter = tester.getCenter(find.text('Ketma-ketlik'));
 
-    expect(zakazlarCenter.dx, lessThan(moveCenter.dx));
+    expect(buyurtmalarCenter.dx, lessThan(moveCenter.dx));
     expect(moveCenter.dx, lessThan(sequenceCenter.dx));
   });
 
@@ -1487,7 +1487,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Zakazlar'), findsOneWidget);
+    expect(find.text('Buyurtmalar'), findsOneWidget);
     expect(find.text('Ketma-ketlik'), findsOneWidget);
     expect(find.text('Ko‘chirish'), findsOneWidget);
 
@@ -1497,8 +1497,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsNothing);
 
-    expect(find.text('Aparatlar'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+    expect(find.textContaining('2 ta zakaz'), findsOneWidget);
 
     expect(find.textContaining('Paket order A'), findsOneWidget);
     expect(find.textContaining('Paket order B'), findsOneWidget);
@@ -2224,7 +2224,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Zakazlar'), findsNothing);
+    expect(find.text('Buyurtmalar'), findsNothing);
     expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
     expect(find.text('7 ta rangli pechat'), findsOneWidget);
@@ -2250,6 +2250,9 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
 
     await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Miqdor'), '12');
+    await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
 
     expect(find.text('Tugatish'), findsNothing);
@@ -2329,6 +2332,9 @@ void main() {
     await tester.tap(find.text('Boshlash'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Miqdor'), '12');
+    await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();

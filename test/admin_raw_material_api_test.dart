@@ -90,6 +90,56 @@ void main() {
             ));
   });
 
+  test('queue progress action sends qty and reads progress batch', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final result = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'Pechat',
+        orderId: 'zakaz-1',
+        action: 'pause',
+        producedQty: 12.5,
+        uom: 'kg',
+      );
+      final batch = await MobileApi.instance.adminProgressQrLookup(
+        'GSP:PROGRESS-1',
+      );
+
+      expect(result.states, {'zakaz-1': 'paused'});
+      expect(result.progressBatch?.qrPayload, 'GSP:PROGRESS-1');
+      expect(batch.status, 'paused');
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"Pechat","order_id":"zakaz-1","action":"pause",'
+          '"produced_qty":12.5,"uom":"kg"}',
+        ),
+      );
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/progress-qr/lookup '
+          '{"qr_payload":"GSP:PROGRESS-1"}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionProgress: true,
+            ));
+  });
+
   test('raw material rule and assignment endpoints use backend contract',
       () async {
     final seenRequests = <String>[];
@@ -177,11 +227,13 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.seenRequests, {
     this.queueActionErrorCode = '',
     this.assignmentErrorCode = '',
+    this.queueActionProgress = false,
   });
 
   final List<String> seenRequests;
   final String queueActionErrorCode;
   final String assignmentErrorCode;
+  final bool queueActionProgress;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -203,8 +255,45 @@ class _RawMaterialApiHttpClient implements HttpClient {
             ),
           );
         }
+        body = queueActionProgress
+            ? const {
+                'states': {'zakaz-1': 'paused'},
+                'progress_batch': {
+                  'batch_id': 'progress-1',
+                  'session_id': 'session-1',
+                  'apparatus': 'Pechat',
+                  'order_id': 'zakaz-1',
+                  'action': 'pause',
+                  'status': 'paused',
+                  'produced_qty': 12.5,
+                  'uom': 'kg',
+                  'qr_payload': 'GSP:PROGRESS-1',
+                  'label_item_code': 'zakaz-1',
+                  'label_item_name': 'Zakaz yarim tayyor',
+                  'executor_name': 'Aparatchi',
+                },
+              }
+            : const {
+                'states': {'zakaz-1': 'in_progress'},
+              };
+      case 'POST /v1/mobile/admin/production-maps/progress-qr/lookup':
         body = const {
-          'states': {'zakaz-1': 'in_progress'},
+          'ok': true,
+          'can_resume': true,
+          'batch': {
+            'batch_id': 'progress-1',
+            'session_id': 'session-1',
+            'apparatus': 'Pechat',
+            'order_id': 'zakaz-1',
+            'action': 'pause',
+            'status': 'paused',
+            'produced_qty': 12.5,
+            'uom': 'kg',
+            'qr_payload': 'GSP:PROGRESS-1',
+            'label_item_code': 'zakaz-1',
+            'label_item_name': 'Zakaz yarim tayyor',
+            'executor_name': 'Aparatchi',
+          },
         };
       case 'PUT /v1/mobile/admin/raw-material-rules':
         body = const {

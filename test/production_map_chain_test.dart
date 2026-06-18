@@ -214,4 +214,12 @@ void main() {
     );
     expect(actionable, 'zakaz-b');
   });
+
+  test('first actionable prioritizes paused order', () {
+    final actionable = firstActionableQueueOrderId(
+      sequence: const ['zakaz-a', 'zakaz-b'],
+      states: const {'zakaz-b': 'paused'},
+    );
+    expect(actionable, 'zakaz-b');
+  });
 }
