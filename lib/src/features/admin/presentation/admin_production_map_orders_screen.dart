@@ -50,6 +50,16 @@ class _WorkerWatchTab {
   final bool isCompleted;
 }
 
+class _WorkerCompletedOrderEntry {
+  const _WorkerCompletedOrderEntry({
+    required this.order,
+    required this.apparatus,
+  });
+
+  final ProductionMapSaved order;
+  final AdminWarehouse? apparatus;
+}
+
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
 
@@ -1245,6 +1255,15 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
+  void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
+    final apparatus = entry.apparatus;
+    if (apparatus == null) {
+      _showOrderDetail(entry.order);
+      return;
+    }
+    _showWatchOrderDetail(apparatus: apparatus, order: entry.order);
+  }
+
   void _setModule(_OpenedOrderModule module) {
     if (_module != module) {
       setState(() => _module = module);
@@ -1366,10 +1385,10 @@ class _AdminProductionMapOrdersScreenState
     return widget.workerMode ? _filterOrdersBySearch(ordered) : ordered;
   }
 
-  List<ProductionMapSaved> _workerCompletedOrders() {
+  List<_WorkerCompletedOrderEntry> _workerCompletedOrders() {
     final byId = {for (final order in _orders) order.map.id.trim(): order};
     final seen = <String>{};
-    final orders = <ProductionMapSaved>[];
+    final orders = <_WorkerCompletedOrderEntry>[];
     for (final completed in _completedWorkerOrders) {
       final orderId = completed.orderId.trim();
       if (orderId.isEmpty || !seen.add(orderId)) {
@@ -1377,10 +1396,34 @@ class _AdminProductionMapOrdersScreenState
       }
       final order = byId[orderId];
       if (order != null) {
-        orders.add(order);
+        orders.add(
+          _WorkerCompletedOrderEntry(
+            order: order,
+            apparatus: _completedOrderApparatus(completed),
+          ),
+        );
       }
     }
-    return _filterOrdersBySearch(orders);
+    final filtered = _filterOrdersBySearch(
+      orders.map((entry) => entry.order).toList(growable: false),
+    );
+    final visibleIds = filtered.map((order) => order.map.id.trim()).toSet();
+    return orders
+        .where((entry) => visibleIds.contains(entry.order.map.id.trim()))
+        .toList(growable: false);
+  }
+
+  AdminWarehouse? _completedOrderApparatus(AdminCompletedQueueOrder completed) {
+    final title = completed.apparatus.trim();
+    if (title.isEmpty) {
+      return null;
+    }
+    for (final apparatus in _apparatus) {
+      if (_apparatusTitlesMatch(apparatus.warehouse, title)) {
+        return apparatus;
+      }
+    }
+    return AdminWarehouse(warehouse: title, parentWarehouse: 'aparat - A');
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({
@@ -2117,7 +2160,7 @@ class _AdminProductionMapOrdersScreenState
                   _AparatchiCompletedOrdersPage(
                     orders: _workerCompletedOrders(),
                     bottomPadding: bottomPadding,
-                    onTapOrder: _showOrderDetail,
+                    onTapOrder: _showCompletedOrderDetail,
                   )
                 else
                   _AparatchiWatchSequencePage(
@@ -2303,9 +2346,9 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
     required this.onTapOrder,
   });
 
-  final List<ProductionMapSaved> orders;
+  final List<_WorkerCompletedOrderEntry> orders;
   final double bottomPadding;
-  final ValueChanged<ProductionMapSaved> onTapOrder;
+  final ValueChanged<_WorkerCompletedOrderEntry> onTapOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -2343,12 +2386,12 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                       index,
                       orders.length,
                     ),
-                    order: orders[index],
+                    order: orders[index].order,
                     index: index,
                     readOnly: true,
                     expanded: false,
-                    baseMetraj: orders[index].map.baseLength,
-                    orderKg: orders[index].map.orderKg,
+                    baseMetraj: orders[index].order.map.baseLength,
+                    orderKg: orders[index].order.map.orderKg,
                     onExpandedChanged: (_) {},
                     expandable: false,
                     onTap: () => onTapOrder(orders[index]),

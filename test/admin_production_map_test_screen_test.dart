@@ -2348,6 +2348,91 @@ void main() {
     expect(find.textContaining('Worker completed order 2'), findsNothing);
   });
 
+  testWidgets('worker completed detail keeps completed apparatus context', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-completed-context-token',
+      profile: const SessionProfile(
+        role: UserRole.werka,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'worker-completed-context',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['7 ta rangli pechat'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _twoStageProductionOrderMap(
+        id: 'zakaz-worker-completed-context',
+        title: 'Worker completed context',
+        productCode: 'WCC',
+        product: 'worker context mahsulot',
+        firstApparatus: '7 ta rangli pechat',
+        secondApparatus: 'Laminatsiya 1',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: '7 ta rangli pechat',
+      orderIds: const ['zakaz-worker-completed-context'],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Laminatsiya 1',
+      orderIds: const ['zakaz-worker-completed-context'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: '7 ta rangli pechat',
+      orderId: 'zakaz-worker-completed-context',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: '7 ta rangli pechat',
+      orderId: 'zakaz-worker-completed-context',
+      action: 'complete',
+      producedQty: 12,
+      grossQty: 9,
+      uom: 'm',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Laminatsiya 1',
+      orderId: 'zakaz-worker-completed-context',
+      action: 'start',
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tugallangan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('completed context').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapni ko‘rish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugagan'), findsOneWidget);
+    expect(find.text('Jarayonda'), findsOneWidget);
+  });
+
   testWidgets('production map sheet closes when tapping the dimmed barrier', (
     tester,
   ) async {
@@ -2686,6 +2771,45 @@ ProductionMapDefinition _productionOrderMap({
           to: apparatusNodes[index + 1].id,
         ),
       ProductionMapEdge(from: apparatusNodes.last.id, to: 'end'),
+    ],
+  );
+}
+
+ProductionMapDefinition _twoStageProductionOrderMap({
+  required String id,
+  required String title,
+  required String productCode,
+  required String product,
+  required String firstApparatus,
+  required String secondApparatus,
+}) {
+  return ProductionMapDefinition(
+    id: id,
+    productCode: productCode,
+    title: title,
+    nodes: [
+      const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+      ProductionMapNode(
+        id: 'first-apparatus',
+        kind: 'apparatus',
+        title: firstApparatus,
+      ),
+      ProductionMapNode(
+        id: 'second-apparatus',
+        kind: 'apparatus',
+        title: secondApparatus,
+      ),
+      ProductionMapNode(
+        id: 'end',
+        kind: 'end',
+        title: product,
+        itemCode: productCode,
+      ),
+    ],
+    edges: const [
+      ProductionMapEdge(from: 'start', to: 'first-apparatus'),
+      ProductionMapEdge(from: 'first-apparatus', to: 'second-apparatus'),
+      ProductionMapEdge(from: 'second-apparatus', to: 'end'),
     ],
   );
 }
