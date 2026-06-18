@@ -258,6 +258,9 @@ class AdminRawMaterialAssignment {
     this.assignedByRef = '',
     this.assignedByName = '',
     this.assignedAt = '',
+    this.stockStatus = '',
+    this.reservedOrderId = '',
+    this.stockWarehouse = '',
   });
 
   final String orderId;
@@ -269,6 +272,9 @@ class AdminRawMaterialAssignment {
   final String assignedByRef;
   final String assignedByName;
   final String assignedAt;
+  final String stockStatus;
+  final String reservedOrderId;
+  final String stockWarehouse;
 
   factory AdminRawMaterialAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRawMaterialAssignment(
@@ -283,6 +289,30 @@ class AdminRawMaterialAssignment {
           json['assigned_by_name']?.toString() ??
           '',
       assignedAt: json['assigned_at']?.toString() ?? '',
+      stockStatus: json['stock_status']?.toString() ?? '',
+      reservedOrderId: json['reserved_order_id']?.toString() ?? '',
+      stockWarehouse: json['stock_warehouse']?.toString() ?? '',
+    );
+  }
+
+  AdminRawMaterialAssignment copyWith({
+    String? stockStatus,
+    String? reservedOrderId,
+    String? stockWarehouse,
+  }) {
+    return AdminRawMaterialAssignment(
+      orderId: orderId,
+      apparatus: apparatus,
+      barcode: barcode,
+      itemCode: itemCode,
+      itemName: itemName,
+      itemGroup: itemGroup,
+      assignedByRef: assignedByRef,
+      assignedByName: assignedByName,
+      assignedAt: assignedAt,
+      stockStatus: stockStatus ?? this.stockStatus,
+      reservedOrderId: reservedOrderId ?? this.reservedOrderId,
+      stockWarehouse: stockWarehouse ?? this.stockWarehouse,
     );
   }
 }
@@ -1392,6 +1422,23 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         states[orderId.trim()] = 'in_progress';
+        for (var index = 0;
+            index < _testModeRawMaterialAssignments.length;
+            index += 1) {
+          final assignment = _testModeRawMaterialAssignments[index];
+          if (assignment.orderId.trim() == orderId.trim() &&
+              productionMapWarehouseTitlesMatch(
+                assignment.apparatus,
+                apparatus,
+              ) &&
+              scannedBarcodes
+                  .contains(assignment.barcode.trim().toUpperCase())) {
+            _testModeRawMaterialAssignments[index] = assignment.copyWith(
+              stockStatus: 'in_use',
+              reservedOrderId: orderId.trim(),
+            );
+          }
+        }
       } else if (action == 'pause') {
         if (current != ApparatusQueueOrderState.inProgress) {
           throw const MobileApiException(

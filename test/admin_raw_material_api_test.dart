@@ -210,6 +210,9 @@ void main() {
       expect(rule.itemGroups, ['Kraska']);
       expect(assignment.orderId, 'zakaz-1');
       expect(assignment.barcode, 'RM-001');
+      expect(assignment.stockStatus, 'in_use');
+      expect(assignment.reservedOrderId, 'zakaz-1');
+      expect(assignment.stockWarehouse, 'Kalidor');
       expect(
         seenRequests,
         contains(
@@ -363,6 +366,9 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'assigned_by_ref': 'admin',
           'assigned_by_name': 'Admin',
           'assigned_at': '2026-06-16T10:00:00Z',
+          'stock_status': 'in_use',
+          'reserved_order_id': 'zakaz-1',
+          'stock_warehouse': 'Kalidor',
         };
       default:
         body = {'error': 'Unhandled request: $key'};

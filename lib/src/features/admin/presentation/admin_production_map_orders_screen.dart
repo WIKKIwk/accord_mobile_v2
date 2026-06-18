@@ -4283,6 +4283,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _queueStates = states.states;
       }
     });
+    if (action == 'start' && states != null) {
+      unawaited(_loadMaterialAssignments());
+    }
   }
 
   Future<void> _runProgressAction(String action) async {
@@ -4349,10 +4352,19 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (assignments.isEmpty) {
       return true;
     }
-    return assignments.every(
-      (assignment) => _scannedMaterialBarcodes
-          .contains(_materialBarcodeKey(assignment.barcode)),
-    );
+    return assignments.every(_materialAssignmentConfirmed);
+  }
+
+  bool _materialAssignmentConfirmed(AdminRawMaterialAssignment assignment) {
+    if (_scannedMaterialBarcodes
+        .contains(_materialBarcodeKey(assignment.barcode))) {
+      return true;
+    }
+    final stockStatus = assignment.stockStatus.trim().toLowerCase();
+    final reservedOrderId = assignment.reservedOrderId.trim();
+    final orderId = widget.order.map.id.trim();
+    return reservedOrderId == orderId &&
+        (stockStatus == 'in_use' || stockStatus == 'consumed');
   }
 
   String _materialBarcodeKey(String value) => value.trim().toUpperCase();
@@ -4369,6 +4381,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final materialAssignments = _stationMaterialAssignments();
     final hasMaterialAssignments = materialAssignments.isNotEmpty;
     final allMaterialsScanned = _allMaterialsScanned(materialAssignments);
+    final confirmedMaterialBarcodes = {
+      for (final assignment in materialAssignments)
+        if (_materialAssignmentConfirmed(assignment))
+          _materialBarcodeKey(assignment.barcode),
+    };
     final chainReady = station.isEmpty ||
         productionMapOrderReadyForStation(
           map: map,
@@ -4442,7 +4459,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               assignments: materialAssignments,
               loading: _materialsLoading,
               error: _materialsError,
-              scannedBarcodes: _scannedMaterialBarcodes,
+              scannedBarcodes: confirmedMaterialBarcodes,
             ),
             if (showStart && hasMaterialAssignments) ...[
               const SizedBox(height: 10),
