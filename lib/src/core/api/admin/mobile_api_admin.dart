@@ -12,6 +12,7 @@ final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
+final List<AdminCompletionRequestNotification> _testModeCompletionRequests = [];
 final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
@@ -90,6 +91,52 @@ class AdminCompletedQueueOrder {
       apparatus: json['apparatus']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminCompletionRequestNotification {
+  const AdminCompletionRequestNotification({
+    required this.eventId,
+    required this.apparatus,
+    required this.orderId,
+    required this.orderNumber,
+    required this.orderTitle,
+    required this.productCode,
+    required this.workerRole,
+    required this.workerRef,
+    required this.workerDisplayName,
+    required this.description,
+    required this.createdAtUnix,
+  });
+
+  final String eventId;
+  final String apparatus;
+  final String orderId;
+  final String orderNumber;
+  final String orderTitle;
+  final String productCode;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final String description;
+  final int createdAtUnix;
+
+  factory AdminCompletionRequestNotification.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminCompletionRequestNotification(
+      eventId: json['event_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      orderNumber: json['order_number']?.toString() ?? '',
+      orderTitle: json['order_title']?.toString() ?? '',
+      productCode: json['product_code']?.toString() ?? '',
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -258,10 +305,12 @@ class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
     this.progressBatch,
+    this.completionRequest,
   });
 
   final Map<String, String> states;
   final AdminProgressBatch? progressBatch;
+  final AdminCompletionRequestNotification? completionRequest;
 }
 
 enum ApparatusQueuePolicy {
@@ -444,6 +493,7 @@ class AdminProductionMapLiveSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     required this.completedOrders,
+    required this.completionRequests,
   });
 
   final List<ProductionMapSaved> maps;
@@ -451,10 +501,12 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final List<AdminCompletedQueueOrder> completedOrders;
+  final List<AdminCompletionRequestNotification> completionRequests;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
     final completedRaw = json['completed_orders'];
+    final completionRequestsRaw = json['completion_requests'];
     return AdminProductionMapLiveSnapshot(
       maps: [
         if (mapsRaw is List)
@@ -474,6 +526,13 @@ class AdminProductionMapLiveSnapshot {
         if (completedRaw is List)
           for (final item in completedRaw)
             AdminCompletedQueueOrder.fromJson(item as Map<String, dynamic>),
+      ],
+      completionRequests: [
+        if (completionRequestsRaw is List)
+          for (final item in completionRequestsRaw)
+            AdminCompletionRequestNotification.fromJson(
+              (item as Map).cast<String, dynamic>(),
+            ),
       ],
     );
   }
@@ -1098,6 +1157,35 @@ extension MobileApiAdmin on MobileApi {
     ];
   }
 
+  Future<List<AdminCompletionRequestNotification>>
+      adminProductionMapCompletionRequests() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return List<AdminCompletionRequestNotification>.unmodifiable(
+        _testModeCompletionRequests,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/completion-requests',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'completion_requests');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['completion_requests'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminCompletionRequestNotification.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+    ];
+  }
+
   Future<List<AdminClosedProductionOrder>>
       adminClosedProductionMapOrders() async {
     if (await TestModeController.instance.isEnabled()) {
@@ -1457,6 +1545,7 @@ extension MobileApiAdmin on MobileApi {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    String completionRequestNote = '',
   }) async {
     final result = await adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -1470,6 +1559,7 @@ extension MobileApiAdmin on MobileApi {
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
       driverUrl: driverUrl,
+      completionRequestNote: completionRequestNote,
     );
     return result.states;
   }
@@ -1486,6 +1576,7 @@ extension MobileApiAdmin on MobileApi {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    String completionRequestNote = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -1637,6 +1728,35 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
+        final note = completionRequestNote.trim();
+        if (note.isNotEmpty && producedQty == null && grossQty == null) {
+          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final map = _testModeProductionMaps
+              .where((item) => item.map.id.trim() == orderId.trim())
+              .cast<ProductionMapSaved?>()
+              .firstWhere((item) => item != null, orElse: () => null);
+          _testModeCompletionRequests.insert(
+            0,
+            AdminCompletionRequestNotification(
+              eventId: 'test-completion-request-$now-${orderId.trim()}',
+              apparatus: storageKey,
+              orderId: orderId.trim(),
+              orderNumber: map?.map.orderNumber.trim() ?? '',
+              orderTitle: map?.map.title.trim() ?? '',
+              productCode: map?.map.productCode.trim() ?? '',
+              workerRole: AppSession.instance.profile?.role.name ?? '',
+              workerRef: AppSession.instance.profile?.ref.trim() ?? '',
+              workerDisplayName:
+                  AppSession.instance.profile?.displayName.trim() ?? '',
+              description: note,
+              createdAtUnix: now,
+            ),
+          );
+          return AdminApparatusQueueActionResult(
+            states: Map<String, String>.unmodifiable(states),
+            completionRequest: _testModeCompletionRequests.first,
+          );
+        }
         final batch = _testModeProgressBatch(
           apparatus: storageKey,
           orderId: orderId.trim(),
@@ -1689,6 +1809,7 @@ extension MobileApiAdmin on MobileApi {
         if (barcode.trim().isNotEmpty) barcode.trim(),
     ];
     final trimmedDriverUrl = driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final trimmedCompletionRequestNote = completionRequestNote.trim();
     final response = await _sendAuthorized(
       () => http.post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
@@ -1708,6 +1829,8 @@ extension MobileApiAdmin on MobileApi {
           if (progressBatchId.trim().isNotEmpty)
             'progress_batch_id': progressBatchId.trim(),
           if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
+          if (trimmedCompletionRequestNote.isNotEmpty)
+            'completion_request_note': trimmedCompletionRequestNote,
         }),
       ),
     );
@@ -1720,6 +1843,7 @@ extension MobileApiAdmin on MobileApi {
       return const AdminApparatusQueueActionResult(states: {});
     }
     final progressRaw = payload['progress_batch'];
+    final requestRaw = payload['completion_request'];
     return AdminApparatusQueueActionResult(
       states: {
         for (final entry in raw.entries)
@@ -1727,6 +1851,11 @@ extension MobileApiAdmin on MobileApi {
       },
       progressBatch: progressRaw is Map
           ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())
+          : null,
+      completionRequest: requestRaw is Map
+          ? AdminCompletionRequestNotification.fromJson(
+              requestRaw.cast<String, dynamic>(),
+            )
           : null,
     );
   }

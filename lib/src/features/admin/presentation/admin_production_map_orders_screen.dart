@@ -145,6 +145,24 @@ String _closedOrderDisplayCode(AdminClosedProductionOrder order) {
   return id;
 }
 
+String _completionRequestDisplayCode(
+  AdminCompletionRequestNotification request,
+) {
+  final orderNumber = request.orderNumber.trim();
+  if (orderNumber.isNotEmpty) {
+    return orderNumber;
+  }
+  final id = request.orderId.trim();
+  const prefix = 'zakaz-';
+  if (id.startsWith(prefix)) {
+    final suffix = id.substring(prefix.length).trim();
+    if (suffix.isNotEmpty) {
+      return suffix;
+    }
+  }
+  return id;
+}
+
 String _closedOrderTitle(AdminClosedProductionOrder order) {
   final title = order.title.trim();
   if (title.isNotEmpty) {
@@ -602,6 +620,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
+  List<AdminCompletionRequestNotification> _completionRequests = const [];
   List<AdminClosedProductionOrder> _closedOrders = const [];
   bool _queueActionInFlight = false;
   Map<String, double> _baseMetrajByMapId = const {};
@@ -624,7 +643,7 @@ class _AdminProductionMapOrdersScreenState
       WidgetsBinding.instance.addObserver(this);
       unawaited(_startWorkerLive());
     } else {
-      unawaited(_refreshLive(initial: true));
+      unawaited(_startAdminLive());
     }
   }
 
@@ -632,9 +651,9 @@ class _AdminProductionMapOrdersScreenState
   void dispose() {
     if (widget.workerMode) {
       WidgetsBinding.instance.removeObserver(this);
-      _stopWorkerLiveStream();
-      _liveHttpClient.close();
     }
+    _stopWorkerLiveStream();
+    _liveHttpClient.close();
     if (!widget.workerMode) {
       _tabController.removeListener(_syncModuleFromTab);
     }
@@ -665,6 +684,19 @@ class _AdminProductionMapOrdersScreenState
     unawaited(_runWorkerLiveStream(_liveStreamGeneration));
   }
 
+  Future<void> _startAdminLive() async {
+    await _refreshLive(initial: true);
+    if (!mounted) {
+      return;
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    _stopWorkerLiveStream();
+    _liveStreamGeneration++;
+    unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+  }
+
   void _stopWorkerLiveStream() {
     _liveStreamGeneration++;
     final subscription = _liveStreamSubscription;
@@ -673,8 +705,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _runWorkerLiveStream(int generation) async {
-    while (
-        mounted && generation == _liveStreamGeneration && widget.workerMode) {
+    while (mounted && generation == _liveStreamGeneration) {
       try {
         await _connectWorkerLiveStreamOnce(generation);
       } catch (_) {
@@ -783,6 +814,7 @@ class _AdminProductionMapOrdersScreenState
         ..clear()
         ..addAll(snapshot.queuePolicies);
       _completedWorkerOrders = snapshot.completedOrders;
+      _completionRequests = snapshot.completionRequests;
       _loading = false;
     });
   }
@@ -805,6 +837,7 @@ class _AdminProductionMapOrdersScreenState
           await Future.wait([
             _refreshMapsAndApparatus(initial: runInitial),
             _refreshQueueSnapshot(),
+            _refreshCompletionRequests(),
             _refreshClosedOrders(),
           ]);
         }
@@ -872,6 +905,24 @@ class _AdminProductionMapOrdersScreenState
       }
       setState(() {
         _closedOrders = closed;
+      });
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> _refreshCompletionRequests() async {
+    if (widget.workerMode) {
+      return;
+    }
+    try {
+      final requests =
+          await MobileApi.instance.adminProductionMapCompletionRequests();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _completionRequests = requests;
       });
     } catch (_) {
       return;
@@ -1192,6 +1243,7 @@ class _AdminProductionMapOrdersScreenState
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    String completionRequestNote = '',
   }) async {
     if (_queueActionInFlight) {
       return null;
@@ -1211,6 +1263,7 @@ class _AdminProductionMapOrdersScreenState
         qrPayload: qrPayload,
         progressBatchId: progressBatchId,
         driverUrl: driverUrl,
+        completionRequestNote: completionRequestNote,
       );
       if (!mounted) {
         return null;
@@ -1218,6 +1271,10 @@ class _AdminProductionMapOrdersScreenState
       setState(() {
         _queueStatesByApparatus[apparatusKey] = result.states;
       });
+      if (completionRequestNote.trim().isNotEmpty &&
+          result.completionRequest != null) {
+        showAdminTopNotice(context, 'Tugatish so‘rovi adminga yuborildi');
+      }
       unawaited(_refreshLive());
       return result;
     } catch (error) {
@@ -1250,6 +1307,7 @@ class _AdminProductionMapOrdersScreenState
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    String completionRequestNote = '',
   }) {
     return MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -1262,6 +1320,7 @@ class _AdminProductionMapOrdersScreenState
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
       driverUrl: driverUrl,
+      completionRequestNote: completionRequestNote,
     );
   }
 
@@ -2195,6 +2254,7 @@ class _AdminProductionMapOrdersScreenState
                                     _SequenceModulePage(
                                       bottomPadding: bottomPadding,
                                       apparatus: _selectedApparatus,
+                                      completionRequests: _completionRequests,
                                       orders: _selectedApparatus == null
                                           ? const []
                                           : _ordersForApparatus(
@@ -2781,6 +2841,7 @@ class _SequenceModulePage extends StatefulWidget {
   const _SequenceModulePage({
     required this.bottomPadding,
     required this.apparatus,
+    required this.completionRequests,
     required this.orders,
     required this.readOnly,
     required this.baseMetrajByMapId,
@@ -2791,6 +2852,7 @@ class _SequenceModulePage extends StatefulWidget {
 
   final double bottomPadding;
   final AdminWarehouse? apparatus;
+  final List<AdminCompletionRequestNotification> completionRequests;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
   final Map<String, double> baseMetrajByMapId;
@@ -2804,10 +2866,20 @@ class _SequenceModulePage extends StatefulWidget {
 
 class _SequenceModulePageState extends State<_SequenceModulePage> {
   String? _expandedOrderId;
+  String? _expandedCompletionRequestId;
 
   void _onExpandedChanged(ProductionMapSaved order, bool expanded) {
     setState(() {
       _expandedOrderId = expanded ? order.map.id.trim() : null;
+    });
+  }
+
+  void _onCompletionRequestExpandedChanged(
+    AdminCompletionRequestNotification request,
+    bool expanded,
+  ) {
+    setState(() {
+      _expandedCompletionRequestId = expanded ? request.eventId.trim() : null;
     });
   }
 
@@ -2816,6 +2888,14 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
     final scheme = Theme.of(context).colorScheme;
     final selected = widget.apparatus;
     final orders = widget.orders;
+    final notifications = widget.completionRequests;
+    final notificationSection = notifications.isEmpty
+        ? const SizedBox.shrink()
+        : _CompletionRequestsSection(
+            requests: notifications,
+            expandedRequestId: _expandedCompletionRequestId,
+            onExpandedChanged: _onCompletionRequestExpandedChanged,
+          );
 
     Widget buildOrderRow({
       required int index,
@@ -2852,10 +2932,17 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                 _openedOrderPanelCardGap,
                 0,
               ),
-              child: _SequenceHeaderSelectors(
-                apparatus: selected,
-                orderCount: orders.length,
-                onPickApparatus: widget.onPickApparatus,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  notificationSection,
+                  if (notifications.isNotEmpty) const SizedBox(height: 12),
+                  _SequenceHeaderSelectors(
+                    apparatus: selected,
+                    orderCount: orders.length,
+                    onPickApparatus: widget.onPickApparatus,
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -2910,6 +2997,8 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           widget.bottomPadding,
         ),
         children: [
+          notificationSection,
+          if (notifications.isNotEmpty) const SizedBox(height: 12),
           _SequenceHeaderSelectors(
             apparatus: selected,
             orderCount: orders.length,
@@ -2936,6 +3025,228 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletionRequestsSection extends StatelessWidget {
+  const _CompletionRequestsSection({
+    required this.requests,
+    required this.expandedRequestId,
+    required this.onExpandedChanged,
+  });
+
+  final List<AdminCompletionRequestNotification> requests;
+  final String? expandedRequestId;
+  final void Function(AdminCompletionRequestNotification request, bool expanded)
+      onExpandedChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Tugatish so‘rovlari',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        M3SegmentSpacedColumn(
+          padding: EdgeInsets.zero,
+          children: [
+            for (var index = 0; index < requests.length; index++)
+              _CompletionRequestRow(
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index,
+                  requests.length,
+                ),
+                request: requests[index],
+                expanded: expandedRequestId == requests[index].eventId.trim(),
+                onExpandedChanged: (expanded) =>
+                    onExpandedChanged(requests[index], expanded),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CompletionRequestRow extends StatelessWidget {
+  const _CompletionRequestRow({
+    required this.slot,
+    required this.request,
+    required this.expanded,
+    required this.onExpandedChanged,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final AdminCompletionRequestNotification request;
+  final bool expanded;
+  final ValueChanged<bool> onExpandedChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
+    final code = _completionRequestDisplayCode(request);
+    final worker = _closedActorLabel(
+      displayName: request.workerDisplayName,
+      role: request.workerRole,
+      ref: request.workerRef,
+    );
+    final title = '$code zakaz 0 holatda';
+    final subtitle = '${request.apparatus} dagi $worker tugatishga urinyapti';
+
+    return Material(
+      color: scheme.errorContainer.withValues(alpha: 0.32),
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => onExpandedChanged(!expanded),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
+                child: Row(
+                  children: [
+                    SizedBox.square(
+                      dimension: 30,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Icon(
+                          Icons.priority_high_rounded,
+                          size: 18,
+                          color: scheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 22,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? _CompletionRequestDetail(request: request)
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletionRequestDetail extends StatelessWidget {
+  const _CompletionRequestDetail({required this.request});
+
+  final AdminCompletionRequestNotification request;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final lines = <String>[
+      if (request.orderTitle.trim().isNotEmpty)
+        'Mahsulot: ${request.orderTitle.trim()}',
+      if (request.productCode.trim().isNotEmpty)
+        'Kod: ${request.productCode.trim()}',
+      'Aparat: ${request.apparatus.trim()}',
+      'Ishchi: ${_closedActorLabel(
+        displayName: request.workerDisplayName,
+        role: request.workerRole,
+        ref: request.workerRef,
+      )}',
+      if (_closedLogTimeLabel(request.createdAtUnix).isNotEmpty)
+        'Vaqt: ${_closedLogTimeLabel(request.createdAtUnix)}',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(left: 58, right: 12, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                line,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          Text(
+            request.description.trim(),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -4589,6 +4900,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     String qrPayload,
     String progressBatchId,
     String driverUrl,
+    String completionRequestNote,
   })? onQueueAction;
 
   @override
@@ -4683,6 +4995,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    String completionRequestNote = '',
   }) async {
     final apparatus = widget.apparatus;
     final onQueueAction = widget.onQueueAction;
@@ -4710,6 +5023,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
       driverUrl: driverUrl,
+      completionRequestNote: completionRequestNote,
     );
     if (!mounted) {
       return;
@@ -4728,6 +5042,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _runProgressAction(String action) async {
     final input = await _showProgressQtyDialog(context, action);
     if (!mounted || input == null) {
+      return;
+    }
+    if (input.isCompletionRequest) {
+      await _runQueueAction(
+        action,
+        completionRequestNote: input.description,
+      );
       return;
     }
     final printer = await _showProgressPrinterPicker(context);
@@ -5102,10 +5423,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 }
 
 class _ProgressQtyInput {
-  const _ProgressQtyInput({required this.meterQty, required this.kgQty});
+  const _ProgressQtyInput({
+    this.meterQty,
+    this.kgQty,
+    this.description = '',
+    this.isCompletionRequest = false,
+  });
 
-  final double meterQty;
-  final double kgQty;
+  final double? meterQty;
+  final double? kgQty;
+  final String description;
+  final bool isCompletionRequest;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
@@ -5114,103 +5442,175 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
 ) async {
   final meterController = TextEditingController();
   final kgController = TextEditingController();
+  final descriptionController = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  final isComplete = action == 'complete';
   double? parseQty(String value) =>
       double.tryParse(value.trim().replaceAll(',', '.'));
   final result = await showDialog<_ProgressQtyInput>(
     context: context,
     builder: (context) {
-      return AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        title: Text(action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori'),
-        content: SizedBox(
-          width: MediaQuery.sizeOf(context).width,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      String completionError = '';
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            title:
+                Text(action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori'),
+            content: SizedBox(
+              width: MediaQuery.sizeOf(context).width,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: meterController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: meterController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration:
+                                const InputDecoration(labelText: 'Metraj'),
+                            validator: (value) {
+                              final qty = parseQty(value ?? '');
+                              if (qty == null || !qty.isFinite || qty <= 0) {
+                                return 'Metraj kiriting';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
-                        decoration: const InputDecoration(labelText: 'Metraj'),
-                        validator: (value) {
-                          final qty = parseQty(value ?? '');
-                          if (qty == null || !qty.isFinite || qty <= 0) {
-                            return 'Metraj kiriting';
+                        const SizedBox(width: 10),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 22),
+                          child: Text('metr'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: kgController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration:
+                                const InputDecoration(labelText: "Og'irlik"),
+                            validator: (value) {
+                              final qty = parseQty(value ?? '');
+                              if (qty == null || !qty.isFinite || qty <= 0) {
+                                return 'Kg kiriting';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 22),
+                          child: Text('kg'),
+                        ),
+                      ],
+                    ),
+                    if (isComplete) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: descriptionController,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Izoh',
+                          alignLabelWithHint: true,
+                        ),
+                        onChanged: (_) {
+                          if (completionError.isNotEmpty) {
+                            setDialogState(() => completionError = '');
                           }
-                          return null;
                         },
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 22),
-                      child: Text('metr'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: kgController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                      if (completionError.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            completionError,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                  height: 1.25,
+                                ),
+                          ),
                         ),
-                        decoration:
-                            const InputDecoration(labelText: "Og'irlik"),
-                        validator: (value) {
-                          final qty = parseQty(value ?? '');
-                          if (qty == null || !qty.isFinite || qty <= 0) {
-                            return 'Kg kiriting';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 22),
-                      child: Text('kg'),
-                    ),
+                      ],
+                    ],
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!(formKey.currentState?.validate() ?? false)) {
-                return;
-              }
-              Navigator.of(context).pop(
-                _ProgressQtyInput(
-                  meterQty: parseQty(meterController.text) ?? 0,
-                  kgQty: parseQty(kgController.text) ?? 0,
-                ),
-              );
-            },
-            child: const Text('Tasdiqlash'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Bekor qilish'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final meterQty = parseQty(meterController.text);
+                  final kgQty = parseQty(kgController.text);
+                  final hasMeter =
+                      meterQty != null && meterQty.isFinite && meterQty > 0;
+                  final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
+                  if (hasMeter && hasKg) {
+                    Navigator.of(context).pop(
+                      _ProgressQtyInput(
+                        meterQty: meterQty,
+                        kgQty: kgQty,
+                      ),
+                    );
+                    return;
+                  }
+                  if (isComplete) {
+                    final description = descriptionController.text.trim();
+                    if (description.isNotEmpty) {
+                      Navigator.of(context).pop(
+                        _ProgressQtyInput(
+                          description: description,
+                          isCompletionRequest: true,
+                        ),
+                      );
+                      return;
+                    }
+                    setDialogState(() {
+                      completionError =
+                          "Nega majburiy fieldlarni bo'sh qoldiryapsiz? "
+                          'Iltimos izoh kiritib tugatish tugmasini bosing';
+                    });
+                    return;
+                  }
+                  if (!(formKey.currentState?.validate() ?? false)) {
+                    return;
+                  }
+                },
+                child: const Text('Tasdiqlash'),
+              ),
+            ],
+          );
+        },
       );
     },
   );
+  descriptionController.dispose();
+  kgController.dispose();
+  meterController.dispose();
   return result;
 }
 
