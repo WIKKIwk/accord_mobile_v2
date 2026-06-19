@@ -202,6 +202,14 @@ String _closedLogActionLabel(String action) {
   };
 }
 
+String _closedLogTitle(AdminProductionOrderLogEntry log) {
+  if (log.completedWithIssue) {
+    final note = log.issueNote.trim();
+    return note.isNotEmpty ? note : 'Muammo bilan yopildi';
+  }
+  return _closedLogActionLabel(log.action);
+}
+
 String _closedLogStateLabel(AdminProductionOrderLogEntry log) {
   final from = log.fromState.trim();
   final to = log.toState.trim();
@@ -620,6 +628,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
+  final Set<String> _shownCompletionDecisionIds = {};
   List<AdminClosedProductionOrder> _closedOrders = const [];
   bool _queueActionInFlight = false;
   Map<String, double> _baseMetrajByMapId = const {};
@@ -801,6 +810,14 @@ class _AdminProductionMapOrdersScreenState
     final orders = snapshot.maps
         .where((item) => item.map.id.trim().startsWith('zakaz-'))
         .toList(growable: false);
+    final newRejectedDecisions = widget.workerMode
+        ? snapshot.completionRequestDecisions
+            .where((decision) =>
+                decision.decision.trim() == 'rejected' &&
+                decision.eventId.trim().isNotEmpty &&
+                !_shownCompletionDecisionIds.contains(decision.eventId.trim()))
+            .toList(growable: false)
+        : const <AdminCompletionRequestDecisionNotification>[];
     setState(() {
       _orders = orders;
       _sequenceByApparatus
@@ -816,6 +833,15 @@ class _AdminProductionMapOrdersScreenState
       _completionRequests = snapshot.completionRequests;
       _loading = false;
     });
+    for (final decision in newRejectedDecisions) {
+      _shownCompletionDecisionIds.add(decision.eventId.trim());
+      showAdminTopNotice(
+        context,
+        decision.message.trim().isNotEmpty
+            ? decision.message.trim()
+            : "Sizni so'rovingiz rad etildi",
+      );
+    }
   }
 
   Future<void> _refreshLive({bool initial = false}) async {
@@ -832,6 +858,7 @@ class _AdminProductionMapOrdersScreenState
           await _refreshMapsAndApparatus(initial: runInitial);
           await _refreshQueueSnapshot();
           await _refreshWorkerCompletedOrders();
+          await _refreshWorkerCompletionRequestDecisions();
         } else {
           await Future.wait([
             _refreshMapsAndApparatus(initial: runInitial),
@@ -888,6 +915,36 @@ class _AdminProductionMapOrdersScreenState
       setState(() {
         _completedWorkerOrders = completed;
       });
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> _refreshWorkerCompletionRequestDecisions() async {
+    if (!widget.workerMode) {
+      return;
+    }
+    try {
+      final decisions = await MobileApi.instance
+          .adminProductionMapCompletionRequestDecisions();
+      if (!mounted) {
+        return;
+      }
+      final newRejectedDecisions = decisions
+          .where((decision) =>
+              decision.decision.trim() == 'rejected' &&
+              decision.eventId.trim().isNotEmpty &&
+              !_shownCompletionDecisionIds.contains(decision.eventId.trim()))
+          .toList(growable: false);
+      for (final decision in newRejectedDecisions) {
+        _shownCompletionDecisionIds.add(decision.eventId.trim());
+        showAdminTopNotice(
+          context,
+          decision.message.trim().isNotEmpty
+              ? decision.message.trim()
+              : "Sizni so'rovingiz rad etildi",
+        );
+      }
     } catch (_) {
       return;
     }
@@ -2654,7 +2711,7 @@ class _ClosedOrderLogRow extends StatelessWidget {
             children: [
               Text(
                 [
-                  _closedLogActionLabel(log.action),
+                  _closedLogTitle(log),
                   if (apparatus.isNotEmpty) apparatus,
                 ].join(' • '),
                 style: theme.textTheme.bodyMedium?.copyWith(

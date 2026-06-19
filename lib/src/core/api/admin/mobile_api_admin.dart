@@ -141,6 +141,70 @@ class AdminCompletionRequestNotification {
   }
 }
 
+class AdminCompletionRequestDecisionNotification {
+  const AdminCompletionRequestDecisionNotification({
+    required this.eventId,
+    required this.requestEventId,
+    required this.decision,
+    required this.apparatus,
+    required this.orderId,
+    required this.orderNumber,
+    required this.orderTitle,
+    required this.productCode,
+    required this.workerRole,
+    required this.workerRef,
+    required this.workerDisplayName,
+    required this.decidedByRole,
+    required this.decidedByRef,
+    required this.decidedByDisplayName,
+    required this.description,
+    required this.message,
+    required this.createdAtUnix,
+  });
+
+  final String eventId;
+  final String requestEventId;
+  final String decision;
+  final String apparatus;
+  final String orderId;
+  final String orderNumber;
+  final String orderTitle;
+  final String productCode;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final String decidedByRole;
+  final String decidedByRef;
+  final String decidedByDisplayName;
+  final String description;
+  final String message;
+  final int createdAtUnix;
+
+  factory AdminCompletionRequestDecisionNotification.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminCompletionRequestDecisionNotification(
+      eventId: json['event_id']?.toString() ?? '',
+      requestEventId: json['request_event_id']?.toString() ?? '',
+      decision: json['decision']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      orderNumber: json['order_number']?.toString() ?? '',
+      orderTitle: json['order_title']?.toString() ?? '',
+      productCode: json['product_code']?.toString() ?? '',
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      decidedByRole: json['decided_by_role']?.toString() ?? '',
+      decidedByRef: json['decided_by_ref']?.toString() ?? '',
+      decidedByDisplayName: json['decided_by_display_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AdminProductionOrderLogEntry {
   const AdminProductionOrderLogEntry({
     required this.eventId,
@@ -153,6 +217,8 @@ class AdminProductionOrderLogEntry {
     required this.actorRef,
     required this.actorDisplayName,
     required this.createdAtUnix,
+    this.completedWithIssue = false,
+    this.issueNote = '',
   });
 
   final String eventId;
@@ -165,6 +231,8 @@ class AdminProductionOrderLogEntry {
   final String actorRef;
   final String actorDisplayName;
   final int createdAtUnix;
+  final bool completedWithIssue;
+  final String issueNote;
 
   factory AdminProductionOrderLogEntry.fromJson(Map<String, dynamic> json) {
     return AdminProductionOrderLogEntry(
@@ -178,6 +246,8 @@ class AdminProductionOrderLogEntry {
       actorRef: json['actor_ref']?.toString() ?? '',
       actorDisplayName: json['actor_display_name']?.toString() ?? '',
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+      completedWithIssue: json['completed_with_issue'] == true,
+      issueNote: json['issue_note']?.toString() ?? '',
     );
   }
 }
@@ -494,6 +564,7 @@ class AdminProductionMapLiveSnapshot {
     required this.queuePolicies,
     required this.completedOrders,
     required this.completionRequests,
+    required this.completionRequestDecisions,
   });
 
   final List<ProductionMapSaved> maps;
@@ -502,11 +573,14 @@ class AdminProductionMapLiveSnapshot {
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final List<AdminCompletedQueueOrder> completedOrders;
   final List<AdminCompletionRequestNotification> completionRequests;
+  final List<AdminCompletionRequestDecisionNotification>
+      completionRequestDecisions;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
     final completedRaw = json['completed_orders'];
     final completionRequestsRaw = json['completion_requests'];
+    final completionRequestDecisionsRaw = json['completion_request_decisions'];
     return AdminProductionMapLiveSnapshot(
       maps: [
         if (mapsRaw is List)
@@ -531,6 +605,13 @@ class AdminProductionMapLiveSnapshot {
         if (completionRequestsRaw is List)
           for (final item in completionRequestsRaw)
             AdminCompletionRequestNotification.fromJson(
+              (item as Map).cast<String, dynamic>(),
+            ),
+      ],
+      completionRequestDecisions: [
+        if (completionRequestDecisionsRaw is List)
+          for (final item in completionRequestDecisionsRaw)
+            AdminCompletionRequestDecisionNotification.fromJson(
               (item as Map).cast<String, dynamic>(),
             ),
       ],
@@ -1181,6 +1262,109 @@ extension MobileApiAdmin on MobileApi {
       if (raw is List)
         for (final item in raw)
           AdminCompletionRequestNotification.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+    ];
+  }
+
+  Future<AdminCompletionRequestDecisionNotification>
+      adminProductionMapCompletionRequestDecision({
+    required String eventId,
+    required String decision,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeCompletionRequests.indexWhere(
+        (item) => item.eventId.trim() == eventId.trim(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'queue_action_not_allowed',
+          message: 'Tugatish so‘rovi topilmadi',
+        );
+      }
+      final request = _testModeCompletionRequests.removeAt(index);
+      final normalized = decision.trim().toLowerCase().startsWith('reject')
+          ? 'rejected'
+          : 'approved';
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final message = normalized == 'rejected'
+          ? "Sizni so'rovingiz rad etildi"
+          : 'Muammo bilan yopildi';
+      if (normalized == 'approved') {
+        final states = Map<String, String>.from(
+          _testModeApparatusQueueStates[request.apparatus] ?? const {},
+        );
+        states[request.orderId] = 'completed';
+        _testModeApparatusQueueStates[request.apparatus] = states;
+      }
+      return AdminCompletionRequestDecisionNotification(
+        eventId: 'test-completion-decision-$now-${request.orderId}',
+        requestEventId: request.eventId,
+        decision: normalized,
+        apparatus: request.apparatus,
+        orderId: request.orderId,
+        orderNumber: request.orderNumber,
+        orderTitle: request.orderTitle,
+        productCode: request.productCode,
+        workerRole: request.workerRole,
+        workerRef: request.workerRef,
+        workerDisplayName: request.workerDisplayName,
+        decidedByRole: AppSession.instance.profile?.role.name ?? '',
+        decidedByRef: AppSession.instance.profile?.ref.trim() ?? '',
+        decidedByDisplayName:
+            AppSession.instance.profile?.displayName.trim() ?? '',
+        description: request.description,
+        message: message,
+        createdAtUnix: now,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/completion-requests/decision',
+        ),
+        headers: _headers(requireToken()),
+        body: jsonEncode({
+          'event_id': eventId,
+          'decision': decision,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+          response, 'completion_request_decision');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminCompletionRequestDecisionNotification.fromJson(
+      (payload['decision'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<List<AdminCompletionRequestDecisionNotification>>
+      adminProductionMapCompletionRequestDecisions() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return const [];
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/completion-request-decisions',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'completion_request_decisions',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['completion_request_decisions'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminCompletionRequestDecisionNotification.fromJson(
             (item as Map).cast<String, dynamic>(),
           ),
     ];

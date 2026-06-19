@@ -11,6 +11,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_top_notice.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   Object? _error;
   List<AdminCompletionRequestNotification> _requests = const [];
   String? _expandedRequestId;
+  final Set<String> _decidingRequestIds = {};
   StreamSubscription<String>? _liveSubscription;
   int _liveGeneration = 0;
 
@@ -152,6 +154,46 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
+  Future<void> _decideCompletionRequest(
+    AdminCompletionRequestNotification request,
+    String decision,
+  ) async {
+    final eventId = request.eventId.trim();
+    if (eventId.isEmpty || _decidingRequestIds.contains(eventId)) {
+      return;
+    }
+    setState(() {
+      _decidingRequestIds.add(eventId);
+    });
+    try {
+      final result =
+          await MobileApi.instance.adminProductionMapCompletionRequestDecision(
+        eventId: eventId,
+        decision: decision,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _requests =
+            _requests.where((item) => item.eventId.trim() != eventId).toList();
+        _expandedRequestId = null;
+      });
+      showAdminTopNotice(context, result.message);
+      unawaited(_load());
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Tugatish so‘rovi hal qilinmadi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _decidingRequestIds.remove(eventId);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -191,12 +233,19 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
               _CompletionRequestNotificationCard(
                 request: _requests[index],
                 expanded: _expandedRequestId == _requests[index].eventId.trim(),
+                deciding: _decidingRequestIds.contains(
+                  _requests[index].eventId.trim(),
+                ),
                 onExpandedChanged: (expanded) {
                   setState(() {
                     _expandedRequestId =
                         expanded ? _requests[index].eventId.trim() : null;
                   });
                 },
+                onApprove: () =>
+                    _decideCompletionRequest(_requests[index], 'approve'),
+                onReject: () =>
+                    _decideCompletionRequest(_requests[index], 'reject'),
               ),
               if (index != _requests.length - 1) const SizedBox(height: 8),
             ],
@@ -240,12 +289,18 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
   const _CompletionRequestNotificationCard({
     required this.request,
     required this.expanded,
+    required this.deciding,
     required this.onExpandedChanged,
+    required this.onApprove,
+    required this.onReject,
   });
 
   final AdminCompletionRequestNotification request;
   final bool expanded;
+  final bool deciding;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +393,12 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: expanded
-                ? _CompletionRequestDetails(request: request)
+                ? _CompletionRequestDetails(
+                    request: request,
+                    deciding: deciding,
+                    onApprove: onApprove,
+                    onReject: onReject,
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -348,9 +408,17 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
 }
 
 class _CompletionRequestDetails extends StatelessWidget {
-  const _CompletionRequestDetails({required this.request});
+  const _CompletionRequestDetails({
+    required this.request,
+    required this.deciding,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   final AdminCompletionRequestNotification request;
+  final bool deciding;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -396,6 +464,37 @@ class _CompletionRequestDetails extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: scheme.onSurface,
             ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Tugatishga ruxsat berasizmi?',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: deciding ? null : onReject,
+                  child: const Text('Rad etish'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: deciding ? null : onApprove,
+                  child: deciding
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Tasdiqlash'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
