@@ -198,6 +198,12 @@ List<_AdminDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminProductionMapOrders,
     ),
     const _AdminDrawerDestination(
+      icon: Icons.notifications_outlined,
+      selectedIcon: Icons.notifications_rounded,
+      label: 'Bildirishnomalar',
+      routeName: AppRoutes.adminNotifications,
+    ),
+    const _AdminDrawerDestination(
       icon: Icons.rule_folder_outlined,
       selectedIcon: Icons.rule_folder_rounded,
       label: 'Aparat navbati',

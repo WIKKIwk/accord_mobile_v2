@@ -13,6 +13,7 @@ import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
 import '../features/admin/presentation/admin_item_create_screen.dart';
 import '../features/admin/presentation/admin_item_group_create_screen.dart';
+import '../features/admin/presentation/admin_notifications_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
@@ -136,6 +137,7 @@ class AppRoutes {
   static const String adminCreateHub = '/admin-create-hub';
   static const String adminSettings = '/admin-settings';
   static const String adminRoles = '/admin-roles';
+  static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminQueuePolicies = '/admin-queue-policies';
@@ -181,6 +183,7 @@ class AppRouter {
     AppRoutes.adminCreateHub,
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
+    AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminQueuePolicies,
@@ -227,6 +230,7 @@ class AppRouter {
     AppRoutes.werkaArchiveBatchQrLookup,
     AppRoutes.adminSettings,
     AppRoutes.adminRoles,
+    AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminQueuePolicies,
@@ -451,6 +455,8 @@ class AppRouter {
         return _buildAdminSettingsRoute(settings, const AdminSettingsScreen());
       case AppRoutes.adminRoles:
         return _buildRoute(settings, const AdminRolesScreen());
+      case AppRoutes.adminNotifications:
+        return _buildRoute(settings, const AdminNotificationsScreen());
       case AppRoutes.adminProductionMapTest:
         final ProductionMapTestArgs? args =
             settings.arguments is ProductionMapTestArgs
@@ -686,6 +692,7 @@ class AppRouter {
     },
     AppRoutes.adminSettings: {'admin.settings.read'},
     AppRoutes.adminRoles: {'role.capability.read'},
+    AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapOrders: {
       'admin.access',
