@@ -38,7 +38,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _product = TextEditingController();
   final _status = TextEditingController();
   final _kg = TextEditingController();
-  final _widthMm = TextEditingController();
+  final _frameProductSizeMm = TextEditingController();
+  final _frameCount = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();
   final _firstMaterial = TextEditingController();
@@ -91,7 +92,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _product.dispose();
     _status.dispose();
     _kg.dispose();
-    _widthMm.dispose();
+    _frameProductSizeMm.dispose();
+    _frameCount.dispose();
     _wastePercent.dispose();
     _rollCount.dispose();
     _firstMaterial.dispose();
@@ -107,7 +109,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   List<TextEditingController> get _calculationInputControllers => [
         _product,
         _kg,
-        _widthMm,
+        _frameProductSizeMm,
+        _frameCount,
         _wastePercent,
         _rollCount,
         _firstMaterial,
@@ -149,7 +152,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _imageUrl = template.imageUrl;
       _imageLocalPath = '';
       _kg.clear();
-      _widthMm.text = _fmtInput(template.widthMm);
+      _frameProductSizeMm.text = _fmtInput(template.frameProductSizeMm);
+      _frameCount.text = _fmtInput(template.frameCount);
       _wastePercent.text = _fmtInput(template.wastePercent);
       _rollCount.text =
           template.rollCount == null ? '' : _fmtInput(template.rollCount!);
@@ -213,7 +217,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               ? _itemCode.trim()
               : cleanSourceMap.productCode,
           rollCount: _parseOptionalDouble(_rollCount.text),
-          widthMm: _parseOptionalDouble(_widthMm.text),
+          widthMm: _derivedWidthMm(),
         );
       } catch (_) {
         if (mounted) {
@@ -277,7 +281,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       productName: _product.text,
       itemCode: _itemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
-      widthMm: _parseOptionalDouble(_widthMm.text),
+      widthMm: _derivedWidthMm(),
       templateDraft: _buildTemplateDraft(),
     );
   }
@@ -322,7 +326,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
             ? _itemCode.trim()
             : sourceMap.productCode,
         rollCount: _parseOptionalDouble(_rollCount.text),
-        widthMm: _parseOptionalDouble(_widthMm.text),
+        widthMm: _derivedWidthMm(),
         orderKg: kg,
         baseLength: baseLength,
       );
@@ -411,7 +415,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       imageMime: _imageMime,
       imageSizeBytes: _imageSizeBytes,
       imageUrl: _imageUrl,
-      widthMm: _parseRequiredDouble(_widthMm.text),
+      frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
+      frameCount: _parseRequiredDouble(_frameCount.text),
+      edgeAllowanceMm: kCalculateEdgeAllowanceMm,
+      widthMm: _derivedWidthMm(),
       wastePercent: _parseRequiredDouble(_wastePercent.text),
       rollCount: _parseOptionalDouble(_rollCount.text),
       firstLayerMaterial: _firstMaterial.text.trim(),
@@ -573,10 +580,17 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     return product.isEmpty ? 'Zakaz' : product;
   }
 
+  double _derivedWidthMm() {
+    return _parseRequiredDouble(_frameProductSizeMm.text) *
+            _parseRequiredDouble(_frameCount.text) +
+        kCalculateEdgeAllowanceMm;
+  }
+
   String? _templateValidationError() {
     final checks = <String?>[
       _requiredText(_product.text),
-      _requiredPositiveNumber(_widthMm.text),
+      _requiredPositiveNumber(_frameProductSizeMm.text),
+      _requiredPositiveNumber(_frameCount.text),
       _requiredNonNegativeNumber(_wastePercent.text),
       _requiredText(_firstMaterial.text),
       _requiredPositiveNumber(_firstMicron.text),
@@ -614,7 +628,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           materialDisplay: '',
           color: '',
           kg: _parseRequiredDouble(_kg.text),
-          widthMm: _parseRequiredDouble(_widthMm.text),
+          frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
+          frameCount: _parseRequiredDouble(_frameCount.text),
+          edgeAllowanceMm: kCalculateEdgeAllowanceMm,
           wastePercent: _parseRequiredDouble(_wastePercent.text),
           rollCount: _parseOptionalDouble(_rollCount.text),
           firstLayer: CalculateLayerInput(
@@ -755,9 +771,15 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         required: true,
       ),
       _NumberInput(
-        controller: _widthMm,
-        label: 'Razmer',
+        controller: _frameProductSizeMm,
+        label: "1ta kadrdagi mahsulot o'lchami",
         suffixText: 'mm',
+        required: true,
+      ),
+      _NumberInput(
+        controller: _frameCount,
+        label: 'Kadr soni',
+        suffixText: 'ta',
         required: true,
       ),
       _NumberInput(
@@ -809,7 +831,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         imageUrl: _imageUrl,
         imageName: _imageName,
         imageSizeBytes: _imageSizeBytes,
-        widthMm: _widthMm.text,
+        frameProductSizeMm: _frameProductSizeMm.text,
+        frameCount: _frameCount.text,
+        widthMm: _fmtInput(_derivedWidthMm()),
         rollCount: _rollCount.text,
         firstLayerMaterial: _firstMaterial.text,
         firstLayerMicron: _firstMicron.text,
@@ -857,7 +881,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _ResultPanel(
           response: freshResult,
           rollCount: _parseOptionalDouble(_rollCount.text),
-          widthMm: _parseRequiredDouble(_widthMm.text),
+          widthMm: _derivedWidthMm(),
           onViewMap: _sourceMapId.trim().isEmpty ? null : _viewProductionMap,
         ),
         if (_sourceMapId.trim().isNotEmpty) ...[
@@ -897,7 +921,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     return [
       _product.text.trim(),
       _kg.text.trim(),
-      _widthMm.text.trim(),
+      _frameProductSizeMm.text.trim(),
+      _frameCount.text.trim(),
       _wastePercent.text.trim(),
       _rollCount.text.trim(),
       _firstMaterial.text.trim(),
@@ -1052,6 +1077,8 @@ class _SavedTemplateSummary extends StatelessWidget {
     required this.imageUrl,
     required this.imageName,
     required this.imageSizeBytes,
+    required this.frameProductSizeMm,
+    required this.frameCount,
     required this.widthMm,
     required this.rollCount,
     required this.firstLayerMaterial,
@@ -1072,6 +1099,8 @@ class _SavedTemplateSummary extends StatelessWidget {
   final String imageUrl;
   final String imageName;
   final int imageSizeBytes;
+  final String frameProductSizeMm;
+  final String frameCount;
   final String widthMm;
   final String rollCount;
   final String firstLayerMaterial;
@@ -1153,6 +1182,12 @@ class _SavedTemplateSummary extends StatelessWidget {
               title: 'Parametrlar',
               rows: [
                 _ChecklistRowData('Razmer', widthMm, suffix: 'mm'),
+                _ChecklistRowData(
+                  "1ta kadrdagi o'lcham",
+                  frameProductSizeMm,
+                  suffix: 'mm',
+                ),
+                _ChecklistRowData('Kadr soni', frameCount, suffix: 'ta'),
                 _ChecklistRowData('Val soni', rollCount, suffix: 'ta'),
               ],
             ),
@@ -1955,7 +1990,8 @@ InputDecoration _surfaceFieldDecoration(
   OutlineInputBorder outline({Color? color, double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+      borderSide:
+          BorderSide(color: color ?? scheme.outlineVariant, width: width),
     );
   }
 

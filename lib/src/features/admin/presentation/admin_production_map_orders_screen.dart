@@ -428,6 +428,12 @@ CalculateRequest _calculateRequestForOrder({
   required CalculateOrderTemplate template,
 }) {
   final widthMm = template.widthMm > 0 ? template.widthMm : (map.widthMm ?? 0);
+  final frameProductSizeMm = template.frameProductSizeMm > 0
+      ? template.frameProductSizeMm
+      : (widthMm > kCalculateEdgeAllowanceMm
+          ? widthMm - kCalculateEdgeAllowanceMm
+          : 0.0);
+  final frameCount = template.frameCount > 0 ? template.frameCount : 1.0;
   final kg = template.kg > 0 ? template.kg : (map.orderKg ?? 0);
   return CalculateRequest(
     orderNumber: template.orderNumber.isNotEmpty
@@ -439,7 +445,9 @@ CalculateRequest _calculateRequestForOrder({
     materialDisplay: template.materialDisplay,
     color: template.color,
     kg: kg,
-    widthMm: widthMm,
+    frameProductSizeMm: frameProductSizeMm,
+    frameCount: frameCount,
+    edgeAllowanceMm: template.edgeAllowanceMm,
     wastePercent: template.wastePercent,
     rollCount: template.rollCount ?? map.rollCount,
     firstLayer: CalculateLayerInput(
@@ -489,7 +497,11 @@ Future<double?> _productionMapBaseMetrajFromMapOnly(
       CalculateRequest(
         product: map.title,
         kg: kg,
-        widthMm: widthMm,
+        frameProductSizeMm: widthMm > kCalculateEdgeAllowanceMm
+            ? widthMm - kCalculateEdgeAllowanceMm
+            : 0,
+        frameCount: 1,
+        edgeAllowanceMm: kCalculateEdgeAllowanceMm,
         rollCount: map.rollCount,
         firstLayer: const CalculateLayerInput(),
         secondLayer: const CalculateLayerInput(),

@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
+const double kCalculateEdgeAllowanceMm = 15;
 
 extension MobileApiCalculate on MobileApi {
   Future<CalculateResponse> calculate(CalculateRequest request) async {
@@ -178,14 +179,16 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
   final widthSm = request.widthMm / 10;
   final rubberSize = productionMapRubberSizeFromWidth(request.widthMm);
   const coeffSum = 4.3;
-  final baseLength = widthSm <= 0
-      ? 0.0
-      : request.kg / (coeffSum * widthSm) * 6000.0;
+  final baseLength =
+      widthSm <= 0 ? 0.0 : request.kg / (coeffSum * widthSm) * 6000.0;
   final wasteLength = baseLength * request.wastePercent / 100;
   final roundedLength = ((baseLength + wasteLength) / 100).ceil() * 100.0;
   return CalculateResponse(
     ok: true,
     kg: request.kg,
+    frameProductSizeMm: request.frameProductSizeMm,
+    frameCount: request.frameCount,
+    edgeAllowanceMm: request.edgeAllowanceMm,
     widthMm: request.widthMm,
     rubberSizeMm: rubberSize,
     wastePercent: request.wastePercent,
@@ -227,7 +230,9 @@ class CalculateRequest {
     this.materialDisplay = '',
     this.color = '',
     required this.kg,
-    required this.widthMm,
+    required this.frameProductSizeMm,
+    required this.frameCount,
+    this.edgeAllowanceMm = kCalculateEdgeAllowanceMm,
     this.wastePercent = 5,
     this.rollCount,
     required this.firstLayer,
@@ -243,13 +248,18 @@ class CalculateRequest {
   final String materialDisplay;
   final String color;
   final double kg;
-  final double widthMm;
+  final double frameProductSizeMm;
+  final double frameCount;
+  final double edgeAllowanceMm;
   final double wastePercent;
   final double? rollCount;
   final CalculateLayerInput firstLayer;
   final CalculateLayerInput secondLayer;
   final CalculateLayerInput thirdLayer;
   final String note;
+
+  double get widthMm =>
+      _deriveCalculateWidthMm(frameProductSizeMm, frameCount, edgeAllowanceMm);
 
   Map<String, dynamic> toJson() {
     return {
@@ -261,7 +271,9 @@ class CalculateRequest {
         'material_display': materialDisplay.trim(),
       if (color.trim().isNotEmpty) 'color': color.trim(),
       'kg': kg,
-      'width_mm': widthMm,
+      'frame_product_size_mm': frameProductSizeMm,
+      'frame_count': frameCount,
+      'edge_allowance_mm': edgeAllowanceMm,
       'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
       'first_layer': firstLayer.toJson(),
@@ -289,6 +301,9 @@ class CalculateResponse {
   const CalculateResponse({
     required this.ok,
     required this.kg,
+    required this.frameProductSizeMm,
+    required this.frameCount,
+    required this.edgeAllowanceMm,
     required this.widthMm,
     required this.rubberSizeMm,
     required this.wastePercent,
@@ -305,10 +320,27 @@ class CalculateResponse {
         .whereType<Map>()
         .map((item) => CalculateResult.fromJson(item.cast<String, dynamic>()))
         .toList(growable: false);
+    final widthMm = _calculateNumber(json['width_mm']);
+    final frameProductSizeMm = _calculateNumber(
+      json['frame_product_size_mm'],
+      fallback: widthMm > kCalculateEdgeAllowanceMm
+          ? widthMm - kCalculateEdgeAllowanceMm
+          : 0,
+    );
+    final frameCount = _calculateNumber(
+      json['frame_count'],
+      fallback: widthMm > 0 ? 1 : 0,
+    );
     return CalculateResponse(
       ok: json['ok'] == true,
       kg: _calculateNumber(json['kg']),
-      widthMm: _calculateNumber(json['width_mm']),
+      frameProductSizeMm: frameProductSizeMm,
+      frameCount: frameCount,
+      edgeAllowanceMm: _calculateNumber(
+        json['edge_allowance_mm'],
+        fallback: kCalculateEdgeAllowanceMm,
+      ),
+      widthMm: widthMm,
       rubberSizeMm: _calculateInt(json['rubber_size_mm']),
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       layers: layers,
@@ -318,6 +350,9 @@ class CalculateResponse {
 
   final bool ok;
   final double kg;
+  final double frameProductSizeMm;
+  final double frameCount;
+  final double edgeAllowanceMm;
   final double widthMm;
   final int rubberSizeMm;
   final double wastePercent;
@@ -390,6 +425,9 @@ class CalculateOrderTemplate {
     required this.imageMime,
     required this.imageSizeBytes,
     required this.imageUrl,
+    this.frameProductSizeMm = 0,
+    this.frameCount = 0,
+    this.edgeAllowanceMm = kCalculateEdgeAllowanceMm,
     required this.widthMm,
     required this.wastePercent,
     required this.rollCount,
@@ -405,6 +443,17 @@ class CalculateOrderTemplate {
   });
 
   factory CalculateOrderTemplate.fromJson(Map<String, dynamic> json) {
+    final widthMm = _calculateNumber(json['width_mm']);
+    final frameProductSizeMm = _calculateNumber(
+      json['frame_product_size_mm'],
+      fallback: widthMm > kCalculateEdgeAllowanceMm
+          ? widthMm - kCalculateEdgeAllowanceMm
+          : 0,
+    );
+    final frameCount = _calculateNumber(
+      json['frame_count'],
+      fallback: widthMm > 0 ? 1 : 0,
+    );
     return CalculateOrderTemplate(
       id: _calculateText(json['id']),
       code: _calculateText(json['code']),
@@ -423,7 +472,13 @@ class CalculateOrderTemplate {
       imageMime: _calculateText(json['image_mime']),
       imageSizeBytes: _calculateInt(json['image_size_bytes']),
       imageUrl: _calculateText(json['image_url']),
-      widthMm: _calculateNumber(json['width_mm']),
+      frameProductSizeMm: frameProductSizeMm,
+      frameCount: frameCount,
+      edgeAllowanceMm: _calculateNumber(
+        json['edge_allowance_mm'],
+        fallback: kCalculateEdgeAllowanceMm,
+      ),
+      widthMm: widthMm,
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       rollCount: _calculateOptionalNumber(json['roll_count']),
       firstLayerMaterial: _calculateText(json['first_layer_material']),
@@ -455,6 +510,9 @@ class CalculateOrderTemplate {
   final String imageMime;
   final int imageSizeBytes;
   final String imageUrl;
+  final double frameProductSizeMm;
+  final double frameCount;
+  final double edgeAllowanceMm;
   final double widthMm;
   final double wastePercent;
   final double? rollCount;
@@ -488,6 +546,9 @@ class CalculateOrderTemplate {
       'image_mime': imageMime.trim(),
       'image_size_bytes': imageSizeBytes,
       'image_url': imageUrl.trim(),
+      'frame_product_size_mm': frameProductSizeMm,
+      'frame_count': frameCount,
+      'edge_allowance_mm': edgeAllowanceMm,
       'width_mm': widthMm,
       'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
@@ -521,6 +582,9 @@ class CalculateOrderTemplate {
     String? imageMime,
     int? imageSizeBytes,
     String? imageUrl,
+    double? frameProductSizeMm,
+    double? frameCount,
+    double? edgeAllowanceMm,
     double? widthMm,
     double? wastePercent,
     double? rollCount,
@@ -552,6 +616,9 @@ class CalculateOrderTemplate {
       imageMime: imageMime ?? this.imageMime,
       imageSizeBytes: imageSizeBytes ?? this.imageSizeBytes,
       imageUrl: imageUrl ?? this.imageUrl,
+      frameProductSizeMm: frameProductSizeMm ?? this.frameProductSizeMm,
+      frameCount: frameCount ?? this.frameCount,
+      edgeAllowanceMm: edgeAllowanceMm ?? this.edgeAllowanceMm,
       widthMm: widthMm ?? this.widthMm,
       wastePercent: wastePercent ?? this.wastePercent,
       rollCount: rollCount ?? this.rollCount,
@@ -625,6 +692,9 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
     imageMime: template.imageMime,
     imageSizeBytes: template.imageSizeBytes,
     imageUrl: template.imageUrl,
+    frameProductSizeMm: template.frameProductSizeMm,
+    frameCount: template.frameCount,
+    edgeAllowanceMm: template.edgeAllowanceMm,
     widthMm: template.widthMm,
     wastePercent: template.wastePercent,
     rollCount: template.rollCount,
@@ -685,6 +755,14 @@ int _calculateInt(Object? value) {
 String _calculateText(Object? value, {String fallback = ''}) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
+}
+
+double _deriveCalculateWidthMm(
+  double frameProductSizeMm,
+  double frameCount, [
+  double edgeAllowanceMm = kCalculateEdgeAllowanceMm,
+]) {
+  return frameProductSizeMm * frameCount + edgeAllowanceMm;
 }
 
 DateTime _calculateDate(Object? value) {
