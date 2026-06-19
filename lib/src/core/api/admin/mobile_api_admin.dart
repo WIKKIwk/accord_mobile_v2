@@ -13,6 +13,8 @@ final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
 final List<AdminCompletionRequestNotification> _testModeCompletionRequests = [];
+final List<AdminCompletionRequestDecisionNotification>
+    _testModeCompletionRequestDecisions = [];
 final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
@@ -1297,7 +1299,7 @@ extension MobileApiAdmin on MobileApi {
         states[request.orderId] = 'completed';
         _testModeApparatusQueueStates[request.apparatus] = states;
       }
-      return AdminCompletionRequestDecisionNotification(
+      final notification = AdminCompletionRequestDecisionNotification(
         eventId: 'test-completion-decision-$now-${request.orderId}',
         requestEventId: request.eventId,
         decision: normalized,
@@ -1317,6 +1319,8 @@ extension MobileApiAdmin on MobileApi {
         message: message,
         createdAtUnix: now,
       );
+      _testModeCompletionRequestDecisions.insert(0, notification);
+      return notification;
     }
     final response = await _sendAuthorized(
       () => http.post(
@@ -1343,7 +1347,12 @@ extension MobileApiAdmin on MobileApi {
   Future<List<AdminCompletionRequestDecisionNotification>>
       adminProductionMapCompletionRequestDecisions() async {
     if (await TestModeController.instance.isEnabled()) {
-      return const [];
+      final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
+      return List<AdminCompletionRequestDecisionNotification>.unmodifiable(
+        _testModeCompletionRequestDecisions.where(
+          (item) => workerRef.isEmpty || item.workerRef.trim() == workerRef,
+        ),
+      );
     }
     final response = await _sendAuthorized(
       () => http.get(
