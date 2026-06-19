@@ -2,6 +2,7 @@ part of '../mobile_api.dart';
 
 final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
 const double kCalculateEdgeAllowanceMm = 15;
+const double kCalculateMinMoldExtraMm = 50;
 
 extension MobileApiCalculate on MobileApi {
   Future<CalculateResponse> calculate(CalculateRequest request) async {
@@ -190,6 +191,7 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     frameCount: request.frameCount,
     edgeAllowanceMm: request.edgeAllowanceMm,
     widthMm: request.widthMm,
+    minMoldSizeMm: request.minMoldSizeMm,
     rubberSizeMm: rubberSize,
     wastePercent: request.wastePercent,
     layers: [
@@ -261,6 +263,9 @@ class CalculateRequest {
   double get widthMm =>
       _deriveCalculateWidthMm(frameProductSizeMm, frameCount, edgeAllowanceMm);
 
+  double get minMoldSizeMm =>
+      _deriveCalculateMinMoldSizeMm(frameProductSizeMm, frameCount);
+
   Map<String, dynamic> toJson() {
     return {
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
@@ -305,6 +310,7 @@ class CalculateResponse {
     required this.frameCount,
     required this.edgeAllowanceMm,
     required this.widthMm,
+    required this.minMoldSizeMm,
     required this.rubberSizeMm,
     required this.wastePercent,
     required this.layers,
@@ -341,6 +347,10 @@ class CalculateResponse {
         fallback: kCalculateEdgeAllowanceMm,
       ),
       widthMm: widthMm,
+      minMoldSizeMm: _calculateNumber(
+        json['min_mold_size_mm'],
+        fallback: _deriveCalculateMinMoldSizeMm(frameProductSizeMm, frameCount),
+      ),
       rubberSizeMm: _calculateInt(json['rubber_size_mm']),
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       layers: layers,
@@ -354,6 +364,7 @@ class CalculateResponse {
   final double frameCount;
   final double edgeAllowanceMm;
   final double widthMm;
+  final double minMoldSizeMm;
   final int rubberSizeMm;
   final double wastePercent;
   final List<CalculateLayer> layers;
@@ -763,6 +774,13 @@ double _deriveCalculateWidthMm(
   double edgeAllowanceMm = kCalculateEdgeAllowanceMm,
 ]) {
   return frameProductSizeMm * frameCount + edgeAllowanceMm;
+}
+
+double _deriveCalculateMinMoldSizeMm(
+  double frameProductSizeMm,
+  double frameCount,
+) {
+  return frameProductSizeMm * frameCount + kCalculateMinMoldExtraMm;
 }
 
 DateTime _calculateDate(Object? value) {

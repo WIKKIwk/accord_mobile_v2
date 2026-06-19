@@ -1503,6 +1503,7 @@ class _ResultPanel extends StatelessWidget {
               result: response.results[i],
               wastePercent: response.wastePercent,
               rubberSizeMm: response.rubberSizeMm,
+              minMoldSizeMm: response.minMoldSizeMm,
             ),
             if (i != response.results.length - 1) const SizedBox(height: 12),
           ],
@@ -1518,12 +1519,14 @@ class _ResultVariant extends StatelessWidget {
     required this.result,
     required this.wastePercent,
     required this.rubberSizeMm,
+    required this.minMoldSizeMm,
   });
 
   final int index;
   final CalculateResult result;
   final double wastePercent;
   final int rubberSizeMm;
+  final double minMoldSizeMm;
 
   @override
   Widget build(BuildContext context) {
@@ -1541,6 +1544,10 @@ class _ResultVariant extends StatelessWidget {
         const SizedBox(height: 8),
         _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
         _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm)} sm'),
+        _ResultRow(
+          label: 'Minimum qolip',
+          value: '${_fmt(minMoldSizeMm)} mm',
+        ),
         _ResultRow(label: 'Rezina razmeri', value: '$rubberSizeMm mm'),
         _ResultRow(label: 'Base', value: _fmt(result.baseLength)),
         _ResultRow(
