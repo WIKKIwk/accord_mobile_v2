@@ -597,7 +597,6 @@ class _AdminProductionMapOrdersScreenState
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   late TabController _tabController;
-  bool _openingRoute = false;
   bool _loading = true;
   String? _loadError;
   bool _liveRefreshInFlight = false;
@@ -1367,12 +1366,6 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     AdminDrawerNavigation.openRoute(context, routeName);
-  }
-
-  void _openOrder(ProductionMapSaved order) {
-    Navigator.of(
-      context,
-    ).pushNamed(AppRoutes.adminProductionMapTest, arguments: order);
   }
 
   void _showOrderDetail(ProductionMapSaved order) {
@@ -4578,7 +4571,6 @@ class _OpenedOrderCardRow extends StatelessWidget {
     required this.trailing,
     this.onTap,
     this.borderRadiusOverride,
-    this.backgroundColor,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -4587,7 +4579,6 @@ class _OpenedOrderCardRow extends StatelessWidget {
   final Widget trailing;
   final VoidCallback? onTap;
   final BorderRadius? borderRadiusOverride;
-  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -4600,7 +4591,6 @@ class _OpenedOrderCardRow extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       borderRadiusOverride: borderRadiusOverride,
-      backgroundColor: backgroundColor,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
