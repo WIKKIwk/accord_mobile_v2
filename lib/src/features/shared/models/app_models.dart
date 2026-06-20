@@ -255,6 +255,29 @@ class QolipBlock {
   }
 }
 
+class QolipBlocksResult {
+  const QolipBlocksResult({required this.warehouses, required this.blocks});
+
+  final List<String> warehouses;
+  final List<QolipBlock> blocks;
+
+  factory QolipBlocksResult.fromJson(Map<String, dynamic> json) {
+    final rawWarehouses = json['warehouses'];
+    final rawBlocks = json['blocks'];
+    return QolipBlocksResult(
+      warehouses: [
+        if (rawWarehouses is List)
+          for (final item in rawWarehouses) item.toString(),
+      ],
+      blocks: [
+        if (rawBlocks is List)
+          for (final item in rawBlocks)
+            QolipBlock.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+    );
+  }
+}
+
 class QolipProduct {
   const QolipProduct({
     required this.code,

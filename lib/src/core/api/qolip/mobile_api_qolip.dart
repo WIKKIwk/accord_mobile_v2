@@ -4,11 +4,19 @@ final List<QolipLocationEntry> _testModeQolipLocations = [];
 
 extension MobileApiQolip on MobileApi {
   Future<List<QolipBlock>> qolipBlocks() async {
+    final result = await qolipBlocksData();
+    return result.blocks;
+  }
+
+  Future<QolipBlocksResult> qolipBlocksData() async {
     if (await TestModeController.instance.isEnabled()) {
-      return const [
-        QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
-        QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
-      ];
+      return const QolipBlocksResult(
+        warehouses: ['Qolip ombori'],
+        blocks: [
+          QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
+          QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
+        ],
+      );
     }
     final response = await _sendAuthorized(
       () => http.get(
@@ -20,12 +28,32 @@ extension MobileApiQolip on MobileApi {
       throw Exception('Qolip blocks failed');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = data['blocks'];
-    return [
-      if (raw is List)
-        for (final item in raw)
-          QolipBlock.fromJson((item as Map).cast<String, dynamic>()),
-    ];
+    return QolipBlocksResult.fromJson(data);
+  }
+
+  Future<QolipBlock> qolipCreateBlock({
+    required String warehouse,
+    required String block,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return QolipBlock(name: block.trim(), warehouse: warehouse.trim());
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': warehouse.trim(),
+          'block': block.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Qolip block create failed');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipBlock.fromJson((data['block'] as Map).cast<String, dynamic>());
   }
 
   Future<List<QolipProduct>> qolipProducts({
@@ -99,7 +127,7 @@ extension MobileApiQolip on MobileApi {
 
   Future<QolipLocationEntry> qolipSaveLocation({
     required QolipBlock block,
-    required QolipProduct product,
+    QolipProduct? product,
     required String qolipCode,
     required int size,
     required int quantity,
@@ -109,8 +137,8 @@ extension MobileApiQolip on MobileApi {
     final payload = {
       'block': block.name.trim(),
       'warehouse': block.warehouse.trim(),
-      'item_code': product.code.trim(),
-      'item_name': product.name.trim(),
+      if (product != null) 'item_code': product.code.trim(),
+      if (product != null) 'item_name': product.name.trim(),
       'qolip_code': qolipCode.trim(),
       'size': size,
       'quantity': quantity,
@@ -124,7 +152,7 @@ extension MobileApiQolip on MobileApi {
       final entry = QolipLocationEntry(
         id: [
           block.name,
-          product.code,
+          product?.code ?? qolipCode,
           qolipCode,
           size,
           rowLetter,
@@ -132,8 +160,8 @@ extension MobileApiQolip on MobileApi {
         ].join(':'),
         block: block.name,
         warehouse: block.warehouse,
-        itemCode: product.code,
-        itemName: product.name,
+        itemCode: product?.code ?? qolipCode.trim(),
+        itemName: product?.name ?? qolipCode.trim(),
         qolipCode: qolipCode.trim(),
         size: size,
         quantity: quantity,

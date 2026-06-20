@@ -22,6 +22,7 @@ import '../../customer/presentation/widgets/customer_dock.dart';
 import '../../customer/presentation/widgets/customer_navigation_drawer.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
+import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
@@ -460,7 +461,9 @@ class _ProfileScreenState extends State<ProfileScreen>
             _ProfileShellKind.aparatchi => const AparatchiDock(
               activeTab: AparatchiDockTab.profile,
             ),
-            _ProfileShellKind.qolip => null,
+            _ProfileShellKind.qolip => const QolipDock(
+              activeTab: QolipDockTab.profile,
+            ),
             _ProfileShellKind.admin => const AdminDock(
               activeTab: null,
               showPrimaryFab: false,
