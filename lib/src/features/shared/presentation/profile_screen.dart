@@ -22,6 +22,7 @@ import '../../customer/presentation/widgets/customer_dock.dart';
 import '../../customer/presentation/widgets/customer_navigation_drawer.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
+import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:io';
@@ -440,6 +441,10 @@ class _ProfileScreenState extends State<ProfileScreen>
               selectedIndex: 1,
               onNavigate: _openAparatchiDrawerRoute,
             ),
+            _ProfileShellKind.qolip => QolipNavigationDrawer(
+              selectedIndex: 1,
+              onNavigate: _openQolipDrawerRoute,
+            ),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
@@ -455,6 +460,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             _ProfileShellKind.aparatchi => const AparatchiDock(
               activeTab: AparatchiDockTab.profile,
             ),
+            _ProfileShellKind.qolip => null,
             _ProfileShellKind.admin => const AdminDock(
               activeTab: null,
               showPrimaryFab: false,
@@ -739,9 +745,25 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
     AppRootNavigation.replaceRootRoute(context, route);
   }
+
+  void _openQolipDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    AppRootNavigation.replaceRootRoute(context, route);
+  }
 }
 
-enum _ProfileShellKind { supplier, werka, customer, aparatchi, admin, none }
+enum _ProfileShellKind {
+  supplier,
+  werka,
+  customer,
+  aparatchi,
+  qolip,
+  admin,
+  none,
+}
 
 _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
   return switch (homeRoute) {
@@ -749,6 +771,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.werkaHome => _ProfileShellKind.werka,
     AppRoutes.customerHome => _ProfileShellKind.customer,
     AppRoutes.apparatusQueue => _ProfileShellKind.aparatchi,
+    AppRoutes.qolipHome => _ProfileShellKind.qolip,
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

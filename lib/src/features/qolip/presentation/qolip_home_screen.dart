@@ -9,6 +9,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import 'widgets/qolip_navigation_drawer.dart';
 
 class QolipHomeScreen extends StatefulWidget {
   const QolipHomeScreen({super.key});
@@ -55,6 +56,14 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     setState(() {
       _locations[key] = MobileApi.instance.qolipLocations(block);
     });
+  }
+
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   Future<void> _openFabAction(List<QolipBlock> blocks) async {
@@ -111,6 +120,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: QolipNavigationDrawer(
+        selectedIndex: 0,
+        onNavigate: _openDrawerRoute,
+      ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<List<QolipBlock>>(
         future: _blocksFuture,
