@@ -1214,6 +1214,19 @@ String _qolipPrinterChoice(String printerLabel) {
   return normalized.contains('godex') ? 'godex' : 'zebra';
 }
 
+List<QolipProduct> _qolipProductsWithSavedCodeOnly(
+  List<QolipProduct> products,
+) {
+  return products
+      .where(
+        (product) =>
+            product.hasQolipSpec &&
+            product.qolipCode.trim().isNotEmpty &&
+            product.qolipSize > 0,
+      )
+      .toList(growable: false);
+}
+
 class _QolipBlockCreateSheet extends StatefulWidget {
   const _QolipBlockCreateSheet({required this.warehouses});
 
@@ -1425,17 +1438,21 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           hintText: 'Mahsulot nomi bilan qidiring',
           pageSize: 80,
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
-              ? 'qolip:products:specs'
+              ? null
               : 'qolip:products',
           loadPage: (query, offset, limit) {
             if (offset > 0) {
               return Future.value(const <QolipProduct>[]);
             }
-            return MobileApi.instance.qolipProducts(
+            final future = MobileApi.instance.qolipProducts(
               query: query,
               limit: limit,
               withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
             );
+            if (widget.mode != _QolipAttachMode.cellPlacement) {
+              return future;
+            }
+            return future.then(_qolipProductsWithSavedCodeOnly);
           },
           itemTitle: (item) {
             final name = item.name.trim();
