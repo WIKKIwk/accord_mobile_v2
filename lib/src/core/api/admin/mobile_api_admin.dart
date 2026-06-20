@@ -2019,7 +2019,8 @@ extension MobileApiAdmin on MobileApi {
           _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
       final progressKey =
           qrPayload.trim().isEmpty ? progressBatchId.trim() : qrPayload.trim();
-      final startUsesProgressQr = action == 'start' && progressKey.isNotEmpty;
+      final startUsesProgressQr =
+          action == 'start' && qrPayload.trim().isNotEmpty;
       if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
@@ -2041,11 +2042,13 @@ extension MobileApiAdmin on MobileApi {
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
       if (action == 'start') {
-        if (progressKey.isNotEmpty) {
-          final batch = _testModeProgressBatchesByQr[progressKey];
+        if (qrPayload.trim().isNotEmpty) {
+          final batch = _testModeProgressBatchesByQr[qrPayload.trim()];
           final batchAction = batch?.action.trim().toLowerCase() ?? '';
           final batchStatus = batch?.status.trim().toLowerCase() ?? '';
           if (batch == null ||
+              (progressBatchId.trim().isNotEmpty &&
+                  batch.batchId.trim() != progressBatchId.trim()) ||
               batch.orderId.trim() != orderId.trim() ||
               (batchAction != 'pause' && batchAction != 'complete') ||
               (batchStatus != 'paused' &&
