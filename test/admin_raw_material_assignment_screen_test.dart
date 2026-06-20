@@ -173,12 +173,87 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
+
+  testWidgets('assignment screen unlinks expanded raw material assignment', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _RawMaterialAssignmentHttpClient(
+      seenRequests,
+      initialAssignments: const [
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': '30AA',
+          'item_code': 'INK-BLACK',
+          'item_name': 'Black ink',
+          'item_group': 'Kraska',
+          'assigned_by_ref': 'admin',
+          'assigned_by_display_name': 'Admin',
+          'assigned_at': '2026-06-18T08:00:00Z',
+          'stock_status': 'available',
+          'reserved_order_id': '',
+          'stock_warehouse': 'Kalidor',
+        },
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('zakaz-1'), findsOneWidget);
+      expect(find.text('30AA'), findsOneWidget);
+
+      await tester.tap(find.text('zakaz-1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Uzish'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Uzish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Uzish'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bu homashyoni zakazdan uzasizmi?'), findsOneWidget);
+
+      await tester.tap(find.text('Uzish').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY DELETE /v1/mobile/admin/raw-material-assignments '
+          '{"order_id":"zakaz-1","barcode":"30AA"}',
+        ),
+      );
+      expect(find.text('Ulangan homashyo topilmadi'), findsOneWidget);
+      expect(find.text('30AA'), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+    }, createHttpClient: (_) => client);
+  });
 }
 
 class _RawMaterialAssignmentHttpClient implements HttpClient {
-  _RawMaterialAssignmentHttpClient(this.seenRequests);
+  _RawMaterialAssignmentHttpClient(
+    this.seenRequests, {
+    this.initialAssignments = const [],
+  });
 
   final List<String> seenRequests;
+  final List<Map<String, Object?>> initialAssignments;
+  bool _deleted = false;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -207,7 +282,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments':
-        body = const [];
+        body = _deleted ? const [] : initialAssignments;
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
         body = const {
           'barcode': '30AA',
@@ -232,6 +307,25 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
           'stock_status': 'available',
           'reserved_order_id': '',
           'stock_warehouse': 'Kalidor',
+        };
+      case 'DELETE /v1/mobile/admin/raw-material-assignments':
+        _deleted = true;
+        body = const {
+          'ok': true,
+          'assignment': {
+            'order_id': 'zakaz-1',
+            'apparatus': 'Pechat',
+            'barcode': '30AA',
+            'item_code': 'INK-BLACK',
+            'item_name': 'Black ink',
+            'item_group': 'Kraska',
+            'assigned_by_ref': 'admin',
+            'assigned_by_display_name': 'Admin',
+            'assigned_at': '2026-06-18T08:00:00Z',
+            'stock_status': 'available',
+            'reserved_order_id': '',
+            'stock_warehouse': 'Kalidor',
+          },
         };
       case 'GET /v1/mobile/admin/items':
         body = const [];

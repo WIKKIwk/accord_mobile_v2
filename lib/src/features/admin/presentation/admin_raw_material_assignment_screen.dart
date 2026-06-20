@@ -24,7 +24,8 @@ InputDecoration _rawMaterialAssignmentFieldDecoration(
   OutlineInputBorder outline({Color? color, double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+      borderSide:
+          BorderSide(color: color ?? scheme.outlineVariant, width: width),
     );
   }
 
@@ -84,6 +85,7 @@ class _AdminRawMaterialAssignmentScreenState
   bool _scanLookupLoading = false;
   bool _saving = false;
   String? _expandedAssignmentKey;
+  String _unlinkingAssignmentKey = '';
 
   @override
   void initState() {
@@ -254,6 +256,67 @@ class _AdminRawMaterialAssignmentScreenState
     }
   }
 
+  Future<void> _unlink(AdminRawMaterialAssignment assignment) async {
+    final key = _assignmentKey(assignment);
+    if (_saving || _unlinkingAssignmentKey.isNotEmpty) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Homashyoni uzish'),
+          content: const Text('Bu homashyoni zakazdan uzasizmi?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Uzish'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _unlinkingAssignmentKey = key);
+    try {
+      await MobileApi.instance.adminUnlinkRawMaterialAssignment(
+        orderId: assignment.orderId,
+        barcode: assignment.barcode,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _assignments = [
+          for (final item in _assignments)
+            if (_assignmentKey(item) != key) item,
+        ];
+        if (_expandedAssignmentKey == key) {
+          _expandedAssignmentKey = null;
+        }
+      });
+      showAdminTopNotice(context, 'Homashyo zakazdan uzildi');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        error is MobileApiException ? error.message : 'Homashyo uzilmadi',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _unlinkingAssignmentKey = '');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -319,12 +382,15 @@ class _AdminRawMaterialAssignmentScreenState
                     children: [
                       for (var index = 0; index < _assignments.length; index++)
                         _AssignmentTile(
-                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
                             index,
                             _assignments.length,
                           ),
                           assignment: _assignments[index],
                           expanded: _expandedAssignmentKey ==
+                              _assignmentKey(_assignments[index]),
+                          unlinking: _unlinkingAssignmentKey ==
                               _assignmentKey(_assignments[index]),
                           onExpandedChanged: (expanded) {
                             setState(() {
@@ -333,6 +399,7 @@ class _AdminRawMaterialAssignmentScreenState
                                   : null;
                             });
                           },
+                          onUnlink: () => _unlink(_assignments[index]),
                         ),
                     ],
                   ),
@@ -447,13 +514,17 @@ class _AssignmentTile extends StatelessWidget {
     required this.slot,
     required this.assignment,
     required this.expanded,
+    required this.unlinking,
     required this.onExpandedChanged,
+    required this.onUnlink,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialAssignment assignment;
   final bool expanded;
+  final bool unlinking;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -469,6 +540,8 @@ class _AssignmentTile extends StatelessWidget {
       assignment.itemGroup,
     ].where((item) => item.trim().isNotEmpty).join(' · ');
     final assignee = _assignmentAssignee(assignment);
+    final status = assignment.stockStatus.trim();
+    final canUnlink = status.isEmpty || status.toLowerCase() == 'available';
 
     return Material(
       key: ValueKey('raw-material-assignment-${_assignmentKey(assignment)}'),
@@ -561,7 +634,8 @@ class _AssignmentTile extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 child: expanded
                     ? Padding(
-                        padding: const EdgeInsets.only(left: 44, top: 8, right: 8),
+                        padding:
+                            const EdgeInsets.only(left: 44, top: 8, right: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -613,6 +687,24 @@ class _AssignmentTile extends StatelessWidget {
                                 assignment.assignedAt,
                               ),
                             ),
+                            if (canUnlink) ...[
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: unlinking ? null : onUnlink,
+                                  icon: unlinking
+                                      ? const SizedBox.square(
+                                          dimension: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.link_off_rounded),
+                                  label: const Text('Uzish'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       )

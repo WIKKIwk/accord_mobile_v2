@@ -653,6 +653,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
+      'raw_material_assignment_locked' =>
+        'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
       'raw_material_already_assigned' =>
         'Bu homashyo boshqa zakaz uchun band qilingan',
       'raw_material_already_assigned_to_order' =>
@@ -1628,6 +1630,48 @@ extension MobileApiAdmin on MobileApi {
     }
     return AdminRawMaterialAssignment.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminRawMaterialAssignment> adminUnlinkRawMaterialAssignment({
+    required String orderId,
+    required String barcode,
+  }) async {
+    final body = {
+      'order_id': orderId.trim(),
+      'barcode': barcode.trim(),
+    };
+    if (await TestModeController.instance.isEnabled()) {
+      final normalizedOrderId = body['order_id']!;
+      final normalizedBarcode = body['barcode']!.toUpperCase();
+      final index = _testModeRawMaterialAssignments.indexWhere(
+        (item) =>
+            item.orderId.trim() == normalizedOrderId &&
+            item.barcode.trim().toUpperCase() == normalizedBarcode,
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'raw_material_assignment_not_found',
+          message: 'Homashyo biriktirilmagan',
+        );
+      }
+      return _testModeRawMaterialAssignments.removeAt(index);
+    }
+    final response = await _sendAuthorized(
+      () => http.delete(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_assignments');
+    }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final assignment = decoded['assignment'];
+    return AdminRawMaterialAssignment.fromJson(
+      assignment is Map<String, dynamic> ? assignment : decoded,
     );
   }
 

@@ -332,6 +332,71 @@ void main() {
             ));
   });
 
+  test('raw material assignment unlink uses backend contract', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final removed = await MobileApi.instance.adminUnlinkRawMaterialAssignment(
+        orderId: 'zakaz-1',
+        barcode: 'RM-001',
+      );
+
+      expect(removed.orderId, 'zakaz-1');
+      expect(removed.barcode, 'RM-001');
+      expect(
+        seenRequests,
+        contains(
+          'BODY DELETE /v1/mobile/admin/raw-material-assignments '
+          '{"order_id":"zakaz-1","barcode":"RM-001"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('raw material assignment unlink explains locked stock', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminUnlinkRawMaterialAssignment(
+          orderId: 'zakaz-1',
+          barcode: 'RM-001',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu homashyo allaqachon ishga tushgan yoki ishlatilgan, uzib bo‘lmaydi',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              unlinkErrorCode: 'raw_material_assignment_locked',
+            ));
+  });
+
   test('raw material assignment explains rulon size mismatch', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -406,12 +471,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.seenRequests, {
     this.queueActionErrorCode = '',
     this.assignmentErrorCode = '',
+    this.unlinkErrorCode = '',
     this.queueActionProgress = false,
   });
 
   final List<String> seenRequests;
   final String queueActionErrorCode;
   final String assignmentErrorCode;
+  final String unlinkErrorCode;
   final bool queueActionProgress;
 
   @override
@@ -547,6 +614,35 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'stock_status': 'in_use',
           'reserved_order_id': 'zakaz-1',
           'stock_warehouse': 'Kalidor',
+        };
+      case 'DELETE /v1/mobile/admin/raw-material-assignments':
+        if (unlinkErrorCode.isNotEmpty) {
+          body = {'error': unlinkErrorCode};
+          return _FakeHttpClientRequest(
+            response: _FakeHttpClientResponse(
+              body: jsonEncode(body),
+              statusCode: HttpStatus.badRequest,
+              requestKey: key,
+              seenRequests: seenRequests,
+            ),
+          );
+        }
+        body = const {
+          'ok': true,
+          'assignment': {
+            'order_id': 'zakaz-1',
+            'apparatus': 'Pechat',
+            'barcode': 'RM-001',
+            'item_code': 'KR-1',
+            'item_name': 'Qora kraska',
+            'item_group': 'Kraska',
+            'assigned_by_ref': 'admin',
+            'assigned_by_name': 'Admin',
+            'assigned_at': '2026-06-16T10:00:00Z',
+            'stock_status': 'available',
+            'reserved_order_id': '',
+            'stock_warehouse': 'Kalidor',
+          },
         };
       default:
         body = {'error': 'Unhandled request: $key'};
