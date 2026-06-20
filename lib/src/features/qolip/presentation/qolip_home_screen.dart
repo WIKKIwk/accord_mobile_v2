@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../shared/models/app_models.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -139,13 +140,27 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       }
       return;
     }
+    await _openAttachSheet(data.blocks);
+  }
+
+  Future<void> _openAttachSheet(
+    List<QolipBlock> blocks, {
+    QolipBlock? initialBlock,
+    String? rowLetter,
+    int? columnNumber,
+  }) async {
     final savedBlock = await showModalBottomSheet<QolipBlock>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (context) => _QolipAttachSheet(blocks: data.blocks),
+      builder: (context) => _QolipAttachSheet(
+        blocks: blocks,
+        initialBlock: initialBlock,
+        initialRowLetter: rowLetter,
+        initialColumnNumber: columnNumber,
+      ),
     );
     if (savedBlock != null && mounted) {
       _refreshBlock(savedBlock.name);
@@ -230,6 +245,17 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                     _refreshBlock(block.name);
                                     await _locationsFor(block.name);
                                   },
+                                  onAttachAt: (
+                                    block,
+                                    rowLetter,
+                                    columnNumber,
+                                  ) =>
+                                      _openAttachSheet(
+                                    blocks,
+                                    initialBlock: block,
+                                    rowLetter: rowLetter,
+                                    columnNumber: columnNumber,
+                                  ),
                                 ),
                             ],
                           ),
@@ -263,11 +289,17 @@ class _QolipBlockGrid extends StatelessWidget {
     required this.block,
     required this.future,
     required this.onRefresh,
+    required this.onAttachAt,
   });
 
   final QolipBlock block;
   final Future<List<QolipLocationEntry>> future;
   final Future<void> Function() onRefresh;
+  final Future<void> Function(
+    QolipBlock block,
+    String rowLetter,
+    int columnNumber,
+  ) onAttachAt;
 
   static const List<String> _letters = [
     'A',
@@ -375,7 +407,7 @@ class _QolipBlockGrid extends StatelessWidget {
                     rowCount: _gridRowCount,
                     byCell: byCell,
                     onCellTap: (cellLabel, items) =>
-                        _openCellDetail(context, cellLabel, items),
+                        _openCellAction(context, cellLabel, items),
                   ),
                 ),
                 if (occupiedCells == 0 && unplaced.isEmpty)
@@ -445,16 +477,54 @@ class _QolipBlockGrid extends StatelessWidget {
     );
   }
 
-  static void _openCellDetail(
+  Future<void> _openCellAction(
     BuildContext context,
     String cellLabel,
     List<QolipLocationEntry> items,
-  ) {
+  ) async {
+    final rowLetter = _cellRowLetter(cellLabel);
+    final columnNumber = _cellColumnNumber(cellLabel);
+    if (rowLetter == null || columnNumber == null) {
+      return;
+    }
+    if (items.isEmpty) {
+      await onAttachAt(block, rowLetter, columnNumber);
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await _openCellDetail(
+      context,
+      cellLabel,
+      items,
+      onAdd: () => onAttachAt(block, rowLetter, columnNumber),
+    );
+  }
+
+  static String? _cellRowLetter(String cellLabel) {
+    final letters = cellLabel.replaceAll(RegExp(r'[^A-Za-z]'), '');
+    if (letters.isEmpty) {
+      return null;
+    }
+    return letters.toUpperCase();
+  }
+
+  static int? _cellColumnNumber(String cellLabel) {
+    return int.tryParse(cellLabel.replaceAll(RegExp(r'[^0-9]'), ''));
+  }
+
+  static Future<void> _openCellDetail(
+    BuildContext context,
+    String cellLabel,
+    List<QolipLocationEntry> items, {
+    required Future<void> Function() onAdd,
+  }) async {
     if (items.isEmpty) {
       return;
     }
     final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
+    final addRequested = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -477,12 +547,24 @@ class _QolipBlockGrid extends StatelessWidget {
                   _QolipUnplacedTile(item: item),
                   const SizedBox(height: 4),
                 ],
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.add_location_alt_rounded),
+                    label: const Text('Shu joyga qolip qo‘shish'),
+                  ),
+                ),
               ],
             ),
           ),
         );
       },
     );
+    if (addRequested == true && context.mounted) {
+      await onAdd();
+    }
   }
 }
 
@@ -661,7 +743,7 @@ class _GridDataCell extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: filled ? () => onTap(cellLabel, items) : null,
+        onTap: () => onTap(cellLabel, items),
         child: SizedBox(
           width: 76,
           height: 64,
@@ -919,9 +1001,17 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
 }
 
 class _QolipAttachSheet extends StatefulWidget {
-  const _QolipAttachSheet({required this.blocks});
+  const _QolipAttachSheet({
+    required this.blocks,
+    this.initialBlock,
+    this.initialRowLetter,
+    this.initialColumnNumber,
+  });
 
   final List<QolipBlock> blocks;
+  final QolipBlock? initialBlock;
+  final String? initialRowLetter;
+  final int? initialColumnNumber;
 
   @override
   State<_QolipAttachSheet> createState() => _QolipAttachSheetState();
@@ -932,6 +1022,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _size = TextEditingController();
   final _quantity = TextEditingController();
   QolipBlock? _block;
+  QolipProduct? _product;
   String? _rowLetter;
   int? _columnNumber;
   bool _saving = false;
@@ -939,7 +1030,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   @override
   void initState() {
     super.initState();
-    _block = widget.blocks.isEmpty ? null : widget.blocks.first;
+    _block = _initialBlock();
+    _rowLetter = widget.initialRowLetter;
+    _columnNumber = widget.initialColumnNumber;
   }
 
   @override
@@ -950,12 +1043,75 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     super.dispose();
   }
 
+  QolipBlock? _initialBlock() {
+    if (widget.blocks.isEmpty) {
+      return null;
+    }
+    final initial = widget.initialBlock;
+    if (initial == null) {
+      return widget.blocks.first;
+    }
+    for (final block in widget.blocks) {
+      if (block.name == initial.name && block.warehouse == initial.warehouse) {
+        return block;
+      }
+    }
+    return widget.blocks.first;
+  }
+
+  Future<void> _pickProduct() async {
+    final picked = await showModalBottomSheet<QolipProduct>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<QolipProduct>(
+          title: 'Tayyor mahsulot tanlang',
+          hintText: 'Mahsulot nomi bilan qidiring',
+          pageSize: 80,
+          cacheKey: 'qolip:products',
+          loadPage: (query, offset, limit) {
+            if (offset > 0) {
+              return Future.value(const <QolipProduct>[]);
+            }
+            return MobileApi.instance.qolipProducts(
+              query: query,
+              limit: limit,
+            );
+          },
+          itemTitle: (item) {
+            final name = item.name.trim();
+            return name.isEmpty ? item.code : name;
+          },
+          itemSubtitle: (item) {
+            final parts = [
+              item.code.trim(),
+              item.itemGroup.trim(),
+            ].where((value) => value.isNotEmpty).toList(growable: false);
+            return parts.join(' • ');
+          },
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      setState(() => _product = picked);
+    }
+  }
+
   Future<void> _save() async {
     final block = _block;
+    final product = _product;
     final size = int.tryParse(_size.text.trim());
     final quantity = int.tryParse(_quantity.text.trim());
     final hasPartialLocation = (_rowLetter == null) != (_columnNumber == null);
     if (block == null ||
+        product == null ||
         _qolipCode.text.trim().isEmpty ||
         size == null ||
         size <= 0 ||
@@ -969,6 +1125,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     try {
       await MobileApi.instance.qolipSaveLocation(
         block: block,
+        product: product,
         qolipCode: _qolipCode.text,
         size: size,
         quantity: quantity,
@@ -989,6 +1146,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     final size = int.tryParse(_size.text.trim()) ?? 0;
     final quantity = int.tryParse(_quantity.text.trim()) ?? 0;
     return _block != null &&
+        _product != null &&
         _qolipCode.text.trim().isNotEmpty &&
         size > 0 &&
         quantity > 0 &&
@@ -1040,6 +1198,24 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     DropdownMenuItem(value: block, child: Text(block.name)),
                 ],
                 onChanged: (value) => setState(() => _block = value),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: _pickProduct,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Tayyor mahsulot',
+                    suffixIcon: Icon(Icons.search_rounded),
+                  ),
+                  child: Text(
+                    _product == null
+                        ? 'Mahsulot nomi bilan qidirish'
+                        : '${_product!.name} • ${_product!.code}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
