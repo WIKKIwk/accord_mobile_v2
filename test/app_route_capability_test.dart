@@ -80,6 +80,7 @@ void main() {
       capabilities: ['raw_material.rule.manage'],
     );
 
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialSettings), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialRules), isTrue);
     expect(AppSession.instance.homeRoute, AppRoutes.adminHome);
     expect(
@@ -97,6 +98,7 @@ void main() {
       capabilities: ['raw_material.assign'],
     );
 
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialSettings), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRawMaterialRules), isFalse);
     expect(
       AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments),

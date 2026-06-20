@@ -286,7 +286,7 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminRoles,
     ),
     const _AdminHomeAction(
-      title: 'Tezkor zakazlar',
+      title: 'Tezkor buyurtmalar',
       icon: Icons.list_alt_rounded,
       routeName: AppRoutes.adminCalculateOrders,
     ),
@@ -296,19 +296,14 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminProductionMapTest,
     ),
     const _AdminHomeAction(
-      title: 'Aparat guruhlari',
+      title: 'Aparat sozlamalari',
       icon: Icons.precision_manufacturing_rounded,
-      routeName: AppRoutes.adminApparatusGroups,
+      routeName: AppRoutes.adminApparatusSettings,
     ),
     const _AdminHomeAction(
-      title: 'Homashyo qoidalari',
+      title: 'Homashyo sozlamalari',
       icon: Icons.rule_rounded,
-      routeName: AppRoutes.adminRawMaterialRules,
-    ),
-    const _AdminHomeAction(
-      title: 'Homashyoni zakazga ulash',
-      icon: Icons.qr_code_scanner_rounded,
-      routeName: AppRoutes.adminRawMaterialAssignments,
+      routeName: AppRoutes.adminRawMaterialSettings,
     ),
     const _AdminHomeAction(
       title: 'reja menu',

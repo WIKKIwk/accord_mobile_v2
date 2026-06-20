@@ -1,3 +1,4 @@
+import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -43,16 +44,33 @@ InputDecoration _rawMaterialRuleFieldDecoration(
   );
 }
 
-class AdminRawMaterialRulesScreen extends StatefulWidget {
-  const AdminRawMaterialRulesScreen({super.key});
+enum AdminRawMaterialSettingsTab { rules, requiredMaterial, assignments }
 
-  @override
-  State<AdminRawMaterialRulesScreen> createState() =>
-      _AdminRawMaterialRulesScreenState();
+int _rawMaterialSettingsTabIndex(AdminRawMaterialSettingsTab tab) {
+  return switch (tab) {
+    AdminRawMaterialSettingsTab.rules => 0,
+    AdminRawMaterialSettingsTab.requiredMaterial => 1,
+    AdminRawMaterialSettingsTab.assignments => 2,
+  };
 }
 
-class _AdminRawMaterialRulesScreenState
-    extends State<AdminRawMaterialRulesScreen>
+class AdminRawMaterialSettingsScreen extends StatefulWidget {
+  const AdminRawMaterialSettingsScreen({
+    super.key,
+    this.initialTab = AdminRawMaterialSettingsTab.rules,
+  });
+
+  final AdminRawMaterialSettingsTab initialTab;
+
+  @override
+  State<AdminRawMaterialSettingsScreen> createState() =>
+      _AdminRawMaterialSettingsScreenState();
+}
+
+typedef AdminRawMaterialRulesScreen = AdminRawMaterialSettingsScreen;
+
+class _AdminRawMaterialSettingsScreenState
+    extends State<AdminRawMaterialSettingsScreen>
     with SingleTickerProviderStateMixin {
   final _groupsController = TextEditingController();
   late Future<_RawMaterialRulesData> _future;
@@ -65,7 +83,11 @@ class _AdminRawMaterialRulesScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      initialIndex: _rawMaterialSettingsTabIndex(widget.initialTab),
+      vsync: this,
+    );
     _future = _load();
   }
 
@@ -261,10 +283,10 @@ class _AdminRawMaterialRulesScreenState
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminRawMaterialRules,
+        selectedRouteName: AppRoutes.adminRawMaterialSettings,
         onNavigate: _openDrawerRoute,
       ),
-      title: 'Homashyo qoidalari',
+      title: 'Homashyo sozlamalari',
       subtitle: '',
       nativeTopBar: true,
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
@@ -288,9 +310,12 @@ class _AdminRawMaterialRulesScreenState
             children: [
               AdminSurfaceTabBar(
                 controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(height: 38, text: 'Qoidalar'),
                   Tab(height: 38, text: 'Majburiylik'),
+                  Tab(height: 38, text: 'Homashyoni ulash'),
                 ],
               ),
               Expanded(
@@ -357,6 +382,9 @@ class _AdminRawMaterialRulesScreenState
                       saving: _saving,
                       bottomPadding: bottomPadding,
                       onChanged: _setRequiresMaterial,
+                    ),
+                    AdminRawMaterialAssignmentPanel(
+                      bottomPadding: bottomPadding,
                     ),
                   ],
                 ),

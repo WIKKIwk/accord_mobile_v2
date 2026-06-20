@@ -5,7 +5,7 @@ import '../features/customer/presentation/customer_home_screen.dart';
 import '../features/customer/presentation/customer_notifications_screen.dart';
 import '../features/customer/presentation/customer_status_detail_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
-import '../features/admin/presentation/admin_apparatus_groups_screen.dart';
+import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
 import '../features/admin/presentation/admin_calculate_orders_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
@@ -18,8 +18,6 @@ import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
 import '../features/admin/presentation/admin_production_map_orders_screen.dart';
-import '../features/admin/presentation/admin_queue_policy_screen.dart';
-import '../features/admin/presentation/admin_raw_material_assignment_screen.dart';
 import '../features/admin/presentation/admin_raw_material_rules_screen.dart';
 import '../features/admin/presentation/admin_supplier_create_screen.dart';
 import '../features/admin/presentation/admin_customer_create_screen.dart';
@@ -142,7 +140,9 @@ class AppRoutes {
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminQueuePolicies = '/admin-queue-policies';
+  static const String adminApparatusSettings = '/admin-apparatus-settings';
   static const String adminApparatusGroups = '/admin-apparatus-groups';
+  static const String adminRawMaterialSettings = '/admin-raw-material-settings';
   static const String adminRawMaterialRules = '/admin-raw-material-rules';
   static const String adminRawMaterialAssignments =
       '/admin-raw-material-assignments';
@@ -189,7 +189,9 @@ class AppRouter {
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminQueuePolicies,
+    AppRoutes.adminApparatusSettings,
     AppRoutes.adminApparatusGroups,
+    AppRoutes.adminRawMaterialSettings,
     AppRoutes.adminRawMaterialRules,
     AppRoutes.adminRawMaterialAssignments,
     AppRoutes.adminApparatusCreate,
@@ -236,7 +238,9 @@ class AppRouter {
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminQueuePolicies,
+    AppRoutes.adminApparatusSettings,
     AppRoutes.adminApparatusGroups,
+    AppRoutes.adminRawMaterialSettings,
     AppRoutes.adminRawMaterialRules,
     AppRoutes.adminRawMaterialAssignments,
     AppRoutes.adminApparatusCreate,
@@ -483,22 +487,38 @@ class AppRouter {
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
       case AppRoutes.adminQueuePolicies:
-        return _buildRoute(settings, const AdminQueuePolicyScreen());
+        return _buildRoute(
+          settings,
+          const AdminApparatusSettingsScreen(
+            initialTab: AdminApparatusSettingsTab.queue,
+          ),
+        );
+      case AppRoutes.adminApparatusSettings:
+        return _buildRoute(settings, const AdminApparatusSettingsScreen());
       case AppRoutes.adminApparatusGroups:
-        return _buildRoute(settings, const AdminApparatusGroupsScreen());
+        return _buildRoute(
+          settings,
+          const AdminApparatusSettingsScreen(
+            initialTab: AdminApparatusSettingsTab.groups,
+          ),
+        );
+      case AppRoutes.adminRawMaterialSettings:
+        return _buildRoute(settings, const AdminRawMaterialSettingsScreen());
       case AppRoutes.adminRawMaterialRules:
-        return _buildRoute(settings, const AdminRawMaterialRulesScreen());
+        return _buildRoute(settings, const AdminRawMaterialSettingsScreen());
       case AppRoutes.adminRawMaterialAssignments:
         return _buildRoute(
           settings,
-          const AdminRawMaterialAssignmentScreen(),
+          const AdminRawMaterialSettingsScreen(
+            initialTab: AdminRawMaterialSettingsTab.assignments,
+          ),
         );
       case AppRoutes.adminApparatusCreate:
         return _buildRoute(
           settings,
-          const AdminApparatusGroupsScreen(
+          const AdminApparatusSettingsScreen(
+            initialTab: AdminApparatusSettingsTab.create,
             focusApparatusName: true,
-            createOnly: true,
           ),
         );
       case AppRoutes.apparatusQueue:
@@ -720,13 +740,19 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
-    AppRoutes.adminApparatusGroups: {'admin.access', 'production.map.manage'},
-    AppRoutes.adminRawMaterialRules: {
+    AppRoutes.adminApparatusSettings: {
       'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminApparatusGroups: {'admin.access', 'production.map.manage'},
+    AppRoutes.adminRawMaterialSettings: {
+      'raw_material.rule.manage',
+      'raw_material.assign',
+    },
+    AppRoutes.adminRawMaterialRules: {
       'raw_material.rule.manage',
     },
     AppRoutes.adminRawMaterialAssignments: {
-      'admin.access',
       'raw_material.assign',
     },
     AppRoutes.adminApparatusCreate: {'admin.access', 'production.map.manage'},

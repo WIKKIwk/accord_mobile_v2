@@ -270,29 +270,17 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         icon: Icons.group_add_outlined,
         routeName: AppRoutes.adminUserCreate,
       ),
-      const _AdminHubActionCandidate(
-        key: ValueKey('admin-hub-worker-settings'),
-        title: 'Ishchi sozlamalari',
-        icon: Icons.badge_outlined,
-        routeName: AppRoutes.adminWorkerSettings,
-      ),
       _AdminHubActionCandidate(
         key: const ValueKey('admin-hub-item-create'),
         title: l10n.adminCreateItemTitle,
         icon: Icons.inventory_2_outlined,
         routeName: AppRoutes.adminItemCreate,
       ),
-      _AdminHubActionCandidate(
-        key: const ValueKey('admin-hub-item-group-create'),
-        title: l10n.adminCreateItemGroupTitle,
-        icon: Icons.account_tree_outlined,
-        routeName: AppRoutes.adminItemGroupCreate,
-      ),
       const _AdminHubActionCandidate(
-        key: ValueKey('admin-hub-apparatus-create'),
-        title: 'Aparat qo\'shish',
-        icon: Icons.precision_manufacturing_outlined,
-        routeName: AppRoutes.adminApparatusCreate,
+        key: ValueKey('admin-hub-quick-orders'),
+        title: 'Tezkor buyurtmalar',
+        icon: Icons.list_alt_outlined,
+        routeName: AppRoutes.adminCalculateOrders,
       ),
       const _AdminHubActionCandidate(
         key: ValueKey('admin-hub-calculate-order-create'),

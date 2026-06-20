@@ -197,7 +197,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('reja menu'), findsOneWidget);
-    expect(find.text('Aparat guruhlari'), findsOneWidget);
+    expect(find.text('Aparat sozlamalari'), findsOneWidget);
   });
 
   testWidgets('custom catalog profile home returns to capability home route', (

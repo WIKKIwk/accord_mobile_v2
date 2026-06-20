@@ -249,12 +249,14 @@ extension MobileApiQolip on MobileApi {
 }
 
 String _testModeQolipCellQrPayload(String value) {
-  var hash = 0xcbf29ce484222325;
+  var hash = BigInt.parse('cbf29ce484222325', radix: 16);
+  final prime = BigInt.parse('100000001b3', radix: 16);
+  final mask = BigInt.parse('ffffffffffffffff', radix: 16);
   for (final unit in value.trim().codeUnits) {
-    hash ^= unit;
-    hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
+    hash = hash ^ BigInt.from(unit);
+    hash = (hash * prime) & mask;
   }
-  final checksum = hash & 0xffff;
+  final checksum = hash & BigInt.from(0xffff);
   return '4002${hash.toRadixString(16).padLeft(16, '0').toUpperCase()}'
       '${checksum.toRadixString(16).padLeft(4, '0').toUpperCase()}';
 }

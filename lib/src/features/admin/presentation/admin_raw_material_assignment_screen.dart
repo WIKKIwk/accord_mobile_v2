@@ -66,16 +66,44 @@ Widget _rawMaterialAssignmentSurfaceCard({
   );
 }
 
-class AdminRawMaterialAssignmentScreen extends StatefulWidget {
+class AdminRawMaterialAssignmentScreen extends StatelessWidget {
   const AdminRawMaterialAssignmentScreen({super.key});
 
   @override
-  State<AdminRawMaterialAssignmentScreen> createState() =>
-      _AdminRawMaterialAssignmentScreenState();
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
+    return AppShell(
+      drawer: AdminNavigationDrawer(
+        selectedIndex: 0,
+        selectedRouteName: AppRoutes.adminRawMaterialSettings,
+        onNavigate: (routeName) =>
+            AdminDrawerNavigation.openRoute(context, routeName),
+      ),
+      title: 'Homashyo sozlamalari',
+      subtitle: '',
+      nativeTopBar: true,
+      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      contentPadding: EdgeInsets.zero,
+      child: AdminRawMaterialAssignmentPanel(bottomPadding: bottomPadding),
+    );
+  }
 }
 
-class _AdminRawMaterialAssignmentScreenState
-    extends State<AdminRawMaterialAssignmentScreen> {
+class AdminRawMaterialAssignmentPanel extends StatefulWidget {
+  const AdminRawMaterialAssignmentPanel({
+    super.key,
+    required this.bottomPadding,
+  });
+
+  final double bottomPadding;
+
+  @override
+  State<AdminRawMaterialAssignmentPanel> createState() =>
+      _AdminRawMaterialAssignmentPanelState();
+}
+
+class _AdminRawMaterialAssignmentPanelState
+    extends State<AdminRawMaterialAssignmentPanel> {
   late Future<_RawMaterialAssignmentData> _future;
   List<AdminRawMaterialAssignment> _assignments = const [];
   String _selectedOrderId = '';
@@ -108,14 +136,6 @@ class _AdminRawMaterialAssignmentScreenState
       orders: orders,
       assignments: assignments,
     );
-  }
-
-  void _openDrawerRoute(String routeName) {
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == routeName) {
-      return;
-    }
-    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   String _selectedOrderLabel(List<ProductionMapSaved> orders) {
@@ -319,41 +339,29 @@ class _AdminRawMaterialAssignmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminRawMaterialAssignments,
-        onNavigate: _openDrawerRoute,
-      ),
-      title: 'Homashyoni zakazga ulash',
-      subtitle: '',
-      nativeTopBar: true,
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
-      contentPadding: EdgeInsets.zero,
-      child: FutureBuilder<_RawMaterialAssignmentData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: AppLoadingIndicator());
-          }
-          if (snapshot.hasError) {
-            return AppRetryState(
-              onRetry: () async {
-                setState(() => _future = _load());
-              },
-            );
-          }
-          final data = snapshot.data!;
-          final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
-          return ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                _rawMaterialAssignmentPanelGap,
-                10,
-                _rawMaterialAssignmentPanelGap,
-                bottomPadding,
-              ),
+    return FutureBuilder<_RawMaterialAssignmentData>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: AppLoadingIndicator());
+        }
+        if (snapshot.hasError) {
+          return AppRetryState(
+            onRetry: () async {
+              setState(() => _future = _load());
+            },
+          );
+        }
+        final data = snapshot.data!;
+        return ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              _rawMaterialAssignmentPanelGap,
+              10,
+              _rawMaterialAssignmentPanelGap,
+              widget.bottomPadding,
+            ),
               children: [
                 _AssignmentEditor(
                   orders: data.orders,
@@ -408,8 +416,7 @@ class _AdminRawMaterialAssignmentScreenState
             ),
           );
         },
-      ),
-    );
+      );
   }
 }
 

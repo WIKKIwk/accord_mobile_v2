@@ -15,14 +15,46 @@ import 'package:flutter/material.dart';
 const double _queuePolicyPanelGap = 4;
 const double _queuePolicyPanelTopGap = 8;
 
-class AdminQueuePolicyScreen extends StatefulWidget {
+class AdminQueuePolicyScreen extends StatelessWidget {
   const AdminQueuePolicyScreen({super.key});
 
   @override
-  State<AdminQueuePolicyScreen> createState() => _AdminQueuePolicyScreenState();
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
+    return AppShell(
+      title: 'Aparat navbati',
+      subtitle: '',
+      drawer: AdminNavigationDrawer(
+        selectedIndex: 0,
+        selectedRouteName: AppRoutes.adminApparatusSettings,
+        onNavigate: (routeName) =>
+            AdminDrawerNavigation.openRoute(context, routeName),
+      ),
+      nativeTopBar: true,
+      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      contentPadding: EdgeInsets.zero,
+      child: ColoredBox(
+        color: scheme.surfaceContainerHighest,
+        child: AdminQueuePolicyPanel(bottomPadding: bottomPadding),
+      ),
+    );
+  }
 }
 
-class _AdminQueuePolicyScreenState extends State<AdminQueuePolicyScreen> {
+class AdminQueuePolicyPanel extends StatefulWidget {
+  const AdminQueuePolicyPanel({
+    super.key,
+    required this.bottomPadding,
+  });
+
+  final double bottomPadding;
+
+  @override
+  State<AdminQueuePolicyPanel> createState() => _AdminQueuePolicyPanelState();
+}
+
+class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel> {
   late Future<_QueuePolicyData> _future;
   final Set<String> _saving = {};
   Map<String, AdminApparatusQueuePolicy> _policies = const {};
@@ -109,90 +141,70 @@ class _AdminQueuePolicyScreenState extends State<AdminQueuePolicyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AppShell(
-      title: 'Aparat navbati',
-      subtitle: '',
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminQueuePolicies,
-        onNavigate: (routeName) =>
-            AdminDrawerNavigation.openRoute(context, routeName),
-      ),
-      nativeTopBar: true,
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
-      contentPadding: EdgeInsets.zero,
-      child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
-        child: FutureBuilder<_QueuePolicyData>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: AppLoadingIndicator());
-            }
-            if (snapshot.hasError) {
-              return AppRetryState(
-                onRetry: () async {
-                  setState(() {
-                    _future = _load();
-                  });
-                },
-              );
-            }
-            final apparatus = snapshot.data!.apparatus;
-            final bottomPadding =
-                MediaQuery.viewPaddingOf(context).bottom + 128;
-            if (apparatus.isEmpty) {
-              return ListView(
-                padding: EdgeInsets.fromLTRB(
-                  _queuePolicyPanelGap,
-                  _queuePolicyPanelTopGap,
-                  _queuePolicyPanelGap,
-                  bottomPadding,
-                ),
-                children: const [
-                  _QueuePolicyIntro(),
-                  SizedBox(height: 24),
-                  Center(child: Text('Aparatlar topilmadi')),
-                ],
-              );
-            }
-            return ListView(
-              padding: EdgeInsets.fromLTRB(
-                _queuePolicyPanelGap,
-                _queuePolicyPanelTopGap,
-                _queuePolicyPanelGap,
-                bottomPadding,
-              ),
+    return FutureBuilder<_QueuePolicyData>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: AppLoadingIndicator());
+        }
+        if (snapshot.hasError) {
+          return AppRetryState(
+            onRetry: () async {
+              setState(() {
+                _future = _load();
+              });
+            },
+          );
+        }
+        final apparatus = snapshot.data!.apparatus;
+        if (apparatus.isEmpty) {
+          return ListView(
+            padding: EdgeInsets.fromLTRB(
+              _queuePolicyPanelGap,
+              _queuePolicyPanelTopGap,
+              _queuePolicyPanelGap,
+              widget.bottomPadding,
+            ),
+            children: const [
+              _QueuePolicyIntro(),
+              SizedBox(height: 24),
+              Center(child: Text('Aparatlar topilmadi')),
+            ],
+          );
+        }
+        return ListView(
+          padding: EdgeInsets.fromLTRB(
+            _queuePolicyPanelGap,
+            _queuePolicyPanelTopGap,
+            _queuePolicyPanelGap,
+            widget.bottomPadding,
+          ),
+          children: [
+            const _QueuePolicyIntro(),
+            const SizedBox(height: 10),
+            M3SegmentSpacedColumn(
+              padding: EdgeInsets.zero,
               children: [
-                const _QueuePolicyIntro(),
-                const SizedBox(height: 10),
-                M3SegmentSpacedColumn(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    for (var index = 0; index < apparatus.length; index++)
-                      _QueuePolicyTile(
-                        slot:
-                            M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index,
-                          apparatus.length,
-                        ),
-                        title: apparatus[index].warehouse.trim(),
-                        policy: _effectivePolicy(apparatus[index]),
-                        saving: _saving.contains(
-                          apparatus[index].warehouse.trim(),
-                        ),
-                        onChanged: _effectivePolicy(apparatus[index]).locked
-                            ? null
-                            : (value) => _updatePolicy(apparatus[index], value),
-                      ),
-                  ],
-                ),
+                for (var index = 0; index < apparatus.length; index++)
+                  _QueuePolicyTile(
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      apparatus.length,
+                    ),
+                    title: apparatus[index].warehouse.trim(),
+                    policy: _effectivePolicy(apparatus[index]),
+                    saving: _saving.contains(
+                      apparatus[index].warehouse.trim(),
+                    ),
+                    onChanged: _effectivePolicy(apparatus[index]).locked
+                        ? null
+                        : (value) => _updatePolicy(apparatus[index], value),
+                  ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
