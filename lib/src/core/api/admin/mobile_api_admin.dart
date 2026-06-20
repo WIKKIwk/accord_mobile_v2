@@ -131,6 +131,8 @@ class AdminCompletionRequestNotification {
     required this.workerRef,
     required this.workerDisplayName,
     required this.description,
+    this.noticeKind = 'completion_request',
+    this.decisionRequired = true,
     required this.createdAtUnix,
   });
 
@@ -144,6 +146,8 @@ class AdminCompletionRequestNotification {
   final String workerRef;
   final String workerDisplayName;
   final String description;
+  final String noticeKind;
+  final bool decisionRequired;
   final int createdAtUnix;
 
   factory AdminCompletionRequestNotification.fromJson(
@@ -160,6 +164,10 @@ class AdminCompletionRequestNotification {
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
+      noticeKind: json['notice_kind']?.toString() ?? 'completion_request',
+      decisionRequired: json['decision_required'] is bool
+          ? json['decision_required'] as bool
+          : true,
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
@@ -346,6 +354,8 @@ class AdminProgressBatch {
     required this.labelItemName,
     required this.executorName,
     this.returnInkKg,
+    this.laminationPrintLeftoverRolls,
+    this.laminationFilmLeftoverRolls,
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
@@ -365,6 +375,8 @@ class AdminProgressBatch {
   final String labelItemName;
   final String executorName;
   final double? returnInkKg;
+  final double? laminationPrintLeftoverRolls;
+  final double? laminationFilmLeftoverRolls;
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
@@ -385,6 +397,10 @@ class AdminProgressBatch {
       labelItemName: json['label_item_name']?.toString() ?? '',
       executorName: json['executor_name']?.toString() ?? '',
       returnInkKg: (json['return_ink_kg'] as num?)?.toDouble(),
+      laminationPrintLeftoverRolls:
+          (json['lamination_print_leftover_rolls'] as num?)?.toDouble(),
+      laminationFilmLeftoverRolls:
+          (json['lamination_film_leftover_rolls'] as num?)?.toDouble(),
       totalWaste: (json['total_waste'] as num?)?.toDouble(),
       finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
       finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
@@ -407,6 +423,8 @@ class AdminProgressBatch {
       labelItemName: labelItemName,
       executorName: executorName,
       returnInkKg: returnInkKg,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -1826,6 +1844,8 @@ extension MobileApiAdmin on MobileApi {
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1844,6 +1864,8 @@ extension MobileApiAdmin on MobileApi {
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -1865,6 +1887,8 @@ extension MobileApiAdmin on MobileApi {
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1978,6 +2002,8 @@ extension MobileApiAdmin on MobileApi {
           status: 'paused',
           producedQty: qty,
           uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+          laminationPrintLeftoverRolls: null,
+          laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
           totalWaste: totalWaste,
           finishedGoodsKg: finishedGoodsKg,
           finishedGoodsMeter: finishedGoodsMeter,
@@ -2032,7 +2058,16 @@ extension MobileApiAdmin on MobileApi {
             totalWaste != null &&
             finishedGoodsKg != null &&
             finishedGoodsMeter != null;
-        if (note.isNotEmpty && !hasCompleteMetrics && grossQty == null) {
+        final hasLaminatsiyaCompleteMetrics =
+            (laminationPrintLeftoverRolls != null ||
+                    laminationFilmLeftoverRolls != null) &&
+                totalWaste != null &&
+                finishedGoodsKg != null &&
+                finishedGoodsMeter != null;
+        if (note.isNotEmpty &&
+            !hasCompleteMetrics &&
+            !hasLaminatsiyaCompleteMetrics &&
+            grossQty == null) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           final map = _testModeProductionMaps
               .where((item) => item.map.id.trim() == orderId.trim())
@@ -2070,6 +2105,8 @@ extension MobileApiAdmin on MobileApi {
               ? 'm'
               : (uom.trim().isEmpty ? 'kg' : uom.trim()),
           returnInkKg: returnInkKg,
+          laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+          laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
           totalWaste: totalWaste,
           finishedGoodsKg: finishedGoodsKg,
           finishedGoodsMeter: finishedGoodsMeter,
@@ -2134,6 +2171,10 @@ extension MobileApiAdmin on MobileApi {
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,
+          if (laminationPrintLeftoverRolls != null)
+            'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
+          if (laminationFilmLeftoverRolls != null)
+            'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
           if (totalWaste != null) 'total_waste': totalWaste,
           if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
           if (finishedGoodsMeter != null)
@@ -3104,6 +3145,8 @@ AdminProgressBatch _testModeProgressBatch({
   required double producedQty,
   required String uom,
   double? returnInkKg,
+  double? laminationPrintLeftoverRolls,
+  double? laminationFilmLeftoverRolls,
   double? totalWaste,
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
@@ -3126,6 +3169,8 @@ AdminProgressBatch _testModeProgressBatch({
     labelItemName: '$orderId yarim tayyor, $apparatus holatda, $status',
     executorName: executor,
     returnInkKg: returnInkKg,
+    laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+    laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
     totalWaste: totalWaste,
     finishedGoodsKg: finishedGoodsKg,
     finishedGoodsMeter: finishedGoodsMeter,

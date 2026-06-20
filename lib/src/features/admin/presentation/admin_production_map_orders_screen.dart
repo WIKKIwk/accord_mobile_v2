@@ -1298,6 +1298,8 @@ class _AdminProductionMapOrdersScreenState
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1322,6 +1324,8 @@ class _AdminProductionMapOrdersScreenState
         producedQty: producedQty,
         grossQty: grossQty,
         returnInkKg: returnInkKg,
+        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
         totalWaste: totalWaste,
         finishedGoodsKg: finishedGoodsKg,
         finishedGoodsMeter: finishedGoodsMeter,
@@ -1370,6 +1374,8 @@ class _AdminProductionMapOrdersScreenState
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1387,6 +1393,8 @@ class _AdminProductionMapOrdersScreenState
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -3122,7 +3130,9 @@ class _CompletionRequestsSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            'Tugatish so‘rovlari',
+            requests.any((request) => !request.decisionRequired)
+                ? 'Bildirishnomalar'
+                : 'Tugatish so‘rovlari',
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.primary,
               fontWeight: FontWeight.w700,
@@ -3178,11 +3188,18 @@ class _CompletionRequestRow extends StatelessWidget {
       role: request.workerRole,
       ref: request.workerRef,
     );
-    final title = '$code zakaz 0 holatda';
-    final subtitle = '${request.apparatus} dagi $worker tugatishga urinyapti';
+    final decisionRequired = request.decisionRequired;
+    final title = decisionRequired
+        ? '$code zakaz 0 holatda'
+        : '$code laminatsiya qoldig‘i';
+    final subtitle = decisionRequired
+        ? '${request.apparatus} dagi $worker tugatishga urinyapti'
+        : '${request.apparatus} dagi $worker ikkala qavat qoldig‘ini yozdi';
 
     return Material(
-      color: scheme.errorContainer.withValues(alpha: 0.32),
+      color:
+          (decisionRequired ? scheme.errorContainer : scheme.secondaryContainer)
+              .withValues(alpha: 0.32),
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
@@ -3207,9 +3224,13 @@ class _CompletionRequestRow extends StatelessWidget {
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: Icon(
-                          Icons.priority_high_rounded,
+                          decisionRequired
+                              ? Icons.priority_high_rounded
+                              : Icons.info_outline_rounded,
                           size: 18,
-                          color: scheme.onErrorContainer,
+                          color: decisionRequired
+                              ? scheme.onErrorContainer
+                              : scheme.onSecondaryContainer,
                         ),
                       ),
                     ),
@@ -3283,7 +3304,7 @@ class _CompletionRequestDetail extends StatelessWidget {
         'Mahsulot: ${request.orderTitle.trim()}',
       if (request.productCode.trim().isNotEmpty)
         'Kod: ${request.productCode.trim()}',
-      'Aparat: ${request.apparatus.trim()}',
+      '${_apparatusDetailLabel(request.apparatus)}: ${request.apparatus.trim()}',
       'Ishchi: ${_closedActorLabel(
         displayName: request.workerDisplayName,
         role: request.workerRole,
@@ -4964,6 +4985,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -5064,6 +5087,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -5096,6 +5121,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
+      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -5123,10 +5150,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final isBosma =
         productionMapPechatColorCount(widget.apparatus?.warehouse ?? '') !=
             null;
+    final isLaminatsiya =
+        productionMapIsLaminatsiyaApparatus(widget.apparatus?.warehouse ?? '');
     final input = await _showProgressQtyDialog(
       context,
       action,
       isBosma: isBosma,
+      isLaminatsiya: isLaminatsiya,
     );
     if (!mounted || input == null) {
       return;
@@ -5149,6 +5179,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       producedQty: input.meterQty,
       grossQty: input.kgQty,
       returnInkKg: input.returnInkKg,
+      laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
+      laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
       totalWaste: input.totalWaste,
       finishedGoodsKg: input.finishedGoodsKg,
       finishedGoodsMeter: input.finishedGoodsMeter,
@@ -5520,6 +5552,8 @@ class _ProgressQtyInput {
     this.meterQty,
     this.kgQty,
     this.returnInkKg,
+    this.laminationPrintLeftoverRolls,
+    this.laminationFilmLeftoverRolls,
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
@@ -5530,6 +5564,8 @@ class _ProgressQtyInput {
   final double? meterQty;
   final double? kgQty;
   final double? returnInkKg;
+  final double? laminationPrintLeftoverRolls;
+  final double? laminationFilmLeftoverRolls;
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
@@ -5541,18 +5577,28 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   BuildContext context,
   String action, {
   required bool isBosma,
+  required bool isLaminatsiya,
 }) {
   return showDialog<_ProgressQtyInput>(
     context: context,
-    builder: (context) => _ProgressQtyDialog(action: action, isBosma: isBosma),
+    builder: (context) => _ProgressQtyDialog(
+      action: action,
+      isBosma: isBosma,
+      isLaminatsiya: isLaminatsiya,
+    ),
   );
 }
 
 class _ProgressQtyDialog extends StatefulWidget {
-  const _ProgressQtyDialog({required this.action, required this.isBosma});
+  const _ProgressQtyDialog({
+    required this.action,
+    required this.isBosma,
+    required this.isLaminatsiya,
+  });
 
   final String action;
   final bool isBosma;
+  final bool isLaminatsiya;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -5562,6 +5608,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
   final _returnInkController = TextEditingController();
+  final _printLeftoverController = TextEditingController();
+  final _filmLeftoverController = TextEditingController();
   final _wasteController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -5573,6 +5621,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   void dispose() {
     _descriptionController.dispose();
     _wasteController.dispose();
+    _filmLeftoverController.dispose();
+    _printLeftoverController.dispose();
     _returnInkController.dispose();
     _kgController.dispose();
     _meterController.dispose();
@@ -5617,17 +5667,28 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
     final returnInkKg = _parseQty(_returnInkController.text);
+    final printLeftoverRolls = _parseQty(_printLeftoverController.text);
+    final filmLeftoverRolls = _parseQty(_filmLeftoverController.text);
     final totalWaste = _parseQty(_wasteController.text);
     final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
     final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
     final hasReturnInk =
         returnInkKg != null && returnInkKg.isFinite && returnInkKg > 0;
+    final hasPrintLeftover = printLeftoverRolls != null &&
+        printLeftoverRolls.isFinite &&
+        printLeftoverRolls > 0;
+    final hasFilmLeftover = filmLeftoverRolls != null &&
+        filmLeftoverRolls.isFinite &&
+        filmLeftoverRolls > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
     final bosmaMetricsReady = _isComplete
         ? hasReturnInk && hasWaste && hasMeter && hasKg
         : hasWaste && hasMeter && hasKg;
-    if (!widget.isBosma && hasMeter && hasKg) {
+    final laminatsiyaMetricsReady = _isComplete
+        ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
+        : hasFilmLeftover && hasWaste && hasMeter && hasKg;
+    if (!widget.isBosma && !widget.isLaminatsiya && hasMeter && hasKg) {
       Navigator.of(context)
           .pop(_ProgressQtyInput(meterQty: meterQty, kgQty: kgQty));
       return;
@@ -5638,6 +5699,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
           returnInkKg: _isComplete ? returnInkKg : null,
+          totalWaste: totalWaste,
+        ),
+      );
+      return;
+    }
+    if (widget.isLaminatsiya && laminatsiyaMetricsReady) {
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          finishedGoodsMeter: meterQty,
+          finishedGoodsKg: kgQty,
+          laminationPrintLeftoverRolls: _isComplete ? printLeftoverRolls : null,
+          laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
         ),
       );
@@ -5666,6 +5739,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   @override
   Widget build(BuildContext context) {
     final isBosma = widget.isBosma;
+    final isLaminatsiya = widget.isLaminatsiya;
+    final hasDetailedMetrics = isBosma || isLaminatsiya;
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Text(
@@ -5687,7 +5762,23 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 ),
                 const SizedBox(height: 10),
               ],
-              if (isBosma) ...[
+              if (_isComplete && isLaminatsiya) ...[
+                _qtyField(
+                  controller: _printLeftoverController,
+                  label: 'Bosmadan ortgan rulon',
+                  error: 'Bosmadan ortgan rulonni kiriting',
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (isLaminatsiya) ...[
+                _qtyField(
+                  controller: _filmLeftoverController,
+                  label: 'Plyonkadan ortgan rulon',
+                  error: 'Plyonkadan ortgan rulonni kiriting',
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (hasDetailedMetrics) ...[
                 _qtyField(
                   controller: _wasteController,
                   label: 'Jami atxot',
@@ -5697,8 +5788,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               ],
               _qtyField(
                 controller: _meterController,
-                label: isBosma ? 'Tayyor mahsulot metr' : 'Metraj',
-                error: isBosma
+                label: hasDetailedMetrics ? 'Tayyor mahsulot metr' : 'Metraj',
+                error: hasDetailedMetrics
                     ? 'Tayyor mahsulot metr kiriting'
                     : 'Metraj kiriting',
                 suffix: 'metr',
@@ -5706,8 +5797,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               const SizedBox(height: 10),
               _qtyField(
                 controller: _kgController,
-                label: isBosma ? 'Tayyor mahsulot kg' : "Og'irlik",
-                error: isBosma ? 'Tayyor mahsulot kg kiriting' : 'Kg kiriting',
+                label: hasDetailedMetrics ? 'Tayyor mahsulot kg' : "Og'irlik",
+                error: hasDetailedMetrics
+                    ? 'Tayyor mahsulot kg kiriting'
+                    : 'Kg kiriting',
                 suffix: 'kg',
               ),
               if (_isComplete) ...[
@@ -6296,7 +6389,7 @@ class _SequenceStepTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _kindLabel(node.kind),
+                  _kindLabel(node),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -6368,12 +6461,20 @@ class _SequenceStepTile extends StatelessWidget {
     };
   }
 
-  String _kindLabel(String kind) {
-    return switch (kind) {
+  String _kindLabel(ProductionMapNode node) {
+    return switch (node.kind) {
       'start' => 'Boshlanish',
-      'apparatus' => 'Aparat',
+      'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
+          ? 'Laminatsiya mashinasi'
+          : 'Aparat',
       'end' => 'Yakun',
-      _ => kind,
+      _ => node.kind,
     };
   }
+}
+
+String _apparatusDetailLabel(String apparatus) {
+  return productionMapIsLaminatsiyaApparatus(apparatus)
+      ? 'Laminatsiya mashinasi'
+      : 'Aparat';
 }

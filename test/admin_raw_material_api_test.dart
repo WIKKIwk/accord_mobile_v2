@@ -195,6 +195,57 @@ void main() {
             ));
   });
 
+  test('laminatsiya complete action sends completion metrics and parses them',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Laminatsiya operatori',
+      legalName: '',
+      ref: 'lam-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final result = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'Laminatsiya 1',
+        orderId: 'zakaz-1',
+        action: 'complete',
+        laminationPrintLeftoverRolls: 1.5,
+        laminationFilmLeftoverRolls: 2.5,
+        totalWaste: 3.5,
+        finishedGoodsKg: 20.75,
+        finishedGoodsMeter: 140.25,
+        driverUrl: 'http://127.0.0.1:39117',
+      );
+
+      expect(result.states, {'zakaz-1': 'completed'});
+      expect(result.progressBatch?.laminationPrintLeftoverRolls, 1.5);
+      expect(result.progressBatch?.laminationFilmLeftoverRolls, 2.5);
+      expect(result.progressBatch?.totalWaste, 3.5);
+      expect(result.progressBatch?.finishedGoodsKg, 20.75);
+      expect(result.progressBatch?.finishedGoodsMeter, 140.25);
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"Laminatsiya 1","order_id":"zakaz-1",'
+          '"action":"complete","lamination_print_leftover_rolls":1.5,'
+          '"lamination_film_leftover_rolls":2.5,"total_waste":3.5,'
+          '"finished_goods_kg":20.75,"finished_goods_meter":140.25,'
+          '"driver_url":"http://127.0.0.1:39117"}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionLaminatsiyaMetrics: true,
+            ));
+  });
+
   test('closed production orders endpoint parses full action logs', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -524,6 +575,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.unlinkErrorCode = '',
     this.queueActionProgress = false,
     this.queueActionCompleteMetrics = false,
+    this.queueActionLaminatsiyaMetrics = false,
   });
 
   final List<String> seenRequests;
@@ -532,6 +584,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final String unlinkErrorCode;
   final bool queueActionProgress;
   final bool queueActionCompleteMetrics;
+  final bool queueActionLaminatsiyaMetrics;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -553,49 +606,72 @@ class _RawMaterialApiHttpClient implements HttpClient {
             ),
           );
         }
-        body = queueActionCompleteMetrics
+        body = queueActionLaminatsiyaMetrics
             ? const {
                 'states': {'zakaz-1': 'completed'},
                 'progress_batch': {
                   'batch_id': 'progress-1',
                   'session_id': 'session-1',
-                  'apparatus': '7 ta rangli bosma',
+                  'apparatus': 'Laminatsiya 1',
                   'order_id': 'zakaz-1',
                   'action': 'complete',
                   'status': 'completed',
-                  'produced_qty': 125.5,
+                  'produced_qty': 140.25,
                   'uom': 'm',
                   'qr_payload': 'GSP:PROGRESS-1',
                   'label_item_code': 'zakaz-1',
                   'label_item_name': 'Zakaz tayyor',
-                  'executor_name': 'Bosma aparatchi',
-                  'return_ink_kg': 1.25,
-                  'total_waste': 2.5,
-                  'finished_goods_kg': 18.75,
-                  'finished_goods_meter': 125.5,
+                  'executor_name': 'Laminatsiya operatori',
+                  'lamination_print_leftover_rolls': 1.5,
+                  'lamination_film_leftover_rolls': 2.5,
+                  'total_waste': 3.5,
+                  'finished_goods_kg': 20.75,
+                  'finished_goods_meter': 140.25,
                 },
               }
-            : queueActionProgress
+            : queueActionCompleteMetrics
                 ? const {
-                    'states': {'zakaz-1': 'paused'},
+                    'states': {'zakaz-1': 'completed'},
                     'progress_batch': {
                       'batch_id': 'progress-1',
                       'session_id': 'session-1',
-                      'apparatus': 'Pechat',
+                      'apparatus': '7 ta rangli bosma',
                       'order_id': 'zakaz-1',
-                      'action': 'pause',
-                      'status': 'paused',
-                      'produced_qty': 12.5,
-                      'uom': 'kg',
+                      'action': 'complete',
+                      'status': 'completed',
+                      'produced_qty': 125.5,
+                      'uom': 'm',
                       'qr_payload': 'GSP:PROGRESS-1',
                       'label_item_code': 'zakaz-1',
-                      'label_item_name': 'Zakaz yarim tayyor',
-                      'executor_name': 'Aparatchi',
+                      'label_item_name': 'Zakaz tayyor',
+                      'executor_name': 'Bosma aparatchi',
+                      'return_ink_kg': 1.25,
+                      'total_waste': 2.5,
+                      'finished_goods_kg': 18.75,
+                      'finished_goods_meter': 125.5,
                     },
                   }
-                : const {
-                    'states': {'zakaz-1': 'in_progress'},
-                  };
+                : queueActionProgress
+                    ? const {
+                        'states': {'zakaz-1': 'paused'},
+                        'progress_batch': {
+                          'batch_id': 'progress-1',
+                          'session_id': 'session-1',
+                          'apparatus': 'Pechat',
+                          'order_id': 'zakaz-1',
+                          'action': 'pause',
+                          'status': 'paused',
+                          'produced_qty': 12.5,
+                          'uom': 'kg',
+                          'qr_payload': 'GSP:PROGRESS-1',
+                          'label_item_code': 'zakaz-1',
+                          'label_item_name': 'Zakaz yarim tayyor',
+                          'executor_name': 'Aparatchi',
+                        },
+                      }
+                    : const {
+                        'states': {'zakaz-1': 'in_progress'},
+                      };
       case 'POST /v1/mobile/admin/production-maps/progress-qr/lookup':
         body = const {
           'ok': true,
@@ -627,7 +703,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'completed_at_unix': 1781780000,
               'closed_by_role': 'aparatchi',
               'closed_by_ref': 'worker-closed-lamin',
-              'closed_by_display_name': 'Laminatsiyachi',
+              'closed_by_display_name': 'Laminatsiya operatori',
               'logs': [
                 {
                   'event_id': 'event-1',
@@ -650,7 +726,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                   'to_state': 'completed',
                   'actor_role': 'aparatchi',
                   'actor_ref': 'worker-closed-lamin',
-                  'actor_display_name': 'Laminatsiyachi',
+                  'actor_display_name': 'Laminatsiya operatori',
                   'created_at_unix': 1781780000,
                 },
               ],

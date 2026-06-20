@@ -312,12 +312,18 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
       role: request.workerRole,
       ref: request.workerRef,
     );
-    final title = '$code zakaz 0 holatda';
-    final subtitle = '${request.apparatus.trim()} dagi $worker '
-        'tugatishga urinyapti';
+    final decisionRequired = request.decisionRequired;
+    final title = decisionRequired
+        ? '$code zakaz 0 holatda'
+        : '$code laminatsiya qoldig‘i';
+    final subtitle = decisionRequired
+        ? '${request.apparatus.trim()} dagi $worker tugatishga urinyapti'
+        : '${request.apparatus.trim()} dagi $worker ikkala qavat qoldig‘ini yozdi';
 
     return Material(
-      color: scheme.errorContainer.withValues(alpha: 0.32),
+      color:
+          (decisionRequired ? scheme.errorContainer : scheme.secondaryContainer)
+              .withValues(alpha: 0.32),
       elevation: 1,
       shadowColor: scheme.shadow.withValues(alpha: 0.14),
       surfaceTintColor: Colors.transparent,
@@ -340,9 +346,13 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(17),
                       ),
                       child: Icon(
-                        Icons.priority_high_rounded,
+                        decisionRequired
+                            ? Icons.priority_high_rounded
+                            : Icons.info_outline_rounded,
                         size: 20,
-                        color: scheme.onErrorContainer,
+                        color: decisionRequired
+                            ? scheme.onErrorContainer
+                            : scheme.onSecondaryContainer,
                       ),
                     ),
                   ),
@@ -430,7 +440,7 @@ class _CompletionRequestDetails extends StatelessWidget {
       if (request.productCode.trim().isNotEmpty)
         'Kod: ${request.productCode.trim()}',
       if (request.apparatus.trim().isNotEmpty)
-        'Aparat: ${request.apparatus.trim()}',
+        '${_apparatusDetailLabel(request.apparatus)}: ${request.apparatus.trim()}',
       'Ishchi: ${_actorLabel(
         displayName: request.workerDisplayName,
         role: request.workerRole,
@@ -466,36 +476,38 @@ class _CompletionRequestDetails extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Text(
-            'Tugatishga ruxsat berasizmi?',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: scheme.onSurface,
+          if (request.decisionRequired) ...[
+            Text(
+              'Tugatishga ruxsat berasizmi?',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: deciding ? null : onReject,
-                  child: const Text('Rad etish'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: deciding ? null : onReject,
+                    child: const Text('Rad etish'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: deciding ? null : onApprove,
-                  child: deciding
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Tasdiqlash'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: deciding ? null : onApprove,
+                    child: deciding
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Tasdiqlash'),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -542,4 +554,10 @@ String _timeLabel(int unix) {
   String two(int value) => value.toString().padLeft(2, '0');
   return '${two(time.day)}.${two(time.month)}.${time.year} '
       '${two(time.hour)}:${two(time.minute)}';
+}
+
+String _apparatusDetailLabel(String apparatus) {
+  return apparatus.trim().toLowerCase().contains('laminatsiya')
+      ? 'Laminatsiya mashinasi'
+      : 'Aparat';
 }

@@ -2461,6 +2461,84 @@ void main() {
     expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
   });
 
+  testWidgets(
+      'laminatsiya worker progress dialogs use laminatsiya metric fields',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-laminatsiya-dialog-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Laminatsiya operatori',
+        legalName: '',
+        ref: 'worker-laminatsiya-dialog',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['Laminatsiya 1'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-laminatsiya-dialog',
+        title: 'Laminatsiya dialog order',
+        productCode: 'LMD-A',
+        apparatus: 'Laminatsiya 1',
+        product: 'laminatsiya dialog mahsulot',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Laminatsiya 1',
+      orderIds: const ['zakaz-laminatsiya-dialog'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Laminatsiya 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('laminatsiya-dialog').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
+    expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
+    expect(find.text('Jami atxot'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pauza'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bosmadan ortgan rulon'), findsNothing);
+    expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
+    expect(find.text('Jami atxot'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+  });
+
   testWidgets('worker completed detail keeps completed apparatus context', (
     tester,
   ) async {
