@@ -31,6 +31,7 @@ import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
 import '../features/admin/presentation/admin_worker_detail_screen.dart';
+import '../features/admin/presentation/admin_worker_profile_detail_screen.dart';
 import '../features/admin/presentation/admin_worker_settings_screen.dart';
 import '../features/admin/presentation/admin_warehouses_screen.dart';
 import '../features/admin/models/production_map_models.dart';
@@ -155,6 +156,7 @@ class AppRoutes {
   static const String adminCustomerCreate = '/admin-customer-create';
   static const String adminCustomerDetail = '/admin-customer-detail';
   static const String adminWorkerDetail = '/admin-worker-detail';
+  static const String adminWorkerProfileDetail = '/admin-worker-profile-detail';
   static const String adminInactiveSuppliers = '/admin-inactive-suppliers';
   static const String adminItemCreate = '/admin-item-create';
   static const String adminItemGroupCreate = '/admin-item-group-create';
@@ -538,6 +540,17 @@ class AppRouter {
           return _buildRoute(settings, const AdminSuppliersScreen());
         }
         return _buildRoute(settings, AdminWorkerDetailScreen(entry: entry));
+      case AppRoutes.adminWorkerProfileDetail:
+        final entry = settings.arguments is AdminUserListEntry
+            ? settings.arguments as AdminUserListEntry
+            : null;
+        if (entry == null) {
+          return _buildRoute(settings, const AdminSuppliersScreen());
+        }
+        return _buildRoute(
+          settings,
+          AdminWorkerProfileDetailScreen(entry: entry),
+        );
       case AppRoutes.adminInactiveSuppliers:
         return _buildRoute(settings, const AdminInactiveSuppliersScreen());
       case AppRoutes.adminItemCreate:
@@ -728,6 +741,7 @@ class AppRouter {
     AppRoutes.adminCustomerCreate: {'party.customer.manage'},
     AppRoutes.adminCustomerDetail: {'party.customer.read'},
     AppRoutes.adminWorkerDetail: {'admin.access'},
+    AppRoutes.adminWorkerProfileDetail: {'admin.access'},
     AppRoutes.adminInactiveSuppliers: {'party.supplier.read'},
     AppRoutes.adminItemCreate: {
       'catalog.item.read',

@@ -446,6 +446,86 @@ class AdminProgressBatch {
   }
 }
 
+class AdminWorkerRunSession {
+  const AdminWorkerRunSession({
+    required this.sessionId,
+    required this.apparatus,
+    required this.orderId,
+    required this.status,
+    required this.workerRole,
+    required this.workerRef,
+    required this.workerDisplayName,
+    required this.startedAtUnix,
+    required this.updatedAtUnix,
+  });
+
+  final String sessionId;
+  final String apparatus;
+  final String orderId;
+  final String status;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final int startedAtUnix;
+  final int updatedAtUnix;
+
+  factory AdminWorkerRunSession.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerRunSession(
+      sessionId: json['session_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
+      updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminWorkerProfileDetail {
+  const AdminWorkerProfileDetail({
+    required this.worker,
+    required this.assignedGroups,
+    required this.activeSessions,
+    required this.recentBatches,
+    required this.recentLogs,
+  });
+
+  final AdminWorkerDetail worker;
+  final List<AdminWorkerGroup> assignedGroups;
+  final List<AdminWorkerRunSession> activeSessions;
+  final List<AdminProgressBatch> recentBatches;
+  final List<AdminProductionOrderLogEntry> recentLogs;
+
+  factory AdminWorkerProfileDetail.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerProfileDetail(
+      worker: AdminWorkerDetail.fromJson(
+        (json['worker'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
+      assignedGroups: [
+        for (final item in (json['assigned_groups'] as List? ?? const []))
+          AdminWorkerGroup.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      activeSessions: [
+        for (final item in (json['active_sessions'] as List? ?? const []))
+          AdminWorkerRunSession.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      recentBatches: [
+        for (final item in (json['recent_batches'] as List? ?? const []))
+          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      recentLogs: [
+        for (final item in (json['recent_logs'] as List? ?? const []))
+          AdminProductionOrderLogEntry.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
+    );
+  }
+}
+
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
@@ -2521,6 +2601,37 @@ extension MobileApiAdmin on MobileApi {
       throw Exception('Admin worker detail failed');
     }
     return AdminWorkerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminWorkerProfileDetail> adminWorkerProfileDetail(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final worker = await adminWorkerDetail(id);
+      final groups = _testModeWorkerGroups
+          .where((group) => group.workerIds.any((workerId) => workerId == id))
+          .map(_hydrateTestModeWorkerGroup)
+          .toList(growable: false);
+      return AdminWorkerProfileDetail(
+        worker: worker,
+        assignedGroups: groups,
+        activeSessions: const [],
+        recentBatches: const [],
+        recentLogs: const [],
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/workers/profile-detail',
+        ).replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin worker profile detail failed');
+    }
+    return AdminWorkerProfileDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -264,6 +265,15 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
               onAddPhone: _addPhone,
               onRegenerateCode: _regenerateCode,
               onCopyCode: _copyCode,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              style: _workerDetailOutlinedButtonStyle(),
+              onPressed: () => Navigator.of(context).pushNamed(
+                AppRoutes.adminWorkerProfileDetail,
+                arguments: widget.entry,
+              ),
+              child: const Text('Worker detail'),
             ),
             if (_loadError != null) ...[
               const SizedBox(height: 12),

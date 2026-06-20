@@ -10,6 +10,7 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_profile_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -147,6 +148,11 @@ void main() {
                   as AdminUserListEntry;
               return AdminWorkerDetailScreen(entry: entry);
             },
+            AppRoutes.adminWorkerProfileDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerProfileDetailScreen(entry: entry);
+            },
           },
           home: const AdminSuppliersScreen(),
         ),
@@ -212,6 +218,11 @@ void main() {
               final entry = ModalRoute.of(context)!.settings.arguments!
                   as AdminUserListEntry;
               return AdminWorkerDetailScreen(entry: entry);
+            },
+            AppRoutes.adminWorkerProfileDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerProfileDetailScreen(entry: entry);
             },
           },
           home: const AdminSuppliersScreen(),
@@ -291,6 +302,11 @@ void main() {
                   as AdminUserListEntry;
               return AdminWorkerDetailScreen(entry: entry);
             },
+            AppRoutes.adminWorkerProfileDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerProfileDetailScreen(entry: entry);
+            },
           },
           home: const AdminSuppliersScreen(),
         ),
@@ -340,6 +356,18 @@ void main() {
         contains('POST /v1/mobile/admin/workers/code/regenerate?id=worker-1'),
       );
 
+      await tester.drag(find.byType(ListView).last, const Offset(0, -360));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Worker detail'));
+      await tester.pumpAndSettle();
+      expect(find.text('Assign qilingan guruhlar'), findsOneWidget);
+      expect(find.text('7 ta rangli pechat'), findsWidgets);
+      expect(find.text('Aktiv ishlar'), findsOneWidget);
+      expect(find.textContaining('zakaz-worker-1'), findsOneWidget);
+      expect(
+          find.text('Progress batchlar', skipOffstage: false), findsOneWidget);
+      expect(find.text('Loglar', skipOffstage: false), findsOneWidget);
+
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
   });
@@ -365,6 +393,92 @@ class _AdminUsersHttpClient implements HttpClient {
 
     Object body;
     var statusCode = HttpStatus.ok;
+    if (key.startsWith('GET /v1/mobile/admin/workers/profile-detail')) {
+      final id = url.queryParameters['id'] ?? '';
+      final worker = workers.cast<Map<String, Object?>>().firstWhere(
+            (item) => item['id'] == id,
+            orElse: () => <String, Object?>{},
+          );
+      if (worker.isEmpty) {
+        statusCode = HttpStatus.notFound;
+        body = {'error': 'worker not found'};
+      } else {
+        body = {
+          'worker': {
+            'id': worker['id'],
+            'name': worker['name'],
+            'phone': worker['phone'] ?? '',
+            'level': worker['level'] ?? '',
+            'code': workerCodes[id] ?? '',
+            'code_locked': false,
+            'code_retry_after_sec': 0,
+          },
+          'assigned_groups': [
+            {
+              'apparatus': '7 ta rangli pechat',
+              'group_code': 'A',
+              'shift': 'kunduz',
+              'start_time': '08:00',
+              'end_time': '20:00',
+              'work_days_per_week': 6,
+              'start_day': 'monday',
+              'accounting_enabled': true,
+              'worker_ids': [id],
+              'workers': [worker],
+            },
+          ],
+          'active_sessions': [
+            {
+              'session_id': 'session-worker-1',
+              'apparatus': '7 ta rangli pechat',
+              'order_id': 'zakaz-worker-1',
+              'status': 'active',
+              'worker_role': 'aparatchi',
+              'worker_ref': id,
+              'worker_display_name': worker['name'],
+              'started_at_unix': 1,
+              'updated_at_unix': 2,
+            },
+          ],
+          'recent_batches': [
+            {
+              'batch_id': 'batch-worker-1',
+              'session_id': 'session-worker-1',
+              'apparatus': '7 ta rangli pechat',
+              'order_id': 'zakaz-worker-1',
+              'action': 'pause',
+              'status': 'paused',
+              'produced_qty': 12,
+              'uom': 'kg',
+              'qr_payload': '4001ABC',
+              'label_item_code': 'VESTA',
+              'label_item_name': 'Vesta',
+              'executor_name': worker['name'],
+            },
+          ],
+          'recent_logs': [
+            {
+              'event_id': 'event-worker-1',
+              'apparatus': '7 ta rangli pechat',
+              'order_id': 'zakaz-worker-1',
+              'action': 'start',
+              'from_state': 'pending',
+              'to_state': 'in_progress',
+              'actor_role': 'aparatchi',
+              'actor_ref': id,
+              'actor_display_name': worker['name'],
+              'created_at_unix': 2,
+            },
+          ],
+        };
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
     if (key.startsWith('GET /v1/mobile/admin/workers/detail')) {
       final id = url.queryParameters['id'] ?? '';
       final worker = workers.cast<Map<String, Object?>>().firstWhere(
