@@ -5397,10 +5397,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           )
         : null;
     final freePick = widget.queuePolicy == ApparatusQueuePolicy.freePick;
+    final canStartWithPreviousProgress = previousStage != null &&
+        queueState == ApparatusQueueOrderState.pending &&
+        (activeOrderId == null || activeOrderId == orderId);
     final isActionable = widget.canManageQueue &&
         (freePick
             ? activeOrderId == null || activeOrderId == orderId
-            : actionableId == orderId);
+            : actionableId == orderId || canStartWithPreviousProgress);
     final previousProgressRequired = previousStage != null;
     final previousProgressReady =
         !previousProgressRequired || _startInputProgressBatch != null;

@@ -2017,13 +2017,17 @@ extension MobileApiAdmin on MobileApi {
       );
       final policy =
           _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
+      final progressKey =
+          qrPayload.trim().isEmpty ? progressBatchId.trim() : qrPayload.trim();
+      final startUsesProgressQr = action == 'start' && progressKey.isNotEmpty;
       if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
           message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
         );
       }
-      if (policy == ApparatusQueuePolicy.strictSequence) {
+      if (policy == ApparatusQueuePolicy.strictSequence &&
+          !startUsesProgressQr) {
         final actionable = firstActionableQueueOrderId(
           sequence: sequence,
           states: states,
@@ -2037,6 +2041,22 @@ extension MobileApiAdmin on MobileApi {
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
       if (action == 'start') {
+        if (progressKey.isNotEmpty) {
+          final batch = _testModeProgressBatchesByQr[progressKey];
+          final batchAction = batch?.action.trim().toLowerCase() ?? '';
+          final batchStatus = batch?.status.trim().toLowerCase() ?? '';
+          if (batch == null ||
+              batch.orderId.trim() != orderId.trim() ||
+              (batchAction != 'pause' && batchAction != 'complete') ||
+              (batchStatus != 'paused' &&
+                  batchStatus != 'completed' &&
+                  batchStatus != 'resumed')) {
+            throw const MobileApiException(
+              code: 'progress_batch_not_accepted',
+              message: 'Bu QR oldingi bosqich mahsulotiga mos emas',
+            );
+          }
+        }
         if (current != ApparatusQueueOrderState.pending) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
@@ -2132,9 +2152,6 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
-        final progressKey = qrPayload.trim().isEmpty
-            ? progressBatchId.trim()
-            : qrPayload.trim();
         AdminProgressBatch? resumed;
         if (progressKey.isNotEmpty) {
           final batch = _testModeProgressBatchesByQr[progressKey];
