@@ -9,7 +9,7 @@ int productionMapRubberSizeFromWidth(double widthMm) {
 String productionMapPechatTabLabel(String warehouse) {
   final count = productionMapPechatColorCount(warehouse);
   if (count != null) {
-    return '$count ta rangli pechat';
+    return '$count ta rangli bosma';
   }
   return warehouse.trim();
 }
@@ -43,8 +43,8 @@ int? productionMapRecommendedPechatColorCount({
     requiredColorCount = rollCount > 8
         ? 9
         : rollCount > 7
-        ? 8
-        : 7;
+            ? 8
+            : 7;
   }
   if (hasWidth) {
     final rubberSize = productionMapRubberSizeFromWidth(widthMm);
@@ -54,8 +54,8 @@ int? productionMapRecommendedPechatColorCount({
     final rubberColorCount = rubberSize > 1000
         ? 9
         : rubberSize > 800
-        ? 8
-        : 7;
+            ? 8
+            : 7;
     requiredColorCount = math.max(requiredColorCount, rubberColorCount);
   }
   return requiredColorCount == 0 ? null : requiredColorCount;
@@ -93,7 +93,7 @@ int? productionMapOrderPechatColorCount(Iterable<String> apparatusTitles) {
 }
 
 String productionMapPechatApparatusLabel(int colorCount) {
-  return '$colorCount ta rangli pechat';
+  return '$colorCount ta rangli bosma';
 }
 
 List<int> productionMapCompatiblePechatColorCounts({
@@ -129,13 +129,12 @@ String productionMapPechatCompatibilitySummary({
     widthMm: widthMm,
   );
   if (compatible.isEmpty) {
-    return 'Mos pechat topilmadi';
+    return 'Mos bosma topilmadi';
   }
-  final compatibleText = compatible
-      .map(productionMapPechatApparatusLabel)
-      .join(', ');
+  final compatibleText =
+      compatible.map(productionMapPechatApparatusLabel).join(', ');
   if (recommended == null) {
-    return 'Mos pechat: $compatibleText';
+    return 'Mos bosma: $compatibleText';
   }
   return 'Minimal ${productionMapPechatApparatusLabel(recommended)} • '
       'Mos: $compatibleText';
@@ -154,8 +153,7 @@ bool productionMapPechatCanMoveOrder({
   if (recommended != null && apparatusColorCount < recommended) {
     return false;
   }
-  final movingDown =
-      sourceApparatusColorCount != null &&
+  final movingDown = sourceApparatusColorCount != null &&
       apparatusColorCount < sourceApparatusColorCount;
   if (movingDown) {
     if (widthMm == null || widthMm <= 0) {
@@ -291,8 +289,7 @@ bool productionMapCanMoveOrderToApparatus({
   if (isFlexoOrder) {
     return false;
   }
-  final sourceColorCount =
-      productionMapPechatColorCount(fromApparatus) ??
+  final sourceColorCount = productionMapPechatColorCount(fromApparatus) ??
       productionMapOrderPechatColorCount(
         nodes
             .where((node) => node.kind == 'apparatus')
@@ -370,18 +367,16 @@ List<ProductionMapNode>? productionMapReassignApparatusNodes({
 }) {
   final to = toApparatus.trim();
   var changed = false;
-  final next = nodes
-      .map((node) {
-        if (node.kind == 'apparatus' &&
-            productionMapApparatusNodeMatchesFrom(
-              nodeTitle: node.title,
-              fromApparatus: fromApparatus,
-            )) {
-          changed = true;
-          return node.copyWith(title: to);
-        }
-        return node;
-      })
-      .toList(growable: false);
+  final next = nodes.map((node) {
+    if (node.kind == 'apparatus' &&
+        productionMapApparatusNodeMatchesFrom(
+          nodeTitle: node.title,
+          fromApparatus: fromApparatus,
+        )) {
+      changed = true;
+      return node.copyWith(title: to);
+    }
+    return node;
+  }).toList(growable: false);
   return changed ? next : null;
 }

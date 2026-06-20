@@ -24,7 +24,8 @@ InputDecoration _apparatusGroupFieldDecoration(
   OutlineInputBorder outline({Color? color, double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
+      borderSide:
+          BorderSide(color: color ?? scheme.outlineVariant, width: width),
     );
   }
 
@@ -329,7 +330,7 @@ class _AdminApparatusGroupsScreenState
                           decoration: _apparatusGroupFieldDecoration(
                             context,
                             labelText: 'Guruh nomi',
-                            hintText: 'pechat',
+                            hintText: 'bosma',
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -348,7 +349,8 @@ class _AdminApparatusGroupsScreenState
                       const SizedBox(height: 8),
                       FilledButton.icon(
                         onPressed: _creatingApparatus ? null : _createApparatus,
-                        icon: const Icon(Icons.precision_manufacturing_outlined),
+                        icon:
+                            const Icon(Icons.precision_manufacturing_outlined),
                         label: Text(
                           _creatingApparatus
                               ? 'Qo\'shilmoqda...'
@@ -420,7 +422,9 @@ class _ApparatusGroupEditTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: editing ? scheme.secondaryContainer.withValues(alpha: 0.45) : scheme.surface,
+      color: editing
+          ? scheme.secondaryContainer.withValues(alpha: 0.45)
+          : scheme.surface,
       elevation: editing ? 0 : 1,
       shadowColor: scheme.shadow.withValues(alpha: 0.12),
       surfaceTintColor: Colors.transparent,

@@ -56,7 +56,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   String _orderCode = '';
   String _sourceMapId = '';
   int _productCustomerGeneration = 0;
-  bool _openingRoute = false;
   bool _calculating = false;
   bool _openingSavedOrder = false;
   bool _uploadingImage = false;
@@ -1490,7 +1489,7 @@ class _ResultPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _ResultMultilineRow(
-            label: 'Pechat',
+            label: 'Bosma',
             value: productionMapPechatCompatibilitySummary(
               rollCount: rollCount,
               widthMm: widthMm,

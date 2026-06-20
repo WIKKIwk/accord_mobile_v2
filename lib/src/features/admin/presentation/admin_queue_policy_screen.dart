@@ -140,7 +140,8 @@ class _AdminQueuePolicyScreenState extends State<AdminQueuePolicyScreen> {
               );
             }
             final apparatus = snapshot.data!.apparatus;
-            final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
+            final bottomPadding =
+                MediaQuery.viewPaddingOf(context).bottom + 128;
             if (apparatus.isEmpty) {
               return ListView(
                 padding: EdgeInsets.fromLTRB(
@@ -171,7 +172,8 @@ class _AdminQueuePolicyScreenState extends State<AdminQueuePolicyScreen> {
                   children: [
                     for (var index = 0; index < apparatus.length; index++)
                       _QueuePolicyTile(
-                        slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
                           index,
                           apparatus.length,
                         ),
@@ -240,7 +242,7 @@ class _QueuePolicyTile extends StatelessWidget {
     if (!policy.locked) {
       return null;
     }
-    return 'Pechat aparatlari doim ketma-ket rejimda';
+    return 'Bosma aparatlari doim ketma-ket rejimda';
   }
 
   @override
@@ -256,9 +258,8 @@ class _QueuePolicyTile extends StatelessWidget {
     return Material(
       color: locked ? scheme.surfaceContainerHighest : scheme.surface,
       elevation: locked ? 0 : 2,
-      shadowColor: locked
-          ? Colors.transparent
-          : scheme.shadow.withValues(alpha: 0.16),
+      shadowColor:
+          locked ? Colors.transparent : scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: radius,

@@ -137,6 +137,12 @@ void main() {
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Zakaz ochish'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Zakaz ochish'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Zakaz ochish'));
@@ -308,6 +314,8 @@ CalculateOrderTemplate _template({
     imageMime: '',
     imageSizeBytes: 0,
     imageUrl: '',
+    frameProductSizeMm: 615,
+    frameCount: 1,
     widthMm: 630,
     wastePercent: 5,
     rollCount: 7,

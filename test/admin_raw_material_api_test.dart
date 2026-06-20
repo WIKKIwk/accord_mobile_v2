@@ -15,6 +15,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
+    resetMobileApiTestModeData();
   });
 
   tearDown(() async {
@@ -142,6 +143,55 @@ void main() {
         createHttpClient: (_) => _RawMaterialApiHttpClient(
               seenRequests,
               queueActionProgress: true,
+            ));
+  });
+
+  test('bosma complete action sends completion metrics and parses them',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Bosma aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final result = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: '7 ta rangli bosma',
+        orderId: 'zakaz-1',
+        action: 'complete',
+        returnInkKg: 1.25,
+        totalWaste: 2.5,
+        finishedGoodsKg: 18.75,
+        finishedGoodsMeter: 125.5,
+        driverUrl: 'http://127.0.0.1:39117',
+      );
+
+      expect(result.states, {'zakaz-1': 'completed'});
+      expect(result.progressBatch?.returnInkKg, 1.25);
+      expect(result.progressBatch?.totalWaste, 2.5);
+      expect(result.progressBatch?.finishedGoodsKg, 18.75);
+      expect(result.progressBatch?.finishedGoodsMeter, 125.5);
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"7 ta rangli bosma","order_id":"zakaz-1",'
+          '"action":"complete","return_ink_kg":1.25,"total_waste":2.5,'
+          '"finished_goods_kg":18.75,"finished_goods_meter":125.5,'
+          '"driver_url":"http://127.0.0.1:39117"}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionProgress: true,
+              queueActionCompleteMetrics: true,
             ));
   });
 
@@ -473,6 +523,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.assignmentErrorCode = '',
     this.unlinkErrorCode = '',
     this.queueActionProgress = false,
+    this.queueActionCompleteMetrics = false,
   });
 
   final List<String> seenRequests;
@@ -480,6 +531,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final String assignmentErrorCode;
   final String unlinkErrorCode;
   final bool queueActionProgress;
+  final bool queueActionCompleteMetrics;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -501,27 +553,49 @@ class _RawMaterialApiHttpClient implements HttpClient {
             ),
           );
         }
-        body = queueActionProgress
+        body = queueActionCompleteMetrics
             ? const {
-                'states': {'zakaz-1': 'paused'},
+                'states': {'zakaz-1': 'completed'},
                 'progress_batch': {
                   'batch_id': 'progress-1',
                   'session_id': 'session-1',
-                  'apparatus': 'Pechat',
+                  'apparatus': '7 ta rangli bosma',
                   'order_id': 'zakaz-1',
-                  'action': 'pause',
-                  'status': 'paused',
-                  'produced_qty': 12.5,
-                  'uom': 'kg',
+                  'action': 'complete',
+                  'status': 'completed',
+                  'produced_qty': 125.5,
+                  'uom': 'm',
                   'qr_payload': 'GSP:PROGRESS-1',
                   'label_item_code': 'zakaz-1',
-                  'label_item_name': 'Zakaz yarim tayyor',
-                  'executor_name': 'Aparatchi',
+                  'label_item_name': 'Zakaz tayyor',
+                  'executor_name': 'Bosma aparatchi',
+                  'return_ink_kg': 1.25,
+                  'total_waste': 2.5,
+                  'finished_goods_kg': 18.75,
+                  'finished_goods_meter': 125.5,
                 },
               }
-            : const {
-                'states': {'zakaz-1': 'in_progress'},
-              };
+            : queueActionProgress
+                ? const {
+                    'states': {'zakaz-1': 'paused'},
+                    'progress_batch': {
+                      'batch_id': 'progress-1',
+                      'session_id': 'session-1',
+                      'apparatus': 'Pechat',
+                      'order_id': 'zakaz-1',
+                      'action': 'pause',
+                      'status': 'paused',
+                      'produced_qty': 12.5,
+                      'uom': 'kg',
+                      'qr_payload': 'GSP:PROGRESS-1',
+                      'label_item_code': 'zakaz-1',
+                      'label_item_name': 'Zakaz yarim tayyor',
+                      'executor_name': 'Aparatchi',
+                    },
+                  }
+                : const {
+                    'states': {'zakaz-1': 'in_progress'},
+                  };
       case 'POST /v1/mobile/admin/production-maps/progress-qr/lookup':
         body = const {
           'ok': true,

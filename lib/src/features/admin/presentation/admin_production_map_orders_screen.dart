@@ -589,10 +589,12 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     super.key,
     this.readOnly = false,
     this.workerMode = false,
+    this.progressDriverUrlPicker,
   });
 
   final bool readOnly;
   final bool workerMode;
+  final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
   State<AdminProductionMapOrdersScreen> createState() =>
@@ -1295,6 +1297,10 @@ class _AdminProductionMapOrdersScreenState
     List<String> materialBarcodes = const [],
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1315,6 +1321,10 @@ class _AdminProductionMapOrdersScreenState
         materialBarcodes: materialBarcodes,
         producedQty: producedQty,
         grossQty: grossQty,
+        returnInkKg: returnInkKg,
+        totalWaste: totalWaste,
+        finishedGoodsKg: finishedGoodsKg,
+        finishedGoodsMeter: finishedGoodsMeter,
         uom: uom,
         qrPayload: qrPayload,
         progressBatchId: progressBatchId,
@@ -1359,6 +1369,10 @@ class _AdminProductionMapOrdersScreenState
     List<String> materialBarcodes = const [],
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1372,6 +1386,10 @@ class _AdminProductionMapOrdersScreenState
       materialBarcodes: materialBarcodes,
       producedQty: producedQty,
       grossQty: grossQty,
+      returnInkKg: returnInkKg,
+      totalWaste: totalWaste,
+      finishedGoodsKg: finishedGoodsKg,
+      finishedGoodsMeter: finishedGoodsMeter,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -1471,6 +1489,7 @@ class _AdminProductionMapOrdersScreenState
           apparatus,
         ).map((item) => item.map.id).toList(growable: false),
         onQueueAction: _handleQueueAction,
+        progressDriverUrlPicker: widget.progressDriverUrlPicker,
       ),
     );
   }
@@ -4925,6 +4944,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.sequenceOrderIds = const [],
     this.visibleOrderIds = const [],
     this.onQueueAction,
+    this.progressDriverUrlPicker,
   });
 
   final ProductionMapSaved order;
@@ -4943,12 +4963,17 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     List<String> materialBarcodes,
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom,
     String qrPayload,
     String progressBatchId,
     String driverUrl,
     String completionRequestNote,
   })? onQueueAction;
+  final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
   State<_ReadOnlyOrderDetailSheet> createState() =>
@@ -5038,6 +5063,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String action, {
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -5066,6 +5095,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           : const [],
       producedQty: producedQty,
       grossQty: grossQty,
+      returnInkKg: returnInkKg,
+      totalWaste: totalWaste,
+      finishedGoodsKg: finishedGoodsKg,
+      finishedGoodsMeter: finishedGoodsMeter,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -5087,7 +5120,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _runProgressAction(String action) async {
-    final input = await _showProgressQtyDialog(context, action);
+    final isBosma =
+        productionMapPechatColorCount(widget.apparatus?.warehouse ?? '') !=
+            null;
+    final input = await _showProgressQtyDialog(
+      context,
+      action,
+      isBosma: isBosma,
+    );
     if (!mounted || input == null) {
       return;
     }
@@ -5098,16 +5138,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       return;
     }
-    final printer = await _showProgressPrinterPicker(context);
-    if (!mounted || printer == null) {
+    final driverUrl = widget.progressDriverUrlPicker != null
+        ? await widget.progressDriverUrlPicker!(context)
+        : (await _showProgressPrinterPicker(context))?.driverUrl;
+    if (!mounted || driverUrl == null) {
       return;
     }
     await _runQueueAction(
       action,
       producedQty: input.meterQty,
       grossQty: input.kgQty,
+      returnInkKg: input.returnInkKg,
+      totalWaste: input.totalWaste,
+      finishedGoodsKg: input.finishedGoodsKg,
+      finishedGoodsMeter: input.finishedGoodsMeter,
       uom: 'm',
-      driverUrl: printer.driverUrl,
+      driverUrl: driverUrl,
     );
   }
 
@@ -5473,192 +5519,240 @@ class _ProgressQtyInput {
   const _ProgressQtyInput({
     this.meterQty,
     this.kgQty,
+    this.returnInkKg,
+    this.totalWaste,
+    this.finishedGoodsKg,
+    this.finishedGoodsMeter,
     this.description = '',
     this.isCompletionRequest = false,
   });
 
   final double? meterQty;
   final double? kgQty;
+  final double? returnInkKg;
+  final double? totalWaste;
+  final double? finishedGoodsKg;
+  final double? finishedGoodsMeter;
   final String description;
   final bool isCompletionRequest;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
   BuildContext context,
-  String action,
-) async {
-  final meterController = TextEditingController();
-  final kgController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-  final isComplete = action == 'complete';
-  double? parseQty(String value) =>
-      double.tryParse(value.trim().replaceAll(',', '.'));
-  final result = await showDialog<_ProgressQtyInput>(
+  String action, {
+  required bool isBosma,
+}) {
+  return showDialog<_ProgressQtyInput>(
     context: context,
-    builder: (context) {
-      String completionError = '';
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            title:
-                Text(action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori'),
-            content: SizedBox(
-              width: MediaQuery.sizeOf(context).width,
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: meterController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration:
-                                const InputDecoration(labelText: 'Metraj'),
-                            validator: (value) {
-                              final qty = parseQty(value ?? '');
-                              if (qty == null || !qty.isFinite || qty <= 0) {
-                                return 'Metraj kiriting';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 22),
-                          child: Text('metr'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: kgController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration:
-                                const InputDecoration(labelText: "Og'irlik"),
-                            validator: (value) {
-                              final qty = parseQty(value ?? '');
-                              if (qty == null || !qty.isFinite || qty <= 0) {
-                                return 'Kg kiriting';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 22),
-                          child: Text('kg'),
-                        ),
-                      ],
-                    ),
-                    if (isComplete) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: descriptionController,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Izoh',
-                          alignLabelWithHint: true,
-                        ),
-                        onChanged: (_) {
-                          if (completionError.isNotEmpty) {
-                            setDialogState(() => completionError = '');
-                          }
-                        },
-                      ),
-                      if (completionError.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            completionError,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                  height: 1.25,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Bekor qilish'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final meterQty = parseQty(meterController.text);
-                  final kgQty = parseQty(kgController.text);
-                  final hasMeter =
-                      meterQty != null && meterQty.isFinite && meterQty > 0;
-                  final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
-                  if (hasMeter && hasKg) {
-                    Navigator.of(context).pop(
-                      _ProgressQtyInput(
-                        meterQty: meterQty,
-                        kgQty: kgQty,
-                      ),
-                    );
-                    return;
-                  }
-                  if (isComplete) {
-                    final description = descriptionController.text.trim();
-                    if (description.isNotEmpty) {
-                      Navigator.of(context).pop(
-                        _ProgressQtyInput(
-                          description: description,
-                          isCompletionRequest: true,
-                        ),
-                      );
-                      return;
-                    }
-                    setDialogState(() {
-                      completionError =
-                          "Nega majburiy fieldlarni bo'sh qoldiryapsiz? "
-                          'Iltimos izoh kiritib tugatish tugmasini bosing';
-                    });
-                    return;
-                  }
-                  if (!(formKey.currentState?.validate() ?? false)) {
-                    return;
-                  }
-                },
-                child: const Text('Tasdiqlash'),
-              ),
-            ],
-          );
-        },
-      );
-    },
+    builder: (context) => _ProgressQtyDialog(action: action, isBosma: isBosma),
   );
-  descriptionController.dispose();
-  kgController.dispose();
-  meterController.dispose();
-  return result;
+}
+
+class _ProgressQtyDialog extends StatefulWidget {
+  const _ProgressQtyDialog({required this.action, required this.isBosma});
+
+  final String action;
+  final bool isBosma;
+
+  @override
+  State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
+}
+
+class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
+  final _meterController = TextEditingController();
+  final _kgController = TextEditingController();
+  final _returnInkController = TextEditingController();
+  final _wasteController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  String _completionError = '';
+
+  bool get _isComplete => widget.action == 'complete';
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _wasteController.dispose();
+    _returnInkController.dispose();
+    _kgController.dispose();
+    _meterController.dispose();
+    super.dispose();
+  }
+
+  double? _parseQty(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.'));
+
+  Widget _qtyField({
+    required TextEditingController controller,
+    required String label,
+    required String error,
+    String suffix = '',
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: label),
+            validator: (value) {
+              final qty = _parseQty(value ?? '');
+              if (qty == null || !qty.isFinite || qty <= 0) {
+                return error;
+              }
+              return null;
+            },
+          ),
+        ),
+        if (suffix.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          Padding(padding: const EdgeInsets.only(top: 22), child: Text(suffix)),
+        ],
+      ],
+    );
+  }
+
+  void _submit() {
+    final meterQty = _parseQty(_meterController.text);
+    final kgQty = _parseQty(_kgController.text);
+    final returnInkKg = _parseQty(_returnInkController.text);
+    final totalWaste = _parseQty(_wasteController.text);
+    final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
+    final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
+    final hasReturnInk =
+        returnInkKg != null && returnInkKg.isFinite && returnInkKg > 0;
+    final hasWaste =
+        totalWaste != null && totalWaste.isFinite && totalWaste > 0;
+    final bosmaMetricsReady = _isComplete
+        ? hasReturnInk && hasWaste && hasMeter && hasKg
+        : hasWaste && hasMeter && hasKg;
+    if (!widget.isBosma && hasMeter && hasKg) {
+      Navigator.of(context)
+          .pop(_ProgressQtyInput(meterQty: meterQty, kgQty: kgQty));
+      return;
+    }
+    if (widget.isBosma && bosmaMetricsReady) {
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          finishedGoodsMeter: meterQty,
+          finishedGoodsKg: kgQty,
+          returnInkKg: _isComplete ? returnInkKg : null,
+          totalWaste: totalWaste,
+        ),
+      );
+      return;
+    }
+    if (_isComplete) {
+      final description = _descriptionController.text.trim();
+      if (description.isNotEmpty) {
+        Navigator.of(context).pop(
+          _ProgressQtyInput(
+            description: description,
+            isCompletionRequest: true,
+          ),
+        );
+        return;
+      }
+      setState(() {
+        _completionError = "Nega majburiy fieldlarni bo'sh qoldiryapsiz? "
+            'Iltimos izoh kiritib tugatish tugmasini bosing';
+      });
+      return;
+    }
+    _formKey.currentState?.validate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBosma = widget.isBosma;
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      title: Text(
+        widget.action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori',
+      ),
+      content: SizedBox(
+        width: MediaQuery.sizeOf(context).width,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isComplete && isBosma) ...[
+                _qtyField(
+                  controller: _returnInkController,
+                  label: 'Vazrat kraska kg',
+                  error: 'Vazrat kraska kg kiriting',
+                  suffix: 'kg',
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (isBosma) ...[
+                _qtyField(
+                  controller: _wasteController,
+                  label: 'Jami atxot',
+                  error: 'Jami atxot kiriting',
+                ),
+                const SizedBox(height: 10),
+              ],
+              _qtyField(
+                controller: _meterController,
+                label: isBosma ? 'Tayyor mahsulot metr' : 'Metraj',
+                error: isBosma
+                    ? 'Tayyor mahsulot metr kiriting'
+                    : 'Metraj kiriting',
+                suffix: 'metr',
+              ),
+              const SizedBox(height: 10),
+              _qtyField(
+                controller: _kgController,
+                label: isBosma ? 'Tayyor mahsulot kg' : "Og'irlik",
+                error: isBosma ? 'Tayyor mahsulot kg kiriting' : 'Kg kiriting',
+                suffix: 'kg',
+              ),
+              if (_isComplete) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _descriptionController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Izoh',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (_) {
+                    if (_completionError.isNotEmpty) {
+                      setState(() => _completionError = '');
+                    }
+                  },
+                ),
+                if (_completionError.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _completionError,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                            height: 1.25,
+                          ),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Bekor qilish'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Tasdiqlash')),
+      ],
+    );
+  }
 }
 
 class _ProgressPrinterOption {

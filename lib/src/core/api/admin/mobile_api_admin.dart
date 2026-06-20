@@ -32,6 +32,28 @@ void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
   _testModeForceCalculateTemplateSaveFailure = value;
 }
 
+void resetMobileApiTestModeData() {
+  _testModeProductionMaps.clear();
+  _testModeApparatusGroups
+    ..clear()
+    ..addAll(TestModeDemoData.apparatusGroups);
+  _testModeApparatusWarehouses.clear();
+  _testModeWarehouses.clear();
+  _testModeWarehouseAssignments.clear();
+  _testModeApparatusSequences.clear();
+  _testModeApparatusQueueStates.clear();
+  _testModeApparatusQueuePolicies.clear();
+  _testModeCompletedQueueOrders.clear();
+  _testModeCompletionRequests.clear();
+  _testModeCompletionRequestDecisions.clear();
+  _testModeProgressBatchesByQr.clear();
+  _testModeRawMaterialRules.clear();
+  _testModeRawMaterialAssignments.clear();
+  resetMobileApiTestModeWorkerSettingsData();
+  _testModeForceSequenceSaveFailure = false;
+  _testModeForceCalculateTemplateSaveFailure = false;
+}
+
 void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
@@ -323,6 +345,11 @@ class AdminProgressBatch {
     required this.labelItemCode,
     required this.labelItemName,
     required this.executorName,
+    this.returnInkKg,
+    this.totalWaste,
+    this.finishedGoodsKg,
+    this.finishedGoodsMeter,
+    this.description = '',
   });
 
   final String batchId;
@@ -337,6 +364,11 @@ class AdminProgressBatch {
   final String labelItemCode;
   final String labelItemName;
   final String executorName;
+  final double? returnInkKg;
+  final double? totalWaste;
+  final double? finishedGoodsKg;
+  final double? finishedGoodsMeter;
+  final String description;
 
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
     return AdminProgressBatch(
@@ -352,6 +384,11 @@ class AdminProgressBatch {
       labelItemCode: json['label_item_code']?.toString() ?? '',
       labelItemName: json['label_item_name']?.toString() ?? '',
       executorName: json['executor_name']?.toString() ?? '',
+      returnInkKg: (json['return_ink_kg'] as num?)?.toDouble(),
+      totalWaste: (json['total_waste'] as num?)?.toDouble(),
+      finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
+      finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
+      description: json['description']?.toString() ?? '',
     );
   }
 
@@ -369,6 +406,11 @@ class AdminProgressBatch {
       labelItemCode: labelItemCode,
       labelItemName: labelItemName,
       executorName: executorName,
+      returnInkKg: returnInkKg,
+      totalWaste: totalWaste,
+      finishedGoodsKg: finishedGoodsKg,
+      finishedGoodsMeter: finishedGoodsMeter,
+      description: description,
     );
   }
 }
@@ -647,7 +689,9 @@ MobileApiException _adminProductionMapException(
         'Oldingi bosqich tugallanguncha kutilmoqda',
       'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
       'queue_policy_locked' =>
-        'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
+        'Bosma aparati doim ketma-ketlik bo‘yicha ishlaydi',
+      'bosma_completion_metrics_required' =>
+        'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
@@ -1439,7 +1483,7 @@ extension MobileApiAdmin on MobileApi {
       if (locked && policy != ApparatusQueuePolicy.strictSequence) {
         throw const MobileApiException(
           code: 'queue_policy_locked',
-          message: 'Pechat aparati doim ketma-ketlik bo‘yicha ishlaydi',
+          message: 'Bosma aparati doim ketma-ketlik bo‘yicha ishlaydi',
         );
       }
       final record = AdminApparatusQueuePolicy(
@@ -1781,6 +1825,10 @@ extension MobileApiAdmin on MobileApi {
     List<String> materialBarcodes = const [],
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1795,6 +1843,10 @@ extension MobileApiAdmin on MobileApi {
       materialBarcodes: materialBarcodes,
       producedQty: producedQty,
       grossQty: grossQty,
+      returnInkKg: returnInkKg,
+      totalWaste: totalWaste,
+      finishedGoodsKg: finishedGoodsKg,
+      finishedGoodsMeter: finishedGoodsMeter,
       uom: uom,
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
@@ -1812,6 +1864,10 @@ extension MobileApiAdmin on MobileApi {
     List<String> materialBarcodes = const [],
     double? producedQty,
     double? grossQty,
+    double? returnInkKg,
+    double? totalWaste,
+    double? finishedGoodsKg,
+    double? finishedGoodsMeter,
     String uom = '',
     String qrPayload = '',
     String progressBatchId = '',
@@ -1922,6 +1978,9 @@ extension MobileApiAdmin on MobileApi {
           status: 'paused',
           producedQty: qty,
           uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+          totalWaste: totalWaste,
+          finishedGoodsKg: finishedGoodsKg,
+          finishedGoodsMeter: finishedGoodsMeter,
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'paused';
@@ -1969,7 +2028,11 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         final note = completionRequestNote.trim();
-        if (note.isNotEmpty && producedQty == null && grossQty == null) {
+        final hasCompleteMetrics = returnInkKg != null &&
+            totalWaste != null &&
+            finishedGoodsKg != null &&
+            finishedGoodsMeter != null;
+        if (note.isNotEmpty && !hasCompleteMetrics && grossQty == null) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           final map = _testModeProductionMaps
               .where((item) => item.map.id.trim() == orderId.trim())
@@ -2002,8 +2065,14 @@ extension MobileApiAdmin on MobileApi {
           orderId: orderId.trim(),
           action: 'complete',
           status: 'completed',
-          producedQty: producedQty ?? 1,
-          uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
+          producedQty: producedQty ?? finishedGoodsMeter ?? 1,
+          uom: uom.trim().isEmpty && finishedGoodsMeter != null
+              ? 'm'
+              : (uom.trim().isEmpty ? 'kg' : uom.trim()),
+          returnInkKg: returnInkKg,
+          totalWaste: totalWaste,
+          finishedGoodsKg: finishedGoodsKg,
+          finishedGoodsMeter: finishedGoodsMeter,
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'completed';
@@ -2064,6 +2133,11 @@ extension MobileApiAdmin on MobileApi {
             'material_barcode': trimmedBarcode,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
+          if (returnInkKg != null) 'return_ink_kg': returnInkKg,
+          if (totalWaste != null) 'total_waste': totalWaste,
+          if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
+          if (finishedGoodsMeter != null)
+            'finished_goods_meter': finishedGoodsMeter,
           if (uom.trim().isNotEmpty) 'uom': uom.trim(),
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)
@@ -3029,6 +3103,10 @@ AdminProgressBatch _testModeProgressBatch({
   required String status,
   required double producedQty,
   required String uom,
+  double? returnInkKg,
+  double? totalWaste,
+  double? finishedGoodsKg,
+  double? finishedGoodsMeter,
 }) {
   final stamp = DateTime.now().microsecondsSinceEpoch;
   final batchId = 'test-progress-$stamp-$orderId-$action';
@@ -3047,5 +3125,9 @@ AdminProgressBatch _testModeProgressBatch({
     labelItemCode: orderId,
     labelItemName: '$orderId yarim tayyor, $apparatus holatda, $status',
     executorName: executor,
+    returnInkKg: returnInkKg,
+    totalWaste: totalWaste,
+    finishedGoodsKg: finishedGoodsKg,
+    finishedGoodsMeter: finishedGoodsMeter,
   );
 }

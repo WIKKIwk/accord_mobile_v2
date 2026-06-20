@@ -18,6 +18,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
+    resetMobileApiTestModeData();
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,
@@ -844,11 +845,11 @@ void main() {
     () {
       expect(
         productionMapPechatCompatibilitySummary(rollCount: 7, widthMm: 650),
-        'Minimal 7 ta rangli pechat • Mos: 7 ta rangli pechat, 8 ta rangli pechat',
+        'Minimal 7 ta rangli bosma • Mos: 7 ta rangli bosma, 8 ta rangli bosma',
       );
       expect(
         productionMapPechatCompatibilitySummary(rollCount: 7, widthMm: 1250),
-        'Minimal 9 ta rangli pechat • Mos: 9 ta rangli pechat',
+        'Minimal 9 ta rangli bosma • Mos: 9 ta rangli bosma',
       );
     },
   );
@@ -2223,6 +2224,7 @@ void main() {
         home: const AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
+          progressDriverUrlPicker: _testProgressDriverUrlPicker,
         ),
       ),
     );
@@ -2231,14 +2233,14 @@ void main() {
     expect(find.text('Buyurtmalar'), findsNothing);
     expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
     expect(find.text('Godex aparat - DEMO'), findsOneWidget);
-    expect(find.text('7 ta rangli pechat'), findsOneWidget);
+    expect(find.text('7 ta rangli bosma'), findsOneWidget);
     expect(find.text('Aparatlar'), findsNothing);
     expect(find.textContaining('Worker queue order'), findsNWidgets(2));
     expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
     expect(find.text('Sizning aparatingiz'), findsOneWidget);
     expect(find.text('Boshlash'), findsNothing);
 
-    await tester.tap(find.text('7 ta rangli pechat'));
+    await tester.tap(find.text('7 ta rangli bosma'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.textContaining('worker-queue').first);
@@ -2255,7 +2257,22 @@ void main() {
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Miqdor'), '12');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Vazrat kraska kg'),
+      '1',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Jami atxot'),
+      '2',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Tayyor mahsulot metr'),
+      '12',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Tayyor mahsulot kg'),
+      '3',
+    );
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
 
@@ -2323,6 +2340,7 @@ void main() {
         home: const AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
+          progressDriverUrlPicker: _testProgressDriverUrlPicker,
         ),
       ),
     );
@@ -2337,7 +2355,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Miqdor'), '12');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Vazrat kraska kg'),
+      '1',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Jami atxot'),
+      '2',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Tayyor mahsulot metr'),
+      '12',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Tayyor mahsulot kg'),
+      '3',
+    );
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(20, 20));
@@ -2350,6 +2383,82 @@ void main() {
 
     expect(find.textContaining('Worker completed order 1'), findsOneWidget);
     expect(find.textContaining('Worker completed order 2'), findsNothing);
+  });
+
+  testWidgets('bosma worker progress dialogs use bosma metric fields', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-bosma-dialog-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Bosma aparatchi',
+        legalName: '',
+        ref: 'worker-bosma-dialog',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['7 ta rangli bosma'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-bosma-dialog',
+        title: 'Bosma dialog order',
+        productCode: 'BSD-A',
+        apparatus: '7 ta rangli bosma',
+        product: 'bosma dialog mahsulot',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: '7 ta rangli bosma',
+      orderIds: const ['zakaz-bosma-dialog'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('7 ta rangli bosma'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('bosma-dialog').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vazrat kraska kg'), findsOneWidget);
+    expect(find.text('Jami atxot'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pauza'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vazrat kraska kg'), findsNothing);
+    expect(find.text('Jami atxot'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
   });
 
   testWidgets('worker completed detail keeps completed apparatus context', (
@@ -2972,4 +3081,8 @@ List<String> _alternativeAssignedTitles(
       .map((node) => node.alternativeAssignedTitle.trim())
       .where((value) => value.isNotEmpty)
       .toList(growable: false);
+}
+
+Future<String?> _testProgressDriverUrlPicker(BuildContext _) async {
+  return 'test://progress-printer';
 }
