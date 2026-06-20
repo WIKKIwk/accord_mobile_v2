@@ -437,6 +437,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   final Set<String> selectedApparatus = <String>{};
 
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
+  bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
 
   @override
   void initState() {
@@ -481,24 +482,48 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     }
     setState(() => saving = true);
     try {
-      final user = await MobileApi.instance.adminCreateCustomer(
-        name: name.text.trim(),
-        phone: phone.text.trim(),
-      );
-      if (_isAparatchiRole) {
-        await MobileApi.instance.adminUpsertRoleAssignment(
-          adminAparatchiAssignmentUpsert(
-            principalRef: user.ref,
-            assignedApparatus: selectedApparatus.toList(growable: false)
-              ..sort(),
-          ),
+      if (_isQolipchiRole) {
+        final worker = await MobileApi.instance.adminCreateWorker(
+          name: name.text.trim(),
+          level: 'Brigader',
         );
-        await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
-      } else {
-        final principalRole = _principalRoleForAssignedRole(
+        final workerPhone = phone.text.trim();
+        if (workerPhone.isNotEmpty) {
+          await MobileApi.instance.adminUpdateWorkerPhone(
+            id: worker.id,
+            phone: workerPhone,
+          );
+        }
+        await _assignCustomRole(
           widget.assignedRole,
+          UserRole.qolipchi,
+          worker.id,
         );
-        await _assignCustomRole(widget.assignedRole, principalRole, user.ref);
+        await MobileApi.instance.adminRegenerateWorkerCode(worker.id);
+      } else {
+        final user = await MobileApi.instance.adminCreateCustomer(
+          name: name.text.trim(),
+          phone: phone.text.trim(),
+        );
+        if (_isAparatchiRole) {
+          await MobileApi.instance.adminUpsertRoleAssignment(
+            adminAparatchiAssignmentUpsert(
+              principalRef: user.ref,
+              assignedApparatus: selectedApparatus.toList(growable: false)
+                ..sort(),
+            ),
+          );
+          await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
+        } else {
+          final principalRole = _principalRoleForAssignedRole(
+            widget.assignedRole,
+          );
+          await _assignCustomRole(
+            widget.assignedRole,
+            principalRole,
+            user.ref,
+          );
+        }
       }
       if (!mounted) {
         return;

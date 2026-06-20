@@ -7,7 +7,6 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
-import 'package:accord_mobile_v2/src/features/admin/presentation/admin_customer_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
@@ -373,20 +372,23 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin qolipchi tab opens customer backed qolipchi profile', (
+  testWidgets('admin qolipchi tab opens worker backed qolipchi profile', (
     tester,
   ) async {
     final client = _AdminUsersHttpClient(
-      users: const [
+      workers: const [
         {
-          'id': 'qolipchi:CUS-Q',
-          'source': 'qolipchi',
-          'entity_ref': 'CUS-Q',
-          'principal_role': 'qolipchi',
+          'id': 'worker-q',
           'name': 'Qolipchi user',
           'phone': '998900003',
-          'role_label': 'Qolipchi',
-          'blocked': false,
+          'level': 'Master',
+        },
+      ],
+      roleAssignments: const [
+        {
+          'principal_role': 'qolipchi',
+          'principal_ref': 'worker-q',
+          'role_id': 'qolipchi',
         },
       ],
     );
@@ -404,14 +406,10 @@ void main() {
           ],
           supportedLocales: AppLocalizations.supportedLocales,
           routes: {
-            AppRoutes.adminCustomerDetail: (context) {
-              final args = ModalRoute.of(context)!.settings.arguments;
-              final entry = args is AdminUserListEntry ? args : null;
-              final customerRef = entry?.id ?? (args as String);
-              return AdminCustomerDetailScreen(
-                customerRef: customerRef,
-                title: entry?.roleLabel ?? 'Customer',
-              );
+            AppRoutes.adminWorkerDetail: (context) {
+              final entry = ModalRoute.of(context)!.settings.arguments!
+                  as AdminUserListEntry;
+              return AdminWorkerDetailScreen(entry: entry);
             },
           },
           home: const AdminSuppliersScreen(),
@@ -435,12 +433,12 @@ void main() {
       expect(find.text('998900003'), findsOneWidget);
       expect(
         client.requests,
-        contains('GET /v1/mobile/admin/customers/detail?ref=CUS-Q'),
+        contains('GET /v1/mobile/admin/workers/detail?id=worker-q'),
       );
       expect(
         client.requests.any(
           (request) => request.startsWith(
-            'GET /v1/mobile/admin/workers/detail',
+            'GET /v1/mobile/admin/customers/detail',
           ),
         ),
         isFalse,
@@ -455,10 +453,12 @@ class _AdminUsersHttpClient implements HttpClient {
   _AdminUsersHttpClient({
     this.users = const <Object>[],
     this.workers = const <Object>[],
+    this.roleAssignments = const <Object>[],
   });
 
   final List<Object> users;
   final List<Object> workers;
+  final List<Object> roleAssignments;
   final List<String> requests = <String>[];
   bool createdCustomer = false;
   final Map<String, String> workerCodes = <String, String>{};
@@ -703,7 +703,7 @@ class _AdminUsersHttpClient implements HttpClient {
                   'role_id': 'item_creator',
                 },
               ]
-            : const [];
+            : roleAssignments;
       case 'POST /v1/mobile/admin/customers':
         createdCustomer = true;
         body = const {

@@ -121,6 +121,13 @@ void main() {
       await _selectPickerItem(tester, 'Aparatchi');
 
       expect(find.text('Foydalanuvchi saqlash'), findsOneWidget);
+      for (var i = 0;
+          i < 20 && find.text('7 ta rangli pechat').evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.text('7 ta rangli pechat'));
+      await tester.pump();
 
       await tester.enterText(find.byType(TextField).at(0), 'Aparatchi');
       await tester.enterText(find.byType(TextField).at(1), '110000011');
@@ -135,6 +142,65 @@ void main() {
       expect(
         seenRequests.any(
           (request) => request.contains('"role_id":"aparatchi"'),
+        ),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin user create screen creates qolipchi as worker', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(seenRequests);
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Omborchi').first);
+      await _pumpUi(tester);
+      await _selectPickerItem(tester, 'Qolipchi');
+
+      await tester.enterText(find.byType(TextField).at(0), 'Qolipchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000050');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('POST /v1/mobile/admin/workers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/workers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/workers/code/regenerate?id=worker-q'),
+      );
+      expect(seenRequests, isNot(contains('POST /v1/mobile/admin/customers')));
+      expect(
+        seenRequests.any((request) => request.contains('"role_id":"qolipchi"')),
+        isTrue,
+      );
+      expect(
+        seenRequests.any(
+          (request) => request.contains('"principal_role":"qolipchi"'),
         ),
         isTrue,
       );
@@ -211,7 +277,45 @@ class _AdminUserCreateHttpClient implements HttpClient {
             'capability_codes': ['apparatus.queue.read'],
             'system': true,
           },
+          {
+            'id': 'qolipchi',
+            'label': 'Qolipchi',
+            'base_role': 'qolipchi',
+            'capability_codes': ['qolip.access'],
+            'system': true,
+          },
         ];
+      case 'GET /v1/mobile/admin/warehouses?parent=aparat+-+A&limit=200':
+        body = const [
+          {
+            'warehouse': '7 ta rangli pechat',
+            'parent_warehouse': 'aparat - A',
+          },
+        ];
+      case 'POST /v1/mobile/admin/workers':
+        body = const {
+          'id': 'worker-q',
+          'name': 'Qolipchi',
+          'phone': '',
+          'level': 'Brigader',
+        };
+      case 'PUT /v1/mobile/admin/workers':
+        body = const {
+          'id': 'worker-q',
+          'name': 'Qolipchi',
+          'phone': '110000050',
+          'level': 'Brigader',
+        };
+      case 'POST /v1/mobile/admin/workers/code/regenerate?id=worker-q':
+        body = const {
+          'id': 'worker-q',
+          'name': 'Qolipchi',
+          'phone': '110000050',
+          'level': 'Brigader',
+          'code': '501234567890',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
       case 'POST /v1/mobile/admin/customers':
         body = const {
           'ref': 'CUS-1',
@@ -391,7 +495,8 @@ class _FakeHttpClientResponse extends Stream<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) => Future<HttpClientResponse>.value(this);
+  ]) =>
+      Future<HttpClientResponse>.value(this);
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

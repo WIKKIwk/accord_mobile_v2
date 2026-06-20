@@ -258,15 +258,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
     if (item.kind == AdminUserKind.worker ||
-        (item.kind == AdminUserKind.qolipchi && _isWorkerBackedUser(item))) {
+        item.kind == AdminUserKind.qolipchi) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWorkerDetail, arguments: item);
-      changed = result == true;
-    } else if (item.kind == AdminUserKind.qolipchi) {
-      final result = await Navigator.of(
-        context,
-      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item);
       changed = result == true;
     } else if (item.kind == AdminUserKind.werka) {
       final result = await Navigator.of(
@@ -287,11 +282,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     if (changed && mounted) {
       await _bootstrap(forceRefresh: true);
     }
-  }
-
-  bool _isWorkerBackedUser(AdminUserListEntry item) {
-    final id = item.id.trim().toLowerCase();
-    return _workers.any((worker) => worker.id.trim().toLowerCase() == id);
   }
 
   bool _restoreCache() {

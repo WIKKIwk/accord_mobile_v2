@@ -30,13 +30,16 @@ class AdminApparatusScopePicker extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         for (final item in apparatus)
-          CheckboxListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            value: selected.contains(item.warehouse),
-            title: Text(item.warehouse),
-            controlAffinity: ListTileControlAffinity.leading,
-            onChanged: (value) => onChanged(item.warehouse, value == true),
+          Material(
+            color: Colors.transparent,
+            child: CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: selected.contains(item.warehouse),
+              title: Text(item.warehouse),
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: (value) => onChanged(item.warehouse, value == true),
+            ),
           ),
       ],
     );
