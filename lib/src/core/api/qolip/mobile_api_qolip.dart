@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 final List<QolipLocationEntry> _testModeQolipLocations = [];
+final Map<String, QolipProduct> _testModeQolipSpecs = {};
 
 extension MobileApiQolip on MobileApi {
   Future<List<QolipBlock>> qolipBlocks() async {
@@ -59,6 +60,7 @@ extension MobileApiQolip on MobileApi {
   Future<List<QolipProduct>> qolipProducts({
     String query = '',
     int limit = 50,
+    bool withQolipOnly = false,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
@@ -67,13 +69,18 @@ extension MobileApiQolip on MobileApi {
               normalized.isEmpty ||
               item.name.toLowerCase().contains(normalized) ||
               item.code.toLowerCase().contains(normalized))
+          .where((item) =>
+              !withQolipOnly ||
+              _testModeQolipSpecs.containsKey(item.code.trim().toLowerCase()))
           .take(limit)
-          .map((item) => QolipProduct(
-                code: item.code,
-                name: item.name,
-                itemGroup: item.itemGroup,
-              ))
-          .toList(growable: false);
+          .map((item) {
+        return _testModeQolipSpecs[item.code.trim().toLowerCase()] ??
+            QolipProduct(
+              code: item.code,
+              name: item.name,
+              itemGroup: item.itemGroup,
+            );
+      }).toList(growable: false);
     }
     final response = await _sendAuthorized(
       () => http.get(
@@ -81,6 +88,7 @@ extension MobileApiQolip on MobileApi {
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
             if (limit > 0) 'limit': '$limit',
+            if (withQolipOnly) 'with_qolip': 'true',
           },
         ),
         headers: _headers(requireToken()),
@@ -128,8 +136,8 @@ extension MobileApiQolip on MobileApi {
   Future<QolipLocationEntry> qolipSaveLocation({
     required QolipBlock block,
     QolipProduct? product,
-    required String qolipCode,
-    required int size,
+    String qolipCode = '',
+    int size = 0,
     required int quantity,
     String rowLetter = '',
     int? columnNumber,
@@ -139,31 +147,41 @@ extension MobileApiQolip on MobileApi {
       'warehouse': block.warehouse.trim(),
       if (product != null) 'item_code': product.code.trim(),
       if (product != null) 'item_name': product.name.trim(),
-      'qolip_code': qolipCode.trim(),
-      'size': size,
+      if (qolipCode.trim().isNotEmpty) 'qolip_code': qolipCode.trim(),
+      if (size > 0) 'size': size,
       'quantity': quantity,
       if (rowLetter.trim().isNotEmpty) 'row_letter': rowLetter.trim(),
       if (columnNumber != null) 'column_number': columnNumber,
     };
     if (await TestModeController.instance.isEnabled()) {
+      final spec = product == null
+          ? null
+          : _testModeQolipSpecs[product.code.trim().toLowerCase()];
+      final savedQolipCode = qolipCode.trim().isNotEmpty
+          ? qolipCode.trim()
+          : spec?.qolipCode.trim() ?? '';
+      final savedSize = size > 0 ? size : spec?.qolipSize ?? 0;
+      if (savedQolipCode.isEmpty || savedSize <= 0) {
+        throw Exception('Qolip product spec required');
+      }
       final locationLabel = rowLetter.trim().isEmpty || columnNumber == null
           ? ''
           : '${rowLetter.trim().toUpperCase()}$columnNumber';
       final entry = QolipLocationEntry(
         id: [
           block.name,
-          product?.code ?? qolipCode,
-          qolipCode,
-          size,
+          product?.code ?? savedQolipCode,
+          savedQolipCode,
+          savedSize,
           rowLetter,
           columnNumber ?? 0,
         ].join(':'),
         block: block.name,
         warehouse: block.warehouse,
-        itemCode: product?.code ?? qolipCode.trim(),
-        itemName: product?.name ?? qolipCode.trim(),
-        qolipCode: qolipCode.trim(),
-        size: size,
+        itemCode: product?.code ?? savedQolipCode,
+        itemName: product?.name ?? savedQolipCode,
+        qolipCode: savedQolipCode,
+        size: savedSize,
         quantity: quantity,
         rowLetter: rowLetter.trim().toUpperCase(),
         columnNumber: columnNumber,
@@ -192,6 +210,46 @@ extension MobileApiQolip on MobileApi {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return QolipLocationEntry.fromJson(
       (data['location'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<QolipProduct> qolipSaveProductSpec({
+    required QolipProduct product,
+    required String qolipCode,
+    required int size,
+  }) async {
+    final saved = QolipProduct(
+      code: product.code.trim(),
+      name: product.name.trim(),
+      itemGroup: product.itemGroup.trim(),
+      qolipCode: qolipCode.trim(),
+      qolipSize: size,
+      hasQolipSpec: true,
+    );
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeQolipSpecs[product.code.trim().toLowerCase()] = saved;
+      return saved;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/product-specs'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'item_code': product.code.trim(),
+          'item_name': product.name.trim(),
+          'item_group': product.itemGroup.trim(),
+          'qolip_code': qolipCode.trim(),
+          'size': size,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Qolip product spec save failed');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipProduct.fromJson(
+      (data['product'] as Map).cast<String, dynamic>(),
     );
   }
 

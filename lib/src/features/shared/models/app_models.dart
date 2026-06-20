@@ -283,17 +283,26 @@ class QolipProduct {
     required this.code,
     required this.name,
     required this.itemGroup,
+    this.qolipCode = '',
+    this.qolipSize = 0,
+    this.hasQolipSpec = false,
   });
 
   final String code;
   final String name;
   final String itemGroup;
+  final String qolipCode;
+  final int qolipSize;
+  final bool hasQolipSpec;
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
       code: json['code']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       itemGroup: json['item_group']?.toString() ?? '',
+      qolipCode: json['qolip_code']?.toString() ?? '',
+      qolipSize: (json['size'] as num?)?.toInt() ?? 0,
+      hasQolipSpec: json['has_qolip_spec'] == true,
     );
   }
 }

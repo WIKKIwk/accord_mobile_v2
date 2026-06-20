@@ -191,11 +191,15 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       }
       return;
     }
-    await _openAttachSheet(data.blocks);
+    await _openAttachSheet(
+      data.blocks,
+      mode: _QolipAttachMode.productSpec,
+    );
   }
 
   Future<void> _openAttachSheet(
     List<QolipBlock> blocks, {
+    required _QolipAttachMode mode,
     QolipBlock? initialBlock,
     String? rowLetter,
     int? columnNumber,
@@ -207,6 +211,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (context) => _QolipAttachSheet(
+        mode: mode,
         blocks: blocks,
         initialBlock: initialBlock,
         initialRowLetter: rowLetter,
@@ -303,6 +308,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                   ) =>
                                       _openAttachSheet(
                                     blocks,
+                                    mode: _QolipAttachMode.cellPlacement,
                                     initialBlock: block,
                                     rowLetter: rowLetter,
                                     columnNumber: columnNumber,
@@ -335,6 +341,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
 }
 
 enum _QolipFabAction { createBlock, attachQolip }
+
+enum _QolipAttachMode { productSpec, cellPlacement }
 
 class _QolipBlockGrid extends StatelessWidget {
   const _QolipBlockGrid({
@@ -1339,12 +1347,14 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
 
 class _QolipAttachSheet extends StatefulWidget {
   const _QolipAttachSheet({
+    required this.mode,
     required this.blocks,
     this.initialBlock,
     this.initialRowLetter,
     this.initialColumnNumber,
   });
 
+  final _QolipAttachMode mode;
   final List<QolipBlock> blocks;
   final QolipBlock? initialBlock;
   final String? initialRowLetter;
@@ -1381,6 +1391,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   QolipBlock? _initialBlock() {
+    if (widget.mode == _QolipAttachMode.productSpec) {
+      return null;
+    }
     if (widget.blocks.isEmpty) {
       return null;
     }
@@ -1411,7 +1424,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           title: 'Tayyor mahsulot tanlang',
           hintText: 'Mahsulot nomi bilan qidiring',
           pageSize: 80,
-          cacheKey: 'qolip:products',
+          cacheKey: widget.mode == _QolipAttachMode.cellPlacement
+              ? 'qolip:products:specs'
+              : 'qolip:products',
           loadPage: (query, offset, limit) {
             if (offset > 0) {
               return Future.value(const <QolipProduct>[]);
@@ -1419,6 +1434,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
             return MobileApi.instance.qolipProducts(
               query: query,
               limit: limit,
+              withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
             );
           },
           itemTitle: (item) {
@@ -1429,6 +1445,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
             final parts = [
               item.code.trim(),
               item.itemGroup.trim(),
+              if (item.hasQolipSpec)
+                '${item.qolipCode.trim()} • ${item.qolipSize}',
             ].where((value) => value.isNotEmpty).toList(growable: false);
             return parts.join(' • ');
           },
@@ -1437,40 +1455,58 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       },
     );
     if (picked != null && mounted) {
-      setState(() => _product = picked);
+      setState(() {
+        _product = picked;
+        if (widget.mode == _QolipAttachMode.productSpec &&
+            picked.hasQolipSpec) {
+          _qolipCode.text = picked.qolipCode;
+          _size.text = picked.qolipSize > 0 ? '${picked.qolipSize}' : '';
+        }
+      });
     }
   }
 
   Future<void> _save() async {
-    final block = _block;
     final product = _product;
     final size = int.tryParse(_size.text.trim());
     final quantity = int.tryParse(_quantity.text.trim());
-    final hasPartialLocation = (_rowLetter == null) != (_columnNumber == null);
-    if (block == null ||
-        product == null ||
-        _qolipCode.text.trim().isEmpty ||
-        size == null ||
-        size <= 0 ||
-        quantity == null ||
-        quantity <= 0 ||
-        hasPartialLocation ||
-        _saving) {
+    if (_saving || product == null) {
       return;
     }
     setState(() => _saving = true);
     try {
-      await MobileApi.instance.qolipSaveLocation(
-        block: block,
-        product: product,
-        qolipCode: _qolipCode.text,
-        size: size,
-        quantity: quantity,
-        rowLetter: _rowLetter ?? '',
-        columnNumber: _columnNumber,
-      );
+      if (widget.mode == _QolipAttachMode.productSpec) {
+        if (_qolipCode.text.trim().isEmpty || size == null || size <= 0) {
+          return;
+        }
+        await MobileApi.instance.qolipSaveProductSpec(
+          product: product,
+          qolipCode: _qolipCode.text,
+          size: size,
+        );
+      } else {
+        final block = _block;
+        final hasPartialLocation =
+            (_rowLetter == null) != (_columnNumber == null);
+        if (block == null ||
+            quantity == null ||
+            quantity <= 0 ||
+            !product.hasQolipSpec ||
+            hasPartialLocation) {
+          return;
+        }
+        await MobileApi.instance.qolipSaveLocation(
+          block: block,
+          product: product,
+          quantity: quantity,
+          rowLetter: _rowLetter ?? '',
+          columnNumber: _columnNumber,
+        );
+      }
       if (mounted) {
-        Navigator.of(context).pop(block);
+        Navigator.of(context).pop(
+          widget.mode == _QolipAttachMode.cellPlacement ? _block : null,
+        );
       }
     } finally {
       if (mounted) {
@@ -1482,13 +1518,30 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   bool get _canSave {
     final size = int.tryParse(_size.text.trim()) ?? 0;
     final quantity = int.tryParse(_quantity.text.trim()) ?? 0;
+    if (widget.mode == _QolipAttachMode.productSpec) {
+      return _product != null && _qolipCode.text.trim().isNotEmpty && size > 0;
+    }
     return _block != null &&
         _product != null &&
-        _qolipCode.text.trim().isNotEmpty &&
-        size > 0 &&
+        _product!.hasQolipSpec &&
         quantity > 0 &&
-        ((_rowLetter == null && _columnNumber == null) ||
-            (_rowLetter != null && _columnNumber != null));
+        _rowLetter != null &&
+        _columnNumber != null;
+  }
+
+  String get _title {
+    return widget.mode == _QolipAttachMode.productSpec
+        ? 'Qolipni omborga biriktirish'
+        : 'Qolipni joyga qo‘shish';
+  }
+
+  String _productLabel(QolipProduct product) {
+    final parts = [
+      product.name.trim().isEmpty ? product.code.trim() : product.name.trim(),
+      if (product.hasQolipSpec)
+        '${product.qolipCode.trim()} • ${product.qolipSize}',
+    ].where((value) => value.isNotEmpty).toList(growable: false);
+    return parts.join(' • ');
   }
 
   @override
@@ -1520,23 +1573,22 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Qolipni omborga biriktirish',
+                _title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<QolipBlock>(
-                initialValue: _block,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Blok'),
-                items: [
-                  for (final block in widget.blocks)
-                    DropdownMenuItem(value: block, child: Text(block.name)),
-                ],
-                onChanged: (value) => setState(() => _block = value),
-              ),
-              const SizedBox(height: 12),
+              if (widget.mode == _QolipAttachMode.cellPlacement &&
+                  _block != null &&
+                  _rowLetter != null &&
+                  _columnNumber != null) ...[
+                InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Joy'),
+                  child: Text('${_block!.name} • $_rowLetter$_columnNumber'),
+                ),
+                const SizedBox(height: 12),
+              ],
               InkWell(
                 onTap: _pickProduct,
                 borderRadius: BorderRadius.circular(12),
@@ -1548,79 +1600,50 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   child: Text(
                     _product == null
                         ? 'Mahsulot nomi bilan qidirish'
-                        : '${_product!.name} • ${_product!.code}',
+                        : _productLabel(_product!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _qolipCode,
-                decoration: const InputDecoration(labelText: 'Qolip code'),
-                textInputAction: TextInputAction.next,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _size,
-                decoration: const InputDecoration(labelText: 'Razmeri'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                textInputAction: TextInputAction.next,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _quantity,
-                decoration: const InputDecoration(labelText: 'Qolip soni'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                textInputAction: TextInputAction.done,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _rowLetter,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Harf'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('-')),
-                        for (final letter in _QolipBlockGrid._letters)
-                          DropdownMenuItem(value: letter, child: Text(letter)),
-                      ],
-                      onChanged: (value) => setState(() {
-                        _rowLetter = value;
-                        if (value == null) {
-                          _columnNumber = null;
-                        }
-                      }),
+              if (widget.mode == _QolipAttachMode.productSpec) ...[
+                TextField(
+                  controller: _qolipCode,
+                  decoration: const InputDecoration(labelText: 'Qolip code'),
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _size,
+                  decoration: const InputDecoration(labelText: 'Razmeri'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ] else ...[
+                if (_product != null && _product!.hasQolipSpec) ...[
+                  InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Qolip'),
+                    child: Text(
+                      '${_product!.qolipCode} • ${_product!.qolipSize}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _columnNumber,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Son'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('-')),
-                        for (var number = 1; number <= 9; number++)
-                          DropdownMenuItem(
-                            value: number,
-                            child: Text('$number'),
-                          ),
-                      ],
-                      onChanged: _rowLetter == null
-                          ? null
-                          : (value) => setState(() => _columnNumber = value),
-                    ),
-                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
+                TextField(
+                  controller: _quantity,
+                  decoration: const InputDecoration(labelText: 'Qolip soni'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
