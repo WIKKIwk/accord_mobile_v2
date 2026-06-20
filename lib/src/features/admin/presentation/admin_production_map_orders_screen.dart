@@ -36,6 +36,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 enum _OpenedOrderModule { orders, move, sequence, closed }
@@ -5356,172 +5357,148 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (context, controller) {
-        return ListView(
-          controller: controller,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          children: [
-            _DetailCard(
-              children: [
-                if (_openedOrderDisplayCode(map).isNotEmpty)
-                  _DetailRow(
-                    label: 'Zakaz kodi',
-                    value: _openedOrderDisplayCode(map),
-                  ),
-                _DetailRow(label: 'Mahsulot', value: _productTitle(map)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _AssignedMaterialsCard(
-              assignments: materialAssignments,
-              loading: _materialsLoading,
-              error: _materialsError,
-              scannedBarcodes: confirmedMaterialBarcodes,
-            ),
-            if (showStart && hasMaterialAssignments) ...[
+        final scannedCount = confirmedMaterialBarcodes.length;
+        return ColoredBox(
+          color: scheme.surfaceContainerHighest,
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+            children: [
+              _OrderStartUnifiedCard(
+                orderCode: _openedOrderDisplayCode(map),
+                productTitle: _productTitle(map),
+                assignments: materialAssignments,
+                materialsLoading: _materialsLoading,
+                materialsError: _materialsError,
+                scannedBarcodes: confirmedMaterialBarcodes,
+                scannedCount: scannedCount,
+                showStart: showStart,
+                hasMaterialAssignments: hasMaterialAssignments,
+                allMaterialsScanned: allMaterialsScanned,
+                actionInFlight: _actionInFlight,
+                showPause: showPause,
+                showComplete: showComplete,
+                showResume: showResume,
+                showWaitingForPrevious: showWaitingForPrevious,
+                previousStage: previousStage,
+                onScan: () => unawaited(_scanMaterial()),
+                onStart: () => unawaited(_runQueueAction('start')),
+                onPause: () => unawaited(_runProgressAction('pause')),
+                onComplete: () => unawaited(_runProgressAction('complete')),
+                onResume: () => unawaited(_runQueueAction('resume')),
+              ),
               const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: _actionInFlight || allMaterialsScanned
-                    ? null
-                    : () => unawaited(_scanMaterial()),
-                icon: Icon(
-                  allMaterialsScanned
-                      ? Icons.check_circle_rounded
-                      : Icons.qr_code_scanner_rounded,
-                ),
-                label: Text(
-                  allMaterialsScanned
-                      ? 'Homashyolar tasdiqlandi'
-                      : 'Homashyo QR scan',
-                ),
-              ),
-            ],
-            if (showStart) ...[
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: _actionInFlight ||
-                        (hasMaterialAssignments && !allMaterialsScanned)
-                    ? null
-                    : () => unawaited(_runQueueAction('start')),
-                child: const Text('Boshlash'),
-              ),
-            ],
-            if (showPause || showComplete) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _actionInFlight
-                          ? null
-                          : () => unawaited(_runProgressAction('pause')),
-                      child: const Text('Pauza'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _actionInFlight
-                          ? null
-                          : () => unawaited(_runProgressAction('complete')),
-                      child: const Text('Tugatish'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (showResume) ...[
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: _actionInFlight
-                    ? null
-                    : () => unawaited(_runQueueAction('resume')),
-                child: const Text('Davom ettirish'),
-              ),
-            ],
-            if (showWaitingForPrevious) ...[
-              const SizedBox(height: 14),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text(
-                    'Oldingi bosqich tugallanguncha kutilmoqda: $previousStage',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => setState(() => _mapExpanded = !_mapExpanded),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+              _orderDetailSurfaceCard(
+                context: context,
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Mapni ko‘rish',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                    InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => setState(() => _mapExpanded = !_mapExpanded),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.account_tree_outlined,
+                              color: scheme.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mapni ko‘rish',
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _mapProgressSummary(
+                                      steps: steps,
+                                      orderId: orderId,
+                                      currentStation: station,
+                                    ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            AnimatedRotation(
+                              turns: _mapExpanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: _mapExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      child: const Icon(Icons.keyboard_arrow_down_rounded),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _mapExpanded
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Column(
+                                    children: [
+                                      for (var index = 0;
+                                          index < steps.length;
+                                          index++) ...[
+                                        _SequenceStepTile(
+                                          node: steps[index],
+                                          index: index,
+                                          isLast: index == steps.length - 1,
+                                          status: _nodeStatus(
+                                            steps[index],
+                                            orderId: orderId,
+                                            currentStation: station,
+                                          ),
+                                          current: _nodeMatchesStation(
+                                            steps[index],
+                                            station,
+                                          ),
+                                          isDone: _mapStepIsDone(
+                                            steps: steps,
+                                            index: index,
+                                            orderId: orderId,
+                                            currentStation: station,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
               ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              child: _mapExpanded
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: scheme.outlineVariant),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                            children: [
-                              for (var index = 0; index < steps.length; index++)
-                                _SequenceStepTile(
-                                  node: steps[index],
-                                  index: index,
-                                  isLast: index == steps.length - 1,
-                                  status: _nodeStatus(
-                                    steps[index],
-                                    orderId: orderId,
-                                    currentStation: station,
-                                  ),
-                                  current: _nodeMatchesStation(
-                                    steps[index],
-                                    station,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -5563,6 +5540,67 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _nodeMatchesStation(ProductionMapNode node, String station) {
     return station.trim().isNotEmpty &&
         productionMapWarehouseTitlesMatch(_nodeStationTitle(node), station);
+  }
+
+  int _mapCurrentStepIndex(
+    List<ProductionMapNode> steps,
+    String currentStation,
+  ) {
+    if (currentStation.trim().isEmpty) {
+      return -1;
+    }
+    return steps.indexWhere(
+      (node) => _nodeMatchesStation(node, currentStation),
+    );
+  }
+
+  bool _mapStepIsPast({
+    required List<ProductionMapNode> steps,
+    required int index,
+    required String currentStation,
+  }) {
+    final currentIndex = _mapCurrentStepIndex(steps, currentStation);
+    return currentIndex >= 0 && index < currentIndex;
+  }
+
+  bool _mapStepIsDone({
+    required List<ProductionMapNode> steps,
+    required int index,
+    required String orderId,
+    required String currentStation,
+  }) {
+    if (_mapStepIsPast(
+      steps: steps,
+      index: index,
+      currentStation: currentStation,
+    )) {
+      return true;
+    }
+    final status = _nodeStatus(
+      steps[index],
+      orderId: orderId,
+      currentStation: currentStation,
+    );
+    return status == ApparatusQueueOrderState.completed;
+  }
+
+  String _mapProgressSummary({
+    required List<ProductionMapNode> steps,
+    required String orderId,
+    required String currentStation,
+  }) {
+    var completed = 0;
+    for (var index = 0; index < steps.length; index++) {
+      if (_mapStepIsDone(
+        steps: steps,
+        index: index,
+        orderId: orderId,
+        currentStation: currentStation,
+      )) {
+        completed++;
+      }
+    }
+    return '$completed / ${steps.length} bosqich';
   }
 
   String _nodeStationTitle(ProductionMapNode node) {
@@ -5615,11 +5653,56 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
 }) {
   return showDialog<_ProgressQtyInput>(
     context: context,
+    barrierColor: Colors.black54,
     builder: (context) => _ProgressQtyDialog(
       action: action,
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
+    ),
+  );
+}
+
+InputDecoration _progressQtyFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? suffixText,
+  bool alignLabelWithHint = false,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  OutlineInputBorder outline({Color? color, double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide:
+          BorderSide(color: color ?? scheme.outlineVariant, width: width),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    suffixText: suffixText,
+    alignLabelWithHint: alignLabelWithHint,
+    filled: true,
+    fillColor: scheme.surface,
+    border: outline(),
+    enabledBorder: outline(),
+    focusedBorder: outline(color: scheme.primary, width: 1.2),
+    errorBorder: outline(color: scheme.error),
+    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
+  );
+}
+
+Widget _progressQtySectionLabel(BuildContext context, String label) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  return Padding(
+    padding: const EdgeInsets.only(top: 4, bottom: 8),
+    child: Text(
+      label,
+      style: theme.textTheme.labelLarge?.copyWith(
+        color: scheme.primary,
+        fontWeight: FontWeight.w800,
+      ),
     ),
   );
 }
@@ -5681,32 +5764,35 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     required String error,
     String suffix = '',
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: TextFormField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: label),
-            validator: (value) {
-              final qty = _parseQty(value ?? '');
-              if (qty == null || !qty.isFinite || qty <= 0) {
-                return error;
-              }
-              return null;
-            },
-          ),
-        ),
-        if (suffix.isNotEmpty) ...[
-          const SizedBox(width: 10),
-          Padding(padding: const EdgeInsets.only(top: 22), child: Text(suffix)),
-        ],
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
       ],
+      decoration: _progressQtyFieldDecoration(
+        context,
+        labelText: label,
+        suffixText: suffix.isEmpty ? null : suffix,
+      ),
+      validator: (value) {
+        final trimmed = (value ?? '').trim();
+        if (trimmed.isEmpty) {
+          return error;
+        }
+        final qty = _parseQty(trimmed);
+        if (qty == null || !qty.isFinite || qty <= 0) {
+          return 'To‘g‘ri raqam kiriting';
+        }
+        return null;
+      },
     );
   }
 
   void _submit() {
+    setState(() => _completionError = '');
+    final formValid = _formKey.currentState?.validate() ?? false;
+
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
     final returnInkKg = _parseQty(_returnInkController.text);
@@ -5793,6 +5879,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (_isComplete) {
+      if (!formValid) {
+        return;
+      }
       final description = _descriptionController.text.trim();
       if (description.isNotEmpty) {
         Navigator.of(context).pop(
@@ -5804,146 +5893,278 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         return;
       }
       setState(() {
-        _completionError = "Nega majburiy fieldlarni bo'sh qoldiryapsiz? "
-            'Iltimos izoh kiritib tugatish tugmasini bosing';
+        _completionError =
+            'Barcha raqamli maydonlarni to‘ldiring yoki izoh qoldiring.';
       });
       return;
     }
-    _formKey.currentState?.validate();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final isBosma = widget.isBosma;
     final isLaminatsiya = widget.isLaminatsiya;
     final isRezka = widget.isRezka;
     final hasDetailedMetrics = isBosma || isLaminatsiya;
-    return AlertDialog(
+    final title =
+        widget.action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori';
+    final subtitle = _isComplete
+        ? 'Barcha maydonlarni to‘ldiring'
+        : 'Joriy miqdorni kiriting';
+
+    return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      title: Text(
-        widget.action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori',
-      ),
-      content: SizedBox(
-        width: MediaQuery.sizeOf(context).width,
-        child: Form(
-          key: _formKey,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          maxWidth: 480,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_isComplete && isBosma) ...[
-                _qtyField(
-                  controller: _returnInkController,
-                  label: 'Vazrat kraska kg',
-                  error: 'Vazrat kraska kg kiriting',
-                  suffix: 'kg',
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (_isComplete && isLaminatsiya) ...[
-                _qtyField(
-                  controller: _printLeftoverController,
-                  label: 'Bosmadan ortgan rulon',
-                  error: 'Bosmadan ortgan rulonni kiriting',
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (isLaminatsiya) ...[
-                _qtyField(
-                  controller: _filmLeftoverController,
-                  label: 'Plyonkadan ortgan rulon',
-                  error: 'Plyonkadan ortgan rulonni kiriting',
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (isRezka) ...[
-                _qtyField(
-                  controller: _rezkaBosmaWasteController,
-                  label: 'Bosmachining chiqindisi',
-                  error: 'Bosmachining chiqindisini kiriting',
-                  suffix: 'kg',
-                ),
-                const SizedBox(height: 10),
-                _qtyField(
-                  controller: _rezkaLaminationWasteController,
-                  label: 'Laminatsiya chiqindisi',
-                  error: 'Laminatsiya chiqindisini kiriting',
-                  suffix: 'kg',
-                ),
-                const SizedBox(height: 10),
-                _qtyField(
-                  controller: _rezkaEdgeWasteController,
-                  label: 'Tayyor mahsulot chetidan chiqqan chiqindi',
-                  error: 'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
-                  suffix: 'kg',
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (hasDetailedMetrics) ...[
-                _qtyField(
-                  controller: _wasteController,
-                  label: 'Jami atxot',
-                  error: 'Jami atxot kiriting',
-                ),
-                const SizedBox(height: 10),
-              ],
-              _qtyField(
-                controller: _meterController,
-                label: hasDetailedMetrics ? 'Tayyor mahsulot metr' : 'Metraj',
-                error: hasDetailedMetrics
-                    ? 'Tayyor mahsulot metr kiriting'
-                    : 'Metraj kiriting',
-                suffix: 'metr',
-              ),
-              const SizedBox(height: 10),
-              _qtyField(
-                controller: _kgController,
-                label: hasDetailedMetrics ? 'Tayyor mahsulot kg' : "Og'irlik",
-                error: hasDetailedMetrics
-                    ? 'Tayyor mahsulot kg kiriting'
-                    : 'Kg kiriting',
-                suffix: 'kg',
-              ),
-              if (_isComplete) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _descriptionController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Izoh',
-                    alignLabelWithHint: true,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(
+                        _isComplete
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.pause_circle_outline_rounded,
+                        color: scheme.onPrimaryContainer,
+                        size: 22,
+                      ),
+                    ),
                   ),
-                  onChanged: (_) {
-                    if (_completionError.isNotEmpty) {
-                      setState(() => _completionError = '');
-                    }
-                  },
-                ),
-                if (_completionError.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _completionError,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                            height: 1.25,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ],
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_isComplete && isBosma) ...[
+                          _progressQtySectionLabel(
+                            context,
+                            'Qaytim va chiqindi',
+                          ),
+                          _qtyField(
+                            controller: _returnInkController,
+                            label: 'Vazrat kraska',
+                            error: 'Vazrat kraska kg kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (_isComplete && isLaminatsiya) ...[
+                          _progressQtySectionLabel(
+                              context, 'Ortiqcha rulonlar'),
+                          _qtyField(
+                            controller: _printLeftoverController,
+                            label: 'Bosmadan ortgan rulon',
+                            error: 'Bosmadan ortgan rulonni kiriting',
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (isLaminatsiya) ...[
+                          if (!_isComplete)
+                            _progressQtySectionLabel(
+                              context,
+                              'Ortiqcha rulonlar',
+                            ),
+                          _qtyField(
+                            controller: _filmLeftoverController,
+                            label: 'Plyonkadan ortgan rulon',
+                            error: 'Plyonkadan ortgan rulonni kiriting',
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (isRezka) ...[
+                          _progressQtySectionLabel(context, 'Chiqindilar'),
+                          _qtyField(
+                            controller: _rezkaBosmaWasteController,
+                            label: 'Bosmachining chiqindisi',
+                            error: 'Bosmachining chiqindisini kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                          _qtyField(
+                            controller: _rezkaLaminationWasteController,
+                            label: 'Laminatsiya chiqindisi',
+                            error: 'Laminatsiya chiqindisini kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                          _qtyField(
+                            controller: _rezkaEdgeWasteController,
+                            label: 'Mahsulot chetidan chiqindi',
+                            error:
+                                'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (hasDetailedMetrics) ...[
+                          if (!(isBosma && _isComplete))
+                            _progressQtySectionLabel(context, 'Chiqindi'),
+                          _qtyField(
+                            controller: _wasteController,
+                            label: 'Jami chiqindi',
+                            error: 'Jami chiqindi kg kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        _progressQtySectionLabel(
+                          context,
+                          hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
+                        ),
+                        _qtyField(
+                          controller: _meterController,
+                          label: 'Metraj',
+                          error: hasDetailedMetrics
+                              ? 'Tayyor mahsulot metr kiriting'
+                              : 'Metraj kiriting',
+                          suffix: 'metr',
+                        ),
+                        const SizedBox(height: 10),
+                        _qtyField(
+                          controller: _kgController,
+                          label: 'Og\'irlik',
+                          error: hasDetailedMetrics
+                              ? 'Tayyor mahsulot kg kiriting'
+                              : 'Kg kiriting',
+                          suffix: 'kg',
+                        ),
+                        if (_isComplete) ...[
+                          const SizedBox(height: 6),
+                          _progressQtySectionLabel(context, 'Izoh'),
+                          TextFormField(
+                            controller: _descriptionController,
+                            minLines: 3,
+                            maxLines: 4,
+                            decoration: _progressQtyFieldDecoration(
+                              context,
+                              labelText: 'Nima sababdan tugatyapsiz?',
+                              alignLabelWithHint: true,
+                            ),
+                            onChanged: (_) {
+                              if (_completionError.isNotEmpty) {
+                                setState(() => _completionError = '');
+                              }
+                            },
+                          ),
+                          if (_completionError.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: scheme.errorContainer
+                                    .withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline_rounded,
+                                      size: 18,
+                                      color: scheme.error,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _completionError,
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: scheme.onErrorContainer,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _submit,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Tasdiqlash'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Bekor qilish'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Tasdiqlash')),
-      ],
     );
   }
 }
@@ -6204,155 +6425,339 @@ String _jsonText(Object? value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
-class _DetailCard extends StatelessWidget {
-  const _DetailCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(children: children),
-      ),
-    );
-  }
+Widget _orderDetailSurfaceCard({
+  required BuildContext context,
+  required Widget child,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  return Material(
+    color: scheme.surface,
+    elevation: 2,
+    shadowColor: scheme.shadow.withValues(alpha: 0.16),
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
+  );
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 112,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.trim().isEmpty ? '-' : value.trim(),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AssignedMaterialsCard extends StatelessWidget {
-  const _AssignedMaterialsCard({
+class _OrderStartUnifiedCard extends StatelessWidget {
+  const _OrderStartUnifiedCard({
+    required this.orderCode,
+    required this.productTitle,
     required this.assignments,
-    required this.loading,
-    required this.error,
+    required this.materialsLoading,
+    required this.materialsError,
     required this.scannedBarcodes,
+    required this.scannedCount,
+    required this.showStart,
+    required this.hasMaterialAssignments,
+    required this.allMaterialsScanned,
+    required this.actionInFlight,
+    required this.showPause,
+    required this.showComplete,
+    required this.showResume,
+    required this.showWaitingForPrevious,
+    required this.previousStage,
+    required this.onScan,
+    required this.onStart,
+    required this.onPause,
+    required this.onComplete,
+    required this.onResume,
   });
 
+  final String orderCode;
+  final String productTitle;
   final List<AdminRawMaterialAssignment> assignments;
-  final bool loading;
-  final String error;
+  final bool materialsLoading;
+  final String materialsError;
   final Set<String> scannedBarcodes;
+  final int scannedCount;
+  final bool showStart;
+  final bool hasMaterialAssignments;
+  final bool allMaterialsScanned;
+  final bool actionInFlight;
+  final bool showPause;
+  final bool showComplete;
+  final bool showResume;
+  final bool showWaitingForPrevious;
+  final String? previousStage;
+  final VoidCallback onScan;
+  final VoidCallback onStart;
+  final VoidCallback onPause;
+  final VoidCallback onComplete;
+  final VoidCallback onResume;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Biriktirilgan homashyolar',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+    final totalCount = assignments.length;
+    final hasActions = showStart ||
+        showPause ||
+        showComplete ||
+        showResume ||
+        showWaitingForPrevious;
+
+    return _orderDetailSurfaceCard(
+      context: context,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.receipt_long_rounded,
+                  color: scheme.onPrimaryContainer,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            if (loading)
-              Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.primary,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Zakaz kodi',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      orderCode.trim().isEmpty ? '-' : orderCode.trim(),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Mahsulot',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      productTitle.trim().isEmpty ? '-' : productTitle.trim(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Divider(
+              height: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Biriktirilgan homashyolar',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Yuklanmoqda',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                ),
+              ),
+              if (!materialsLoading &&
+                  materialsError.trim().isEmpty &&
+                  totalCount > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: scannedCount == totalCount
+                        ? scheme.primaryContainer
+                        : scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$scannedCount/$totalCount',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: scannedCount == totalCount
+                          ? scheme.onPrimaryContainer
+                          : scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
-              )
-            else if (error.trim().isNotEmpty)
-              Text(
-                error,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.error,
-                  fontWeight: FontWeight.w700,
                 ),
-              )
-            else if (assignments.isEmpty)
-              Text(
-                'Homashyo biriktirilmagan',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (materialsLoading)
+            Row(
+              children: [
+                SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: scheme.primary,
+                  ),
                 ),
-              )
-            else
-              Column(
-                children: [
-                  for (var index = 0; index < assignments.length; index++) ...[
-                    _AssignedMaterialTile(
-                      assignment: assignments[index],
-                      scanned: scannedBarcodes.contains(
-                        assignments[index].barcode.trim().toUpperCase(),
-                      ),
+                const SizedBox(width: 10),
+                Text(
+                  'Yuklanmoqda',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            )
+          else if (materialsError.trim().isNotEmpty)
+            Text(
+              materialsError,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else if (assignments.isEmpty)
+            Text(
+              'Homashyo biriktirilmagan',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (var index = 0; index < assignments.length; index++) ...[
+                  if (index > 0) const SizedBox(height: 8),
+                  _AssignedMaterialTile(
+                    assignment: assignments[index],
+                    scanned: scannedBarcodes.contains(
+                      assignments[index].barcode.trim().toUpperCase(),
                     ),
-                    if (index != assignments.length - 1)
-                      Divider(height: 14, color: scheme.outlineVariant),
-                  ],
+                  ),
+                ],
+              ],
+            ),
+          if (hasActions) ...[
+            Divider(
+                height: 28,
+                color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            if (showStart && hasMaterialAssignments)
+              FilledButton.tonalIcon(
+                onPressed:
+                    actionInFlight || allMaterialsScanned ? null : onScan,
+                icon: Icon(
+                  allMaterialsScanned
+                      ? Icons.check_circle_rounded
+                      : Icons.qr_code_scanner_rounded,
+                ),
+                label: Text(
+                  allMaterialsScanned
+                      ? 'Homashyolar tasdiqlandi'
+                      : 'Homashyo QR scan',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            if (showStart && hasMaterialAssignments) const SizedBox(height: 10),
+            if (showStart)
+              FilledButton.icon(
+                onPressed: actionInFlight ||
+                        (hasMaterialAssignments && !allMaterialsScanned)
+                    ? null
+                    : onStart,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('Boshlash'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            if (showPause || showComplete) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: actionInFlight ? null : onPause,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Pauza'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: actionInFlight ? null : onComplete,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Tugatish'),
+                    ),
+                  ),
                 ],
               ),
+            ],
+            if (showResume) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: actionInFlight ? null : onResume,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('Davom ettirish'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ],
+            if (showWaitingForPrevious && previousStage != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.hourglass_top_rounded,
+                    color: scheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Oldingi bosqich tugallanguncha kutilmoqda: $previousStage',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -6379,41 +6784,62 @@ class _AssignedMaterialTile extends StatelessWidget {
       if (assignment.itemGroup.trim().isNotEmpty) assignment.itemGroup.trim(),
       assignment.barcode.trim(),
     ].where((item) => item.isNotEmpty).join(' • ');
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          scanned ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-          color: scanned ? const Color(0xFF2E7D32) : scheme.onSurfaceVariant,
-          size: 22,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.isEmpty ? assignment.barcode : title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                meta,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: scanned
+            ? scheme.primaryContainer.withValues(alpha: 0.45)
+            : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: scanned
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              scanned ? Icons.check_rounded : Icons.science_outlined,
+              color: scanned ? scheme.primary : scheme.onSurfaceVariant,
+              size: 22,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.isEmpty ? assignment.barcode : title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    meta,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -6425,6 +6851,7 @@ class _SequenceStepTile extends StatelessWidget {
     required this.isLast,
     required this.status,
     required this.current,
+    required this.isDone,
   });
 
   final ProductionMapNode node;
@@ -6432,43 +6859,35 @@ class _SequenceStepTile extends StatelessWidget {
   final bool isLast;
   final ApparatusQueueOrderState? status;
   final bool current;
+  final bool isDone;
+
+  static const _completedGreen = Color(0xFF2E7D32);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final icon = switch (node.kind) {
-      'start' => Icons.play_arrow_rounded,
-      'apparatus' => Icons.precision_manufacturing_rounded,
-      'end' => Icons.flag_rounded,
-      _ => Icons.account_tree_outlined,
-    };
-    final statusColor = _statusColor(scheme);
+    final icon = _nodeIcon(node);
     final content = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
-            SizedBox.square(
-              dimension: 34,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: current ? scheme.primary : scheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: current ? scheme.onPrimary : scheme.onPrimaryContainer,
-                ),
-              ),
+            _StepNodeCircle(
+              icon: icon,
+              current: current,
+              isDone: isDone,
+              status: status,
             ),
             if (!isLast)
               Container(
-                width: 2,
-                height: 28,
-                margin: const EdgeInsets.symmetric(vertical: 3),
-                color: current ? scheme.primary : scheme.outlineVariant,
+                width: 2.5,
+                height: 30,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDone ? _completedGreen : scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
           ],
         ),
@@ -6479,12 +6898,24 @@ class _SequenceStepTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (current)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: _MapStatusChip(
+                      label: 'Joriy bosqich',
+                      foreground: scheme.onPrimaryContainer,
+                      background: scheme.primaryContainer,
+                    ),
+                  ),
                 Text(
                   node.title.trim().isEmpty ? 'Qadam ${index + 1}' : node.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
+                    color: isDone && !current
+                        ? scheme.onSurfaceVariant
+                        : scheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -6495,31 +6926,19 @@ class _SequenceStepTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (status != null) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    _statusLabel(status!),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
-        if (current) ...[
-          const SizedBox(width: 8),
+        if (status != null && node.kind == 'apparatus')
           Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Icon(
-              Icons.keyboard_arrow_left_rounded,
-              color: scheme.primary,
-              size: 30,
+            padding: const EdgeInsets.only(top: 4),
+            child: _MapStatusChip(
+              label: _statusLabel(status!),
+              foreground: _statusForeground(scheme),
+              background: _statusBackground(scheme),
             ),
           ),
-        ],
       ],
     );
 
@@ -6528,9 +6947,10 @@ class _SequenceStepTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color:
-              current ? scheme.primaryContainer.withValues(alpha: 0.34) : null,
+              current ? scheme.primaryContainer.withValues(alpha: 0.28) : null,
           borderRadius: BorderRadius.circular(14),
-          border: current ? Border.all(color: scheme.primary) : null,
+          border:
+              current ? Border.all(color: scheme.primary, width: 1.5) : null,
         ),
         child: Padding(
           padding: current
@@ -6542,13 +6962,36 @@ class _SequenceStepTile extends StatelessWidget {
     );
   }
 
-  Color _statusColor(ColorScheme scheme) {
+  IconData _nodeIcon(ProductionMapNode node) {
+    return switch (node.kind) {
+      'start' => Icons.play_circle_outline_rounded,
+      'end' => Icons.flag_circle_outlined,
+      'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
+          ? Icons.layers_outlined
+          : productionMapIsRezkaApparatus(node.title)
+              ? Icons.content_cut_outlined
+              : Icons.print_outlined,
+      _ => Icons.account_tree_outlined,
+    };
+  }
+
+  Color _statusForeground(ColorScheme scheme) {
     return switch (status) {
-      ApparatusQueueOrderState.inProgress => const Color(0xFFB26A00),
-      ApparatusQueueOrderState.paused => const Color(0xFFC62828),
-      ApparatusQueueOrderState.completed => const Color(0xFF2E7D32),
-      ApparatusQueueOrderState.pending => scheme.primary,
+      ApparatusQueueOrderState.inProgress => const Color(0xFF8A4B00),
+      ApparatusQueueOrderState.paused => const Color(0xFF9B1C1C),
+      ApparatusQueueOrderState.completed => _completedGreen,
+      ApparatusQueueOrderState.pending => scheme.onPrimaryContainer,
       null => scheme.onSurfaceVariant,
+    };
+  }
+
+  Color _statusBackground(ColorScheme scheme) {
+    return switch (status) {
+      ApparatusQueueOrderState.inProgress => const Color(0xFFFFECB3),
+      ApparatusQueueOrderState.paused => const Color(0xFFFFCDD2),
+      ApparatusQueueOrderState.completed => const Color(0xFFC8E6C9),
+      ApparatusQueueOrderState.pending => scheme.primaryContainer,
+      null => scheme.surfaceContainerHighest,
     };
   }
 
@@ -6572,6 +7015,100 @@ class _SequenceStepTile extends StatelessWidget {
       'end' => 'Yakun',
       _ => node.kind,
     };
+  }
+}
+
+class _StepNodeCircle extends StatelessWidget {
+  const _StepNodeCircle({
+    required this.icon,
+    required this.current,
+    required this.isDone,
+    required this.status,
+  });
+
+  final IconData icon;
+  final bool current;
+  final bool isDone;
+  final ApparatusQueueOrderState? status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final inProgress = status == ApparatusQueueOrderState.inProgress;
+    final paused = status == ApparatusQueueOrderState.paused;
+
+    Color background;
+    Color foreground;
+    BoxBorder? border;
+
+    if (isDone) {
+      background = const Color(0xFFC8E6C9);
+      foreground = const Color(0xFF2E7D32);
+    } else if (current && inProgress) {
+      background = const Color(0xFFFFECB3);
+      foreground = const Color(0xFF8A4B00);
+      border = Border.all(color: const Color(0xFFB26A00), width: 2);
+    } else if (current && paused) {
+      background = const Color(0xFFFFCDD2);
+      foreground = const Color(0xFF9B1C1C);
+      border = Border.all(color: const Color(0xFFC62828), width: 2);
+    } else if (current) {
+      background = scheme.primary;
+      foreground = scheme.onPrimary;
+    } else {
+      background = scheme.surfaceContainerHighest;
+      foreground = scheme.onSurfaceVariant;
+      border = Border.all(color: scheme.outlineVariant);
+    }
+
+    return SizedBox.square(
+      dimension: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          shape: BoxShape.circle,
+          border: border,
+        ),
+        child: Icon(
+          isDone ? Icons.check_rounded : icon,
+          size: 18,
+          color: foreground,
+        ),
+      ),
+    );
+  }
+}
+
+class _MapStatusChip extends StatelessWidget {
+  const _MapStatusChip({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: foreground,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -2258,19 +2258,19 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Vazrat kraska kg'),
+      find.widgetWithText(TextFormField, 'Vazrat kraska'),
       '1',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Jami atxot'),
+      find.widgetWithText(TextFormField, 'Jami chiqindi'),
       '2',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tayyor mahsulot metr'),
+      find.widgetWithText(TextFormField, 'Metraj'),
       '12',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tayyor mahsulot kg'),
+      find.widgetWithText(TextFormField, "Og'irlik"),
       '3',
     );
     await tester.tap(find.text('Tasdiqlash'));
@@ -2356,19 +2356,19 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Vazrat kraska kg'),
+      find.widgetWithText(TextFormField, 'Vazrat kraska'),
       '1',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Jami atxot'),
+      find.widgetWithText(TextFormField, 'Jami chiqindi'),
       '2',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tayyor mahsulot metr'),
+      find.widgetWithText(TextFormField, 'Metraj'),
       '12',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Tayyor mahsulot kg'),
+      find.widgetWithText(TextFormField, "Og'irlik"),
       '3',
     );
     await tester.tap(find.text('Tasdiqlash'));
@@ -2445,20 +2445,20 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Vazrat kraska kg'), findsOneWidget);
-    expect(find.text('Jami atxot'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+    expect(find.text('Vazrat kraska'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Metraj'), findsOneWidget);
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Pauza'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Vazrat kraska kg'), findsNothing);
-    expect(find.text('Jami atxot'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+    expect(find.text('Vazrat kraska'), findsNothing);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Metraj'), findsOneWidget);
   });
 
   testWidgets(
@@ -2523,9 +2523,9 @@ void main() {
 
     expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
     expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
-    expect(find.text('Jami atxot'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Metraj'), findsOneWidget);
 
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
@@ -2534,9 +2534,9 @@ void main() {
 
     expect(find.text('Bosmadan ortgan rulon'), findsNothing);
     expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
-    expect(find.text('Jami atxot'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot kg'), findsOneWidget);
-    expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Metraj'), findsOneWidget);
   });
 
   testWidgets('rezka worker progress dialogs use rezka metric fields', (
