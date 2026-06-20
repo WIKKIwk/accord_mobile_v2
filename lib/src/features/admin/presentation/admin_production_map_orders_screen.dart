@@ -5293,7 +5293,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         previousStage,
       );
       final usableAction = action == 'pause' || action == 'complete';
-      final usableStatus = status == 'paused' || status == 'completed';
+      final usableStatus =
+          status == 'paused' || status == 'completed' || status == 'resumed';
       if (!matchesOrder || !matchesStage || !usableAction || !usableStatus) {
         showAdminTopNotice(
             context, 'Bu QR oldingi bosqich mahsulotiga mos emas');
