@@ -7,12 +7,14 @@ class AdminSurfaceTabBar extends StatelessWidget {
     required this.tabs,
     this.isScrollable = false,
     this.tabAlignment,
+    this.onTap,
   });
 
   final TabController controller;
   final List<Tab> tabs;
   final bool isScrollable;
   final TabAlignment? tabAlignment;
+  final ValueChanged<int>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +33,7 @@ class AdminSurfaceTabBar extends StatelessWidget {
         unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w400,
         ),
+        onTap: onTap,
         tabs: tabs,
       ),
     );

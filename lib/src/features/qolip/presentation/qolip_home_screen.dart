@@ -223,6 +223,27 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     }
   }
 
+  Future<void> _openBlockCreateSheet({
+    required List<String> warehouses,
+    String initialWarehouse = '',
+  }) async {
+    final created = await showModalBottomSheet<QolipBlock>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (context) => _QolipBlockCreateSheet(
+        warehouses: warehouses,
+        initialWarehouse: initialWarehouse,
+        showWarehouseField: false,
+      ),
+    );
+    if (created != null && mounted) {
+      await _reloadBlocks();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -275,23 +296,47 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
           return Stack(
             children: [
               DefaultTabController(
-                length: blocks.length,
+                length: blocks.length + 1,
                 child: Builder(
                   builder: (context) {
                     final tabController = DefaultTabController.of(context);
+                    var lastBlockIndex = tabController.index.clamp(
+                      0,
+                      blocks.length - 1,
+                    );
                     return Column(
                       children: [
                         AdminSurfaceTabBar(
                           controller: tabController,
                           isScrollable: true,
                           tabAlignment: TabAlignment.start,
+                          onTap: (index) {
+                            if (index != blocks.length) {
+                              lastBlockIndex = index;
+                              return;
+                            }
+                            final selectedBlock = blocks[lastBlockIndex];
+                            tabController.index = lastBlockIndex;
+                            unawaited(
+                              _openBlockCreateSheet(
+                                warehouses: data.warehouses,
+                                initialWarehouse: selectedBlock.warehouse,
+                              ),
+                            );
+                          },
                           tabs: [
                             for (final block in blocks)
                               Tab(height: 38, text: block.name),
+                            const Tab(
+                              height: 38,
+                              iconMargin: EdgeInsets.zero,
+                              icon: Icon(Icons.add_rounded, size: 20),
+                            ),
                           ],
                         ),
                         Expanded(
                           child: TabBarView(
+                            physics: const NeverScrollableScrollPhysics(),
                             children: [
                               for (final block in blocks)
                                 _QolipBlockGrid(
@@ -315,6 +360,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                   ),
                                   onPrintCellQr: _printCellQr,
                                 ),
+                              const SizedBox.shrink(),
                             ],
                           ),
                         ),
@@ -1228,9 +1274,15 @@ List<QolipProduct> _qolipProductsWithSavedCodeOnly(
 }
 
 class _QolipBlockCreateSheet extends StatefulWidget {
-  const _QolipBlockCreateSheet({required this.warehouses});
+  const _QolipBlockCreateSheet({
+    required this.warehouses,
+    this.initialWarehouse = '',
+    this.showWarehouseField = true,
+  });
 
   final List<String> warehouses;
+  final String initialWarehouse;
+  final bool showWarehouseField;
 
   @override
   State<_QolipBlockCreateSheet> createState() => _QolipBlockCreateSheetState();
@@ -1244,7 +1296,12 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
   @override
   void initState() {
     super.initState();
-    _warehouse = widget.warehouses.isEmpty ? null : widget.warehouses.first;
+    final initial = widget.initialWarehouse.trim();
+    _warehouse = initial.isNotEmpty
+        ? initial
+        : widget.warehouses.isEmpty
+            ? null
+            : widget.warehouses.first;
   }
 
   @override
@@ -1315,20 +1372,22 @@ class _QolipBlockCreateSheetState extends State<_QolipBlockCreateSheet> {
                     ),
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _warehouse,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Ombor'),
-                items: [
-                  for (final warehouse in widget.warehouses)
-                    DropdownMenuItem(
-                      value: warehouse,
-                      child: Text(warehouse),
-                    ),
-                ],
-                onChanged: (value) => setState(() => _warehouse = value),
-              ),
-              const SizedBox(height: 12),
+              if (widget.showWarehouseField) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _warehouse,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Ombor'),
+                  items: [
+                    for (final warehouse in widget.warehouses)
+                      DropdownMenuItem(
+                        value: warehouse,
+                        child: Text(warehouse),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _warehouse = value),
+                ),
+                const SizedBox(height: 12),
+              ],
               TextField(
                 controller: _block,
                 decoration: const InputDecoration(labelText: 'Blok nomi'),
