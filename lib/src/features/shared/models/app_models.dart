@@ -342,6 +342,38 @@ class QolipLocationEntry {
   }
 }
 
+class QolipCellQr {
+  const QolipCellQr({
+    required this.id,
+    required this.block,
+    required this.warehouse,
+    required this.rowLetter,
+    required this.columnNumber,
+    required this.locationLabel,
+    required this.qrPayload,
+  });
+
+  final String id;
+  final String block;
+  final String warehouse;
+  final String rowLetter;
+  final int columnNumber;
+  final String locationLabel;
+  final String qrPayload;
+
+  factory QolipCellQr.fromJson(Map<String, dynamic> json) {
+    return QolipCellQr(
+      id: json['id']?.toString() ?? '',
+      block: json['block']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      rowLetter: json['row_letter']?.toString() ?? '',
+      columnNumber: (json['column_number'] as num?)?.toInt() ?? 0,
+      locationLabel: json['location_label']?.toString() ?? '',
+      qrPayload: json['qr_payload']?.toString() ?? '',
+    );
+  }
+}
+
 class AdminApparatusGroup {
   const AdminApparatusGroup({required this.name, required this.apparatus});
 

@@ -194,4 +194,67 @@ extension MobileApiQolip on MobileApi {
       (data['location'] as Map).cast<String, dynamic>(),
     );
   }
+
+  Future<QolipCellQr> qolipPrintCellQr({
+    required QolipBlock block,
+    required String rowLetter,
+    required int columnNumber,
+    required String driverUrl,
+    String printer = '',
+    String printMode = '',
+  }) async {
+    final cleanRow = rowLetter.trim().toUpperCase();
+    if (await TestModeController.instance.isEnabled()) {
+      final id = [
+        'qolip-cell',
+        block.warehouse,
+        block.name,
+        cleanRow,
+        columnNumber,
+      ].join(':');
+      return QolipCellQr(
+        id: id,
+        block: block.name,
+        warehouse: block.warehouse,
+        rowLetter: cleanRow,
+        columnNumber: columnNumber,
+        locationLabel: '$cleanRow$columnNumber',
+        qrPayload: _testModeQolipCellQrPayload(id),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/cell-qr/print'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'block': block.name.trim(),
+          'warehouse': block.warehouse.trim(),
+          'row_letter': cleanRow,
+          'column_number': columnNumber,
+          'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
+          if (printer.trim().isNotEmpty) 'printer': printer.trim(),
+          if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Qolip cell QR print failed');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipCellQr.fromJson(
+      (data['cell_qr'] as Map).cast<String, dynamic>(),
+    );
+  }
+}
+
+String _testModeQolipCellQrPayload(String value) {
+  var hash = 0xcbf29ce484222325;
+  for (final unit in value.trim().codeUnits) {
+    hash ^= unit;
+    hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
+  }
+  final checksum = hash & 0xffff;
+  return '4002${hash.toRadixString(16).padLeft(16, '0').toUpperCase()}'
+      '${checksum.toRadixString(16).padLeft(4, '0').toUpperCase()}';
 }

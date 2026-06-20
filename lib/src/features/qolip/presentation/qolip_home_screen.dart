@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,6 +11,14 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
+import '../../gscale/gscale_mobile_app.dart'
+    show
+        DiscoveredServer,
+        discoverServers,
+        discoverServersFast,
+        driverUrlForRs,
+        loadLastUsedServer,
+        printTargetLabel;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
@@ -70,6 +82,45 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       return;
     }
     Navigator.of(context).pushReplacementNamed(route);
+  }
+
+  Future<void> _printCellQr(
+    QolipBlock block,
+    String rowLetter,
+    int columnNumber,
+  ) async {
+    final option = await _showQolipPrinterPicker(context);
+    if (!mounted || option == null) {
+      return;
+    }
+    try {
+      final printer = _qolipPrinterChoice(option.printerLabel);
+      final cellQr = await MobileApi.instance.qolipPrintCellQr(
+        block: block,
+        rowLetter: rowLetter,
+        columnNumber: columnNumber,
+        driverUrl: option.driverUrl,
+        printer: printer,
+        printMode: printer == 'godex' ? 'label' : 'rfid',
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${cellQr.locationLabel} QR chop etildi: ${cellQr.qrPayload}',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yachayka QR chop etilmadi')),
+      );
+    }
   }
 
   Future<void> _openFabAction(QolipBlocksResult data) async {
@@ -256,6 +307,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                     rowLetter: rowLetter,
                                     columnNumber: columnNumber,
                                   ),
+                                  onPrintCellQr: _printCellQr,
                                 ),
                             ],
                           ),
@@ -290,6 +342,7 @@ class _QolipBlockGrid extends StatelessWidget {
     required this.future,
     required this.onRefresh,
     required this.onAttachAt,
+    required this.onPrintCellQr,
   });
 
   final QolipBlock block;
@@ -300,6 +353,11 @@ class _QolipBlockGrid extends StatelessWidget {
     String rowLetter,
     int columnNumber,
   ) onAttachAt;
+  final Future<void> Function(
+    QolipBlock block,
+    String rowLetter,
+    int columnNumber,
+  ) onPrintCellQr;
 
   static const List<String> _letters = [
     'A',
@@ -408,6 +466,8 @@ class _QolipBlockGrid extends StatelessWidget {
                     byCell: byCell,
                     onCellTap: (cellLabel, items) =>
                         _openCellAction(context, cellLabel, items),
+                    onCellLongPress: (cellLabel) =>
+                        _openCellQrPrint(context, cellLabel),
                   ),
                 ),
                 if (occupiedCells == 0 && unplaced.isEmpty)
@@ -502,6 +562,18 @@ class _QolipBlockGrid extends StatelessWidget {
     );
   }
 
+  Future<void> _openCellQrPrint(
+    BuildContext context,
+    String cellLabel,
+  ) async {
+    final rowLetter = _cellRowLetter(cellLabel);
+    final columnNumber = _cellColumnNumber(cellLabel);
+    if (rowLetter == null || columnNumber == null) {
+      return;
+    }
+    await onPrintCellQr(block, rowLetter, columnNumber);
+  }
+
   static String? _cellRowLetter(String cellLabel) {
     final letters = cellLabel.replaceAll(RegExp(r'[^A-Za-z]'), '');
     if (letters.isEmpty) {
@@ -574,6 +646,7 @@ class _QolipGridTable extends StatelessWidget {
     required this.rowCount,
     required this.byCell,
     required this.onCellTap,
+    required this.onCellLongPress,
   });
 
   final List<String> letters;
@@ -581,6 +654,7 @@ class _QolipGridTable extends StatelessWidget {
   final Map<String, List<QolipLocationEntry>> byCell;
   final void Function(String cellLabel, List<QolipLocationEntry> items)
       onCellTap;
+  final void Function(String cellLabel) onCellLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -620,6 +694,8 @@ class _QolipGridTable extends StatelessWidget {
                           cellLabel: '$letter$rowNumber',
                           items: byCell['$letter$rowNumber'] ?? const [],
                           onTap: onCellTap,
+                          onLongPress: () =>
+                              onCellLongPress('$letter$rowNumber'),
                         ),
                       ),
                   ],
@@ -720,11 +796,13 @@ class _GridDataCell extends StatelessWidget {
     required this.cellLabel,
     required this.items,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final String cellLabel;
   final List<QolipLocationEntry> items;
   final void Function(String cellLabel, List<QolipLocationEntry> items) onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -744,6 +822,7 @@ class _GridDataCell extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => onTap(cellLabel, items),
+        onLongPress: onLongPress,
         child: SizedBox(
           width: 76,
           height: 64,
@@ -867,6 +946,264 @@ class _QolipUnplacedTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _QolipPrinterOption {
+  const _QolipPrinterOption({
+    required this.server,
+    required this.driverUrl,
+    required this.printerLabel,
+  });
+
+  final DiscoveredServer server;
+  final String driverUrl;
+  final String printerLabel;
+}
+
+Future<_QolipPrinterOption?> _showQolipPrinterPicker(BuildContext context) {
+  return showModalBottomSheet<_QolipPrinterOption>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) => const _QolipPrinterPickerSheet(),
+  );
+}
+
+class _QolipPrinterPickerSheet extends StatefulWidget {
+  const _QolipPrinterPickerSheet();
+
+  @override
+  State<_QolipPrinterPickerSheet> createState() =>
+      _QolipPrinterPickerSheetState();
+}
+
+class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
+  final http.Client _client = http.Client();
+  List<_QolipPrinterOption> _options = const [];
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadPrinters());
+  }
+
+  @override
+  void dispose() {
+    _client.close();
+    super.dispose();
+  }
+
+  Future<void> _loadPrinters() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+    try {
+      final preferredEndpoint = await loadLastUsedServer();
+      final fast = await discoverServersFast(
+        _client,
+        preferredEndpoint: preferredEndpoint,
+      );
+      var options = await _connectedQolipPrinters(_client, fast.servers);
+      if (options.isEmpty) {
+        final full = await discoverServers(
+          _client,
+          preferredEndpoint: preferredEndpoint,
+        );
+        options = await _connectedQolipPrinters(_client, [
+          ...fast.servers,
+          ...full.servers,
+        ]);
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _options = options;
+        _loading = false;
+        _error = options.isEmpty ? 'Printer ulangan RPS topilmadi' : '';
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _options = const [];
+        _loading = false;
+        _error = 'Printer ulangan RPS topilmadi';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return FractionallySizedBox(
+      heightFactor: 0.62,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Printerni tanlang',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        _loading ? null : () => unawaited(_loadPrinters()),
+                    icon: const Icon(Icons.refresh_rounded),
+                    tooltip: 'Yangilash',
+                  ),
+                ],
+              ),
+              if (_loading) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(),
+              ],
+              if (!_loading && _error.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      _error,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onErrorContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _options.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final option = _options[index];
+                    return ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      tileColor: scheme.surfaceContainerHighest,
+                      leading: const Icon(Icons.print_rounded),
+                      title: Text(
+                        printTargetLabel(option.server),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${option.printerLabel} • ${option.driverUrl}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).pop(option),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<List<_QolipPrinterOption>> _connectedQolipPrinters(
+  http.Client client,
+  List<DiscoveredServer> servers,
+) async {
+  final seen = <String>{};
+  final uniqueServers = <DiscoveredServer>[];
+  for (final server in servers) {
+    if (seen.add(server.endpoint.baseUrl)) {
+      uniqueServers.add(server);
+    }
+  }
+  final options = await Future.wait(
+    uniqueServers.map((server) => _connectedQolipPrinter(client, server)),
+  );
+  return [
+    for (final option in options)
+      if (option != null) option,
+  ];
+}
+
+Future<_QolipPrinterOption?> _connectedQolipPrinter(
+  http.Client client,
+  DiscoveredServer server,
+) async {
+  try {
+    final response = await client
+        .get(Uri.parse('${server.endpoint.baseUrl}/v1/mobile/monitor/state'))
+        .timeout(const Duration(seconds: 2));
+    if (response.statusCode < 200 || response.statusCode > 299) {
+      return null;
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final printerRaw = (payload['printer'] as Map?)?.cast<String, dynamic>() ??
+        ((payload['state'] as Map?)?['printer'] as Map?)
+            ?.cast<String, dynamic>();
+    if (printerRaw == null) {
+      return null;
+    }
+    final connected = _qolipJsonBool(printerRaw['connected']) ||
+        _qolipJsonBool(printerRaw['ok']);
+    if (!connected) {
+      return null;
+    }
+    final kind = _qolipJsonText(printerRaw['kind'], fallback: 'printer');
+    return _QolipPrinterOption(
+      server: server,
+      driverUrl: driverUrlForRs(server).replaceFirst(RegExp(r'/+$'), ''),
+      printerLabel: _qolipJsonText(printerRaw['label'], fallback: kind),
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _qolipJsonBool(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
+}
+
+String _qolipJsonText(Object? value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _qolipPrinterChoice(String printerLabel) {
+  final normalized = printerLabel.trim().toLowerCase();
+  return normalized.contains('godex') ? 'godex' : 'zebra';
 }
 
 class _QolipBlockCreateSheet extends StatefulWidget {
