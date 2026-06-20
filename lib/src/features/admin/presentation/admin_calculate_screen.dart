@@ -313,6 +313,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       final sourceMap = source.map.withoutAlternativeAssignments();
       final normalizedOrder = orderNumber.trim();
       final kg = _parseRequiredDouble(_kg.text);
+      final savedQuickTemplate = await CalculateOrderTemplateStore.instance
+          .upsert(_buildTemplateDraft().copyWith(kg: 0, orderNumber: ''));
       final baseLength = _result != null && _result!.results.isNotEmpty
           ? _result!.results.first.baseLength
           : null;
@@ -329,7 +331,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         orderKg: kg,
         baseLength: baseLength,
       );
-      final draft = _buildTemplateDraft().copyWith(
+      final draft = savedQuickTemplate.copyWith(
         id: '',
         code: normalizedOrder,
         orderNumber: normalizedOrder,
@@ -347,6 +349,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       if (savedTemplate != null) {
         CalculateOrderTemplateStore.instance.remember(savedTemplate);
       }
+      _templateId = savedQuickTemplate.id;
+      _orderCode = savedQuickTemplate.code;
+      _sourceMapId = savedQuickTemplate.sourceMapId;
       showAdminTopNotice(context, 'Zakaz ochildi: $normalizedOrder');
     } catch (error) {
       if (!mounted) {

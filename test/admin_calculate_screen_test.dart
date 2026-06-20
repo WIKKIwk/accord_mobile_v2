@@ -123,12 +123,18 @@ void main() {
     await MobileApi.instance.adminSaveProductionMap(
       _dirtyMap(id: sourceMapId, code: '4444', orderNumber: '4444'),
     );
+    final editedTemplate =
+        _template(itemCode: 'ITEM-1', sourceMapId: sourceMapId).copyWith(
+      frameProductSizeMm: 250,
+      frameCount: 3,
+      widthMm: 765,
+    );
     await MobileApi.instance.upsertCalculateOrderTemplate(
       _template(itemCode: 'ITEM-1', sourceMapId: sourceMapId),
     );
     await _pumpCalculateScreen(
       tester,
-      template: _template(itemCode: 'ITEM-1', sourceMapId: sourceMapId),
+      template: editedTemplate,
     );
 
     await tester.drag(find.byType(ListView), const Offset(0, -900));
@@ -168,6 +174,13 @@ void main() {
       isTrue,
     );
     expect(maps.any((item) => item.map.id == sourceMapId), isTrue);
+    final templates = await MobileApi.instance.calculateOrderTemplates();
+    final quickTemplate = templates.firstWhere(
+      (template) => template.code == 'Z-1234',
+    );
+    expect(quickTemplate.frameProductSizeMm, 250);
+    expect(quickTemplate.frameCount, 3);
+    expect(quickTemplate.widthMm, 765);
     await tester.pump(const Duration(seconds: 3));
   });
 
