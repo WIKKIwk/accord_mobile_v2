@@ -356,6 +356,9 @@ class AdminProgressBatch {
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
     this.laminationFilmLeftoverRolls,
+    this.rezkaBosmaWaste,
+    this.rezkaLaminationWaste,
+    this.rezkaEdgeWaste,
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
@@ -377,6 +380,9 @@ class AdminProgressBatch {
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
   final double? laminationFilmLeftoverRolls;
+  final double? rezkaBosmaWaste;
+  final double? rezkaLaminationWaste;
+  final double? rezkaEdgeWaste;
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
@@ -401,6 +407,10 @@ class AdminProgressBatch {
           (json['lamination_print_leftover_rolls'] as num?)?.toDouble(),
       laminationFilmLeftoverRolls:
           (json['lamination_film_leftover_rolls'] as num?)?.toDouble(),
+      rezkaBosmaWaste: (json['rezka_bosma_waste'] as num?)?.toDouble(),
+      rezkaLaminationWaste:
+          (json['rezka_lamination_waste'] as num?)?.toDouble(),
+      rezkaEdgeWaste: (json['rezka_edge_waste'] as num?)?.toDouble(),
       totalWaste: (json['total_waste'] as num?)?.toDouble(),
       finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
       finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
@@ -425,6 +435,9 @@ class AdminProgressBatch {
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: rezkaBosmaWaste,
+      rezkaLaminationWaste: rezkaLaminationWaste,
+      rezkaEdgeWaste: rezkaEdgeWaste,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -710,6 +723,8 @@ MobileApiException _adminProductionMapException(
         'Bosma aparati doim ketma-ketlik bo‘yicha ishlaydi',
       'bosma_completion_metrics_required' =>
         'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
+      'rezka_progress_metrics_required' =>
+        'Rezka uchun barcha majburiy fieldlarni kiriting',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
@@ -1846,6 +1861,9 @@ extension MobileApiAdmin on MobileApi {
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1866,6 +1884,9 @@ extension MobileApiAdmin on MobileApi {
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: rezkaBosmaWaste,
+      rezkaLaminationWaste: rezkaLaminationWaste,
+      rezkaEdgeWaste: rezkaEdgeWaste,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -1889,6 +1910,9 @@ extension MobileApiAdmin on MobileApi {
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -2004,6 +2028,9 @@ extension MobileApiAdmin on MobileApi {
           uom: uom.trim().isEmpty ? 'kg' : uom.trim(),
           laminationPrintLeftoverRolls: null,
           laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+          rezkaBosmaWaste: rezkaBosmaWaste,
+          rezkaLaminationWaste: rezkaLaminationWaste,
+          rezkaEdgeWaste: rezkaEdgeWaste,
           totalWaste: totalWaste,
           finishedGoodsKg: finishedGoodsKg,
           finishedGoodsMeter: finishedGoodsMeter,
@@ -2064,9 +2091,13 @@ extension MobileApiAdmin on MobileApi {
                 totalWaste != null &&
                 finishedGoodsKg != null &&
                 finishedGoodsMeter != null;
+        final hasRezkaProgressMetrics = rezkaBosmaWaste != null &&
+            rezkaLaminationWaste != null &&
+            rezkaEdgeWaste != null;
         if (note.isNotEmpty &&
             !hasCompleteMetrics &&
             !hasLaminatsiyaCompleteMetrics &&
+            !hasRezkaProgressMetrics &&
             grossQty == null) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           final map = _testModeProductionMaps
@@ -2107,6 +2138,9 @@ extension MobileApiAdmin on MobileApi {
           returnInkKg: returnInkKg,
           laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
           laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+          rezkaBosmaWaste: rezkaBosmaWaste,
+          rezkaLaminationWaste: rezkaLaminationWaste,
+          rezkaEdgeWaste: rezkaEdgeWaste,
           totalWaste: totalWaste,
           finishedGoodsKg: finishedGoodsKg,
           finishedGoodsMeter: finishedGoodsMeter,
@@ -2175,6 +2209,10 @@ extension MobileApiAdmin on MobileApi {
             'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
           if (laminationFilmLeftoverRolls != null)
             'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
+          if (rezkaBosmaWaste != null) 'rezka_bosma_waste': rezkaBosmaWaste,
+          if (rezkaLaminationWaste != null)
+            'rezka_lamination_waste': rezkaLaminationWaste,
+          if (rezkaEdgeWaste != null) 'rezka_edge_waste': rezkaEdgeWaste,
           if (totalWaste != null) 'total_waste': totalWaste,
           if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
           if (finishedGoodsMeter != null)
@@ -3147,6 +3185,9 @@ AdminProgressBatch _testModeProgressBatch({
   double? returnInkKg,
   double? laminationPrintLeftoverRolls,
   double? laminationFilmLeftoverRolls,
+  double? rezkaBosmaWaste,
+  double? rezkaLaminationWaste,
+  double? rezkaEdgeWaste,
   double? totalWaste,
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
@@ -3171,6 +3212,9 @@ AdminProgressBatch _testModeProgressBatch({
     returnInkKg: returnInkKg,
     laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
     laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+    rezkaBosmaWaste: rezkaBosmaWaste,
+    rezkaLaminationWaste: rezkaLaminationWaste,
+    rezkaEdgeWaste: rezkaEdgeWaste,
     totalWaste: totalWaste,
     finishedGoodsKg: finishedGoodsKg,
     finishedGoodsMeter: finishedGoodsMeter,

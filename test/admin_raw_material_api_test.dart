@@ -246,6 +246,56 @@ void main() {
             ));
   });
 
+  test('rezka complete action sends progress metrics and parses them',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezka operatori',
+      legalName: '',
+      ref: 'rez-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final result = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: 'Rezka',
+        orderId: 'zakaz-1',
+        action: 'complete',
+        producedQty: 32,
+        grossQty: 32,
+        rezkaBosmaWaste: 1.25,
+        rezkaLaminationWaste: 2.5,
+        rezkaEdgeWaste: 0.75,
+        uom: 'kg',
+        driverUrl: 'http://127.0.0.1:39117',
+      );
+
+      expect(result.states, {'zakaz-1': 'completed'});
+      expect(result.progressBatch?.rezkaBosmaWaste, 1.25);
+      expect(result.progressBatch?.rezkaLaminationWaste, 2.5);
+      expect(result.progressBatch?.rezkaEdgeWaste, 0.75);
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"Rezka","order_id":"zakaz-1",'
+          '"action":"complete","produced_qty":32.0,"gross_qty":32.0,'
+          '"rezka_bosma_waste":1.25,"rezka_lamination_waste":2.5,'
+          '"rezka_edge_waste":0.75,"uom":"kg",'
+          '"driver_url":"http://127.0.0.1:39117"}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              queueActionRezkaMetrics: true,
+            ));
+  });
+
   test('closed production orders endpoint parses full action logs', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -576,6 +626,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.queueActionProgress = false,
     this.queueActionCompleteMetrics = false,
     this.queueActionLaminatsiyaMetrics = false,
+    this.queueActionRezkaMetrics = false,
   });
 
   final List<String> seenRequests;
@@ -585,6 +636,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final bool queueActionProgress;
   final bool queueActionCompleteMetrics;
   final bool queueActionLaminatsiyaMetrics;
+  final bool queueActionRezkaMetrics;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -606,72 +658,93 @@ class _RawMaterialApiHttpClient implements HttpClient {
             ),
           );
         }
-        body = queueActionLaminatsiyaMetrics
+        body = queueActionRezkaMetrics
             ? const {
                 'states': {'zakaz-1': 'completed'},
                 'progress_batch': {
                   'batch_id': 'progress-1',
                   'session_id': 'session-1',
-                  'apparatus': 'Laminatsiya 1',
+                  'apparatus': 'Rezka',
                   'order_id': 'zakaz-1',
                   'action': 'complete',
                   'status': 'completed',
-                  'produced_qty': 140.25,
-                  'uom': 'm',
+                  'produced_qty': 32,
+                  'uom': 'kg',
                   'qr_payload': 'GSP:PROGRESS-1',
                   'label_item_code': 'zakaz-1',
                   'label_item_name': 'Zakaz tayyor',
-                  'executor_name': 'Laminatsiya operatori',
-                  'lamination_print_leftover_rolls': 1.5,
-                  'lamination_film_leftover_rolls': 2.5,
-                  'total_waste': 3.5,
-                  'finished_goods_kg': 20.75,
-                  'finished_goods_meter': 140.25,
+                  'executor_name': 'Rezka operatori',
+                  'rezka_bosma_waste': 1.25,
+                  'rezka_lamination_waste': 2.5,
+                  'rezka_edge_waste': 0.75,
                 },
               }
-            : queueActionCompleteMetrics
+            : queueActionLaminatsiyaMetrics
                 ? const {
                     'states': {'zakaz-1': 'completed'},
                     'progress_batch': {
                       'batch_id': 'progress-1',
                       'session_id': 'session-1',
-                      'apparatus': '7 ta rangli bosma',
+                      'apparatus': 'Laminatsiya 1',
                       'order_id': 'zakaz-1',
                       'action': 'complete',
                       'status': 'completed',
-                      'produced_qty': 125.5,
+                      'produced_qty': 140.25,
                       'uom': 'm',
                       'qr_payload': 'GSP:PROGRESS-1',
                       'label_item_code': 'zakaz-1',
                       'label_item_name': 'Zakaz tayyor',
-                      'executor_name': 'Bosma aparatchi',
-                      'return_ink_kg': 1.25,
-                      'total_waste': 2.5,
-                      'finished_goods_kg': 18.75,
-                      'finished_goods_meter': 125.5,
+                      'executor_name': 'Laminatsiya operatori',
+                      'lamination_print_leftover_rolls': 1.5,
+                      'lamination_film_leftover_rolls': 2.5,
+                      'total_waste': 3.5,
+                      'finished_goods_kg': 20.75,
+                      'finished_goods_meter': 140.25,
                     },
                   }
-                : queueActionProgress
+                : queueActionCompleteMetrics
                     ? const {
-                        'states': {'zakaz-1': 'paused'},
+                        'states': {'zakaz-1': 'completed'},
                         'progress_batch': {
                           'batch_id': 'progress-1',
                           'session_id': 'session-1',
-                          'apparatus': 'Pechat',
+                          'apparatus': '7 ta rangli bosma',
                           'order_id': 'zakaz-1',
-                          'action': 'pause',
-                          'status': 'paused',
-                          'produced_qty': 12.5,
-                          'uom': 'kg',
+                          'action': 'complete',
+                          'status': 'completed',
+                          'produced_qty': 125.5,
+                          'uom': 'm',
                           'qr_payload': 'GSP:PROGRESS-1',
                           'label_item_code': 'zakaz-1',
-                          'label_item_name': 'Zakaz yarim tayyor',
-                          'executor_name': 'Aparatchi',
+                          'label_item_name': 'Zakaz tayyor',
+                          'executor_name': 'Bosma aparatchi',
+                          'return_ink_kg': 1.25,
+                          'total_waste': 2.5,
+                          'finished_goods_kg': 18.75,
+                          'finished_goods_meter': 125.5,
                         },
                       }
-                    : const {
-                        'states': {'zakaz-1': 'in_progress'},
-                      };
+                    : queueActionProgress
+                        ? const {
+                            'states': {'zakaz-1': 'paused'},
+                            'progress_batch': {
+                              'batch_id': 'progress-1',
+                              'session_id': 'session-1',
+                              'apparatus': 'Pechat',
+                              'order_id': 'zakaz-1',
+                              'action': 'pause',
+                              'status': 'paused',
+                              'produced_qty': 12.5,
+                              'uom': 'kg',
+                              'qr_payload': 'GSP:PROGRESS-1',
+                              'label_item_code': 'zakaz-1',
+                              'label_item_name': 'Zakaz yarim tayyor',
+                              'executor_name': 'Aparatchi',
+                            },
+                          }
+                        : const {
+                            'states': {'zakaz-1': 'in_progress'},
+                          };
       case 'POST /v1/mobile/admin/production-maps/progress-qr/lookup':
         body = const {
           'ok': true,

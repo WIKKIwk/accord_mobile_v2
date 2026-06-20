@@ -557,7 +557,12 @@ String _timeLabel(int unix) {
 }
 
 String _apparatusDetailLabel(String apparatus) {
-  return apparatus.trim().toLowerCase().contains('laminatsiya')
-      ? 'Laminatsiya mashinasi'
-      : 'Aparat';
+  final normalized = apparatus.trim().toLowerCase();
+  if (normalized.contains('laminatsiya')) {
+    return 'Laminatsiya mashinasi';
+  }
+  if (normalized.contains('rezka')) {
+    return 'Rezka mashinasi';
+  }
+  return 'Aparat';
 }

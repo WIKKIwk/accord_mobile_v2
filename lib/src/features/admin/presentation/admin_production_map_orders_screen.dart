@@ -1300,6 +1300,9 @@ class _AdminProductionMapOrdersScreenState
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1326,6 +1329,9 @@ class _AdminProductionMapOrdersScreenState
         returnInkKg: returnInkKg,
         laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
         laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
         totalWaste: totalWaste,
         finishedGoodsKg: finishedGoodsKg,
         finishedGoodsMeter: finishedGoodsMeter,
@@ -1376,6 +1382,9 @@ class _AdminProductionMapOrdersScreenState
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -1395,6 +1404,9 @@ class _AdminProductionMapOrdersScreenState
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: rezkaBosmaWaste,
+      rezkaLaminationWaste: rezkaLaminationWaste,
+      rezkaEdgeWaste: rezkaEdgeWaste,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -4987,6 +4999,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -5089,6 +5104,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
     double? totalWaste,
     double? finishedGoodsKg,
     double? finishedGoodsMeter,
@@ -5123,6 +5141,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: rezkaBosmaWaste,
+      rezkaLaminationWaste: rezkaLaminationWaste,
+      rezkaEdgeWaste: rezkaEdgeWaste,
       totalWaste: totalWaste,
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
@@ -5152,11 +5173,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             null;
     final isLaminatsiya =
         productionMapIsLaminatsiyaApparatus(widget.apparatus?.warehouse ?? '');
+    final isRezka =
+        productionMapIsRezkaApparatus(widget.apparatus?.warehouse ?? '');
     final input = await _showProgressQtyDialog(
       context,
       action,
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
+      isRezka: isRezka,
     );
     if (!mounted || input == null) {
       return;
@@ -5181,6 +5205,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       returnInkKg: input.returnInkKg,
       laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
+      rezkaBosmaWaste: input.rezkaBosmaWaste,
+      rezkaLaminationWaste: input.rezkaLaminationWaste,
+      rezkaEdgeWaste: input.rezkaEdgeWaste,
       totalWaste: input.totalWaste,
       finishedGoodsKg: input.finishedGoodsKg,
       finishedGoodsMeter: input.finishedGoodsMeter,
@@ -5554,6 +5581,9 @@ class _ProgressQtyInput {
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
     this.laminationFilmLeftoverRolls,
+    this.rezkaBosmaWaste,
+    this.rezkaLaminationWaste,
+    this.rezkaEdgeWaste,
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
@@ -5566,6 +5596,9 @@ class _ProgressQtyInput {
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
   final double? laminationFilmLeftoverRolls;
+  final double? rezkaBosmaWaste;
+  final double? rezkaLaminationWaste;
+  final double? rezkaEdgeWaste;
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
@@ -5578,6 +5611,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   String action, {
   required bool isBosma,
   required bool isLaminatsiya,
+  required bool isRezka,
 }) {
   return showDialog<_ProgressQtyInput>(
     context: context,
@@ -5585,6 +5619,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       action: action,
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
+      isRezka: isRezka,
     ),
   );
 }
@@ -5594,11 +5629,13 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.action,
     required this.isBosma,
     required this.isLaminatsiya,
+    required this.isRezka,
   });
 
   final String action;
   final bool isBosma;
   final bool isLaminatsiya;
+  final bool isRezka;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -5610,6 +5647,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _returnInkController = TextEditingController();
   final _printLeftoverController = TextEditingController();
   final _filmLeftoverController = TextEditingController();
+  final _rezkaBosmaWasteController = TextEditingController();
+  final _rezkaLaminationWasteController = TextEditingController();
+  final _rezkaEdgeWasteController = TextEditingController();
   final _wasteController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -5621,6 +5661,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   void dispose() {
     _descriptionController.dispose();
     _wasteController.dispose();
+    _rezkaEdgeWasteController.dispose();
+    _rezkaLaminationWasteController.dispose();
+    _rezkaBosmaWasteController.dispose();
     _filmLeftoverController.dispose();
     _printLeftoverController.dispose();
     _returnInkController.dispose();
@@ -5669,6 +5712,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final returnInkKg = _parseQty(_returnInkController.text);
     final printLeftoverRolls = _parseQty(_printLeftoverController.text);
     final filmLeftoverRolls = _parseQty(_filmLeftoverController.text);
+    final rezkaBosmaWaste = _parseQty(_rezkaBosmaWasteController.text);
+    final rezkaLaminationWaste =
+        _parseQty(_rezkaLaminationWasteController.text);
+    final rezkaEdgeWaste = _parseQty(_rezkaEdgeWasteController.text);
     final totalWaste = _parseQty(_wasteController.text);
     final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
     final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
@@ -5680,6 +5727,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasFilmLeftover = filmLeftoverRolls != null &&
         filmLeftoverRolls.isFinite &&
         filmLeftoverRolls > 0;
+    final hasRezkaBosmaWaste = rezkaBosmaWaste != null &&
+        rezkaBosmaWaste.isFinite &&
+        rezkaBosmaWaste > 0;
+    final hasRezkaLaminationWaste = rezkaLaminationWaste != null &&
+        rezkaLaminationWaste.isFinite &&
+        rezkaLaminationWaste > 0;
+    final hasRezkaEdgeWaste =
+        rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
     final bosmaMetricsReady = _isComplete
@@ -5688,7 +5743,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasFilmLeftover && hasWaste && hasMeter && hasKg;
-    if (!widget.isBosma && !widget.isLaminatsiya && hasMeter && hasKg) {
+    final rezkaMetricsReady = hasRezkaBosmaWaste &&
+        hasRezkaLaminationWaste &&
+        hasRezkaEdgeWaste &&
+        hasMeter &&
+        hasKg;
+    if (!widget.isBosma &&
+        !widget.isLaminatsiya &&
+        !widget.isRezka &&
+        hasMeter &&
+        hasKg) {
       Navigator.of(context)
           .pop(_ProgressQtyInput(meterQty: meterQty, kgQty: kgQty));
       return;
@@ -5700,6 +5764,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsKg: kgQty,
           returnInkKg: _isComplete ? returnInkKg : null,
           totalWaste: totalWaste,
+        ),
+      );
+      return;
+    }
+    if (widget.isRezka && rezkaMetricsReady) {
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          meterQty: meterQty,
+          kgQty: kgQty,
+          rezkaBosmaWaste: rezkaBosmaWaste,
+          rezkaLaminationWaste: rezkaLaminationWaste,
+          rezkaEdgeWaste: rezkaEdgeWaste,
         ),
       );
       return;
@@ -5740,6 +5816,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   Widget build(BuildContext context) {
     final isBosma = widget.isBosma;
     final isLaminatsiya = widget.isLaminatsiya;
+    final isRezka = widget.isRezka;
     final hasDetailedMetrics = isBosma || isLaminatsiya;
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -5775,6 +5852,29 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                   controller: _filmLeftoverController,
                   label: 'Plyonkadan ortgan rulon',
                   error: 'Plyonkadan ortgan rulonni kiriting',
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (isRezka) ...[
+                _qtyField(
+                  controller: _rezkaBosmaWasteController,
+                  label: 'Bosmachining chiqindisi',
+                  error: 'Bosmachining chiqindisini kiriting',
+                  suffix: 'kg',
+                ),
+                const SizedBox(height: 10),
+                _qtyField(
+                  controller: _rezkaLaminationWasteController,
+                  label: 'Laminatsiya chiqindisi',
+                  error: 'Laminatsiya chiqindisini kiriting',
+                  suffix: 'kg',
+                ),
+                const SizedBox(height: 10),
+                _qtyField(
+                  controller: _rezkaEdgeWasteController,
+                  label: 'Tayyor mahsulot chetidan chiqqan chiqindi',
+                  error: 'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
+                  suffix: 'kg',
                 ),
                 const SizedBox(height: 10),
               ],
@@ -6466,7 +6566,9 @@ class _SequenceStepTile extends StatelessWidget {
       'start' => 'Boshlanish',
       'apparatus' => productionMapIsLaminatsiyaApparatus(node.title)
           ? 'Laminatsiya mashinasi'
-          : 'Aparat',
+          : productionMapIsRezkaApparatus(node.title)
+              ? 'Rezka mashinasi'
+              : 'Aparat',
       'end' => 'Yakun',
       _ => node.kind,
     };
@@ -6476,5 +6578,7 @@ class _SequenceStepTile extends StatelessWidget {
 String _apparatusDetailLabel(String apparatus) {
   return productionMapIsLaminatsiyaApparatus(apparatus)
       ? 'Laminatsiya mashinasi'
-      : 'Aparat';
+      : productionMapIsRezkaApparatus(apparatus)
+          ? 'Rezka mashinasi'
+          : 'Aparat';
 }

@@ -2539,6 +2539,87 @@ void main() {
     expect(find.text('Tayyor mahsulot metr'), findsOneWidget);
   });
 
+  testWidgets('rezka worker progress dialogs use rezka metric fields', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-rezka-dialog-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'worker-rezka-dialog',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['Rezka'],
+      ),
+    );
+    await MobileApi.instance.adminCreateApparatus('Rezka');
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-rezka-dialog',
+        title: 'Rezka dialog order',
+        productCode: 'RZD-A',
+        apparatus: 'Rezka',
+        product: 'rezka dialog mahsulot',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Rezka',
+      orderIds: const ['zakaz-rezka-dialog'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rezka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('rezka-dialog').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tugatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bosmachining chiqindisi'), findsOneWidget);
+    expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
+    expect(
+      find.text('Tayyor mahsulot chetidan chiqqan chiqindi'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pauza'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bosmachining chiqindisi'), findsOneWidget);
+    expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
+    expect(
+      find.text('Tayyor mahsulot chetidan chiqqan chiqindi'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('worker completed detail keeps completed apparatus context', (
     tester,
   ) async {

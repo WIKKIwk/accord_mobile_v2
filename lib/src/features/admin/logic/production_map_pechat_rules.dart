@@ -191,6 +191,10 @@ bool productionMapIsLaminatsiyaApparatus(String title) {
   ).toLowerCase().contains('laminatsiya');
 }
 
+bool productionMapIsRezkaApparatus(String title) {
+  return productionMapWarehouseBaseTitle(title).toLowerCase().contains('rezka');
+}
+
 bool productionMapTextIsFlexoOrder(Iterable<String> values) {
   final haystack = values.join(' ').toLowerCase();
   return const [
