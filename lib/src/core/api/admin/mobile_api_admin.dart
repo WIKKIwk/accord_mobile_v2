@@ -823,7 +823,10 @@ MobileApiException _adminProductionMapException(
         'Bu rulon bu buyurtma uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
       'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
+      'progress_qr_required' => 'Oldingi bosqich QR sini scan qiling',
       'progress_batch_not_found' => 'Progress QR topilmadi',
+      'progress_batch_not_accepted' =>
+        'Bu QR oldingi bosqich mahsulotiga mos emas',
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
       'scale_driver_not_configured' => 'Printer ulanmagan',

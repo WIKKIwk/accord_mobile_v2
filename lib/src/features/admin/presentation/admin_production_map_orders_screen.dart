@@ -1490,21 +1490,6 @@ class _AdminProductionMapOrdersScreenState
         initialQueueStates: _queueStatesForApparatus(apparatus),
         queueStatesByApparatus: _queueStatesByApparatus,
         queuePolicy: _queuePolicyForApparatus(apparatus),
-        isOrderReadyForStation: (orderId) {
-          final match = _orders
-              .where((item) => item.map.id.trim() == orderId.trim())
-              .cast<ProductionMapSaved?>()
-              .firstWhere((item) => item != null, orElse: () => null);
-          if (match == null) {
-            return true;
-          }
-          return productionMapOrderReadyForStation(
-            map: match.map,
-            orderId: orderId,
-            station: apparatus.warehouse.trim(),
-            queueStatesByApparatus: _queueStatesByApparatus,
-          );
-        },
         sequenceOrderIds: _sequenceOrderIdsForApparatus(apparatus),
         visibleOrderIds: _ordersForApparatus(
           apparatus,
@@ -4974,7 +4959,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
     this.queuePolicy = ApparatusQueuePolicy.strictSequence,
-    this.isOrderReadyForStation,
     this.sequenceOrderIds = const [],
     this.visibleOrderIds = const [],
     this.onQueueAction,
@@ -4987,7 +4971,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final ApparatusQueuePolicy queuePolicy;
-  final bool Function(String orderId)? isOrderReadyForStation;
   final List<String> sequenceOrderIds;
   final List<String> visibleOrderIds;
   final Future<AdminApparatusQueueActionResult?> Function({
@@ -5023,6 +5006,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   late Map<String, String> _queueStates;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   final Set<String> _scannedMaterialBarcodes = {};
+  AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
   bool _materialsLoading = true;
   String _materialsError = '';
@@ -5038,15 +5022,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   @override
   void didUpdateWidget(covariant _ReadOnlyOrderDetailSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final oldStation = oldWidget.apparatus?.warehouse.trim() ?? '';
+    final station = widget.apparatus?.warehouse.trim() ?? '';
+    if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
+        oldStation != station) {
+      _scannedMaterialBarcodes.clear();
+      _startInputProgressBatch = null;
+    }
     if (_actionInFlight) {
       return;
     }
-    final apparatus = widget.apparatus?.warehouse.trim() ?? '';
-    if (apparatus.isEmpty) {
+    if (station.isEmpty) {
       return;
     }
     final nextStates = _queueStatesForStation(
-      apparatus,
+      station,
       widget.queueStatesByApparatus,
     );
     if (!mapEquals(_queueStates, nextStates)) {
@@ -5129,42 +5119,78 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       showAdminTopNotice(context, 'Avval hamma homashyoni QR scan qiling');
       return;
     }
-    setState(() => _actionInFlight = true);
-    final states = await onQueueAction(
-      apparatus: apparatus,
-      order: widget.order,
-      action: action,
-      materialBarcodes: action == 'start'
-          ? materialAssignments.map((item) => item.barcode).toList()
-          : const [],
-      producedQty: producedQty,
-      grossQty: grossQty,
-      returnInkKg: returnInkKg,
-      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-      rezkaBosmaWaste: rezkaBosmaWaste,
-      rezkaLaminationWaste: rezkaLaminationWaste,
-      rezkaEdgeWaste: rezkaEdgeWaste,
-      totalWaste: totalWaste,
-      finishedGoodsKg: finishedGoodsKg,
-      finishedGoodsMeter: finishedGoodsMeter,
-      uom: uom,
-      qrPayload: qrPayload,
-      progressBatchId: progressBatchId,
-      driverUrl: driverUrl,
-      completionRequestNote: completionRequestNote,
-    );
-    if (!mounted) {
+    final station = apparatus.warehouse.trim();
+    final previousStage = station.isEmpty
+        ? null
+        : productionMapPreviousWorkStageStation(
+            map: widget.order.map,
+            station: station,
+          );
+    final startInputProgressBatch =
+        action == 'start' ? _startInputProgressBatch : null;
+    if (action == 'start' &&
+        previousStage != null &&
+        startInputProgressBatch == null) {
+      showAdminTopNotice(context, 'Oldingi bosqich QR sini scan qiling');
       return;
     }
-    setState(() {
-      _actionInFlight = false;
-      if (states != null) {
-        _queueStates = states.states;
+    setState(() => _actionInFlight = true);
+    try {
+      final states = await onQueueAction(
+        apparatus: apparatus,
+        order: widget.order,
+        action: action,
+        materialBarcodes: action == 'start'
+            ? materialAssignments.map((item) => item.barcode).toList()
+            : const [],
+        producedQty: producedQty,
+        grossQty: grossQty,
+        returnInkKg: returnInkKg,
+        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
+        totalWaste: totalWaste,
+        finishedGoodsKg: finishedGoodsKg,
+        finishedGoodsMeter: finishedGoodsMeter,
+        uom: uom,
+        qrPayload: qrPayload.trim().isEmpty
+            ? (startInputProgressBatch?.qrPayload ?? '')
+            : qrPayload,
+        progressBatchId: progressBatchId.trim().isEmpty
+            ? (startInputProgressBatch?.batchId ?? '')
+            : progressBatchId,
+        driverUrl: driverUrl,
+        completionRequestNote: completionRequestNote,
+      );
+      if (!mounted) {
+        return;
       }
-    });
-    if (action == 'start' && states != null) {
-      unawaited(_loadMaterialAssignments());
+      setState(() {
+        _actionInFlight = false;
+        if (states != null) {
+          _queueStates = states.states;
+        }
+        if (action == 'start' && states != null) {
+          _startInputProgressBatch = null;
+        }
+      });
+      if (action == 'start' && states != null) {
+        unawaited(_loadMaterialAssignments());
+      }
+    } on MobileApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _actionInFlight = false);
+      showAdminTopNotice(context, error.message);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _actionInFlight = false);
+      showAdminTopNotice(context, 'Amal bajarilmadi');
     }
   }
 
@@ -5243,6 +5269,51 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
+  Future<void> _scanStartInputProgressQr(String previousStage) async {
+    final raw = await showRawMaterialScanDialog(
+      context,
+      title: 'Progress QR',
+      manualLabel: 'EPC',
+    );
+    if (!mounted || raw == null || raw.trim().isEmpty) {
+      return;
+    }
+    try {
+      final batch = await MobileApi.instance.adminProgressQrLookup(
+        rawMaterialBarcodeFromQr(raw),
+      );
+      if (!mounted) {
+        return;
+      }
+      final action = batch.action.trim().toLowerCase();
+      final status = batch.status.trim().toLowerCase();
+      final matchesOrder = batch.orderId.trim() == widget.order.map.id.trim();
+      final matchesStage = productionMapWarehouseTitlesMatch(
+        batch.apparatus,
+        previousStage,
+      );
+      final usableAction = action == 'pause' || action == 'complete';
+      final usableStatus = status == 'paused' || status == 'completed';
+      if (!matchesOrder || !matchesStage || !usableAction || !usableStatus) {
+        showAdminTopNotice(
+            context, 'Bu QR oldingi bosqich mahsulotiga mos emas');
+        return;
+      }
+      setState(() => _startInputProgressBatch = batch);
+      showAdminTopNotice(context, 'Oldingi bosqich QR tasdiqlandi');
+    } on MobileApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(context, error.message);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(context, 'Progress QR tekshirilmadi');
+    }
+  }
+
   List<AdminRawMaterialAssignment> _stationMaterialAssignments() {
     final orderId = widget.order.map.id.trim();
     final station = widget.apparatus?.warehouse.trim() ?? '';
@@ -5303,13 +5374,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (_materialAssignmentConfirmed(assignment))
           _materialBarcodeKey(assignment.barcode),
     };
-    final chainReady = station.isEmpty ||
-        productionMapOrderReadyForStation(
-          map: map,
-          orderId: orderId,
-          station: station,
-          queueStatesByApparatus: widget.queueStatesByApparatus,
-        );
     final previousStage = station.isEmpty
         ? null
         : productionMapPreviousWorkStageStation(map: map, station: station);
@@ -5320,7 +5384,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 : widget.visibleOrderIds,
             states: _queueStates,
             visibleOrderIds: widget.visibleOrderIds,
-            isOrderReady: widget.isOrderReadyForStation,
           )
         : null;
     final activeOrderId = widget.canManageQueue
@@ -5337,19 +5400,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         (freePick
             ? activeOrderId == null || activeOrderId == orderId
             : actionableId == orderId);
-    final showStart = isActionable &&
-        chainReady &&
-        queueState == ApparatusQueueOrderState.pending;
+    final previousProgressRequired = previousStage != null;
+    final previousProgressReady =
+        !previousProgressRequired || _startInputProgressBatch != null;
+    final showStart =
+        isActionable && queueState == ApparatusQueueOrderState.pending;
     final showPause =
         isActionable && queueState == ApparatusQueueOrderState.inProgress;
     final showComplete =
         isActionable && queueState == ApparatusQueueOrderState.inProgress;
     final showResume =
         isActionable && queueState == ApparatusQueueOrderState.paused;
-    final showWaitingForPrevious = widget.canManageQueue &&
-        !chainReady &&
-        queueState == ApparatusQueueOrderState.pending &&
-        previousStage != null;
+    final showWaitingForPrevious = false;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -5381,7 +5443,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 showResume: showResume,
                 showWaitingForPrevious: showWaitingForPrevious,
                 previousStage: previousStage,
+                previousProgressRequired: previousProgressRequired,
+                previousProgressReady: previousProgressReady,
+                previousProgressBatch: _startInputProgressBatch,
                 onScan: () => unawaited(_scanMaterial()),
+                onProgressScan: previousStage == null
+                    ? null
+                    : () => unawaited(_scanStartInputProgressQr(previousStage)),
                 onStart: () => unawaited(_runQueueAction('start')),
                 onPause: () => unawaited(_runProgressAction('pause')),
                 onComplete: () => unawaited(_runProgressAction('complete')),
@@ -6460,7 +6528,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.showResume,
     required this.showWaitingForPrevious,
     required this.previousStage,
+    required this.previousProgressRequired,
+    required this.previousProgressReady,
+    required this.previousProgressBatch,
     required this.onScan,
+    required this.onProgressScan,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -6483,7 +6555,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool showResume;
   final bool showWaitingForPrevious;
   final String? previousStage;
+  final bool previousProgressRequired;
+  final bool previousProgressReady;
+  final AdminProgressBatch? previousProgressBatch;
   final VoidCallback onScan;
+  final VoidCallback? onProgressScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -6672,10 +6748,21 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 ),
               ),
             if (showStart && hasMaterialAssignments) const SizedBox(height: 10),
+            if (showStart && previousProgressRequired) ...[
+              _PreviousProgressQrTile(
+                previousStage: previousStage ?? '',
+                ready: previousProgressReady,
+                batch: previousProgressBatch,
+                actionInFlight: actionInFlight,
+                onScan: onProgressScan,
+              ),
+              const SizedBox(height: 10),
+            ],
             if (showStart)
               FilledButton.icon(
                 onPressed: actionInFlight ||
-                        (hasMaterialAssignments && !allMaterialsScanned)
+                        (hasMaterialAssignments && !allMaterialsScanned) ||
+                        !previousProgressReady
                     ? null
                     : onStart,
                 icon: const Icon(Icons.play_arrow_rounded),
@@ -6757,6 +6844,95 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviousProgressQrTile extends StatelessWidget {
+  const _PreviousProgressQrTile({
+    required this.previousStage,
+    required this.ready,
+    required this.batch,
+    required this.actionInFlight,
+    required this.onScan,
+  });
+
+  final String previousStage;
+  final bool ready;
+  final AdminProgressBatch? batch;
+  final bool actionInFlight;
+  final VoidCallback? onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final progressBatch = batch;
+    final batchQty = progressBatch == null
+        ? ''
+        : _productionMapQtyLabel(progressBatch.producedQty);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: ready
+            ? scheme.primaryContainer.withValues(alpha: 0.45)
+            : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: ready
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              ready ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
+              color: ready ? scheme.primary : scheme.onSurfaceVariant,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ready ? 'Oldingi bosqich tasdiqlandi' : 'Oldingi bosqich QR',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  ready && progressBatch != null
+                      ? '${progressBatch.apparatus} • $batchQty ${progressBatch.uom}'
+                      : previousStage,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.tonalIcon(
+            onPressed: actionInFlight ? null : onScan,
+            icon: Icon(
+              ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
+            ),
+            label: Text(ready ? 'Qayta scan' : 'Scan'),
+          ),
         ],
       ),
     );

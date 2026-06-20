@@ -5,11 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-Future<String?> showRawMaterialScanDialog(BuildContext context) {
+Future<String?> showRawMaterialScanDialog(
+  BuildContext context, {
+  String title = 'Homashyo QR',
+  String manualLabel = 'Barcode',
+}) {
   return showDialog<String>(
     context: context,
     useSafeArea: false,
-    builder: (_) => const RawMaterialScanDialog(),
+    builder: (_) => RawMaterialScanDialog(
+      title: title,
+      manualLabel: manualLabel,
+    ),
   );
 }
 
@@ -37,7 +44,14 @@ String rawMaterialBarcodeFromQr(String raw) {
 }
 
 class RawMaterialScanDialog extends StatefulWidget {
-  const RawMaterialScanDialog({super.key});
+  const RawMaterialScanDialog({
+    super.key,
+    this.title = 'Homashyo QR',
+    this.manualLabel = 'Barcode',
+  });
+
+  final String title;
+  final String manualLabel;
 
   @override
   State<RawMaterialScanDialog> createState() => _RawMaterialScanDialogState();
@@ -112,7 +126,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
     final controller = _controller;
     return Dialog.fullscreen(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Homashyo QR')),
+        appBar: AppBar(title: Text(widget.title)),
         body: Column(
           children: [
             Expanded(
@@ -159,9 +173,9 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
                       Expanded(
                         child: TextField(
                           controller: _manualController,
-                          decoration: const InputDecoration(
-                            labelText: 'Barcode',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: widget.manualLabel,
+                            border: const OutlineInputBorder(),
                           ),
                           textInputAction: TextInputAction.done,
                           onSubmitted: _complete,
