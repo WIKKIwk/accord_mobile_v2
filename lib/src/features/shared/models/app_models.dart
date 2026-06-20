@@ -1806,7 +1806,7 @@ class AdminCustomerDetail {
   }
 }
 
-enum AdminUserKind { supplier, werka, customer, worker }
+enum AdminUserKind { supplier, werka, customer, worker, qolipchi }
 
 class AdminUserListEntry {
   const AdminUserListEntry({
@@ -1838,7 +1838,9 @@ class AdminUserListEntry {
             ? AdminUserKind.werka
             : source == 'customer' || principalRole == UserRole.customer
                 ? AdminUserKind.customer
-                : AdminUserKind.supplier;
+                : principalRole == UserRole.qolipchi
+                    ? AdminUserKind.qolipchi
+                    : AdminUserKind.supplier;
     final entityRef = (json['entity_ref'] as String? ?? '').trim();
     final rawId = (json['id'] as String? ?? '').trim();
     return AdminUserListEntry(
@@ -1861,9 +1863,11 @@ class AdminUserListEntry {
         ? 'Werka'
         : kind == AdminUserKind.customer
             ? 'Customer'
-            : kind == AdminUserKind.worker
-                ? userRoleLabel(principalRole)
-                : 'Supplier';
+            : kind == AdminUserKind.qolipchi
+                ? 'Qolipchi'
+                : kind == AdminUserKind.worker
+                    ? userRoleLabel(principalRole)
+                    : 'Supplier';
   }
 }
 

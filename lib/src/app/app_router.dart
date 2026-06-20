@@ -522,15 +522,20 @@ class AppRouter {
       case AppRoutes.adminCustomerCreate:
         return _buildRoute(settings, const AdminCustomerCreateScreen());
       case AppRoutes.adminCustomerDetail:
-        final String customerRef = settings.arguments is String
-            ? (settings.arguments as String).trim()
-            : '';
+        final args = settings.arguments;
+        final AdminUserListEntry? entry =
+            args is AdminUserListEntry ? args : null;
+        final String customerRef =
+            entry?.id.trim() ?? (args is String ? args.trim() : '');
         if (customerRef.isEmpty) {
           return _buildRoute(settings, const AdminSuppliersScreen());
         }
         return _buildRoute(
           settings,
-          AdminCustomerDetailScreen(customerRef: customerRef),
+          AdminCustomerDetailScreen(
+            customerRef: customerRef,
+            title: entry?.roleLabel ?? 'Customer',
+          ),
         );
       case AppRoutes.adminWorkerDetail:
         final entry = settings.arguments is AdminUserListEntry

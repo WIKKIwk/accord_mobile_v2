@@ -21,10 +21,12 @@ class AdminCustomerDetailScreen extends StatefulWidget {
     super.key,
     required this.customerRef,
     this.detailLoader,
+    this.title = 'Customer',
   });
 
   final String customerRef;
   final Future<AdminCustomerDetail> Function(String ref)? detailLoader;
+  final String title;
 
   @override
   State<AdminCustomerDetailScreen> createState() =>
@@ -395,7 +397,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: 'Customer',
+        title: widget.title,
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),

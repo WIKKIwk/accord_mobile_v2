@@ -527,7 +527,9 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
           id: worker.id,
           name: worker.name,
           phone: worker.phone,
-          kind: AdminUserKind.worker,
+          kind: role == UserRole.qolipchi
+              ? AdminUserKind.qolipchi
+              : AdminUserKind.worker,
           principalRole: role,
           roleLabelOverride: userRoleLabel(role),
         );
@@ -863,25 +865,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
           ),
         );
       },
-    );
-  }
-}
-
-class _WarehouseSectionHeader extends StatelessWidget {
-  const _WarehouseSectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-      ),
     );
   }
 }
@@ -1549,6 +1532,8 @@ UserRole _roleForUser(AdminUserListEntry user) {
       return UserRole.werka;
     case AdminUserKind.customer:
       return UserRole.customer;
+    case AdminUserKind.qolipchi:
+      return UserRole.qolipchi;
     case AdminUserKind.worker:
       return UserRole.aparatchi;
   }

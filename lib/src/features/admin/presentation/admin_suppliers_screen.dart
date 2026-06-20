@@ -30,7 +30,25 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.customer,
   AdminUserKind.supplier,
   AdminUserKind.worker,
+  AdminUserKind.qolipchi,
 ];
+
+bool _workerIsQolipchi(
+  AdminWorker worker,
+  List<AdminRoleAssignment> assignments,
+) {
+  final workerId = worker.id.trim().toLowerCase();
+  for (final assignment in assignments) {
+    if (assignment.principalRef.trim().toLowerCase() != workerId) {
+      continue;
+    }
+    if (assignment.principalRole == UserRole.qolipchi ||
+        assignment.roleId.trim() == 'qolipchi') {
+      return true;
+    }
+  }
+  return false;
+}
 
 int _adminUserKindIndex(AdminUserKind kind) {
   final index = _adminUserTabKinds.indexOf(kind);
@@ -52,13 +70,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   final TextEditingController _searchController = TextEditingController();
   final List<AdminUserListEntry> _items = [];
   final List<AdminWorker> _workers = [];
+  final List<AdminRoleAssignment> _assignments = [];
   Timer? _searchDebounce;
   bool _initialLoading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
   int _offset = 0;
   String _searchQuery = '';
-  bool _openingRoute = false;
   AdminUserKind _selectedKind = AdminUserKind.supplier;
   late final TabController _tabController;
 
@@ -105,6 +123,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     if (_initialLoading ||
         _loadingMore ||
         _selectedKind == AdminUserKind.worker ||
+        _selectedKind == AdminUserKind.qolipchi ||
         !_hasMore) {
       return;
     }
@@ -128,15 +147,18 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
         _offset = 0;
         _items.clear();
         _workers.clear();
+        _assignments.clear();
       });
     }
 
     final results = await Future.wait([
       _safeLoadAdminUserList(limit: _pageSize, offset: 0),
       _safeLoadWorkers(),
+      _safeLoadRoleAssignments(),
     ]);
     final page = results[0] as AdminUserListPage;
     final workers = results[1] as List<AdminWorker>;
+    final assignments = results[2] as List<AdminRoleAssignment>;
 
     if (!mounted) {
       return;
@@ -148,6 +170,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
       _workers
         ..clear()
         ..addAll(workers);
+      _assignments
+        ..clear()
+        ..addAll(assignments);
       _hasMore = page.hasMore;
       _offset = page.items.length;
       _initialLoading = false;
@@ -157,7 +182,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   }
 
   Future<void> _loadMore() async {
-    if (_selectedKind == AdminUserKind.worker) {
+    if (_selectedKind == AdminUserKind.worker ||
+        _selectedKind == AdminUserKind.qolipchi) {
       return;
     }
     if (_loadingMore || _initialLoading) {
@@ -220,12 +246,27 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     }
   }
 
+  Future<List<AdminRoleAssignment>> _safeLoadRoleAssignments() async {
+    try {
+      return await MobileApi.instance.adminRoleAssignments();
+    } catch (error) {
+      debugPrint('admin role assignments failed: $error');
+      return const <AdminRoleAssignment>[];
+    }
+  }
+
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
-    if (item.kind == AdminUserKind.worker) {
+    if (item.kind == AdminUserKind.worker ||
+        (item.kind == AdminUserKind.qolipchi && _isWorkerBackedUser(item))) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWorkerDetail, arguments: item);
+      changed = result == true;
+    } else if (item.kind == AdminUserKind.qolipchi) {
+      final result = await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item);
       changed = result == true;
     } else if (item.kind == AdminUserKind.werka) {
       final result = await Navigator.of(
@@ -248,6 +289,11 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     }
   }
 
+  bool _isWorkerBackedUser(AdminUserListEntry item) {
+    final id = item.id.trim().toLowerCase();
+    return _workers.any((worker) => worker.id.trim().toLowerCase() == id);
+  }
+
   bool _restoreCache() {
     final cache = _cache;
     if (cache == null) {
@@ -261,6 +307,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
         _workers
           ..clear()
           ..addAll(cache.workers);
+        _assignments
+          ..clear()
+          ..addAll(cache.assignments);
         _hasMore = cache.hasMore;
         _offset = cache.offset;
         _searchQuery = cache.query;
@@ -278,6 +327,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     _cache = _AdminSuppliersCache(
       items: List<AdminUserListEntry>.unmodifiable(_items),
       workers: List<AdminWorker>.unmodifiable(_workers),
+      assignments: List<AdminRoleAssignment>.unmodifiable(_assignments),
       hasMore: _hasMore,
       offset: _offset,
       query: _searchQuery,
@@ -313,17 +363,27 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
     _saveCache();
   }
 
-  List<AdminUserListEntry> _visibleItems(AdminUserKind kind) {
-    if (kind == AdminUserKind.worker) {
-      return [
-        for (final worker in _workers)
+  List<AdminUserListEntry> _workerEntries(AdminUserKind kind) {
+    final isQolipTab = kind == AdminUserKind.qolipchi;
+    return [
+      for (final worker in _workers)
+        if (_workerIsQolipchi(worker, _assignments) == isQolipTab)
           AdminUserListEntry(
             id: worker.id,
             name: worker.name,
             phone: worker.phone,
-            kind: AdminUserKind.worker,
-            roleLabelOverride: worker.level,
+            kind: kind,
+            principalRole: isQolipTab ? UserRole.qolipchi : UserRole.aparatchi,
+            roleLabelOverride: isQolipTab ? 'Qolipchi' : worker.level.trim(),
           ),
+    ];
+  }
+
+  List<AdminUserListEntry> _visibleItems(AdminUserKind kind) {
+    if (kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi) {
+      return [
+        ..._workerEntries(kind),
+        ..._items.where((item) => item.kind == kind),
       ];
     }
     return _items.where((item) => item.kind == kind).toList(growable: false);
@@ -332,6 +392,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   Widget _buildUserList(AdminUserKind kind) {
     final visibleItems = _visibleItems(kind);
     final showFooter = kind != AdminUserKind.worker &&
+        kind != AdminUserKind.qolipchi &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     if (_initialLoading) {
@@ -424,6 +485,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
                 theme.colorScheme.surfaceContainer,
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               onTap: (index) => _selectKind(_adminUserTabKinds[index]),
               labelColor: theme.colorScheme.primary,
               unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
@@ -438,6 +501,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
                 Tab(height: 38, text: 'Haridor'),
                 Tab(height: 38, text: 'Ta’minotchi'),
                 Tab(height: 38, text: 'Ishchi'),
+                Tab(height: 38, text: 'Qolipchi'),
               ],
             ),
           ),
@@ -547,6 +611,7 @@ class _AdminSuppliersCache {
   const _AdminSuppliersCache({
     required this.items,
     required this.workers,
+    required this.assignments,
     required this.hasMore,
     required this.offset,
     required this.query,
@@ -555,6 +620,7 @@ class _AdminSuppliersCache {
 
   final List<AdminUserListEntry> items;
   final List<AdminWorker> workers;
+  final List<AdminRoleAssignment> assignments;
   final bool hasMore;
   final int offset;
   final String query;

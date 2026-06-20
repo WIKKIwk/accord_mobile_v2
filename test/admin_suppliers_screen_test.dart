@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_customer_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
@@ -371,6 +372,83 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
   });
+
+  testWidgets('admin qolipchi tab opens customer backed qolipchi profile', (
+    tester,
+  ) async {
+    final client = _AdminUsersHttpClient(
+      users: const [
+        {
+          'id': 'qolipchi:CUS-Q',
+          'source': 'qolipchi',
+          'entity_ref': 'CUS-Q',
+          'principal_role': 'qolipchi',
+          'name': 'Qolipchi user',
+          'phone': '998900003',
+          'role_label': 'Qolipchi',
+          'blocked': false,
+        },
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            AppRoutes.adminCustomerDetail: (context) {
+              final args = ModalRoute.of(context)!.settings.arguments;
+              final entry = args is AdminUserListEntry ? args : null;
+              final customerRef = entry?.id ?? (args as String);
+              return AdminCustomerDetailScreen(
+                customerRef: customerRef,
+                title: entry?.roleLabel ?? 'Customer',
+              );
+            },
+          },
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      await tester.tap(find.text('Qolipchi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Qolipchi user'), findsOneWidget);
+
+      await tester.tap(find.text('Qolipchi user'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('Qolipchi'), findsWidgets);
+      expect(find.text('Qolipchi user'), findsWidgets);
+      expect(find.text('998900003'), findsOneWidget);
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/customers/detail?ref=CUS-Q'),
+      );
+      expect(
+        client.requests.any(
+          (request) => request.startsWith(
+            'GET /v1/mobile/admin/workers/detail',
+          ),
+        ),
+        isFalse,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
 }
 
 class _AdminUsersHttpClient implements HttpClient {
@@ -497,6 +575,33 @@ class _AdminUsersHttpClient implements HttpClient {
           'code': workerCodes[id] ?? '',
           'code_locked': false,
           'code_retry_after_sec': 0,
+        };
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
+    if (key.startsWith('GET /v1/mobile/admin/customers/detail')) {
+      final ref = url.queryParameters['ref'] ?? '';
+      final user = users.cast<Map<String, Object?>>().firstWhere(
+            (item) => (item['entity_ref'] ?? item['id']) == ref,
+            orElse: () => <String, Object?>{},
+          );
+      if (user.isEmpty) {
+        statusCode = HttpStatus.notFound;
+        body = {'error': 'customer not found'};
+      } else {
+        body = {
+          'ref': ref,
+          'name': user['name'],
+          'phone': user['phone'] ?? '',
+          'code': '50QOLIP',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+          'assigned_items': [],
         };
       }
       return _FakeHttpClientRequest(
