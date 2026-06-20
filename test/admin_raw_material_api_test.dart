@@ -331,6 +331,74 @@ void main() {
               assignmentErrorCode: 'raw_material_already_assigned_to_order',
             ));
   });
+
+  test('raw material assignment explains rulon size mismatch', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-1',
+          barcode: 'RM-ROLL',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Bu rulon bu buyurtma uchun mos emas',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_roll_size_mismatch',
+            ));
+  });
+
+  test('raw material assignment explains missing rulon size', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-1',
+          barcode: 'RM-ROLL',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Rulon razmeri topilmadi',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_roll_size_missing',
+            ));
+  });
 }
 
 class _RawMaterialApiHttpClient implements HttpClient {

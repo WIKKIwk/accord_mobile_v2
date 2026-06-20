@@ -659,6 +659,9 @@ MobileApiException _adminProductionMapException(
         'Bu homashyo allaqachon shu zakazga ulangan',
       'raw_material_group_not_allowed' =>
         'Bu homashyo ish boshlash uchun mos emas',
+      'raw_material_roll_size_missing' => 'Rulon razmeri topilmadi',
+      'raw_material_roll_size_mismatch' =>
+        'Bu rulon bu buyurtma uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
       'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
       'progress_batch_not_found' => 'Progress QR topilmadi',
