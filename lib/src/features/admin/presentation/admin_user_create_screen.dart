@@ -24,9 +24,7 @@ class AdminUserCreateScreen extends StatefulWidget {
 
 class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
   late Future<List<_AdminUserCreateChoice>> _roleChoices;
-  _AdminUserCreateChoice _choice = _AdminUserCreateChoice.system(
-    _AdminUserCreateKind.werka,
-  );
+  _AdminUserCreateChoice? _choice;
 
   @override
   void initState() {
@@ -87,7 +85,9 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final kind = _choice.kind;
+    final choice = _choice;
+    final kind = choice?.kind;
+    final scheme = Theme.of(context).colorScheme;
     return AppShell(
       title: 'Foydalanuvchi qo‘shish',
       subtitle: '',
@@ -95,26 +95,43 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       bottom: const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _RoleSelector(choice: _choice, onTap: _openRolePicker),
-          Expanded(
-            child: switch (kind) {
-              _AdminUserCreateKind.werka => _WerkaCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
-              _AdminUserCreateKind.customer => _CustomerCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
-              _AdminUserCreateKind.supplier => _SupplierCreateTab(
-                  assignedRole: _choice.customRole,
-                ),
-              _AdminUserCreateKind.custom => _CustomRoleCreateTab(
-                  assignedRole: _choice.customRole!,
-                ),
-            },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          _adminUserCreatePanelGap,
+          _adminUserCreatePanelGap,
+          _adminUserCreatePanelGap,
+          0,
+        ),
+        child: Card.filled(
+          margin: EdgeInsets.zero,
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_adminUserCreateSectionRadius),
           ),
-        ],
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RoleSelector(choice: choice, onTap: _openRolePicker),
+              if (choice != null)
+                switch (kind) {
+                  _AdminUserCreateKind.werka => _WerkaCreateTab(
+                      assignedRole: choice.customRole,
+                    ),
+                  _AdminUserCreateKind.customer => _CustomerCreateTab(
+                      assignedRole: choice.customRole,
+                    ),
+                  _AdminUserCreateKind.supplier => _SupplierCreateTab(
+                      assignedRole: choice.customRole,
+                    ),
+                  _AdminUserCreateKind.custom => _CustomRoleCreateTab(
+                      assignedRole: choice.customRole!,
+                    ),
+                  null => const SizedBox.shrink(),
+                },
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -204,18 +221,56 @@ bool _isAssignableRole(AdminRoleDefinition role) {
   return !{'admin', 'werka', 'supplier', 'customer'}.contains(role.id);
 }
 
+const EdgeInsets _adminUserCreatePagePadding = EdgeInsets.fromLTRB(
+  12,
+  8,
+  12,
+  24,
+);
+const double _adminUserCreatePanelGap = 4;
+const double _adminUserCreateSectionRadius = 18;
+const double _adminUserCreateFieldGap = 12;
+
+InputDecoration _adminUserCreateInputDecoration(
+  BuildContext context,
+  String label,
+) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  final fillColor = theme.brightness == Brightness.light
+      ? scheme.surfaceBright
+      : scheme.surfaceContainerHighest;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(18),
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
+  return InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: fillColor,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: scheme.primary, width: 1.6),
+    ),
+  );
+}
+
 class _RoleSelector extends StatelessWidget {
   const _RoleSelector({required this.choice, required this.onTap});
 
-  final _AdminUserCreateChoice choice;
+  final _AdminUserCreateChoice? choice;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final fieldSurface = theme.brightness == Brightness.light
+        ? scheme.surfaceBright
+        : scheme.surface;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -228,57 +283,70 @@ class _RoleSelector extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Material(
-            color: scheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(14),
+            color: fieldSurface,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
               onTap: onTap,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 58),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.admin_panel_settings_outlined,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            choice.label,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            choice.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 66),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          choice == null
+                              ? Icons.person_add_alt_1_outlined
+                              : Icons.admin_panel_settings_outlined,
+                          size: 21,
+                          color: scheme.onSecondaryContainer,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Icon(
-                      Icons.expand_more_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              choice?.label ?? 'Role tanlang',
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              choice?.subtitle ??
+                                  'Foydalanuvchi rolini tanlang',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.expand_more_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -345,9 +413,9 @@ class _CustomerCreateTabState extends State<_CustomerCreateTab> {
     return _CreateUserForm(
       name: name,
       phone: phone,
-      nameLabel: 'Haridor name',
-      phoneLabel: 'Haridor phone',
-      actionLabel: saving ? 'Qo‘shilmoqda...' : 'Haridor qo‘shish',
+      nameLabel: 'Foydalanuvchi nomi',
+      phoneLabel: 'Foydalanuvchi telefoni',
+      actionLabel: saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
       saving: saving,
       onSubmit: _create,
     );
@@ -410,9 +478,9 @@ class _SupplierCreateTabState extends State<_SupplierCreateTab> {
     return _CreateUserForm(
       name: name,
       phone: phone,
-      nameLabel: 'Ta’minotchi name',
-      phoneLabel: 'Ta’minotchi phone',
-      actionLabel: saving ? 'Qo‘shilmoqda...' : 'Ta’minotchi qo‘shish',
+      nameLabel: 'Foydalanuvchi nomi',
+      phoneLabel: 'Foydalanuvchi telefoni',
+      actionLabel: saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
       saving: saving,
       onSubmit: _create,
     );
@@ -547,54 +615,55 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: name,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Foydalanuvchi name',
-                  ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: name,
+                textInputAction: TextInputAction.next,
+                decoration: _adminUserCreateInputDecoration(
+                  context,
+                  'Foydalanuvchi nomi',
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: phone,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Foydalanuvchi phone',
-                  ),
+              ),
+              const SizedBox(height: _adminUserCreateFieldGap),
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: _adminUserCreateInputDecoration(
+                  context,
+                  'Foydalanuvchi telefoni',
                 ),
-                if (_isAparatchiRole) ...[
-                  const SizedBox(height: 16),
-                  if (loadingApparatus)
-                    const Center(child: AppLoadingIndicator())
-                  else
-                    AdminApparatusScopePicker(
-                      apparatus: apparatus,
-                      selected: selectedApparatus,
-                      onChanged: (warehouse, checked) {
-                        setState(() {
-                          if (checked) {
-                            selectedApparatus.add(warehouse);
-                          } else {
-                            selectedApparatus.remove(warehouse);
-                          }
-                        });
-                      },
-                    ),
-                ],
+              ),
+              if (_isAparatchiRole) ...[
+                const SizedBox(height: 16),
+                if (loadingApparatus)
+                  const Center(child: AppLoadingIndicator())
+                else
+                  AdminApparatusScopePicker(
+                    apparatus: apparatus,
+                    selected: selectedApparatus,
+                    onChanged: (warehouse, checked) {
+                      setState(() {
+                        if (checked) {
+                          selectedApparatus.add(warehouse);
+                        } else {
+                          selectedApparatus.remove(warehouse);
+                        }
+                      });
+                    },
+                  ),
               ],
-            ),
+            ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          padding: _adminUserCreatePagePadding,
           child: FilledButton(
             onPressed: saving ? null : _create,
             child: Text(saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash'),
@@ -752,45 +821,51 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: AppLoadingIndicator());
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: AppLoadingIndicator()),
+          );
         }
         if (snapshot.hasError || snapshot.data == null) {
-          return ListView(
+          return Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            children: [
-              AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
-            ],
+            child: AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
           );
         }
         final current = snapshot.data!;
         _fill(current);
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-          children: [
-            _WerkaCodeField(
-              code: werkaCode,
-              regenerating: regenerating,
-              retryAfterSec: _retryAfterSec,
-              onCopy: werkaCode.trim().isEmpty ? null : _copyCode,
-              onRegenerate:
-                  regenerating || _retryAfterSec > 0 ? null : _regenerate,
-            ),
-            if (_retryAfterSec > 0) ...[
-              const SizedBox(height: 12),
-              Text('Keyingi code uchun $_retryAfterSec soniya kuting.'),
+        return Padding(
+          padding: _adminUserCreatePagePadding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _WerkaCodeField(
+                code: werkaCode,
+                regenerating: regenerating,
+                retryAfterSec: _retryAfterSec,
+                onCopy: werkaCode.trim().isEmpty ? null : _copyCode,
+                onRegenerate:
+                    regenerating || _retryAfterSec > 0 ? null : _regenerate,
+              ),
+              if (_retryAfterSec > 0) ...[
+                const SizedBox(height: _adminUserCreateFieldGap),
+                Text('Keyingi code uchun $_retryAfterSec soniya kuting.'),
+              ],
+              const SizedBox(height: 14),
+              _CreateUserForm(
+                name: name,
+                phone: phone,
+                nameLabel: 'Foydalanuvchi nomi',
+                phoneLabel: 'Foydalanuvchi telefoni',
+                actionLabel:
+                    saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash',
+                saving: saving,
+                onSubmit: () => _save(current),
+                padding: EdgeInsets.zero,
+              ),
             ],
-            const SizedBox(height: 14),
-            _CreateUserForm(
-              name: name,
-              phone: phone,
-              nameLabel: 'Omborchi name',
-              phoneLabel: 'Omborchi phone',
-              actionLabel: saving ? 'Saqlanmoqda...' : 'Omborchi saqlash',
-              saving: saving,
-              onSubmit: () => _save(current),
-              padding: EdgeInsets.zero,
-            ),
-          ],
+          ),
         );
       },
     );
@@ -833,7 +908,7 @@ class _CreateUserForm extends StatelessWidget {
     required this.actionLabel,
     required this.saving,
     required this.onSubmit,
-    this.padding = const EdgeInsets.fromLTRB(12, 12, 12, 24),
+    this.padding = _adminUserCreatePagePadding,
   });
 
   final TextEditingController name;
@@ -847,23 +922,20 @@ class _CreateUserForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: padding,
-      shrinkWrap: padding == EdgeInsets.zero,
-      physics: padding == EdgeInsets.zero
-          ? const NeverScrollableScrollPhysics()
-          : null,
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: name,
           textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: nameLabel),
+          decoration: _adminUserCreateInputDecoration(context, nameLabel),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: _adminUserCreateFieldGap),
         TextField(
           controller: phone,
           keyboardType: TextInputType.phone,
-          decoration: InputDecoration(labelText: phoneLabel),
+          decoration: _adminUserCreateInputDecoration(context, phoneLabel),
         ),
         const SizedBox(height: 18),
         SizedBox(
@@ -874,6 +946,13 @@ class _CreateUserForm extends StatelessWidget {
           ),
         ),
       ],
+    );
+    if (padding == EdgeInsets.zero) {
+      return content;
+    }
+    return Padding(
+      padding: padding,
+      child: content,
     );
   }
 }
@@ -895,42 +974,59 @@ class _WerkaCodeField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Code', style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+        Text(
+          'Code',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: SelectableText(
-                  code,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+        ),
+        const SizedBox(height: 6),
+        Material(
+          color: theme.brightness == Brightness.light
+              ? scheme.surfaceBright
+              : scheme.surface,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 58),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 6, 6, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      code.trim().isEmpty ? ' ' : code,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onCopy,
+                    icon: const Icon(Icons.content_copy_outlined),
+                  ),
+                  IconButton(
+                    onPressed: onRegenerate,
+                    icon: regenerating
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
               ),
-              IconButton(
-                onPressed: onCopy,
-                icon: const Icon(Icons.content_copy_outlined),
-              ),
-              IconButton(
-                onPressed: onRegenerate,
-                icon: regenerating
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_rounded),
-              ),
-            ],
+            ),
           ),
         ),
       ],

@@ -61,14 +61,14 @@ void main() {
       await _pumpUi(tester);
 
       expect(find.text('Role tanlash'), findsOneWidget);
-      expect(find.text('Omborchi'), findsOneWidget);
-      expect(find.byType(TabBar), findsNothing);
-      expect(seenRequests, contains('GET /v1/mobile/admin/settings'));
-
-      await tester.tap(find.text('Omborchi').first);
-      await _pumpUi(tester);
       expect(find.text('Role tanlang'), findsOneWidget);
+      expect(find.text('Omborchi'), findsNothing);
+      expect(find.byType(TabBar), findsNothing);
       expect(seenRequests, contains('GET /v1/mobile/admin/roles'));
+
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+      expect(find.text('Role tanlang'), findsWidgets);
       expect(find.text('Item yaratuvchi'), findsOneWidget);
       await _selectPickerItem(tester, 'Item yaratuvchi');
       expect(find.text('Code'), findsNothing);
@@ -77,12 +77,14 @@ void main() {
 
       await tester.tap(find.text('Item yaratuvchi').first);
       await _pumpUi(tester);
-      expect(find.text('Role tanlang'), findsOneWidget);
+      expect(find.text('Role tanlang'), findsWidgets);
       await _selectPickerItem(tester, 'Haridor');
 
       await tester.enterText(find.byType(TextField).at(0), 'Ali Market');
       await tester.enterText(find.byType(TextField).at(1), '+998900001111');
-      await tester.tap(find.widgetWithText(FilledButton, 'Haridor qo‘shish'));
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
@@ -116,7 +118,7 @@ void main() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Omborchi').first);
+      await tester.tap(find.text('Role tanlang').first);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Aparatchi');
 
@@ -174,7 +176,7 @@ void main() {
       );
 
       await _pumpUi(tester);
-      await tester.tap(find.text('Omborchi').first);
+      await tester.tap(find.text('Role tanlang').first);
       await _pumpUi(tester);
       await _selectPickerItem(tester, 'Qolipchi');
 
@@ -281,7 +283,7 @@ class _AdminUserCreateHttpClient implements HttpClient {
             'id': 'qolipchi',
             'label': 'Qolipchi',
             'base_role': 'qolipchi',
-            'capability_codes': ['qolip.access'],
+            'capability_codes': ['qolip.manage'],
             'system': true,
           },
         ];

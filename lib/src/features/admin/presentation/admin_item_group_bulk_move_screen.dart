@@ -31,9 +31,14 @@ class AdminItemGroupBulkMoveScreen extends StatelessWidget {
 }
 
 class AdminItemGroupBulkMoveTab extends StatefulWidget {
-  const AdminItemGroupBulkMoveTab({super.key, this.embedded = false});
+  const AdminItemGroupBulkMoveTab({
+    super.key,
+    this.embedded = false,
+    this.searchController,
+  });
 
   final bool embedded;
+  final TextEditingController? searchController;
 
   @override
   State<AdminItemGroupBulkMoveTab> createState() =>
@@ -50,7 +55,8 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
   final List<SupplierItem> _items = <SupplierItem>[];
   final List<String> _groups = <String>[];
   final Set<String> _selectedCodes = <String>{};
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
+  late final bool _ownsSearchController;
 
   bool _initialLoading = true;
   bool _loadingMore = false;
@@ -71,6 +77,9 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
   @override
   void initState() {
     super.initState();
+    _ownsSearchController = widget.searchController == null;
+    _searchController = widget.searchController ?? TextEditingController();
+    _searchController.addListener(_handleSearchControllerChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_loadInitial());
   }
@@ -79,7 +88,10 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
   void dispose() {
     _searchDebounce?.cancel();
     _autoTopUpTimer?.cancel();
-    _searchController.dispose();
+    _searchController.removeListener(_handleSearchControllerChanged);
+    if (_ownsSearchController) {
+      _searchController.dispose();
+    }
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
@@ -102,6 +114,10 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
     if (_scrollController.position.extentAfter <= _prefetchExtent) {
       unawaited(_loadMore(limit: _scrollPageSize, showLoader: true));
     }
+  }
+
+  void _handleSearchControllerChanged() {
+    _handleSearchChanged(_searchController.text);
   }
 
   Future<void> _loadInitial({
@@ -296,8 +312,7 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit =
-        _selectedCodes.isNotEmpty &&
+    final canSubmit = _selectedCodes.isNotEmpty &&
         (_selectedGroup?.trim().isNotEmpty ?? false) &&
         !_submitting;
     final searchTerm = _searchController.text.trim();
@@ -308,74 +323,75 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
     final content = _initialLoading
         ? const Center(child: AppLoadingIndicator())
         : _errorText != null && _items.isEmpty
-        ? _ErrorView(
-            message: _errorText!,
-            onRetry: () => _loadInitial(clearGroup: false, forceRefresh: true),
-          )
-        : RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView.builder(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(4, 8, 4, widget.embedded ? 24 : 164),
-              itemCount: listItemCount,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _BulkMoveHeader(
-                    groups: _groups,
-                    selectedGroup: _selectedGroup,
-                    groupMenuOpen: _groupMenuOpen,
-                    selectedCount: _selectedCodes.length,
-                    submitting: _submitting,
-                    canSubmit: canSubmit,
-                    onChooseGroup: _chooseGroup,
-                    onSelectGroup: _selectGroup,
-                    searchController: _searchController,
-                    onSearchChanged: _handleSearchChanged,
-                    onSubmit: _moveSelected,
-                  );
-                }
+            ? _ErrorView(
+                message: _errorText!,
+                onRetry: () =>
+                    _loadInitial(clearGroup: false, forceRefresh: true),
+              )
+            : RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding:
+                      EdgeInsets.fromLTRB(4, 8, 4, widget.embedded ? 24 : 164),
+                  itemCount: listItemCount,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return _BulkMoveHeader(
+                        groups: _groups,
+                        selectedGroup: _selectedGroup,
+                        groupMenuOpen: _groupMenuOpen,
+                        selectedCount: _selectedCodes.length,
+                        submitting: _submitting,
+                        canSubmit: canSubmit,
+                        onChooseGroup: _chooseGroup,
+                        onSelectGroup: _selectGroup,
+                        onSubmit: _moveSelected,
+                      );
+                    }
 
-                if (index == 1) {
-                  return const SizedBox(height: 12);
-                }
+                    if (index == 1) {
+                      return const SizedBox(height: 12);
+                    }
 
-                if (visibleItems.isEmpty && index == 2) {
-                  return const _EmptyItemsView();
-                }
+                    if (visibleItems.isEmpty && index == 2) {
+                      return const _EmptyItemsView();
+                    }
 
-                final rowIndex = index - 2;
-                if (rowIndex >= 0 && rowIndex < visibleItems.length) {
-                  final item = visibleItems[rowIndex];
-                  return Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      8,
-                      rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
-                      8,
-                      0,
-                    ),
-                    child: _ItemRow(
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        rowIndex,
-                        visibleItems.length,
-                      ),
-                      item: item,
-                      selected: _selectedCodes.contains(item.code),
-                      onTap: _submitting ? null : () => _toggleItem(item),
-                    ),
-                  );
-                }
+                    final rowIndex = index - 2;
+                    if (rowIndex >= 0 && rowIndex < visibleItems.length) {
+                      final item = visibleItems[rowIndex];
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          4,
+                          rowIndex == 0 ? 0 : M3SegmentedListGeometry.gap,
+                          4,
+                          0,
+                        ),
+                        child: _ItemRow(
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
+                            rowIndex,
+                            visibleItems.length,
+                          ),
+                          item: item,
+                          selected: _selectedCodes.contains(item.code),
+                          onTap: _submitting ? null : () => _toggleItem(item),
+                        ),
+                      );
+                    }
 
-                if (_loadingMore && index == listItemCount - 1) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    child: Center(child: AppLoadingIndicator()),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          );
+                    if (_loadingMore && index == listItemCount - 1) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Center(child: AppLoadingIndicator()),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              );
 
     if (!_showScrollTopButton) {
       return ExcludeSemantics(child: content);
@@ -814,8 +830,6 @@ class _BulkMoveHeader extends StatelessWidget {
     required this.canSubmit,
     required this.onChooseGroup,
     required this.onSelectGroup,
-    required this.searchController,
-    required this.onSearchChanged,
     required this.onSubmit,
   });
 
@@ -827,14 +841,15 @@ class _BulkMoveHeader extends StatelessWidget {
   final bool canSubmit;
   final VoidCallback onChooseGroup;
   final ValueChanged<String> onSelectGroup;
-  final TextEditingController searchController;
-  final ValueChanged<String> onSearchChanged;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final fieldSurface = theme.brightness == Brightness.light
+        ? scheme.surfaceBright
+        : scheme.surface;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -874,137 +889,129 @@ class _BulkMoveHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _TapBox(
-            onTap: submitting ? null : onChooseGroup,
-            borderRadius: 14,
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 56),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      selectedGroup ?? 'Group tanlang',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: selectedGroup == null
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.expand_more_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
+          Material(
+            color: fieldSurface,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: scheme.outlineVariant),
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: groupMenuOpen
-                ? Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainer,
-                      borderRadius: BorderRadius.zero,
-                      border: Border(
-                        left: BorderSide(color: scheme.outlineVariant),
-                        right: BorderSide(color: scheme.outlineVariant),
-                        top: BorderSide(color: scheme.outlineVariant),
-                        bottom: BorderSide(color: scheme.outlineVariant),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: submitting ? null : onChooseGroup,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 34),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedGroup ?? 'Group tanlang',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: selectedGroup == null
+                                    ? scheme.onSurfaceVariant
+                                    : scheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedRotation(
+                            turns: groupMenuOpen ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            child: Icon(
+                              Icons.expand_more_rounded,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int index = 0; index < groups.length; index++) ...[
-                          if (index > 0)
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: groupMenuOpen
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Divider(
                               height: 1,
                               thickness: 1,
                               color: scheme.outlineVariant.withValues(
-                                alpha: 0.6,
+                                alpha: 0.75,
                               ),
                             ),
-                          Material(
-                            color: groups[index] == selectedGroup
-                                ? scheme.primaryContainer.withValues(
-                                    alpha: 0.55,
-                                  )
-                                : Colors.transparent,
-                            child: InkWell(
-                              onTap: submitting
-                                  ? null
-                                  : () => onSelectGroup(groups[index]),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 13,
+                            for (int index = 0;
+                                index < groups.length;
+                                index++) ...[
+                              if (index > 0)
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.45,
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        groups[index],
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
+                              Material(
+                                color: groups[index] == selectedGroup
+                                    ? scheme.primaryContainer.withValues(
+                                        alpha: 0.55,
+                                      )
+                                    : Colors.transparent,
+                                child: InkWell(
+                                  onTap: submitting
+                                      ? null
+                                      : () => onSelectGroup(groups[index]),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 13,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            groups[index],
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
                                               fontWeight: FontWeight.w500,
                                               color: scheme.onSurface,
                                             ),
-                                      ),
+                                          ),
+                                        ),
+                                        if (groups[index] == selectedGroup)
+                                          Icon(
+                                            Icons.check_rounded,
+                                            size: 18,
+                                            color: scheme.onSurface,
+                                          ),
+                                      ],
                                     ),
-                                    if (groups[index] == selectedGroup)
-                                      Icon(
-                                        Icons.check_rounded,
-                                        size: 18,
-                                        color: scheme.onSurface,
-                                      ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: searchController,
-            onChanged: onSearchChanged,
-            enabled: !submitting,
-            decoration: InputDecoration(
-              hintText: 'Mahsulot qidirish',
-              isDense: true,
-              filled: true,
-              fillColor: scheme.surfaceContainer,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: scheme.outlineVariant),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: scheme.primary, width: 1.4),
-              ),
+                            ],
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -1041,9 +1048,9 @@ class _ItemRow extends StatelessWidget {
       context,
     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
     final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: scheme.onSurfaceVariant,
-      height: 1.05,
-    );
+          color: scheme.onSurfaceVariant,
+          height: 1.05,
+        );
     final subtitleLine = <String>[
       if (item.code.isNotEmpty && !_sameSearchText(item.code, displayTitle))
         item.code,

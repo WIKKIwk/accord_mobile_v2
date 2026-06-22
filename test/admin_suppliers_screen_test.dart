@@ -17,6 +17,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+Future<void> _selectUserRole(WidgetTester tester, String role) async {
+  await tester.tap(find.byKey(const ValueKey('admin-users-role-picker')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(role).last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -73,7 +80,7 @@ void main() {
       navigatorKey.currentState!.pushNamed(AppRoutes.adminUserCreate);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Omborchi').first);
+      await tester.tap(find.text('Role tanlang').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Item yaratuvchi'));
       await tester.pumpAndSettle();
@@ -89,8 +96,7 @@ void main() {
 
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Haridor'));
-      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Haridor');
       await tester.enterText(find.byType(TextField).first, 'chichqoq');
       for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
         await tester.pump(const Duration(milliseconds: 50));
@@ -254,8 +260,7 @@ void main() {
       expect(find.text('Supplier One'), findsOneWidget);
       expect(find.text('Customer One'), findsNothing);
 
-      await tester.tap(find.text('Haridor'));
-      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Haridor');
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Customer One'), findsOneWidget);
 
@@ -317,15 +322,17 @@ void main() {
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
-      expect(find.text('Omborchi'), findsOneWidget);
-      expect(find.text('Haridor'), findsOneWidget);
       expect(find.text('Ta’minotchi'), findsOneWidget);
-      expect(find.text('Ishchi'), findsOneWidget);
+      expect(find.text('Rollar'), findsOneWidget);
+      expect(find.byKey(const ValueKey('admin-users-role-picker')),
+          findsOneWidget);
+      expect(find.text('Omborchi'), findsNothing);
+      expect(find.text('Haridor'), findsNothing);
+      expect(find.text('Ishchi'), findsNothing);
       expect(find.text('Supplier One'), findsOneWidget);
       expect(find.text('Jasur worker'), findsNothing);
 
-      await tester.tap(find.text('Ishchi'));
-      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Ishchi');
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Jasur worker'), findsOneWidget);
       expect(find.text('Ali worker'), findsOneWidget);
@@ -420,8 +427,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      await tester.tap(find.text('Qolipchi'));
-      await tester.pumpAndSettle();
+      await _selectUserRole(tester, 'Qolipchi');
       expect(find.text('Qolipchi user'), findsOneWidget);
 
       await tester.tap(find.text('Qolipchi user'));

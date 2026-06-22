@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/admin_item_group_tree_entry.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_item_create_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,24 @@ Future<void> _openCreateItemTab(WidgetTester tester) async {
       return;
     }
   }
+}
+
+Future<void> _openItemsTab(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(Tab, 'Itemlar'));
+  await tester.pump();
+  for (var i = 0; i < 30; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.text('Item 001').evaluate().isNotEmpty) {
+      return;
+    }
+  }
+}
+
+Finder _appBarSearchEditable() {
+  return find.descendant(
+    of: find.byType(AdminCatalogSearchField),
+    matching: find.byType(EditableText),
+  );
 }
 
 Finder _createTabTextFieldAt(int index) {
@@ -208,12 +227,14 @@ void main() {
       expect(find.widgetWithText(Tab, 'Item yaratish'), findsOneWidget);
       expect(find.text('Itemlar'), findsOneWidget);
       expect(find.text('Mahsulot qidirish'), findsOneWidget);
-      expect(tester.widget<EditableText>(find.byType(EditableText)).textAlign,
-          TextAlign.start);
+      expect(
+        tester.widget<EditableText>(_appBarSearchEditable()).textAlign,
+        TextAlign.start,
+      );
       expect(
           find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
 
-      await tester.tap(find.byType(EditableText));
+      await tester.tap(_appBarSearchEditable());
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('admin-item-search-close')),
@@ -226,6 +247,10 @@ void main() {
       expect(
           find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
       expect(find.widgetWithText(Tab, 'Item yaratish'), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('admin-item-create-code')), findsOneWidget);
+
+      await _openItemsTab(tester);
 
       expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=80'));
       expect(find.text('Item 001'), findsOneWidget);
@@ -237,7 +262,10 @@ void main() {
         of: find.byType(AdminItemsListTab),
         matching: find.byType(Scrollable),
       );
-      await tester.drag(itemListScroll.last, const Offset(0, -6000));
+      final scrollableState = tester.state<ScrollableState>(
+        itemListScroll.last,
+      );
+      scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
@@ -304,6 +332,7 @@ void main() {
         ),
       );
       await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openItemsTab(tester);
     }
 
     await HttpOverrides.runZoned(() async {
@@ -332,13 +361,24 @@ void main() {
       );
       expect(find.text('Item 001'), findsOneWidget);
 
-      final itemListScroll = find.descendant(
-        of: find.byType(AdminItemsListTab),
-        matching: find.byType(Scrollable),
+      final refreshIndicator = tester.state<RefreshIndicatorState>(
+        find.descendant(
+          of: find.byType(AdminItemsListTab),
+          matching: find.byType(RefreshIndicator),
+        ),
       );
-      await tester.fling(itemListScroll.last, const Offset(0, 360), 1200);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+      unawaited(refreshIndicator.show());
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        final requestCount = seenRequests
+            .where(
+              (request) => request == 'GET /v1/mobile/admin/items?limit=80',
+            )
+            .length;
+        if (requestCount >= 2) {
+          break;
+        }
+      }
 
       expect(
         seenRequests

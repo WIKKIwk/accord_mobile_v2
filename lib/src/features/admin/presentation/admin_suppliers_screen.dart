@@ -33,6 +33,16 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.qolipchi,
 ];
 
+String _adminUserKindLabel(AdminUserKind kind) {
+  return switch (kind) {
+    AdminUserKind.werka => 'Omborchi',
+    AdminUserKind.customer => 'Haridor',
+    AdminUserKind.supplier => 'Ta’minotchi',
+    AdminUserKind.worker => 'Ishchi',
+    AdminUserKind.qolipchi => 'Qolipchi',
+  };
+}
+
 bool _workerIsQolipchi(
   AdminWorker worker,
   List<AdminRoleAssignment> assignments,
@@ -50,13 +60,7 @@ bool _workerIsQolipchi(
   return false;
 }
 
-int _adminUserKindIndex(AdminUserKind kind) {
-  final index = _adminUserTabKinds.indexOf(kind);
-  return index < 0 ? 2 : index;
-}
-
-class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
-    with SingleTickerProviderStateMixin {
+class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   static const int _pageSize = 50;
   static const double _prefetchExtentAfterFactor = 2.5;
   static _AdminSuppliersCache? _cache;
@@ -78,16 +82,11 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   int _offset = 0;
   String _searchQuery = '';
   AdminUserKind _selectedKind = AdminUserKind.supplier;
-  late final TabController _tabController;
+  bool _roleMenuOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: _adminUserTabKinds.length,
-      initialIndex: _adminUserKindIndex(_selectedKind),
-      vsync: this,
-    )..addListener(_handleKindTabChanged);
     _usersChanged.addListener(_handleUsersChanged);
     _bootstrap();
   }
@@ -95,20 +94,9 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
   @override
   void dispose() {
     _usersChanged.removeListener(_handleUsersChanged);
-    _tabController.removeListener(_handleKindTabChanged);
     _searchDebounce?.cancel();
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _handleKindTabChanged() {
-    final next = _adminUserTabKinds[_tabController.index];
-    if (_selectedKind == next) {
-      return;
-    }
-    setState(() => _selectedKind = next);
-    _saveCache();
   }
 
   void _handleUsersChanged() {
@@ -309,7 +297,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
         _loadingMore = false;
       });
     }
-    _tabController.index = _adminUserKindIndex(cache.selectedKind);
     return true;
   }
 
@@ -343,13 +330,13 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
 
   void _selectKind(AdminUserKind kind) {
     if (_selectedKind == kind) {
+      setState(() => _roleMenuOpen = false);
       return;
     }
-    final index = _adminUserKindIndex(kind);
-    if (_tabController.index != index) {
-      _tabController.animateTo(index);
-    }
-    setState(() => _selectedKind = kind);
+    setState(() {
+      _selectedKind = kind;
+      _roleMenuOpen = false;
+    });
     _saveCache();
   }
 
@@ -446,7 +433,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AppShell(
       animateOnEnter: false,
       drawer: AdminNavigationDrawer(
@@ -470,40 +456,189 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen>
       bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
       child: Column(
         children: [
-          Material(
-            color: theme.appBarTheme.backgroundColor ??
-                theme.colorScheme.surfaceContainer,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              onTap: (index) => _selectKind(_adminUserTabKinds[index]),
-              labelColor: theme.colorScheme.primary,
-              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-              labelStyle: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w400,
-              ),
-              unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w400,
-              ),
-              tabs: const [
-                Tab(height: 38, text: 'Omborchi'),
-                Tab(height: 38, text: 'Haridor'),
-                Tab(height: 38, text: 'Ta’minotchi'),
-                Tab(height: 38, text: 'Ishchi'),
-                Tab(height: 38, text: 'Qolipchi'),
-              ],
+          _AdminUserRolePicker(
+            selectedKind: _selectedKind,
+            expanded: _roleMenuOpen,
+            onToggle: () => setState(() => _roleMenuOpen = !_roleMenuOpen),
+            onSelect: _selectKind,
+          ),
+          Expanded(child: _buildUserList(_selectedKind)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminUserRolePicker extends StatelessWidget {
+  const _AdminUserRolePicker({
+    required this.selectedKind,
+    required this.expanded,
+    required this.onToggle,
+    required this.onSelect,
+  });
+
+  final AdminUserKind selectedKind;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<AdminUserKind> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final fieldSurface = theme.brightness == Brightness.light
+        ? scheme.surfaceBright
+        : scheme.surface;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Rollar',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
             ),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
+          const SizedBox(height: 6),
+          Material(
+            color: fieldSurface,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (final kind in _adminUserTabKinds) _buildUserList(kind),
+                InkWell(
+                  key: const ValueKey('admin-users-role-picker'),
+                  onTap: onToggle,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 34),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _adminUserKindLabel(selectedKind),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: scheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedRotation(
+                            turns: expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            child: Icon(
+                              Icons.expand_more_rounded,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: expanded
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.75,
+                              ),
+                            ),
+                            for (int index = 0;
+                                index < _adminUserTabKinds.length;
+                                index++) ...[
+                              if (index > 0)
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                ),
+                              _AdminUserRoleOption(
+                                kind: _adminUserTabKinds[index],
+                                selected:
+                                    _adminUserTabKinds[index] == selectedKind,
+                                onTap: () =>
+                                    onSelect(_adminUserTabKinds[index]),
+                              ),
+                            ],
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdminUserRoleOption extends StatelessWidget {
+  const _AdminUserRoleOption({
+    required this.kind,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AdminUserKind kind;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.55)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _adminUserKindLabel(kind),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: scheme.onSurface,
+                      ),
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_rounded, size: 18, color: scheme.onSurface),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -10,6 +10,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+const double _werkaDetailPanelGap = 4;
+const double _werkaDetailCardRadius = 18;
+const double _werkaDetailFieldRadius = 14;
+const double _werkaDetailButtonRadius = 14;
+
 class AdminWerkaScreen extends StatefulWidget {
   const AdminWerkaScreen({super.key});
 
@@ -143,8 +148,6 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -159,7 +162,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         bottom: const AdminDock(activeTab: AdminDockTab.settings),
-        contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        contentPadding: EdgeInsets.zero,
         child: SafeArea(
           top: false,
           child: FutureBuilder<AdminSettings>(
@@ -178,107 +181,24 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
               }
               final current = snapshot.data!;
               _fill(current);
-              final scheme = theme.colorScheme;
               return ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  _werkaDetailPanelGap,
+                  _werkaDetailPanelGap,
+                  _werkaDetailPanelGap,
+                  116,
+                ),
                 children: [
-                  const SizedBox(height: 4),
-                  Text('Code', style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 6),
-                  _AdminWerkaField(
-                    radius: 12,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: SelectableText(
-                            werkaCode,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: werkaCode.trim().isEmpty
-                              ? null
-                              : _copyCode,
-                          icon: const Icon(Icons.content_copy_outlined),
-                        ),
-                        IconButton(
-                          onPressed: regenerating || _retryAfterSec > 0
-                              ? null
-                              : _regenerate,
-                          icon: regenerating
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_retryAfterSec > 0) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Keyingi code uchun $_retryAfterSec soniya kuting.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: name,
-                    decoration: InputDecoration(
-                      labelText: 'Werka name',
-                      hintText: 'Werka',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: scheme.outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: scheme.primary,
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: phone,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: 'Werka phone',
-                      hintText: '+998901234567',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: scheme.outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: scheme.primary,
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: saving ? null : () => _save(current),
-                      child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
-                    ),
+                  _AdminWerkaDetailCard(
+                    name: name,
+                    phone: phone,
+                    code: werkaCode,
+                    retryAfterSec: _retryAfterSec,
+                    saving: saving,
+                    regenerating: regenerating,
+                    onSave: () => _save(current),
+                    onCopyCode: _copyCode,
+                    onRegenerateCode: _regenerate,
                   ),
                 ],
               );
@@ -290,22 +210,223 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
   }
 }
 
-class _AdminWerkaField extends StatelessWidget {
-  const _AdminWerkaField({required this.child, this.radius = 18});
+class _AdminWerkaDetailCard extends StatelessWidget {
+  const _AdminWerkaDetailCard({
+    required this.name,
+    required this.phone,
+    required this.code,
+    required this.retryAfterSec,
+    required this.saving,
+    required this.regenerating,
+    required this.onSave,
+    required this.onCopyCode,
+    required this.onRegenerateCode,
+  });
+
+  final TextEditingController name;
+  final TextEditingController phone;
+  final String code;
+  final int retryAfterSec;
+  final bool saving;
+  final bool regenerating;
+  final VoidCallback onSave;
+  final Future<void> Function() onCopyCode;
+  final Future<void> Function() onRegenerateCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Card.filled(
+      margin: EdgeInsets.zero,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_werkaDetailCardRadius),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name.text.trim().isEmpty ? 'Werka' : name.text.trim(),
+                    style: theme.textTheme.headlineMedium,
+                  ),
+                ),
+                const _WerkaStatusChip(label: 'Tayyor'),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text('Nomi', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 6),
+            _WerkaTextField(
+              controller: name,
+              hintText: 'Werka',
+            ),
+            const SizedBox(height: 14),
+            Text('Telefon', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 6),
+            _WerkaTextField(
+              controller: phone,
+              hintText: '+998901234567',
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 14),
+            Text('Code', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 6),
+            _WerkaDetailField(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      code.trim().isEmpty
+                          ? 'Hali generatsiya qilinmagan'
+                          : code,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  if (code.trim().isNotEmpty)
+                    IconButton(
+                      onPressed: onCopyCode,
+                      icon: const Icon(Icons.content_copy_outlined),
+                    ),
+                  IconButton(
+                    onPressed: regenerating || retryAfterSec > 0
+                        ? null
+                        : onRegenerateCode,
+                    icon: regenerating
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            ),
+            if (retryAfterSec > 0) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Keyingi code uchun $retryAfterSec soniya kuting.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                style: _werkaDetailButtonStyle(),
+                onPressed: saving ? null : onSave,
+                child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WerkaTextField extends StatelessWidget {
+  const _WerkaTextField({
+    required this.controller,
+    required this.hintText,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        hintText: hintText,
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_werkaDetailFieldRadius),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_werkaDetailFieldRadius),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_werkaDetailFieldRadius),
+          borderSide: BorderSide(color: scheme.primary, width: 1.4),
+        ),
+      ),
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+  }
+}
+
+class _WerkaDetailField extends StatelessWidget {
+  const _WerkaDetailField({required this.child});
 
   final Widget child;
-  final double radius;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(_werkaDetailFieldRadius),
       ),
       child: child,
     );
   }
+}
+
+class _WerkaStatusChip extends StatelessWidget {
+  const _WerkaStatusChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+ButtonStyle _werkaDetailButtonStyle() {
+  return FilledButton.styleFrom(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_werkaDetailButtonRadius),
+    ),
+    minimumSize: const Size(0, 54),
+  );
 }

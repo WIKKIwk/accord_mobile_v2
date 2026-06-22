@@ -15,6 +15,35 @@ import 'widgets/admin_top_notice.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+const double _itemCreatePanelGap = 4;
+const double _itemCreateCardRadius = 18;
+const double _itemCreateFieldRadius = 18;
+
+InputDecoration _itemCreateInputDecoration(
+  BuildContext context,
+  String label,
+) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  final fillColor = theme.brightness == Brightness.light
+      ? scheme.surfaceBright
+      : scheme.surfaceContainerHighest;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(_itemCreateFieldRadius),
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
+  return InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: fillColor,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: scheme.primary, width: 1.6),
+    ),
+  );
+}
+
 class AdminItemCreateScreen extends StatefulWidget {
   const AdminItemCreateScreen({super.key, this.initialTabIndex = 0});
 
@@ -27,7 +56,6 @@ class AdminItemCreateScreen extends StatefulWidget {
 class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     with SingleTickerProviderStateMixin {
   static const int _tabCount = 3;
-  static const int _itemsTabIndex = 0;
 
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
@@ -70,17 +98,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   }
 
   void _handleItemsSearchFocus() {
-    if (_itemsSearchFocusNode.hasFocus) {
-      _activateItemsTab();
-    }
     if (mounted) {
       setState(() {});
-    }
-  }
-
-  void _activateItemsTab() {
-    if (_tabController.index != _itemsTabIndex) {
-      _tabController.animateTo(_itemsTabIndex);
     }
   }
 
@@ -277,7 +296,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         controller: _itemsSearchController,
         focusNode: _itemsSearchFocusNode,
         hintText: 'Mahsulot qidirish',
-        onActivate: _activateItemsTab,
         onChanged: (value) =>
             _itemsListTabKey.currentState?.notifySearchChanged(value),
         onClear: () {
@@ -300,8 +318,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                   : AdminSurfaceTabBar(
                       controller: _tabController,
                       tabs: const [
-                        Tab(height: 38, text: 'Itemlar'),
                         Tab(height: 38, text: 'Item yaratish'),
+                        Tab(height: 38, text: 'Itemlar'),
                         Tab(height: 38, text: "Group ko'chirish"),
                       ],
                     ),
@@ -311,21 +329,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                AdminItemsListTab(
-                  key: _itemsListTabKey,
-                  searchController: _itemsSearchController,
-                  embeddedSearchInAppBar: true,
-                  loadItemsPage: ({
-                    required query,
-                    required limit,
-                    required offset,
-                  }) =>
-                      MobileApi.instance.adminItemsPage(
-                    query: query,
-                    limit: limit,
-                    offset: offset,
-                  ),
-                ),
                 _CreateItemTab(
                   code: code,
                   name: name,
@@ -341,7 +344,25 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                       setState(() => selectedCustomer = null),
                   onSave: saving ? null : _save,
                 ),
-                const AdminItemGroupBulkMoveTab(embedded: true),
+                AdminItemsListTab(
+                  key: _itemsListTabKey,
+                  searchController: _itemsSearchController,
+                  embeddedSearchInAppBar: true,
+                  loadItemsPage: ({
+                    required query,
+                    required limit,
+                    required offset,
+                  }) =>
+                      MobileApi.instance.adminItemsPage(
+                    query: query,
+                    limit: limit,
+                    offset: offset,
+                  ),
+                ),
+                AdminItemGroupBulkMoveTab(
+                  embedded: true,
+                  searchController: _itemsSearchController,
+                ),
               ],
             ),
           ),
@@ -382,181 +403,214 @@ class _CreateItemTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final fieldSurface = theme.brightness == Brightness.light
+        ? scheme.surfaceBright
+        : scheme.surface;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.fromLTRB(
+        _itemCreatePanelGap,
+        _itemCreatePanelGap,
+        _itemCreatePanelGap,
+        0,
+      ),
       children: [
-        TextField(
-          key: const ValueKey('admin-item-create-code'),
-          controller: code,
-          decoration: const InputDecoration(labelText: 'Item code'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const ValueKey('admin-item-create-name'),
-          controller: name,
-          decoration: const InputDecoration(labelText: 'Item name'),
-        ),
-        const SizedBox(height: 12),
-        FutureBuilder<List<String>>(
-          future: itemGroupsFuture,
-          builder: (context, snapshot) {
-            final groups = snapshot.data ?? const <String>[];
-            if (snapshot.connectionState == ConnectionState.done &&
-                !snapshot.hasError) {
-              onSyncItemGroup(groups);
-            }
-            final selectedGroup =
-                itemGroup.text.trim().isEmpty ? null : itemGroup.text.trim();
-            final requiresCustomer = _isFinishedGoodsGroup(selectedGroup ?? '');
-            return Column(
+        Card.filled(
+          margin: EdgeInsets.zero,
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_itemCreateCardRadius),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Item group',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                _TapBox(
-                  key: const ValueKey('admin-item-create-group-picker'),
-                  onTap: snapshot.connectionState == ConnectionState.done &&
-                          !snapshot.hasError &&
-                          !saving
-                      ? () => onOpenItemGroupPicker(groups)
-                      : null,
-                  borderRadius: 14,
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 56),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedGroup ?? 'Group tanlang',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
-                                ?.copyWith(
-                                  color: selectedGroup == null
-                                      ? Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant
-                                      : Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Icon(
-                          Icons.expand_more_rounded,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
+                TextField(
+                  key: const ValueKey('admin-item-create-code'),
+                  controller: code,
+                  decoration: _itemCreateInputDecoration(
+                    context,
+                    'Mahsulot kodi',
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (requiresCustomer) ...[
-                  Text(
-                    'Customer',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                TextField(
+                  key: const ValueKey('admin-item-create-name'),
+                  controller: name,
+                  decoration: _itemCreateInputDecoration(
+                    context,
+                    'Mahsulot nomi',
                   ),
-                  const SizedBox(height: 6),
-                  _TapBox(
-                    key: const ValueKey('admin-item-create-customer-picker'),
-                    onTap: saving ? null : onOpenCustomerPicker,
-                    borderRadius: 14,
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 56),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder<List<String>>(
+                  future: itemGroupsFuture,
+                  builder: (context, snapshot) {
+                    final groups = snapshot.data ?? const <String>[];
+                    if (snapshot.connectionState == ConnectionState.done &&
+                        !snapshot.hasError) {
+                      onSyncItemGroup(groups);
+                    }
+                    final selectedGroup = itemGroup.text.trim().isEmpty
+                        ? null
+                        : itemGroup.text.trim();
+                    final requiresCustomer = _isFinishedGoodsGroup(
+                      selectedGroup ?? '',
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Mahsulot guruhi',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              selectedCustomer == null
-                                  ? 'Customer tanlang'
-                                  : selectedCustomer!.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: selectedCustomer == null
-                                        ? Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                    fontWeight: FontWeight.w700,
+                        const SizedBox(height: 6),
+                        _TapBox(
+                          key: const ValueKey('admin-item-create-group-picker'),
+                          onTap: snapshot.connectionState ==
+                                      ConnectionState.done &&
+                                  !snapshot.hasError &&
+                                  !saving
+                              ? () => onOpenItemGroupPicker(groups)
+                              : null,
+                          borderRadius: _itemCreateFieldRadius,
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 58),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: fieldSurface,
+                              borderRadius: BorderRadius.circular(
+                                _itemCreateFieldRadius,
+                              ),
+                              border: Border.all(color: scheme.outlineVariant),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    selectedGroup ?? 'Guruh tanlang',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: selectedGroup == null
+                                          ? scheme.onSurfaceVariant
+                                          : scheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
+                                ),
+                                const SizedBox(width: 10),
+                                Icon(
+                                  Icons.expand_more_rounded,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ],
                             ),
                           ),
-                          if (selectedCustomer != null) ...[
-                            const SizedBox(width: 10),
-                            IconButton(
-                              tooltip: 'Tozalash',
-                              onPressed: saving ? null : onClearCustomer,
-                              icon: const Icon(Icons.close_rounded),
+                        ),
+                        const SizedBox(height: 12),
+                        if (requiresCustomer) ...[
+                          Text(
+                            'Haridor',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurfaceVariant,
                             ),
-                          ] else ...[
-                            const SizedBox(width: 10),
-                            Icon(
-                              Icons.expand_more_rounded,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 6),
+                          _TapBox(
+                            key: const ValueKey(
+                              'admin-item-create-customer-picker',
                             ),
-                          ],
+                            onTap: saving ? null : onOpenCustomerPicker,
+                            borderRadius: _itemCreateFieldRadius,
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 58),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: fieldSurface,
+                                borderRadius: BorderRadius.circular(
+                                  _itemCreateFieldRadius,
+                                ),
+                                border: Border.all(
+                                  color: scheme.outlineVariant,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      selectedCustomer == null
+                                          ? 'Haridor tanlang'
+                                          : selectedCustomer!.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.bodyLarge?.copyWith(
+                                        color: selectedCustomer == null
+                                            ? scheme.onSurfaceVariant
+                                            : scheme.onSurface,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (selectedCustomer != null) ...[
+                                    const SizedBox(width: 10),
+                                    IconButton(
+                                      tooltip: 'Tozalash',
+                                      onPressed:
+                                          saving ? null : onClearCustomer,
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
+                                  ] else ...[
+                                    const SizedBox(width: 10),
+                                    Icon(
+                                      Icons.expand_more_rounded,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                         ],
-                      ),
+                      ],
+                    );
+                  },
+                ),
+                TextField(
+                  controller: uom,
+                  decoration: _itemCreateInputDecoration(
+                    context,
+                    'O‘lchov birligi',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const ValueKey('admin-item-create-submit'),
+                    onPressed: onSave,
+                    child: Text(
+                      saving ? 'Yaratilmoqda...' : 'Mahsulot yaratish',
                     ),
                   ),
-                  const SizedBox(height: 12),
-                ],
+                ),
               ],
-            );
-          },
-        ),
-        TextField(
-          controller: uom,
-          decoration: const InputDecoration(labelText: 'UOM'),
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            key: const ValueKey('admin-item-create-submit'),
-            onPressed: onSave,
-            child: Text(saving ? 'Yaratilmoqda...' : 'Item yaratish'),
+            ),
           ),
         ),
       ],
