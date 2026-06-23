@@ -181,3 +181,7 @@ List<ProductionMapSaved> _mergeSavedProductionMapOrders(
         item,
   ];
 }
+
+Set<String> _productionMapOrderIdSet(List<ProductionMapSaved> orders) {
+  return orders.map((order) => order.map.id.trim()).toSet();
+}

@@ -960,7 +960,7 @@ class _AdminProductionMapOrdersScreenState
       showAdminTopNotice(context, 'Tanlangan zakazlar bu aparatga tushmaydi');
       return;
     }
-    final orderIds = orders.map((order) => order.map.id.trim()).toSet();
+    final orderIds = _productionMapOrderIdSet(orders);
     setState(() {
       _draggingMoveOrders = const [];
       _draggingMoveSource = null;
@@ -1019,7 +1019,7 @@ class _AdminProductionMapOrdersScreenState
       }
       converted.add(MapEntry(order, map));
     }
-    final orderIds = orders.map((order) => order.map.id.trim()).toSet();
+    final orderIds = _productionMapOrderIdSet(orders);
     setState(() {
       _draggingMoveOrders = const [];
       _draggingMoveSource = null;
@@ -1075,7 +1075,7 @@ class _AdminProductionMapOrdersScreenState
       showAdminTopNotice(context, 'Tanlangan zakazlar bu aparatga tushmaydi');
       return;
     }
-    final orderIds = orders.map((order) => order.map.id.trim()).toSet();
+    final orderIds = _productionMapOrderIdSet(orders);
     setState(() {
       _draggingMoveOrders = const [];
       _draggingMoveSource = null;
