@@ -88,3 +88,11 @@ Future<List<AdminCompletionRequestNotification>>
     _loadProductionMapCompletionRequests() {
   return MobileApi.instance.adminProductionMapCompletionRequests();
 }
+
+bool _shouldRefreshWorkerOnlyData(bool workerMode) {
+  return workerMode;
+}
+
+bool _shouldRefreshAdminOnlyData(bool workerMode) {
+  return !workerMode;
+}

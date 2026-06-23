@@ -375,7 +375,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {
-    if (!widget.workerMode) {
+    if (!_shouldRefreshWorkerOnlyData(widget.workerMode)) {
       return;
     }
     try {
@@ -392,7 +392,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _refreshWorkerCompletionRequestDecisions() async {
-    if (!widget.workerMode) {
+    if (!_shouldRefreshWorkerOnlyData(widget.workerMode)) {
       return;
     }
     try {
@@ -417,7 +417,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _refreshClosedOrders() async {
-    if (widget.workerMode) {
+    if (!_shouldRefreshAdminOnlyData(widget.workerMode)) {
       return;
     }
     try {
@@ -434,7 +434,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _refreshCompletionRequests() async {
-    if (widget.workerMode) {
+    if (!_shouldRefreshAdminOnlyData(widget.workerMode)) {
       return;
     }
     try {
