@@ -1,4 +1,5 @@
 import '../../../app/app_router.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -288,9 +289,4 @@ String _orderTitle(CalculateOrderTemplate template) {
   return name.isEmpty ? 'Zakaz' : name;
 }
 
-String _fmt(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toStringAsFixed(2);
-}
+String _fmt(double value) => formatQuantity(value);
