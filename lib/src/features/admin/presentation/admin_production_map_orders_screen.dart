@@ -553,26 +553,8 @@ class _AdminProductionMapOrdersScreenState
     _setQueueActionInFlight(true);
     try {
       final result = await _submitAdminApparatusQueueAction(
-        apparatus: apparatusKey,
-        orderId: request.order.map.id,
-        action: request.action,
-        materialBarcodes: request.materialBarcodes,
-        producedQty: request.producedQty,
-        grossQty: request.grossQty,
-        returnInkKg: request.returnInkKg,
-        laminationPrintLeftoverRolls: request.laminationPrintLeftoverRolls,
-        laminationFilmLeftoverRolls: request.laminationFilmLeftoverRolls,
-        rezkaBosmaWaste: request.rezkaBosmaWaste,
-        rezkaLaminationWaste: request.rezkaLaminationWaste,
-        rezkaEdgeWaste: request.rezkaEdgeWaste,
-        totalWaste: request.totalWaste,
-        finishedGoodsKg: request.finishedGoodsKg,
-        finishedGoodsMeter: request.finishedGoodsMeter,
-        uom: request.uom,
-        qrPayload: request.qrPayload,
-        progressBatchId: request.progressBatchId,
-        driverUrl: request.driverUrl,
-        completionRequestNote: request.completionRequestNote,
+        request,
+        apparatusKey: apparatusKey,
       );
       if (!mounted) {
         return null;
