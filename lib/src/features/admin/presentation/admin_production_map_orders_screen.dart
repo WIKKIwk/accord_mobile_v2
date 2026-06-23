@@ -902,66 +902,6 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  List<ProductionMapSaved> _visibleOrders() {
-    return _filterOrdersBySearch(_orders);
-  }
-
-  List<AdminClosedProductionOrder> _visibleClosedOrders() {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _closedOrders;
-    }
-    return _closedOrders.where((order) {
-      final haystack = [
-        order.orderId,
-        _closedOrderDisplayCode(order),
-        order.orderNumber,
-        order.title,
-        order.productCode,
-        order.closedByRole,
-        order.closedByRef,
-        order.closedByDisplayName,
-        for (final log in order.logs) ...[
-          log.apparatus,
-          log.action,
-          log.fromState,
-          log.toState,
-          log.actorRole,
-          log.actorRef,
-          log.actorDisplayName,
-        ],
-      ].join(' ').toLowerCase();
-      return haystack.contains(query);
-    }).toList(growable: false);
-  }
-
-  List<ProductionMapSaved> _filterOrdersBySearch(
-    List<ProductionMapSaved> orders,
-  ) {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) {
-      return orders;
-    }
-    return orders.where(_orderMatchesSearch).toList(growable: false);
-  }
-
-  bool _orderMatchesSearch(ProductionMapSaved order) {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) {
-      return true;
-    }
-    final map = order.map;
-    final haystack = [
-      _openedOrderDisplayCode(map),
-      map.code,
-      map.orderNumber,
-      map.title,
-      map.productCode,
-      for (final node in map.nodes) node.title,
-    ].join(' ').toLowerCase();
-    return haystack.contains(query);
-  }
-
   List<ProductionMapSaved> _baseOrdersForApparatus(AdminWarehouse apparatus) {
     final title = apparatus.warehouse.trim();
     return _orders.where((order) {
@@ -1011,7 +951,9 @@ class _AdminProductionMapOrdersScreenState
           )
           .toList(growable: false);
     }
-    return widget.workerMode ? _filterOrdersBySearch(ordered) : ordered;
+    return widget.workerMode
+        ? _filterOrdersBySearch(ordered, query: _searchQuery)
+        : ordered;
   }
 
   List<_WorkerCompletedOrderEntry> _workerCompletedOrders() {
@@ -1035,6 +977,7 @@ class _AdminProductionMapOrdersScreenState
     }
     final filtered = _filterOrdersBySearch(
       orders.map((entry) => entry.order).toList(growable: false),
+      query: _searchQuery,
     );
     final visibleIds = filtered.map((order) => order.map.id.trim()).toSet();
     return orders
@@ -1676,7 +1619,10 @@ class _AdminProductionMapOrdersScreenState
                                     _OrdersModulePage(
                                       bottomPadding: bottomPadding,
                                       orders: _orders,
-                                      visibleOrders: _visibleOrders(),
+                                      visibleOrders: _visibleOrders(
+                                        orders: _orders,
+                                        query: _searchQuery,
+                                      ),
                                       baseMetrajByMapId: _baseMetrajByMapId,
                                       orderKgByMapId: _orderKgByMapId,
                                     ),
@@ -1753,8 +1699,10 @@ class _AdminProductionMapOrdersScreenState
                                     _ClosedOrdersModulePage(
                                       bottomPadding: bottomPadding,
                                       closedOrders: _closedOrders,
-                                      visibleClosedOrders:
-                                          _visibleClosedOrders(),
+                                      visibleClosedOrders: _visibleClosedOrders(
+                                        orders: _closedOrders,
+                                        query: _searchQuery,
+                                      ),
                                     ),
                                 },
                             ],
