@@ -24,7 +24,6 @@ class _AdminCalculateOrdersScreenState
     extends State<AdminCalculateOrdersScreen> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
-  bool _openingRoute = false;
   bool _loading = true;
   String _searchQuery = '';
 

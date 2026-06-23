@@ -27,7 +27,6 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late Future<_AdminRolesData> _future;
-  bool _openingRoute = false;
 
   @override
   void initState() {
