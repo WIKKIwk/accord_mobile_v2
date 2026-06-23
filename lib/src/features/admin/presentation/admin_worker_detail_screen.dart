@@ -10,6 +10,7 @@ import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
+import '../../../core/widgets/feedback/app_text_input_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
@@ -93,62 +94,16 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   }
 
   Future<void> _addPhone(AdminWorkerDetail detail) async {
-    final controller = TextEditingController(text: detail.phone);
-    final phone = await showDialog<String>(
+    final phone = await showAppTextInputDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_workerDetailCardRadius),
-          ),
-          title: const Text('Telefon raqam qo‘shish'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.phone,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: '+998901234567',
-                  border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(_workerDetailFieldRadius),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: appOutlinedActionButtonStyle(
-                        borderRadius: _workerDetailFieldRadius,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Bekor qilish'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      style: appFilledActionButtonStyle(
-                        borderRadius: _workerDetailFieldRadius,
-                      ),
-                      onPressed: () =>
-                          Navigator.of(context).pop(controller.text.trim()),
-                      child: const Text('Saqlash'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+      title: 'Telefon raqam qo‘shish',
+      initialText: detail.phone,
+      hintText: '+998901234567',
+      keyboardType: TextInputType.phone,
+      cardRadius: _workerDetailCardRadius,
+      fieldRadius: _workerDetailFieldRadius,
+      buttonRadius: _workerDetailFieldRadius,
     );
-    controller.dispose();
     if (phone == null || phone.trim().isEmpty) {
       return;
     }

@@ -5,6 +5,7 @@ import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
+import '../../../core/widgets/feedback/app_text_input_dialog.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../shared/models/app_models.dart';
@@ -90,33 +91,12 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   }
 
   Future<void> _addPhone(AdminSupplierDetail detail) async {
-    final controller = TextEditingController();
-    final phone = await showDialog<String>(
+    final phone = await showAppTextInputDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Telefon raqam qo‘shish'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.phone,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: '+998901234567'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('Saqlash'),
-            ),
-          ],
-        );
-      },
+      title: 'Telefon raqam qo‘shish',
+      hintText: '+998901234567',
+      keyboardType: TextInputType.phone,
     );
-    controller.dispose();
     if (phone == null || phone.trim().isEmpty) {
       return;
     }
