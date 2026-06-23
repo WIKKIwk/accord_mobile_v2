@@ -7,7 +7,7 @@ import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/theme/app_motion.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
@@ -216,7 +216,7 @@ class _WerkaSummaryList extends StatelessWidget {
       child: M3SegmentSpacedColumn(
         padding: const EdgeInsets.symmetric(horizontal: 9),
         children: [
-          _WerkaSummarySegmentCard(
+          AppSummarySegmentCard(
             slot: M3SegmentVerticalSlot.top,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
             label: context.l10n.pendingStatus,
@@ -226,7 +226,7 @@ class _WerkaSummaryList extends StatelessWidget {
               arguments: WerkaStatusKind.pending,
             ),
           ),
-          _WerkaSummarySegmentCard(
+          AppSummarySegmentCard(
             slot: M3SegmentVerticalSlot.middle,
             cornerRadius: M3SegmentedListGeometry.cornerMiddle,
             label: context.l10n.confirmedStatus,
@@ -236,7 +236,7 @@ class _WerkaSummaryList extends StatelessWidget {
               arguments: WerkaStatusKind.confirmed,
             ),
           ),
-          _WerkaSummarySegmentCard(
+          AppSummarySegmentCard(
             slot: M3SegmentVerticalSlot.bottom,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
             label: context.l10n.returnedStatus,
@@ -247,86 +247,6 @@ class _WerkaSummaryList extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Bitta **to‘ldirilgan** list elementi — segmentlar bir-biriga ulanmaydi (faqat gap).
-class _WerkaSummarySegmentCard extends StatelessWidget {
-  const _WerkaSummarySegmentCard({
-    required this.slot,
-    required this.cornerRadius,
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final double cornerRadius;
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final BorderRadius radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      cornerRadius,
-    );
-    final Color bg = switch (theme.brightness) {
-      Brightness.dark => scheme.surfaceContainerLow,
-      Brightness.light => scheme.surfaceContainerHighest,
-    };
-    final Color foreground = scheme.onSurface;
-    final Color accent = scheme.onSurfaceVariant;
-
-    return Material(
-      color: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Ink(
-          decoration: BoxDecoration(color: bg, borderRadius: radius),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 66),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 18.5,
-                        fontWeight: FontWeight.w700,
-                        color: foreground,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    value,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: 18.5,
-                      fontWeight: FontWeight.w700,
-                      color: foreground,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.chevron_right_rounded, size: 22, color: accent),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -447,11 +367,11 @@ class _WerkaPendingItemTile extends StatelessWidget {
     final r = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
 
     void navigate() => Navigator.of(context).pushNamed(
-      record.isDeliveryNote
-          ? AppRoutes.werkaCustomerDeliveryDetail
-          : AppRoutes.werkaDetail,
-      arguments: record,
-    );
+          record.isDeliveryNote
+              ? AppRoutes.werkaCustomerDeliveryDetail
+              : AppRoutes.werkaDetail,
+          arguments: record,
+        );
 
     return M3SegmentFilledSurface(
       slot: slot,
