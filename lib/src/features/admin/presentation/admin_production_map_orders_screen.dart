@@ -461,29 +461,45 @@ class _AdminProductionMapOrdersScreenState
               _workerWatchTabCount(apparatus) != _tabController.length)) {
         _recreateWorkerTabController(apparatus);
       }
-      setState(() {
-        _loadError = null;
-        _orders = orders;
-        _apparatus = apparatus;
-        if (!widget.workerMode) {
-          _selectedApparatus ??= apparatus.isEmpty ? null : apparatus.first;
-          _syncMoveApparatusDefaults(apparatus);
-        }
-        if (initial) {
-          _loading = false;
-        }
-      });
+      _applyLoadedProductionMapOrdersAndApparatus(
+        orders: orders,
+        apparatus: apparatus,
+        initial: initial,
+      );
       unawaited(_refreshOrderBaseMetraj(orders));
     } catch (_) {
       if (mounted && initial) {
-        setState(() {
-          _loading = false;
-          _loadError = 'Reja menu yuklanmadi';
-        });
+        _applyInitialProductionMapLoadError();
       }
     } finally {
       _mapsRefreshInFlight = false;
     }
+  }
+
+  void _applyLoadedProductionMapOrdersAndApparatus({
+    required List<ProductionMapSaved> orders,
+    required List<AdminWarehouse> apparatus,
+    required bool initial,
+  }) {
+    setState(() {
+      _loadError = null;
+      _orders = orders;
+      _apparatus = apparatus;
+      if (!widget.workerMode) {
+        _selectedApparatus ??= apparatus.isEmpty ? null : apparatus.first;
+        _syncMoveApparatusDefaults(apparatus);
+      }
+      if (initial) {
+        _loading = false;
+      }
+    });
+  }
+
+  void _applyInitialProductionMapLoadError() {
+    setState(() {
+      _loading = false;
+      _loadError = 'Reja menu yuklanmadi';
+    });
   }
 
   Future<void> _refreshOrderBaseMetraj(List<ProductionMapSaved> orders) async {
