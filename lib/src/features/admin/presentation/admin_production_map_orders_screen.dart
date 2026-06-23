@@ -723,28 +723,13 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _syncMoveApparatusDefaults(List<AdminWarehouse> source) {
-    final pechat = source
-        .where((item) => productionMapPechatColorCount(item.warehouse) != null)
-        .toList(growable: false);
-    final candidates = pechat.isEmpty ? source : pechat;
-    if (candidates.isEmpty) {
-      _moveTopApparatus = null;
-      _moveBottomApparatus = null;
-      return;
-    }
-    _moveTopApparatus ??= candidates.first;
-    if (_moveBottomApparatus == null) {
-      if (candidates.length > 1) {
-        _moveBottomApparatus = candidates[1];
-      } else {
-        for (final item in source) {
-          if (item.warehouse != candidates.first.warehouse) {
-            _moveBottomApparatus = item;
-            break;
-          }
-        }
-      }
-    }
+    final defaults = _moveApparatusDefaults(
+      source: source,
+      currentTop: _moveTopApparatus,
+      currentBottom: _moveBottomApparatus,
+    );
+    _moveTopApparatus = defaults.top;
+    _moveBottomApparatus = defaults.bottom;
   }
 
   void _openDrawerRoute(String routeName) {

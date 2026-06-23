@@ -20,6 +20,16 @@ class _WorkerCompletedOrderEntry {
   final AdminWarehouse? apparatus;
 }
 
+class _MoveApparatusDefaults {
+  const _MoveApparatusDefaults({
+    required this.top,
+    required this.bottom,
+  });
+
+  final AdminWarehouse? top;
+  final AdminWarehouse? bottom;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',

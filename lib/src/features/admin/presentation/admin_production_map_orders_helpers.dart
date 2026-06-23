@@ -742,3 +742,33 @@ List<ProductionMapSaved> _applyApparatusOrderSequence({
     ...byId.values,
   ];
 }
+
+_MoveApparatusDefaults _moveApparatusDefaults({
+  required List<AdminWarehouse> source,
+  required AdminWarehouse? currentTop,
+  required AdminWarehouse? currentBottom,
+}) {
+  final pechat = source
+      .where((item) => productionMapPechatColorCount(item.warehouse) != null)
+      .toList(growable: false);
+  final candidates = pechat.isEmpty ? source : pechat;
+  if (candidates.isEmpty) {
+    return const _MoveApparatusDefaults(top: null, bottom: null);
+  }
+
+  final top = currentTop ?? candidates.first;
+  var bottom = currentBottom;
+  if (bottom == null) {
+    if (candidates.length > 1) {
+      bottom = candidates[1];
+    } else {
+      for (final item in source) {
+        if (item.warehouse != candidates.first.warehouse) {
+          bottom = item;
+          break;
+        }
+      }
+    }
+  }
+  return _MoveApparatusDefaults(top: top, bottom: bottom);
+}
