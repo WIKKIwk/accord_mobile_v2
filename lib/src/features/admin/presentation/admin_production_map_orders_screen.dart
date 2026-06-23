@@ -321,19 +321,7 @@ class _AdminProductionMapOrdersScreenState
     try {
       while (mounted) {
         _liveRefreshQueued = false;
-        if (widget.workerMode) {
-          await _refreshMapsAndApparatus(initial: runInitial);
-          await _refreshQueueSnapshot();
-          await _refreshWorkerCompletedOrders();
-          await _refreshWorkerCompletionRequestDecisions();
-        } else {
-          await Future.wait([
-            _refreshMapsAndApparatus(initial: runInitial),
-            _refreshQueueSnapshot(),
-            _refreshCompletionRequests(),
-            _refreshClosedOrders(),
-          ]);
-        }
+        await _refreshLiveBatch(initial: runInitial);
         if (!_liveRefreshQueued) {
           return;
         }
@@ -342,6 +330,28 @@ class _AdminProductionMapOrdersScreenState
     } finally {
       _liveRefreshInFlight = false;
     }
+  }
+
+  Future<void> _refreshLiveBatch({required bool initial}) {
+    return widget.workerMode
+        ? _refreshWorkerLiveBatch(initial: initial)
+        : _refreshAdminLiveBatch(initial: initial);
+  }
+
+  Future<void> _refreshWorkerLiveBatch({required bool initial}) async {
+    await _refreshMapsAndApparatus(initial: initial);
+    await _refreshQueueSnapshot();
+    await _refreshWorkerCompletedOrders();
+    await _refreshWorkerCompletionRequestDecisions();
+  }
+
+  Future<void> _refreshAdminLiveBatch({required bool initial}) {
+    return Future.wait([
+      _refreshMapsAndApparatus(initial: initial),
+      _refreshQueueSnapshot(),
+      _refreshCompletionRequests(),
+      _refreshClosedOrders(),
+    ]);
   }
 
   Future<void> _refreshQueueSnapshot() async {
