@@ -8,11 +8,13 @@ class AppSegmentSurfaceCard extends StatelessWidget {
     required this.child,
     this.slot,
     this.padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
+    this.onTap,
   });
 
   final Widget child;
   final M3SegmentVerticalSlot? slot;
   final EdgeInsetsGeometry padding;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +27,8 @@ class AppSegmentSurfaceCard extends StatelessWidget {
           : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
     );
 
+    final paddedChild = Padding(padding: padding, child: child);
+
     return Material(
       color: scheme.surface,
       elevation: 2,
@@ -32,7 +36,9 @@ class AppSegmentSurfaceCard extends StatelessWidget {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: Padding(padding: padding, child: child),
+      child: onTap == null
+          ? paddedChild
+          : InkWell(onTap: onTap, borderRadius: radius, child: paddedChild),
     );
   }
 }

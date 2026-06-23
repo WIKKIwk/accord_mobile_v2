@@ -1238,63 +1238,52 @@ class _WorkerLevelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
-    return Material(
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Row(
-          children: [
-            SizedBox.square(
-              dimension: 30,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.badge_outlined,
-                  size: 16,
-                  color: scheme.onSecondaryContainer,
-                ),
+    return AppSegmentSurfaceCard(
+      slot: slot,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 30,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.badge_outlined,
+                size: 16,
+                color: scheme.onSecondaryContainer,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                worker.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              worker.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 150,
-              child: _WorkerLevelPicker(
-                value: adminWorkerLevels.contains(worker.level)
-                    ? worker.level
-                    : adminWorkerLevels.last,
-                onChanged: (value) {
-                  if (value == null || value == worker.level) {
-                    return;
-                  }
-                  onLevelChanged(value);
-                },
-              ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 150,
+            child: _WorkerLevelPicker(
+              value: adminWorkerLevels.contains(worker.level)
+                  ? worker.level
+                  : adminWorkerLevels.last,
+              onChanged: (value) {
+                if (value == null || value == worker.level) {
+                  return;
+                }
+                onLevelChanged(value);
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

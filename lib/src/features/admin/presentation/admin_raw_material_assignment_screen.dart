@@ -486,10 +486,6 @@ class _AssignmentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final radius = M3SegmentedListGeometry.borderRadius(
-      slot,
-      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-    );
     final summary = [
       assignment.apparatus,
       assignment.itemName,
@@ -499,176 +495,166 @@ class _AssignmentTile extends StatelessWidget {
     final status = assignment.stockStatus.trim();
     final canUnlink = status.isEmpty || status.toLowerCase() == 'available';
 
-    return Material(
+    return AppSegmentSurfaceCard(
       key: ValueKey('raw-material-assignment-${_assignmentKey(assignment)}'),
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => onExpandedChanged(!expanded),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox.square(
-                      dimension: 30,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: scheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.qr_code_2_rounded,
-                          size: 16,
-                          color: scheme.onSecondaryContainer,
-                        ),
-                      ),
+      slot: slot,
+      padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
+      onTap: () => onExpandedChanged(!expanded),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 30,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            assignment.orderId.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            assignment.barcode.trim(),
-                            maxLines: expanded ? 3 : 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (summary.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              summary,
-                              maxLines: expanded ? 4 : 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                    child: Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 16,
+                      color: scheme.onSecondaryContainer,
                     ),
-                    AnimatedRotation(
-                      turns: expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 22,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: expanded
-                    ? Padding(
-                        padding:
-                            const EdgeInsets.only(left: 44, top: 8, right: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _MaterialInfoRow(
-                              label: 'Zakaz',
-                              value: assignment.orderId,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'QR',
-                              value: assignment.barcode,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Aparat',
-                              value: assignment.apparatus,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Ombor',
-                              value: assignment.stockWarehouse,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Kod',
-                              value: assignment.itemCode,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Nomi',
-                              value: assignment.itemName,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Guruh',
-                              value: assignment.itemGroup,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Status',
-                              value: _assignmentStockStatusLabel(
-                                assignment.stockStatus,
-                              ),
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Band zakaz',
-                              value: assignment.reservedOrderId,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Kim uladi',
-                              value: assignee,
-                            ),
-                            _MaterialInfoRow(
-                              label: 'Vaqt',
-                              value: _formatAssignmentTimestamp(
-                                assignment.assignedAt,
-                              ),
-                            ),
-                            if (canUnlink) ...[
-                              const SizedBox(height: 10),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: OutlinedButton.icon(
-                                  onPressed: unlinking ? null : onUnlink,
-                                  icon: unlinking
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.link_off_rounded),
-                                  label: const Text('Uzish'),
-                                ),
-                              ),
-                            ],
-                          ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        assignment.orderId.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        assignment.barcode.trim(),
+                        maxLines: expanded ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (summary.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          summary,
+                          maxLines: expanded ? 4 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 22,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 44, top: 8, right: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _MaterialInfoRow(
+                          label: 'Zakaz',
+                          value: assignment.orderId,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'QR',
+                          value: assignment.barcode,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Aparat',
+                          value: assignment.apparatus,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Ombor',
+                          value: assignment.stockWarehouse,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Kod',
+                          value: assignment.itemCode,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Nomi',
+                          value: assignment.itemName,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Guruh',
+                          value: assignment.itemGroup,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Status',
+                          value: _assignmentStockStatusLabel(
+                            assignment.stockStatus,
+                          ),
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Band zakaz',
+                          value: assignment.reservedOrderId,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Kim uladi',
+                          value: assignee,
+                        ),
+                        _MaterialInfoRow(
+                          label: 'Vaqt',
+                          value: _formatAssignmentTimestamp(
+                            assignment.assignedAt,
+                          ),
+                        ),
+                        if (canUnlink) ...[
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton.icon(
+                              onPressed: unlinking ? null : onUnlink,
+                              icon: unlinking
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.link_off_rounded),
+                              label: const Text('Uzish'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }
