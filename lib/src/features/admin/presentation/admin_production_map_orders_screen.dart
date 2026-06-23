@@ -1102,7 +1102,21 @@ class _AdminProductionMapOrdersScreenState
                   ),
                 )
               : widget.workerMode
-                  ? _buildWorkerWatchBody(bottomPadding)
+                  ? _WorkerWatchBody(
+                      apparatus: _apparatus,
+                      assignedApparatus:
+                          AppSession.instance.profile?.assignedApparatus ??
+                              const <String>[],
+                      orders: _orders,
+                      completedOrders: _completedWorkerOrders,
+                      sequenceByApparatus: _sequenceByApparatus,
+                      queueStatesByApparatus: _queueStatesByApparatus,
+                      searchQuery: _searchQuery,
+                      bottomPadding: bottomPadding,
+                      tabController: _tabController,
+                      onTapCompletedOrder: _showCompletedOrderDetail,
+                      onTapWatchOrder: _showWatchOrderDetail,
+                    )
                   : Column(
                       children: [
                         if (_modules.length > 1)
@@ -1222,76 +1236,6 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
-  Widget _buildWorkerWatchBody(double bottomPadding) {
-    if (_apparatus.isEmpty) {
-      return const Center(
-        child: _EmptyOpenedOrders(message: 'Aparatlar topilmadi'),
-      );
-    }
-    final tabs = _workerWatchTabs(
-      apparatus: _apparatus,
-      assignedApparatus:
-          AppSession.instance.profile?.assignedApparatus ?? const <String>[],
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Material(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-            tabs: [
-              for (final tab in tabs)
-                Tab(height: 38, text: _workerWatchTabLabel(tab)),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              for (final tab in tabs)
-                if (tab.isCompleted)
-                  _AparatchiCompletedOrdersPage(
-                    orders: _workerCompletedOrders(
-                      orders: _orders,
-                      completedOrders: _completedWorkerOrders,
-                      apparatus: _apparatus,
-                      query: _searchQuery,
-                    ),
-                    bottomPadding: bottomPadding,
-                    onTapOrder: _showCompletedOrderDetail,
-                  )
-                else
-                  _AparatchiWatchSequencePage(
-                    apparatus: tab.apparatus!,
-                    orders: _ordersForApparatus(tab.apparatus!),
-                    bottomPadding: bottomPadding,
-                    isAssigned: _isAssignedWatchApparatus(
-                      tab.apparatus!,
-                      assignedApparatus:
-                          AppSession.instance.profile?.assignedApparatus ??
-                              const <String>[],
-                    ),
-                    queueStates: _queueStatesForApparatus(
-                      tab.apparatus!,
-                      queueStatesByApparatus: _queueStatesByApparatus,
-                    ),
-                    onTapOrder: (order) => _showWatchOrderDetail(
-                      apparatus: tab.apparatus!,
-                      order: order,
-                    ),
-                  ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   String _moduleLabel(_OpenedOrderModule module) {
     return switch (module) {
       _OpenedOrderModule.orders => 'Buyurtmalar',
@@ -1299,13 +1243,6 @@ class _AdminProductionMapOrdersScreenState
       _OpenedOrderModule.move => 'Ko‘chirish',
       _OpenedOrderModule.closed => 'Yopilgan',
     };
-  }
-
-  String _workerWatchTabLabel(_WorkerWatchTab tab) {
-    if (tab.isCompleted) {
-      return 'Tugallangan';
-    }
-    return productionMapPechatTabLabel(tab.apparatus!.warehouse);
   }
 }
 

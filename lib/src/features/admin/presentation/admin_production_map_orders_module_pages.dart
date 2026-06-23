@@ -55,6 +55,122 @@ class _OrdersModulePageState extends State<_OrdersModulePage> {
   }
 }
 
+class _WorkerWatchBody extends StatelessWidget {
+  const _WorkerWatchBody({
+    required this.apparatus,
+    required this.assignedApparatus,
+    required this.orders,
+    required this.completedOrders,
+    required this.sequenceByApparatus,
+    required this.queueStatesByApparatus,
+    required this.searchQuery,
+    required this.bottomPadding,
+    required this.tabController,
+    required this.onTapCompletedOrder,
+    required this.onTapWatchOrder,
+  });
+
+  final List<AdminWarehouse> apparatus;
+  final List<String> assignedApparatus;
+  final List<ProductionMapSaved> orders;
+  final List<AdminCompletedQueueOrder> completedOrders;
+  final Map<String, List<String>> sequenceByApparatus;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
+  final String searchQuery;
+  final double bottomPadding;
+  final TabController tabController;
+  final ValueChanged<_WorkerCompletedOrderEntry> onTapCompletedOrder;
+  final void Function({
+    required AdminWarehouse apparatus,
+    required ProductionMapSaved order,
+  }) onTapWatchOrder;
+
+  String _tabLabel(_WorkerWatchTab tab) {
+    if (tab.isCompleted) {
+      return 'Tugallangan';
+    }
+    return productionMapPechatTabLabel(tab.apparatus!.warehouse);
+  }
+
+  List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse item) {
+    return _productionMapOrdersForApparatus(
+      orders: orders,
+      apparatus: item,
+      sequenceByApparatus: sequenceByApparatus,
+      queueStatesByApparatus: queueStatesByApparatus,
+      workerMode: true,
+      query: searchQuery,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (apparatus.isEmpty) {
+      return const Center(
+        child: _EmptyOpenedOrders(message: 'Aparatlar topilmadi'),
+      );
+    }
+    final tabs = _workerWatchTabs(
+      apparatus: apparatus,
+      assignedApparatus: assignedApparatus,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          child: TabBar(
+            controller: tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+            tabs: [
+              for (final tab in tabs) Tab(height: 38, text: _tabLabel(tab)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: tabController,
+            children: [
+              for (final tab in tabs)
+                if (tab.isCompleted)
+                  _AparatchiCompletedOrdersPage(
+                    orders: _workerCompletedOrders(
+                      orders: orders,
+                      completedOrders: completedOrders,
+                      apparatus: apparatus,
+                      query: searchQuery,
+                    ),
+                    bottomPadding: bottomPadding,
+                    onTapOrder: onTapCompletedOrder,
+                  )
+                else
+                  _AparatchiWatchSequencePage(
+                    apparatus: tab.apparatus!,
+                    orders: _ordersForApparatus(tab.apparatus!),
+                    bottomPadding: bottomPadding,
+                    isAssigned: _isAssignedWatchApparatus(
+                      tab.apparatus!,
+                      assignedApparatus: assignedApparatus,
+                    ),
+                    queueStates: _queueStatesForApparatus(
+                      tab.apparatus!,
+                      queueStatesByApparatus: queueStatesByApparatus,
+                    ),
+                    onTapOrder: (order) => onTapWatchOrder(
+                      apparatus: tab.apparatus!,
+                      order: order,
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _AparatchiWatchSequencePage extends StatelessWidget {
   const _AparatchiWatchSequencePage({
     required this.apparatus,
