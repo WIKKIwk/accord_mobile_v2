@@ -772,3 +772,74 @@ _MoveApparatusDefaults _moveApparatusDefaults({
   }
   return _MoveApparatusDefaults(top: top, bottom: bottom);
 }
+
+ProductionMapDefinition? _returnAssignedMapToAlternatives(
+  ProductionMapDefinition map,
+  AdminWarehouse source,
+) {
+  final sourceTitle = source.warehouse.trim();
+  final assignedGroupId = _assignedAlternativeGroupIdForApparatus(
+    map,
+    sourceTitle,
+  );
+  if (assignedGroupId == null) {
+    return null;
+  }
+  return map.copyWith(
+    nodes: [
+      for (final node in map.nodes)
+        node.alternativeGroupId.trim() == assignedGroupId
+            ? node.copyWith(alternativeAssignedTitle: '')
+            : node,
+    ],
+  );
+}
+
+ProductionMapDefinition _assignAlternativeMapToApparatus(
+  ProductionMapDefinition map,
+  AdminWarehouse apparatus,
+) {
+  final targetTitle = apparatus.warehouse.trim();
+  final targetNode = map.nodes
+      .where((node) {
+        return node.kind == 'apparatus' &&
+            node.alternativeGroupId.trim().isNotEmpty &&
+            productionMapWarehouseTitlesMatch(node.title, targetTitle);
+      })
+      .cast<ProductionMapNode?>()
+      .firstWhere((node) => node != null, orElse: () => null);
+  if (targetNode == null) {
+    return map;
+  }
+  final groupId = targetNode.alternativeGroupId.trim();
+  return map.copyWith(
+    nodes: [
+      for (final node in map.nodes)
+        node.alternativeGroupId.trim() == groupId
+            ? node.copyWith(alternativeAssignedTitle: targetTitle)
+            : node,
+    ],
+  );
+}
+
+bool _canMoveOrderToApparatus(
+  ProductionMapSaved order,
+  AdminWarehouse target, {
+  required AdminWarehouse source,
+}) {
+  if (_isMoveUnassignedApparatus(source)) {
+    return !_isMoveUnassignedApparatus(target) &&
+        _isAlternativeOrderForApparatus(order, target);
+  }
+  if (_isMoveUnassignedApparatus(target)) {
+    return _returnAssignedMapToAlternatives(order.map, source) != null;
+  }
+  return productionMapCanMoveOrderToApparatus(
+    nodes: order.map.nodes,
+    fromApparatus: source.warehouse,
+    toApparatus: target.warehouse,
+    rollCount: order.map.rollCount,
+    widthMm: order.map.widthMm,
+    isFlexoOrder: productionMapIsFlexoOrder(order.map),
+  );
+}
