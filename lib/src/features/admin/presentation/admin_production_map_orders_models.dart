@@ -136,6 +136,12 @@ class _PreparedReadOnlyQueueAction {
   final String? blockReason;
 }
 
+class _MaterialScanResult {
+  const _MaterialScanResult({required this.assignment});
+
+  final AdminRawMaterialAssignment? assignment;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',

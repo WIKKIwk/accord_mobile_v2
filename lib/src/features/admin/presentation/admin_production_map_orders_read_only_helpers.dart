@@ -100,6 +100,34 @@ AdminRawMaterialAssignment? _materialAssignmentForScannedBarcode({
       .firstWhere((item) => item != null, orElse: () => null);
 }
 
+Future<_MaterialScanResult?> _scanMaterialAssignmentFromDialog({
+  required BuildContext context,
+  required List<AdminRawMaterialAssignment> assignments,
+}) async {
+  final barcode = await showRawMaterialScanDialog(context);
+  if (barcode == null || barcode.trim().isEmpty) {
+    return null;
+  }
+  return _MaterialScanResult(
+    assignment: _materialAssignmentForScannedBarcode(
+      assignments: assignments,
+      barcode: barcode,
+    ),
+  );
+}
+
+bool _materialScanCompleted({
+  required List<AdminRawMaterialAssignment> assignments,
+  required Set<String> scannedBarcodes,
+  required String orderId,
+}) {
+  return _allMaterialsScanned(
+    assignments: assignments,
+    scannedBarcodes: scannedBarcodes,
+    orderId: orderId,
+  );
+}
+
 bool _progressBatchMatchesPreviousStage({
   required AdminProgressBatch batch,
   required String orderId,

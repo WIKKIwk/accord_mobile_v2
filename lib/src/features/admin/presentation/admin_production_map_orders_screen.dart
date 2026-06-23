@@ -1553,22 +1553,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _scanMaterial() async {
+    final orderId = widget.order.map.id.trim();
     final materialAssignments = _stationMaterialAssignments(
       assignments: _materialAssignments,
-      orderId: widget.order.map.id.trim(),
+      orderId: orderId,
       station: widget.apparatus?.warehouse.trim() ?? '',
     );
     if (materialAssignments.isEmpty) {
       return;
     }
-    final barcode = await showRawMaterialScanDialog(context);
-    if (!mounted || barcode == null || barcode.trim().isEmpty) {
+    final scan = await _scanMaterialAssignmentFromDialog(
+      context: context,
+      assignments: materialAssignments,
+    );
+    if (!mounted || scan == null) {
       return;
     }
-    final match = _materialAssignmentForScannedBarcode(
-      assignments: materialAssignments,
-      barcode: barcode,
-    );
+    final match = scan.assignment;
     if (match == null) {
       showAdminTopNotice(context, 'Bu homashyo zakazga mos emas');
       return;
@@ -1576,10 +1577,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() {
       _scannedMaterialBarcodes.add(_materialBarcodeKey(match.barcode));
     });
-    if (_allMaterialsScanned(
+    if (_materialScanCompleted(
       assignments: materialAssignments,
       scannedBarcodes: _scannedMaterialBarcodes,
-      orderId: widget.order.map.id.trim(),
+      orderId: orderId,
     )) {
       showAdminTopNotice(context, 'Homashyolar tasdiqlandi');
     }
