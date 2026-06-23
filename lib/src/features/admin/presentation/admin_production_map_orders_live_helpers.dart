@@ -70,3 +70,21 @@ bool _apparatusListsSameByWarehouse(
             next.any((candidate) => candidate.warehouse == item.warehouse),
       );
 }
+
+Future<List<AdminCompletedQueueOrder>> _loadCompletedProductionMapOrders() {
+  return MobileApi.instance.adminCompletedProductionMapOrders();
+}
+
+Future<List<AdminCompletionRequestDecisionNotification>>
+    _loadProductionMapCompletionRequestDecisions() {
+  return MobileApi.instance.adminProductionMapCompletionRequestDecisions();
+}
+
+Future<List<AdminClosedProductionOrder>> _loadClosedProductionMapOrders() {
+  return MobileApi.instance.adminClosedProductionMapOrders();
+}
+
+Future<List<AdminCompletionRequestNotification>>
+    _loadProductionMapCompletionRequests() {
+  return MobileApi.instance.adminProductionMapCompletionRequests();
+}

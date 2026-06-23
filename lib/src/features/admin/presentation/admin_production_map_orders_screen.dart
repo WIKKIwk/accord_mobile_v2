@@ -379,8 +379,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     try {
-      final completed =
-          await MobileApi.instance.adminCompletedProductionMapOrders();
+      final completed = await _loadCompletedProductionMapOrders();
       if (!mounted) {
         return;
       }
@@ -397,8 +396,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     try {
-      final decisions = await MobileApi.instance
-          .adminProductionMapCompletionRequestDecisions();
+      final decisions = await _loadProductionMapCompletionRequestDecisions();
       if (!mounted) {
         return;
       }
@@ -423,7 +421,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     try {
-      final closed = await MobileApi.instance.adminClosedProductionMapOrders();
+      final closed = await _loadClosedProductionMapOrders();
       if (!mounted) {
         return;
       }
@@ -440,8 +438,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     try {
-      final requests =
-          await MobileApi.instance.adminProductionMapCompletionRequests();
+      final requests = await _loadProductionMapCompletionRequests();
       if (!mounted) {
         return;
       }
