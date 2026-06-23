@@ -857,58 +857,15 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  List<ProductionMapSaved> _baseOrdersForApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    return _orders.where((order) {
-      if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
-        return false;
-      }
-      final hasAlternative = _hasAlternativeApparatus(order.map);
-      if (hasAlternative) {
-        return _alternativeOrderAssignedToApparatus(order.map, apparatus);
-      }
-      return productionMapMapHasWorkStageForStation(
-        map: order.map,
-        station: title,
-      );
-    }).toList();
-  }
-
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
-    final filtered = _baseOrdersForApparatus(apparatus);
-    final sequence = _sequenceOrderIdsForApparatus(
-      apparatus,
+    return _productionMapOrdersForApparatus(
+      orders: _orders,
+      apparatus: apparatus,
       sequenceByApparatus: _sequenceByApparatus,
+      queueStatesByApparatus: _queueStatesByApparatus,
+      workerMode: widget.workerMode,
+      query: _searchQuery,
     );
-    List<ProductionMapSaved> ordered;
-    if (sequence.isEmpty) {
-      ordered = filtered;
-    } else {
-      final byId = {for (final order in filtered) order.map.id: order};
-      ordered = [
-        for (final id in sequence)
-          if (byId.containsKey(id)) byId.remove(id)!,
-        ...byId.values,
-      ];
-    }
-    if (widget.workerMode) {
-      final states = _queueStatesForApparatus(
-        apparatus,
-        queueStatesByApparatus: _queueStatesByApparatus,
-      );
-      ordered = ordered
-          .where(
-            (order) =>
-                apparatusQueueOrderStateFromRaw(
-                  states[order.map.id.trim()],
-                ) !=
-                ApparatusQueueOrderState.completed,
-          )
-          .toList(growable: false);
-    }
-    return widget.workerMode
-        ? _filterOrdersBySearch(ordered, query: _searchQuery)
-        : ordered;
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({

@@ -670,3 +670,75 @@ bool _isAssignedWatchApparatus(
   final title = apparatus.warehouse.trim();
   return assignedApparatus.any((item) => _apparatusTitlesMatch(title, item));
 }
+
+List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
+  required List<ProductionMapSaved> orders,
+  required AdminWarehouse apparatus,
+}) {
+  final title = apparatus.warehouse.trim();
+  return orders.where((order) {
+    if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
+      return false;
+    }
+    final hasAlternative = _hasAlternativeApparatus(order.map);
+    if (hasAlternative) {
+      return _alternativeOrderAssignedToApparatus(order.map, apparatus);
+    }
+    return productionMapMapHasWorkStageForStation(
+      map: order.map,
+      station: title,
+    );
+  }).toList();
+}
+
+List<ProductionMapSaved> _productionMapOrdersForApparatus({
+  required List<ProductionMapSaved> orders,
+  required AdminWarehouse apparatus,
+  required Map<String, List<String>> sequenceByApparatus,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+  required bool workerMode,
+  required String query,
+}) {
+  final filtered = _productionMapBaseOrdersForApparatus(
+    orders: orders,
+    apparatus: apparatus,
+  );
+  final sequence = _sequenceOrderIdsForApparatus(
+    apparatus,
+    sequenceByApparatus: sequenceByApparatus,
+  );
+  final ordered = _applyApparatusOrderSequence(
+    orders: filtered,
+    sequence: sequence,
+  );
+  if (!workerMode) {
+    return ordered;
+  }
+  final states = _queueStatesForApparatus(
+    apparatus,
+    queueStatesByApparatus: queueStatesByApparatus,
+  );
+  final activeOrders = ordered
+      .where(
+        (order) =>
+            apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) !=
+            ApparatusQueueOrderState.completed,
+      )
+      .toList(growable: false);
+  return _filterOrdersBySearch(activeOrders, query: query);
+}
+
+List<ProductionMapSaved> _applyApparatusOrderSequence({
+  required List<ProductionMapSaved> orders,
+  required List<String> sequence,
+}) {
+  if (sequence.isEmpty) {
+    return orders;
+  }
+  final byId = {for (final order in orders) order.map.id: order};
+  return [
+    for (final id in sequence)
+      if (byId.containsKey(id)) byId.remove(id)!,
+    ...byId.values,
+  ];
+}
