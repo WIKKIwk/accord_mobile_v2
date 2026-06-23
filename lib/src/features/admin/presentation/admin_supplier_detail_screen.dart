@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -30,18 +31,19 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   bool _regeneratingCode = false;
   bool _removing = false;
   bool _changed = false;
-  int _retryAfterSec = 0;
-  Timer? _retryTimer;
+  late final RetryAfterCountdown _retryAfter;
+  int get _retryAfterSec => _retryAfter.seconds;
 
   @override
   void initState() {
     super.initState();
+    _retryAfter = RetryAfterCountdown(onChanged: _refreshRetryAfter);
     _detailFuture = _loadDetail();
   }
 
   @override
   void dispose() {
-    _retryTimer?.cancel();
+    _retryAfter.dispose();
     super.dispose();
   }
 
@@ -53,23 +55,13 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
     return detail;
   }
 
-  void _setRetryAfter(int seconds) {
-    _retryTimer?.cancel();
-    _retryAfterSec = seconds > 0 ? seconds : 0;
-    if (_retryAfterSec <= 0) {
-      return;
+  void _refreshRetryAfter() {
+    if (mounted) {
+      setState(() {});
     }
-    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _retryAfterSec <= 1) {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _retryAfterSec = 0);
-        }
-        return;
-      }
-      setState(() => _retryAfterSec -= 1);
-    });
   }
+
+  void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
   Future<void> _reload() async {
     final future = _loadDetail();
@@ -348,8 +340,8 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 IconButton(
                                   onPressed:
                                       _regeneratingCode || _retryAfterSec > 0
-                                      ? null
-                                      : _regenerateCode,
+                                          ? null
+                                          : _regenerateCode,
                                   icon: _regeneratingCode
                                       ? const SizedBox(
                                           height: 18,
@@ -383,8 +375,8 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 _savingStatus
                                     ? 'Saqlanmoqda...'
                                     : detail.blocked
-                                    ? 'Unblock qilish'
-                                    : 'Block qilish',
+                                        ? 'Unblock qilish'
+                                        : 'Block qilish',
                               ),
                             ),
                           ),
@@ -427,9 +419,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(context).pushNamed(
-                                        AppRoutes.adminSupplierItemsView,
-                                        arguments: widget.supplierRef,
-                                      ),
+                                    AppRoutes.adminSupplierItemsView,
+                                    arguments: widget.supplierRef,
+                                  ),
                                   child: const Text('Ko‘rish'),
                                 ),
                               ),
@@ -438,9 +430,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(context).pushNamed(
-                                        AppRoutes.adminSupplierItemsAdd,
-                                        arguments: widget.supplierRef,
-                                      ),
+                                    AppRoutes.adminSupplierItemsAdd,
+                                    arguments: widget.supplierRef,
+                                  ),
                                   child: const Text('Qo‘shish'),
                                 ),
                               ),

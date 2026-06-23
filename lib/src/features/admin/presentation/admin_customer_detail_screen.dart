@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -43,18 +44,19 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   bool _addingItem = false;
   String? _removingItemCode;
   bool _changed = false;
-  int _retryAfterSec = 0;
-  Timer? _retryTimer;
+  late final RetryAfterCountdown _retryAfter;
+  int get _retryAfterSec => _retryAfter.seconds;
 
   @override
   void initState() {
     super.initState();
+    _retryAfter = RetryAfterCountdown(onChanged: _refreshRetryAfter);
     unawaited(_reload());
   }
 
   @override
   void dispose() {
-    _retryTimer?.cancel();
+    _retryAfter.dispose();
     super.dispose();
   }
 
@@ -69,23 +71,13 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     return detail;
   }
 
-  void _setRetryAfter(int seconds) {
-    _retryTimer?.cancel();
-    _retryAfterSec = seconds > 0 ? seconds : 0;
-    if (_retryAfterSec <= 0) {
-      return;
+  void _refreshRetryAfter() {
+    if (mounted) {
+      setState(() {});
     }
-    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _retryAfterSec <= 1) {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _retryAfterSec = 0);
-        }
-        return;
-      }
-      setState(() => _retryAfterSec -= 1);
-    });
   }
+
+  void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
   Future<void> _reload() async {
     setState(() {

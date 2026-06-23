@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -664,21 +665,22 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
   final TextEditingController phone = TextEditingController();
   final TextEditingController name = TextEditingController();
   String werkaCode = '';
-  int _retryAfterSec = 0;
+  late final RetryAfterCountdown _retryAfter;
+  int get _retryAfterSec => _retryAfter.seconds;
   bool saving = false;
   bool regenerating = false;
   bool hydrated = false;
-  Timer? _retryTimer;
 
   @override
   void initState() {
     super.initState();
+    _retryAfter = RetryAfterCountdown(onChanged: _refreshRetryAfter);
     _future = MobileApi.instance.adminSettings();
   }
 
   @override
   void dispose() {
-    _retryTimer?.cancel();
+    _retryAfter.dispose();
     phone.dispose();
     name.dispose();
     super.dispose();
@@ -695,23 +697,13 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
     hydrated = true;
   }
 
-  void _setRetryAfter(int seconds) {
-    _retryTimer?.cancel();
-    _retryAfterSec = seconds > 0 ? seconds : 0;
-    if (_retryAfterSec <= 0) {
-      return;
+  void _refreshRetryAfter() {
+    if (mounted) {
+      setState(() {});
     }
-    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _retryAfterSec <= 1) {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _retryAfterSec = 0);
-        }
-        return;
-      }
-      setState(() => _retryAfterSec -= 1);
-    });
   }
+
+  void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
   Future<void> _reload() async {
     final future = MobileApi.instance.adminSettings();
