@@ -1616,19 +1616,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _scanStartInputProgressQr(String previousStage) async {
-    final raw = await showRawMaterialScanDialog(
-      context,
-      title: 'Progress QR',
-      manualLabel: 'EPC',
-    );
-    if (!mounted || raw == null || raw.trim().isEmpty) {
-      return;
-    }
     try {
-      final batch = await MobileApi.instance.adminProgressQrLookup(
-        rawMaterialBarcodeFromQr(raw),
-      );
+      final batch = await _scanProgressBatchFromQrDialog(context);
       if (!mounted) {
+        return;
+      }
+      if (batch == null) {
         return;
       }
       if (!_progressBatchMatchesPreviousStage(
@@ -1642,16 +1635,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       setState(() => _startInputProgressBatch = batch);
       showAdminTopNotice(context, 'Oldingi bosqich QR tasdiqlandi');
-    } on MobileApiException catch (error) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
-      showAdminTopNotice(context, error.message);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(context, 'Progress QR tekshirilmadi');
+      showAdminTopNotice(context, _progressQrLookupErrorText(error));
     }
   }
 

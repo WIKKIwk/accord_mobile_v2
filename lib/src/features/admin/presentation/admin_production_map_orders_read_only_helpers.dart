@@ -118,6 +118,27 @@ bool _progressBatchMatchesPreviousStage({
   return matchesOrder && matchesStage && usableAction && usableStatus;
 }
 
+Future<AdminProgressBatch?> _scanProgressBatchFromQrDialog(
+  BuildContext context,
+) async {
+  final raw = await showRawMaterialScanDialog(
+    context,
+    title: 'Progress QR',
+    manualLabel: 'EPC',
+  );
+  if (raw == null || raw.trim().isEmpty) {
+    return null;
+  }
+  return MobileApi.instance
+      .adminProgressQrLookup(rawMaterialBarcodeFromQr(raw));
+}
+
+String _progressQrLookupErrorText(Object error) {
+  return error is MobileApiException
+      ? error.message
+      : 'Progress QR tekshirilmadi';
+}
+
 List<String> _queueActionMaterialBarcodes({
   required String action,
   required List<AdminRawMaterialAssignment> assignments,
