@@ -6,6 +6,8 @@ import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
 import '../../../core/search/search_activity_store.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/display/app_info_row.dart';
+import '../../../core/widgets/display/app_metric_tile.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -291,8 +293,8 @@ class _WerkaArchiveBatchQrLookupScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-          ? l10n.insufficientStockMessage
-          : l10n.customerIssueFailed(error);
+              ? l10n.insufficientStockMessage
+              : l10n.customerIssueFailed(error);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -458,14 +460,14 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _MetricTile(
+                      child: AppMetricTile(
                         label: 'Netto',
                         value: '${formatQty(payload.nettoQty)} Kg',
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _MetricTile(
+                      child: AppMetricTile(
                         label: 'Brutto',
                         value: '${formatQty(payload.bruttoQty)} Kg',
                       ),
@@ -473,24 +475,39 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _InfoRow(label: 'Session', value: payload.sessionID),
+                AppInfoRow(
+                  label: 'Session',
+                  value: payload.sessionID,
+                  labelWidth: 96,
+                ),
                 if (payload.batchTime.trim().isNotEmpty)
-                  _InfoRow(label: 'Sana', value: payload.batchTime),
+                  AppInfoRow(
+                    label: 'Sana',
+                    value: payload.batchTime,
+                    labelWidth: 96,
+                  ),
                 if (option != null)
-                  _InfoRow(label: 'Kod', value: option.itemCode),
+                  AppInfoRow(
+                    label: 'Kod',
+                    value: option.itemCode,
+                    labelWidth: 96,
+                  ),
                 if (selectedCustomer != null)
-                  _InfoRow(
+                  AppInfoRow(
                     label: 'Haridor',
                     value: selectedCustomer!.name,
                     icon: Icons.person_outline_rounded,
                     onTap: onPickCustomer,
                     trailing: const Icon(Icons.expand_more_rounded),
+                    labelWidth: 96,
+                    alignValueToTrailing: true,
                   ),
                 if (option?.warehouse.trim().isNotEmpty ?? false)
-                  _InfoRow(
+                  AppInfoRow(
                     label: 'Ombor',
                     value: option!.warehouse,
                     icon: Icons.warehouse_outlined,
+                    labelWidth: 96,
                   ),
                 if (onSend != null) ...[
                   const SizedBox(height: 10),
@@ -550,136 +567,6 @@ class _ArchiveBatchQrPanel extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.24),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              value.isEmpty ? '—' : value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.icon,
-    this.trailing,
-    this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final IconData? icon;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final displayValue = value.trim().isEmpty ? '—' : value.trim();
-    final child = Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: onTap == null ? 0 : 10,
-        vertical: 7,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 96,
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 6),
-                ],
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              displayValue,
-              textAlign: trailing == null ? TextAlign.start : TextAlign.end,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 6),
-            IconTheme.merge(
-              data: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
-              child: trailing!,
-            ),
-          ],
-        ],
-      ),
-    );
-    if (onTap == null) {
-      return child;
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: child,
-        ),
-      ),
     );
   }
 }

@@ -8,6 +8,8 @@ import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
 import '../../../core/search/search_activity_store.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/display/app_info_row.dart';
+import '../../../core/widgets/display/app_metric_tile.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/stock_entry_lookup.dart';
@@ -144,10 +146,9 @@ class _WerkaStockEntryLookupScreenState
         'direct_db_lookup_unavailable' =>
           'Barcode lookup vaqtincha ishlamayapti.',
         'stock_entry_lookup_bad_request' => 'Barcode bo‘sh yoki noto‘g‘ri.',
-        _ =>
-          error.message.isEmpty
-              ? 'Barcode tekshirishda xatolik.'
-              : error.message,
+        _ => error.message.isEmpty
+            ? 'Barcode tekshirishda xatolik.'
+            : error.message,
       };
     }
     return 'Barcode tekshirishda xatolik.';
@@ -244,13 +245,14 @@ class _WerkaStockEntryLookupScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-          ? l10n.insufficientStockMessage
-          : error is MobileApiException &&
-                error.code == 'duplicate_customer_issue_source'
-          ? 'Bu QR oldin customerga jo‘natilgan.'
-          : error is MobileApiException && error.code == 'customer_not_found'
-          ? 'Bu mahsulot uchun customer topilmadi.'
-          : l10n.customerIssueFailed(error);
+              ? l10n.insufficientStockMessage
+              : error is MobileApiException &&
+                      error.code == 'duplicate_customer_issue_source'
+                  ? 'Bu QR oldin customerga jo‘natilgan.'
+                  : error is MobileApiException &&
+                          error.code == 'customer_not_found'
+                      ? 'Bu mahsulot uchun customer topilmadi.'
+                      : l10n.customerIssueFailed(error);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -527,8 +529,7 @@ class _ResultView extends StatelessWidget {
   final Future<void> Function(
     StockEntryBarcodeEntry entry,
     CustomerDirectoryEntry customer,
-  )
-  onCreateCustomerIssue;
+  ) onCreateCustomerIssue;
 
   @override
   Widget build(BuildContext context) {
@@ -672,8 +673,7 @@ class _LookupEntryPanel extends StatefulWidget {
   final Future<void> Function(
     StockEntryBarcodeEntry entry,
     CustomerDirectoryEntry customer,
-  )
-  onCreateCustomerIssue;
+  ) onCreateCustomerIssue;
 
   @override
   State<_LookupEntryPanel> createState() => _LookupEntryPanelState();
@@ -846,14 +846,14 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
             Row(
               children: [
                 Expanded(
-                  child: _MetricTile(
+                  child: AppMetricTile(
                     label: 'Miqdor',
                     value: '${widget.formatQty(entry.qty)} ${entry.uom}',
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _MetricTile(
+                  child: AppMetricTile(
                     label: 'Holat',
                     value: entry.status.trim().isEmpty
                         ? widget.docStatusLabel(entry.docStatus)
@@ -863,11 +863,11 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
               ],
             ),
             const SizedBox(height: 12),
-            _InfoRow(label: 'Mahsulot', value: itemTitle),
-            _InfoRow(label: 'Kod', value: entry.itemCode),
+            AppInfoRow(label: 'Mahsulot', value: itemTitle),
+            AppInfoRow(label: 'Kod', value: entry.itemCode),
             if (entry.company.trim().isNotEmpty)
-              _InfoRow(label: 'Kompaniya', value: entry.company),
-            _InfoRow(
+              AppInfoRow(label: 'Kompaniya', value: entry.company),
+            AppInfoRow(
               label: 'Haridor',
               value: _customerLabel,
               icon: Icons.person_outline_rounded,
@@ -880,14 +880,14 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
                   : const Icon(Icons.expand_more_rounded),
             ),
             if (entry.barcode.trim().isNotEmpty)
-              _InfoRow(
+              AppInfoRow(
                 label: 'Barcode',
                 value: entry.barcode,
                 selectable: true,
               ),
             if (entry.sourceWarehouse.trim().isNotEmpty ||
                 entry.targetWarehouse.trim().isNotEmpty)
-              _InfoRow(
+              AppInfoRow(
                 label: 'Ombor',
                 value: widget.warehouseText(
                   entry.sourceWarehouse,
@@ -896,7 +896,7 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
                 icon: Icons.warehouse_outlined,
               ),
             if (entry.remarks.trim().isNotEmpty)
-              _InfoRow(label: 'Izoh', value: entry.remarks),
+              AppInfoRow(label: 'Izoh', value: entry.remarks),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -915,8 +915,8 @@ class _LookupEntryPanelState extends State<_LookupEntryPanel> {
               child: FilledButton.icon(
                 onPressed: _canCreateCustomerIssue && !widget.isSubmitting
                     ? () => unawaited(
-                        widget.onCreateCustomerIssue(entry, customer!),
-                      )
+                          widget.onCreateCustomerIssue(entry, customer!),
+                        )
                     : null,
                 icon: widget.isSubmitting
                     ? const SizedBox.square(
@@ -976,137 +976,6 @@ class _StatusBadge extends StatelessWidget {
           style: theme.textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.24),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              value.isEmpty ? '—' : value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.icon,
-    this.selectable = false,
-    this.trailing,
-    this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final IconData? icon;
-  final bool selectable;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final displayValue = value.trim().isEmpty ? '—' : value.trim();
-    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-    );
-    final child = Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: onTap == null ? 0 : 10,
-        vertical: 7,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 104,
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 6),
-                ],
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: selectable
-                ? SelectableText(displayValue, style: valueStyle)
-                : Text(displayValue, style: valueStyle),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 6),
-            IconTheme.merge(
-              data: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
-              child: trailing!,
-            ),
-          ],
-        ],
-      ),
-    );
-    if (onTap == null) {
-      return child;
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: child,
         ),
       ),
     );
