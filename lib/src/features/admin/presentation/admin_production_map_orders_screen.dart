@@ -63,6 +63,7 @@ part 'admin_production_map_orders_queue_helpers.dart';
 part 'admin_production_map_orders_search_helpers.dart';
 part 'admin_production_map_orders_worker_helpers.dart';
 part 'admin_production_map_orders_apparatus_helpers.dart';
+part 'admin_production_map_orders_live_helpers.dart';
 
 enum _OpenedOrderModule { orders, move, sequence, closed }
 
@@ -294,16 +295,12 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _applyWorkerLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
-    final orders = snapshot.maps
-        .where((item) => item.map.id.trim().startsWith('zakaz-'))
-        .toList(growable: false);
+    final orders = _productionMapZakazOrders(snapshot.maps);
     final newRejectedDecisions = widget.workerMode
-        ? snapshot.completionRequestDecisions
-            .where((decision) =>
-                decision.decision.trim() == 'rejected' &&
-                decision.eventId.trim().isNotEmpty &&
-                !_shownCompletionDecisionIds.contains(decision.eventId.trim()))
-            .toList(growable: false)
+        ? _newRejectedCompletionRequestDecisions(
+            decisions: snapshot.completionRequestDecisions,
+            shownDecisionIds: _shownCompletionDecisionIds,
+          )
         : const <AdminCompletionRequestDecisionNotification>[];
     setState(() {
       _orders = orders;
@@ -324,9 +321,7 @@ class _AdminProductionMapOrdersScreenState
       _shownCompletionDecisionIds.add(decision.eventId.trim());
       showAdminTopNotice(
         context,
-        decision.message.trim().isNotEmpty
-            ? decision.message.trim()
-            : "Sizni so'rovingiz rad etildi",
+        _completionRejectedNoticeText(decision),
       );
     }
   }
@@ -422,19 +417,15 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final newRejectedDecisions = decisions
-          .where((decision) =>
-              decision.decision.trim() == 'rejected' &&
-              decision.eventId.trim().isNotEmpty &&
-              !_shownCompletionDecisionIds.contains(decision.eventId.trim()))
-          .toList(growable: false);
+      final newRejectedDecisions = _newRejectedCompletionRequestDecisions(
+        decisions: decisions,
+        shownDecisionIds: _shownCompletionDecisionIds,
+      );
       for (final decision in newRejectedDecisions) {
         _shownCompletionDecisionIds.add(decision.eventId.trim());
         showAdminTopNotice(
           context,
-          decision.message.trim().isNotEmpty
-              ? decision.message.trim()
-              : "Sizni so'rovingiz rad etildi",
+          _completionRejectedNoticeText(decision),
         );
       }
     } catch (_) {
@@ -494,15 +485,11 @@ class _AdminProductionMapOrdersScreenState
       }
       final maps = results[0] as List<ProductionMapSaved>;
       final apparatus = results[1] as List<AdminWarehouse>;
-      final orders = maps
-          .where((item) => item.map.id.trim().startsWith('zakaz-'))
-          .toList(growable: false);
+      final orders = _productionMapZakazOrders(maps);
       if (!initial &&
           _ordersRevision(orders) == _ordersRevision(_orders) &&
           _apparatus.length == apparatus.length &&
-          _apparatus.every(
-            (item) => apparatus.any((next) => next.warehouse == item.warehouse),
-          )) {
+          _apparatusListsSameByWarehouse(_apparatus, apparatus)) {
         return;
       }
       if (widget.workerMode &&
