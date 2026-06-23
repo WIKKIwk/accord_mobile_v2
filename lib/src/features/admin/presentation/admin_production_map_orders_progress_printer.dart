@@ -23,6 +23,16 @@ Future<_ProgressPrinterOption?> _showProgressPrinterPicker(
   );
 }
 
+Future<String?> _pickProgressDriverUrl(
+  BuildContext context,
+  Future<String?> Function(BuildContext context)? progressDriverUrlPicker,
+) async {
+  if (progressDriverUrlPicker != null) {
+    return progressDriverUrlPicker(context);
+  }
+  return (await _showProgressPrinterPicker(context))?.driverUrl;
+}
+
 class _ProgressPrinterPickerSheet extends StatefulWidget {
   const _ProgressPrinterPickerSheet();
 

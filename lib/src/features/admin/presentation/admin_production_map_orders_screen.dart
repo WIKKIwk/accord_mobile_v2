@@ -1542,19 +1542,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _runProgressAction(String action) async {
-    final isBosma =
-        productionMapPechatColorCount(widget.apparatus?.warehouse ?? '') !=
-            null;
-    final isLaminatsiya =
-        productionMapIsLaminatsiyaApparatus(widget.apparatus?.warehouse ?? '');
-    final isRezka =
-        productionMapIsRezkaApparatus(widget.apparatus?.warehouse ?? '');
-    final input = await _showProgressQtyDialog(
+    final input = await _showProgressQtyDialogForApparatus(
       context,
-      action,
-      isBosma: isBosma,
-      isLaminatsiya: isLaminatsiya,
-      isRezka: isRezka,
+      action: action,
+      apparatus: widget.apparatus,
     );
     if (!mounted || input == null) {
       return;
@@ -1566,9 +1557,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       return;
     }
-    final driverUrl = widget.progressDriverUrlPicker != null
-        ? await widget.progressDriverUrlPicker!(context)
-        : (await _showProgressPrinterPicker(context))?.driverUrl;
+    final driverUrl = await _pickProgressDriverUrl(
+      context,
+      widget.progressDriverUrlPicker,
+    );
     if (!mounted || driverUrl == null) {
       return;
     }

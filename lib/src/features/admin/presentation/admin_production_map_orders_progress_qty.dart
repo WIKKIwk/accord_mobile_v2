@@ -51,6 +51,21 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   );
 }
 
+Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
+  BuildContext context, {
+  required String action,
+  required AdminWarehouse? apparatus,
+}) {
+  final title = apparatus?.warehouse ?? '';
+  return _showProgressQtyDialog(
+    context,
+    action,
+    isBosma: productionMapPechatColorCount(title) != null,
+    isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
+    isRezka: productionMapIsRezkaApparatus(title),
+  );
+}
+
 Widget _progressQtySectionLabel(BuildContext context, String label) {
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
