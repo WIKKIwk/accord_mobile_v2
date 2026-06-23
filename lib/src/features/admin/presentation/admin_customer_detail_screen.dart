@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -642,7 +643,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonal(
-                style: _customerDetailButtonStyle(),
+                style: appFilledActionButtonStyle(
+                  borderRadius: _customerDetailButtonRadius,
+                ),
                 onPressed: savingPhone ? null : () => onAddPhone(detail),
                 child: Text(
                   savingPhone
@@ -715,7 +718,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    style: _customerDetailOutlinedButtonStyle(),
+                    style: appOutlinedActionButtonStyle(
+                      borderRadius: _customerDetailButtonRadius,
+                    ),
                     onPressed: detail.assignedItems.isEmpty
                         ? null
                         : () => _showAssignedItemsSheet(
@@ -730,7 +735,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
-                    style: _customerDetailOutlinedButtonStyle(),
+                    style: appOutlinedActionButtonStyle(
+                      borderRadius: _customerDetailButtonRadius,
+                    ),
                     onPressed: addingItem ? null : onAddItem,
                     child: Text(addingItem ? 'Qo‘shilmoqda...' : 'Qo‘shish'),
                   ),
@@ -741,7 +748,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                style: _customerDetailOutlinedButtonStyle(),
+                style: appOutlinedActionButtonStyle(
+                  borderRadius: _customerDetailButtonRadius,
+                ),
                 onPressed: removing ? null : onRemove,
                 child: Text(
                   removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
@@ -913,23 +922,5 @@ Future<void> _showAssignedItemsSheet(
         },
       );
     },
-  );
-}
-
-ButtonStyle _customerDetailButtonStyle() {
-  return FilledButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
-    ),
-    minimumSize: const Size(0, 54),
-  );
-}
-
-ButtonStyle _customerDetailOutlinedButtonStyle() {
-  return OutlinedButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_customerDetailButtonRadius),
-    ),
-    minimumSize: const Size(0, 54),
   );
 }

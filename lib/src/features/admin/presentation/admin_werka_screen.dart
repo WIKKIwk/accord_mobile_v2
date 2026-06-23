@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -16,7 +17,6 @@ import 'package:flutter/services.dart';
 const double _werkaDetailPanelGap = 4;
 const double _werkaDetailCardRadius = 18;
 const double _werkaDetailFieldRadius = 14;
-const double _werkaDetailButtonRadius = 14;
 
 class AdminWerkaScreen extends StatefulWidget {
   const AdminWerkaScreen({super.key});
@@ -317,7 +317,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonal(
-                style: _werkaDetailButtonStyle(),
+                style: appFilledActionButtonStyle(),
                 onPressed: saving ? null : onSave,
                 child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
               ),
@@ -370,13 +370,4 @@ class _WerkaTextField extends StatelessWidget {
       style: Theme.of(context).textTheme.titleMedium,
     );
   }
-}
-
-ButtonStyle _werkaDetailButtonStyle() {
-  return FilledButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_werkaDetailButtonRadius),
-    ),
-    minimumSize: const Size(0, 54),
-  );
 }

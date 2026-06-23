@@ -7,6 +7,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -122,7 +123,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      style: _workerDetailOutlinedButtonStyle(),
+                      style: appOutlinedActionButtonStyle(
+                        borderRadius: _workerDetailFieldRadius,
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text('Bekor qilish'),
                     ),
@@ -130,7 +133,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      style: _workerDetailButtonStyle(),
+                      style: appFilledActionButtonStyle(
+                        borderRadius: _workerDetailFieldRadius,
+                      ),
                       onPressed: () =>
                           Navigator.of(context).pop(controller.text.trim()),
                       child: const Text('Saqlash'),
@@ -262,7 +267,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              style: _workerDetailOutlinedButtonStyle(),
+              style: appOutlinedActionButtonStyle(
+                borderRadius: _workerDetailFieldRadius,
+              ),
               onPressed: () => Navigator.of(context).pushNamed(
                 AppRoutes.adminWorkerProfileDetail,
                 arguments: widget.entry,
@@ -272,7 +279,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
             if (_loadError != null) ...[
               const SizedBox(height: 12),
               OutlinedButton(
-                style: _workerDetailOutlinedButtonStyle(),
+                style: appOutlinedActionButtonStyle(
+                  borderRadius: _workerDetailFieldRadius,
+                ),
                 onPressed: _reload,
                 child: const Text('Qayta yuklash'),
               ),
@@ -348,7 +357,9 @@ class _WorkerDetailCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonal(
-                style: _workerDetailButtonStyle(),
+                style: appFilledActionButtonStyle(
+                  borderRadius: _workerDetailFieldRadius,
+                ),
                 onPressed: savingPhone ? null : () => onAddPhone(detail),
                 child: Text(
                   savingPhone
@@ -422,22 +433,4 @@ class _WorkerDetailLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(text, style: Theme.of(context).textTheme.bodySmall);
   }
-}
-
-ButtonStyle _workerDetailButtonStyle() {
-  return FilledButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
-    ),
-    minimumSize: const Size(0, 54),
-  );
-}
-
-ButtonStyle _workerDetailOutlinedButtonStyle() {
-  return OutlinedButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
-    ),
-    minimumSize: const Size(0, 54),
-  );
 }
