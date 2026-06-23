@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -835,16 +836,5 @@ String _assignmentStockStatusLabel(String raw) {
 }
 
 String _formatAssignmentTimestamp(String raw) {
-  final value = raw.trim();
-  if (value.isEmpty) {
-    return '';
-  }
-  final parsed = DateTime.tryParse(value);
-  if (parsed == null) {
-    return value;
-  }
-  final local = parsed.toLocal();
-  String two(int part) => part.toString().padLeft(2, '0');
-  return '${two(local.day)}.${two(local.month)}.${local.year} '
-      '${two(local.hour)}:${two(local.minute)}';
+  return formatParsedLocalDateTimeOrRaw(raw);
 }

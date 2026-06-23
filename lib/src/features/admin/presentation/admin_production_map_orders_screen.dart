@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
@@ -226,16 +227,7 @@ String _closedLogStateLabel(AdminProductionOrderLogEntry log) {
 }
 
 String _closedLogTimeLabel(int unixSeconds) {
-  if (unixSeconds <= 0) {
-    return '';
-  }
-  final date = DateTime.fromMillisecondsSinceEpoch(
-    unixSeconds * 1000,
-    isUtc: true,
-  ).toLocal();
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${two(date.day)}.${two(date.month)}.${date.year} '
-      '${two(date.hour)}:${two(date.minute)}';
+  return formatUnixSecondsLocalDateTime(unixSeconds);
 }
 
 List<ProductionMapNode> _linearProductionMapNodes(ProductionMapDefinition map) {

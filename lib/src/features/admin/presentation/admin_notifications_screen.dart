@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -546,15 +547,7 @@ String _actorLabel({
   return 'Ishchi';
 }
 
-String _timeLabel(int unix) {
-  if (unix <= 0) {
-    return '';
-  }
-  final time = DateTime.fromMillisecondsSinceEpoch(unix * 1000).toLocal();
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${two(time.day)}.${two(time.month)}.${time.year} '
-      '${two(time.hour)}:${two(time.minute)}';
-}
+String _timeLabel(int unix) => formatUnixSecondsLocalDateTime(unix);
 
 String _apparatusDetailLabel(String apparatus) {
   final normalized = apparatus.trim().toLowerCase();
