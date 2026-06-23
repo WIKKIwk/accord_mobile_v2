@@ -38,3 +38,38 @@ InputDecoration appSurfaceInputDecoration(
     focusedErrorBorder: outline(color: scheme.error, width: 1.2),
   );
 }
+
+InputDecoration appSoftInputDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? hintText,
+  String? suffixText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  double borderRadius = 18,
+}) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  final fillColor = theme.brightness == Brightness.light
+      ? scheme.surfaceBright
+      : scheme.surfaceContainerHighest;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(borderRadius),
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    suffixText: suffixText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: fillColor,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: scheme.primary, width: 1.6),
+    ),
+  );
+}

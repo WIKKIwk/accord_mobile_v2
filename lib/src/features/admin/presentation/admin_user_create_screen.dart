@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -230,31 +231,6 @@ const EdgeInsets _adminUserCreatePagePadding = EdgeInsets.fromLTRB(
 const double _adminUserCreatePanelGap = 4;
 const double _adminUserCreateSectionRadius = 18;
 const double _adminUserCreateFieldGap = 12;
-
-InputDecoration _adminUserCreateInputDecoration(
-  BuildContext context,
-  String label,
-) {
-  final theme = Theme.of(context);
-  final scheme = theme.colorScheme;
-  final fillColor = theme.brightness == Brightness.light
-      ? scheme.surfaceBright
-      : scheme.surfaceContainerHighest;
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(18),
-    borderSide: BorderSide(color: scheme.outlineVariant),
-  );
-  return InputDecoration(
-    labelText: label,
-    filled: true,
-    fillColor: fillColor,
-    border: border,
-    enabledBorder: border,
-    focusedBorder: border.copyWith(
-      borderSide: BorderSide(color: scheme.primary, width: 1.6),
-    ),
-  );
-}
 
 class _RoleSelector extends StatelessWidget {
   const _RoleSelector({required this.choice, required this.onTap});
@@ -626,18 +602,18 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
               TextField(
                 controller: name,
                 textInputAction: TextInputAction.next,
-                decoration: _adminUserCreateInputDecoration(
+                decoration: appSoftInputDecoration(
                   context,
-                  'Foydalanuvchi nomi',
+                  labelText: 'Foydalanuvchi nomi',
                 ),
               ),
               const SizedBox(height: _adminUserCreateFieldGap),
               TextField(
                 controller: phone,
                 keyboardType: TextInputType.phone,
-                decoration: _adminUserCreateInputDecoration(
+                decoration: appSoftInputDecoration(
                   context,
-                  'Foydalanuvchi telefoni',
+                  labelText: 'Foydalanuvchi telefoni',
                 ),
               ),
               if (_isAparatchiRole) ...[
@@ -929,13 +905,13 @@ class _CreateUserForm extends StatelessWidget {
         TextField(
           controller: name,
           textInputAction: TextInputAction.next,
-          decoration: _adminUserCreateInputDecoration(context, nameLabel),
+          decoration: appSoftInputDecoration(context, labelText: nameLabel),
         ),
         const SizedBox(height: _adminUserCreateFieldGap),
         TextField(
           controller: phone,
           keyboardType: TextInputType.phone,
-          decoration: _adminUserCreateInputDecoration(context, phoneLabel),
+          decoration: appSoftInputDecoration(context, labelText: phoneLabel),
         ),
         const SizedBox(height: 18),
         SizedBox(

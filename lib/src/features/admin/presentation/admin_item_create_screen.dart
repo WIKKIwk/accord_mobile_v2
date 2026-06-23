@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -18,31 +19,6 @@ import 'package:flutter/material.dart';
 const double _itemCreatePanelGap = 4;
 const double _itemCreateCardRadius = 18;
 const double _itemCreateFieldRadius = 18;
-
-InputDecoration _itemCreateInputDecoration(
-  BuildContext context,
-  String label,
-) {
-  final theme = Theme.of(context);
-  final scheme = theme.colorScheme;
-  final fillColor = theme.brightness == Brightness.light
-      ? scheme.surfaceBright
-      : scheme.surfaceContainerHighest;
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(_itemCreateFieldRadius),
-    borderSide: BorderSide(color: scheme.outlineVariant),
-  );
-  return InputDecoration(
-    labelText: label,
-    filled: true,
-    fillColor: fillColor,
-    border: border,
-    enabledBorder: border,
-    focusedBorder: border.copyWith(
-      borderSide: BorderSide(color: scheme.primary, width: 1.6),
-    ),
-  );
-}
 
 class AdminItemCreateScreen extends StatefulWidget {
   const AdminItemCreateScreen({super.key, this.initialTabIndex = 0});
@@ -431,18 +407,18 @@ class _CreateItemTab extends StatelessWidget {
                 TextField(
                   key: const ValueKey('admin-item-create-code'),
                   controller: code,
-                  decoration: _itemCreateInputDecoration(
+                  decoration: appSoftInputDecoration(
                     context,
-                    'Mahsulot kodi',
+                    labelText: 'Mahsulot kodi',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   key: const ValueKey('admin-item-create-name'),
                   controller: name,
-                  decoration: _itemCreateInputDecoration(
+                  decoration: appSoftInputDecoration(
                     context,
-                    'Mahsulot nomi',
+                    labelText: 'Mahsulot nomi',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -593,9 +569,9 @@ class _CreateItemTab extends StatelessWidget {
                 ),
                 TextField(
                   controller: uom,
-                  decoration: _itemCreateInputDecoration(
+                  decoration: appSoftInputDecoration(
                     context,
-                    'O‘lchov birligi',
+                    labelText: 'O‘lchov birligi',
                   ),
                 ),
                 const SizedBox(height: 18),
