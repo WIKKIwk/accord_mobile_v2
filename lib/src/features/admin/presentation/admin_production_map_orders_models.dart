@@ -1,28 +1,55 @@
 part of 'admin_production_map_orders_screen.dart';
 
 typedef _ReadOnlyQueueActionCallback = Future<AdminApparatusQueueActionResult?>
-    Function({
-  required AdminWarehouse apparatus,
-  required ProductionMapSaved order,
-  required String action,
-  List<String> materialBarcodes,
-  double? producedQty,
-  double? grossQty,
-  double? returnInkKg,
-  double? laminationPrintLeftoverRolls,
-  double? laminationFilmLeftoverRolls,
-  double? rezkaBosmaWaste,
-  double? rezkaLaminationWaste,
-  double? rezkaEdgeWaste,
-  double? totalWaste,
-  double? finishedGoodsKg,
-  double? finishedGoodsMeter,
-  String uom,
-  String qrPayload,
-  String progressBatchId,
-  String driverUrl,
-  String completionRequestNote,
-});
+    Function(
+  _ReadOnlyQueueActionRequest request,
+);
+
+class _ReadOnlyQueueActionRequest {
+  const _ReadOnlyQueueActionRequest({
+    required this.apparatus,
+    required this.order,
+    required this.action,
+    this.materialBarcodes = const [],
+    this.producedQty,
+    this.grossQty,
+    this.returnInkKg,
+    this.laminationPrintLeftoverRolls,
+    this.laminationFilmLeftoverRolls,
+    this.rezkaBosmaWaste,
+    this.rezkaLaminationWaste,
+    this.rezkaEdgeWaste,
+    this.totalWaste,
+    this.finishedGoodsKg,
+    this.finishedGoodsMeter,
+    this.uom = '',
+    this.qrPayload = '',
+    this.progressBatchId = '',
+    this.driverUrl = '',
+    this.completionRequestNote = '',
+  });
+
+  final AdminWarehouse apparatus;
+  final ProductionMapSaved order;
+  final String action;
+  final List<String> materialBarcodes;
+  final double? producedQty;
+  final double? grossQty;
+  final double? returnInkKg;
+  final double? laminationPrintLeftoverRolls;
+  final double? laminationFilmLeftoverRolls;
+  final double? rezkaBosmaWaste;
+  final double? rezkaLaminationWaste;
+  final double? rezkaEdgeWaste;
+  final double? totalWaste;
+  final double? finishedGoodsKg;
+  final double? finishedGoodsMeter;
+  final String uom;
+  final String qrPayload;
+  final String progressBatchId;
+  final String driverUrl;
+  final String completionRequestNote;
+}
 
 class _WorkerWatchTab {
   const _WorkerWatchTab.apparatus(this.apparatus) : isCompleted = false;

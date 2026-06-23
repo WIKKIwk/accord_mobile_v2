@@ -543,62 +543,43 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
-  Future<AdminApparatusQueueActionResult?> _handleQueueAction({
-    required AdminWarehouse apparatus,
-    required ProductionMapSaved order,
-    required String action,
-    List<String> materialBarcodes = const [],
-    double? producedQty,
-    double? grossQty,
-    double? returnInkKg,
-    double? laminationPrintLeftoverRolls,
-    double? laminationFilmLeftoverRolls,
-    double? rezkaBosmaWaste,
-    double? rezkaLaminationWaste,
-    double? rezkaEdgeWaste,
-    double? totalWaste,
-    double? finishedGoodsKg,
-    double? finishedGoodsMeter,
-    String uom = '',
-    String qrPayload = '',
-    String progressBatchId = '',
-    String driverUrl = '',
-    String completionRequestNote = '',
-  }) async {
+  Future<AdminApparatusQueueActionResult?> _handleQueueAction(
+    _ReadOnlyQueueActionRequest request,
+  ) async {
     if (_queueActionInFlight) {
       return null;
     }
-    final apparatusKey = apparatus.warehouse.trim();
+    final apparatusKey = request.apparatus.warehouse.trim();
     _setQueueActionInFlight(true);
     try {
       final result = await _submitAdminApparatusQueueAction(
         apparatus: apparatusKey,
-        orderId: order.map.id,
-        action: action,
-        materialBarcodes: materialBarcodes,
-        producedQty: producedQty,
-        grossQty: grossQty,
-        returnInkKg: returnInkKg,
-        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-        rezkaBosmaWaste: rezkaBosmaWaste,
-        rezkaLaminationWaste: rezkaLaminationWaste,
-        rezkaEdgeWaste: rezkaEdgeWaste,
-        totalWaste: totalWaste,
-        finishedGoodsKg: finishedGoodsKg,
-        finishedGoodsMeter: finishedGoodsMeter,
-        uom: uom,
-        qrPayload: qrPayload,
-        progressBatchId: progressBatchId,
-        driverUrl: driverUrl,
-        completionRequestNote: completionRequestNote,
+        orderId: request.order.map.id,
+        action: request.action,
+        materialBarcodes: request.materialBarcodes,
+        producedQty: request.producedQty,
+        grossQty: request.grossQty,
+        returnInkKg: request.returnInkKg,
+        laminationPrintLeftoverRolls: request.laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: request.laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: request.rezkaBosmaWaste,
+        rezkaLaminationWaste: request.rezkaLaminationWaste,
+        rezkaEdgeWaste: request.rezkaEdgeWaste,
+        totalWaste: request.totalWaste,
+        finishedGoodsKg: request.finishedGoodsKg,
+        finishedGoodsMeter: request.finishedGoodsMeter,
+        uom: request.uom,
+        qrPayload: request.qrPayload,
+        progressBatchId: request.progressBatchId,
+        driverUrl: request.driverUrl,
+        completionRequestNote: request.completionRequestNote,
       );
       if (!mounted) {
         return null;
       }
       _applyQueueActionResult(
         apparatusKey: apparatusKey,
-        completionRequestNote: completionRequestNote,
+        completionRequestNote: request.completionRequestNote,
         result: result,
       );
       return result;
@@ -1475,36 +1456,39 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() => _actionInFlight = true);
     try {
       final states = await prepared.onQueueAction(
-        apparatus: prepared.apparatus,
-        order: widget.order,
-        action: action,
-        materialBarcodes: _queueActionMaterialBarcodes(
+        _ReadOnlyQueueActionRequest(
+          apparatus: prepared.apparatus,
+          order: widget.order,
           action: action,
-          assignments: prepared.materialAssignments,
+          materialBarcodes: _queueActionMaterialBarcodes(
+            action: action,
+            assignments: prepared.materialAssignments,
+          ),
+          producedQty: progressInput?.meterQty,
+          grossQty: progressInput?.kgQty,
+          returnInkKg: progressInput?.returnInkKg,
+          laminationPrintLeftoverRolls:
+              progressInput?.laminationPrintLeftoverRolls,
+          laminationFilmLeftoverRolls:
+              progressInput?.laminationFilmLeftoverRolls,
+          rezkaBosmaWaste: progressInput?.rezkaBosmaWaste,
+          rezkaLaminationWaste: progressInput?.rezkaLaminationWaste,
+          rezkaEdgeWaste: progressInput?.rezkaEdgeWaste,
+          totalWaste: progressInput?.totalWaste,
+          finishedGoodsKg: progressInput?.finishedGoodsKg,
+          finishedGoodsMeter: progressInput?.finishedGoodsMeter,
+          uom: uom,
+          qrPayload: _queueActionQrPayload(
+            qrPayload: qrPayload,
+            startInputProgressBatch: prepared.startInputProgressBatch,
+          ),
+          progressBatchId: _queueActionProgressBatchId(
+            progressBatchId: progressBatchId,
+            startInputProgressBatch: prepared.startInputProgressBatch,
+          ),
+          driverUrl: driverUrl,
+          completionRequestNote: completionRequestNote,
         ),
-        producedQty: progressInput?.meterQty,
-        grossQty: progressInput?.kgQty,
-        returnInkKg: progressInput?.returnInkKg,
-        laminationPrintLeftoverRolls:
-            progressInput?.laminationPrintLeftoverRolls,
-        laminationFilmLeftoverRolls: progressInput?.laminationFilmLeftoverRolls,
-        rezkaBosmaWaste: progressInput?.rezkaBosmaWaste,
-        rezkaLaminationWaste: progressInput?.rezkaLaminationWaste,
-        rezkaEdgeWaste: progressInput?.rezkaEdgeWaste,
-        totalWaste: progressInput?.totalWaste,
-        finishedGoodsKg: progressInput?.finishedGoodsKg,
-        finishedGoodsMeter: progressInput?.finishedGoodsMeter,
-        uom: uom,
-        qrPayload: _queueActionQrPayload(
-          qrPayload: qrPayload,
-          startInputProgressBatch: prepared.startInputProgressBatch,
-        ),
-        progressBatchId: _queueActionProgressBatchId(
-          progressBatchId: progressBatchId,
-          startInputProgressBatch: prepared.startInputProgressBatch,
-        ),
-        driverUrl: driverUrl,
-        completionRequestNote: completionRequestNote,
       );
       if (!mounted) {
         return;
