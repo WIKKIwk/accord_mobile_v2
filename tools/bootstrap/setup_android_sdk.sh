@@ -47,7 +47,14 @@ sdkmanager \
 	"build-tools;35.0.0" \
 	"build-tools;28.0.3" >/dev/null
 
-FLUTTER_BIN="${FLUTTER_BIN:-$(command -v flutter)}"
+FLUTTER_BIN="${FLUTTER_BIN:-$(command -v flutter 2>/dev/null || true)}"
+if [ -z "$FLUTTER_BIN" ] && [ -x "$HOME/.local/flutter/bin/flutter" ]; then
+	FLUTTER_BIN="$HOME/.local/flutter/bin/flutter"
+fi
+if [ -z "$FLUTTER_BIN" ]; then
+	echo "flutter not found in PATH and ~/.local/flutter/bin/flutter is missing" >&2
+	exit 1
+fi
 FLUTTER_ROOT="$(cd "$(dirname "$FLUTTER_BIN")/.." && pwd)"
 
 "$FLUTTER_BIN" config --android-sdk "$SDK_ROOT" >/dev/null

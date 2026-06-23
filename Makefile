@@ -1,6 +1,8 @@
 HOST_OS := $(shell uname -s)
-API_URL ?= https://mini-rs-erp-test.wspace.sbs
+API_URL ?= https://mini-rs-erp-dev.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:18081
+FLUTTER_BIN ?= $(shell if command -v flutter >/dev/null 2>&1; then command -v flutter; elif [ -x "$$HOME/.local/flutter/bin/flutter" ]; then printf '%s\n' "$$HOME/.local/flutter/bin/flutter"; fi)
+CHROME_EXECUTABLE ?= $(shell if command -v chromium-browser >/dev/null 2>&1; then command -v chromium-browser; elif command -v chromium >/dev/null 2>&1; then command -v chromium; elif command -v google-chrome >/dev/null 2>&1; then command -v google-chrome; fi)
 ifeq ($(HOST_OS),Darwin)
 JDK_HOME ?= /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 else
@@ -16,10 +18,10 @@ RUN_DEVICE ?= web-server
 RUN_DART_DEFINES ?= --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 RUN_WEB_HOST ?= 127.0.0.1
 RUN_WEB_PORT ?= auto
-RUN_BROWSER_APP ?= ChatGPT Atlas
+RUN_BROWSER_APP ?= Chromium
 else
-RUN_DEVICE ?= linux
-RUN_DART_DEFINES ?=
+RUN_DEVICE ?= chrome
+RUN_DART_DEFINES ?= --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 endif
 
 CHROME_PROFILE_DIR := $(shell mktemp -d /tmp/accord-mobile-chrome.XXXXXX)
@@ -50,7 +52,7 @@ FLUTTER_APK_RELEASE_FLAGS := --release --target-platform android-arm64
 .PHONY: run oneni ami web analyze test deps backend-up backend-stop mock-backend mock-stop core-up core-stop remote-up remote-stop remote-url apk apk-remote run-remote android-sdk-setup domain-up domain-up-fast domain-url apk-domain run-domain bench-start bench-restart bench-stop bench-limit-start bench-limit-stop prepare-run run-local web-local ios-release-install
 
 deps:
-	@flutter pub get
+	@$(FLUTTER_BIN) pub get
 
 android-sdk-setup:
 	@./tools/bootstrap/setup_android_sdk.sh
@@ -181,7 +183,7 @@ endif
 endif
 endif
 endif
-	@flutter run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
 
 oneni:
 	@:
@@ -190,7 +192,7 @@ ami:
 	@:
 
 web: prepare-run deps
-	@flutter run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL)
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL)
 
 run-local: API_URL=$(LOCAL_API_URL)
 run-local: run
@@ -200,28 +202,28 @@ web-local: web
 
 run-remote: deps remote-up
 	@REMOTE_URL="$$(cat garbage/.core_tunnel_url)" && \
-	flutter run -d linux --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL"
+		$(FLUTTER_BIN) run -d linux --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL"
 
 run-domain: deps domain-up
 	@DOMAIN_URL="$$(cat garbage/.core_domain_url)" && \
-	flutter run -d linux --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL"
+		$(FLUTTER_BIN) run -d linux --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL"
 
 apk: deps android-sdk-setup
-	@JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" flutter build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) && \
+	@JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a): build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "API: $(API_URL)"
 
 apk-remote: deps remote-up android-sdk-setup
 	@REMOTE_URL="$$(cat garbage/.core_tunnel_url)" && \
-	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" flutter build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL" && \
+	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL" && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a) tayyor: build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "Core URL: $$REMOTE_URL"
 
 apk-domain: deps domain-up android-sdk-setup
 	@DOMAIN_URL="$$(cat garbage/.core_domain_url)" && \
-	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" flutter build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL" && \
+	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL" && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a) tayyor: build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "Core URL: $$DOMAIN_URL"
@@ -230,7 +232,7 @@ ios-release-install:
 	@./tools/runtime/install_ios_release.sh
 
 analyze:
-	@flutter analyze
+	@$(FLUTTER_BIN) analyze
 
 test:
-	@flutter test
+	@$(FLUTTER_BIN) test

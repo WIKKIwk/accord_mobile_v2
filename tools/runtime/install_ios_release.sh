@@ -15,8 +15,17 @@ cd "$ROOT_DIR"
 
 export DEVELOPER_DIR="$XCODE_DEVELOPER_DIR"
 
+FLUTTER_BIN="${FLUTTER_BIN:-$(command -v flutter 2>/dev/null || true)}"
+if [ -z "$FLUTTER_BIN" ] && [ -x "$HOME/.local/flutter/bin/flutter" ]; then
+	FLUTTER_BIN="$HOME/.local/flutter/bin/flutter"
+fi
+if [ -z "$FLUTTER_BIN" ]; then
+	echo "flutter not found in PATH and ~/.local/flutter/bin/flutter is missing" >&2
+	exit 1
+fi
+
 echo "Release build boshlanyapti..."
-flutter build ios --release
+"$FLUTTER_BIN" build ios --release
 
 APP_PATH="build/ios/Release-iphoneos/Runner.app"
 if [[ ! -d "$APP_PATH" ]]; then
