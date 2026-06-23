@@ -213,6 +213,44 @@ String _readOnlyQueueActionErrorText(Object error) {
   return error is MobileApiException ? error.message : 'Amal bajarilmadi';
 }
 
+_PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
+  required String action,
+  required AdminWarehouse? apparatus,
+  required _ReadOnlyQueueActionCallback? onQueueAction,
+  required bool actionInFlight,
+  required List<AdminRawMaterialAssignment> materialAssignments,
+  required ProductionMapSaved order,
+  required Set<String> scannedMaterialBarcodes,
+  required AdminProgressBatch? startInputProgressBatch,
+}) {
+  if (apparatus == null || onQueueAction == null || actionInFlight) {
+    return null;
+  }
+  final orderId = order.map.id.trim();
+  final station = apparatus.warehouse.trim();
+  final stationMaterialAssignments = _stationMaterialAssignments(
+    assignments: materialAssignments,
+    orderId: orderId,
+    station: station,
+  );
+  final inputProgressBatch = action == 'start' ? startInputProgressBatch : null;
+  return _PreparedReadOnlyQueueAction(
+    apparatus: apparatus,
+    onQueueAction: onQueueAction,
+    materialAssignments: stationMaterialAssignments,
+    startInputProgressBatch: inputProgressBatch,
+    blockReason: _queueActionStartBlockReason(
+      action: action,
+      materialAssignments: stationMaterialAssignments,
+      scannedMaterialBarcodes: scannedMaterialBarcodes,
+      orderId: orderId,
+      map: order.map,
+      station: station,
+      startInputProgressBatch: inputProgressBatch,
+    ),
+  );
+}
+
 _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required ProductionMapSaved order,
   required AdminWarehouse? apparatus,

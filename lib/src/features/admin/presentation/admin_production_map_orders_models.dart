@@ -1,5 +1,29 @@
 part of 'admin_production_map_orders_screen.dart';
 
+typedef _ReadOnlyQueueActionCallback = Future<AdminApparatusQueueActionResult?>
+    Function({
+  required AdminWarehouse apparatus,
+  required ProductionMapSaved order,
+  required String action,
+  List<String> materialBarcodes,
+  double? producedQty,
+  double? grossQty,
+  double? returnInkKg,
+  double? laminationPrintLeftoverRolls,
+  double? laminationFilmLeftoverRolls,
+  double? rezkaBosmaWaste,
+  double? rezkaLaminationWaste,
+  double? rezkaEdgeWaste,
+  double? totalWaste,
+  double? finishedGoodsKg,
+  double? finishedGoodsMeter,
+  String uom,
+  String qrPayload,
+  String progressBatchId,
+  String driverUrl,
+  String completionRequestNote,
+});
+
 class _WorkerWatchTab {
   const _WorkerWatchTab.apparatus(this.apparatus) : isCompleted = false;
   const _WorkerWatchTab.completed()
@@ -94,6 +118,22 @@ class _ReadOnlyOrderDetailUiState {
   final bool showWaitingForPrevious;
 
   int get scannedCount => confirmedMaterialBarcodes.length;
+}
+
+class _PreparedReadOnlyQueueAction {
+  const _PreparedReadOnlyQueueAction({
+    required this.apparatus,
+    required this.onQueueAction,
+    required this.materialAssignments,
+    required this.startInputProgressBatch,
+    this.blockReason,
+  });
+
+  final AdminWarehouse apparatus;
+  final _ReadOnlyQueueActionCallback onQueueAction;
+  final List<AdminRawMaterialAssignment> materialAssignments;
+  final AdminProgressBatch? startInputProgressBatch;
+  final String? blockReason;
 }
 
 const _moveUnassignedWarehouse = AdminWarehouse(

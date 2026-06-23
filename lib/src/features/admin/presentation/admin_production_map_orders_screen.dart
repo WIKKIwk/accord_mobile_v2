@@ -1337,28 +1337,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final ApparatusQueuePolicy queuePolicy;
   final List<String> sequenceOrderIds;
   final List<String> visibleOrderIds;
-  final Future<AdminApparatusQueueActionResult?> Function({
-    required AdminWarehouse apparatus,
-    required ProductionMapSaved order,
-    required String action,
-    List<String> materialBarcodes,
-    double? producedQty,
-    double? grossQty,
-    double? returnInkKg,
-    double? laminationPrintLeftoverRolls,
-    double? laminationFilmLeftoverRolls,
-    double? rezkaBosmaWaste,
-    double? rezkaLaminationWaste,
-    double? rezkaEdgeWaste,
-    double? totalWaste,
-    double? finishedGoodsKg,
-    double? finishedGoodsMeter,
-    String uom,
-    String qrPayload,
-    String progressBatchId,
-    String driverUrl,
-    String completionRequestNote,
-  })? onQueueAction;
+  final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
@@ -1455,41 +1434,32 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String driverUrl = '',
     String completionRequestNote = '',
   }) async {
-    final apparatus = widget.apparatus;
-    final onQueueAction = widget.onQueueAction;
-    if (apparatus == null || onQueueAction == null || _actionInFlight) {
+    final prepared = _prepareReadOnlyQueueAction(
+      action: action,
+      apparatus: widget.apparatus,
+      onQueueAction: widget.onQueueAction,
+      actionInFlight: _actionInFlight,
+      materialAssignments: _materialAssignments,
+      scannedMaterialBarcodes: _scannedMaterialBarcodes,
+      startInputProgressBatch: _startInputProgressBatch,
+      order: widget.order,
+    );
+    if (prepared == null) {
       return;
     }
-    final materialAssignments = _stationMaterialAssignments(
-      assignments: _materialAssignments,
-      orderId: widget.order.map.id.trim(),
-      station: apparatus.warehouse.trim(),
-    );
-    final station = apparatus.warehouse.trim();
-    final startInputProgressBatch =
-        action == 'start' ? _startInputProgressBatch : null;
-    final startBlockReason = _queueActionStartBlockReason(
-      action: action,
-      materialAssignments: materialAssignments,
-      scannedMaterialBarcodes: _scannedMaterialBarcodes,
-      orderId: widget.order.map.id.trim(),
-      map: widget.order.map,
-      station: station,
-      startInputProgressBatch: startInputProgressBatch,
-    );
-    if (startBlockReason != null) {
-      showAdminTopNotice(context, startBlockReason);
+    if (prepared.blockReason != null) {
+      showAdminTopNotice(context, prepared.blockReason!);
       return;
     }
     setState(() => _actionInFlight = true);
     try {
-      final states = await onQueueAction(
-        apparatus: apparatus,
+      final states = await prepared.onQueueAction(
+        apparatus: prepared.apparatus,
         order: widget.order,
         action: action,
         materialBarcodes: _queueActionMaterialBarcodes(
           action: action,
-          assignments: materialAssignments,
+          assignments: prepared.materialAssignments,
         ),
         producedQty: producedQty,
         grossQty: grossQty,
@@ -1505,11 +1475,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         uom: uom,
         qrPayload: _queueActionQrPayload(
           qrPayload: qrPayload,
-          startInputProgressBatch: startInputProgressBatch,
+          startInputProgressBatch: prepared.startInputProgressBatch,
         ),
         progressBatchId: _queueActionProgressBatchId(
           progressBatchId: progressBatchId,
-          startInputProgressBatch: startInputProgressBatch,
+          startInputProgressBatch: prepared.startInputProgressBatch,
         ),
         driverUrl: driverUrl,
         completionRequestNote: completionRequestNote,
