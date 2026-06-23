@@ -10,6 +10,7 @@ import 'widgets/admin_dock.dart';
 import 'widgets/admin_item_group_items_tab.dart';
 import 'widgets/admin_item_group_parent_move_tab.dart';
 import 'widgets/admin_item_group_tree_tab.dart';
+import 'widgets/admin_picker_field.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
@@ -325,7 +326,7 @@ class _CreateGroupTab extends StatelessWidget {
                         snapshot.connectionState == ConnectionState.done &&
                             !snapshot.hasError &&
                             !saving;
-                    return _ItemGroupPickerField(
+                    return AdminPickerField(
                       label: 'Parent group',
                       value: selectedParent,
                       placeholder: 'Parent tanlang',
@@ -358,76 +359,6 @@ class _CreateGroupTab extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ItemGroupPickerField extends StatelessWidget {
-  const _ItemGroupPickerField({
-    required this.label,
-    required this.value,
-    required this.placeholder,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final String? value;
-  final String placeholder;
-  final bool enabled;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurfaceVariant,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Material(
-          color: scheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: scheme.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value ?? placeholder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: value == null
-                                ? scheme.onSurfaceVariant
-                                : scheme.onSurface,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.expand_more_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

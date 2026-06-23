@@ -1,6 +1,7 @@
 import '../../../../core/api/mobile_api.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'admin_picker_field.dart';
 import 'admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -25,13 +26,12 @@ class _AdminItemGroupParentMovePanelState
   String? parentName;
   bool submitting = false;
 
-  List<String> get movableGroups =>
-      widget.groups
-          .map((group) => group.trim())
-          .where((group) => group.isNotEmpty && group != 'All Item Groups')
-          .toSet()
-          .toList()
-        ..sort();
+  List<String> get movableGroups => widget.groups
+      .map((group) => group.trim())
+      .where((group) => group.isNotEmpty && group != 'All Item Groups')
+      .toSet()
+      .toList()
+    ..sort();
 
   List<String> get parentGroups {
     final current = groupName?.trim() ?? '';
@@ -52,9 +52,8 @@ class _AdminItemGroupParentMovePanelState
       groupName = null;
     }
     if (parentName != null && !parents.contains(parentName)) {
-      parentName = parents.contains('All Item Groups')
-          ? 'All Item Groups'
-          : null;
+      parentName =
+          parents.contains('All Item Groups') ? 'All Item Groups' : null;
     }
   }
 
@@ -73,9 +72,8 @@ class _AdminItemGroupParentMovePanelState
     setState(() {
       groupName = picked;
       if (parentName == picked) {
-        parentName = parentGroups.contains('All Item Groups')
-            ? 'All Item Groups'
-            : null;
+        parentName =
+            parentGroups.contains('All Item Groups') ? 'All Item Groups' : null;
       }
     });
   }
@@ -166,8 +164,7 @@ class _AdminItemGroupParentMovePanelState
   Widget build(BuildContext context) {
     final movable = movableGroups;
     final parents = parentGroups;
-    final canSubmit =
-        !submitting &&
+    final canSubmit = !submitting &&
         (groupName?.isNotEmpty ?? false) &&
         (parentName?.isNotEmpty ?? false);
     final scheme = Theme.of(context).colorScheme;
@@ -186,8 +183,8 @@ class _AdminItemGroupParentMovePanelState
             Text(
               'Parentni ko‘chirish',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -195,7 +192,7 @@ class _AdminItemGroupParentMovePanelState
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 14),
-            _MovePickerField(
+            AdminPickerField(
               label: 'Ko‘chiriladigan group',
               value: groupName,
               placeholder: 'Group tanlang',
@@ -203,7 +200,7 @@ class _AdminItemGroupParentMovePanelState
               onTap: () => _openGroupPicker(movable),
             ),
             const SizedBox(height: 12),
-            _MovePickerField(
+            AdminPickerField(
               label: 'Yangi parent',
               value: parentName,
               placeholder: 'Parent tanlang',
@@ -220,76 +217,6 @@ class _AdminItemGroupParentMovePanelState
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MovePickerField extends StatelessWidget {
-  const _MovePickerField({
-    required this.label,
-    required this.value,
-    required this.placeholder,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final String? value;
-  final String placeholder;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Material(
-          color: scheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: scheme.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value ?? placeholder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: value == null
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.expand_more_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
