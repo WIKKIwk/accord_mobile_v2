@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
@@ -59,15 +60,7 @@ class _WerkaUnannouncedSupplierScreenState
     super.dispose();
   }
 
-  String _formatQty(double qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toStringAsFixed(0);
-    }
-    return qty
-        .toStringAsFixed(2)
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
-  }
+  String _formatQty(double qty) => formatQuantity(qty, trimTrailingZeros: true);
 
   Future<void> _pickSupplier() async {
     final picked = await showModalBottomSheet<SupplierDirectoryEntry>(
@@ -125,11 +118,11 @@ class _WerkaUnannouncedSupplierScreenState
           pageSize: 100,
           loadPage: (query, offset, limit) =>
               MobileApi.instance.werkaSupplierItems(
-                supplierRef: _selectedSupplier!.ref,
-                query: query,
-                offset: offset,
-                limit: limit,
-              ),
+            supplierRef: _selectedSupplier!.ref,
+            query: query,
+            offset: offset,
+            limit: limit,
+          ),
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),

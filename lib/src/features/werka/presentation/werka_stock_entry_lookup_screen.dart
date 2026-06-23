@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/customer/customer_priority.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
@@ -163,12 +164,7 @@ class _WerkaStockEntryLookupScreenState
     };
   }
 
-  String _formatQty(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(2);
-  }
+  String _formatQty(double value) => formatQuantity(value);
 
   String _warehouseText(String source, String target) {
     final left = source.trim().isEmpty ? '—' : source.trim();

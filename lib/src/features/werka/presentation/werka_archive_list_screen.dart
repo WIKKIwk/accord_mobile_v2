@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/files/archive_pdf_photo_saver.dart';
 import '../../../core/files/archive_pdf_saver.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -168,12 +169,7 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     }
   }
 
-  String _formatQty(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(2);
-  }
+  String _formatQty(double value) => formatQuantity(value);
 
   Future<void> _downloadPdf() async {
     if (_downloading) {
@@ -299,8 +295,8 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
     final message = defaultTargetPlatform == TargetPlatform.iOS
         ? context.l10n.archivePdfSavedOnIPhone
         : outputFile == file.filename
-        ? context.l10n.archivePdfSavedToFiles
-        : context.l10n.archivePdfSavedAt(outputFile);
+            ? context.l10n.archivePdfSavedToFiles
+            : context.l10n.archivePdfSavedAt(outputFile);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -319,9 +315,8 @@ class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
           ),
         ],
         fileNameOverrides: [file.filename],
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
+        sharePositionOrigin:
+            box == null ? null : box.localToGlobal(Offset.zero) & box.size,
       ),
     );
   }

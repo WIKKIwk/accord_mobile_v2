@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -51,12 +52,7 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
     super.dispose();
   }
 
-  String _formatQty(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(2);
-  }
+  String _formatQty(double value) => formatQuantity(value);
 
   void _toggleFullReturnMode() {
     setState(() {
@@ -74,9 +70,8 @@ class _WerkaDetailScreenState extends State<WerkaDetailScreen> {
   }
 
   Future<void> _submit() async {
-    final double acceptedQty = fullReturnMode
-        ? 0.0
-        : (double.tryParse(controller.text.trim()) ?? 0.0);
+    final double acceptedQty =
+        fullReturnMode ? 0.0 : (double.tryParse(controller.text.trim()) ?? 0.0);
     if (acceptedQty <= 0) {
       if (fullReturnMode) {
         // full return mode handles zero accepted qty

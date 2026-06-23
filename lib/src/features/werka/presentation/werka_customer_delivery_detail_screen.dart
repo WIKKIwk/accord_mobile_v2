@@ -1,5 +1,6 @@
 import '../../../core/localization/app_localizations.dart';
 import '../../../app/app_router.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -42,12 +43,7 @@ class WerkaCustomerDeliveryDetailScreen extends StatelessWidget {
     return l10n.noExtraNote;
   }
 
-  String _formatQty(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(2);
-  }
+  String _formatQty(double value) => formatQuantity(value);
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/customer/customer_priority.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/notifications/store/werka_runtime_store.dart';
@@ -73,15 +74,7 @@ class _WerkaCustomerIssueCustomerScreenState
     super.dispose();
   }
 
-  String _formatQty(double qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toStringAsFixed(0);
-    }
-    return qty
-        .toStringAsFixed(2)
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
-  }
+  String _formatQty(double qty) => formatQuantity(qty, trimTrailingZeros: true);
 
   CustomerDirectoryEntry _customerFromOption(CustomerItemOption option) {
     return CustomerDirectoryEntry(
@@ -245,11 +238,11 @@ class _WerkaCustomerIssueCustomerScreenState
             cacheKey: 'werka:issue-customer-items:${_selectedCustomer!.ref}',
             loadPage: (query, offset, limit) =>
                 MobileApi.instance.werkaCustomerItems(
-                  customerRef: _selectedCustomer!.ref,
-                  query: query,
-                  offset: offset,
-                  limit: limit,
-                ),
+              customerRef: _selectedCustomer!.ref,
+              query: query,
+              offset: offset,
+              limit: limit,
+            ),
             itemTitle: (item) => item.name,
             itemSubtitle: (item) => item.code,
             onSelected: (item) => Navigator.of(context).pop(item),
@@ -286,10 +279,10 @@ class _WerkaCustomerIssueCustomerScreenState
           cacheKey: 'werka:issue-customer-item-options',
           loadPage: (query, offset, limit) =>
               MobileApi.instance.werkaCustomerItemOptions(
-                query: query,
-                offset: offset,
-                limit: limit,
-              ),
+            query: query,
+            offset: offset,
+            limit: limit,
+          ),
           itemTitle: (item) => item.itemName,
           itemSubtitle: (item) => '${item.customerName} • ${item.itemCode}',
           onSelected: (item) => Navigator.of(context).pop(item),
@@ -463,8 +456,8 @@ class _WerkaCustomerIssueCustomerScreenState
       }
       final message =
           error is MobileApiException && error.code == 'insufficient_stock'
-          ? l10n.insufficientStockMessage
-          : l10n.customerIssueFailed(error);
+              ? l10n.insufficientStockMessage
+              : l10n.customerIssueFailed(error);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -482,8 +475,7 @@ class _WerkaCustomerIssueCustomerScreenState
     final scheme = theme.colorScheme;
     final canSubmit =
         _selectedCustomer != null && _selectedItem != null && !_submitting;
-    final customerLabel =
-        _selectedCustomer?.name ??
+    final customerLabel = _selectedCustomer?.name ??
         (_prefillCustomerLoading
             ? 'Customer tanlanmoqda...'
             : l10n.selectCustomer);
