@@ -118,6 +118,47 @@ bool _progressBatchMatchesPreviousStage({
   return matchesOrder && matchesStage && usableAction && usableStatus;
 }
 
+List<String> _queueActionMaterialBarcodes({
+  required String action,
+  required List<AdminRawMaterialAssignment> assignments,
+}) {
+  return action == 'start'
+      ? assignments.map((item) => item.barcode).toList()
+      : const [];
+}
+
+String _queueActionQrPayload({
+  required String qrPayload,
+  required AdminProgressBatch? startInputProgressBatch,
+}) {
+  return qrPayload.trim().isEmpty
+      ? (startInputProgressBatch?.qrPayload ?? '')
+      : qrPayload;
+}
+
+String _queueActionProgressBatchId({
+  required String progressBatchId,
+  required AdminProgressBatch? startInputProgressBatch,
+}) {
+  return progressBatchId.trim().isEmpty
+      ? (startInputProgressBatch?.batchId ?? '')
+      : progressBatchId;
+}
+
+bool _queueActionShouldClearStartInputProgress({
+  required String action,
+  required AdminApparatusQueueActionResult? result,
+}) {
+  return action == 'start' && result != null;
+}
+
+bool _queueActionShouldReloadMaterials({
+  required String action,
+  required AdminApparatusQueueActionResult? result,
+}) {
+  return action == 'start' && result != null;
+}
+
 String _productTitle(ProductionMapDefinition map) {
   for (final node in map.nodes) {
     final title = node.title.trim();

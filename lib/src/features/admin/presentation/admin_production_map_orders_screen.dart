@@ -1608,9 +1608,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         apparatus: apparatus,
         order: widget.order,
         action: action,
-        materialBarcodes: action == 'start'
-            ? materialAssignments.map((item) => item.barcode).toList()
-            : const [],
+        materialBarcodes: _queueActionMaterialBarcodes(
+          action: action,
+          assignments: materialAssignments,
+        ),
         producedQty: producedQty,
         grossQty: grossQty,
         returnInkKg: returnInkKg,
@@ -1623,12 +1624,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         finishedGoodsKg: finishedGoodsKg,
         finishedGoodsMeter: finishedGoodsMeter,
         uom: uom,
-        qrPayload: qrPayload.trim().isEmpty
-            ? (startInputProgressBatch?.qrPayload ?? '')
-            : qrPayload,
-        progressBatchId: progressBatchId.trim().isEmpty
-            ? (startInputProgressBatch?.batchId ?? '')
-            : progressBatchId,
+        qrPayload: _queueActionQrPayload(
+          qrPayload: qrPayload,
+          startInputProgressBatch: startInputProgressBatch,
+        ),
+        progressBatchId: _queueActionProgressBatchId(
+          progressBatchId: progressBatchId,
+          startInputProgressBatch: startInputProgressBatch,
+        ),
         driverUrl: driverUrl,
         completionRequestNote: completionRequestNote,
       );
@@ -1640,11 +1643,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (states != null) {
           _queueStates = states.states;
         }
-        if (action == 'start' && states != null) {
+        if (_queueActionShouldClearStartInputProgress(
+          action: action,
+          result: states,
+        )) {
           _startInputProgressBatch = null;
         }
       });
-      if (action == 'start' && states != null) {
+      if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
       }
     } on MobileApiException catch (error) {
