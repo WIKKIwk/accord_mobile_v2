@@ -60,6 +60,42 @@ class _ProductionMapLiveConnection {
   final Future<void> completed;
 }
 
+class _ReadOnlyOrderDetailUiState {
+  const _ReadOnlyOrderDetailUiState({
+    required this.orderId,
+    required this.station,
+    required this.materialAssignments,
+    required this.confirmedMaterialBarcodes,
+    required this.hasMaterialAssignments,
+    required this.allMaterialsScanned,
+    required this.previousStage,
+    required this.previousProgressRequired,
+    required this.previousProgressReady,
+    required this.showStart,
+    required this.showPause,
+    required this.showComplete,
+    required this.showResume,
+    required this.showWaitingForPrevious,
+  });
+
+  final String orderId;
+  final String station;
+  final List<AdminRawMaterialAssignment> materialAssignments;
+  final Set<String> confirmedMaterialBarcodes;
+  final bool hasMaterialAssignments;
+  final bool allMaterialsScanned;
+  final String? previousStage;
+  final bool previousProgressRequired;
+  final bool previousProgressReady;
+  final bool showStart;
+  final bool showPause;
+  final bool showComplete;
+  final bool showResume;
+  final bool showWaitingForPrevious;
+
+  int get scannedCount => confirmedMaterialBarcodes.length;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',

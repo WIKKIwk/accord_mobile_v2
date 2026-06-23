@@ -192,6 +192,86 @@ String _readOnlyQueueActionErrorText(Object error) {
   return error is MobileApiException ? error.message : 'Amal bajarilmadi';
 }
 
+_ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
+  required ProductionMapSaved order,
+  required AdminWarehouse? apparatus,
+  required Map<String, String> queueStates,
+  required List<AdminRawMaterialAssignment> materialAssignments,
+  required Set<String> scannedMaterialBarcodes,
+  required bool canManageQueue,
+  required List<String> sequenceOrderIds,
+  required List<String> visibleOrderIds,
+  required ApparatusQueuePolicy queuePolicy,
+  required AdminProgressBatch? startInputProgressBatch,
+}) {
+  final map = order.map;
+  final orderId = map.id.trim();
+  final station = apparatus?.warehouse.trim() ?? '';
+  final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
+  final stationMaterialAssignments = _stationMaterialAssignments(
+    assignments: materialAssignments,
+    orderId: orderId,
+    station: station,
+  );
+  final allMaterialsScanned = _allMaterialsScanned(
+    assignments: stationMaterialAssignments,
+    scannedBarcodes: scannedMaterialBarcodes,
+    orderId: orderId,
+  );
+  final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
+    assignments: stationMaterialAssignments,
+    scannedBarcodes: scannedMaterialBarcodes,
+    orderId: orderId,
+  );
+  final previousStage = station.isEmpty
+      ? null
+      : productionMapPreviousWorkStageStation(map: map, station: station);
+  final sequence =
+      sequenceOrderIds.isNotEmpty ? sequenceOrderIds : visibleOrderIds;
+  final actionableId = canManageQueue
+      ? firstActionableQueueOrderId(
+          sequence: sequence,
+          states: queueStates,
+          visibleOrderIds: visibleOrderIds,
+        )
+      : null;
+  final activeOrderId = canManageQueue
+      ? firstInProgressQueueOrderId(
+          sequence: sequence,
+          states: queueStates,
+          visibleOrderIds: visibleOrderIds,
+        )
+      : null;
+  final freePick = queuePolicy == ApparatusQueuePolicy.freePick;
+  final canStartWithPreviousProgress = previousStage != null &&
+      queueState == ApparatusQueueOrderState.pending &&
+      (activeOrderId == null || activeOrderId == orderId);
+  final isActionable = canManageQueue &&
+      (freePick
+          ? activeOrderId == null || activeOrderId == orderId
+          : actionableId == orderId || canStartWithPreviousProgress);
+  final previousProgressRequired = previousStage != null;
+  return _ReadOnlyOrderDetailUiState(
+    orderId: orderId,
+    station: station,
+    materialAssignments: stationMaterialAssignments,
+    confirmedMaterialBarcodes: confirmedMaterialBarcodes,
+    hasMaterialAssignments: stationMaterialAssignments.isNotEmpty,
+    allMaterialsScanned: allMaterialsScanned,
+    previousStage: previousStage,
+    previousProgressRequired: previousProgressRequired,
+    previousProgressReady:
+        !previousProgressRequired || startInputProgressBatch != null,
+    showStart: isActionable && queueState == ApparatusQueueOrderState.pending,
+    showPause:
+        isActionable && queueState == ApparatusQueueOrderState.inProgress,
+    showComplete:
+        isActionable && queueState == ApparatusQueueOrderState.inProgress,
+    showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
+    showWaitingForPrevious: false,
+  );
+}
+
 String _productTitle(ProductionMapDefinition map) {
   for (final node in map.nodes) {
     final title = node.title.trim();

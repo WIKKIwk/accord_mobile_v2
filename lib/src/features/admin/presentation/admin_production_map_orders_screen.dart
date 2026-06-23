@@ -1661,66 +1661,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final scheme = theme.colorScheme;
     final map = widget.order.map;
     final steps = _linearProductionMapNodes(map);
-    final orderId = map.id.trim();
-    final station = widget.apparatus?.warehouse.trim() ?? '';
-    final queueState = apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
-    final materialAssignments = _stationMaterialAssignments(
-      assignments: _materialAssignments,
-      orderId: orderId,
-      station: station,
+    final uiState = _readOnlyOrderDetailUiState(
+      order: widget.order,
+      apparatus: widget.apparatus,
+      queueStates: _queueStates,
+      materialAssignments: _materialAssignments,
+      scannedMaterialBarcodes: _scannedMaterialBarcodes,
+      canManageQueue: widget.canManageQueue,
+      sequenceOrderIds: widget.sequenceOrderIds,
+      visibleOrderIds: widget.visibleOrderIds,
+      queuePolicy: widget.queuePolicy,
+      startInputProgressBatch: _startInputProgressBatch,
     );
-    final hasMaterialAssignments = materialAssignments.isNotEmpty;
-    final allMaterialsScanned = _allMaterialsScanned(
-      assignments: materialAssignments,
-      scannedBarcodes: _scannedMaterialBarcodes,
-      orderId: orderId,
-    );
-    final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
-      assignments: materialAssignments,
-      scannedBarcodes: _scannedMaterialBarcodes,
-      orderId: orderId,
-    );
-    final previousStage = station.isEmpty
-        ? null
-        : productionMapPreviousWorkStageStation(map: map, station: station);
-    final actionableId = widget.canManageQueue
-        ? firstActionableQueueOrderId(
-            sequence: widget.sequenceOrderIds.isNotEmpty
-                ? widget.sequenceOrderIds
-                : widget.visibleOrderIds,
-            states: _queueStates,
-            visibleOrderIds: widget.visibleOrderIds,
-          )
-        : null;
-    final activeOrderId = widget.canManageQueue
-        ? firstInProgressQueueOrderId(
-            sequence: widget.sequenceOrderIds.isNotEmpty
-                ? widget.sequenceOrderIds
-                : widget.visibleOrderIds,
-            states: _queueStates,
-            visibleOrderIds: widget.visibleOrderIds,
-          )
-        : null;
-    final freePick = widget.queuePolicy == ApparatusQueuePolicy.freePick;
-    final canStartWithPreviousProgress = previousStage != null &&
-        queueState == ApparatusQueueOrderState.pending &&
-        (activeOrderId == null || activeOrderId == orderId);
-    final isActionable = widget.canManageQueue &&
-        (freePick
-            ? activeOrderId == null || activeOrderId == orderId
-            : actionableId == orderId || canStartWithPreviousProgress);
-    final previousProgressRequired = previousStage != null;
-    final previousProgressReady =
-        !previousProgressRequired || _startInputProgressBatch != null;
-    final showStart =
-        isActionable && queueState == ApparatusQueueOrderState.pending;
-    final showPause =
-        isActionable && queueState == ApparatusQueueOrderState.inProgress;
-    final showComplete =
-        isActionable && queueState == ApparatusQueueOrderState.inProgress;
-    final showResume =
-        isActionable && queueState == ApparatusQueueOrderState.paused;
-    final showWaitingForPrevious = false;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -1728,7 +1680,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (context, controller) {
-        final scannedCount = confirmedMaterialBarcodes.length;
         return ColoredBox(
           color: scheme.surfaceContainerHighest,
           child: ListView(
@@ -1738,27 +1689,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               _OrderStartUnifiedCard(
                 orderCode: _openedOrderDisplayCode(map),
                 productTitle: _productTitle(map),
-                assignments: materialAssignments,
+                assignments: uiState.materialAssignments,
                 materialsLoading: _materialsLoading,
                 materialsError: _materialsError,
-                scannedBarcodes: confirmedMaterialBarcodes,
-                scannedCount: scannedCount,
-                showStart: showStart,
-                hasMaterialAssignments: hasMaterialAssignments,
-                allMaterialsScanned: allMaterialsScanned,
+                scannedBarcodes: uiState.confirmedMaterialBarcodes,
+                scannedCount: uiState.scannedCount,
+                showStart: uiState.showStart,
+                hasMaterialAssignments: uiState.hasMaterialAssignments,
+                allMaterialsScanned: uiState.allMaterialsScanned,
                 actionInFlight: _actionInFlight,
-                showPause: showPause,
-                showComplete: showComplete,
-                showResume: showResume,
-                showWaitingForPrevious: showWaitingForPrevious,
-                previousStage: previousStage,
-                previousProgressRequired: previousProgressRequired,
-                previousProgressReady: previousProgressReady,
+                showPause: uiState.showPause,
+                showComplete: uiState.showComplete,
+                showResume: uiState.showResume,
+                showWaitingForPrevious: uiState.showWaitingForPrevious,
+                previousStage: uiState.previousStage,
+                previousProgressRequired: uiState.previousProgressRequired,
+                previousProgressReady: uiState.previousProgressReady,
                 previousProgressBatch: _startInputProgressBatch,
                 onScan: () => unawaited(_scanMaterial()),
-                onProgressScan: previousStage == null
+                onProgressScan: uiState.previousStage == null
                     ? null
-                    : () => unawaited(_scanStartInputProgressQr(previousStage)),
+                    : () => unawaited(
+                          _scanStartInputProgressQr(uiState.previousStage!),
+                        ),
                 onStart: () => unawaited(_runQueueAction('start')),
                 onPause: () => unawaited(_runProgressAction('pause')),
                 onComplete: () => unawaited(_runProgressAction('complete')),
@@ -1767,8 +1720,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               const SizedBox(height: 10),
               _OrderMapProgressCard(
                 steps: steps,
-                orderId: orderId,
-                currentStation: station,
+                orderId: uiState.orderId,
+                currentStation: uiState.station,
                 queueStates: _queueStates,
                 queueStatesByApparatus: widget.queueStatesByApparatus,
                 expanded: _mapExpanded,
