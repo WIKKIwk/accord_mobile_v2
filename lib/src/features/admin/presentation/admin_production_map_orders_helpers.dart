@@ -843,3 +843,55 @@ bool _canMoveOrderToApparatus(
     isFlexoOrder: productionMapIsFlexoOrder(order.map),
   );
 }
+
+_MoveDragPayload _moveDragPayload({
+  required ProductionMapSaved order,
+  required AdminWarehouse source,
+  required List<ProductionMapSaved> zoneOrders,
+  required Set<String> selectedOrderIds,
+}) {
+  final orderId = order.map.id.trim();
+  final selectedFromZone = zoneOrders
+      .where((item) => selectedOrderIds.contains(item.map.id.trim()))
+      .toList(growable: false);
+  final orders = selectedFromZone.isEmpty
+      ? [order]
+      : [
+          ...selectedFromZone,
+          if (!selectedFromZone.any((item) => item.map.id.trim() == orderId))
+            order,
+        ];
+  return _MoveDragPayload(orders: orders, source: source);
+}
+
+List<AdminWarehouse> _movePickerApparatusOptionsForList({
+  required List<AdminWarehouse> apparatus,
+  required AdminWarehouse? oppositeApparatus,
+}) {
+  if (oppositeApparatus == null ||
+      _isMoveUnassignedApparatus(oppositeApparatus)) {
+    return apparatus;
+  }
+  final oppositeTitle = oppositeApparatus.warehouse.trim();
+  return apparatus
+      .where(
+        (item) => !productionMapWarehouseTitlesMatch(
+          item.warehouse,
+          oppositeTitle,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<ProductionMapSaved> _alternativeOrdersForApparatusList({
+  required List<ProductionMapSaved> orders,
+  required AdminWarehouse apparatus,
+}) {
+  return orders
+      .where(
+        (order) =>
+            !_isFlexoOrderBlockedForColorPechat(order.map, apparatus) &&
+            _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus),
+      )
+      .toList(growable: false);
+}

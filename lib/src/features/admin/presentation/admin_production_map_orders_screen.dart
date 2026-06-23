@@ -950,18 +950,12 @@ class _AdminProductionMapOrdersScreenState
     required AdminWarehouse source,
     required List<ProductionMapSaved> zoneOrders,
   }) {
-    final orderId = order.map.id.trim();
-    final selectedFromZone = zoneOrders
-        .where((item) => _selectedMoveOrderIds.contains(item.map.id.trim()))
-        .toList(growable: false);
-    final orders = selectedFromZone.isEmpty
-        ? [order]
-        : [
-            ...selectedFromZone,
-            if (!selectedFromZone.any((item) => item.map.id.trim() == orderId))
-              order,
-          ];
-    return _MoveDragPayload(orders: orders, source: source);
+    return _moveDragPayload(
+      order: order,
+      source: source,
+      zoneOrders: zoneOrders,
+      selectedOrderIds: _selectedMoveOrderIds,
+    );
   }
 
   Future<void> _moveOrdersBetweenApparatus({
@@ -1211,31 +1205,19 @@ class _AdminProductionMapOrdersScreenState
   List<AdminWarehouse> _movePickerApparatusOptions(
     AdminWarehouse? oppositeApparatus,
   ) {
-    if (oppositeApparatus == null ||
-        _isMoveUnassignedApparatus(oppositeApparatus)) {
-      return _apparatus;
-    }
-    final oppositeTitle = oppositeApparatus.warehouse.trim();
-    return _apparatus
-        .where(
-          (apparatus) => !productionMapWarehouseTitlesMatch(
-            apparatus.warehouse,
-            oppositeTitle,
-          ),
-        )
-        .toList(growable: false);
+    return _movePickerApparatusOptionsForList(
+      apparatus: _apparatus,
+      oppositeApparatus: oppositeApparatus,
+    );
   }
 
   List<ProductionMapSaved> _alternativeOrdersForApparatus(
     AdminWarehouse apparatus,
   ) {
-    return _orders
-        .where(
-          (order) =>
-              !_isFlexoOrderBlockedForColorPechat(order.map, apparatus) &&
-              _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus),
-        )
-        .toList(growable: false);
+    return _alternativeOrdersForApparatusList(
+      orders: _orders,
+      apparatus: apparatus,
+    );
   }
 
   @override
