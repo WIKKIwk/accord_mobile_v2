@@ -6,6 +6,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/navigation/native_back_button.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../supplier/state/supplier_store.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
@@ -342,8 +343,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
         bottom: role == UserRole.supplier
             ? const SupplierDock(activeTab: null)
             : role == UserRole.werka
-            ? const WerkaDock(activeTab: null)
-            : null,
+                ? const WerkaDock(activeTab: null)
+                : null,
         child: const Center(child: AppLoadingIndicator()),
       );
     }
@@ -356,8 +357,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
       bottom: role == UserRole.supplier
           ? const SupplierDock(activeTab: null)
           : role == UserRole.werka
-          ? const WerkaDock(activeTab: null)
-          : null,
+              ? const WerkaDock(activeTab: null)
+              : null,
       child: FutureBuilder<NotificationDetail>(
         future: _future,
         builder: (context, snapshot) {
@@ -371,8 +372,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
           final detail = snapshot.data!;
           final record = detail.record;
           final currentProfile = AppSession.instance.profile;
-          final belongsToCurrentSupplier =
-              role != UserRole.supplier ||
+          final belongsToCurrentSupplier = role != UserRole.supplier ||
               currentProfile == null ||
               record.supplierRef.trim().isEmpty ||
               record.supplierRef.trim() == currentProfile.ref.trim();
@@ -390,13 +390,11 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
             });
             return const SizedBox.shrink();
           }
-          final canConfirm =
-              role == UserRole.werka &&
+          final canConfirm = role == UserRole.werka &&
               record.eventType.isEmpty &&
               (record.status == DispatchStatus.pending ||
                   record.status == DispatchStatus.draft);
-          final canRespondWerkaUnannounced =
-              role == UserRole.supplier &&
+          final canRespondWerkaUnannounced = role == UserRole.supplier &&
               record.eventType == 'werka_unannounced_pending';
           final isSupplierAckEvent = record.eventType == 'supplier_ack';
           final supplierAcknowledged = detail.comments.any(
@@ -404,21 +402,18 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                 item.authorLabel.startsWith('Supplier') &&
                 item.body.toLowerCase().contains('tasdiqlayman'),
           );
-          final canAcknowledge =
-              role == UserRole.supplier &&
+          final canAcknowledge = role == UserRole.supplier &&
               !canRespondWerkaUnannounced &&
               !supplierAcknowledged &&
               (record.status == DispatchStatus.partial ||
                   record.status == DispatchStatus.rejected ||
                   record.status == DispatchStatus.cancelled ||
                   record.note.trim().isNotEmpty);
-          final canComment =
-              record.note.trim().isNotEmpty ||
+          final canComment = record.note.trim().isNotEmpty ||
               record.status == DispatchStatus.partial ||
               record.status == DispatchStatus.rejected ||
               record.status == DispatchStatus.cancelled;
-          final canWriteIssueComment =
-              canComment &&
+          final canWriteIssueComment = canComment &&
               !canRespondWerkaUnannounced &&
               !isSupplierAckEvent &&
               !(role == UserRole.supplier && supplierAcknowledged);
@@ -499,8 +494,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                           ? null
                           : () async {
                               final messenger = ScaffoldMessenger.of(context);
-                              final bool?
-                              confirmed = await _showActionConfirmDialog(
+                              final bool? confirmed =
+                                  await _showActionConfirmDialog(
                                 title: 'Tasdiqlash',
                                 message:
                                     'Haqiqatan ham shu holatni tasdiqlaysizmi?',
@@ -514,10 +509,10 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                               try {
                                 final updated = await MobileApi.instance
                                     .addNotificationComment(
-                                      receiptID: widget.receiptID,
-                                      message:
-                                          'Tasdiqlayman, shu holat bo‘lganini ko‘rdim.',
-                                    );
+                                  receiptID: widget.receiptID,
+                                  message:
+                                      'Tasdiqlayman, shu holat bo‘lganini ko‘rdim.',
+                                );
                                 if (!mounted) {
                                   return;
                                 }
@@ -678,7 +673,7 @@ class _NotificationSummarySection extends StatelessWidget {
                   style: theme.textTheme.headlineMedium,
                 ),
               ),
-              _DetailStatusChip(label: _statusLabel(record.status)),
+              AppStatusChip(label: _statusLabel(record.status)),
             ],
           ),
           const SizedBox(height: 18),
@@ -745,8 +740,8 @@ class _NotificationNoteSection extends StatelessWidget {
         child: Text(
           note,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: emphasized ? scheme.onSecondaryContainer : null,
-          ),
+                color: emphasized ? scheme.onSecondaryContainer : null,
+              ),
         ),
       ),
     );
@@ -800,31 +795,6 @@ class _NotificationInfoRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DetailStatusChip extends StatelessWidget {
-  const _DetailStatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSecondaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }
