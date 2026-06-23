@@ -263,10 +263,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _loadWorkerApparatus() async {
-    final apparatus = await MobileApi.instance.adminWarehouses(
-      parent: 'aparat - A',
-      limit: 200,
-    );
+    final apparatus = await _loadProductionMapApparatus();
     if (!mounted) {
       return;
     }

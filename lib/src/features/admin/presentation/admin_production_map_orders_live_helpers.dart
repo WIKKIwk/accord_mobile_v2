@@ -89,11 +89,15 @@ Future<List<AdminCompletionRequestNotification>>
   return MobileApi.instance.adminProductionMapCompletionRequests();
 }
 
+Future<List<AdminWarehouse>> _loadProductionMapApparatus() {
+  return MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200);
+}
+
 Future<_ProductionMapOrdersAndApparatus>
     _loadProductionMapOrdersAndApparatus() async {
   final results = await Future.wait([
     MobileApi.instance.adminProductionMaps(),
-    MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
+    _loadProductionMapApparatus(),
   ]);
   final maps = results[0] as List<ProductionMapSaved>;
   final apparatus = results[1] as List<AdminWarehouse>;
