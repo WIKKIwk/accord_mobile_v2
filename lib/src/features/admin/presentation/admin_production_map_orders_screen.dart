@@ -838,6 +838,37 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
+  void _clearMoveDragState() {
+    setState(() {
+      _draggingMoveOrders = const [];
+      _draggingMoveSource = null;
+    });
+  }
+
+  void _applySavedMoveOrders({
+    required Set<String> orderIds,
+    required Map<String, ProductionMapSaved> savedById,
+  }) {
+    setState(() {
+      _selectedMoveOrderIds.removeAll(orderIds);
+      _orders = _mergeSavedProductionMapOrders(_orders, savedById);
+    });
+  }
+
+  Future<void> _resyncAfterMoveActionError(
+    Object error,
+    String fallbackMessage,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+    showAdminTopNotice(
+      context,
+      _adminActionErrorText(error, fallbackMessage),
+    );
+    await _load();
+  }
+
   Future<void> _moveOrdersBetweenApparatus({
     required List<ProductionMapSaved> orders,
     required AdminWarehouse from,
@@ -866,10 +897,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
-    setState(() {
-      _draggingMoveOrders = const [];
-      _draggingMoveSource = null;
-    });
+    _clearMoveDragState();
     try {
       final saved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: orders.map((order) => order.map.id).toList(growable: false),
@@ -884,22 +912,10 @@ class _AdminProductionMapOrdersScreenState
         expectedOrderIds: orderIds,
         incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
       );
-      setState(() {
-        _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
-      });
+      _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
       showAdminTopNotice(context, _moveOrdersSuccessText(orders.length));
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(
-        context,
-        _adminActionErrorText(error, 'Zakaz ko‘chirilmadi'),
-      );
-      // Some orders may already be moved on the server; re-sync instead of
-      // restoring a stale local state.
-      await _load();
+      await _resyncAfterMoveActionError(error, 'Zakaz ko‘chirilmadi');
     }
   }
 
@@ -919,10 +935,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
-    setState(() {
-      _draggingMoveOrders = const [];
-      _draggingMoveSource = null;
-    });
+    _clearMoveDragState();
     try {
       final saved = await _saveProductionMapDefinitions(convertedMaps);
       if (!mounted) {
@@ -933,23 +946,16 @@ class _AdminProductionMapOrdersScreenState
         expectedOrderIds: orderIds,
         incompleteMessage: 'Zakazlar to‘liq tanlanmagan holatga qaytmadi',
       );
-      setState(() {
-        _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
-      });
+      _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
       showAdminTopNotice(
         context,
         _returnOrdersToUnassignedSuccessText(orders.length),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(
-        context,
-        _adminActionErrorText(error, 'Zakaz tanlanmagan holatga qaytmadi'),
+      await _resyncAfterMoveActionError(
+        error,
+        'Zakaz tanlanmagan holatga qaytmadi',
       );
-      await _load();
     }
   }
 
@@ -968,10 +974,7 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
-    setState(() {
-      _draggingMoveOrders = const [];
-      _draggingMoveSource = null;
-    });
+    _clearMoveDragState();
     try {
       final assignedMaps = _assignAlternativeMapsToApparatus(
         orders: orders,
@@ -986,23 +989,13 @@ class _AdminProductionMapOrdersScreenState
         expectedOrderIds: orderIds,
         incompleteMessage: 'Zakazlar to‘liq biriktirilmadi',
       );
-      setState(() {
-        _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
-      });
+      _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
       showAdminTopNotice(
         context,
         _assignAlternativeOrdersSuccessText(orders.length),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      showAdminTopNotice(
-        context,
-        _adminActionErrorText(error, 'Zakaz biriktirilmadi'),
-      );
-      await _load();
+      await _resyncAfterMoveActionError(error, 'Zakaz biriktirilmadi');
     }
   }
 
