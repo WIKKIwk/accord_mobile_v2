@@ -588,7 +588,7 @@ class _AdminProductionMapOrdersScreenState
     _queueActionInFlight = true;
     setState(() {});
     try {
-      final result = await _submitQueueAction(
+      final result = await _submitAdminApparatusQueueAction(
         apparatus: apparatusKey,
         orderId: order.map.id,
         action: action,
@@ -638,64 +638,6 @@ class _AdminProductionMapOrdersScreenState
       if (mounted) {
         setState(() {});
       }
-    }
-  }
-
-  Future<AdminApparatusQueueActionResult> _submitQueueAction({
-    required String apparatus,
-    required String orderId,
-    required String action,
-    List<String> materialBarcodes = const [],
-    double? producedQty,
-    double? grossQty,
-    double? returnInkKg,
-    double? laminationPrintLeftoverRolls,
-    double? laminationFilmLeftoverRolls,
-    double? rezkaBosmaWaste,
-    double? rezkaLaminationWaste,
-    double? rezkaEdgeWaste,
-    double? totalWaste,
-    double? finishedGoodsKg,
-    double? finishedGoodsMeter,
-    String uom = '',
-    String qrPayload = '',
-    String progressBatchId = '',
-    String driverUrl = '',
-    String completionRequestNote = '',
-  }) {
-    return MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: apparatus,
-      orderId: orderId,
-      action: action,
-      materialBarcodes: materialBarcodes,
-      producedQty: producedQty,
-      grossQty: grossQty,
-      returnInkKg: returnInkKg,
-      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-      rezkaBosmaWaste: rezkaBosmaWaste,
-      rezkaLaminationWaste: rezkaLaminationWaste,
-      rezkaEdgeWaste: rezkaEdgeWaste,
-      totalWaste: totalWaste,
-      finishedGoodsKg: finishedGoodsKg,
-      finishedGoodsMeter: finishedGoodsMeter,
-      uom: uom,
-      qrPayload: qrPayload,
-      progressBatchId: progressBatchId,
-      driverUrl: driverUrl,
-      completionRequestNote: completionRequestNote,
-    );
-  }
-
-  Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
-    try {
-      return await MobileApi.instance.adminProductionMapQueueSnapshot();
-    } catch (_) {
-      return const AdminApparatusQueueSnapshot(
-        sequences: {},
-        queueStates: {},
-        queuePolicies: {},
-      );
     }
   }
 
