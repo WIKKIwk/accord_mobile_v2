@@ -30,6 +30,56 @@ class _ProductionMapLiveStreamParser {
   }
 }
 
+Future<http.StreamedResponse> _connectProductionMapLiveStream() async {
+  final response = await MobileApi.instance.adminProductionMapLiveConnect();
+  if (response.statusCode < 200 || response.statusCode > 299) {
+    throw MobileApiException(
+      code: 'production_map_live',
+      message: 'Live ulanish ochilmadi',
+      statusCode: response.statusCode,
+    );
+  }
+  return response;
+}
+
+_ProductionMapLiveConnection _productionMapLiveConnection({
+  required http.StreamedResponse response,
+  required bool Function() isActive,
+  required void Function(AdminProductionMapLiveSnapshot snapshot) onSnapshot,
+}) {
+  final completer = Completer<void>();
+  final parser = _ProductionMapLiveStreamParser();
+  final subscription = response.stream
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .listen(
+    (line) {
+      if (!isActive()) {
+        return;
+      }
+      final snapshot = parser.readLine(line);
+      if (snapshot != null) {
+        onSnapshot(snapshot);
+      }
+    },
+    onError: (error, _) {
+      if (!completer.isCompleted) {
+        completer.completeError(error);
+      }
+    },
+    onDone: () {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    },
+    cancelOnError: true,
+  );
+  return _ProductionMapLiveConnection(
+    subscription: subscription,
+    completed: completer.future,
+  );
+}
+
 List<ProductionMapSaved> _productionMapZakazOrders(
   List<ProductionMapSaved> maps,
 ) {

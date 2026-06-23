@@ -220,46 +220,15 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _connectWorkerLiveStreamOnce(int generation) async {
-    final response = await MobileApi.instance.adminProductionMapLiveConnect();
-    if (response.statusCode < 200 || response.statusCode > 299) {
-      throw MobileApiException(
-        code: 'production_map_live',
-        message: 'Live ulanish ochilmadi',
-        statusCode: response.statusCode,
-      );
-    }
-
-    final completer = Completer<void>();
-    final parser = _ProductionMapLiveStreamParser();
-
+    final response = await _connectProductionMapLiveStream();
     await _liveStreamSubscription?.cancel();
-    _liveStreamSubscription = response.stream
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(
-      (line) {
-        if (!mounted || generation != _liveStreamGeneration) {
-          return;
-        }
-        final snapshot = parser.readLine(line);
-        if (snapshot != null) {
-          _applyWorkerLiveSnapshot(snapshot);
-        }
-      },
-      onError: (error, _) {
-        if (!completer.isCompleted) {
-          completer.completeError(error);
-        }
-      },
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: true,
+    final connection = _productionMapLiveConnection(
+      response: response,
+      isActive: () => mounted && generation == _liveStreamGeneration,
+      onSnapshot: _applyWorkerLiveSnapshot,
     );
-
-    await completer.future;
+    _liveStreamSubscription = connection.subscription;
+    await connection.completed;
   }
 
   Future<void> _loadWorkerApparatus() async {

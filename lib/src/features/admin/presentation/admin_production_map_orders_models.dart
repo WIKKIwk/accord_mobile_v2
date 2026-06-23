@@ -50,6 +50,16 @@ class _ProductionMapOrderMetrics {
   final Map<String, double> orderKgByMapId;
 }
 
+class _ProductionMapLiveConnection {
+  const _ProductionMapLiveConnection({
+    required this.subscription,
+    required this.completed,
+  });
+
+  final StreamSubscription<String> subscription;
+  final Future<void> completed;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',
