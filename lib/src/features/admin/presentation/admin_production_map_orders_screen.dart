@@ -956,48 +956,6 @@ class _AdminProductionMapOrdersScreenState
         : ordered;
   }
 
-  List<_WorkerCompletedOrderEntry> _workerCompletedOrders() {
-    final byId = {for (final order in _orders) order.map.id.trim(): order};
-    final seen = <String>{};
-    final orders = <_WorkerCompletedOrderEntry>[];
-    for (final completed in _completedWorkerOrders) {
-      final orderId = completed.orderId.trim();
-      if (orderId.isEmpty || !seen.add(orderId)) {
-        continue;
-      }
-      final order = byId[orderId];
-      if (order != null) {
-        orders.add(
-          _WorkerCompletedOrderEntry(
-            order: order,
-            apparatus: _completedOrderApparatus(completed),
-          ),
-        );
-      }
-    }
-    final filtered = _filterOrdersBySearch(
-      orders.map((entry) => entry.order).toList(growable: false),
-      query: _searchQuery,
-    );
-    final visibleIds = filtered.map((order) => order.map.id.trim()).toSet();
-    return orders
-        .where((entry) => visibleIds.contains(entry.order.map.id.trim()))
-        .toList(growable: false);
-  }
-
-  AdminWarehouse? _completedOrderApparatus(AdminCompletedQueueOrder completed) {
-    final title = completed.apparatus.trim();
-    if (title.isEmpty) {
-      return null;
-    }
-    for (final apparatus in _apparatus) {
-      if (_apparatusTitlesMatch(apparatus.warehouse, title)) {
-        return apparatus;
-      }
-    }
-    return AdminWarehouse(warehouse: title, parentWarehouse: 'aparat - A');
-  }
-
   List<ProductionMapSaved> _moveOrdersForApparatus({
     required AdminWarehouse source,
     required AdminWarehouse target,
@@ -1743,7 +1701,12 @@ class _AdminProductionMapOrdersScreenState
               for (final tab in tabs)
                 if (tab.isCompleted)
                   _AparatchiCompletedOrdersPage(
-                    orders: _workerCompletedOrders(),
+                    orders: _workerCompletedOrders(
+                      orders: _orders,
+                      completedOrders: _completedWorkerOrders,
+                      apparatus: _apparatus,
+                      query: _searchQuery,
+                    ),
                     bottomPadding: bottomPadding,
                     onTapOrder: _showCompletedOrderDetail,
                   )

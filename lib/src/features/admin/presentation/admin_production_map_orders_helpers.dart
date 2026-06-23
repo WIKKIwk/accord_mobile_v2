@@ -467,3 +467,56 @@ bool _orderMatchesSearch(
   ].join(' ').toLowerCase();
   return haystack.contains(query);
 }
+
+List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
+  required List<ProductionMapSaved> orders,
+  required List<AdminCompletedQueueOrder> completedOrders,
+  required List<AdminWarehouse> apparatus,
+  required String query,
+}) {
+  final byId = {for (final order in orders) order.map.id.trim(): order};
+  final seen = <String>{};
+  final entries = <_WorkerCompletedOrderEntry>[];
+  for (final completed in completedOrders) {
+    final orderId = completed.orderId.trim();
+    if (orderId.isEmpty || !seen.add(orderId)) {
+      continue;
+    }
+    final order = byId[orderId];
+    if (order != null) {
+      entries.add(
+        _WorkerCompletedOrderEntry(
+          order: order,
+          apparatus: _completedOrderApparatus(
+            completed: completed,
+            apparatus: apparatus,
+          ),
+        ),
+      );
+    }
+  }
+  final filtered = _filterOrdersBySearch(
+    entries.map((entry) => entry.order).toList(growable: false),
+    query: query,
+  );
+  final visibleIds = filtered.map((order) => order.map.id.trim()).toSet();
+  return entries
+      .where((entry) => visibleIds.contains(entry.order.map.id.trim()))
+      .toList(growable: false);
+}
+
+AdminWarehouse? _completedOrderApparatus({
+  required AdminCompletedQueueOrder completed,
+  required List<AdminWarehouse> apparatus,
+}) {
+  final title = completed.apparatus.trim();
+  if (title.isEmpty) {
+    return null;
+  }
+  for (final item in apparatus) {
+    if (_apparatusTitlesMatch(item.warehouse, title)) {
+      return item;
+    }
+  }
+  return AdminWarehouse(warehouse: title, parentWarehouse: 'aparat - A');
+}
