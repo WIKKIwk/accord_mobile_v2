@@ -52,6 +52,21 @@ ProductionMapDefinition? _returnAssignedMapToAlternatives(
   );
 }
 
+List<ProductionMapDefinition>? _returnAssignedMapsToAlternatives({
+  required List<ProductionMapSaved> orders,
+  required AdminWarehouse source,
+}) {
+  final converted = <ProductionMapDefinition>[];
+  for (final order in orders) {
+    final map = _returnAssignedMapToAlternatives(order.map, source);
+    if (map == null) {
+      return null;
+    }
+    converted.add(map);
+  }
+  return converted;
+}
+
 ProductionMapDefinition _assignAlternativeMapToApparatus(
   ProductionMapDefinition map,
   AdminWarehouse apparatus,
@@ -77,6 +92,16 @@ ProductionMapDefinition _assignAlternativeMapToApparatus(
             : node,
     ],
   );
+}
+
+List<ProductionMapDefinition> _assignAlternativeMapsToApparatus({
+  required List<ProductionMapSaved> orders,
+  required AdminWarehouse apparatus,
+}) {
+  return [
+    for (final order in orders)
+      _assignAlternativeMapToApparatus(order.map, apparatus),
+  ];
 }
 
 bool _canMoveOrderToApparatus(

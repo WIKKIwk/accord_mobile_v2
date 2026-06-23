@@ -1010,14 +1010,13 @@ class _AdminProductionMapOrdersScreenState
     if (widget.readOnly || orders.isEmpty) {
       return;
     }
-    final converted = <MapEntry<ProductionMapSaved, ProductionMapDefinition>>[];
-    for (final order in orders) {
-      final map = _returnAssignedMapToAlternatives(order.map, source);
-      if (map == null) {
-        showAdminTopNotice(context, 'Bu zakaz tanlanmagan holatga qaytmaydi');
-        return;
-      }
-      converted.add(MapEntry(order, map));
+    final convertedMaps = _returnAssignedMapsToAlternatives(
+      orders: orders,
+      source: source,
+    );
+    if (convertedMaps == null) {
+      showAdminTopNotice(context, 'Bu zakaz tanlanmagan holatga qaytmaydi');
+      return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
     setState(() {
@@ -1026,8 +1025,8 @@ class _AdminProductionMapOrdersScreenState
     });
     try {
       final saved = <ProductionMapSaved>[];
-      for (final entry in converted) {
-        saved.add(await MobileApi.instance.adminSaveProductionMap(entry.value));
+      for (final map in convertedMaps) {
+        saved.add(await MobileApi.instance.adminSaveProductionMap(map));
       }
       if (!mounted) {
         return;
@@ -1082,12 +1081,12 @@ class _AdminProductionMapOrdersScreenState
     });
     try {
       final saved = <ProductionMapSaved>[];
-      for (final order in orders) {
-        final assignedMap = _assignAlternativeMapToApparatus(
-          order.map,
-          apparatus,
-        );
-        saved.add(await MobileApi.instance.adminSaveProductionMap(assignedMap));
+      final assignedMaps = _assignAlternativeMapsToApparatus(
+        orders: orders,
+        apparatus: apparatus,
+      );
+      for (final map in assignedMaps) {
+        saved.add(await MobileApi.instance.adminSaveProductionMap(map));
       }
       if (!mounted) {
         return;
