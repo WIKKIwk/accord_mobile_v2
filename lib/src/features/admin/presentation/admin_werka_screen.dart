@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -271,7 +272,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text('Code', style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
-            _WerkaDetailField(
+            AppDetailField(
               child: Row(
                 children: [
                   Expanded(
@@ -366,25 +367,6 @@ class _WerkaTextField extends StatelessWidget {
         ),
       ),
       style: Theme.of(context).textTheme.titleMedium,
-    );
-  }
-}
-
-class _WerkaDetailField extends StatelessWidget {
-  const _WerkaDetailField({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(_werkaDetailFieldRadius),
-      ),
-      child: child,
     );
   }
 }

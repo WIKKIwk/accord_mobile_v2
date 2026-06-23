@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -631,11 +632,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             const SizedBox(height: 18),
             Text('Ref', style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
-            _DetailField(value: detail.ref),
+            AppDetailField(value: detail.ref),
             const SizedBox(height: 14),
             Text('Telefon', style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
-            _DetailField(value: detail.phone),
+            AppDetailField(value: detail.phone),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -654,7 +655,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text('Code', style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
-            _DetailField(
+            AppDetailField(
               child: Row(
                 children: [
                   Expanded(
@@ -817,7 +818,7 @@ Future<void> _showAssignedItemsSheet(
                           opacity: collapsing ? 0 : 1,
                           child: collapsing
                               ? const SizedBox.shrink()
-                              : _DetailField(
+                              : AppDetailField(
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -912,30 +913,6 @@ Future<void> _showAssignedItemsSheet(
       );
     },
   );
-}
-
-class _DetailField extends StatelessWidget {
-  const _DetailField({this.value, this.child});
-
-  final String? value;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(_customerDetailFieldRadius),
-      ),
-      child: child ??
-          Text(
-            (value ?? '').trim().isEmpty ? 'Kiritilmagan' : value!,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-    );
-  }
 }
 
 ButtonStyle _customerDetailButtonStyle() {

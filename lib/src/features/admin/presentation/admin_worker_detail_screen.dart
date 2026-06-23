@@ -7,6 +7,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
@@ -333,15 +334,15 @@ class _WorkerDetailCard extends StatelessWidget {
             const SizedBox(height: 18),
             const _WorkerDetailLabel('Ref'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: detail.id),
+            AppDetailField(value: detail.id),
             const SizedBox(height: 14),
             const _WorkerDetailLabel('User ismi'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: detail.name),
+            AppDetailField(value: detail.name),
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Telefon'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: detail.phone),
+            AppDetailField(value: detail.phone),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -360,7 +361,7 @@ class _WorkerDetailCard extends StatelessWidget {
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Code'),
             const SizedBox(height: 6),
-            _WorkerDetailField(
+            AppDetailField(
               child: Row(
                 children: [
                   Expanded(
@@ -403,7 +404,7 @@ class _WorkerDetailCard extends StatelessWidget {
             const SizedBox(height: 14),
             const _WorkerDetailLabel('Daraja'),
             const SizedBox(height: 6),
-            _WorkerDetailField(value: detail.level),
+            AppDetailField(value: detail.level),
           ],
         ),
       ),
@@ -419,31 +420,6 @@ class _WorkerDetailLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: Theme.of(context).textTheme.bodySmall);
-  }
-}
-
-class _WorkerDetailField extends StatelessWidget {
-  const _WorkerDetailField({this.value = '', this.child});
-
-  final String value;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    final resolved = value.trim().isEmpty ? 'Kiritilmagan' : value.trim();
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(_workerDetailFieldRadius),
-      ),
-      child: child ??
-          Text(
-            resolved,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-    );
   }
 }
 
