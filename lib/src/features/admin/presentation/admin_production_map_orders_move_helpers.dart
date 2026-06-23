@@ -152,3 +152,32 @@ List<ProductionMapSaved> _alternativeOrdersForApparatusList({
       )
       .toList(growable: false);
 }
+
+Map<String, ProductionMapSaved> _savedProductionMapOrdersByIdOrThrow({
+  required List<ProductionMapSaved> saved,
+  required Set<String> expectedOrderIds,
+  required String incompleteMessage,
+}) {
+  final savedById = {for (final item in saved) item.map.id.trim(): item};
+  if (savedById.length != expectedOrderIds.length ||
+      !expectedOrderIds.every(savedById.containsKey)) {
+    throw MobileApiException(
+      code: 'move_incomplete',
+      message: incompleteMessage,
+    );
+  }
+  return savedById;
+}
+
+List<ProductionMapSaved> _mergeSavedProductionMapOrders(
+  List<ProductionMapSaved> current,
+  Map<String, ProductionMapSaved> savedById,
+) {
+  return [
+    for (final item in current)
+      if (savedById.containsKey(item.map.id.trim()))
+        savedById[item.map.id.trim()]!
+      else
+        item,
+  ];
+}

@@ -974,23 +974,14 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final savedById = {for (final item in saved) item.map.id.trim(): item};
-      if (savedById.length != orderIds.length ||
-          !orderIds.every(savedById.containsKey)) {
-        throw const MobileApiException(
-          code: 'move_incomplete',
-          message: 'Zakazlar to‘liq ko‘chirilmadi',
-        );
-      }
+      final savedById = _savedProductionMapOrdersByIdOrThrow(
+        saved: saved,
+        expectedOrderIds: orderIds,
+        incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
+      );
       setState(() {
         _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = [
-          for (final item in _orders)
-            if (savedById.containsKey(item.map.id.trim()))
-              savedById[item.map.id.trim()]!
-            else
-              item,
-        ];
+        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
       });
       showAdminTopNotice(
         context,
@@ -1041,23 +1032,14 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final savedById = {for (final item in saved) item.map.id.trim(): item};
-      if (savedById.length != orderIds.length ||
-          !orderIds.every(savedById.containsKey)) {
-        throw const MobileApiException(
-          code: 'move_incomplete',
-          message: 'Zakazlar to‘liq tanlanmagan holatga qaytmadi',
-        );
-      }
+      final savedById = _savedProductionMapOrdersByIdOrThrow(
+        saved: saved,
+        expectedOrderIds: orderIds,
+        incompleteMessage: 'Zakazlar to‘liq tanlanmagan holatga qaytmadi',
+      );
       setState(() {
         _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = [
-          for (final item in _orders)
-            if (savedById.containsKey(item.map.id.trim()))
-              savedById[item.map.id.trim()]!
-            else
-              item,
-        ];
+        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
       });
       showAdminTopNotice(
         context,
@@ -1110,23 +1092,14 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final savedById = {for (final item in saved) item.map.id.trim(): item};
-      if (savedById.length != orderIds.length ||
-          !orderIds.every(savedById.containsKey)) {
-        throw const MobileApiException(
-          code: 'move_incomplete',
-          message: 'Zakazlar to‘liq biriktirilmadi',
-        );
-      }
+      final savedById = _savedProductionMapOrdersByIdOrThrow(
+        saved: saved,
+        expectedOrderIds: orderIds,
+        incompleteMessage: 'Zakazlar to‘liq biriktirilmadi',
+      );
       setState(() {
         _selectedMoveOrderIds.removeAll(orderIds);
-        _orders = [
-          for (final item in _orders)
-            if (savedById.containsKey(item.map.id.trim()))
-              savedById[item.map.id.trim()]!
-            else
-              item,
-        ];
+        _orders = _mergeSavedProductionMapOrders(_orders, savedById);
       });
       showAdminTopNotice(
         context,
