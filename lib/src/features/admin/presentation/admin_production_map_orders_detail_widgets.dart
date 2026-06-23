@@ -1,5 +1,104 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _ReadOnlyOrderDetailContent extends StatelessWidget {
+  const _ReadOnlyOrderDetailContent({
+    required this.map,
+    required this.steps,
+    required this.uiState,
+    required this.queueStates,
+    required this.queueStatesByApparatus,
+    required this.materialsLoading,
+    required this.materialsError,
+    required this.actionInFlight,
+    required this.previousProgressBatch,
+    required this.mapExpanded,
+    required this.onToggleMapExpanded,
+    required this.onScan,
+    required this.onProgressScan,
+    required this.onStart,
+    required this.onPause,
+    required this.onComplete,
+    required this.onResume,
+  });
+
+  final ProductionMapDefinition map;
+  final List<ProductionMapNode> steps;
+  final _ReadOnlyOrderDetailUiState uiState;
+  final Map<String, String> queueStates;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
+  final bool materialsLoading;
+  final String materialsError;
+  final bool actionInFlight;
+  final AdminProgressBatch? previousProgressBatch;
+  final bool mapExpanded;
+  final VoidCallback onToggleMapExpanded;
+  final VoidCallback onScan;
+  final VoidCallback? onProgressScan;
+  final VoidCallback onStart;
+  final VoidCallback onPause;
+  final VoidCallback onComplete;
+  final VoidCallback onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.86,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      builder: (context, controller) {
+        return ColoredBox(
+          color: scheme.surfaceContainerHighest,
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+            children: [
+              _OrderStartUnifiedCard(
+                orderCode: _openedOrderDisplayCode(map),
+                productTitle: _productTitle(map),
+                assignments: uiState.materialAssignments,
+                materialsLoading: materialsLoading,
+                materialsError: materialsError,
+                scannedBarcodes: uiState.confirmedMaterialBarcodes,
+                scannedCount: uiState.scannedCount,
+                showStart: uiState.showStart,
+                hasMaterialAssignments: uiState.hasMaterialAssignments,
+                allMaterialsScanned: uiState.allMaterialsScanned,
+                actionInFlight: actionInFlight,
+                showPause: uiState.showPause,
+                showComplete: uiState.showComplete,
+                showResume: uiState.showResume,
+                showWaitingForPrevious: uiState.showWaitingForPrevious,
+                previousStage: uiState.previousStage,
+                previousProgressRequired: uiState.previousProgressRequired,
+                previousProgressReady: uiState.previousProgressReady,
+                previousProgressBatch: previousProgressBatch,
+                onScan: onScan,
+                onProgressScan: onProgressScan,
+                onStart: onStart,
+                onPause: onPause,
+                onComplete: onComplete,
+                onResume: onResume,
+              ),
+              const SizedBox(height: 10),
+              _OrderMapProgressCard(
+                steps: steps,
+                orderId: uiState.orderId,
+                currentStation: uiState.station,
+                queueStates: queueStates,
+                queueStatesByApparatus: queueStatesByApparatus,
+                expanded: mapExpanded,
+                onToggleExpanded: onToggleMapExpanded,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SequenceStepTile extends StatelessWidget {
   const _SequenceStepTile({
     required this.node,

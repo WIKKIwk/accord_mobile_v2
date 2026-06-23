@@ -1430,8 +1430,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final map = widget.order.map;
     final steps = _linearProductionMapNodes(map);
     final uiState = _readOnlyOrderDetailUiState(
@@ -1447,65 +1445,28 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       startInputProgressBatch: _startInputProgressBatch,
     );
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.86,
-      minChildSize: 0.5,
-      maxChildSize: 0.96,
-      builder: (context, controller) {
-        return ColoredBox(
-          color: scheme.surfaceContainerHighest,
-          child: ListView(
-            controller: controller,
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
-            children: [
-              _OrderStartUnifiedCard(
-                orderCode: _openedOrderDisplayCode(map),
-                productTitle: _productTitle(map),
-                assignments: uiState.materialAssignments,
-                materialsLoading: _materialsLoading,
-                materialsError: _materialsError,
-                scannedBarcodes: uiState.confirmedMaterialBarcodes,
-                scannedCount: uiState.scannedCount,
-                showStart: uiState.showStart,
-                hasMaterialAssignments: uiState.hasMaterialAssignments,
-                allMaterialsScanned: uiState.allMaterialsScanned,
-                actionInFlight: _actionInFlight,
-                showPause: uiState.showPause,
-                showComplete: uiState.showComplete,
-                showResume: uiState.showResume,
-                showWaitingForPrevious: uiState.showWaitingForPrevious,
-                previousStage: uiState.previousStage,
-                previousProgressRequired: uiState.previousProgressRequired,
-                previousProgressReady: uiState.previousProgressReady,
-                previousProgressBatch: _startInputProgressBatch,
-                onScan: () => unawaited(_scanMaterial()),
-                onProgressScan: uiState.previousStage == null
-                    ? null
-                    : () => unawaited(
-                          _scanStartInputProgressQr(uiState.previousStage!),
-                        ),
-                onStart: () => unawaited(_runQueueAction('start')),
-                onPause: () => unawaited(_runProgressAction('pause')),
-                onComplete: () => unawaited(_runProgressAction('complete')),
-                onResume: () => unawaited(_runQueueAction('resume')),
-              ),
-              const SizedBox(height: 10),
-              _OrderMapProgressCard(
-                steps: steps,
-                orderId: uiState.orderId,
-                currentStation: uiState.station,
-                queueStates: _queueStates,
-                queueStatesByApparatus: widget.queueStatesByApparatus,
-                expanded: _mapExpanded,
-                onToggleExpanded: () {
-                  setState(() => _mapExpanded = !_mapExpanded);
-                },
-              ),
-            ],
-          ),
-        );
+    return _ReadOnlyOrderDetailContent(
+      map: map,
+      steps: steps,
+      uiState: uiState,
+      queueStates: _queueStates,
+      queueStatesByApparatus: widget.queueStatesByApparatus,
+      materialsLoading: _materialsLoading,
+      materialsError: _materialsError,
+      actionInFlight: _actionInFlight,
+      previousProgressBatch: _startInputProgressBatch,
+      mapExpanded: _mapExpanded,
+      onToggleMapExpanded: () {
+        setState(() => _mapExpanded = !_mapExpanded);
       },
+      onScan: () => unawaited(_scanMaterial()),
+      onProgressScan: uiState.previousStage == null
+          ? null
+          : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
+      onStart: () => unawaited(_runQueueAction('start')),
+      onPause: () => unawaited(_runProgressAction('pause')),
+      onComplete: () => unawaited(_runProgressAction('complete')),
+      onResume: () => unawaited(_runQueueAction('resume')),
     );
   }
 }
