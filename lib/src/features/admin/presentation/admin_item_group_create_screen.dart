@@ -1,7 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/admin_item_group_tree_entry.dart';
@@ -15,31 +15,6 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 const double _itemGroupPanelGap = 4;
-
-Widget _itemGroupSurfaceCard({
-  required BuildContext context,
-  required Widget child,
-  M3SegmentVerticalSlot? slot,
-  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  final resolvedSlot = slot ?? M3SegmentVerticalSlot.top;
-  final radius = M3SegmentedListGeometry.borderRadius(
-    resolvedSlot,
-    slot == null
-        ? M3SegmentedListGeometry.cornerLarge
-        : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
-  );
-  return Material(
-    color: scheme.surface,
-    elevation: 2,
-    shadowColor: scheme.shadow.withValues(alpha: 0.16),
-    surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: radius),
-    clipBehavior: Clip.antiAlias,
-    child: Padding(padding: padding, child: child),
-  );
-}
 
 class AdminItemGroupCreateScreen extends StatefulWidget {
   const AdminItemGroupCreateScreen({super.key});
@@ -323,8 +298,7 @@ class _CreateGroupTab extends StatelessWidget {
           bottomPadding,
         ),
         children: [
-          _itemGroupSurfaceCard(
-            context: context,
+          AppSegmentSurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

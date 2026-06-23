@@ -2,7 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/forms/forms.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -16,31 +16,6 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 const double _rawMaterialAssignmentPanelGap = 4;
-
-Widget _rawMaterialAssignmentSurfaceCard({
-  required BuildContext context,
-  required Widget child,
-  M3SegmentVerticalSlot? slot,
-  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  final resolvedSlot = slot ?? M3SegmentVerticalSlot.top;
-  final radius = M3SegmentedListGeometry.borderRadius(
-    resolvedSlot,
-    slot == null
-        ? M3SegmentedListGeometry.cornerLarge
-        : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
-  );
-  return Material(
-    color: scheme.surface,
-    elevation: 2,
-    shadowColor: scheme.shadow.withValues(alpha: 0.16),
-    surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: radius),
-    clipBehavior: Clip.antiAlias,
-    child: Padding(padding: padding, child: child),
-  );
-}
 
 class AdminRawMaterialAssignmentScreen extends StatelessWidget {
   const AdminRawMaterialAssignmentScreen({super.key});
@@ -353,9 +328,8 @@ class _AdminRawMaterialAssignmentPanelState
               ),
               if (_assignments.isEmpty) ...[
                 const SizedBox(height: 10),
-                _rawMaterialAssignmentSurfaceCard(
-                  context: context,
-                  child: const Center(
+                const AppSegmentSurfaceCard(
+                  child: Center(
                     child: Text('Ulangan homashyo topilmadi'),
                   ),
                 ),
@@ -433,8 +407,7 @@ class _AssignmentEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _rawMaterialAssignmentSurfaceCard(
-      context: context,
+    return AppSegmentSurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

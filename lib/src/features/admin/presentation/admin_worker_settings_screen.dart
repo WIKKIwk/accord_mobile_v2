@@ -6,7 +6,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
-import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -36,31 +36,6 @@ const Map<String, String> adminWorkerStartDayLabels = {
 
 const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
-
-Widget _workerSettingsSurfaceCard({
-  required BuildContext context,
-  required Widget child,
-  M3SegmentVerticalSlot? slot,
-  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  final resolvedSlot = slot ?? M3SegmentVerticalSlot.top;
-  final radius = M3SegmentedListGeometry.borderRadius(
-    resolvedSlot,
-    slot == null
-        ? M3SegmentedListGeometry.cornerLarge
-        : M3SegmentedListGeometry.cornerRadiusForSlot(resolvedSlot),
-  );
-  return Material(
-    color: scheme.surface,
-    elevation: 2,
-    shadowColor: scheme.shadow.withValues(alpha: 0.16),
-    surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: radius),
-    clipBehavior: Clip.antiAlias,
-    child: Padding(padding: padding, child: child),
-  );
-}
 
 class AdminWorkerSettingsScreen extends StatefulWidget {
   const AdminWorkerSettingsScreen({super.key});
@@ -217,8 +192,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
             116,
           ),
           children: [
-            _workerSettingsSurfaceCard(
-              context: context,
+            AppSegmentSurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -266,16 +240,14 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                   );
                 }
                 if (snapshot.hasError) {
-                  return _workerSettingsSurfaceCard(
-                    context: context,
-                    child: const Center(child: Text('Ishchilar yuklanmadi')),
+                  return const AppSegmentSurfaceCard(
+                    child: Center(child: Text('Ishchilar yuklanmadi')),
                   );
                 }
                 final workers = snapshot.data ?? const <AdminWorker>[];
                 if (workers.isEmpty) {
-                  return _workerSettingsSurfaceCard(
-                    context: context,
-                    child: const Center(child: Text('Ishchi topilmadi')),
+                  return const AppSegmentSurfaceCard(
+                    child: Center(child: Text('Ishchi topilmadi')),
                   );
                 }
                 return M3SegmentSpacedColumn(
@@ -577,9 +549,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
           ),
           children: [
             if (_loading) ...[
-              _workerSettingsSurfaceCard(
-                context: context,
-                child: const Row(
+              const AppSegmentSurfaceCard(
+                child: Row(
                   children: [
                     AppLoadingIndicator(size: 28, glyphSize: 20),
                     SizedBox(width: 12),
@@ -596,9 +567,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
             ),
             const SizedBox(height: 10),
             if (_groupsByCode.isEmpty)
-              _workerSettingsSurfaceCard(
-                context: context,
-                child: const Center(child: Text('Guruh topilmadi')),
+              const AppSegmentSurfaceCard(
+                child: Center(child: Text('Guruh topilmadi')),
               )
             else
               M3SegmentSpacedColumn(
@@ -667,8 +637,7 @@ class _WorkerGroupCreateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _workerSettingsSurfaceCard(
-      context: context,
+    return AppSegmentSurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
