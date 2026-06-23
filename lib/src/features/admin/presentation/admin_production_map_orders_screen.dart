@@ -624,66 +624,11 @@ class _AdminProductionMapOrdersScreenState
     return 0;
   }
 
-  bool _apparatusTitlesMatch(String left, String right) {
-    return productionMapWarehouseTitlesMatch(left, right);
-  }
-
   bool _isAssignedWatchApparatus(AdminWarehouse apparatus) {
     final title = apparatus.warehouse.trim();
     final assigned =
         AppSession.instance.profile?.assignedApparatus ?? const <String>[];
     return assigned.any((item) => _apparatusTitlesMatch(title, item));
-  }
-
-  Map<String, String> _queueStatesForApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    final direct = _queueStatesByApparatus[title];
-    if (direct != null) {
-      return direct;
-    }
-    final color = productionMapPechatColorCount(title);
-    if (color != null) {
-      for (final entry in _queueStatesByApparatus.entries) {
-        if (productionMapPechatColorCount(entry.key) == color) {
-          return entry.value;
-        }
-      }
-    }
-    return const {};
-  }
-
-  List<String> _sequenceOrderIdsForApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    final direct = _sequenceByApparatus[title];
-    if (direct != null) {
-      return direct;
-    }
-    final color = productionMapPechatColorCount(title);
-    if (color != null) {
-      for (final entry in _sequenceByApparatus.entries) {
-        if (productionMapPechatColorCount(entry.key) == color) {
-          return entry.value;
-        }
-      }
-    }
-    return const [];
-  }
-
-  ApparatusQueuePolicy _queuePolicyForApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    if (productionMapPechatColorCount(title) != null) {
-      return ApparatusQueuePolicy.strictSequence;
-    }
-    final direct = _queuePoliciesByApparatus[title];
-    if (direct != null) {
-      return direct.policy;
-    }
-    for (final entry in _queuePoliciesByApparatus.entries) {
-      if (productionMapWarehouseTitlesMatch(entry.key, title)) {
-        return entry.value.policy;
-      }
-    }
-    return ApparatusQueuePolicy.strictSequence;
   }
 
   Future<AdminApparatusQueueActionResult?> _handleQueueAction({
@@ -882,10 +827,19 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         apparatus: apparatus,
         canManageQueue: _isAssignedWatchApparatus(apparatus),
-        initialQueueStates: _queueStatesForApparatus(apparatus),
+        initialQueueStates: _queueStatesForApparatus(
+          apparatus,
+          queueStatesByApparatus: _queueStatesByApparatus,
+        ),
         queueStatesByApparatus: _queueStatesByApparatus,
-        queuePolicy: _queuePolicyForApparatus(apparatus),
-        sequenceOrderIds: _sequenceOrderIdsForApparatus(apparatus),
+        queuePolicy: _queuePolicyForApparatus(
+          apparatus,
+          queuePoliciesByApparatus: _queuePoliciesByApparatus,
+        ),
+        sequenceOrderIds: _sequenceOrderIdsForApparatus(
+          apparatus,
+          sequenceByApparatus: _sequenceByApparatus,
+        ),
         visibleOrderIds: _ordersForApparatus(
           apparatus,
         ).map((item) => item.map.id).toList(growable: false),
@@ -1027,7 +981,10 @@ class _AdminProductionMapOrdersScreenState
 
   List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
     final filtered = _baseOrdersForApparatus(apparatus);
-    final sequence = _sequenceOrderIdsForApparatus(apparatus);
+    final sequence = _sequenceOrderIdsForApparatus(
+      apparatus,
+      sequenceByApparatus: _sequenceByApparatus,
+    );
     List<ProductionMapSaved> ordered;
     if (sequence.isEmpty) {
       ordered = filtered;
@@ -1040,7 +997,10 @@ class _AdminProductionMapOrdersScreenState
       ];
     }
     if (widget.workerMode) {
-      final states = _queueStatesForApparatus(apparatus);
+      final states = _queueStatesForApparatus(
+        apparatus,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      );
       ordered = ordered
           .where(
             (order) =>
@@ -1845,7 +1805,10 @@ class _AdminProductionMapOrdersScreenState
                     orders: _ordersForApparatus(tab.apparatus!),
                     bottomPadding: bottomPadding,
                     isAssigned: _isAssignedWatchApparatus(tab.apparatus!),
-                    queueStates: _queueStatesForApparatus(tab.apparatus!),
+                    queueStates: _queueStatesForApparatus(
+                      tab.apparatus!,
+                      queueStatesByApparatus: _queueStatesByApparatus,
+                    ),
                     onTapOrder: (order) => _showWatchOrderDetail(
                       apparatus: tab.apparatus!,
                       order: order,

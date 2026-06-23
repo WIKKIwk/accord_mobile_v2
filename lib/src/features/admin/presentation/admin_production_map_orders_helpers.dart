@@ -330,3 +330,67 @@ int _ordersRevision(List<ProductionMapSaved> orders) {
     ),
   );
 }
+
+bool _apparatusTitlesMatch(String left, String right) {
+  return productionMapWarehouseTitlesMatch(left, right);
+}
+
+Map<String, String> _queueStatesForApparatus(
+  AdminWarehouse apparatus, {
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+}) {
+  final title = apparatus.warehouse.trim();
+  final direct = queueStatesByApparatus[title];
+  if (direct != null) {
+    return direct;
+  }
+  final color = productionMapPechatColorCount(title);
+  if (color != null) {
+    for (final entry in queueStatesByApparatus.entries) {
+      if (productionMapPechatColorCount(entry.key) == color) {
+        return entry.value;
+      }
+    }
+  }
+  return const {};
+}
+
+List<String> _sequenceOrderIdsForApparatus(
+  AdminWarehouse apparatus, {
+  required Map<String, List<String>> sequenceByApparatus,
+}) {
+  final title = apparatus.warehouse.trim();
+  final direct = sequenceByApparatus[title];
+  if (direct != null) {
+    return direct;
+  }
+  final color = productionMapPechatColorCount(title);
+  if (color != null) {
+    for (final entry in sequenceByApparatus.entries) {
+      if (productionMapPechatColorCount(entry.key) == color) {
+        return entry.value;
+      }
+    }
+  }
+  return const [];
+}
+
+ApparatusQueuePolicy _queuePolicyForApparatus(
+  AdminWarehouse apparatus, {
+  required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
+}) {
+  final title = apparatus.warehouse.trim();
+  if (productionMapPechatColorCount(title) != null) {
+    return ApparatusQueuePolicy.strictSequence;
+  }
+  final direct = queuePoliciesByApparatus[title];
+  if (direct != null) {
+    return direct.policy;
+  }
+  for (final entry in queuePoliciesByApparatus.entries) {
+    if (productionMapWarehouseTitlesMatch(entry.key, title)) {
+      return entry.value.policy;
+    }
+  }
+  return ApparatusQueuePolicy.strictSequence;
+}
