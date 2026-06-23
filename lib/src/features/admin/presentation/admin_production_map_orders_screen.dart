@@ -458,20 +458,19 @@ class _AdminProductionMapOrdersScreenState
       _mapsRefreshInFlight = true;
     }
     try {
-      final results = await Future.wait([
-        MobileApi.instance.adminProductionMaps(),
-        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
-      ]);
+      final loaded = await _loadProductionMapOrdersAndApparatus();
       if (!mounted) {
         return;
       }
-      final maps = results[0] as List<ProductionMapSaved>;
-      final apparatus = results[1] as List<AdminWarehouse>;
-      final orders = _productionMapZakazOrders(maps);
+      final orders = loaded.orders;
+      final apparatus = loaded.apparatus;
       if (!initial &&
-          _ordersRevision(orders) == _ordersRevision(_orders) &&
-          _apparatus.length == apparatus.length &&
-          _apparatusListsSameByWarehouse(_apparatus, apparatus)) {
+          !_productionMapOrdersOrApparatusChanged(
+            currentOrders: _orders,
+            nextOrders: orders,
+            currentApparatus: _apparatus,
+            nextApparatus: apparatus,
+          )) {
         return;
       }
       if (widget.workerMode &&

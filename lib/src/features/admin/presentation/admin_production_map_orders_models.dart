@@ -30,6 +30,16 @@ class _MoveApparatusDefaults {
   final AdminWarehouse? bottom;
 }
 
+class _ProductionMapOrdersAndApparatus {
+  const _ProductionMapOrdersAndApparatus({
+    required this.orders,
+    required this.apparatus,
+  });
+
+  final List<ProductionMapSaved> orders;
+  final List<AdminWarehouse> apparatus;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',

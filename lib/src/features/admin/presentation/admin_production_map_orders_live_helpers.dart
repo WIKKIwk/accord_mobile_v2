@@ -89,6 +89,30 @@ Future<List<AdminCompletionRequestNotification>>
   return MobileApi.instance.adminProductionMapCompletionRequests();
 }
 
+Future<_ProductionMapOrdersAndApparatus>
+    _loadProductionMapOrdersAndApparatus() async {
+  final results = await Future.wait([
+    MobileApi.instance.adminProductionMaps(),
+    MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
+  ]);
+  final maps = results[0] as List<ProductionMapSaved>;
+  final apparatus = results[1] as List<AdminWarehouse>;
+  return _ProductionMapOrdersAndApparatus(
+    orders: _productionMapZakazOrders(maps),
+    apparatus: apparatus,
+  );
+}
+
+bool _productionMapOrdersOrApparatusChanged({
+  required List<ProductionMapSaved> currentOrders,
+  required List<ProductionMapSaved> nextOrders,
+  required List<AdminWarehouse> currentApparatus,
+  required List<AdminWarehouse> nextApparatus,
+}) {
+  return _ordersRevision(nextOrders) != _ordersRevision(currentOrders) ||
+      !_apparatusListsSameByWarehouse(currentApparatus, nextApparatus);
+}
+
 bool _shouldRefreshWorkerOnlyData(bool workerMode) {
   return workerMode;
 }
