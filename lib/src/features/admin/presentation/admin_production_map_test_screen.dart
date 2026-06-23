@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/navigation/app_navigation_bar.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
@@ -27,12 +28,7 @@ bool _isRezkaProductionNode(ProductionMapNode node) {
       node.title.trim().toLowerCase().contains('rezka');
 }
 
-String _formatRezkaNumber(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toString();
-}
+String _formatRezkaNumber(double value) => formatRawQuantity(value);
 
 Future<String?> showProductionMapOrderNumberSheet(
   BuildContext context, {

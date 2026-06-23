@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -1574,12 +1575,7 @@ int _bandTabEntryCount(
   return reserved.length;
 }
 
-String _formatQty(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toString();
-}
+String _formatQty(double value) => formatRawQuantity(value);
 
 class _ItemGroupWarehouseResolver {
   _ItemGroupWarehouseResolver({

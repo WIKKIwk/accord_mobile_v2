@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/lists.dart';
@@ -803,10 +804,12 @@ String _orderLabel(ProductionMapSaved order) {
 }
 
 String _formatQty(double value, String uom) {
-  final qty = value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
-  return [qty, if (uom.trim().isNotEmpty) uom.trim()].join(' ');
+  return formatQuantityWithUnit(
+    value,
+    uom,
+    decimalPlaces: 3,
+    trimTrailingZeros: true,
+  );
 }
 
 String _assignmentKey(AdminRawMaterialAssignment assignment) {

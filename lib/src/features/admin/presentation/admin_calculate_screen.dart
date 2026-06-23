@@ -2149,12 +2149,7 @@ String _formatBytes(int value) {
 
 String _fmt(double value) => formatQuantity(value);
 
-String _fmtInput(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toString();
-}
+String _fmtInput(double value) => formatRawQuantity(value);
 
 String _normalizeProductMapKey(String value) {
   return value.trim().toLowerCase();

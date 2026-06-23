@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -314,12 +315,7 @@ String _productionMapResultSummary(
   return '$title tayyor bo‘ladi (${details.join(', ')})';
 }
 
-String _productionMapQtyLabel(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toString();
-}
+String _productionMapQtyLabel(double value) => formatRawQuantity(value);
 
 String _productionMapMetrajLabel(double value) {
   return value.toStringAsFixed(1);
