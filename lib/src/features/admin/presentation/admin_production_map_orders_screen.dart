@@ -2636,114 +2636,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
                 onResume: () => unawaited(_runQueueAction('resume')),
               ),
               const SizedBox(height: 10),
-              _orderDetailSurfaceCard(
-                context: context,
-                padding: EdgeInsets.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => setState(() => _mapExpanded = !_mapExpanded),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.account_tree_outlined,
-                              color: scheme.primary,
-                              size: 22,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Mapni ko‘rish',
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _mapProgressSummary(
-                                      steps: steps,
-                                      orderId: orderId,
-                                      currentStation: station,
-                                    ),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            AnimatedRotation(
-                              turns: _mapExpanded ? 0.5 : 0,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              child: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _mapExpanded
-                          ? Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: Column(
-                                    children: [
-                                      for (var index = 0;
-                                          index < steps.length;
-                                          index++) ...[
-                                        _SequenceStepTile(
-                                          node: steps[index],
-                                          index: index,
-                                          isLast: index == steps.length - 1,
-                                          status: _nodeStatus(
-                                            steps[index],
-                                            orderId: orderId,
-                                            currentStation: station,
-                                          ),
-                                          current: _nodeMatchesStation(
-                                            steps[index],
-                                            station,
-                                          ),
-                                          isDone: _mapStepIsDone(
-                                            steps: steps,
-                                            index: index,
-                                            orderId: orderId,
-                                            currentStation: station,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
+              _OrderMapProgressCard(
+                steps: steps,
+                orderId: orderId,
+                currentStation: station,
+                queueStates: _queueStates,
+                queueStatesByApparatus: widget.queueStatesByApparatus,
+                expanded: _mapExpanded,
+                onToggleExpanded: () {
+                  setState(() => _mapExpanded = !_mapExpanded);
+                },
               ),
             ],
           ),
@@ -2760,102 +2662,5 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
     }
     return map.title;
-  }
-
-  ApparatusQueueOrderState? _nodeStatus(
-    ProductionMapNode node, {
-    required String orderId,
-    required String currentStation,
-  }) {
-    if (node.kind != 'apparatus') {
-      return null;
-    }
-    final station = _nodeStationTitle(node);
-    if (station.isEmpty) {
-      return null;
-    }
-    if (_nodeMatchesStation(node, currentStation)) {
-      return apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
-    }
-    for (final entry in widget.queueStatesByApparatus.entries) {
-      if (productionMapWarehouseTitlesMatch(entry.key, station)) {
-        return apparatusQueueOrderStateFromRaw(entry.value[orderId]);
-      }
-    }
-    return ApparatusQueueOrderState.pending;
-  }
-
-  bool _nodeMatchesStation(ProductionMapNode node, String station) {
-    return station.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(_nodeStationTitle(node), station);
-  }
-
-  int _mapCurrentStepIndex(
-    List<ProductionMapNode> steps,
-    String currentStation,
-  ) {
-    if (currentStation.trim().isEmpty) {
-      return -1;
-    }
-    return steps.indexWhere(
-      (node) => _nodeMatchesStation(node, currentStation),
-    );
-  }
-
-  bool _mapStepIsPast({
-    required List<ProductionMapNode> steps,
-    required int index,
-    required String currentStation,
-  }) {
-    final currentIndex = _mapCurrentStepIndex(steps, currentStation);
-    return currentIndex >= 0 && index < currentIndex;
-  }
-
-  bool _mapStepIsDone({
-    required List<ProductionMapNode> steps,
-    required int index,
-    required String orderId,
-    required String currentStation,
-  }) {
-    if (_mapStepIsPast(
-      steps: steps,
-      index: index,
-      currentStation: currentStation,
-    )) {
-      return true;
-    }
-    final status = _nodeStatus(
-      steps[index],
-      orderId: orderId,
-      currentStation: currentStation,
-    );
-    return status == ApparatusQueueOrderState.completed;
-  }
-
-  String _mapProgressSummary({
-    required List<ProductionMapNode> steps,
-    required String orderId,
-    required String currentStation,
-  }) {
-    var completed = 0;
-    for (var index = 0; index < steps.length; index++) {
-      if (_mapStepIsDone(
-        steps: steps,
-        index: index,
-        orderId: orderId,
-        currentStation: currentStation,
-      )) {
-        completed++;
-      }
-    }
-    return '$completed / ${steps.length} bosqich';
-  }
-
-  String _nodeStationTitle(ProductionMapNode node) {
-    final assigned = node.alternativeAssignedTitle.trim();
-    if (assigned.isNotEmpty) {
-      return assigned;
-    }
-    return node.title.trim();
   }
 }
