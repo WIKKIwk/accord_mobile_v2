@@ -8,6 +8,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
@@ -328,7 +329,7 @@ class _WorkerDetailCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                _WorkerStatusChip(label: statusLabel),
+                AppStatusChip(label: statusLabel),
               ],
             ),
             const SizedBox(height: 18),
@@ -420,31 +421,6 @@ class _WorkerDetailLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: Theme.of(context).textTheme.bodySmall);
-  }
-}
-
-class _WorkerStatusChip extends StatelessWidget {
-  const _WorkerStatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSecondaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
   }
 }
 

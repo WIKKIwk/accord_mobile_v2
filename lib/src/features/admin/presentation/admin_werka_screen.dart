@@ -1,6 +1,7 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -251,7 +252,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                     style: theme.textTheme.headlineMedium,
                   ),
                 ),
-                const _WerkaStatusChip(label: 'Tayyor'),
+                const AppStatusChip(label: 'Tayyor'),
               ],
             ),
             const SizedBox(height: 18),
@@ -367,31 +368,6 @@ class _WerkaTextField extends StatelessWidget {
         ),
       ),
       style: Theme.of(context).textTheme.titleMedium,
-    );
-  }
-}
-
-class _WerkaStatusChip extends StatelessWidget {
-  const _WerkaStatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSecondaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -626,7 +627,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                     style: theme.textTheme.headlineMedium,
                   ),
                 ),
-                _StatusChip(label: statusLabel),
+                AppStatusChip(label: statusLabel),
               ],
             ),
             const SizedBox(height: 18),
@@ -931,29 +932,4 @@ ButtonStyle _customerDetailOutlinedButtonStyle() {
     ),
     minimumSize: const Size(0, 54),
   );
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSecondaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
 }
