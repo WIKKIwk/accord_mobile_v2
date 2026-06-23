@@ -159,6 +159,39 @@ bool _queueActionShouldReloadMaterials({
   return action == 'start' && result != null;
 }
 
+String? _queueActionStartBlockReason({
+  required String action,
+  required List<AdminRawMaterialAssignment> materialAssignments,
+  required Set<String> scannedMaterialBarcodes,
+  required String orderId,
+  required ProductionMapDefinition map,
+  required String station,
+  required AdminProgressBatch? startInputProgressBatch,
+}) {
+  if (action != 'start') {
+    return null;
+  }
+  if (materialAssignments.isNotEmpty &&
+      !_allMaterialsScanned(
+        assignments: materialAssignments,
+        scannedBarcodes: scannedMaterialBarcodes,
+        orderId: orderId,
+      )) {
+    return 'Avval hamma homashyoni QR scan qiling';
+  }
+  final previousStage = station.isEmpty
+      ? null
+      : productionMapPreviousWorkStageStation(map: map, station: station);
+  if (previousStage != null && startInputProgressBatch == null) {
+    return 'Oldingi bosqich QR sini scan qiling';
+  }
+  return null;
+}
+
+String _readOnlyQueueActionErrorText(Object error) {
+  return error is MobileApiException ? error.message : 'Amal bajarilmadi';
+}
+
 String _productTitle(ProductionMapDefinition map) {
   for (final node in map.nodes) {
     final title = node.title.trim();

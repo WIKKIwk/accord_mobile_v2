@@ -1465,29 +1465,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       orderId: widget.order.map.id.trim(),
       station: apparatus.warehouse.trim(),
     );
-    if (action == 'start' &&
-        materialAssignments.isNotEmpty &&
-        !_allMaterialsScanned(
-          assignments: materialAssignments,
-          scannedBarcodes: _scannedMaterialBarcodes,
-          orderId: widget.order.map.id.trim(),
-        )) {
-      showAdminTopNotice(context, 'Avval hamma homashyoni QR scan qiling');
-      return;
-    }
     final station = apparatus.warehouse.trim();
-    final previousStage = station.isEmpty
-        ? null
-        : productionMapPreviousWorkStageStation(
-            map: widget.order.map,
-            station: station,
-          );
     final startInputProgressBatch =
         action == 'start' ? _startInputProgressBatch : null;
-    if (action == 'start' &&
-        previousStage != null &&
-        startInputProgressBatch == null) {
-      showAdminTopNotice(context, 'Oldingi bosqich QR sini scan qiling');
+    final startBlockReason = _queueActionStartBlockReason(
+      action: action,
+      materialAssignments: materialAssignments,
+      scannedMaterialBarcodes: _scannedMaterialBarcodes,
+      orderId: widget.order.map.id.trim(),
+      map: widget.order.map,
+      station: station,
+      startInputProgressBatch: startInputProgressBatch,
+    );
+    if (startBlockReason != null) {
+      showAdminTopNotice(context, startBlockReason);
       return;
     }
     setState(() => _actionInFlight = true);
@@ -1541,18 +1532,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
       }
-    } on MobileApiException catch (error) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() => _actionInFlight = false);
-      showAdminTopNotice(context, error.message);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _actionInFlight = false);
-      showAdminTopNotice(context, 'Amal bajarilmadi');
+      showAdminTopNotice(context, _readOnlyQueueActionErrorText(error));
     }
   }
 
