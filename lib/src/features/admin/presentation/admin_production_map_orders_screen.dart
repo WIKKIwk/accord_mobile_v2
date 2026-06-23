@@ -546,8 +546,7 @@ class _AdminProductionMapOrdersScreenState
       return null;
     }
     final apparatusKey = apparatus.warehouse.trim();
-    _queueActionInFlight = true;
-    setState(() {});
+    _setQueueActionInFlight(true);
     try {
       final result = await _submitAdminApparatusQueueAction(
         apparatus: apparatusKey,
@@ -574,16 +573,11 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return null;
       }
-      setState(() {
-        _queueStatesByApparatus[apparatusKey] = result.states;
-      });
-      if (_queueActionSentCompletionRequest(
+      _applyQueueActionResult(
+        apparatusKey: apparatusKey,
         completionRequestNote: completionRequestNote,
         result: result,
-      )) {
-        showAdminTopNotice(context, 'Tugatish so‘rovi adminga yuborildi');
-      }
-      unawaited(_refreshLive());
+      );
       return result;
     } catch (error) {
       if (!mounted) {
@@ -595,11 +589,32 @@ class _AdminProductionMapOrdersScreenState
       );
       return null;
     } finally {
-      _queueActionInFlight = false;
-      if (mounted) {
-        setState(() {});
-      }
+      _setQueueActionInFlight(false);
     }
+  }
+
+  void _setQueueActionInFlight(bool value) {
+    _queueActionInFlight = value;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _applyQueueActionResult({
+    required String apparatusKey,
+    required String completionRequestNote,
+    required AdminApparatusQueueActionResult result,
+  }) {
+    setState(() {
+      _queueStatesByApparatus[apparatusKey] = result.states;
+    });
+    if (_queueActionSentCompletionRequest(
+      completionRequestNote: completionRequestNote,
+      result: result,
+    )) {
+      showAdminTopNotice(context, 'Tugatish so‘rovi adminga yuborildi');
+    }
+    unawaited(_refreshLive());
   }
 
   void _syncMoveApparatusDefaults(List<AdminWarehouse> source) {
