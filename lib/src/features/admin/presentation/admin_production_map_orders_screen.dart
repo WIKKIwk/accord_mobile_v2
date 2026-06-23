@@ -247,12 +247,6 @@ class _AdminProductionMapOrdersScreenState
 
   void _applyWorkerLiveSnapshot(AdminProductionMapLiveSnapshot snapshot) {
     final orders = _productionMapZakazOrders(snapshot.maps);
-    final newRejectedDecisions = widget.workerMode
-        ? _newRejectedCompletionRequestDecisions(
-            decisions: snapshot.completionRequestDecisions,
-            shownDecisionIds: _shownCompletionDecisionIds,
-          )
-        : const <AdminCompletionRequestDecisionNotification>[];
     setState(() {
       _orders = orders;
       _sequenceByApparatus
@@ -268,13 +262,9 @@ class _AdminProductionMapOrdersScreenState
       _completionRequests = snapshot.completionRequests;
       _loading = false;
     });
-    for (final decision in newRejectedDecisions) {
-      _shownCompletionDecisionIds.add(decision.eventId.trim());
-      showAdminTopNotice(
-        context,
-        _completionRejectedNoticeText(decision),
-      );
-    }
+    _showNewRejectedCompletionDecisionNotices(
+      snapshot.completionRequestDecisions,
+    );
   }
 
   Future<void> _refreshLive({bool initial = false}) async {
@@ -376,19 +366,28 @@ class _AdminProductionMapOrdersScreenState
       if (!mounted) {
         return;
       }
-      final newRejectedDecisions = _newRejectedCompletionRequestDecisions(
-        decisions: decisions,
-        shownDecisionIds: _shownCompletionDecisionIds,
-      );
-      for (final decision in newRejectedDecisions) {
-        _shownCompletionDecisionIds.add(decision.eventId.trim());
-        showAdminTopNotice(
-          context,
-          _completionRejectedNoticeText(decision),
-        );
-      }
+      _showNewRejectedCompletionDecisionNotices(decisions);
     } catch (_) {
       return;
+    }
+  }
+
+  void _showNewRejectedCompletionDecisionNotices(
+    List<AdminCompletionRequestDecisionNotification> decisions,
+  ) {
+    if (!widget.workerMode) {
+      return;
+    }
+    final newRejectedDecisions = _newRejectedCompletionRequestDecisions(
+      decisions: decisions,
+      shownDecisionIds: _shownCompletionDecisionIds,
+    );
+    for (final decision in newRejectedDecisions) {
+      _shownCompletionDecisionIds.add(decision.eventId.trim());
+      showAdminTopNotice(
+        context,
+        _completionRejectedNoticeText(decision),
+      );
     }
   }
 
