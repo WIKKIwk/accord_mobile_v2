@@ -582,55 +582,6 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
-  int _workerWatchTabCount(List<AdminWarehouse> apparatus) {
-    return apparatus.isEmpty ? 1 : apparatus.length + 1;
-  }
-
-  List<AdminWarehouse> _workerWatchApparatusOrder() {
-    final ordered = List<AdminWarehouse>.from(_apparatus);
-    final index = _initialWatchApparatusIndex(ordered);
-    if (index > 0) {
-      final assigned = ordered.removeAt(index);
-      ordered.insert(0, assigned);
-    }
-    return ordered;
-  }
-
-  List<_WorkerWatchTab> _workerWatchTabs() {
-    final ordered = _workerWatchApparatusOrder();
-    if (ordered.isEmpty) {
-      return const [];
-    }
-    return [
-      _WorkerWatchTab.apparatus(ordered.first),
-      const _WorkerWatchTab.completed(),
-      for (final item in ordered.skip(1)) _WorkerWatchTab.apparatus(item),
-    ];
-  }
-
-  int _initialWatchApparatusIndex(List<AdminWarehouse> apparatus) {
-    final assigned = AppSession.instance.profile?.assignedApparatus
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty) ??
-        const <String>[];
-    for (final item in assigned) {
-      final index = apparatus.indexWhere(
-        (entry) => _apparatusTitlesMatch(entry.warehouse, item),
-      );
-      if (index >= 0) {
-        return index;
-      }
-    }
-    return 0;
-  }
-
-  bool _isAssignedWatchApparatus(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
-    final assigned =
-        AppSession.instance.profile?.assignedApparatus ?? const <String>[];
-    return assigned.any((item) => _apparatusTitlesMatch(title, item));
-  }
-
   Future<AdminApparatusQueueActionResult?> _handleQueueAction({
     required AdminWarehouse apparatus,
     required ProductionMapSaved order,
@@ -826,7 +777,11 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatus: apparatus,
-        canManageQueue: _isAssignedWatchApparatus(apparatus),
+        canManageQueue: _isAssignedWatchApparatus(
+          apparatus,
+          assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
+              const <String>[],
+        ),
         initialQueueStates: _queueStatesForApparatus(
           apparatus,
           queueStatesByApparatus: _queueStatesByApparatus,
@@ -1591,7 +1546,11 @@ class _AdminProductionMapOrdersScreenState
         child: _EmptyOpenedOrders(message: 'Aparatlar topilmadi'),
       );
     }
-    final tabs = _workerWatchTabs();
+    final tabs = _workerWatchTabs(
+      apparatus: _apparatus,
+      assignedApparatus:
+          AppSession.instance.profile?.assignedApparatus ?? const <String>[],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1629,7 +1588,12 @@ class _AdminProductionMapOrdersScreenState
                     apparatus: tab.apparatus!,
                     orders: _ordersForApparatus(tab.apparatus!),
                     bottomPadding: bottomPadding,
-                    isAssigned: _isAssignedWatchApparatus(tab.apparatus!),
+                    isAssigned: _isAssignedWatchApparatus(
+                      tab.apparatus!,
+                      assignedApparatus:
+                          AppSession.instance.profile?.assignedApparatus ??
+                              const <String>[],
+                    ),
                     queueStates: _queueStatesForApparatus(
                       tab.apparatus!,
                       queueStatesByApparatus: _queueStatesByApparatus,
