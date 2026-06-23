@@ -614,8 +614,10 @@ class _AdminProductionMapOrdersScreenState
       setState(() {
         _queueStatesByApparatus[apparatusKey] = result.states;
       });
-      if (completionRequestNote.trim().isNotEmpty &&
-          result.completionRequest != null) {
+      if (_queueActionSentCompletionRequest(
+        completionRequestNote: completionRequestNote,
+        result: result,
+      )) {
         showAdminTopNotice(context, 'Tugatish so‘rovi adminga yuborildi');
       }
       unawaited(_refreshLive());
@@ -626,9 +628,7 @@ class _AdminProductionMapOrdersScreenState
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException
-            ? error.message
-            : 'Navbat amali bajarilmadi',
+        _queueActionErrorText(error),
       );
       return null;
     } finally {

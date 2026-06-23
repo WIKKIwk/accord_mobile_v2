@@ -157,3 +157,17 @@ ApparatusQueuePolicy _queuePolicyForApparatus(
   }
   return ApparatusQueuePolicy.strictSequence;
 }
+
+bool _queueActionSentCompletionRequest({
+  required String completionRequestNote,
+  required AdminApparatusQueueActionResult result,
+}) {
+  return completionRequestNote.trim().isNotEmpty &&
+      result.completionRequest != null;
+}
+
+String _queueActionErrorText(Object error) {
+  return error is MobileApiException
+      ? error.message
+      : 'Navbat amali bajarilmadi';
+}
