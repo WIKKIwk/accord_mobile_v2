@@ -3,6 +3,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -635,7 +636,7 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
           TextField(
             controller: _warehouseController,
             textInputAction: TextInputAction.done,
-            decoration: _warehouseFieldDecoration(
+            decoration: appSurfaceInputDecoration(
               context,
               labelText: 'Ombor nomi',
             ),
@@ -683,7 +684,7 @@ class _AssignUserPickerField extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
-        decoration: _warehouseFieldDecoration(
+        decoration: appSurfaceInputDecoration(
           context,
           labelText: 'Kimga assign',
           prefixIcon: const Icon(Icons.person_search_rounded),
@@ -1537,35 +1538,6 @@ UserRole _roleForUser(AdminUserListEntry user) {
     case AdminUserKind.worker:
       return UserRole.aparatchi;
   }
-}
-
-InputDecoration _warehouseFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  Widget? prefixIcon,
-  Widget? suffixIcon,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    prefixIcon: prefixIcon,
-    suffixIcon: suffixIcon,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
 }
 
 bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {

@@ -6,6 +6,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
@@ -5735,35 +5736,6 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   );
 }
 
-InputDecoration _progressQtyFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  String? suffixText,
-  bool alignLabelWithHint = false,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    suffixText: suffixText,
-    alignLabelWithHint: alignLabelWithHint,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
-
 Widget _progressQtySectionLabel(BuildContext context, String label) {
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
@@ -5842,7 +5814,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
       ],
-      decoration: _progressQtyFieldDecoration(
+      decoration: appSurfaceInputDecoration(
         context,
         labelText: label,
         suffixText: suffix.isEmpty ? null : suffix,
@@ -6151,7 +6123,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             controller: _descriptionController,
                             minLines: 3,
                             maxLines: 4,
-                            decoration: _progressQtyFieldDecoration(
+                            decoration: appSurfaceInputDecoration(
                               context,
                               labelText: 'Nima sababdan tugatyapsiz?',
                               alignLabelWithHint: true,

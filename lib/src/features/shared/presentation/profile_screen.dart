@@ -8,6 +8,7 @@ import '../../../core/session/session.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -33,32 +34,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 const double _profilePanelGap = 4;
-
-InputDecoration _profileFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  String? hintText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    hintText: hintText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
 
 Widget _profileSurfaceCard({
   required BuildContext context,
@@ -288,8 +263,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       errorMessage = null;
     });
     try {
-      final canUseBiometrics = await SecurityController.instance
-          .canUseBiometrics();
+      final canUseBiometrics =
+          await SecurityController.instance.canUseBiometrics();
       if (!mounted ||
           !canUseBiometrics ||
           SecurityController.instance.biometricEnabledForCurrentUser) {
@@ -405,20 +380,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         final subtitle = current.isCapabilityOnlyProfile
             ? 'Role asosidagi account'
             : current.accessRole == UserRole.supplier
-            ? l10n.supplierAccount
-            : current.accessRole == UserRole.werka
-            ? l10n.werkaAccount
-            : current.accessRole == UserRole.customer
-            ? l10n.customerAccount
-            : l10n.adminAccount;
+                ? l10n.supplierAccount
+                : current.accessRole == UserRole.werka
+                    ? l10n.werkaAccount
+                    : current.accessRole == UserRole.customer
+                        ? l10n.customerAccount
+                        : l10n.adminAccount;
         final bool hasPin = SecurityController.instance.hasPinForCurrentUser;
         final bool biometricEnabled =
             SecurityController.instance.biometricEnabledForCurrentUser;
         final bool savingProfileChanges = savingNickname || savingAvatar;
         final displayName = _normalizedDisplayName(current);
         final legalName = _normalizedLegalName(current);
-        final effectiveLegalName = (legalName.isEmpty ? displayName : legalName)
-            .trim();
+        final effectiveLegalName =
+            (legalName.isEmpty ? displayName : legalName).trim();
 
         return AppShell(
           title: l10n.profileTitle,
@@ -427,47 +402,47 @@ class _ProfileScreenState extends State<ProfileScreen>
           animateOnEnter: current.accessRole != UserRole.customer,
           drawer: switch (shellKind) {
             _ProfileShellKind.werka => WerkaNavigationDrawer(
-              selectedIndex: 3,
-              onNavigate: _openWerkaDrawerRoute,
-            ),
+                selectedIndex: 3,
+                onNavigate: _openWerkaDrawerRoute,
+              ),
             _ProfileShellKind.supplier => SupplierNavigationDrawer(
-              selectedIndex: 3,
-              onNavigate: _openSupplierDrawerRoute,
-            ),
+                selectedIndex: 3,
+                onNavigate: _openSupplierDrawerRoute,
+              ),
             _ProfileShellKind.customer => CustomerNavigationDrawer(
-              selectedIndex: 2,
-              onNavigate: _openCustomerDrawerRoute,
-            ),
+                selectedIndex: 2,
+                onNavigate: _openCustomerDrawerRoute,
+              ),
             _ProfileShellKind.aparatchi => AparatchiNavigationDrawer(
-              selectedIndex: 1,
-              onNavigate: _openAparatchiDrawerRoute,
-            ),
+                selectedIndex: 1,
+                onNavigate: _openAparatchiDrawerRoute,
+              ),
             _ProfileShellKind.qolip => QolipNavigationDrawer(
-              selectedIndex: 1,
-              onNavigate: _openQolipDrawerRoute,
-            ),
+                selectedIndex: 1,
+                onNavigate: _openQolipDrawerRoute,
+              ),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
             _ProfileShellKind.supplier => const SupplierDock(
-              activeTab: null,
-              showPrimaryFab: false,
-            ),
+                activeTab: null,
+                showPrimaryFab: false,
+              ),
             _ProfileShellKind.werka => const WerkaDock(
-              activeTab: null,
-              showPrimaryFab: false,
-            ),
+                activeTab: null,
+                showPrimaryFab: false,
+              ),
             _ProfileShellKind.customer => const CustomerDock(activeTab: null),
             _ProfileShellKind.aparatchi => const AparatchiDock(
-              activeTab: AparatchiDockTab.profile,
-            ),
+                activeTab: AparatchiDockTab.profile,
+              ),
             _ProfileShellKind.qolip => const QolipDock(
-              activeTab: QolipDockTab.profile,
-            ),
+                activeTab: QolipDockTab.profile,
+              ),
             _ProfileShellKind.admin => const AdminDock(
-              activeTab: null,
-              showPrimaryFab: false,
-            ),
+                activeTab: null,
+                showPrimaryFab: false,
+              ),
             _ProfileShellKind.none => null,
           },
           contentPadding: EdgeInsets.zero,
@@ -623,7 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           TextField(
                             controller: nicknameController,
                             onChanged: (_) => setState(() {}),
-                            decoration: _profileFieldDecoration(
+                            decoration: appSurfaceInputDecoration(
                               context,
                               labelText: l10n.nicknameLabel,
                               hintText: l10n.nicknameHint,
@@ -683,8 +658,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             label: savingPin
                                 ? l10n.pinSaving
                                 : hasPin
-                                ? l10n.pinChange
-                                : l10n.pinSet,
+                                    ? l10n.pinChange
+                                    : l10n.pinSet,
                           ),
                           if (hasPin) ...[
                             const SizedBox(height: 10),
@@ -885,8 +860,8 @@ class _LanguagePreferenceRow extends StatelessWidget {
                 Text(
                   l10n.languageBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                        color: scheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -902,8 +877,8 @@ class _LanguagePreferenceRow extends StatelessWidget {
               currentLocale.languageCode == 'uz'
                   ? l10n.uzbek
                   : currentLocale.languageCode == 'ru'
-                  ? l10n.russian
-                  : l10n.english,
+                      ? l10n.russian
+                      : l10n.english,
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
@@ -1176,8 +1151,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                 Text(
                   l10n.themeBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                        color: scheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -1354,9 +1329,8 @@ class _ProfileSelectionOption extends StatelessWidget {
               decoration: BoxDecoration(
                 color: active ? scheme.primary : Colors.transparent,
                 shape: BoxShape.circle,
-                border: active
-                    ? null
-                    : Border.all(color: scheme.outlineVariant),
+                border:
+                    active ? null : Border.all(color: scheme.outlineVariant),
               ),
               child: active
                   ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
@@ -1410,9 +1384,8 @@ class _ThemeSelectionOption extends StatelessWidget {
               child: Text(
                 title,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: active
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurface,
+                  color:
+                      active ? scheme.onSecondaryContainer : scheme.onSurface,
                 ),
               ),
             ),
@@ -1441,9 +1414,8 @@ class _ThemeSelectionOption extends StatelessWidget {
               decoration: BoxDecoration(
                 color: active ? scheme.primary : Colors.transparent,
                 shape: BoxShape.circle,
-                border: active
-                    ? null
-                    : Border.all(color: scheme.outlineVariant),
+                border:
+                    active ? null : Border.all(color: scheme.outlineVariant),
               ),
               child: active
                   ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
@@ -1465,9 +1437,8 @@ class _ThemeIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool darkModeIcon = asset.contains('contrast-2-fill');
-    final IconData icon = darkModeIcon
-        ? Icons.dark_mode_rounded
-        : Icons.light_mode_rounded;
+    final IconData icon =
+        darkModeIcon ? Icons.dark_mode_rounded : Icons.light_mode_rounded;
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,

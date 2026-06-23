@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -15,31 +16,6 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 const double _rawMaterialAssignmentPanelGap = 4;
-
-InputDecoration _rawMaterialAssignmentFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
 
 Widget _rawMaterialAssignmentSurfaceCard({
   required BuildContext context,
@@ -362,61 +338,61 @@ class _AdminRawMaterialAssignmentPanelState
               _rawMaterialAssignmentPanelGap,
               widget.bottomPadding,
             ),
-              children: [
-                _AssignmentEditor(
-                  orders: data.orders,
-                  selectedOrderLabel: _selectedOrderLabel(data.orders),
-                  scannedBarcode: _scannedBarcode,
-                  scannedMaterial: _scannedMaterial,
-                  scanLookupError: _scanLookupError,
-                  scanLookupLoading: _scanLookupLoading,
-                  saving: _saving,
-                  onPickOrder: () => _openOrderPicker(data.orders),
-                  onScan: _scan,
-                  onSave: _save,
+            children: [
+              _AssignmentEditor(
+                orders: data.orders,
+                selectedOrderLabel: _selectedOrderLabel(data.orders),
+                scannedBarcode: _scannedBarcode,
+                scannedMaterial: _scannedMaterial,
+                scanLookupError: _scanLookupError,
+                scanLookupLoading: _scanLookupLoading,
+                saving: _saving,
+                onPickOrder: () => _openOrderPicker(data.orders),
+                onScan: _scan,
+                onSave: _save,
+              ),
+              if (_assignments.isEmpty) ...[
+                const SizedBox(height: 10),
+                _rawMaterialAssignmentSurfaceCard(
+                  context: context,
+                  child: const Center(
+                    child: Text('Ulangan homashyo topilmadi'),
+                  ),
                 ),
-                if (_assignments.isEmpty) ...[
-                  const SizedBox(height: 10),
-                  _rawMaterialAssignmentSurfaceCard(
-                    context: context,
-                    child: const Center(
-                      child: Text('Ulangan homashyo topilmadi'),
-                    ),
-                  ),
-                ] else ...[
-                  const SizedBox(height: 10),
-                  M3SegmentSpacedColumn(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      for (var index = 0; index < _assignments.length; index++)
-                        _AssignmentTile(
-                          slot: M3SegmentedListGeometry
-                              .standaloneListSlotForIndex(
-                            index,
-                            _assignments.length,
-                          ),
-                          assignment: _assignments[index],
-                          expanded: _expandedAssignmentKey ==
-                              _assignmentKey(_assignments[index]),
-                          unlinking: _unlinkingAssignmentKey ==
-                              _assignmentKey(_assignments[index]),
-                          onExpandedChanged: (expanded) {
-                            setState(() {
-                              _expandedAssignmentKey = expanded
-                                  ? _assignmentKey(_assignments[index])
-                                  : null;
-                            });
-                          },
-                          onUnlink: () => _unlink(_assignments[index]),
+              ] else ...[
+                const SizedBox(height: 10),
+                M3SegmentSpacedColumn(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (var index = 0; index < _assignments.length; index++)
+                      _AssignmentTile(
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index,
+                          _assignments.length,
                         ),
-                    ],
-                  ),
-                ],
+                        assignment: _assignments[index],
+                        expanded: _expandedAssignmentKey ==
+                            _assignmentKey(_assignments[index]),
+                        unlinking: _unlinkingAssignmentKey ==
+                            _assignmentKey(_assignments[index]),
+                        onExpandedChanged: (expanded) {
+                          setState(() {
+                            _expandedAssignmentKey = expanded
+                                ? _assignmentKey(_assignments[index])
+                                : null;
+                          });
+                        },
+                        onUnlink: () => _unlink(_assignments[index]),
+                      ),
+                  ],
+                ),
               ],
-            ),
-          );
-        },
-      );
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -466,7 +442,7 @@ class _AssignmentEditor extends StatelessWidget {
             onTap: saving || orders.isEmpty ? null : onPickOrder,
             borderRadius: BorderRadius.circular(12),
             child: InputDecorator(
-              decoration: _rawMaterialAssignmentFieldDecoration(
+              decoration: appSurfaceInputDecoration(
                 context,
                 labelText: 'Zakaz',
               ).copyWith(

@@ -1,6 +1,7 @@
 import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -15,34 +16,6 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 const double _rawMaterialRulesPanelGap = 4;
-
-InputDecoration _rawMaterialRuleFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  String? hintText,
-  Widget? suffixIcon,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    hintText: hintText,
-    suffixIcon: suffixIcon,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
 
 enum AdminRawMaterialSettingsTab { rules, requiredMaterial, assignments }
 
@@ -323,7 +296,8 @@ class _AdminRawMaterialSettingsScreenState
                   controller: _tabController,
                   children: [
                     ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: ListView(
                         padding: EdgeInsets.fromLTRB(
                           _rawMaterialRulesPanelGap,
@@ -353,18 +327,20 @@ class _AdminRawMaterialSettingsScreenState
                             M3SegmentSpacedColumn(
                               padding: EdgeInsets.zero,
                               children: [
-                                for (var index = 0; index < _rules.length; index++)
+                                for (var index = 0;
+                                    index < _rules.length;
+                                    index++)
                                   _RuleTile(
-                                    slot:
-                                        M3SegmentedListGeometry
-                                            .standaloneListSlotForIndex(
+                                    slot: M3SegmentedListGeometry
+                                        .standaloneListSlotForIndex(
                                       index,
                                       _rules.length,
                                     ),
                                     rule: _rules[index],
                                     onTap: () {
                                       setState(() {
-                                        _selectedApparatus = _rules[index].apparatus;
+                                        _selectedApparatus =
+                                            _rules[index].apparatus;
                                         _fillGroupsFor(_rules[index].apparatus);
                                       });
                                       _tabController.animateTo(0);
@@ -468,7 +444,7 @@ class _RuleEditor extends StatelessWidget {
               key: ValueKey(selectedApparatus),
               initialValue:
                   selectedApparatus.isEmpty ? null : selectedApparatus,
-              decoration: _rawMaterialRuleFieldDecoration(
+              decoration: appSurfaceInputDecoration(
                 context,
                 labelText: 'Aparat',
               ),
@@ -494,7 +470,7 @@ class _RuleEditor extends StatelessWidget {
               onTap: saving ? null : onPickGroups,
               minLines: 1,
               maxLines: 3,
-              decoration: _rawMaterialRuleFieldDecoration(
+              decoration: appSurfaceInputDecoration(
                 context,
                 labelText: 'Homashyo guruhlari',
                 hintText: 'Tanlang',

@@ -5,6 +5,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/customer/customer_priority.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -1985,38 +1986,11 @@ class _TextInput extends StatelessWidget {
         maxLines: maxLines,
         textInputAction:
             maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
-        decoration: _surfaceFieldDecoration(context, labelText: label),
+        decoration: appSurfaceInputDecoration(context, labelText: label),
         validator: required ? _requiredText : null,
       ),
     );
   }
-}
-
-InputDecoration _surfaceFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  String? suffixText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    suffixText: suffixText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
 }
 
 class _NumberInput extends StatelessWidget {
@@ -2045,7 +2019,7 @@ class _NumberInput extends StatelessWidget {
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
         ],
         textInputAction: TextInputAction.next,
-        decoration: _surfaceFieldDecoration(
+        decoration: appSurfaceInputDecoration(
           context,
           labelText: label,
           suffixText: suffixText,
@@ -2080,7 +2054,7 @@ class _IntegerInput extends StatelessWidget {
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textInputAction: TextInputAction.next,
-        decoration: _surfaceFieldDecoration(
+        decoration: appSurfaceInputDecoration(
           context,
           labelText: label,
           suffixText: suffixText,

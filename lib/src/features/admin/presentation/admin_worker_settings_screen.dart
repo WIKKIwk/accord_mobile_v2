@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -35,30 +36,6 @@ const Map<String, String> adminWorkerStartDayLabels = {
 
 const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
-
-InputDecoration _workerSettingsFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
 
 Widget _workerSettingsSurfaceCard({
   required BuildContext context,
@@ -248,7 +225,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                   TextField(
                     controller: _nameController,
                     textInputAction: TextInputAction.done,
-                    decoration: _workerSettingsFieldDecoration(
+                    decoration: appSurfaceInputDecoration(
                       context,
                       labelText: 'Ishchi nomi',
                     ),
@@ -306,7 +283,8 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                   children: [
                     for (var index = 0; index < workers.length; index++)
                       _WorkerLevelTile(
-                        slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        slot:
+                            M3SegmentedListGeometry.standaloneListSlotForIndex(
                           index,
                           workers.length,
                         ),
@@ -701,7 +679,7 @@ class _WorkerGroupCreateCard extends StatelessWidget {
             controller: controller,
             textCapitalization: TextCapitalization.characters,
             textInputAction: TextInputAction.done,
-            decoration: _workerSettingsFieldDecoration(
+            decoration: appSurfaceInputDecoration(
               context,
               labelText: 'Guruh kodi',
             ).copyWith(hintText: 'AB, BA, DD'),
@@ -761,8 +739,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
-    final summary =
-        '${group.shift} • ${group.startTime}-${group.endTime} • '
+    final summary = '${group.shift} • ${group.startTime}-${group.endTime} • '
         '${group.workDaysPerWeek} kun • ${group.workerIds.length} odam';
 
     return Material(
@@ -1368,7 +1345,7 @@ class _WorkerLevelPicker extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      decoration: _workerSettingsFieldDecoration(context, labelText: 'Daraja'),
+      decoration: appSurfaceInputDecoration(context, labelText: 'Daraja'),
       items: [
         for (final level in adminWorkerLevels)
           DropdownMenuItem(value: level, child: Text(level)),

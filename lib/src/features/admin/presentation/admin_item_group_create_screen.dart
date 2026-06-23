@@ -1,5 +1,6 @@
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -14,30 +15,6 @@ import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
 const double _itemGroupPanelGap = 4;
-
-InputDecoration _itemGroupFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
 
 Widget _itemGroupSurfaceCard({
   required BuildContext context,
@@ -295,10 +272,10 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
                   onSelectGroup: _selectItemGroupForItems,
                   loadItemsPage: (group, limit, offset) =>
                       MobileApi.instance.adminItemsPage(
-                        group: group,
-                        limit: limit,
-                        offset: offset,
-                      ),
+                    group: group,
+                    limit: limit,
+                    offset: offset,
+                  ),
                 ),
               ],
             ),
@@ -354,7 +331,7 @@ class _CreateGroupTab extends StatelessWidget {
                 TextField(
                   controller: name,
                   textInputAction: TextInputAction.next,
-                  decoration: _itemGroupFieldDecoration(
+                  decoration: appSurfaceInputDecoration(
                     context,
                     labelText: 'Group nomi',
                   ),
@@ -368,21 +345,19 @@ class _CreateGroupTab extends StatelessWidget {
                         !snapshot.hasError) {
                       onSyncParent(groups);
                     }
-                    final selectedParent = parent.text.trim().isEmpty
-                        ? null
-                        : parent.text.trim();
+                    final selectedParent =
+                        parent.text.trim().isEmpty ? null : parent.text.trim();
                     final pickerReady =
                         snapshot.connectionState == ConnectionState.done &&
-                        !snapshot.hasError &&
-                        !saving;
+                            !snapshot.hasError &&
+                            !saving;
                     return _ItemGroupPickerField(
                       label: 'Parent group',
                       value: selectedParent,
                       placeholder: 'Parent tanlang',
                       enabled: pickerReady,
-                      onTap: pickerReady
-                          ? () => onOpenParentPicker(groups)
-                          : null,
+                      onTap:
+                          pickerReady ? () => onOpenParentPicker(groups) : null,
                     );
                   },
                 ),
@@ -437,9 +412,9 @@ class _ItemGroupPickerField extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurfaceVariant,
-          ),
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+              ),
         ),
         const SizedBox(height: 6),
         Material(
@@ -461,11 +436,11 @@ class _ItemGroupPickerField extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: value == null
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
+                            color: value == null
+                                ? scheme.onSurfaceVariant
+                                : scheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ),
                   const SizedBox(width: 10),

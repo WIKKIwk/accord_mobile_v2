@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -30,33 +31,6 @@ int _apparatusSettingsTabIndex(AdminApparatusSettingsTab tab) {
   };
 }
 
-InputDecoration _apparatusSettingsFieldDecoration(
-  BuildContext context, {
-  required String labelText,
-  String? hintText,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  OutlineInputBorder outline({Color? color, double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: color ?? scheme.outlineVariant, width: width),
-    );
-  }
-
-  return InputDecoration(
-    labelText: labelText,
-    hintText: hintText,
-    filled: true,
-    fillColor: scheme.surface,
-    border: outline(),
-    enabledBorder: outline(),
-    focusedBorder: outline(color: scheme.primary, width: 1.2),
-    errorBorder: outline(color: scheme.error),
-    focusedErrorBorder: outline(color: scheme.error, width: 1.2),
-  );
-}
-
 class AdminApparatusSettingsScreen extends StatefulWidget {
   const AdminApparatusSettingsScreen({
     super.key,
@@ -72,7 +46,8 @@ class AdminApparatusSettingsScreen extends StatefulWidget {
       _AdminApparatusSettingsScreenState();
 }
 
-class _AdminApparatusSettingsScreenState extends State<AdminApparatusSettingsScreen>
+class _AdminApparatusSettingsScreenState
+    extends State<AdminApparatusSettingsScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _apparatusName = TextEditingController();
@@ -223,16 +198,13 @@ class _AdminApparatusSettingsScreenState extends State<AdminApparatusSettingsScr
 
   List<AdminWarehouse> _selectableApparatusForEditor() {
     final editingKey = _editingGroupName?.trim().toLowerCase() ?? '';
-    return _apparatus
-        .where((item) {
-          final owner = _groupOwningApparatus(item.warehouse);
-          if (owner == null) {
-            return true;
-          }
-          return editingKey.isNotEmpty &&
-              owner.trim().toLowerCase() == editingKey;
-        })
-        .toList(growable: false);
+    return _apparatus.where((item) {
+      final owner = _groupOwningApparatus(item.warehouse);
+      if (owner == null) {
+        return true;
+      }
+      return editingKey.isNotEmpty && owner.trim().toLowerCase() == editingKey;
+    }).toList(growable: false);
   }
 
   Future<void> _save() async {
@@ -332,7 +304,7 @@ class _AdminApparatusSettingsScreenState extends State<AdminApparatusSettingsScr
             focusNode: _apparatusNameFocus,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _createApparatus(),
-            decoration: _apparatusSettingsFieldDecoration(
+            decoration: appSurfaceInputDecoration(
               context,
               labelText: 'Aparat nomi',
               hintText: 'Bobst 1',
@@ -431,7 +403,7 @@ class _AdminApparatusSettingsScreenState extends State<AdminApparatusSettingsScr
           TextField(
             controller: _name,
             focusNode: _nameFocus,
-            decoration: _apparatusSettingsFieldDecoration(
+            decoration: appSurfaceInputDecoration(
               context,
               labelText: 'Guruh nomi',
               hintText: 'bosma',
