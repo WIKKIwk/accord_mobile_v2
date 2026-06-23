@@ -208,6 +208,50 @@ bool _queueActionShouldReloadMaterials({
   return action == 'start' && result != null;
 }
 
+_ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
+  required _PreparedReadOnlyQueueAction prepared,
+  required ProductionMapSaved order,
+  required String action,
+  required _ProgressQtyInput? progressInput,
+  required String uom,
+  required String qrPayload,
+  required String progressBatchId,
+  required String driverUrl,
+  required String completionRequestNote,
+}) {
+  return _ReadOnlyQueueActionRequest(
+    apparatus: prepared.apparatus,
+    order: order,
+    action: action,
+    materialBarcodes: _queueActionMaterialBarcodes(
+      action: action,
+      assignments: prepared.materialAssignments,
+    ),
+    producedQty: progressInput?.meterQty,
+    grossQty: progressInput?.kgQty,
+    returnInkKg: progressInput?.returnInkKg,
+    laminationPrintLeftoverRolls: progressInput?.laminationPrintLeftoverRolls,
+    laminationFilmLeftoverRolls: progressInput?.laminationFilmLeftoverRolls,
+    rezkaBosmaWaste: progressInput?.rezkaBosmaWaste,
+    rezkaLaminationWaste: progressInput?.rezkaLaminationWaste,
+    rezkaEdgeWaste: progressInput?.rezkaEdgeWaste,
+    totalWaste: progressInput?.totalWaste,
+    finishedGoodsKg: progressInput?.finishedGoodsKg,
+    finishedGoodsMeter: progressInput?.finishedGoodsMeter,
+    uom: uom,
+    qrPayload: _queueActionQrPayload(
+      qrPayload: qrPayload,
+      startInputProgressBatch: prepared.startInputProgressBatch,
+    ),
+    progressBatchId: _queueActionProgressBatchId(
+      progressBatchId: progressBatchId,
+      startInputProgressBatch: prepared.startInputProgressBatch,
+    ),
+    driverUrl: driverUrl,
+    completionRequestNote: completionRequestNote,
+  );
+}
+
 String? _queueActionStartBlockReason({
   required String action,
   required List<AdminRawMaterialAssignment> materialAssignments,

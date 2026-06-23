@@ -1456,36 +1456,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() => _actionInFlight = true);
     try {
       final states = await prepared.onQueueAction(
-        _ReadOnlyQueueActionRequest(
-          apparatus: prepared.apparatus,
+        _readOnlyQueueActionRequest(
+          prepared: prepared,
           order: widget.order,
           action: action,
-          materialBarcodes: _queueActionMaterialBarcodes(
-            action: action,
-            assignments: prepared.materialAssignments,
-          ),
-          producedQty: progressInput?.meterQty,
-          grossQty: progressInput?.kgQty,
-          returnInkKg: progressInput?.returnInkKg,
-          laminationPrintLeftoverRolls:
-              progressInput?.laminationPrintLeftoverRolls,
-          laminationFilmLeftoverRolls:
-              progressInput?.laminationFilmLeftoverRolls,
-          rezkaBosmaWaste: progressInput?.rezkaBosmaWaste,
-          rezkaLaminationWaste: progressInput?.rezkaLaminationWaste,
-          rezkaEdgeWaste: progressInput?.rezkaEdgeWaste,
-          totalWaste: progressInput?.totalWaste,
-          finishedGoodsKg: progressInput?.finishedGoodsKg,
-          finishedGoodsMeter: progressInput?.finishedGoodsMeter,
+          progressInput: progressInput,
           uom: uom,
-          qrPayload: _queueActionQrPayload(
-            qrPayload: qrPayload,
-            startInputProgressBatch: prepared.startInputProgressBatch,
-          ),
-          progressBatchId: _queueActionProgressBatchId(
-            progressBatchId: progressBatchId,
-            startInputProgressBatch: prepared.startInputProgressBatch,
-          ),
+          qrPayload: qrPayload,
+          progressBatchId: progressBatchId,
           driverUrl: driverUrl,
           completionRequestNote: completionRequestNote,
         ),
