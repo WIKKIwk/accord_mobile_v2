@@ -2,7 +2,7 @@ import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
-import '../../../../core/widgets/navigation/app_navigation_bar.dart';
+import '../../../../core/widgets/navigation/role_dock.dart';
 import 'admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -41,8 +41,7 @@ class AdminDock extends StatelessWidget {
           createLabel: createLabel,
           activityLabel: activityLabel,
         );
-        final effectiveShowPrimaryFab =
-            showPrimaryFab &&
+        final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab &&
             destinations.any((destination) => destination.primary);
         final selectedIndex = destinations.indexWhere(
@@ -75,59 +74,28 @@ class AdminDock extends StatelessWidget {
               );
             }
 
-            final useNativeDock =
-                NativeDockBridge.isSupportedPlatform &&
-                NativeDockBridge.instance.supportsSystemDock;
-            if (useNativeDock) {
-              NativeDockBridge.instance.register(
-                NativeDockState(
-                  visible: true,
-                  compact: compact,
-                  tightToEdges: tightToEdges,
-                  items: [
-                    for (var i = 0; i < destinations.length; i++)
-                      if (!destinations[i].primary ||
-                          (!menuOpen && effectiveShowPrimaryFab))
-                        NativeDockItem(
-                          id: destinations[i].id,
-                          label: destinations[i].label,
-                          iconCodePoint: destinations[i].icon.codePoint,
-                          selectedIconCodePoint:
-                              destinations[i].selectedIcon.codePoint,
-                          active: activeTab == destinations[i].tab,
-                          primary: destinations[i].primary,
-                          showBadge: false,
-                          routeName: destinations[i].primary
-                              ? null
-                              : destinations[i].routeName,
-                          replaceStack: !destinations[i].primary,
-                          onTap: () => handleSelection(i),
-                        ),
-                  ],
-                ),
-              );
-              return const SizedBox.shrink();
-            }
-
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: tightToEdges ? 0 : 8),
-              child: AppNavigationBar(
-                height: compact ? 60 : 64,
-                selectionVisible: selectionVisible,
-                selectedIndex: effectiveSelectedIndex,
-                primaryVisible: !menuOpen && effectiveShowPrimaryFab,
-                destinations: destinations
-                    .map(
-                      (destination) => AppNavigationDestination(
-                        label: destination.label,
-                        icon: Icon(destination.icon),
-                        selectedIcon: Icon(destination.selectedIcon),
-                        isPrimary: destination.primary,
-                      ),
-                    )
-                    .toList(growable: false),
-                onDestinationSelected: handleSelection,
-              ),
+            return RoleDock(
+              compact: compact,
+              tightToEdges: tightToEdges,
+              selectionVisible: selectionVisible,
+              selectedIndex: effectiveSelectedIndex,
+              primaryVisible: !menuOpen && effectiveShowPrimaryFab,
+              destinations: [
+                for (var i = 0; i < destinations.length; i++)
+                  RoleDockDestination(
+                    id: destinations[i].id,
+                    label: destinations[i].label,
+                    icon: destinations[i].icon,
+                    selectedIcon: destinations[i].selectedIcon,
+                    active: activeTab == destinations[i].tab,
+                    primary: destinations[i].primary,
+                    routeName: destinations[i].primary
+                        ? null
+                        : destinations[i].routeName,
+                    replaceStack: !destinations[i].primary,
+                    onTap: () => handleSelection(i),
+                  ),
+              ],
             );
           },
         );
