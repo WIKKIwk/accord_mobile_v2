@@ -249,15 +249,11 @@ class _AdminProductionMapOrdersScreenState
     final orders = _productionMapZakazOrders(snapshot.maps);
     setState(() {
       _orders = orders;
-      _sequenceByApparatus
-        ..clear()
-        ..addAll(snapshot.sequences);
-      _queueStatesByApparatus
-        ..clear()
-        ..addAll(snapshot.queueStates);
-      _queuePoliciesByApparatus
-        ..clear()
-        ..addAll(snapshot.queuePolicies);
+      _replaceQueueSnapshotMaps(
+        sequences: snapshot.sequences,
+        queueStates: snapshot.queueStates,
+        queuePolicies: snapshot.queuePolicies,
+      );
       _completedWorkerOrders = snapshot.completedOrders;
       _completionRequests = snapshot.completionRequests;
       _loading = false;
@@ -325,19 +321,31 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       setState(() {
-        _sequenceByApparatus
-          ..clear()
-          ..addAll(queueSnapshot.sequences);
-        _queueStatesByApparatus
-          ..clear()
-          ..addAll(queueSnapshot.queueStates);
-        _queuePoliciesByApparatus
-          ..clear()
-          ..addAll(queueSnapshot.queuePolicies);
+        _replaceQueueSnapshotMaps(
+          sequences: queueSnapshot.sequences,
+          queueStates: queueSnapshot.queueStates,
+          queuePolicies: queueSnapshot.queuePolicies,
+        );
       });
     } catch (_) {
       return;
     }
+  }
+
+  void _replaceQueueSnapshotMaps({
+    required Map<String, List<String>> sequences,
+    required Map<String, Map<String, String>> queueStates,
+    required Map<String, AdminApparatusQueuePolicy> queuePolicies,
+  }) {
+    _sequenceByApparatus
+      ..clear()
+      ..addAll(sequences);
+    _queueStatesByApparatus
+      ..clear()
+      ..addAll(queueStates);
+    _queuePoliciesByApparatus
+      ..clear()
+      ..addAll(queuePolicies);
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {
