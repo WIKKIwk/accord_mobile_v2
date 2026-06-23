@@ -260,3 +260,31 @@ Future<Map<String, double>> _productionMapBaseMetrajByMapId(
   }
   return metraj;
 }
+
+Map<String, double> _productionMapOrderKgByMapId(
+  List<ProductionMapSaved> orders,
+  List<CalculateOrderTemplate> templates,
+) {
+  final kgByMap = <String, double>{};
+  for (final order in orders) {
+    final mapId = order.map.id.trim();
+    if (mapId.isEmpty) {
+      continue;
+    }
+    final kg = _productionMapOrderKg(order.map, templates);
+    if (kg != null && kg > 0) {
+      kgByMap[mapId] = kg;
+    }
+  }
+  return kgByMap;
+}
+
+Future<_ProductionMapOrderMetrics> _productionMapOrderMetrics(
+  List<ProductionMapSaved> orders,
+  List<CalculateOrderTemplate> templates,
+) async {
+  return _ProductionMapOrderMetrics(
+    baseMetrajByMapId: await _productionMapBaseMetrajByMapId(orders, templates),
+    orderKgByMapId: _productionMapOrderKgByMapId(orders, templates),
+  );
+}

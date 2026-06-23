@@ -513,24 +513,13 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final templates = CalculateOrderTemplateStore.instance.templates;
-    final metraj = await _productionMapBaseMetrajByMapId(orders, templates);
-    final kgByMap = <String, double>{};
-    for (final order in orders) {
-      final mapId = order.map.id.trim();
-      if (mapId.isEmpty) {
-        continue;
-      }
-      final kg = _productionMapOrderKg(order.map, templates);
-      if (kg != null && kg > 0) {
-        kgByMap[mapId] = kg;
-      }
-    }
+    final metrics = await _productionMapOrderMetrics(orders, templates);
     if (!mounted) {
       return;
     }
     setState(() {
-      _baseMetrajByMapId = metraj;
-      _orderKgByMapId = kgByMap;
+      _baseMetrajByMapId = metrics.baseMetrajByMapId;
+      _orderKgByMapId = metrics.orderKgByMapId;
     });
   }
 

@@ -40,6 +40,16 @@ class _ProductionMapOrdersAndApparatus {
   final List<AdminWarehouse> apparatus;
 }
 
+class _ProductionMapOrderMetrics {
+  const _ProductionMapOrderMetrics({
+    required this.baseMetrajByMapId,
+    required this.orderKgByMapId,
+  });
+
+  final Map<String, double> baseMetrajByMapId;
+  final Map<String, double> orderKgByMapId;
+}
+
 const _moveUnassignedWarehouse = AdminWarehouse(
   warehouse: 'Tanlanmagan',
   parentWarehouse: 'production-map-unassigned',
