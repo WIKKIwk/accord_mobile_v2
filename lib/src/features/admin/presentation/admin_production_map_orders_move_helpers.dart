@@ -210,3 +210,33 @@ List<ProductionMapSaved> _mergeSavedProductionMapOrders(
 Set<String> _productionMapOrderIdSet(List<ProductionMapSaved> orders) {
   return orders.map((order) => order.map.id.trim()).toSet();
 }
+
+String _adminActionErrorText(Object error, String fallback) {
+  return error is MobileApiException ? error.message : fallback;
+}
+
+String _moveOrdersSuccessText(int count) {
+  return count == 1 ? 'Zakaz ko‘chirildi' : '$count ta zakaz ko‘chirildi';
+}
+
+String _returnOrdersToUnassignedSuccessText(int count) {
+  return count == 1
+      ? 'Zakaz tanlanmagan holatga qaytarildi'
+      : '$count ta zakaz tanlanmagan holatga qaytarildi';
+}
+
+String _assignAlternativeOrdersSuccessText(int count) {
+  return count == 1
+      ? 'Zakaz aparatga biriktirildi'
+      : '$count ta zakaz aparatga biriktirildi';
+}
+
+Future<List<ProductionMapSaved>> _saveProductionMapDefinitions(
+  List<ProductionMapDefinition> maps,
+) async {
+  final saved = <ProductionMapSaved>[];
+  for (final map in maps) {
+    saved.add(await MobileApi.instance.adminSaveProductionMap(map));
+  }
+  return saved;
+}

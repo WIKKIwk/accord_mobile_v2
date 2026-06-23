@@ -830,7 +830,7 @@ class _AdminProductionMapOrdersScreenState
       });
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Ketma-ketlik saqlanmadi',
+        _adminActionErrorText(error, 'Ketma-ketlik saqlanmadi'),
       );
     }
   }
@@ -912,19 +912,14 @@ class _AdminProductionMapOrdersScreenState
         _selectedMoveOrderIds.removeAll(orderIds);
         _orders = _mergeSavedProductionMapOrders(_orders, savedById);
       });
-      showAdminTopNotice(
-        context,
-        orders.length == 1
-            ? 'Zakaz ko‘chirildi'
-            : '${orders.length} ta zakaz ko‘chirildi',
-      );
+      showAdminTopNotice(context, _moveOrdersSuccessText(orders.length));
     } catch (error) {
       if (!mounted) {
         return;
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Zakaz ko‘chirilmadi',
+        _adminActionErrorText(error, 'Zakaz ko‘chirilmadi'),
       );
       // Some orders may already be moved on the server; re-sync instead of
       // restoring a stale local state.
@@ -953,10 +948,7 @@ class _AdminProductionMapOrdersScreenState
       _draggingMoveSource = null;
     });
     try {
-      final saved = <ProductionMapSaved>[];
-      for (final map in convertedMaps) {
-        saved.add(await MobileApi.instance.adminSaveProductionMap(map));
-      }
+      final saved = await _saveProductionMapDefinitions(convertedMaps);
       if (!mounted) {
         return;
       }
@@ -971,9 +963,7 @@ class _AdminProductionMapOrdersScreenState
       });
       showAdminTopNotice(
         context,
-        orders.length == 1
-            ? 'Zakaz tanlanmagan holatga qaytarildi'
-            : '${orders.length} ta zakaz tanlanmagan holatga qaytarildi',
+        _returnOrdersToUnassignedSuccessText(orders.length),
       );
     } catch (error) {
       if (!mounted) {
@@ -981,9 +971,7 @@ class _AdminProductionMapOrdersScreenState
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException
-            ? error.message
-            : 'Zakaz tanlanmagan holatga qaytmadi',
+        _adminActionErrorText(error, 'Zakaz tanlanmagan holatga qaytmadi'),
       );
       await _load();
     }
@@ -1009,14 +997,11 @@ class _AdminProductionMapOrdersScreenState
       _draggingMoveSource = null;
     });
     try {
-      final saved = <ProductionMapSaved>[];
       final assignedMaps = _assignAlternativeMapsToApparatus(
         orders: orders,
         apparatus: apparatus,
       );
-      for (final map in assignedMaps) {
-        saved.add(await MobileApi.instance.adminSaveProductionMap(map));
-      }
+      final saved = await _saveProductionMapDefinitions(assignedMaps);
       if (!mounted) {
         return;
       }
@@ -1031,9 +1016,7 @@ class _AdminProductionMapOrdersScreenState
       });
       showAdminTopNotice(
         context,
-        orders.length == 1
-            ? 'Zakaz aparatga biriktirildi'
-            : '${orders.length} ta zakaz aparatga biriktirildi',
+        _assignAlternativeOrdersSuccessText(orders.length),
       );
     } catch (error) {
       if (!mounted) {
@@ -1041,7 +1024,7 @@ class _AdminProductionMapOrdersScreenState
       }
       showAdminTopNotice(
         context,
-        error is MobileApiException ? error.message : 'Zakaz biriktirilmadi',
+        _adminActionErrorText(error, 'Zakaz biriktirilmadi'),
       );
       await _load();
     }
