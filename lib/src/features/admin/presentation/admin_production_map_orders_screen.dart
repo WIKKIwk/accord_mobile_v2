@@ -60,6 +60,7 @@ part 'admin_production_map_orders_calculation_helpers.dart';
 part 'admin_production_map_orders_read_only_helpers.dart';
 part 'admin_production_map_orders_move_helpers.dart';
 part 'admin_production_map_orders_queue_helpers.dart';
+part 'admin_production_map_orders_search_helpers.dart';
 
 enum _OpenedOrderModule { orders, move, sequence, closed }
 
