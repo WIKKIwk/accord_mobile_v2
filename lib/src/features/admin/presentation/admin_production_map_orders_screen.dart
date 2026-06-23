@@ -1117,132 +1117,53 @@ class _AdminProductionMapOrdersScreenState
                       onTapCompletedOrder: _showCompletedOrderDetail,
                       onTapWatchOrder: _showWatchOrderDetail,
                     )
-                  : Column(
-                      children: [
-                        if (_modules.length > 1)
-                          Material(
-                            color:
-                                Theme.of(context).colorScheme.surfaceContainer,
-                            child: TabBar(
-                              controller: _tabController,
-                              onTap: (index) => _setModule(_modules[index]),
-                              tabs: [
-                                for (final module in _modules)
-                                  Tab(height: 38, text: _moduleLabel(module)),
-                              ],
-                            ),
-                          ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              for (final module in _modules)
-                                switch (module) {
-                                  _OpenedOrderModule.orders =>
-                                    _OrdersModulePage(
-                                      bottomPadding: bottomPadding,
-                                      orders: _orders,
-                                      visibleOrders: _visibleOrders(
-                                        orders: _orders,
-                                        query: _searchQuery,
-                                      ),
-                                      baseMetrajByMapId: _baseMetrajByMapId,
-                                      orderKgByMapId: _orderKgByMapId,
-                                    ),
-                                  _OpenedOrderModule.sequence =>
-                                    _SequenceModulePage(
-                                      bottomPadding: bottomPadding,
-                                      apparatus: _selectedApparatus,
-                                      completionRequests: _completionRequests,
-                                      orders: _selectedApparatus == null
-                                          ? const []
-                                          : _ordersForApparatus(
-                                              _selectedApparatus!,
-                                            ),
-                                      readOnly: widget.readOnly,
-                                      baseMetrajByMapId: _baseMetrajByMapId,
-                                      orderKgByMapId: _orderKgByMapId,
-                                      onPickApparatus: _pickSequenceApparatus,
-                                      onReorder: (oldIndex, newIndex) {
-                                        unawaited(
-                                          _reorderSelectedApparatusOrders(
-                                            oldIndex,
-                                            newIndex,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  _OpenedOrderModule.move => _MoveModulePage(
-                                      topApparatus: _moveTopApparatus,
-                                      bottomApparatus: _moveBottomApparatus,
-                                      topOrders: _moveTopApparatus == null ||
-                                              _moveBottomApparatus == null
-                                          ? const []
-                                          : _moveOrdersForApparatus(
-                                              source: _moveTopApparatus!,
-                                              target: _moveBottomApparatus!,
-                                            ),
-                                      bottomOrders: _moveTopApparatus == null ||
-                                              _moveBottomApparatus == null
-                                          ? const []
-                                          : _moveOrdersForApparatus(
-                                              source: _moveBottomApparatus!,
-                                              target: _moveTopApparatus!,
-                                            ),
-                                      selectedOrderIds: _selectedMoveOrderIds,
-                                      draggingOrders: _draggingMoveOrders,
-                                      draggingSource: _draggingMoveSource,
-                                      canMoveTo: (order, target, source) =>
-                                          _canMoveOrderToApparatus(
-                                        order,
-                                        target,
-                                        source: source,
-                                      ),
-                                      onPickTop: () =>
-                                          _pickMoveApparatus(top: true),
-                                      onPickBottom: () =>
-                                          _pickMoveApparatus(top: false),
-                                      onToggleSelect: _toggleMoveOrderSelection,
-                                      buildDragPayload: _buildMoveDragPayload,
-                                      onDragStarted: (payload) {
-                                        setState(() {
-                                          _draggingMoveOrders = payload.orders;
-                                          _draggingMoveSource = payload.source;
-                                        });
-                                      },
-                                      onDragEnded: () {
-                                        setState(() {
-                                          _draggingMoveOrders = const [];
-                                          _draggingMoveSource = null;
-                                        });
-                                      },
-                                      onMove: _moveOrdersBetweenApparatus,
-                                    ),
-                                  _OpenedOrderModule.closed =>
-                                    _ClosedOrdersModulePage(
-                                      bottomPadding: bottomPadding,
-                                      closedOrders: _closedOrders,
-                                      visibleClosedOrders: _visibleClosedOrders(
-                                        orders: _closedOrders,
-                                        query: _searchQuery,
-                                      ),
-                                    ),
-                                },
-                            ],
-                          ),
-                        ),
-                      ],
+                  : _AdminModulesBody(
+                      modules: _modules,
+                      currentModule: _module,
+                      tabController: _tabController,
+                      bottomPadding: bottomPadding,
+                      orders: _orders,
+                      searchQuery: _searchQuery,
+                      baseMetrajByMapId: _baseMetrajByMapId,
+                      orderKgByMapId: _orderKgByMapId,
+                      selectedApparatus: _selectedApparatus,
+                      completionRequests: _completionRequests,
+                      readOnly: widget.readOnly,
+                      moveTopApparatus: _moveTopApparatus,
+                      moveBottomApparatus: _moveBottomApparatus,
+                      selectedMoveOrderIds: _selectedMoveOrderIds,
+                      draggingMoveOrders: _draggingMoveOrders,
+                      draggingMoveSource: _draggingMoveSource,
+                      closedOrders: _closedOrders,
+                      onSetModule: _setModule,
+                      ordersForApparatus: _ordersForApparatus,
+                      moveOrdersForApparatus: _moveOrdersForApparatus,
+                      canMoveTo: _canMoveOrderToApparatus,
+                      onPickSequenceApparatus: _pickSequenceApparatus,
+                      onReorder: (oldIndex, newIndex) {
+                        unawaited(
+                          _reorderSelectedApparatusOrders(oldIndex, newIndex),
+                        );
+                      },
+                      onPickMoveTop: () => _pickMoveApparatus(top: true),
+                      onPickMoveBottom: () => _pickMoveApparatus(top: false),
+                      onToggleMoveSelection: _toggleMoveOrderSelection,
+                      buildMoveDragPayload: _buildMoveDragPayload,
+                      onMoveDragStarted: (payload) {
+                        setState(() {
+                          _draggingMoveOrders = payload.orders;
+                          _draggingMoveSource = payload.source;
+                        });
+                      },
+                      onMoveDragEnded: () {
+                        setState(() {
+                          _draggingMoveOrders = const [];
+                          _draggingMoveSource = null;
+                        });
+                      },
+                      onMove: _moveOrdersBetweenApparatus,
                     ),
     );
-  }
-
-  String _moduleLabel(_OpenedOrderModule module) {
-    return switch (module) {
-      _OpenedOrderModule.orders => 'Buyurtmalar',
-      _OpenedOrderModule.sequence => 'Ketma-ketlik',
-      _OpenedOrderModule.move => 'Ko‘chirish',
-      _OpenedOrderModule.closed => 'Yopilgan',
-    };
   }
 }
 

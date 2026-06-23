@@ -55,6 +55,191 @@ class _OrdersModulePageState extends State<_OrdersModulePage> {
   }
 }
 
+class _AdminModulesBody extends StatelessWidget {
+  const _AdminModulesBody({
+    required this.modules,
+    required this.currentModule,
+    required this.tabController,
+    required this.bottomPadding,
+    required this.orders,
+    required this.searchQuery,
+    required this.baseMetrajByMapId,
+    required this.orderKgByMapId,
+    required this.selectedApparatus,
+    required this.completionRequests,
+    required this.readOnly,
+    required this.moveTopApparatus,
+    required this.moveBottomApparatus,
+    required this.selectedMoveOrderIds,
+    required this.draggingMoveOrders,
+    required this.draggingMoveSource,
+    required this.closedOrders,
+    required this.onSetModule,
+    required this.ordersForApparatus,
+    required this.moveOrdersForApparatus,
+    required this.canMoveTo,
+    required this.onPickSequenceApparatus,
+    required this.onReorder,
+    required this.onPickMoveTop,
+    required this.onPickMoveBottom,
+    required this.onToggleMoveSelection,
+    required this.buildMoveDragPayload,
+    required this.onMoveDragStarted,
+    required this.onMoveDragEnded,
+    required this.onMove,
+  });
+
+  final List<_OpenedOrderModule> modules;
+  final _OpenedOrderModule currentModule;
+  final TabController tabController;
+  final double bottomPadding;
+  final List<ProductionMapSaved> orders;
+  final String searchQuery;
+  final Map<String, double> baseMetrajByMapId;
+  final Map<String, double> orderKgByMapId;
+  final AdminWarehouse? selectedApparatus;
+  final List<AdminCompletionRequestNotification> completionRequests;
+  final bool readOnly;
+  final AdminWarehouse? moveTopApparatus;
+  final AdminWarehouse? moveBottomApparatus;
+  final Set<String> selectedMoveOrderIds;
+  final List<ProductionMapSaved> draggingMoveOrders;
+  final AdminWarehouse? draggingMoveSource;
+  final List<AdminClosedProductionOrder> closedOrders;
+  final ValueChanged<_OpenedOrderModule> onSetModule;
+  final List<ProductionMapSaved> Function(AdminWarehouse apparatus)
+      ordersForApparatus;
+  final List<ProductionMapSaved> Function({
+    required AdminWarehouse source,
+    required AdminWarehouse target,
+  }) moveOrdersForApparatus;
+  final bool Function(
+    ProductionMapSaved order,
+    AdminWarehouse target, {
+    required AdminWarehouse source,
+  }) canMoveTo;
+  final VoidCallback onPickSequenceApparatus;
+  final ReorderCallback onReorder;
+  final VoidCallback onPickMoveTop;
+  final VoidCallback onPickMoveBottom;
+  final ValueChanged<String> onToggleMoveSelection;
+  final _MoveDragPayload Function({
+    required ProductionMapSaved order,
+    required AdminWarehouse source,
+    required List<ProductionMapSaved> zoneOrders,
+  }) buildMoveDragPayload;
+  final ValueChanged<_MoveDragPayload> onMoveDragStarted;
+  final VoidCallback onMoveDragEnded;
+  final Future<void> Function({
+    required List<ProductionMapSaved> orders,
+    required AdminWarehouse from,
+    required AdminWarehouse to,
+  }) onMove;
+
+  String _moduleLabel(_OpenedOrderModule module) {
+    return switch (module) {
+      _OpenedOrderModule.orders => 'Buyurtmalar',
+      _OpenedOrderModule.sequence => 'Ketma-ketlik',
+      _OpenedOrderModule.move => 'Ko‘chirish',
+      _OpenedOrderModule.closed => 'Yopilgan',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (modules.length > 1)
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: TabBar(
+              controller: tabController,
+              onTap: (index) => onSetModule(modules[index]),
+              tabs: [
+                for (final module in modules)
+                  Tab(height: 38, text: _moduleLabel(module)),
+              ],
+            ),
+          ),
+        Expanded(
+          child: TabBarView(
+            controller: tabController,
+            children: [
+              for (final module in modules)
+                switch (module) {
+                  _OpenedOrderModule.orders => _OrdersModulePage(
+                      bottomPadding: bottomPadding,
+                      orders: orders,
+                      visibleOrders: _visibleOrders(
+                        orders: orders,
+                        query: searchQuery,
+                      ),
+                      baseMetrajByMapId: baseMetrajByMapId,
+                      orderKgByMapId: orderKgByMapId,
+                    ),
+                  _OpenedOrderModule.sequence => _SequenceModulePage(
+                      bottomPadding: bottomPadding,
+                      apparatus: selectedApparatus,
+                      completionRequests: completionRequests,
+                      orders: selectedApparatus == null
+                          ? const []
+                          : ordersForApparatus(selectedApparatus!),
+                      readOnly: readOnly,
+                      baseMetrajByMapId: baseMetrajByMapId,
+                      orderKgByMapId: orderKgByMapId,
+                      onPickApparatus: onPickSequenceApparatus,
+                      onReorder: onReorder,
+                    ),
+                  _OpenedOrderModule.move => _MoveModulePage(
+                      topApparatus: moveTopApparatus,
+                      bottomApparatus: moveBottomApparatus,
+                      topOrders: moveTopApparatus == null ||
+                              moveBottomApparatus == null
+                          ? const []
+                          : moveOrdersForApparatus(
+                              source: moveTopApparatus!,
+                              target: moveBottomApparatus!,
+                            ),
+                      bottomOrders: moveTopApparatus == null ||
+                              moveBottomApparatus == null
+                          ? const []
+                          : moveOrdersForApparatus(
+                              source: moveBottomApparatus!,
+                              target: moveTopApparatus!,
+                            ),
+                      selectedOrderIds: selectedMoveOrderIds,
+                      draggingOrders: draggingMoveOrders,
+                      draggingSource: draggingMoveSource,
+                      canMoveTo: (order, target, source) => canMoveTo(
+                        order,
+                        target,
+                        source: source,
+                      ),
+                      onPickTop: onPickMoveTop,
+                      onPickBottom: onPickMoveBottom,
+                      onToggleSelect: onToggleMoveSelection,
+                      buildDragPayload: buildMoveDragPayload,
+                      onDragStarted: onMoveDragStarted,
+                      onDragEnded: onMoveDragEnded,
+                      onMove: onMove,
+                    ),
+                  _OpenedOrderModule.closed => _ClosedOrdersModulePage(
+                      bottomPadding: bottomPadding,
+                      closedOrders: closedOrders,
+                      visibleClosedOrders: _visibleClosedOrders(
+                        orders: closedOrders,
+                        query: searchQuery,
+                      ),
+                    ),
+                },
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
     required this.apparatus,
