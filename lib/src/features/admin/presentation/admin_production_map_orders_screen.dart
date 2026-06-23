@@ -45,6 +45,7 @@ import 'package:http/http.dart' as http;
 part 'admin_production_map_orders_helpers.dart';
 part 'admin_production_map_orders_detail_widgets.dart';
 part 'admin_production_map_orders_detail_material_widgets.dart';
+part 'admin_production_map_orders_detail_map_widgets.dart';
 part 'admin_production_map_orders_move_widgets.dart';
 part 'admin_production_map_orders_closed_widgets.dart';
 part 'admin_production_map_orders_apparatus_picker.dart';
