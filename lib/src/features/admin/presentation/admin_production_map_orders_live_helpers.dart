@@ -1,5 +1,35 @@
 part of 'admin_production_map_orders_screen.dart';
 
+class _ProductionMapLiveStreamParser {
+  final List<String> _dataLines = [];
+
+  AdminProductionMapLiveSnapshot? readLine(String line) {
+    if (line.isEmpty) {
+      return _flush();
+    }
+    if (line.startsWith(':')) {
+      return null;
+    }
+    if (line.startsWith('data:')) {
+      _dataLines.add(line.substring(5).trimLeft());
+    }
+    return null;
+  }
+
+  AdminProductionMapLiveSnapshot? _flush() {
+    if (_dataLines.isEmpty) {
+      return null;
+    }
+    final payloadText = _dataLines.join('\n');
+    _dataLines.clear();
+    final payload = jsonDecode(payloadText) as Map<String, dynamic>;
+    if (payload['ok'] != true) {
+      return null;
+    }
+    return AdminProductionMapLiveSnapshot.fromJson(payload);
+  }
+}
+
 List<ProductionMapSaved> _productionMapZakazOrders(
   List<ProductionMapSaved> maps,
 ) {

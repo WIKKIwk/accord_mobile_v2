@@ -228,7 +228,7 @@ class _AdminProductionMapOrdersScreenState
     }
 
     final completer = Completer<void>();
-    final dataLines = <String>[];
+    final parser = _ProductionMapLiveStreamParser();
 
     await _liveStreamSubscription?.cancel();
     _liveStreamSubscription = response.stream
@@ -239,26 +239,9 @@ class _AdminProductionMapOrdersScreenState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
-        if (line.isEmpty) {
-          if (dataLines.isEmpty) {
-            return;
-          }
-          final payloadText = dataLines.join('\n');
-          dataLines.clear();
-          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-          if (payload['ok'] != true) {
-            return;
-          }
-          _applyWorkerLiveSnapshot(
-            AdminProductionMapLiveSnapshot.fromJson(payload),
-          );
-          return;
-        }
-        if (line.startsWith(':')) {
-          return;
-        }
-        if (line.startsWith('data:')) {
-          dataLines.add(line.substring(5).trimLeft());
+        final snapshot = parser.readLine(line);
+        if (snapshot != null) {
+          _applyWorkerLiveSnapshot(snapshot);
         }
       },
       onError: (error, _) {
