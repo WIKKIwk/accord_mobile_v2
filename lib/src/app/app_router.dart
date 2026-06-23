@@ -76,9 +76,6 @@ import '../features/werka/presentation/werka_status_breakdown_screen.dart';
 import '../features/werka/presentation/werka_success_screen.dart';
 import '../core/session/state/app_session.dart';
 import '../core/theme/app_motion.dart';
-import 'package:full_screen_back_gesture/cupertino.dart'
-    as fullscreen_cupertino;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AppRoutes {
@@ -203,64 +200,6 @@ class AppRouter {
     AppRoutes.profile,
     AppRoutes.customerHome,
     AppRoutes.customerNotifications,
-    AppRoutes.qolipHome,
-  };
-
-  static const Set<String> edgeSwipeBackRoutes = {
-    AppRoutes.notificationDetail,
-    AppRoutes.customerStatusDetail,
-    AppRoutes.customerDetail,
-    AppRoutes.pinSetupEntry,
-    AppRoutes.pinSetupConfirm,
-    AppRoutes.supplierStatusBreakdown,
-    AppRoutes.supplierSubmittedCategoryDetail,
-    AppRoutes.supplierStatusDetail,
-    AppRoutes.supplierQty,
-    AppRoutes.werkaArchiveSentHub,
-    AppRoutes.werkaArchiveDailyCalendar,
-    AppRoutes.werkaArchiveMonthlyCalendar,
-    AppRoutes.werkaArchiveYearlyCalendar,
-    AppRoutes.werkaArchivePeriods,
-    AppRoutes.werkaArchiveList,
-    AppRoutes.werkaStatusBreakdown,
-    AppRoutes.werkaStatusDetail,
-    AppRoutes.werkaDetail,
-    AppRoutes.werkaCustomerDeliveryDetail,
-    AppRoutes.werkaBatchDispatch,
-    AppRoutes.werkaCustomerIssueCustomer,
-    AppRoutes.werkaUnannouncedSupplier,
-    AppRoutes.werkaStockEntryQrScan,
-    AppRoutes.werkaStockEntryLookup,
-    AppRoutes.werkaArchiveBatchQrLookup,
-    AppRoutes.adminSettings,
-    AppRoutes.adminRoles,
-    AppRoutes.adminNotifications,
-    AppRoutes.adminProductionMapTest,
-    AppRoutes.adminProductionMapOrders,
-    AppRoutes.adminQueuePolicies,
-    AppRoutes.adminApparatusSettings,
-    AppRoutes.adminApparatusGroups,
-    AppRoutes.adminRawMaterialSettings,
-    AppRoutes.adminRawMaterialRules,
-    AppRoutes.adminRawMaterialAssignments,
-    AppRoutes.adminApparatusCreate,
-    AppRoutes.apparatusQueue,
-    AppRoutes.adminCalculate,
-    AppRoutes.adminCalculateOrders,
-    AppRoutes.adminSupplierCreate,
-    AppRoutes.adminCustomerCreate,
-    AppRoutes.adminCustomerDetail,
-    AppRoutes.adminInactiveSuppliers,
-    AppRoutes.adminItemCreate,
-    AppRoutes.adminItemGroupCreate,
-    AppRoutes.adminItemBulkMove,
-    AppRoutes.adminSupplierDetail,
-    AppRoutes.adminSupplierItemsView,
-    AppRoutes.adminSupplierItemsAdd,
-    AppRoutes.adminWerka,
-    AppRoutes.adminWorkerSettings,
-    AppRoutes.adminWarehouses,
-    AppRoutes.adminSuppliers,
     AppRoutes.qolipHome,
   };
 
@@ -824,14 +763,6 @@ class AppRouter {
         },
       );
     }
-    if (_shouldUseEdgeSwipeBack(settings)) {
-      return fullscreen_cupertino.CupertinoPageRoute<dynamic>(
-        settings: settings,
-        builder: (context) {
-          return child;
-        },
-      );
-    }
     return MaterialPageRoute<dynamic>(
       settings: settings,
       builder: (context) {
@@ -844,26 +775,12 @@ class AppRouter {
     RouteSettings settings,
     Widget child,
   ) {
-    if (_shouldUseEdgeSwipeBack(settings)) {
-      return fullscreen_cupertino.CupertinoPageRoute<dynamic>(
-        settings: settings,
-        builder: (context) {
-          return child;
-        },
-      );
-    }
     return MaterialPageRoute<dynamic>(
       settings: settings,
       builder: (context) {
         return child;
       },
     );
-  }
-
-  static bool _shouldUseEdgeSwipeBack(RouteSettings settings) {
-    return !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.iOS &&
-        edgeSwipeBackRoutes.contains(settings.name);
   }
 
   static bool _usesAdminPageTransition(String? routeName) {
