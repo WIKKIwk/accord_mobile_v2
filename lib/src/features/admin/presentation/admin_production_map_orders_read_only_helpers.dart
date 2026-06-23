@@ -89,6 +89,35 @@ bool _materialAssignmentConfirmed({
 
 String _materialBarcodeKey(String value) => value.trim().toUpperCase();
 
+AdminRawMaterialAssignment? _materialAssignmentForScannedBarcode({
+  required List<AdminRawMaterialAssignment> assignments,
+  required String barcode,
+}) {
+  final normalized = _materialBarcodeKey(rawMaterialBarcodeFromQr(barcode));
+  return assignments
+      .where((item) => _materialBarcodeKey(item.barcode) == normalized)
+      .cast<AdminRawMaterialAssignment?>()
+      .firstWhere((item) => item != null, orElse: () => null);
+}
+
+bool _progressBatchMatchesPreviousStage({
+  required AdminProgressBatch batch,
+  required String orderId,
+  required String previousStage,
+}) {
+  final action = batch.action.trim().toLowerCase();
+  final status = batch.status.trim().toLowerCase();
+  final matchesOrder = batch.orderId.trim() == orderId;
+  final matchesStage = productionMapWarehouseTitlesMatch(
+    batch.apparatus,
+    previousStage,
+  );
+  final usableAction = action == 'pause' || action == 'complete';
+  final usableStatus =
+      status == 'paused' || status == 'completed' || status == 'resumed';
+  return matchesOrder && matchesStage && usableAction && usableStatus;
+}
+
 String _productTitle(ProductionMapDefinition map) {
   for (final node in map.nodes) {
     final title = node.title.trim();

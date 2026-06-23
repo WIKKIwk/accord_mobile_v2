@@ -1724,11 +1724,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mounted || barcode == null || barcode.trim().isEmpty) {
       return;
     }
-    final normalized = _materialBarcodeKey(rawMaterialBarcodeFromQr(barcode));
-    final match = materialAssignments
-        .where((item) => _materialBarcodeKey(item.barcode) == normalized)
-        .cast<AdminRawMaterialAssignment?>()
-        .firstWhere((item) => item != null, orElse: () => null);
+    final match = _materialAssignmentForScannedBarcode(
+      assignments: materialAssignments,
+      barcode: barcode,
+    );
     if (match == null) {
       showAdminTopNotice(context, 'Bu homashyo zakazga mos emas');
       return;
@@ -1761,17 +1760,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return;
       }
-      final action = batch.action.trim().toLowerCase();
-      final status = batch.status.trim().toLowerCase();
-      final matchesOrder = batch.orderId.trim() == widget.order.map.id.trim();
-      final matchesStage = productionMapWarehouseTitlesMatch(
-        batch.apparatus,
-        previousStage,
-      );
-      final usableAction = action == 'pause' || action == 'complete';
-      final usableStatus =
-          status == 'paused' || status == 'completed' || status == 'resumed';
-      if (!matchesOrder || !matchesStage || !usableAction || !usableStatus) {
+      if (!_progressBatchMatchesPreviousStage(
+        batch: batch,
+        orderId: widget.order.map.id.trim(),
+        previousStage: previousStage,
+      )) {
         showAdminTopNotice(
             context, 'Bu QR oldingi bosqich mahsulotiga mos emas');
         return;
