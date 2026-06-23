@@ -1,7 +1,7 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
-import '../../../../core/widgets/navigation/app_navigation_bar.dart';
+import '../../../../core/widgets/navigation/role_dock.dart';
 import 'package:flutter/material.dart';
 
 enum AparatchiDockTab { home, profile }
@@ -59,68 +59,34 @@ class AparatchiDock extends StatelessWidget {
           }
         }
 
-        final useNativeDock =
-            NativeDockBridge.isSupportedPlatform &&
-            NativeDockBridge.instance.supportsSystemDock;
-        if (useNativeDock) {
-          NativeDockBridge.instance.register(
-            NativeDockState(
-              visible: true,
-              compact: compact,
-              tightToEdges: tightToEdges,
-              items: [
-                NativeDockItem(
-                  id: 'aparatchi-home',
-                  label: 'Uy',
-                  iconCodePoint: Icons.home_outlined.codePoint,
-                  selectedIconCodePoint: Icons.home_filled.codePoint,
-                  active: activeTab == AparatchiDockTab.home,
-                  primary: false,
-                  showBadge: false,
-                  routeName: onTabSelected == null
-                      ? AppRoutes.apparatusQueue
-                      : null,
-                  replaceStack: onTabSelected == null,
-                  onTap: () => handleSelection(0),
-                ),
-                NativeDockItem(
-                  id: 'aparatchi-profile',
-                  label: 'Profil',
-                  iconCodePoint: Icons.person_outline_rounded.codePoint,
-                  selectedIconCodePoint: Icons.person_rounded.codePoint,
-                  active: activeTab == AparatchiDockTab.profile,
-                  primary: false,
-                  showBadge: false,
-                  routeName: onTabSelected == null ? AppRoutes.profile : null,
-                  replaceStack: onTabSelected == null,
-                  onTap: () => handleSelection(1),
-                ),
-              ],
+        return RoleDock(
+          compact: compact,
+          tightToEdges: tightToEdges,
+          selectionVisible: selectionVisible,
+          selectedIndex: selectedIndex,
+          destinations: [
+            RoleDockDestination(
+              id: 'aparatchi-home',
+              label: 'Uy',
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home_filled,
+              active: activeTab == AparatchiDockTab.home,
+              routeName:
+                  onTabSelected == null ? AppRoutes.apparatusQueue : null,
+              replaceStack: onTabSelected == null,
+              onTap: () => handleSelection(0),
             ),
-          );
-          return const SizedBox.shrink();
-        }
-
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: tightToEdges ? 0 : 8),
-          child: AppNavigationBar(
-            height: compact ? 60 : 64,
-            selectionVisible: selectionVisible,
-            selectedIndex: selectedIndex,
-            destinations: const [
-              AppNavigationDestination(
-                label: 'Uy',
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_filled),
-              ),
-              AppNavigationDestination(
-                label: 'Profil',
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-              ),
-            ],
-            onDestinationSelected: handleSelection,
-          ),
+            RoleDockDestination(
+              id: 'aparatchi-profile',
+              label: 'Profil',
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
+              active: activeTab == AparatchiDockTab.profile,
+              routeName: onTabSelected == null ? AppRoutes.profile : null,
+              replaceStack: onTabSelected == null,
+              onTap: () => handleSelection(1),
+            ),
+          ],
         );
       },
     );
