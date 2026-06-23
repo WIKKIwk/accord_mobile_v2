@@ -57,6 +57,7 @@ part 'admin_production_map_orders_progress_qty.dart';
 part 'admin_production_map_orders_module_pages.dart';
 part 'admin_production_map_orders_models.dart';
 part 'admin_production_map_orders_calculation_helpers.dart';
+part 'admin_production_map_orders_read_only_helpers.dart';
 
 enum _OpenedOrderModule { orders, move, sequence, closed }
 
@@ -2248,22 +2249,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Map<String, String> _queueStatesForStation(
-    String station,
-    Map<String, Map<String, String>> queueStatesByApparatus,
-  ) {
-    final direct = queueStatesByApparatus[station];
-    if (direct != null) {
-      return direct;
-    }
-    for (final entry in queueStatesByApparatus.entries) {
-      if (productionMapWarehouseTitlesMatch(entry.key, station)) {
-        return entry.value;
-      }
-    }
-    return const {};
-  }
-
   Future<void> _runQueueAction(
     String action, {
     double? producedQty,
@@ -2288,10 +2273,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (apparatus == null || onQueueAction == null || _actionInFlight) {
       return;
     }
-    final materialAssignments = _stationMaterialAssignments();
+    final materialAssignments = _stationMaterialAssignments(
+      assignments: _materialAssignments,
+      orderId: widget.order.map.id.trim(),
+      station: apparatus.warehouse.trim(),
+    );
     if (action == 'start' &&
         materialAssignments.isNotEmpty &&
-        !_allMaterialsScanned(materialAssignments)) {
+        !_allMaterialsScanned(
+          assignments: materialAssignments,
+          scannedBarcodes: _scannedMaterialBarcodes,
+          orderId: widget.order.map.id.trim(),
+        )) {
       showAdminTopNotice(context, 'Avval hamma homashyoni QR scan qiling');
       return;
     }
@@ -2420,7 +2413,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _scanMaterial() async {
-    final materialAssignments = _stationMaterialAssignments();
+    final materialAssignments = _stationMaterialAssignments(
+      assignments: _materialAssignments,
+      orderId: widget.order.map.id.trim(),
+      station: widget.apparatus?.warehouse.trim() ?? '',
+    );
     if (materialAssignments.isEmpty) {
       return;
     }
@@ -2440,7 +2437,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() {
       _scannedMaterialBarcodes.add(_materialBarcodeKey(match.barcode));
     });
-    if (_allMaterialsScanned(materialAssignments)) {
+    if (_allMaterialsScanned(
+      assignments: materialAssignments,
+      scannedBarcodes: _scannedMaterialBarcodes,
+      orderId: widget.order.map.id.trim(),
+    )) {
       showAdminTopNotice(context, 'Homashyolar tasdiqlandi');
     }
   }
@@ -2491,49 +2492,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  List<AdminRawMaterialAssignment> _stationMaterialAssignments() {
-    final orderId = widget.order.map.id.trim();
-    final station = widget.apparatus?.warehouse.trim() ?? '';
-    final result = _materialAssignments.where((assignment) {
-      if (assignment.orderId.trim() != orderId) {
-        return false;
-      }
-      if (station.isEmpty) {
-        return true;
-      }
-      return productionMapWarehouseTitlesMatch(assignment.apparatus, station);
-    }).toList();
-    result.sort((left, right) {
-      final leftTitle =
-          left.itemName.trim().isEmpty ? left.itemCode : left.itemName;
-      final rightTitle =
-          right.itemName.trim().isEmpty ? right.itemCode : right.itemName;
-      return leftTitle.toLowerCase().compareTo(rightTitle.toLowerCase());
-    });
-    return result;
-  }
-
-  bool _allMaterialsScanned(List<AdminRawMaterialAssignment> assignments) {
-    if (assignments.isEmpty) {
-      return true;
-    }
-    return assignments.every(_materialAssignmentConfirmed);
-  }
-
-  bool _materialAssignmentConfirmed(AdminRawMaterialAssignment assignment) {
-    if (_scannedMaterialBarcodes
-        .contains(_materialBarcodeKey(assignment.barcode))) {
-      return true;
-    }
-    final stockStatus = assignment.stockStatus.trim().toLowerCase();
-    final reservedOrderId = assignment.reservedOrderId.trim();
-    final orderId = widget.order.map.id.trim();
-    return reservedOrderId == orderId &&
-        (stockStatus == 'in_use' || stockStatus == 'consumed');
-  }
-
-  String _materialBarcodeKey(String value) => value.trim().toUpperCase();
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2543,14 +2501,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final orderId = map.id.trim();
     final station = widget.apparatus?.warehouse.trim() ?? '';
     final queueState = apparatusQueueOrderStateFromRaw(_queueStates[orderId]);
-    final materialAssignments = _stationMaterialAssignments();
+    final materialAssignments = _stationMaterialAssignments(
+      assignments: _materialAssignments,
+      orderId: orderId,
+      station: station,
+    );
     final hasMaterialAssignments = materialAssignments.isNotEmpty;
-    final allMaterialsScanned = _allMaterialsScanned(materialAssignments);
-    final confirmedMaterialBarcodes = {
-      for (final assignment in materialAssignments)
-        if (_materialAssignmentConfirmed(assignment))
-          _materialBarcodeKey(assignment.barcode),
-    };
+    final allMaterialsScanned = _allMaterialsScanned(
+      assignments: materialAssignments,
+      scannedBarcodes: _scannedMaterialBarcodes,
+      orderId: orderId,
+    );
+    final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
+      assignments: materialAssignments,
+      scannedBarcodes: _scannedMaterialBarcodes,
+      orderId: orderId,
+    );
     final previousStage = station.isEmpty
         ? null
         : productionMapPreviousWorkStageStation(map: map, station: station);
@@ -2652,15 +2618,5 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         );
       },
     );
-  }
-
-  String _productTitle(ProductionMapDefinition map) {
-    for (final node in map.nodes) {
-      final title = node.title.trim();
-      if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
-        return title;
-      }
-    }
-    return map.title;
   }
 }
