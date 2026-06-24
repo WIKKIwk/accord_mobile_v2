@@ -75,7 +75,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Userlar topilmadi'), findsOneWidget);
+      expect(find.text('Rollar tanlanmagan'), findsOneWidget);
 
       navigatorKey.currentState!.pushNamed(AppRoutes.adminUserCreate);
       await tester.pumpAndSettle();
@@ -252,6 +252,7 @@ void main() {
         client.requests,
         isNot(contains('GET /v1/mobile/admin/customers/list?limit=50')),
       );
+      await _selectUserRole(tester, 'Ta’minotchi');
       for (var i = 0;
           i < 20 && find.text('Supplier One').evaluate().isEmpty;
           i++) {
@@ -318,19 +319,27 @@ void main() {
       );
 
       for (var i = 0;
+          i < 20 &&
+          find.byKey(const ValueKey('admin-users-role-picker'))
+              .evaluate()
+              .isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.byKey(const ValueKey('admin-users-role-picker')),
+          findsOneWidget);
+      expect(find.text('Supplier One'), findsNothing);
+      expect(find.text('Jasur worker'), findsNothing);
+
+      await _selectUserRole(tester, 'Ta’minotchi');
+      expect(find.text('Ta’minotchi'), findsOneWidget);
+      expect(find.text('Rollar tanlanmagan'), findsNothing);
+      for (var i = 0;
           i < 20 && find.text('Supplier One').evaluate().isEmpty;
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
-      expect(find.text('Ta’minotchi'), findsOneWidget);
-      expect(find.text('Rollar'), findsOneWidget);
-      expect(find.byKey(const ValueKey('admin-users-role-picker')),
-          findsOneWidget);
-      expect(find.text('Omborchi'), findsNothing);
-      expect(find.text('Haridor'), findsNothing);
-      expect(find.text('Ishchi'), findsNothing);
       expect(find.text('Supplier One'), findsOneWidget);
-      expect(find.text('Jasur worker'), findsNothing);
 
       await _selectUserRole(tester, 'Ishchi');
       expect(find.text('Supplier One'), findsNothing);

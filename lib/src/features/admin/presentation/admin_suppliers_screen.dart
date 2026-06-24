@@ -43,6 +43,10 @@ String _adminUserKindLabel(AdminUserKind kind) {
   };
 }
 
+String _adminUserKindSelectionLabel(AdminUserKind? kind) {
+  return kind == null ? 'Tanlanmagan' : _adminUserKindLabel(kind);
+}
+
 bool _workerIsQolipchi(
   AdminWorker worker,
   List<AdminRoleAssignment> assignments,
@@ -81,7 +85,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   bool _hasMore = true;
   int _offset = 0;
   String _searchQuery = '';
-  AdminUserKind _selectedKind = AdminUserKind.supplier;
+  AdminUserKind? _selectedKind;
   bool _roleMenuOpen = false;
 
   @override
@@ -110,6 +114,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   void _handleScrollMetrics(ScrollMetrics metrics) {
     if (_initialLoading ||
         _loadingMore ||
+        _selectedKind == null ||
         _selectedKind == AdminUserKind.worker ||
         _selectedKind == AdminUserKind.qolipchi ||
         !_hasMore) {
@@ -170,7 +175,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_selectedKind == AdminUserKind.worker ||
+    if (_selectedKind == null ||
+        _selectedKind == AdminUserKind.worker ||
         _selectedKind == AdminUserKind.qolipchi) {
       return;
     }
@@ -356,7 +362,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     ];
   }
 
-  List<AdminUserListEntry> _visibleItems(AdminUserKind kind) {
+  List<AdminUserListEntry> _visibleItems(AdminUserKind? kind) {
+    if (kind == null) {
+      return const <AdminUserListEntry>[];
+    }
     if (kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi) {
       return [
         ..._workerEntries(kind),
@@ -366,8 +375,20 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     return _items.where((item) => item.kind == kind).toList(growable: false);
   }
 
-  Widget _buildUserList(AdminUserKind kind) {
+  Widget _buildUserList(AdminUserKind? kind) {
     final visibleItems = _visibleItems(kind);
+    if (kind == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Rollar tanlanmagan',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      );
+    }
     final showFooter = kind != AdminUserKind.worker &&
         kind != AdminUserKind.qolipchi &&
         visibleItems.isNotEmpty &&
@@ -477,7 +498,7 @@ class _AdminUserRolePicker extends StatelessWidget {
     required this.onSelect,
   });
 
-  final AdminUserKind selectedKind;
+  final AdminUserKind? selectedKind;
   final bool expanded;
   final VoidCallback onToggle;
   final ValueChanged<AdminUserKind> onSelect;
@@ -491,104 +512,120 @@ class _AdminUserRolePicker extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Rollar',
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Material(
-            color: scheme.surface,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: scheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  key: const ValueKey('admin-users-role-picker'),
-                  onTap: onToggle,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 34),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _adminUserKindLabel(selectedKind),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: scheme.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: expanded ? 0 : 12),
+                child: Material(
+                  color: scheme.surface,
+                  elevation: 0,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: scheme.outlineVariant),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        key: const ValueKey('admin-users-role-picker'),
+                        onTap: onToggle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 34),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _adminUserKindSelectionLabel(selectedKind),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: scheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                AnimatedRotation(
+                                  turns: expanded ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                  child: Icon(
+                                    Icons.expand_more_rounded,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          AnimatedRotation(
-                            turns: expanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOutCubic,
-                            child: Icon(
-                              Icons.expand_more_rounded,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: expanded
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: 0.75,
+                                    ),
+                                  ),
+                                  for (int index = 0;
+                                      index < _adminUserTabKinds.length;
+                                      index++) ...[
+                                    if (index > 0)
+                                      Divider(
+                                        height: 1,
+                                        thickness: 1,
+                                        color: scheme.outlineVariant.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                    _AdminUserRoleOption(
+                                      kind: _adminUserTabKinds[index],
+                                      selected: _adminUserTabKinds[index] ==
+                                          selectedKind,
+                                      onTap: () =>
+                                          onSelect(_adminUserTabKinds[index]),
+                                    ),
+                                  ],
+                                ],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (!expanded)
+                Positioned(
+                  left: 12,
+                  top: 0,
+                  child: Container(
+                    color: scheme.surface,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      'Rollar',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: expanded
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: scheme.outlineVariant.withValues(
-                                alpha: 0.75,
-                              ),
-                            ),
-                            for (int index = 0;
-                                index < _adminUserTabKinds.length;
-                                index++) ...[
-                              if (index > 0)
-                                Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: scheme.outlineVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
-                                ),
-                              _AdminUserRoleOption(
-                                kind: _adminUserTabKinds[index],
-                                selected:
-                                    _adminUserTabKinds[index] == selectedKind,
-                                onTap: () =>
-                                    onSelect(_adminUserTabKinds[index]),
-                              ),
-                            ],
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
+            ],
           ),
         ],
       ),
@@ -747,5 +784,5 @@ class _AdminSuppliersCache {
   final bool hasMore;
   final int offset;
   final String query;
-  final AdminUserKind selectedKind;
+  final AdminUserKind? selectedKind;
 }
