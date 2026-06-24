@@ -363,6 +363,19 @@ class AdminProgressBatch {
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
     this.description = '',
+    this.workerRole = '',
+    this.workerRef = '',
+    this.workerDisplayName = '',
+    this.wipStatus = '',
+    this.currentApparatus = '',
+    this.currentApparatusKey = '',
+    this.currentLocation = '',
+    this.nextApparatus = '',
+    this.parentBatchId = '',
+    this.usedBySessionId = '',
+    this.usedByApparatus = '',
+    this.processedBySessionId = '',
+    this.processedByApparatus = '',
   });
 
   final String batchId;
@@ -387,6 +400,19 @@ class AdminProgressBatch {
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
   final String description;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final String wipStatus;
+  final String currentApparatus;
+  final String currentApparatusKey;
+  final String currentLocation;
+  final String nextApparatus;
+  final String parentBatchId;
+  final String usedBySessionId;
+  final String usedByApparatus;
+  final String processedBySessionId;
+  final String processedByApparatus;
 
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
     return AdminProgressBatch(
@@ -415,6 +441,19 @@ class AdminProgressBatch {
       finishedGoodsKg: (json['finished_goods_kg'] as num?)?.toDouble(),
       finishedGoodsMeter: (json['finished_goods_meter'] as num?)?.toDouble(),
       description: json['description']?.toString() ?? '',
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      wipStatus: json['wip_status']?.toString() ?? '',
+      currentApparatus: json['current_apparatus']?.toString() ?? '',
+      currentApparatusKey: json['current_apparatus_key']?.toString() ?? '',
+      currentLocation: json['current_location']?.toString() ?? '',
+      nextApparatus: json['next_apparatus']?.toString() ?? '',
+      parentBatchId: json['parent_batch_id']?.toString() ?? '',
+      usedBySessionId: json['used_by_session_id']?.toString() ?? '',
+      usedByApparatus: json['used_by_apparatus']?.toString() ?? '',
+      processedBySessionId: json['processed_by_session_id']?.toString() ?? '',
+      processedByApparatus: json['processed_by_apparatus']?.toString() ?? '',
     );
   }
 
@@ -442,6 +481,19 @@ class AdminProgressBatch {
       finishedGoodsKg: finishedGoodsKg,
       finishedGoodsMeter: finishedGoodsMeter,
       description: description,
+      workerRole: workerRole,
+      workerRef: workerRef,
+      workerDisplayName: workerDisplayName,
+      wipStatus: wipStatus,
+      currentApparatus: currentApparatus,
+      currentApparatusKey: currentApparatusKey,
+      currentLocation: currentLocation,
+      nextApparatus: nextApparatus,
+      parentBatchId: parentBatchId,
+      usedBySessionId: usedBySessionId,
+      usedByApparatus: usedByApparatus,
+      processedBySessionId: processedBySessionId,
+      processedByApparatus: processedByApparatus,
     );
   }
 }
@@ -1376,6 +1428,64 @@ extension MobileApiAdmin on MobileApi {
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
     );
+  }
+
+  Future<List<AdminProgressBatch>> adminWipBatches({
+    String status = '',
+    String apparatus = '',
+    String orderId = '',
+    int limit = 100,
+  }) async {
+    final normalizedStatus = status.trim();
+    final normalizedApparatus = apparatus.trim();
+    final normalizedOrderId = orderId.trim();
+    final boundedLimit = limit.clamp(1, 1000).toInt();
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeProgressBatchesByQr.values
+          .where((batch) {
+            if (normalizedStatus.isNotEmpty &&
+                batch.wipStatus != normalizedStatus) {
+              return false;
+            }
+            if (normalizedApparatus.isNotEmpty &&
+                batch.currentApparatus.trim() != normalizedApparatus) {
+              return false;
+            }
+            if (normalizedOrderId.isNotEmpty &&
+                batch.orderId.trim() != normalizedOrderId) {
+              return false;
+            }
+            return true;
+          })
+          .take(boundedLimit)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/wip-batches',
+        ).replace(
+          queryParameters: {
+            if (normalizedStatus.isNotEmpty) 'status': normalizedStatus,
+            if (normalizedApparatus.isNotEmpty)
+              'apparatus': normalizedApparatus,
+            if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
+            'limit': boundedLimit.toString(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'wip_batches');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['batches'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+    ];
   }
 
   Future<List<AdminCompletedQueueOrder>>

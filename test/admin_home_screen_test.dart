@@ -197,6 +197,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('reja menu'), findsOneWidget);
+    expect(find.text('Oraliq mahsulotlar'), findsOneWidget);
     expect(find.text('Aparat sozlamalari'), findsOneWidget);
   });
 

@@ -311,6 +311,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminProductionMapOrders,
     ),
     const _AdminHomeAction(
+      title: 'Oraliq mahsulotlar',
+      icon: Icons.inventory_2_outlined,
+      routeName: AppRoutes.adminWipBatches,
+    ),
+    const _AdminHomeAction(
       title: 'GScale',
       icon: Icons.scale_outlined,
       routeName: AppRoutes.gscaleMode,

@@ -60,6 +60,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminProductionMapOrders,
     ),
     const RoleNavigationDrawerDestination(
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2_rounded,
+      label: 'Oraliq mahsulotlar',
+      routeName: AppRoutes.adminWipBatches,
+    ),
+    const RoleNavigationDrawerDestination(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications_rounded,
       label: 'Bildirishnomalar',

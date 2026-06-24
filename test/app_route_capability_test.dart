@@ -65,6 +65,7 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminNotifications), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminQueuePolicies), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminWipBatches), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 

@@ -364,6 +364,42 @@ void main() {
     expect(resumed.progressBatch, isNull);
   });
 
+  test('wip batches endpoint sends filters and parses current location',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['production.map.manage'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'waiting',
+        apparatus: 'Pechat',
+        limit: 25,
+      );
+
+      expect(batches, hasLength(1));
+      expect(batches.first.batchId, 'progress-1');
+      expect(batches.first.wipStatus, 'waiting');
+      expect(batches.first.currentApparatusKey, 'pechat');
+      expect(batches.first.nextApparatus, 'Laminatsiya 1');
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/production-maps/wip-batches?'
+          'status=waiting&apparatus=Pechat&limit=25',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('raw material rule and assignment endpoints use backend contract',
       () async {
     final seenRequests = <String>[];
@@ -803,6 +839,34 @@ class _RawMaterialApiHttpClient implements HttpClient {
                   'created_at_unix': 1781780000,
                 },
               ],
+            },
+          ],
+        };
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=Pechat&limit=25':
+        body = const {
+          'ok': true,
+          'batches': [
+            {
+              'batch_id': 'progress-1',
+              'session_id': 'session-1',
+              'apparatus': 'Pechat',
+              'order_id': 'zakaz-1',
+              'action': 'pause',
+              'status': 'paused',
+              'produced_qty': 100,
+              'uom': 'kg',
+              'qr_payload': 'GSP:PROGRESS-1',
+              'label_item_code': 'zakaz-1',
+              'label_item_name': 'Vesta yarim tayyor',
+              'executor_name': 'Pechatchi',
+              'wip_status': 'waiting',
+              'current_apparatus': 'Pechat',
+              'current_apparatus_key': 'pechat',
+              'current_location': 'Pechat yonida',
+              'next_apparatus': 'Laminatsiya 1',
+              'worker_role': 'aparatchi',
+              'worker_ref': 'worker-1',
+              'worker_display_name': 'Pechatchi',
             },
           ],
         };

@@ -28,6 +28,7 @@ import '../features/admin/presentation/admin_supplier_items_view_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
+import '../features/admin/presentation/admin_wip_batches_screen.dart';
 import '../features/admin/presentation/admin_worker_detail_screen.dart';
 import '../features/admin/presentation/admin_worker_profile_detail_screen.dart';
 import '../features/admin/presentation/admin_worker_settings_screen.dart';
@@ -136,6 +137,7 @@ class AppRoutes {
   static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String adminWipBatches = '/admin-wip-batches';
   static const String adminQueuePolicies = '/admin-queue-policies';
   static const String adminApparatusSettings = '/admin-apparatus-settings';
   static const String adminApparatusGroups = '/admin-apparatus-groups';
@@ -185,6 +187,7 @@ class AppRouter {
     AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.adminWipBatches,
     AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusSettings,
     AppRoutes.adminApparatusGroups,
@@ -425,6 +428,8 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.adminWipBatches:
+        return _buildRoute(settings, const AdminWipBatchesScreen());
       case AppRoutes.adminQueuePolicies:
         return _buildRoute(
           settings,
@@ -672,6 +677,10 @@ class AppRouter {
     AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
     AppRoutes.adminProductionMapOrders: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminWipBatches: {
       'admin.access',
       'production.map.manage',
     },
