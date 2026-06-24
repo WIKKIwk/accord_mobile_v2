@@ -2,6 +2,7 @@ import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/forms/forms.dart';
+import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -667,58 +668,65 @@ class _RawMaterialGroupPickerDialogState
       contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
       content: SizedBox(
         width: 520,
-        height: 360,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 430,
+        child: Column(
           children: [
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < widget.options.length; index++)
-                  _RawMaterialGroupOptionCard(
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      widget.options.length,
-                    ),
-                    option: widget.options[index],
-                    alternatives: [
-                      for (final alternative in widget.options)
-                        if (alternative != widget.options[index]) alternative,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  M3SegmentSpacedColumn(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (var index = 0;
+                          index < widget.options.length;
+                          index++)
+                        _RawMaterialGroupOptionCard(
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
+                            index,
+                            widget.options.length,
+                          ),
+                          option: widget.options[index],
+                          alternatives: [
+                            for (final alternative in widget.options)
+                              if (alternative != widget.options[index])
+                                alternative,
+                          ],
+                          selected: _selectedOptionsByGroup
+                              .containsKey(widget.options[index]),
+                          expanded: _expanded.contains(widget.options[index]),
+                          selectedAlternatives:
+                              _selectedOptionsByGroup[widget.options[index]] ??
+                                  const <String>{},
+                          onSelectedChanged: (value) =>
+                              _toggle(widget.options[index], value),
+                          onExpandedChanged: () =>
+                              _toggleExpanded(widget.options[index]),
+                          onAlternativeChanged: (alternative, value) =>
+                              _toggleAlternative(
+                            widget.options[index],
+                            alternative,
+                            value,
+                          ),
+                        ),
                     ],
-                    selected: _selectedOptionsByGroup
-                        .containsKey(widget.options[index]),
-                    expanded: _expanded.contains(widget.options[index]),
-                    selectedAlternatives:
-                        _selectedOptionsByGroup[widget.options[index]] ??
-                            const <String>{},
-                    onSelectedChanged: (value) =>
-                        _toggle(widget.options[index], value),
-                    onExpandedChanged: () =>
-                        _toggleExpanded(widget.options[index]),
-                    onAlternativeChanged: (alternative, value) =>
-                        _toggleAlternative(
-                      widget.options[index],
-                      alternative,
-                      value,
-                    ),
                   ),
-              ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: AppDialogActionRow(
+                cancelLabel: 'Bekor',
+                confirmLabel: 'Tanlash',
+                onCancel: () => Navigator.of(context).pop(),
+                onConfirm: () => Navigator.of(context).pop(_selectedGroups()),
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Bekor'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop(_selectedGroups());
-          },
-          child: const Text('Tanlash'),
-        ),
-      ],
     );
   }
 }
