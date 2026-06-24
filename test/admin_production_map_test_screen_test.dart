@@ -1473,12 +1473,18 @@ void main() {
       await tester.tap(find.textContaining('Rounded order A').first);
       await tester.pumpAndSettle();
       expect(find.textContaining('51500 metr'), findsOneWidget);
-      expect(find.textContaining('7 val'), findsOneWidget);
+      expect(
+        find.textContaining('7 ta 650 mm eniga ega bo‘lgan val ishlatiladi'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.textContaining('Rounded order B').first);
       await tester.pumpAndSettle();
       expect(find.textContaining('4000 metr'), findsOneWidget);
-      expect(find.textContaining('7 val'), findsWidgets);
+      expect(
+        find.textContaining('7 ta 650 mm eniga ega bo‘lgan val ishlatiladi'),
+        findsWidgets,
+      );
     },
   );
 

@@ -214,12 +214,16 @@ String _productionMapResultSummary(
   if (baseMetraj != null && baseMetraj > 0) {
     details.add('${_productionMapRoundedMetrajLabel(baseMetraj)} metr');
   }
+  final widthMm = map.widthMm;
   final rollCount = map.rollCount;
   if (rollCount != null && rollCount > 0) {
-    details.add('${_productionMapQtyLabel(rollCount)} val');
-  }
-  final widthMm = map.widthMm;
-  if (widthMm != null && widthMm > 0) {
+    details.add(
+      _productionMapValUsageLabel(
+        rollCount: rollCount,
+        widthMm: widthMm,
+      ),
+    );
+  } else if (widthMm != null && widthMm > 0) {
     details.add('${_productionMapQtyLabel(widthMm)} mm en');
   }
   if (map.productCode.trim().isNotEmpty) {
@@ -236,4 +240,16 @@ String _productionMapQtyLabel(double value) => formatRawQuantity(value);
 String _productionMapRoundedMetrajLabel(double value) {
   final rounded = (value / 500).ceil() * 500;
   return rounded.toString();
+}
+
+String _productionMapValUsageLabel({
+  required double rollCount,
+  required double? widthMm,
+}) {
+  final rollLabel = '${_productionMapQtyLabel(rollCount)} ta';
+  if (widthMm == null || widthMm <= 0) {
+    return '$rollLabel val ishlatiladi';
+  }
+  return '$rollLabel ${_productionMapQtyLabel(widthMm)} mm eniga ega bo‘lgan '
+      'val ishlatiladi';
 }
