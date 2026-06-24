@@ -418,7 +418,14 @@ void main() {
       final rule = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: 'Pechat',
         requiresMaterial: true,
-        itemGroups: const ['Kraska'],
+        itemGroups: const ['Kraska', 'Kley'],
+        requirementGroups: const [
+          AdminRawMaterialRequirementGroup(
+            name: 'Yopishtiruvchi',
+            itemGroups: ['Kraska', 'Kley'],
+            minRequiredCount: 1,
+          ),
+        ],
       );
       final assignment = await MobileApi.instance.adminAssignRawMaterialToOrder(
         orderId: 'zakaz-1',
@@ -427,7 +434,10 @@ void main() {
 
       expect(rule.apparatus, 'Pechat');
       expect(rule.requiresMaterial, isTrue);
-      expect(rule.itemGroups, ['Kraska']);
+      expect(rule.itemGroups, ['Kraska', 'Kley']);
+      expect(rule.requirementGroups, hasLength(1));
+      expect(rule.requirementGroups.first.name, 'Yopishtiruvchi');
+      expect(rule.requirementGroups.first.itemGroups, ['Kraska', 'Kley']);
       expect(assignment.orderId, 'zakaz-1');
       expect(assignment.barcode, 'RM-001');
       expect(assignment.stockStatus, 'in_use');
@@ -437,7 +447,10 @@ void main() {
         seenRequests,
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
-          '{"apparatus":"Pechat","requires_material":true,"item_groups":["Kraska"]}',
+          '{"apparatus":"Pechat","requires_material":true,'
+          '"item_groups":["Kraska","Kley"],'
+          '"requirement_groups":[{"name":"Yopishtiruvchi",'
+          '"item_groups":["Kraska","Kley"],"min_required_count":1}]}',
         ),
       );
       expect(
@@ -874,7 +887,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
         body = const {
           'apparatus': 'Pechat',
           'requires_material': true,
-          'item_groups': ['Kraska'],
+          'item_groups': ['Kraska', 'Kley'],
+          'requirement_groups': [
+            {
+              'name': 'Yopishtiruvchi',
+              'item_groups': ['Kraska', 'Kley'],
+              'min_required_count': 1,
+            },
+          ],
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':
         if (assignmentErrorCode.isNotEmpty) {

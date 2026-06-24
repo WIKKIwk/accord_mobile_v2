@@ -636,19 +636,59 @@ class AdminApparatusQueuePolicy {
       };
 }
 
+class AdminRawMaterialRequirementGroup {
+  const AdminRawMaterialRequirementGroup({
+    required this.name,
+    required this.itemGroups,
+    this.minRequiredCount = 1,
+  });
+
+  final String name;
+  final List<String> itemGroups;
+  final int minRequiredCount;
+
+  factory AdminRawMaterialRequirementGroup.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawGroups = json['item_groups'];
+    return AdminRawMaterialRequirementGroup(
+      name: json['name']?.toString().trim() ?? '',
+      itemGroups: [
+        if (rawGroups is List)
+          for (final item in rawGroups)
+            if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ],
+      minRequiredCount:
+          int.tryParse(json['min_required_count']?.toString() ?? '') ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name.trim(),
+        'item_groups': [
+          for (final item in itemGroups)
+            if (item.trim().isNotEmpty) item.trim(),
+        ],
+        'min_required_count': minRequiredCount < 1 ? 1 : minRequiredCount,
+      };
+}
+
 class AdminRawMaterialRule {
   const AdminRawMaterialRule({
     required this.apparatus,
     required this.requiresMaterial,
     required this.itemGroups,
+    this.requirementGroups = const [],
   });
 
   final String apparatus;
   final bool requiresMaterial;
   final List<String> itemGroups;
+  final List<AdminRawMaterialRequirementGroup> requirementGroups;
 
   factory AdminRawMaterialRule.fromJson(Map<String, dynamic> json) {
     final rawGroups = json['item_groups'];
+    final rawRequirementGroups = json['requirement_groups'];
     return AdminRawMaterialRule(
       apparatus: json['apparatus']?.toString() ?? '',
       requiresMaterial: json['requires_material'] == true,
@@ -656,6 +696,12 @@ class AdminRawMaterialRule {
         if (rawGroups is List)
           for (final item in rawGroups)
             if (item.toString().trim().isNotEmpty) item.toString().trim(),
+      ],
+      requirementGroups: [
+        if (rawRequirementGroups is List)
+          for (final item in rawRequirementGroups)
+            if (item is Map<String, dynamic>)
+              AdminRawMaterialRequirementGroup.fromJson(item),
       ],
     );
   }
@@ -1784,17 +1830,23 @@ extension MobileApiAdmin on MobileApi {
     required String apparatus,
     bool requiresMaterial = false,
     required List<String> itemGroups,
+    List<AdminRawMaterialRequirementGroup> requirementGroups = const [],
   }) async {
     final normalizedApparatus = apparatus.trim();
     final normalizedGroups = itemGroups
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+    final normalizedRequirementGroups = requirementGroups
+        .map((item) => item.toJson())
+        .where((item) => (item['item_groups'] as List).isNotEmpty)
+        .toList(growable: false);
     if (await TestModeController.instance.isEnabled()) {
       final rule = AdminRawMaterialRule(
         apparatus: normalizedApparatus,
         requiresMaterial: requiresMaterial,
         itemGroups: normalizedGroups,
+        requirementGroups: requirementGroups,
       );
       _testModeRawMaterialRules[normalizedApparatus] = rule;
       return rule;
@@ -1808,6 +1860,7 @@ extension MobileApiAdmin on MobileApi {
           'apparatus': normalizedApparatus,
           'requires_material': requiresMaterial,
           'item_groups': normalizedGroups,
+          'requirement_groups': normalizedRequirementGroups,
         }),
       ),
     );

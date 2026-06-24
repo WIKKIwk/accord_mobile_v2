@@ -68,6 +68,60 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
   });
 
+  testWidgets('raw material group picker saves alternative requirement groups',
+      (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialRulesScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const Key('raw-material-group-checkbox-Kley')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('raw-material-group-expand-Kley')));
+      await tester.pumpAndSettle();
+      expect(find.text('Alternativlar'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('raw-material-alternative-checkbox-Kley-Kraska')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tanlash'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY PUT /v1/mobile/admin/raw-material-rules '
+          '{"apparatus":"Pechat","requires_material":false,'
+          '"item_groups":["Kley","Kraska"],'
+          '"requirement_groups":[{"name":"Kley",'
+          '"item_groups":["Kley","Kraska"],"min_required_count":1}]}',
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+    }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
+  });
+
   testWidgets('required switch does not fake success when backend ignores flag',
       (
     tester,
@@ -102,7 +156,8 @@ void main() {
         seenRequests,
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
-          '{"apparatus":"Pechat","requires_material":true,"item_groups":["Kraska"]}',
+          '{"apparatus":"Pechat","requires_material":true,'
+          '"item_groups":["Kraska"],"requirement_groups":[]}',
         ),
       );
       await tester.pump(const Duration(seconds: 2));
@@ -149,10 +204,24 @@ class _RawMaterialRulesHttpClient implements HttpClient {
       case 'PUT /v1/mobile/admin/raw-material-rules':
         body = {
           'apparatus': 'Pechat',
-          'item_groups': ['Kraska'],
+          'requires_material': false,
+          'item_groups': ['Kley', 'Kraska'],
+          'requirement_groups': [
+            {
+              'name': 'Kley',
+              'item_groups': ['Kley', 'Kraska'],
+              'min_required_count': 1,
+            },
+          ],
         };
       case 'GET /v1/mobile/admin/item-groups/tree':
         body = const [
+          {
+            'name': 'Kley',
+            'item_group_name': 'Kley',
+            'parent_item_group': 'homashyo',
+            'is_group': true,
+          },
           {
             'name': 'Kraska',
             'item_group_name': 'Kraska',

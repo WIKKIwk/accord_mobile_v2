@@ -49,6 +49,7 @@ class _AdminRawMaterialSettingsScreenState
   late Future<_RawMaterialRulesData> _future;
   late TabController _tabController;
   List<AdminRawMaterialRule> _rules = const [];
+  List<AdminRawMaterialRequirementGroup> _selectedRequirementGroups = const [];
   String _selectedApparatus = '';
   bool _selectedRequiresMaterial = false;
   bool _saving = false;
@@ -105,11 +106,15 @@ class _AdminRawMaterialSettingsScreenState
     final normalized = apparatus.trim();
     final rule = _ruleFor(normalized);
     if (rule != null) {
-      _groupsController.text = rule.itemGroups.join(', ');
+      _selectedRequirementGroups = _effectiveRequirementGroupsFor(rule);
+      _groupsController.text = _requirementGroupsSummary(
+        _selectedRequirementGroups,
+      );
       _selectedRequiresMaterial = rule.requiresMaterial;
       return;
     }
     _groupsController.clear();
+    _selectedRequirementGroups = const [];
     _selectedRequiresMaterial = false;
   }
 
@@ -131,26 +136,17 @@ class _AdminRawMaterialSettingsScreenState
     ];
   }
 
-  List<String> _groupsFromInput() {
-    return _groupsController.text
-        .split(RegExp(r'[,;\n]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
-  }
-
   Future<void> _pickGroups(List<String> options) async {
     if (options.isEmpty || _saving) {
       showAdminTopNotice(context, 'Homashyo guruhlari topilmadi');
       return;
     }
-    final selected = await showDialog<List<String>>(
+    final selected = await showDialog<List<AdminRawMaterialRequirementGroup>>(
       context: context,
       builder: (context) {
         return _RawMaterialGroupPickerDialog(
           options: options,
-          initialSelected: _groupsFromInput(),
+          initialRequirementGroups: _selectedRequirementGroups,
         );
       },
     );
@@ -158,13 +154,15 @@ class _AdminRawMaterialSettingsScreenState
       return;
     }
     setState(() {
-      _groupsController.text = selected.join(', ');
+      _selectedRequirementGroups = selected;
+      _groupsController.text = _requirementGroupsSummary(selected);
     });
   }
 
   Future<void> _save() async {
     final apparatus = _selectedApparatus.trim();
-    final groups = _groupsFromInput();
+    final requirementGroups = _selectedRequirementGroups;
+    final groups = _itemGroupsFromRequirementGroups(requirementGroups);
     if (apparatus.isEmpty || groups.isEmpty || _saving) {
       showAdminTopNotice(context, 'Aparat va homashyo guruhini kiriting');
       return;
@@ -175,12 +173,17 @@ class _AdminRawMaterialSettingsScreenState
         apparatus: apparatus,
         requiresMaterial: _selectedRequiresMaterial,
         itemGroups: groups,
+        requirementGroups: requirementGroups,
       );
       if (!mounted) {
         return;
       }
       setState(() {
         _replaceRule(saved);
+        _selectedRequirementGroups = _effectiveRequirementGroupsFor(saved);
+        _groupsController.text = _requirementGroupsSummary(
+          _selectedRequirementGroups,
+        );
         _selectedRequiresMaterial = saved.requiresMaterial;
       });
       showAdminTopNotice(context, 'Homashyo qoidasi saqlandi');
@@ -217,6 +220,7 @@ class _AdminRawMaterialSettingsScreenState
         apparatus: apparatusName,
         requiresMaterial: requiresMaterial,
         itemGroups: rule.itemGroups,
+        requirementGroups: rule.requirementGroups,
       );
       if (!mounted) {
         return;
@@ -404,6 +408,73 @@ List<String> _rawMaterialGroupsFrom(List<AdminItemGroupTreeEntry> entries) {
   return sorted;
 }
 
+List<AdminRawMaterialRequirementGroup> _effectiveRequirementGroupsFor(
+  AdminRawMaterialRule rule,
+) {
+  if (rule.requirementGroups.isNotEmpty) {
+    return [
+      for (final group in rule.requirementGroups)
+        if (group.name.trim().isNotEmpty)
+          AdminRawMaterialRequirementGroup(
+            name: group.name.trim(),
+            itemGroups: _normalizedUnique([
+              group.name,
+              ...group.itemGroups,
+            ]),
+            minRequiredCount: group.minRequiredCount,
+          ),
+    ];
+  }
+  return [
+    for (final group in rule.itemGroups)
+      if (group.trim().isNotEmpty)
+        AdminRawMaterialRequirementGroup(
+          name: group.trim(),
+          itemGroups: [group.trim()],
+        ),
+  ];
+}
+
+List<String> _normalizedUnique(Iterable<String> values) {
+  final seen = <String>{};
+  final normalized = <String>[];
+  for (final value in values) {
+    final item = value.trim();
+    final key = item.toLowerCase();
+    if (item.isEmpty || seen.contains(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalized.add(item);
+  }
+  return normalized;
+}
+
+List<String> _itemGroupsFromRequirementGroups(
+  List<AdminRawMaterialRequirementGroup> groups,
+) {
+  return _normalizedUnique([
+    for (final group in groups) ...[
+      group.name,
+      ...group.itemGroups,
+    ],
+  ]);
+}
+
+String _requirementGroupsSummary(
+  List<AdminRawMaterialRequirementGroup> groups,
+) {
+  return groups.map(_requirementGroupSummary).join(', ');
+}
+
+String _requirementGroupSummary(AdminRawMaterialRequirementGroup group) {
+  final options = _normalizedUnique([group.name, ...group.itemGroups]);
+  if (options.length <= 1) {
+    return group.name.trim();
+  }
+  return '${group.name.trim()} (${options.join(' yoki ')})';
+}
+
 class _RuleEditor extends StatelessWidget {
   const _RuleEditor({
     required this.apparatus,
@@ -499,11 +570,11 @@ class _RuleEditor extends StatelessWidget {
 class _RawMaterialGroupPickerDialog extends StatefulWidget {
   const _RawMaterialGroupPickerDialog({
     required this.options,
-    required this.initialSelected,
+    required this.initialRequirementGroups,
   });
 
   final List<String> options;
-  final List<String> initialSelected;
+  final List<AdminRawMaterialRequirementGroup> initialRequirementGroups;
 
   @override
   State<_RawMaterialGroupPickerDialog> createState() =>
@@ -512,46 +583,127 @@ class _RawMaterialGroupPickerDialog extends StatefulWidget {
 
 class _RawMaterialGroupPickerDialogState
     extends State<_RawMaterialGroupPickerDialog> {
-  late final Set<String> _selected;
+  late final Map<String, Set<String>> _selectedOptionsByGroup;
+  final Set<String> _expanded = {};
 
   @override
   void initState() {
     super.initState();
-    _selected = widget.initialSelected.map((item) => item.trim()).toSet();
+    final optionKeys = {
+      for (final option in widget.options) option.trim().toLowerCase(): option,
+    };
+    _selectedOptionsByGroup = {};
+    for (final group in widget.initialRequirementGroups) {
+      final name = group.name.trim();
+      final option = optionKeys[name.toLowerCase()];
+      if (option == null) {
+        continue;
+      }
+      _selectedOptionsByGroup[option] = {
+        option,
+        for (final item in group.itemGroups)
+          if (optionKeys[item.trim().toLowerCase()] != null)
+            optionKeys[item.trim().toLowerCase()]!,
+      };
+    }
   }
 
   void _toggle(String option, bool value) {
     setState(() {
       if (value) {
-        _selected.add(option);
+        _selectedOptionsByGroup[option] = {option};
       } else {
-        _selected.remove(option);
+        _selectedOptionsByGroup.remove(option);
+        _expanded.remove(option);
       }
     });
   }
 
+  void _toggleExpanded(String option) {
+    setState(() {
+      if (_expanded.contains(option)) {
+        _expanded.remove(option);
+      } else {
+        _expanded.add(option);
+      }
+    });
+  }
+
+  void _toggleAlternative(String group, String option, bool value) {
+    setState(() {
+      final selected =
+          _selectedOptionsByGroup.putIfAbsent(group, () => {group});
+      if (value) {
+        selected.add(option);
+      } else {
+        selected.remove(option);
+      }
+    });
+  }
+
+  List<AdminRawMaterialRequirementGroup> _selectedGroups() {
+    return [
+      for (final option in widget.options)
+        if (_selectedOptionsByGroup.containsKey(option))
+          AdminRawMaterialRequirementGroup(
+            name: option,
+            itemGroups: [
+              option,
+              for (final alternative in widget.options)
+                if (alternative != option &&
+                    (_selectedOptionsByGroup[option]?.contains(alternative) ??
+                        false))
+                  alternative,
+            ],
+          ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       title: const Text('Homashyo guruhlari'),
       contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
       content: SizedBox(
         width: 420,
         height: 360,
-        child: ListView.builder(
-          itemCount: widget.options.length,
-          itemBuilder: (context, index) {
-            final option = widget.options[index];
-            final selected = _selected.contains(option);
-            return CheckboxListTile(
-              value: selected,
-              onChanged: (value) => _toggle(option, value ?? false),
-              title: Text(option),
-              controlAffinity: ListTileControlAffinity.leading,
-              activeColor: scheme.primary,
-            );
-          },
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: [
+            M3SegmentSpacedColumn(
+              padding: EdgeInsets.zero,
+              children: [
+                for (var index = 0; index < widget.options.length; index++)
+                  _RawMaterialGroupOptionCard(
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      widget.options.length,
+                    ),
+                    option: widget.options[index],
+                    alternatives: [
+                      for (final alternative in widget.options)
+                        if (alternative != widget.options[index]) alternative,
+                    ],
+                    selected: _selectedOptionsByGroup
+                        .containsKey(widget.options[index]),
+                    expanded: _expanded.contains(widget.options[index]),
+                    selectedAlternatives:
+                        _selectedOptionsByGroup[widget.options[index]] ??
+                            const <String>{},
+                    onSelectedChanged: (value) =>
+                        _toggle(widget.options[index], value),
+                    onExpandedChanged: () =>
+                        _toggleExpanded(widget.options[index]),
+                    onAlternativeChanged: (alternative, value) =>
+                        _toggleAlternative(
+                      widget.options[index],
+                      alternative,
+                      value,
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
       actions: [
@@ -561,17 +713,122 @@ class _RawMaterialGroupPickerDialogState
         ),
         FilledButton(
           onPressed: () {
-            final values = _selected.toList(growable: false);
-            values.sort(
-              (left, right) => left.toLowerCase().compareTo(
-                    right.toLowerCase(),
-                  ),
-            );
-            Navigator.of(context).pop(values);
+            Navigator.of(context).pop(_selectedGroups());
           },
           child: const Text('Tanlash'),
         ),
       ],
+    );
+  }
+}
+
+class _RawMaterialGroupOptionCard extends StatelessWidget {
+  const _RawMaterialGroupOptionCard({
+    required this.slot,
+    required this.option,
+    required this.alternatives,
+    required this.selected,
+    required this.expanded,
+    required this.selectedAlternatives,
+    required this.onSelectedChanged,
+    required this.onExpandedChanged,
+    required this.onAlternativeChanged,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final String option;
+  final List<String> alternatives;
+  final bool selected;
+  final bool expanded;
+  final Set<String> selectedAlternatives;
+  final ValueChanged<bool> onSelectedChanged;
+  final VoidCallback onExpandedChanged;
+  final void Function(String alternative, bool value) onAlternativeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return AppSegmentSurfaceCard(
+      slot: slot,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Checkbox(
+                key: Key('raw-material-group-checkbox-$option'),
+                value: selected,
+                activeColor: scheme.primary,
+                onChanged: (value) => onSelectedChanged(value ?? false),
+              ),
+              Expanded(
+                child: Text(
+                  option,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: Key('raw-material-group-expand-$option'),
+                onPressed: onExpandedChanged,
+                icon: AnimatedRotation(
+                  duration: const Duration(milliseconds: 160),
+                  turns: expanded ? 0.5 : 0,
+                  child: const Icon(Icons.keyboard_arrow_down_rounded),
+                ),
+              ),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Alternativlar',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (alternatives.isEmpty)
+                          Text(
+                            'Boshqa homashyo guruhi yo‘q',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          )
+                        else
+                          for (final alternative in alternatives)
+                            CheckboxListTile(
+                              key: Key(
+                                'raw-material-alternative-checkbox-$option-$alternative',
+                              ),
+                              value: selectedAlternatives.contains(alternative),
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: scheme.primary,
+                              title: Text(alternative),
+                              onChanged: (value) => onAlternativeChanged(
+                                alternative,
+                                value ?? false,
+                              ),
+                            ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }
