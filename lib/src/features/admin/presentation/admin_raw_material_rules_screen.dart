@@ -662,13 +662,14 @@ class _RawMaterialGroupPickerDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       title: const Text('Homashyo guruhlari'),
       contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
       content: SizedBox(
-        width: 420,
+        width: 520,
         height: 360,
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           children: [
             M3SegmentSpacedColumn(
               padding: EdgeInsets.zero,
