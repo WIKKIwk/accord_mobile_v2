@@ -212,11 +212,11 @@ String _productionMapResultSummary(
     details.add('${_productionMapQtyLabel(orderKg)} kg');
   }
   if (baseMetraj != null && baseMetraj > 0) {
-    details.add('${_productionMapMetrajLabel(baseMetraj)} m metraj');
+    details.add('${_productionMapRoundedMetrajLabel(baseMetraj)} metr');
   }
   final rollCount = map.rollCount;
   if (rollCount != null && rollCount > 0) {
-    details.add('${_productionMapQtyLabel(rollCount)} rulon');
+    details.add('${_productionMapQtyLabel(rollCount)} val');
   }
   final widthMm = map.widthMm;
   if (widthMm != null && widthMm > 0) {
@@ -233,6 +233,7 @@ String _productionMapResultSummary(
 
 String _productionMapQtyLabel(double value) => formatRawQuantity(value);
 
-String _productionMapMetrajLabel(double value) {
-  return value.toStringAsFixed(1);
+String _productionMapRoundedMetrajLabel(double value) {
+  final rounded = (value / 500).ceil() * 500;
+  return rounded.toString();
 }

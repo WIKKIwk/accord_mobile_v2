@@ -1421,6 +1421,67 @@ void main() {
     );
   });
 
+  testWidgets(
+    'opened production map orders page rounds metraj and uses val label',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: 'zakaz-rounded-a',
+          title: 'Rounded order A',
+          productCode: 'ROUND-A',
+          apparatus: 'Paynet',
+          product: 'rounded product A',
+          rollCount: 7,
+          widthMm: 650,
+        ).copyWith(
+          orderKg: 100,
+          baseLength: 51282.1,
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: 'zakaz-rounded-b',
+          title: 'Rounded order B',
+          productCode: 'ROUND-B',
+          apparatus: 'Paynet',
+          product: 'rounded product B',
+          rollCount: 7,
+          widthMm: 650,
+        ).copyWith(
+          orderKg: 100,
+          baseLength: 3883.5,
+        ),
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('Rounded order A').first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('51500 metr'), findsOneWidget);
+      expect(find.textContaining('7 val'), findsOneWidget);
+
+      await tester.tap(find.textContaining('Rounded order B').first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('4000 metr'), findsOneWidget);
+      expect(find.textContaining('7 val'), findsWidgets);
+    },
+  );
+
   testWidgets('opened orders modules are ordered orders move sequence closed', (
     tester,
   ) async {
@@ -3008,6 +3069,8 @@ ProductionMapDefinition _productionOrderMap({
   String orderNumber = '',
   double? rollCount,
   double? widthMm,
+  double? orderKg,
+  double? baseLength,
   int apparatusCopies = 1,
 }) {
   final apparatusNodes = [
@@ -3025,6 +3088,8 @@ ProductionMapDefinition _productionOrderMap({
     orderNumber: orderNumber,
     rollCount: rollCount,
     widthMm: widthMm,
+    orderKg: orderKg,
+    baseLength: baseLength,
     nodes: [
       const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
       ...apparatusNodes,
