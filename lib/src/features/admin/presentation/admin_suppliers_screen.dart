@@ -486,9 +486,6 @@ class _AdminUserRolePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fieldSurface = theme.brightness == Brightness.light
-        ? scheme.surfaceBright
-        : scheme.surface;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Column(
@@ -503,7 +500,7 @@ class _AdminUserRolePicker extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Material(
-            color: fieldSurface,
+            color: scheme.surface,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
