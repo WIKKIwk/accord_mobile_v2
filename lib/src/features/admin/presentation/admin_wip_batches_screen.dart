@@ -43,14 +43,6 @@ extension _WipBatchStatusX on _WipBatchStatus {
       _WipBatchStatus.processed => 'Tugagan mahsulot yo‘q',
     };
   }
-
-  IconData get icon {
-    return switch (this) {
-      _WipBatchStatus.waiting => Icons.inventory_2_outlined,
-      _WipBatchStatus.inUse => Icons.precision_manufacturing_outlined,
-      _WipBatchStatus.processed => Icons.done_all_rounded,
-    };
-  }
 }
 
 class AdminWipBatchesScreen extends StatefulWidget {
@@ -147,7 +139,10 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
                   controller: _tabController,
                   tabs: [
                     for (final status in _WipBatchStatus.values)
-                      Tab(height: 38, text: status.title),
+                      Tab(
+                        height: 38,
+                        text: '${status.title} ${data.count(status)}',
+                      ),
                   ],
                 ),
                 Expanded(
@@ -219,8 +214,6 @@ class _WipBatchTab extends StatelessWidget {
         children: [
           const _WipIntroText(),
           const SizedBox(height: 10),
-          _WipSummaryRow(data: data),
-          const SizedBox(height: 10),
           if (batches.isEmpty)
             _WipEmptyCard(text: status.emptyText)
           else
@@ -259,70 +252,6 @@ class _WipIntroText extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               height: 1.3,
             ),
-      ),
-    );
-  }
-}
-
-class _WipSummaryRow extends StatelessWidget {
-  const _WipSummaryRow({required this.data});
-
-  final _WipBatchesData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final status in _WipBatchStatus.values) ...[
-          Expanded(
-            child: _WipSummaryCard(status: status, count: data.count(status)),
-          ),
-          if (status != _WipBatchStatus.values.last)
-            const SizedBox(width: M3SegmentedListGeometry.gap),
-        ],
-      ],
-    );
-  }
-}
-
-class _WipSummaryCard extends StatelessWidget {
-  const _WipSummaryCard({required this.status, required this.count});
-
-  final _WipBatchStatus status;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return M3SegmentFilledSurface(
-      slot: M3SegmentVerticalSlot.top,
-      cornerRadius: M3SegmentedListGeometry.cornerLarge,
-      backgroundColor: scheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(status.icon, size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(
-              count.toString(),
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              status.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
