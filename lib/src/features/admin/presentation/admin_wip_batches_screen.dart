@@ -457,6 +457,11 @@ class _WipBatchTile extends StatelessWidget {
               value: _nextApparatusText(batch.nextApparatus),
             ),
             _WipInfoLine(
+              icon: Icons.alt_route_rounded,
+              label: 'Keyingi bosqich',
+              value: _nextStepText(batch.nextApparatus),
+            ),
+            _WipInfoLine(
               icon: Icons.badge_outlined,
               label: 'Ishchi',
               value: _valueOrDash(worker),
@@ -606,6 +611,11 @@ String _nextApparatusText(String nextApparatus) {
   return trimmed.isEmpty ? 'Ombor' : trimmed;
 }
 
+String _nextStepText(String nextApparatus) {
+  final trimmed = nextApparatus.trim();
+  return trimmed.isEmpty ? 'Ombor' : trimmed;
+}
+
 String _buildFriendlySummary({
   required AdminProgressBatch batch,
   required _WipBatchStatus status,
@@ -631,13 +641,16 @@ String _buildFriendlySummary({
   return switch (status) {
     _WipBatchStatus.waiting =>
       '$product $sourceText chiqdi. Hozir $waitingPlace turibdi. '
+          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
           'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
           'Miqdor: $quantity.$workerText',
     _WipBatchStatus.inUse => '$product hozir ishlanmoqda. Hozir $inUsePlace. '
+        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
         'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
         'Miqdor: $quantity.$workerText',
     _WipBatchStatus.processed =>
       '$product tugagan. Qayerdan chiqdi: $sourceApparatus. '
-          'Hozir: $processedPlace. Miqdor: $quantity.$workerText',
+          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
+          'Miqdor: $quantity.$workerText',
   };
 }
