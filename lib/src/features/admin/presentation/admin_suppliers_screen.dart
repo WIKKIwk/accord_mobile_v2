@@ -486,7 +486,9 @@ class _AdminUserRolePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fieldSurface = scheme.surfaceContainerHighest;
+    final fieldSurface = theme.brightness == Brightness.light
+        ? scheme.surfaceBright
+        : scheme.surface;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Column(
@@ -614,9 +616,7 @@ class _AdminUserRoleOption extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: selected
-          ? scheme.primaryContainer.withValues(
-              alpha: theme.brightness == Brightness.light ? 0.6 : 0.45,
-            )
+          ? scheme.primaryContainer.withValues(alpha: 0.55)
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
