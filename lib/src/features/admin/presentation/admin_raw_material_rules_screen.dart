@@ -585,7 +585,7 @@ class _RawMaterialGroupPickerDialog extends StatefulWidget {
 class _RawMaterialGroupPickerDialogState
     extends State<_RawMaterialGroupPickerDialog> {
   late final Map<String, Set<String>> _selectedOptionsByGroup;
-  final Set<String> _expanded = {};
+  String? _expandedOption;
 
   @override
   void initState() {
@@ -615,17 +615,19 @@ class _RawMaterialGroupPickerDialogState
         _selectedOptionsByGroup[option] = {option};
       } else {
         _selectedOptionsByGroup.remove(option);
-        _expanded.remove(option);
+        if (_expandedOption == option) {
+          _expandedOption = null;
+        }
       }
     });
   }
 
   void _toggleExpanded(String option) {
     setState(() {
-      if (_expanded.contains(option)) {
-        _expanded.remove(option);
+      if (_expandedOption == option) {
+        _expandedOption = null;
       } else {
-        _expanded.add(option);
+        _expandedOption = option;
       }
     });
   }
@@ -695,7 +697,7 @@ class _RawMaterialGroupPickerDialogState
                           ],
                           selected: _selectedOptionsByGroup
                               .containsKey(widget.options[index]),
-                          expanded: _expanded.contains(widget.options[index]),
+                          expanded: _expandedOption == widget.options[index],
                           selectedAlternatives:
                               _selectedOptionsByGroup[widget.options[index]] ??
                                   const <String>{},
@@ -763,39 +765,51 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          Row(
-            children: [
-              Checkbox(
-                key: Key('raw-material-group-checkbox-$option'),
-                value: selected,
-                activeColor: scheme.primary,
-                onChanged: (value) => onSelectedChanged(value ?? false),
-              ),
-              Expanded(
-                child: Text(
-                  option,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+          InkWell(
+            onTap: () => onExpandedChanged(),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      key: Key('raw-material-group-checkbox-$option'),
+                      value: selected,
+                      activeColor: scheme.primary,
+                      onChanged: (value) => onSelectedChanged(value ?? false),
+                    ),
+                    Expanded(
+                      child: Text(
+                        option,
+                        maxLines: expanded ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: Key('raw-material-group-expand-$option'),
+                      tooltip: expanded ? 'Yopish' : 'Ochish',
+                      onPressed: onExpandedChanged,
+                      icon: AnimatedRotation(
+                        duration: const Duration(milliseconds: 160),
+                        turns: expanded ? 0.5 : 0,
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                key: Key('raw-material-group-expand-$option'),
-                onPressed: onExpandedChanged,
-                icon: AnimatedRotation(
-                  duration: const Duration(milliseconds: 160),
-                  turns: expanded ? 0.5 : 0,
-                  child: const Icon(Icons.keyboard_arrow_down_rounded),
-                ),
-              ),
-            ],
+            ),
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             child: expanded
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -816,19 +830,24 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
                           )
                         else
                           for (final alternative in alternatives)
-                            CheckboxListTile(
-                              key: Key(
-                                'raw-material-alternative-checkbox-$option-$alternative',
-                              ),
-                              value: selectedAlternatives.contains(alternative),
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              activeColor: scheme.primary,
-                              title: Text(alternative),
-                              onChanged: (value) => onAlternativeChanged(
-                                alternative,
-                                value ?? false,
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: CheckboxListTile(
+                                key: Key(
+                                  'raw-material-alternative-checkbox-$option-$alternative',
+                                ),
+                                value:
+                                    selectedAlternatives.contains(alternative),
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                activeColor: scheme.primary,
+                                title: Text(alternative),
+                                onChanged: (value) => onAlternativeChanged(
+                                  alternative,
+                                  value ?? false,
+                                ),
                               ),
                             ),
                       ],

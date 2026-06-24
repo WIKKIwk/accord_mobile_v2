@@ -122,6 +122,52 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
   });
 
+  testWidgets('raw material group picker keeps only one expanded card open', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialRulesScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('raw-material-group-expand-Kley')));
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(
+              const Key('raw-material-alternative-checkbox-Kley-Kraska')),
+          findsOneWidget);
+
+      await tester
+          .tap(find.byKey(const Key('raw-material-group-expand-Kraska')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('raw-material-alternative-checkbox-Kley-Kraska')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('raw-material-alternative-checkbox-Kraska-Kley')),
+        findsOneWidget,
+      );
+    }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
+  });
+
   testWidgets('required switch does not fake success when backend ignores flag',
       (
     tester,
