@@ -27,11 +27,10 @@ import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 const double _profilePanelGap = 4;
 
@@ -50,7 +49,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool savingPin = false;
   bool savingBiometric = false;
   String? errorMessage;
-  File? cachedAvatar;
+  final ImagePicker _avatarPicker = ImagePicker();
+  Uint8List? cachedAvatarBytes;
   Uint8List? pendingAvatarBytes;
   String? pendingAvatarName;
 
@@ -79,24 +79,24 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _loadCachedAvatar() async {
-    final file = await ProfileAvatarCache.ensureCached(profile);
+    final bytes = await ProfileAvatarCache.ensureCached(profile);
     if (!mounted) {
       return;
     }
     setState(() {
-      cachedAvatar = file;
+      cachedAvatarBytes = bytes;
     });
   }
 
   Future<void> _refreshProfile() async {
     final updated = await MobileApi.instance.profile();
-    final file = await ProfileAvatarCache.ensureCached(updated);
+    final bytes = await ProfileAvatarCache.ensureCached(updated);
     if (!mounted) {
       return;
     }
     setState(() {
       nicknameController.text = _normalizedDisplayName(updated);
-      cachedAvatar = file;
+      cachedAvatarBytes = bytes;
       errorMessage = null;
     });
   }
@@ -132,16 +132,17 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _pickAvatar() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
+      final picked = await _avatarPicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 82,
       );
-      if (result == null || result.files.isEmpty) {
+      if (picked == null) {
         return;
       }
-      final picked = result.files.single;
-      final bytes = picked.bytes;
-      if (bytes == null || bytes.isEmpty) {
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
         throw Exception('empty avatar');
       }
       if (!mounted) {
@@ -181,7 +182,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         bytes: bytes,
         filename: filename,
       );
-      final file = await ProfileAvatarCache.cacheFromBytes(
+      var cachedBytes = await ProfileAvatarCache.refreshFromUrl(updated);
+      cachedBytes ??= await ProfileAvatarCache.cacheFromBytes(
         updated,
         bytes,
         filename,
@@ -190,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         return;
       }
       setState(() {
-        cachedAvatar = file;
+        cachedAvatarBytes = cachedBytes ?? Uint8List.fromList(bytes);
         pendingAvatarBytes = null;
         pendingAvatarName = null;
       });
@@ -447,7 +449,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 children: [
                                   _AvatarPreview(
                                     displayName: displayName,
-                                    cachedAvatar: cachedAvatar,
+                                    cachedAvatarBytes: cachedAvatarBytes,
                                     pendingAvatarBytes: pendingAvatarBytes,
                                   ),
                                   Positioned(
@@ -1572,12 +1574,12 @@ class _BiometricPreferenceRow extends StatelessWidget {
 class _AvatarPreview extends StatelessWidget {
   const _AvatarPreview({
     required this.displayName,
-    required this.cachedAvatar,
+    required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
   });
 
   final String displayName;
-  final File? cachedAvatar;
+  final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
 
   @override
@@ -1608,13 +1610,13 @@ class _AvatarPreview extends StatelessWidget {
       );
     }
 
-    if (cachedAvatar == null) {
+    if (cachedAvatarBytes == null || cachedAvatarBytes!.isEmpty) {
       return fallback;
     }
 
     return ClipOval(
-      child: Image.file(
-        cachedAvatar!,
+      child: Image.memory(
+        cachedAvatarBytes!,
         height: 96,
         width: 96,
         fit: BoxFit.cover,

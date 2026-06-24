@@ -330,6 +330,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.history_outlined,
       routeName: AppRoutes.adminActivity,
     ),
+    const _AdminHomeAction(
+      title: 'Server monitor',
+      icon: Icons.monitor_heart_outlined,
+      routeName: AppRoutes.adminServerMonitor,
+    ),
   ];
   return candidates
       .where((action) => AppRouter.canOpenRoute(action.routeName))

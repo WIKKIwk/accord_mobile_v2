@@ -536,6 +536,119 @@ class AdminWorkerRunSession {
   }
 }
 
+class AdminProgressQrOpenedBy {
+  const AdminProgressQrOpenedBy({
+    required this.actorRole,
+    required this.actorRef,
+    required this.actorDisplayName,
+    required this.openedAtUnix,
+  });
+
+  final String actorRole;
+  final String actorRef;
+  final String actorDisplayName;
+  final int openedAtUnix;
+
+  factory AdminProgressQrOpenedBy.fromJson(Map<String, dynamic> json) {
+    return AdminProgressQrOpenedBy(
+      actorRole: json['actor_role']?.toString() ?? '',
+      actorRef: json['actor_ref']?.toString() ?? '',
+      actorDisplayName: json['actor_display_name']?.toString() ?? '',
+      openedAtUnix: (json['opened_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminProgressQrReport {
+  const AdminProgressQrReport({
+    required this.scannedBatch,
+    required this.isStale,
+    required this.staleReason,
+    required this.queueStates,
+    required this.logs,
+    required this.progressBatches,
+    required this.runSessions,
+    required this.activeSessions,
+    this.currentBatch,
+    this.order,
+    this.openedBy,
+  });
+
+  final AdminProgressBatch scannedBatch;
+  final AdminProgressBatch? currentBatch;
+  final bool isStale;
+  final String staleReason;
+  final ProductionMapDefinition? order;
+  final Map<String, Map<String, String>> queueStates;
+  final List<AdminProductionOrderLogEntry> logs;
+  final List<AdminProgressBatch> progressBatches;
+  final List<AdminWorkerRunSession> runSessions;
+  final List<AdminWorkerRunSession> activeSessions;
+  final AdminProgressQrOpenedBy? openedBy;
+
+  factory AdminProgressQrReport.fromJson(Map<String, dynamic> json) {
+    final scannedRaw = json['scanned_batch'];
+    if (scannedRaw is! Map) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_found',
+        message: 'Progress QR topilmadi',
+      );
+    }
+    final currentRaw = json['current_batch'];
+    final orderRaw = json['order'];
+    final openedRaw = json['opened_by'];
+    return AdminProgressQrReport(
+      scannedBatch: AdminProgressBatch.fromJson(
+        scannedRaw.cast<String, dynamic>(),
+      ),
+      currentBatch: currentRaw is Map
+          ? AdminProgressBatch.fromJson(currentRaw.cast<String, dynamic>())
+          : null,
+      isStale: json['is_stale'] == true,
+      staleReason: json['stale_reason']?.toString() ?? '',
+      order: orderRaw is Map
+          ? ProductionMapDefinition.fromJson(orderRaw.cast<String, dynamic>())
+          : null,
+      queueStates: _stringMapOfStringMaps(json['queue_states']),
+      logs: [
+        for (final item in (json['logs'] as List? ?? const []))
+          AdminProductionOrderLogEntry.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
+      progressBatches: [
+        for (final item in (json['progress_batches'] as List? ?? const []))
+          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      runSessions: [
+        for (final item in (json['run_sessions'] as List? ?? const []))
+          AdminWorkerRunSession.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      activeSessions: [
+        for (final item in (json['active_sessions'] as List? ?? const []))
+          AdminWorkerRunSession.fromJson((item as Map).cast<String, dynamic>()),
+      ],
+      openedBy: openedRaw is Map
+          ? AdminProgressQrOpenedBy.fromJson(openedRaw.cast<String, dynamic>())
+          : null,
+    );
+  }
+}
+
+Map<String, Map<String, String>> _stringMapOfStringMaps(Object? raw) {
+  if (raw is! Map) {
+    return const {};
+  }
+  return {
+    for (final entry in raw.entries)
+      entry.key.toString(): {
+        if (entry.value is Map)
+          for (final child in (entry.value as Map).entries)
+            child.key.toString(): child.value.toString(),
+      },
+  };
+}
+
 class AdminWorkerProfileDetail {
   const AdminWorkerProfileDetail({
     required this.worker,
@@ -574,6 +687,138 @@ class AdminWorkerProfileDetail {
             (item as Map).cast<String, dynamic>(),
           ),
       ],
+    );
+  }
+}
+
+class AdminServerMonitorBackupFile {
+  const AdminServerMonitorBackupFile({
+    required this.name,
+    required this.path,
+    required this.sizeBytes,
+    required this.modifiedAtUnix,
+    required this.ageSeconds,
+  });
+
+  final String name;
+  final String path;
+  final int sizeBytes;
+  final int modifiedAtUnix;
+  final int ageSeconds;
+
+  factory AdminServerMonitorBackupFile.fromJson(Map<String, dynamic> json) {
+    return AdminServerMonitorBackupFile(
+      name: json['name']?.toString() ?? '',
+      path: json['path']?.toString() ?? '',
+      sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
+      modifiedAtUnix: (json['modified_at_unix'] as num?)?.toInt() ?? 0,
+      ageSeconds: (json['age_seconds'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminServerMonitorBackups {
+  const AdminServerMonitorBackups({
+    required this.directory,
+    required this.exists,
+    required this.fileCount,
+    required this.latest,
+    required this.error,
+  });
+
+  final String directory;
+  final bool exists;
+  final int fileCount;
+  final AdminServerMonitorBackupFile? latest;
+  final String error;
+
+  factory AdminServerMonitorBackups.fromJson(Map<String, dynamic> json) {
+    final latestRaw = json['latest'];
+    return AdminServerMonitorBackups(
+      directory: json['directory']?.toString() ?? '',
+      exists: json['exists'] == true,
+      fileCount: (json['file_count'] as num?)?.toInt() ?? 0,
+      latest: latestRaw is Map
+          ? AdminServerMonitorBackupFile.fromJson(
+              latestRaw.cast<String, dynamic>(),
+            )
+          : null,
+      error: json['error']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminServerMonitorDatabase {
+  const AdminServerMonitorDatabase({
+    required this.configured,
+    required this.reachable,
+    required this.status,
+    required this.pingMs,
+    required this.error,
+  });
+
+  final bool configured;
+  final bool reachable;
+  final String status;
+  final int pingMs;
+  final String error;
+
+  factory AdminServerMonitorDatabase.fromJson(Map<String, dynamic> json) {
+    return AdminServerMonitorDatabase(
+      configured: json['configured'] == true,
+      reachable: json['reachable'] == true,
+      status: json['status']?.toString() ?? '',
+      pingMs: (json['ping_ms'] as num?)?.toInt() ?? 0,
+      error: json['error']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminServerMonitorServer {
+  const AdminServerMonitorServer({
+    required this.bindAddr,
+    required this.startedAtUnix,
+    required this.uptimeSeconds,
+    required this.status,
+  });
+
+  final String bindAddr;
+  final int startedAtUnix;
+  final int uptimeSeconds;
+  final String status;
+
+  factory AdminServerMonitorServer.fromJson(Map<String, dynamic> json) {
+    return AdminServerMonitorServer(
+      bindAddr: json['bind_addr']?.toString() ?? '',
+      startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
+      uptimeSeconds: (json['uptime_seconds'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminServerMonitorReport {
+  const AdminServerMonitorReport({
+    required this.server,
+    required this.database,
+    required this.backups,
+  });
+
+  final AdminServerMonitorServer server;
+  final AdminServerMonitorDatabase database;
+  final AdminServerMonitorBackups backups;
+
+  factory AdminServerMonitorReport.fromJson(Map<String, dynamic> json) {
+    return AdminServerMonitorReport(
+      server: AdminServerMonitorServer.fromJson(
+        (json['server'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
+      database: AdminServerMonitorDatabase.fromJson(
+        (json['database'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
+      backups: AdminServerMonitorBackups.fromJson(
+        (json['backups'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
     );
   }
 }
@@ -786,6 +1031,13 @@ class AdminRawMaterialLookup {
     required this.itemGroup,
     required this.qty,
     required this.uom,
+    this.status = '',
+    this.reservedOrderId = '',
+    this.sourceReceiptId = '',
+    this.assignment,
+    this.order,
+    this.queueStates = const {},
+    this.logs = const [],
   });
 
   final String barcode;
@@ -795,8 +1047,17 @@ class AdminRawMaterialLookup {
   final String itemGroup;
   final double qty;
   final String uom;
+  final String status;
+  final String reservedOrderId;
+  final String sourceReceiptId;
+  final AdminRawMaterialAssignment? assignment;
+  final ProductionMapDefinition? order;
+  final Map<String, Map<String, String>> queueStates;
+  final List<AdminProductionOrderLogEntry> logs;
 
   factory AdminRawMaterialLookup.fromJson(Map<String, dynamic> json) {
+    final assignmentRaw = json['assignment'];
+    final orderRaw = json['order'];
     return AdminRawMaterialLookup(
       barcode: json['barcode']?.toString() ?? '',
       warehouse: json['warehouse']?.toString() ?? '',
@@ -805,6 +1066,24 @@ class AdminRawMaterialLookup {
       itemGroup: json['item_group']?.toString() ?? '',
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
       uom: json['uom']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      reservedOrderId: json['reserved_order_id']?.toString() ?? '',
+      sourceReceiptId: json['source_receipt_id']?.toString() ?? '',
+      assignment: assignmentRaw is Map
+          ? AdminRawMaterialAssignment.fromJson(
+              assignmentRaw.cast<String, dynamic>(),
+            )
+          : null,
+      order: orderRaw is Map
+          ? ProductionMapDefinition.fromJson(orderRaw.cast<String, dynamic>())
+          : null,
+      queueStates: _stringMapOfStringMaps(json['queue_states']),
+      logs: [
+        for (final item in (json['logs'] as List? ?? const []))
+          AdminProductionOrderLogEntry.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
     );
   }
 }
@@ -1002,6 +1281,76 @@ extension MobileApiAdmin on MobileApi {
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<AdminServerMonitorReport> adminServerMonitor() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminServerMonitorReport(
+        server: AdminServerMonitorServer(
+          bindAddr: '127.0.0.1:8081',
+          startedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          uptimeSeconds: 3600,
+          status: 'running',
+        ),
+        database: const AdminServerMonitorDatabase(
+          configured: true,
+          reachable: true,
+          status: 'online',
+          pingMs: 12,
+          error: '',
+        ),
+        backups: AdminServerMonitorBackups(
+          directory: 'backups/mini_rs_erp_db',
+          exists: true,
+          fileCount: 1,
+          latest: AdminServerMonitorBackupFile(
+            name: 'mini_rs_erp_20260624_180448.dump',
+            path: 'backups/mini_rs_erp_db/mini_rs_erp_20260624_180448.dump',
+            sizeBytes: 12 * 1024 * 1024,
+            modifiedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            ageSeconds: 1800,
+          ),
+          error: '',
+        ),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('$baseUrl/v1/mobile/admin/system/monitor'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw const MobileApiException(
+        code: 'admin_server_monitor',
+        message: 'Server monitor yuklanmadi',
+      );
+    }
+    return AdminServerMonitorReport.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Uri adminServerMonitorLiveUri() {
+    final Uri base = Uri.parse(baseUrl);
+    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return base.replace(
+      scheme: scheme,
+      path: '/v1/mobile/admin/system/monitor/live',
+      queryParameters: {'token': requireToken()},
+    );
+  }
+
+  Stream<AdminServerMonitorReport> adminServerMonitorLiveEvents() async* {
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    await for (final event
+        in connectWarehouseLive(adminServerMonitorLiveUri())) {
+      if (event['ok'] == true) {
+        yield AdminServerMonitorReport.fromJson(event);
+      }
+    }
   }
 
   Future<List<AdminApparatusGroup>> adminApparatusGroups() async {
@@ -2552,6 +2901,44 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<AdminProgressQrReport> adminProgressQrReport(String qrPayload) async {
+    final normalized = qrPayload.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final batch = _testModeProgressBatchesByQr[normalized];
+      if (batch == null) {
+        throw const MobileApiException(
+          code: 'progress_batch_not_found',
+          message: 'Progress QR topilmadi',
+        );
+      }
+      return AdminProgressQrReport(
+        scannedBatch: batch,
+        currentBatch: batch,
+        isStale: false,
+        staleReason: '',
+        queueStates: const {},
+        logs: const [],
+        progressBatches: [batch],
+        runSessions: const [],
+        activeSessions: const [],
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse(
+            '$baseUrl/v1/mobile/admin/production-maps/progress-qr/report'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'qr_payload': normalized}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'progress_batch_not_found');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminProgressQrReport.fromJson(payload);
   }
 
   Future<void> adminSaveProductionMapSequence({

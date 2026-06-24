@@ -1,32 +1,44 @@
 import '../../shared/models/app_models.dart';
-import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileAvatarCache {
-  static String _pathKey(String ref) => 'profile_avatar_path_$ref';
-  static String _urlKey(String ref) => 'profile_avatar_url_$ref';
+  static const Duration _downloadTimeout = Duration(seconds: 8);
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+  static http.Client? debugHttpClient;
 
-  static Future<File?> getCached(SessionProfile profile) async {
+  static String _profileKey(SessionProfile profile) =>
+      '${profile.role.name}_${_safePart(profile.ref)}';
+  static String _bytesKey(SessionProfile profile) =>
+      'profile_avatar_bytes_${_profileKey(profile)}';
+  static String _urlKey(SessionProfile profile) =>
+      'profile_avatar_url_${_profileKey(profile)}';
+
+  static Future<Uint8List?> getCached(SessionProfile profile) async {
     if (profile.ref.trim().isEmpty) {
       return null;
     }
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_pathKey(profile.ref));
-    final url = prefs.getString(_urlKey(profile.ref));
-    if (path == null || path.isEmpty || url != profile.avatarUrl) {
+    final encoded = prefs.getString(_bytesKey(profile));
+    final url = prefs.getString(_urlKey(profile));
+    if (encoded == null || encoded.isEmpty || url != profile.avatarUrl) {
       return null;
     }
-    final file = File(path);
-    if (await file.exists()) {
-      return file;
+    try {
+      return base64Decode(encoded);
+    } catch (_) {
+      await prefs.remove(_bytesKey(profile));
+      await prefs.remove(_urlKey(profile));
+      _bumpRevision();
+      return null;
     }
-    return null;
   }
 
-  static Future<File?> cacheFromBytes(
+  static Future<Uint8List?> cacheFromBytes(
     SessionProfile profile,
     List<int> bytes,
     String filename,
@@ -34,18 +46,14 @@ class ProfileAvatarCache {
     if (profile.ref.trim().isEmpty || bytes.isEmpty) {
       return null;
     }
-    final dir = await getApplicationDocumentsDirectory();
-    final ext = _extensionFromFilename(filename);
-    final file = File('${dir.path}/avatar_${profile.ref}$ext');
-    await file.writeAsBytes(bytes, flush: true);
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_pathKey(profile.ref), file.path);
-    await prefs.setString(_urlKey(profile.ref), profile.avatarUrl);
-    return file;
+    await prefs.setString(_bytesKey(profile), base64Encode(bytes));
+    await prefs.setString(_urlKey(profile), profile.avatarUrl);
+    _bumpRevision();
+    return Uint8List.fromList(bytes);
   }
 
-  static Future<File?> ensureCached(SessionProfile profile) async {
+  static Future<Uint8List?> ensureCached(SessionProfile profile) async {
     if (profile.avatarUrl.trim().isEmpty) {
       return null;
     }
@@ -54,20 +62,25 @@ class ProfileAvatarCache {
       return cached;
     }
 
-    final response = await http.get(Uri.parse(profile.avatarUrl));
+    return refreshFromUrl(profile);
+  }
+
+  static Future<Uint8List?> refreshFromUrl(SessionProfile profile) async {
+    if (profile.avatarUrl.trim().isEmpty) {
+      return null;
+    }
+    final http.Response response;
+    try {
+      final uri = Uri.parse(profile.avatarUrl);
+      response = await (debugHttpClient?.get(uri) ?? http.get(uri))
+          .timeout(_downloadTimeout);
+    } catch (_) {
+      return null;
+    }
     if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
       return null;
     }
     return cacheFromBytes(profile, response.bodyBytes, profile.avatarUrl);
-  }
-
-  static String _extensionFromFilename(String filename) {
-    final clean = filename.split('?').first;
-    final dot = clean.lastIndexOf('.');
-    if (dot <= 0 || dot == clean.length - 1) {
-      return '.img';
-    }
-    return clean.substring(dot);
   }
 
   static Future<void> clearForProfile(SessionProfile profile) async {
@@ -75,14 +88,28 @@ class ProfileAvatarCache {
       return;
     }
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_pathKey(profile.ref));
-    if (path != null && path.trim().isNotEmpty) {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
+    await prefs.remove(_bytesKey(profile));
+    await prefs.remove(_urlKey(profile));
+    _bumpRevision();
+  }
+
+  static void _bumpRevision() {
+    revision.value = revision.value + 1;
+  }
+
+  static String _safePart(String value) {
+    final buffer = StringBuffer();
+    for (final codeUnit in value.trim().codeUnits) {
+      final isDigit = codeUnit >= 48 && codeUnit <= 57;
+      final isUpper = codeUnit >= 65 && codeUnit <= 90;
+      final isLower = codeUnit >= 97 && codeUnit <= 122;
+      if (isDigit || isUpper || isLower || codeUnit == 45 || codeUnit == 95) {
+        buffer.writeCharCode(isUpper ? codeUnit + 32 : codeUnit);
+      } else if (buffer.isNotEmpty && !buffer.toString().endsWith('_')) {
+        buffer.write('_');
       }
     }
-    await prefs.remove(_pathKey(profile.ref));
-    await prefs.remove(_urlKey(profile.ref));
+    final safe = buffer.toString().replaceAll(RegExp(r'^_+|_+$'), '');
+    return safe.isEmpty ? 'profile' : safe;
   }
 }

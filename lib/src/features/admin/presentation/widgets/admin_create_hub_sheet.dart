@@ -277,6 +277,12 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         routeName: AppRoutes.adminItemCreate,
       ),
       const _AdminHubActionCandidate(
+        key: ValueKey('admin-hub-progress-qr-scan'),
+        title: 'QR scan',
+        icon: Icons.qr_code_scanner_rounded,
+        routeName: AppRoutes.adminProgressQrScan,
+      ),
+      const _AdminHubActionCandidate(
         key: ValueKey('admin-hub-quick-orders'),
         title: 'Tezkor buyurtmalar',
         icon: Icons.list_alt_outlined,

@@ -1,3 +1,8 @@
+import 'dart:typed_data';
+
+import '../../../app/app_router.dart';
+import '../../../features/shared/data/profile_avatar_cache.dart';
+import '../../session/session.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
 import '../../native_back_button_bridge.dart';
@@ -254,6 +259,20 @@ class _AppShellState extends State<AppShell>
     );
   }
 
+  List<Widget>? _nativeAppBarActions() {
+    if (widget.titleWidget != null) {
+      return widget.actions;
+    }
+    final routeName = ModalRoute.of(context)?.settings.name;
+    final showProfile = routeName != AppRoutes.profile;
+    final actions = <Widget>[
+      ...?widget.actions,
+      if (showProfile) const _AppShellProfileAction(),
+      if (showProfile) const SizedBox(width: 10),
+    ];
+    return actions.isEmpty ? null : actions;
+  }
+
   double _drawerEdgeDragTopInset(BuildContext context) {
     if (!widget.nativeTopBar) {
       return 0;
@@ -299,7 +318,7 @@ class _AppShellState extends State<AppShell>
                   : widget.automaticallyImplyNativeLeading &&
                       widget.leading == null &&
                       widget.drawer == null,
-              actions: widget.actions,
+              actions: _nativeAppBarActions(),
               backgroundColor: widget.backgroundColor ??
                   theme.appBarTheme.backgroundColor ??
                   theme.colorScheme.surfaceContainer,
@@ -627,6 +646,86 @@ class AppShellIconAction extends StatefulWidget {
 
   @override
   State<AppShellIconAction> createState() => _AppShellIconActionState();
+}
+
+class _AppShellProfileAction extends StatefulWidget {
+  const _AppShellProfileAction();
+
+  @override
+  State<_AppShellProfileAction> createState() => _AppShellProfileActionState();
+}
+
+class _AppShellProfileActionState extends State<_AppShellProfileAction> {
+  Uint8List? _avatarBytes;
+  String _profileKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    ProfileAvatarCache.revision.addListener(_handleAvatarChanged);
+    _loadAvatar();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AppShellProfileAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadAvatar();
+  }
+
+  @override
+  void dispose() {
+    ProfileAvatarCache.revision.removeListener(_handleAvatarChanged);
+    super.dispose();
+  }
+
+  void _handleAvatarChanged() {
+    _loadAvatar(force: true);
+  }
+
+  Future<void> _loadAvatar({bool force = false}) async {
+    final profile = AppSession.instance.profile;
+    final key = profile == null
+        ? ''
+        : '${profile.accessRole?.name ?? profile.role.name}:${profile.ref}:${profile.avatarUrl}';
+    if (!force && key == _profileKey) {
+      return;
+    }
+    _profileKey = key;
+    final bytes =
+        profile == null ? null : await ProfileAvatarCache.ensureCached(profile);
+    if (!mounted || key != _profileKey) {
+      return;
+    }
+    setState(() {
+      _avatarBytes = bytes;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38,
+      child: IconButton.filledTonal(
+        tooltip: 'Profil',
+        style: IconButton.styleFrom(padding: EdgeInsets.zero),
+        onPressed: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+        icon: _avatarBytes == null || _avatarBytes!.isEmpty
+            ? const Icon(Icons.person_rounded, size: 22)
+            : ClipOval(
+                child: Image.memory(
+                  _avatarBytes!,
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.cover,
+                  cacheWidth: 64,
+                  cacheHeight: 64,
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: true,
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 class _AppShellIconActionState extends State<AppShellIconAction> {

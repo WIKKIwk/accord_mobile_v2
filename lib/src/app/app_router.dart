@@ -16,9 +16,11 @@ import '../features/admin/presentation/admin_item_group_create_screen.dart';
 import '../features/admin/presentation/admin_notifications_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
+import '../features/admin/presentation/admin_progress_qr_scan_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
 import '../features/admin/presentation/admin_production_map_orders_screen.dart';
 import '../features/admin/presentation/admin_raw_material_rules_screen.dart';
+import '../features/admin/presentation/admin_server_monitor_screen.dart';
 import '../features/admin/presentation/admin_supplier_create_screen.dart';
 import '../features/admin/presentation/admin_customer_create_screen.dart';
 import '../features/admin/presentation/admin_customer_detail_screen.dart';
@@ -137,6 +139,8 @@ class AppRoutes {
   static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String adminProgressQrScan = '/admin-progress-qr-scan';
+  static const String adminServerMonitor = '/admin-server-monitor';
   static const String adminWipBatches = '/admin-wip-batches';
   static const String adminQueuePolicies = '/admin-queue-policies';
   static const String adminApparatusSettings = '/admin-apparatus-settings';
@@ -187,6 +191,8 @@ class AppRouter {
     AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.adminProgressQrScan,
+    AppRoutes.adminServerMonitor,
     AppRoutes.adminWipBatches,
     AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusSettings,
@@ -428,6 +434,10 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.adminProgressQrScan:
+        return _buildRoute(settings, const AdminProgressQrScanScreen());
+      case AppRoutes.adminServerMonitor:
+        return _buildRoute(settings, const AdminServerMonitorScreen());
       case AppRoutes.adminWipBatches:
         return _buildRoute(settings, const AdminWipBatchesScreen());
       case AppRoutes.adminQueuePolicies:
@@ -680,6 +690,11 @@ class AppRouter {
       'admin.access',
       'production.map.manage',
     },
+    AppRoutes.adminProgressQrScan: {
+      'admin.access',
+      'production.map.manage',
+    },
+    AppRoutes.adminServerMonitor: {'admin.access'},
     AppRoutes.adminWipBatches: {
       'admin.access',
       'production.map.manage',

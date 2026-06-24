@@ -146,6 +146,46 @@ void main() {
             ));
   });
 
+  test('progress qr report reads server aggregated order flow', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['admin.access'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final report = await MobileApi.instance.adminProgressQrReport(
+        'GSP:PROGRESS-OLD',
+      );
+
+      expect(report.scannedBatch.qrPayload, 'GSP:PROGRESS-OLD');
+      expect(report.currentBatch?.qrPayload, 'GSP:PROGRESS-NEW');
+      expect(report.isStale, isTrue);
+      expect(report.staleReason, 'processed_by_next_stage');
+      expect(report.order?.id, 'zakaz-1');
+      expect(report.queueStates['Qadoqlash stol']?['zakaz-1'], 'completed');
+      expect(report.logs.single.actorDisplayName, 'Aparatchi');
+      expect(report.runSessions.map((session) => session.status), [
+        'completed',
+        'completed',
+      ]);
+      expect(report.openedBy?.actorRef, 'worker-1');
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/progress-qr/report '
+          '{"qr_payload":"GSP:PROGRESS-OLD"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('bosma complete action sends completion metrics and parses them',
       () async {
     final seenRequests = <String>[];
@@ -459,6 +499,38 @@ void main() {
           'BODY POST /v1/mobile/admin/raw-material-assignments '
           '{"order_id":"zakaz-1","barcode":"RM-001"}',
         ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('raw material lookup returns understandable scan report data', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['admin.access'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final lookup = await MobileApi.instance.adminRawMaterialLookup(
+        barcode: 'RM-001',
+      );
+
+      expect(lookup.barcode, 'RM-001');
+      expect(lookup.status, 'in_use');
+      expect(lookup.reservedOrderId, 'zakaz-1');
+      expect(lookup.assignment?.apparatus, 'Pechat');
+      expect(lookup.order?.title, 'Paynet');
+      expect(lookup.logs.single.action, 'start');
+      expect(
+        seenRequests,
+        contains(
+            'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=RM-001'),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
@@ -813,6 +885,99 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'executor_name': 'Aparatchi',
           },
         };
+      case 'POST /v1/mobile/admin/production-maps/progress-qr/report':
+        body = const {
+          'ok': true,
+          'scanned_batch': {
+            'batch_id': 'progress-old',
+            'session_id': 'session-1',
+            'apparatus': 'Pechat',
+            'order_id': 'zakaz-1',
+            'action': 'pause',
+            'status': 'paused',
+            'produced_qty': 12.5,
+            'uom': 'kg',
+            'qr_payload': 'GSP:PROGRESS-OLD',
+            'label_item_code': 'zakaz-1',
+            'label_item_name': 'Zakaz yarim tayyor',
+            'executor_name': 'Aparatchi',
+            'wip_status': 'processed',
+          },
+          'current_batch': {
+            'batch_id': 'progress-new',
+            'session_id': 'session-2',
+            'apparatus': 'Qadoqlash stol',
+            'order_id': 'zakaz-1',
+            'action': 'complete',
+            'status': 'completed',
+            'produced_qty': 10,
+            'uom': 'kg',
+            'qr_payload': 'GSP:PROGRESS-NEW',
+            'label_item_code': 'zakaz-1',
+            'label_item_name': 'Zakaz tayyor',
+            'executor_name': 'Aparatchi',
+            'wip_status': 'waiting',
+          },
+          'is_stale': true,
+          'stale_reason': 'processed_by_next_stage',
+          'order': {
+            'id': 'zakaz-1',
+            'product_code': 'PECHAT-1',
+            'title': 'QR report order',
+            'order_number': '1',
+            'nodes': [],
+            'edges': [],
+          },
+          'queue_states': {
+            'Qadoqlash stol': {'zakaz-1': 'completed'},
+          },
+          'logs': [
+            {
+              'event_id': 'event-1',
+              'apparatus': 'Pechat',
+              'order_id': 'zakaz-1',
+              'action': 'start',
+              'from_state': 'pending',
+              'to_state': 'in_progress',
+              'actor_role': 'aparatchi',
+              'actor_ref': 'worker-1',
+              'actor_display_name': 'Aparatchi',
+              'created_at_unix': 1781779900,
+            },
+          ],
+          'progress_batches': [],
+          'run_sessions': [
+            {
+              'session_id': 'session-1',
+              'apparatus': 'Pechat',
+              'order_id': 'zakaz-1',
+              'status': 'completed',
+              'worker_role': 'aparatchi',
+              'worker_ref': 'worker-1',
+              'worker_display_name': 'Aparatchi',
+              'started_at_unix': 1781779800,
+              'updated_at_unix': 1781779900,
+            },
+            {
+              'session_id': 'session-2',
+              'apparatus': 'Qadoqlash stol',
+              'order_id': 'zakaz-1',
+              'status': 'completed',
+              'worker_role': 'aparatchi',
+              'worker_ref': 'worker-2',
+              'worker_display_name': 'Qadoqlovchi',
+              'started_at_unix': 1781780000,
+              'updated_at_unix': 1781780100,
+            },
+          ],
+          'active_sessions': [],
+          'opened_by': {
+            'actor_role': 'aparatchi',
+            'actor_ref': 'worker-1',
+            'actor_display_name': 'Aparatchi',
+            'opened_at_unix': 1781779900,
+          },
+        };
       case 'GET /v1/mobile/admin/production-maps/closed-orders':
         body = const {
           'ok': true,
@@ -921,6 +1086,58 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'stock_status': 'in_use',
           'reserved_order_id': 'zakaz-1',
           'stock_warehouse': 'Kalidor',
+        };
+      case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=RM-001':
+        body = const {
+          'barcode': 'RM-001',
+          'warehouse': 'Kalidor',
+          'item_code': 'KR-1',
+          'item_name': 'Qora kraska',
+          'item_group': 'Kraska',
+          'qty': 12,
+          'uom': 'kg',
+          'status': 'in_use',
+          'reserved_order_id': 'zakaz-1',
+          'source_receipt_id': 'GSR-RM-001',
+          'assignment': {
+            'order_id': 'zakaz-1',
+            'apparatus': 'Pechat',
+            'barcode': 'RM-001',
+            'item_code': 'KR-1',
+            'item_name': 'Qora kraska',
+            'item_group': 'Kraska',
+            'assigned_by_ref': 'admin',
+            'assigned_by_display_name': 'Admin',
+            'assigned_at': '2026-06-16T10:00:00Z',
+            'stock_status': 'in_use',
+            'reserved_order_id': 'zakaz-1',
+            'stock_warehouse': 'Kalidor',
+          },
+          'order': {
+            'id': 'zakaz-1',
+            'product_code': 'Paynet',
+            'title': 'Paynet',
+            'order_number': '6365',
+            'nodes': [],
+            'edges': [],
+          },
+          'queue_states': {
+            'Pechat': {'zakaz-1': 'in_progress'},
+          },
+          'logs': [
+            {
+              'event_id': 'event-raw-1',
+              'apparatus': 'Pechat',
+              'order_id': 'zakaz-1',
+              'action': 'start',
+              'from_state': 'pending',
+              'to_state': 'in_progress',
+              'actor_role': 'aparatchi',
+              'actor_ref': 'worker-1',
+              'actor_display_name': 'Pechatchi',
+              'created_at_unix': 1781779900,
+            },
+          ],
         };
       case 'DELETE /v1/mobile/admin/raw-material-assignments':
         if (unlinkErrorCode.isNotEmpty) {

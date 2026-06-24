@@ -119,6 +119,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminActivityTitle,
       routeName: AppRoutes.adminActivity,
     ),
+    const RoleNavigationDrawerDestination(
+      icon: Icons.monitor_heart_outlined,
+      selectedIcon: Icons.monitor_heart_rounded,
+      label: 'Server monitor',
+      routeName: AppRoutes.adminServerMonitor,
+    ),
     RoleNavigationDrawerDestination(
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
