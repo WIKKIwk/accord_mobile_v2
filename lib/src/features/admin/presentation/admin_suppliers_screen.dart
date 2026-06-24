@@ -508,7 +508,7 @@ class _AdminUserRolePicker extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
