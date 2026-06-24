@@ -331,6 +331,20 @@ void main() {
       expect(find.text('Ishchi'), findsNothing);
       expect(find.text('Supplier One'), findsOneWidget);
       expect(find.text('Jasur worker'), findsNothing);
+      final rolePickerMaterial = tester.widget<Material>(
+        find
+            .ancestor(
+              of: find.byKey(const ValueKey('admin-users-role-picker')),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(
+        rolePickerMaterial.color,
+        Theme.of(
+          tester.element(find.byKey(const ValueKey('admin-users-role-picker'))),
+        ).colorScheme.surfaceContainerHighest,
+      );
 
       await _selectUserRole(tester, 'Ishchi');
       expect(find.text('Supplier One'), findsNothing);
