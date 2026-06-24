@@ -30,17 +30,17 @@ extension _WipBatchStatusX on _WipBatchStatus {
 
   String get title {
     return switch (this) {
-      _WipBatchStatus.waiting => 'Kutilmoqda',
-      _WipBatchStatus.inUse => 'Ishlatilyapti',
-      _WipBatchStatus.processed => 'Ishlangan',
+      _WipBatchStatus.waiting => 'Kutmoqda',
+      _WipBatchStatus.inUse => 'Ishda',
+      _WipBatchStatus.processed => 'Tugadi',
     };
   }
 
   String get emptyText {
     return switch (this) {
-      _WipBatchStatus.waiting => 'Kutilayotgan oraliq mahsulot yo‘q',
-      _WipBatchStatus.inUse => 'Hozir ishlatilayotgan oraliq mahsulot yo‘q',
-      _WipBatchStatus.processed => 'Ishlangan oraliq mahsulot yo‘q',
+      _WipBatchStatus.waiting => 'Kutayotgan mahsulot yo‘q',
+      _WipBatchStatus.inUse => 'Ishlayotgan mahsulot yo‘q',
+      _WipBatchStatus.processed => 'Tugagan mahsulot yo‘q',
     };
   }
 
@@ -253,8 +253,8 @@ class _WipIntroText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        'Aparatdan chiqqan QR mahsulotlar qayerda turgani va qaysi aparat '
-        'ishlatayotgani shu yerda ko‘rinadi.',
+        'Bu yerda mahsulot qaysi aparatdan chiqqani, hozir qayerda turgani '
+        'va keyingi bosqichga o‘tgan-o‘tmagani ko‘rinadi.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.3,
@@ -369,21 +369,30 @@ class _WipBatchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final title = _firstNotEmpty([
+    final rawTitle = _firstNotEmpty([
       batch.labelItemName,
       batch.labelItemCode,
       batch.orderId,
     ]);
+    final productTitle = _headlineForBatch(rawTitle);
     final currentPlace = _firstNotEmpty([
       batch.currentLocation,
       batch.currentApparatus,
       batch.apparatus,
     ]);
+    final sourceApparatus = _valueOrDash(batch.apparatus);
     final worker = _firstNotEmpty([
       batch.workerDisplayName,
       batch.executorName,
       batch.workerRef,
     ]);
+    final summary = _buildFriendlySummary(
+      batch: batch,
+      status: status,
+      sourceApparatus: sourceApparatus,
+      currentPlace: currentPlace,
+      worker: worker,
+    );
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -401,7 +410,7 @@ class _WipBatchTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        productTitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -434,34 +443,32 @@ class _WipBatchTile extends StatelessWidget {
             ),
             _WipInfoLine(
               icon: Icons.output_rounded,
-              label: 'Chiqqan aparat',
-              value: _valueOrDash(batch.apparatus),
+              label: 'Qayerdan chiqdi',
+              value: sourceApparatus,
             ),
             _WipInfoLine(
               icon: Icons.place_outlined,
-              label: 'Hozirgi joyi',
+              label: 'Hozir qayerda',
               value: _valueOrDash(currentPlace),
             ),
             _WipInfoLine(
               icon: Icons.call_split_rounded,
-              label: 'Keyingi aparat',
-              value: _valueOrDash(batch.nextApparatus),
+              label: 'Keyingi bosqich',
+              value: _nextStepText(batch.nextApparatus, status),
             ),
             _WipInfoLine(
               icon: Icons.badge_outlined,
               label: 'Ishchi',
               value: _valueOrDash(worker),
             ),
-            if (batch.description.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                batch.description.trim(),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.3,
-                ),
+            const SizedBox(height: 8),
+            Text(
+              summary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
               ),
-            ],
+            ),
             if (batch.qrPayload.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
@@ -577,4 +584,67 @@ String _firstNotEmpty(List<String> values) {
 String _valueOrDash(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? '-' : trimmed;
+}
+
+String _headlineForBatch(String rawTitle) {
+  final trimmed = rawTitle.trim();
+  if (trimmed.isEmpty) {
+    return 'Oraliq mahsulot';
+  }
+  final shortTitle = trimmed.split(',').first.trim();
+  if (shortTitle.isEmpty) {
+    return 'Oraliq mahsulot';
+  }
+  if (shortTitle.toLowerCase().contains('mahsulot')) {
+    return shortTitle;
+  }
+  return '$shortTitle mahsuloti';
+}
+
+String _nextStepText(String nextApparatus, _WipBatchStatus status) {
+  final trimmed = nextApparatus.trim();
+  if (trimmed.isNotEmpty) {
+    return trimmed;
+  }
+  return switch (status) {
+    _WipBatchStatus.waiting => 'Hali boshlanmagan',
+    _WipBatchStatus.inUse => 'Navbatdagi bosqich kutmoqda',
+    _WipBatchStatus.processed => 'Yakunlangan',
+  };
+}
+
+String _buildFriendlySummary({
+  required AdminProgressBatch batch,
+  required _WipBatchStatus status,
+  required String sourceApparatus,
+  required String currentPlace,
+  required String worker,
+}) {
+  final product = _headlineForBatch(batch.labelItemName);
+  final quantity = formatQuantityWithUnit(
+    batch.producedQty,
+    batch.uom,
+    trimTrailingZeros: true,
+  );
+  final sourceText =
+      sourceApparatus == '-' ? 'noma’lum aparatdan' : '${sourceApparatus}dan';
+  final waitingPlace =
+      currentPlace == '-' ? 'noma’lum joyda' : '$currentPlace yonida';
+  final inUsePlace =
+      currentPlace == '-' ? 'noma’lum joyda' : '$currentPlace ishlayapti';
+  final processedPlace =
+      currentPlace == '-' ? 'noma’lum joyda' : '${currentPlace}da';
+  final workerText = worker == '-' ? '' : ' Ishchi: $worker.';
+  return switch (status) {
+    _WipBatchStatus.waiting =>
+      '$product $sourceText chiqdi. Hozir $waitingPlace turibdi. '
+          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
+          'Miqdor: $quantity.$workerText',
+    _WipBatchStatus.inUse => '$product hozir ishlanmoqda. Hozir $inUsePlace. '
+        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
+        'Miqdor: $quantity.$workerText',
+    _WipBatchStatus.processed =>
+      '$product tugagan. Qayerdan chiqdi: $sourceApparatus. '
+          'Hozir: $processedPlace. Miqdor: $quantity.$workerText',
+  };
 }
