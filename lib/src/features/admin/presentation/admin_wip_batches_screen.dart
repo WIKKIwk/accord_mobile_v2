@@ -454,12 +454,12 @@ class _WipBatchTile extends StatelessWidget {
             _WipInfoLine(
               icon: Icons.call_split_rounded,
               label: 'Keyingi aparat',
-              value: _nextApparatusText(batch.nextApparatus),
+              value: _nextApparatusText(batch.nextApparatus, status),
             ),
             _WipInfoLine(
               icon: Icons.alt_route_rounded,
               label: 'Keyingi bosqich',
-              value: _nextStepText(batch.nextApparatus),
+              value: _nextStepText(batch.nextApparatus, status),
             ),
             _WipInfoLine(
               icon: Icons.badge_outlined,
@@ -606,14 +606,28 @@ String _headlineForBatch(String rawTitle) {
   return '$shortTitle mahsuloti';
 }
 
-String _nextApparatusText(String nextApparatus) {
+String _nextApparatusText(String nextApparatus, _WipBatchStatus status) {
   final trimmed = nextApparatus.trim();
-  return trimmed.isEmpty ? 'Ombor' : trimmed;
+  if (trimmed.isNotEmpty) {
+    return trimmed;
+  }
+  return switch (status) {
+    _WipBatchStatus.waiting => 'Aniqlanmagan',
+    _WipBatchStatus.inUse => 'Aniqlanmagan',
+    _WipBatchStatus.processed => 'Ombor',
+  };
 }
 
-String _nextStepText(String nextApparatus) {
+String _nextStepText(String nextApparatus, _WipBatchStatus status) {
   final trimmed = nextApparatus.trim();
-  return trimmed.isEmpty ? 'Ombor' : trimmed;
+  if (trimmed.isNotEmpty) {
+    return trimmed;
+  }
+  return switch (status) {
+    _WipBatchStatus.waiting => 'Keyingi aparat topilmadi',
+    _WipBatchStatus.inUse => 'Keyingi aparat topilmadi',
+    _WipBatchStatus.processed => 'Omborga ketadi',
+  };
 }
 
 String _buildFriendlySummary({
@@ -641,16 +655,16 @@ String _buildFriendlySummary({
   return switch (status) {
     _WipBatchStatus.waiting =>
       '$product $sourceText chiqdi. Hozir $waitingPlace turibdi. '
-          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
-          'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
+          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
+          'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus, status)}. '
           'Miqdor: $quantity.$workerText',
     _WipBatchStatus.inUse => '$product hozir ishlanmoqda. Hozir $inUsePlace. '
-        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
-        'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
+        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
+        'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus, status)}. '
         'Miqdor: $quantity.$workerText',
     _WipBatchStatus.processed =>
       '$product tugagan. Qayerdan chiqdi: $sourceApparatus. '
-          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
+          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
           'Miqdor: $quantity.$workerText',
   };
 }
