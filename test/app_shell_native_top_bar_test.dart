@@ -43,7 +43,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Drawer content'), findsNothing);
+    expect(find.text('Drawer content', skipOffstage: false), findsOneWidget);
 
     await tester.dragFrom(const Offset(4, 320), const Offset(80, 0));
     await tester.pumpAndSettle();

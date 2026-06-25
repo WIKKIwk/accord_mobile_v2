@@ -407,7 +407,7 @@ class _AppShellState extends State<AppShell>
                         onHorizontalDragCancel: _handleDrawerEdgeDragCancel,
                       ),
                     ),
-                  if (drawerBlocking) ...[
+                  if (drawerBlocking)
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -424,17 +424,22 @@ class _AppShellState extends State<AppShell>
                         ),
                       ),
                     ),
-                    SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(-1, 0),
-                        end: Offset.zero,
-                      ).animate(curved),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: widget.drawer!,
+                  Offstage(
+                    offstage: !drawerBlocking,
+                    child: IgnorePointer(
+                      ignoring: !drawerBlocking,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(-1, 0),
+                          end: Offset.zero,
+                        ).animate(curved),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: widget.drawer!,
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             );
