@@ -288,8 +288,6 @@ class _AdminRawMaterialSettingsScreenState
             children: [
               AdminSurfaceTabBar(
                 controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(height: 38, text: 'Qoidalar'),
                   Tab(height: 38, text: 'Majburiylik'),
