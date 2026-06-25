@@ -259,8 +259,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         barrierColor: Colors.black.withValues(alpha: 0.72),
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
-        transitionDuration: const Duration(milliseconds: 280),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (context, animation, secondaryAnimation) {
           return _AvatarPreviewOverlay(
             displayName: displayName,
