@@ -218,6 +218,57 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool get _hasProfileChanges =>
       _hasNicknameChanges || pendingAvatarBytes != null;
 
+  void _showAvatarPreview(String displayName) {
+    final bytes = pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty
+        ? pendingAvatarBytes
+        : cachedAvatarBytes;
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        final avatarSize = (size.shortestSide * 0.72).clamp(220.0, 360.0);
+        return Dialog.fullscreen(
+          backgroundColor: Colors.transparent,
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                    child: Center(
+                      child: InteractiveViewer(
+                        minScale: 1,
+                        maxScale: 3,
+                        child: _LargeAvatarPreview(
+                          displayName: displayName,
+                          avatarBytes: bytes,
+                          size: avatarSize,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: IconButton.filledTonal(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: MaterialLocalizations.of(
+                      dialogContext,
+                    ).closeButtonTooltip,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _saveProfileChanges() async {
     if (_hasNicknameChanges) {
       await _saveNickname();
@@ -451,6 +502,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     displayName: displayName,
                                     cachedAvatarBytes: cachedAvatarBytes,
                                     pendingAvatarBytes: pendingAvatarBytes,
+                                    onTap: () =>
+                                        _showAvatarPreview(displayName),
                                   ),
                                   Positioned(
                                     right: 0,
@@ -1576,11 +1629,13 @@ class _AvatarPreview extends StatelessWidget {
     required this.displayName,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
+    required this.onTap,
   });
 
   final String displayName;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1598,8 +1653,9 @@ class _AvatarPreview extends StatelessWidget {
       ),
     );
 
+    Widget avatar;
     if (pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty) {
-      return ClipOval(
+      avatar = ClipOval(
         child: Image.memory(
           pendingAvatarBytes!,
           height: 96,
@@ -1608,17 +1664,69 @@ class _AvatarPreview extends StatelessWidget {
           errorBuilder: (context, error, stackTrace) => fallback,
         ),
       );
+    } else if (cachedAvatarBytes == null || cachedAvatarBytes!.isEmpty) {
+      avatar = fallback;
+    } else {
+      avatar = ClipOval(
+        child: Image.memory(
+          cachedAvatarBytes!,
+          height: 96,
+          width: 96,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => fallback,
+        ),
+      );
     }
 
-    if (cachedAvatarBytes == null || cachedAvatarBytes!.isEmpty) {
+    return Semantics(
+      button: true,
+      label: 'Profil rasmini kattalashtirish',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: avatar,
+      ),
+    );
+  }
+}
+
+class _LargeAvatarPreview extends StatelessWidget {
+  const _LargeAvatarPreview({
+    required this.displayName,
+    required this.avatarBytes,
+    required this.size,
+  });
+
+  final String displayName;
+  final Uint8List? avatarBytes;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        color: AppTheme.actionSurface(context),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        (displayName.isNotEmpty ? displayName[0] : 'U').toUpperCase(),
+        style: Theme.of(context).textTheme.displayMedium,
+      ),
+    );
+
+    final bytes = avatarBytes;
+    if (bytes == null || bytes.isEmpty) {
       return fallback;
     }
 
     return ClipOval(
       child: Image.memory(
-        cachedAvatarBytes!,
-        height: 96,
-        width: 96,
+        bytes,
+        height: size,
+        width: size,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => fallback,
       ),
