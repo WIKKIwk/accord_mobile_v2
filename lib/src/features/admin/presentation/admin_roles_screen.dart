@@ -1,18 +1,18 @@
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../logic/admin_aparatchi_assignment.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_apparatus_scope_picker.dart';
 import 'widgets/admin_dock.dart';
-import 'widgets/admin_navigation_drawer.dart';
-import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_shell.dart';
+import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -67,14 +67,6 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       _future = _load();
     });
     await _future;
-  }
-
-  void _openDrawerRoute(String routeName) {
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == routeName) {
-      return;
-    }
-    AdminDrawerNavigation.openRoute(context, routeName);
   }
 
   Future<void> _openRoleEditor(
@@ -165,18 +157,11 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 3,
-        onNavigate: _openDrawerRoute,
-      ),
+    return AdminShell(
       title: context.l10n.adminRolesTitle,
-      subtitle: '',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      selectedRouteName: AppRoutes.adminRoles,
+      activeTab: AdminDockTab.settings,
       bottomDockFadeStrength: null,
-      contentPadding: EdgeInsets.zero,
       child: FutureBuilder<_AdminRolesData>(
         future: _future,
         builder: (context, snapshot) {
@@ -226,16 +211,12 @@ class _AdminRoleTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerLow,
-      child: TabBar(
-        controller: controller,
-        tabs: [
-          Tab(text: context.l10n.adminRolesTitle),
-          Tab(text: context.l10n.adminRolesAssignTab),
-        ],
-      ),
+    return AdminSurfaceTabBar(
+      controller: controller,
+      tabs: [
+        Tab(height: 38, text: context.l10n.adminRolesTitle),
+        Tab(height: 38, text: context.l10n.adminRolesAssignTab),
+      ],
     );
   }
 }
