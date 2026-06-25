@@ -56,6 +56,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late Future<_WipBatchesData> _future;
+  String _apparatusFilter = '';
 
   @override
   void initState() {
@@ -73,18 +74,31 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     super.dispose();
   }
 
-  Future<_WipBatchesData> _load() async {
-    final results = await Future.wait([
+  Future<_WipBatchesData> _load([String? apparatusFilter]) async {
+    final apparatus = (apparatusFilter ?? _apparatusFilter).trim();
+    final allResults = await Future.wait([
       for (final status in _WipBatchStatus.values)
         MobileApi.instance.adminWipBatches(
           status: status.apiValue,
           limit: _wipFetchLimit,
         ),
     ]);
+    final availableApparatus =
+        _apparatusOptions(allResults.expand((item) => item));
+    final results = apparatus.isEmpty
+        ? allResults
+        : await Future.wait([
+            for (final status in _WipBatchStatus.values)
+              MobileApi.instance.adminWipBatches(
+                status: status.apiValue,
+                apparatus: apparatus,
+                limit: _wipFetchLimit,
+              ),
+          ]);
     return _WipBatchesData({
       for (var i = 0; i < _WipBatchStatus.values.length; i++)
         _WipBatchStatus.values[i]: results[i],
-    });
+    }, availableApparatus: availableApparatus);
   }
 
   Future<void> _reload() async {
@@ -101,6 +115,18 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
       return;
     }
     AdminDrawerNavigation.openRoute(context, routeName);
+  }
+
+  void _setApparatusFilter(String apparatus) {
+    final next = apparatus.trim();
+    if (_apparatusFilter == next) {
+      return;
+    }
+    final nextFuture = _load(next);
+    setState(() {
+      _apparatusFilter = next;
+      _future = nextFuture;
+    });
   }
 
   @override
@@ -145,6 +171,11 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
                       ),
                   ],
                 ),
+                _WipApparatusFilterBar(
+                  selectedApparatus: _apparatusFilter,
+                  apparatuses: data.availableApparatus,
+                  onChanged: _setApparatusFilter,
+                ),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -169,11 +200,15 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
 }
 
 class _WipBatchesData {
-  const _WipBatchesData(this.byStatus);
+  const _WipBatchesData(
+    this.byStatus, {
+    this.availableApparatus = const [],
+  });
 
   static const empty = _WipBatchesData({});
 
   final Map<_WipBatchStatus, List<AdminProgressBatch>> byStatus;
+  final List<String> availableApparatus;
 
   List<AdminProgressBatch> batches(_WipBatchStatus status) {
     return byStatus[status] ?? const [];
@@ -181,6 +216,57 @@ class _WipBatchesData {
 
   int count(_WipBatchStatus status) {
     return batches(status).length;
+  }
+}
+
+class _WipApparatusFilterBar extends StatelessWidget {
+  const _WipApparatusFilterBar({
+    required this.selectedApparatus,
+    required this.apparatuses,
+    required this.onChanged,
+  });
+
+  final String selectedApparatus;
+  final List<String> apparatuses;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final selected = selectedApparatus.trim();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        border: Border(
+          bottom:
+              BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+      ),
+      child: SizedBox(
+        height: 48,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          scrollDirection: Axis.horizontal,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return FilterChip(
+                label: const Text('Barchasi'),
+                selected: selected.isEmpty,
+                onSelected: (_) => onChanged(''),
+              );
+            }
+            final apparatus = apparatuses[index - 1];
+            return FilterChip(
+              label: Text(apparatus),
+              selected: selected == apparatus,
+              onSelected: (_) => onChanged(apparatus),
+            );
+          },
+          separatorBuilder: (context, index) => const SizedBox(width: 8),
+          itemCount: apparatuses.length + 1,
+        ),
+      ),
+    );
   }
 }
 
@@ -513,6 +599,20 @@ String _firstNotEmpty(List<String> values) {
     }
   }
   return '-';
+}
+
+List<String> _apparatusOptions(Iterable<AdminProgressBatch> batches) {
+  final values = <String>{};
+  for (final batch in batches) {
+    final apparatus = batch.currentApparatus.trim();
+    if (apparatus.isNotEmpty) {
+      values.add(apparatus);
+    }
+  }
+  final sorted = values.toList(growable: false);
+  sorted
+      .sort((left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
+  return sorted;
 }
 
 String _valueOrDash(String value) {
