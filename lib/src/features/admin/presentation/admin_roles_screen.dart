@@ -309,86 +309,126 @@ class _RoleDefinitionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = context.l10n;
     final capabilityLabels = role.capabilityCodes
         .map((code) => _capabilityLabel(l10n, code, capabilities))
         .toList(growable: false);
-    return M3SegmentFilledSurface(
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
+    return Material(
       key: ValueKey('admin-role-card-${role.id}'),
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerLarge,
-      onTap: () => onExpandedChanged(!expanded),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  role.system
-                      ? Icons.admin_panel_settings_outlined
-                      : Icons.verified_user_outlined,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _roleDefinitionLabel(context, role),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                if (onEdit != null)
-                  IconButton(
-                    key: ValueKey('admin-role-edit-${role.id}'),
-                    tooltip: l10n.adminEditRole,
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                IconButton(
-                  key: ValueKey('admin-role-details-${role.id}'),
-                  tooltip: expanded
-                      ? l10n.adminRoleDetailsHide
-                      : l10n.adminRoleDetailsShow,
-                  onPressed: () => onExpandedChanged(!expanded),
-                  icon: AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: const Icon(Icons.keyboard_arrow_down_rounded),
-                  ),
-                ),
-              ],
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: expanded
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 36, right: 4),
+      color: scheme.surface,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => onExpandedChanged(!expanded),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
+                child: Row(
+                  children: [
+                    SizedBox.square(
+                      dimension: 30,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          role.system
+                              ? Icons.admin_panel_settings_rounded
+                              : Icons.verified_user_rounded,
+                          size: 16,
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 6),
+                          Text(
+                            _roleDefinitionLabel(context, role),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Text(
                             _roleDefinitionSummary(l10n, role),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          if (capabilityLabels.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              capabilityLabels.join(', '),
-                              style: theme.textTheme.bodyMedium,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.2,
                             ),
-                          ],
+                          ),
                         ],
                       ),
-                    )
-                  : const SizedBox.shrink(),
+                    ),
+                    if (onEdit != null)
+                      IconButton(
+                        key: ValueKey('admin-role-edit-${role.id}'),
+                        tooltip: l10n.adminEditRole,
+                        onPressed: onEdit,
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    IconButton(
+                      key: ValueKey('admin-role-details-${role.id}'),
+                      tooltip: expanded
+                          ? l10n.adminRoleDetailsHide
+                          : l10n.adminRoleDetailsShow,
+                      onPressed: () => onExpandedChanged(!expanded),
+                      icon: AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded && capabilityLabels.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(58, 0, 14, 14),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        capabilityLabels.join(', '),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }
@@ -456,31 +496,68 @@ class _RoleAssignmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = context.l10n;
-    return M3SegmentFilledSurface(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerLarge,
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
+    return Material(
+      color: scheme.surface,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
         child: Row(
           children: [
-            Icon(principal.icon, size: 24),
-            const SizedBox(width: 12),
+            SizedBox.square(
+              dimension: 30,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  principal.icon,
+                  size: 16,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(principal.name, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 3),
+                  Text(
+                    principal.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     '${l10n.roleLabelForCode(userRoleToJson(principal.role))} • ${principal.ref}',
-                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.2,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     assignedRole == null
                         ? l10n.adminDefaultRole
                         : _roleDefinitionLabel(context, assignedRole!),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium,
                   ),
                   if (assignment != null &&
