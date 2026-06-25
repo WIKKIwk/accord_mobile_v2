@@ -96,12 +96,6 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminWorkerSettings,
     ),
     RoleNavigationDrawerDestination(
-      icon: Icons.manage_accounts_outlined,
-      selectedIcon: Icons.manage_accounts_rounded,
-      label: l10n.adminUsersTitle,
-      routeName: AppRoutes.adminSuppliers,
-    ),
-    RoleNavigationDrawerDestination(
       icon: Icons.admin_panel_settings_outlined,
       selectedIcon: Icons.admin_panel_settings_rounded,
       label: l10n.adminRolesTitle,
@@ -112,12 +106,6 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       selectedIcon: Icons.account_tree_rounded,
       label: 'Item Group yaratish',
       routeName: AppRoutes.adminItemGroupCreate,
-    ),
-    RoleNavigationDrawerDestination(
-      icon: Icons.history_outlined,
-      selectedIcon: Icons.history_rounded,
-      label: l10n.adminActivityTitle,
-      routeName: AppRoutes.adminActivity,
     ),
     const RoleNavigationDrawerDestination(
       icon: Icons.monitor_heart_outlined,
