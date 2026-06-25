@@ -16,7 +16,6 @@ import '../../core/session/session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../core/widgets/navigation/native_back_button.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
 import '../shared/models/app_models.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -355,7 +354,11 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: AppTheme.appBarHeight,
-          leading: NativeBackButtonSlot(onPressed: widget.onExitMode),
+          leading: IconButton(
+            onPressed: widget.onExitMode,
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          ),
           title: const Text('gscale-zebra'),
           actions: [
             IconButton(
