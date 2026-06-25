@@ -8,9 +8,10 @@ void main() {
       _batch('one', '7 ta rangli pechat chiqim'),
       _batch('two', 'Laminatsiya 1'),
       _batch('three', '7 ta rangli pechat chiqim'),
+      _batch('four', '7 ta rangli pechat chiqim', wipStatus: 'in_use'),
     ];
 
-    final filtered = filterWipBatchesByCurrentLocation(
+    final filtered = filterWipBatchesForWaitingDisplay(
       batches,
       '7 ta rangli pechat chiqim',
     );
@@ -22,21 +23,28 @@ void main() {
       ),
       isTrue,
     );
+    expect(filtered.every((batch) => batch.wipStatus == 'waiting'), isTrue);
   });
 
-  test('empty current location filter keeps original list', () {
+  test('empty current location filter keeps only waiting list', () {
     final batches = [
       _batch('one', '7 ta rangli pechat chiqim'),
-      _batch('two', 'Laminatsiya 1'),
+      _batch('two', 'Laminatsiya 1', wipStatus: 'processed'),
+      _batch('three', 'Laminatsiya 1'),
     ];
 
-    final filtered = filterWipBatchesByCurrentLocation(batches, '');
+    final filtered = filterWipBatchesForWaitingDisplay(batches, '');
 
-    expect(identical(filtered, batches), isTrue);
+    expect(filtered.map((batch) => batch.batchId), ['one', 'three']);
+    expect(filtered.every((batch) => batch.wipStatus == 'waiting'), isTrue);
   });
 }
 
-AdminProgressBatch _batch(String id, String currentLocation) {
+AdminProgressBatch _batch(
+  String id,
+  String currentLocation, {
+  String wipStatus = 'waiting',
+}) {
   return AdminProgressBatch(
     batchId: id,
     sessionId: 'session-$id',
@@ -50,7 +58,7 @@ AdminProgressBatch _batch(String id, String currentLocation) {
     labelItemCode: 'item-$id',
     labelItemName: 'Paynet',
     executorName: 'Operator',
-    wipStatus: 'waiting',
+    wipStatus: wipStatus,
     currentApparatus: '7 ta rangli pechat',
     currentLocation: currentLocation,
   );

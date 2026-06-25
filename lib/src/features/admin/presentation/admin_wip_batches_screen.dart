@@ -67,17 +67,22 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
       status: _WipBatchStatus.waiting.apiValue,
       limit: _wipFetchLimit,
     );
-    final availableLocations = _locationOptions(allWaitingBatches);
+    final verifiedWaitingBatches = filterWipBatchesForWaitingDisplay(
+      allWaitingBatches,
+      '',
+    );
+    final availableLocations = _locationOptions(verifiedWaitingBatches);
     final loadedBatches = location.isEmpty
-        ? allWaitingBatches
+        ? verifiedWaitingBatches
         : await MobileApi.instance.adminWipBatches(
             status: _WipBatchStatus.waiting.apiValue,
             currentLocation: location,
             limit: _wipFetchLimit,
           );
-    final visibleBatches = location.isEmpty
-        ? loadedBatches
-        : filterWipBatchesByCurrentLocation(loadedBatches, location);
+    final visibleBatches = filterWipBatchesForWaitingDisplay(
+      loadedBatches,
+      location,
+    );
     return _WipBatchesData({
       _WipBatchStatus.waiting: visibleBatches,
     }, availableLocations: availableLocations);
@@ -581,17 +586,16 @@ List<String> _locationOptions(Iterable<AdminProgressBatch> batches) {
   return sorted;
 }
 
-List<AdminProgressBatch> filterWipBatchesByCurrentLocation(
+List<AdminProgressBatch> filterWipBatchesForWaitingDisplay(
   List<AdminProgressBatch> batches,
   String location,
 ) {
   final normalized = location.trim();
-  if (normalized.isEmpty) {
-    return batches;
-  }
   return [
     for (final batch in batches)
-      if (batch.currentLocation.trim() == normalized) batch,
+      if (batch.wipStatus.trim() == _WipBatchStatus.waiting.apiValue &&
+          (normalized.isEmpty || batch.currentLocation.trim() == normalized))
+        batch,
   ];
 }
 
