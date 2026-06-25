@@ -16,6 +16,8 @@ import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
+const double _adminRolesPanelGap = 4;
+
 class AdminRolesScreen extends StatefulWidget {
   const AdminRolesScreen({super.key});
 
@@ -250,7 +252,12 @@ class _RolesTabState extends State<_RolesTab> {
       allowRefreshOnShortContent: true,
       child: ListView(
         physics: const TopRefreshScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(12, 12, 12, widget.bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          _adminRolesPanelGap,
+          _adminRolesPanelGap,
+          _adminRolesPanelGap,
+          widget.bottomPadding,
+        ),
         children: [
           SmoothAppear(
             child: FilledButton.icon(
@@ -455,7 +462,12 @@ class _AssignmentsTab extends StatelessWidget {
       allowRefreshOnShortContent: true,
       child: ListView(
         physics: const TopRefreshScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          _adminRolesPanelGap,
+          _adminRolesPanelGap,
+          _adminRolesPanelGap,
+          bottomPadding,
+        ),
         children: [
           M3SegmentSpacedColumn(
             children: [
