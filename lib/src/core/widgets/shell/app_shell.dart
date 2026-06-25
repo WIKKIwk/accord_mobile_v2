@@ -292,6 +292,11 @@ class _AppShellState extends State<AppShell>
     final shouldHideLeading = widget.leading != null &&
         NativeBackButtonBridge.shouldUseNativeBackButton(context);
     final route = ModalRoute.of(context);
+    final canUseDrawerBackLeading = !shouldHideLeading &&
+        widget.drawer != null &&
+        widget.titleWidget == null &&
+        (route?.canPop ?? false) &&
+        !(route?.isFirst ?? true);
     final inferredBackLeading = !shouldHideLeading &&
         widget.automaticallyImplyNativeLeading &&
         widget.leading == null &&
@@ -313,6 +318,7 @@ class _AppShellState extends State<AppShell>
           ? AppBar(
               title: widget.titleWidget ?? _nativeAppBarTitle(theme),
               leading: _nativeAppBarLeading(shouldHideLeading),
+              leadingWidth: canUseDrawerBackLeading ? 38 : null,
               automaticallyImplyLeading: shouldHideLeading
                   ? false
                   : widget.automaticallyImplyNativeLeading &&
