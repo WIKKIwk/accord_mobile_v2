@@ -81,14 +81,7 @@ class NativeBackButtonSlot extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-      style: IconButton.styleFrom(
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-        minimumSize: const Size(40, 40),
-        fixedSize: const Size(40, 40),
-      ),
-      icon: Icon(Icons.arrow_back_rounded, size: iconSize),
+      icon: const Icon(Icons.arrow_back_rounded),
     );
   }
 }
