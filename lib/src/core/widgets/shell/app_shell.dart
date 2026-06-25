@@ -265,7 +265,6 @@ class _AppShellState extends State<AppShell>
     final actions = <Widget>[
       ...?widget.actions,
       if (showProfile) const _AppShellProfileAction(),
-      if (showProfile) const SizedBox(width: 10),
     ];
     return actions.isEmpty ? null : actions;
   }

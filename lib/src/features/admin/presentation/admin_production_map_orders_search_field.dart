@@ -163,7 +163,7 @@ class _OpenedOrderSearchField extends StatelessWidget {
                   ),
                 ),
                 AnimatedContainer(
-                  width: searchActive ? 0 : 18,
+                  width: searchActive ? 0 : 6,
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
                 ),
