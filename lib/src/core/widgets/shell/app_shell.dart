@@ -260,9 +260,6 @@ class _AppShellState extends State<AppShell>
   }
 
   List<Widget>? _nativeAppBarActions() {
-    if (widget.titleWidget != null) {
-      return widget.actions;
-    }
     final routeName = ModalRoute.of(context)?.settings.name;
     final showProfile = routeName != AppRoutes.profile;
     final actions = <Widget>[
