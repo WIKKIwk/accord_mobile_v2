@@ -10,7 +10,6 @@ import '../../../core/widgets/shell/app_shell.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
-import 'widgets/admin_surface_tab_bar.dart';
 import 'package:flutter/material.dart';
 
 const double _wipPanelGap = 4;
@@ -52,59 +51,35 @@ class AdminWipBatchesScreen extends StatefulWidget {
   State<AdminWipBatchesScreen> createState() => _AdminWipBatchesScreenState();
 }
 
-class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
   late Future<_WipBatchesData> _future;
   String _locationFilter = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: _WipBatchStatus.values.length,
-      vsync: this,
-    );
     _future = _load();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<_WipBatchesData> _load([String? locationFilter]) async {
     final location = (locationFilter ?? _locationFilter).trim();
-    final allResults = await Future.wait([
-      for (final status in _WipBatchStatus.values)
-        MobileApi.instance.adminWipBatches(
-          status: status.apiValue,
-          limit: _wipFetchLimit,
-        ),
-    ]);
-    final availableLocations =
-        _locationOptions(allResults.expand((item) => item));
-    final loadedResults = location.isEmpty
-        ? allResults
-        : await Future.wait([
-            for (final status in _WipBatchStatus.values)
-              MobileApi.instance.adminWipBatches(
-                status: status.apiValue,
-                currentLocation: location,
-                limit: _wipFetchLimit,
-              ),
-          ]);
-    final results = [
-      for (final batches in loadedResults)
-        if (location.isEmpty)
-          batches
-        else
-          filterWipBatchesByCurrentLocation(batches, location),
-    ];
+    final allWaitingBatches = await MobileApi.instance.adminWipBatches(
+      status: _WipBatchStatus.waiting.apiValue,
+      limit: _wipFetchLimit,
+    );
+    final availableLocations = _locationOptions(allWaitingBatches);
+    final loadedBatches = location.isEmpty
+        ? allWaitingBatches
+        : await MobileApi.instance.adminWipBatches(
+            status: _WipBatchStatus.waiting.apiValue,
+            currentLocation: location,
+            limit: _wipFetchLimit,
+          );
+    final visibleBatches = location.isEmpty
+        ? loadedBatches
+        : filterWipBatchesByCurrentLocation(loadedBatches, location);
     return _WipBatchesData({
-      for (var i = 0; i < _WipBatchStatus.values.length; i++)
-        _WipBatchStatus.values[i]: results[i],
+      _WipBatchStatus.waiting: visibleBatches,
     }, availableLocations: availableLocations);
   }
 
@@ -168,33 +143,17 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
             final data = snapshot.data ?? _WipBatchesData.empty;
             return Column(
               children: [
-                AdminSurfaceTabBar(
-                  controller: _tabController,
-                  tabs: [
-                    for (final status in _WipBatchStatus.values)
-                      Tab(
-                        height: 38,
-                        text: '${status.title} ${data.count(status)}',
-                      ),
-                  ],
-                ),
                 _WipLocationFilterBar(
                   selectedLocation: _locationFilter,
                   locations: data.availableLocations,
                   onChanged: _setLocationFilter,
                 ),
                 Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      for (final status in _WipBatchStatus.values)
-                        _WipBatchTab(
-                          status: status,
-                          data: data,
-                          bottomPadding: bottomPadding,
-                          onRefresh: _reload,
-                        ),
-                    ],
+                  child: _WipBatchTab(
+                    status: _WipBatchStatus.waiting,
+                    data: data,
+                    bottomPadding: bottomPadding,
+                    onRefresh: _reload,
                   ),
                 ),
               ],
@@ -339,8 +298,8 @@ class _WipIntroText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        'Bu yerda mahsulot qaysi aparatdan chiqqani, hozir qayerda turgani '
-        'va keyingi bosqichga o‘tgan-o‘tmagani ko‘rinadi.',
+        'Bu yerda bir aparatdan chiqqan, lekin keyingi aparat hali '
+        'boshlamagan mahsulotlar ko‘rinadi.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.3,
