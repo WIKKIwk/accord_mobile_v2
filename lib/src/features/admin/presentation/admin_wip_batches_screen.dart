@@ -56,7 +56,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late Future<_WipBatchesData> _future;
-  String _apparatusFilter = '';
+  String _locationFilter = '';
 
   @override
   void initState() {
@@ -74,8 +74,8 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     super.dispose();
   }
 
-  Future<_WipBatchesData> _load([String? apparatusFilter]) async {
-    final apparatus = (apparatusFilter ?? _apparatusFilter).trim();
+  Future<_WipBatchesData> _load([String? locationFilter]) async {
+    final location = (locationFilter ?? _locationFilter).trim();
     final allResults = await Future.wait([
       for (final status in _WipBatchStatus.values)
         MobileApi.instance.adminWipBatches(
@@ -83,22 +83,22 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
           limit: _wipFetchLimit,
         ),
     ]);
-    final availableApparatus =
-        _apparatusOptions(allResults.expand((item) => item));
-    final results = apparatus.isEmpty
+    final availableLocations =
+        _locationOptions(allResults.expand((item) => item));
+    final results = location.isEmpty
         ? allResults
         : await Future.wait([
             for (final status in _WipBatchStatus.values)
               MobileApi.instance.adminWipBatches(
                 status: status.apiValue,
-                apparatus: apparatus,
+                currentLocation: location,
                 limit: _wipFetchLimit,
               ),
           ]);
     return _WipBatchesData({
       for (var i = 0; i < _WipBatchStatus.values.length; i++)
         _WipBatchStatus.values[i]: results[i],
-    }, availableApparatus: availableApparatus);
+    }, availableLocations: availableLocations);
   }
 
   Future<void> _reload() async {
@@ -117,14 +117,14 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
-  void _setApparatusFilter(String apparatus) {
-    final next = apparatus.trim();
-    if (_apparatusFilter == next) {
+  void _setLocationFilter(String location) {
+    final next = location.trim();
+    if (_locationFilter == next) {
       return;
     }
     final nextFuture = _load(next);
     setState(() {
-      _apparatusFilter = next;
+      _locationFilter = next;
       _future = nextFuture;
     });
   }
@@ -171,10 +171,10 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
                       ),
                   ],
                 ),
-                _WipApparatusFilterBar(
-                  selectedApparatus: _apparatusFilter,
-                  apparatuses: data.availableApparatus,
-                  onChanged: _setApparatusFilter,
+                _WipLocationFilterBar(
+                  selectedLocation: _locationFilter,
+                  locations: data.availableLocations,
+                  onChanged: _setLocationFilter,
                 ),
                 Expanded(
                   child: TabBarView(
@@ -202,13 +202,13 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
 class _WipBatchesData {
   const _WipBatchesData(
     this.byStatus, {
-    this.availableApparatus = const [],
+    this.availableLocations = const [],
   });
 
   static const empty = _WipBatchesData({});
 
   final Map<_WipBatchStatus, List<AdminProgressBatch>> byStatus;
-  final List<String> availableApparatus;
+  final List<String> availableLocations;
 
   List<AdminProgressBatch> batches(_WipBatchStatus status) {
     return byStatus[status] ?? const [];
@@ -219,21 +219,21 @@ class _WipBatchesData {
   }
 }
 
-class _WipApparatusFilterBar extends StatelessWidget {
-  const _WipApparatusFilterBar({
-    required this.selectedApparatus,
-    required this.apparatuses,
+class _WipLocationFilterBar extends StatelessWidget {
+  const _WipLocationFilterBar({
+    required this.selectedLocation,
+    required this.locations,
     required this.onChanged,
   });
 
-  final String selectedApparatus;
-  final List<String> apparatuses;
+  final String selectedLocation;
+  final List<String> locations;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final selected = selectedApparatus.trim();
+    final selected = selectedLocation.trim();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
@@ -255,15 +255,15 @@ class _WipApparatusFilterBar extends StatelessWidget {
                 onSelected: (_) => onChanged(''),
               );
             }
-            final apparatus = apparatuses[index - 1];
+            final location = locations[index - 1];
             return FilterChip(
-              label: Text(apparatus),
-              selected: selected == apparatus,
-              onSelected: (_) => onChanged(apparatus),
+              label: Text(location),
+              selected: selected == location,
+              onSelected: (_) => onChanged(location),
             );
           },
           separatorBuilder: (context, index) => const SizedBox(width: 8),
-          itemCount: apparatuses.length + 1,
+          itemCount: locations.length + 1,
         ),
       ),
     );
@@ -601,12 +601,12 @@ String _firstNotEmpty(List<String> values) {
   return '-';
 }
 
-List<String> _apparatusOptions(Iterable<AdminProgressBatch> batches) {
+List<String> _locationOptions(Iterable<AdminProgressBatch> batches) {
   final values = <String>{};
   for (final batch in batches) {
-    final apparatus = batch.currentApparatus.trim();
-    if (apparatus.isNotEmpty) {
-      values.add(apparatus);
+    final location = batch.currentLocation.trim();
+    if (location.isNotEmpty) {
+      values.add(location);
     }
   }
   final sorted = values.toList(growable: false);

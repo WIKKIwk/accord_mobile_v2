@@ -422,6 +422,7 @@ void main() {
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'waiting',
         apparatus: 'Pechat',
+        currentLocation: 'Pechat yonida',
         limit: 25,
       );
 
@@ -434,7 +435,7 @@ void main() {
         seenRequests,
         contains(
           'GET /v1/mobile/admin/production-maps/wip-batches?'
-          'status=waiting&apparatus=Pechat&limit=25',
+          'status=waiting&apparatus=Pechat&current_location=Pechat+yonida&limit=25',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -1020,7 +1021,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
           ],
         };
-      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=Pechat&limit=25':
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=waiting&apparatus=Pechat&current_location=Pechat+yonida&limit=25':
         body = const {
           'ok': true,
           'batches': [
