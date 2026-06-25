@@ -705,27 +705,23 @@ class _AppShellProfileActionState extends State<_AppShellProfileAction> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 38,
-      child: IconButton.filledTonal(
-        tooltip: 'Profil',
-        style: IconButton.styleFrom(padding: EdgeInsets.zero),
-        onPressed: () => Navigator.of(context).pushNamed(AppRoutes.profile),
-        icon: _avatarBytes == null || _avatarBytes!.isEmpty
-            ? const Icon(Icons.person_rounded, size: 22)
-            : ClipOval(
-                child: Image.memory(
-                  _avatarBytes!,
-                  width: 28,
-                  height: 28,
-                  fit: BoxFit.cover,
-                  cacheWidth: 64,
-                  cacheHeight: 64,
-                  filterQuality: FilterQuality.low,
-                  gaplessPlayback: true,
-                ),
+    return IconButton(
+      tooltip: 'Profil',
+      onPressed: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+      icon: _avatarBytes == null || _avatarBytes!.isEmpty
+          ? const Icon(Icons.person_rounded)
+          : ClipOval(
+              child: Image.memory(
+                _avatarBytes!,
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+                cacheWidth: 64,
+                cacheHeight: 64,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
               ),
-      ),
+            ),
     );
   }
 }
