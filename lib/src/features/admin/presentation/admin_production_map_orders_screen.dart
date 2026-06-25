@@ -391,6 +391,7 @@ class _AdminProductionMapOrdersScreenState
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      showProfileAction: false,
       titleWidget: _OpenedOrderSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,

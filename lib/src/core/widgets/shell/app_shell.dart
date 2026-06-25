@@ -72,6 +72,7 @@ class AppShell extends StatefulWidget {
     this.backgroundColor,
     this.appBarBottomLoading = false,
     this.nativeTopBarBottomInset = 3,
+    this.showProfileAction = true,
   });
 
   final String title;
@@ -97,6 +98,7 @@ class AppShell extends StatefulWidget {
   /// [nativeTopBar] bo‘lsa, AppBar ostida indeterminate chiziqli yuklanish (Google uslubi).
   final bool appBarBottomLoading;
   final double nativeTopBarBottomInset;
+  final bool showProfileAction;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -261,10 +263,11 @@ class _AppShellState extends State<AppShell>
 
   List<Widget>? _nativeAppBarActions() {
     final routeName = ModalRoute.of(context)?.settings.name;
-    final showProfile = routeName != AppRoutes.profile;
+    final showProfile =
+        widget.showProfileAction && routeName != AppRoutes.profile;
     final actions = <Widget>[
       ...?widget.actions,
-      if (showProfile) const _AppShellProfileAction(),
+      if (showProfile) const AppShellProfileAction(),
       if (showProfile) const SizedBox(width: 10),
     ];
     return actions.isEmpty ? null : actions;
@@ -650,14 +653,14 @@ class AppShellIconAction extends StatefulWidget {
   State<AppShellIconAction> createState() => _AppShellIconActionState();
 }
 
-class _AppShellProfileAction extends StatefulWidget {
-  const _AppShellProfileAction();
+class AppShellProfileAction extends StatefulWidget {
+  const AppShellProfileAction({super.key});
 
   @override
-  State<_AppShellProfileAction> createState() => _AppShellProfileActionState();
+  State<AppShellProfileAction> createState() => _AppShellProfileActionState();
 }
 
-class _AppShellProfileActionState extends State<_AppShellProfileAction> {
+class _AppShellProfileActionState extends State<AppShellProfileAction> {
   Uint8List? _avatarBytes;
   String _profileKey = '';
 
@@ -669,7 +672,7 @@ class _AppShellProfileActionState extends State<_AppShellProfileAction> {
   }
 
   @override
-  void didUpdateWidget(covariant _AppShellProfileAction oldWidget) {
+  void didUpdateWidget(covariant AppShellProfileAction oldWidget) {
     super.didUpdateWidget(oldWidget);
     _loadAvatar();
   }

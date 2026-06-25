@@ -167,6 +167,18 @@ class _OpenedOrderSearchField extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
                 ),
+                AnimatedContainer(
+                  width: searchActive ? 0 : 38,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: ClipRect(
+                    child: AnimatedOpacity(
+                      opacity: searchActive ? 0 : 1,
+                      duration: const Duration(milliseconds: 120),
+                      child: const AppShellProfileAction(),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
