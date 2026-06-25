@@ -33,6 +33,36 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 const double _profilePanelGap = 4;
+const String _profileAvatarHeroTag = 'profile-avatar-preview';
+
+Widget _profileAvatarFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  final radiusTween = flightDirection == HeroFlightDirection.push
+      ? Tween<double>(begin: 48, end: 28)
+      : Tween<double>(begin: 28, end: 48);
+  final child = flightDirection == HeroFlightDirection.push
+      ? toHeroContext.widget
+      : fromHeroContext.widget;
+  return AnimatedBuilder(
+    animation: curved,
+    builder: (context, _) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radiusTween.evaluate(curved)),
+        child: child,
+      );
+    },
+  );
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -222,50 +252,30 @@ class _ProfileScreenState extends State<ProfileScreen>
     final bytes = pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty
         ? pendingAvatarBytes
         : cachedAvatarBytes;
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.72),
-      builder: (dialogContext) {
-        final size = MediaQuery.sizeOf(dialogContext);
-        final avatarSize = (size.shortestSide * 0.72).clamp(220.0, 360.0);
-        return Dialog.fullscreen(
-          backgroundColor: Colors.transparent,
-          child: SafeArea(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(dialogContext).pop(),
-                    child: Center(
-                      child: InteractiveViewer(
-                        minScale: 1,
-                        maxScale: 3,
-                        child: _LargeAvatarPreview(
-                          displayName: displayName,
-                          avatarBytes: bytes,
-                          size: avatarSize,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: IconButton.filledTonal(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                    tooltip: MaterialLocalizations.of(
-                      dialogContext,
-                    ).closeButtonTooltip,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withValues(alpha: 0.72),
+        barrierLabel:
+            MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _AvatarPreviewOverlay(
+            displayName: displayName,
+            avatarBytes: bytes,
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final fade = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(opacity: fade, child: child);
+        },
+      ),
     );
   }
 
@@ -1684,7 +1694,78 @@ class _AvatarPreview extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: avatar,
+        child: Hero(
+          tag: _profileAvatarHeroTag,
+          createRectTween: (begin, end) {
+            return MaterialRectCenterArcTween(begin: begin, end: end);
+          },
+          flightShuttleBuilder: _profileAvatarFlightShuttleBuilder,
+          child: avatar,
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarPreviewOverlay extends StatelessWidget {
+  const _AvatarPreviewOverlay({
+    required this.displayName,
+    required this.avatarBytes,
+  });
+
+  final String displayName;
+  final Uint8List? avatarBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final previewWidth = (size.width - 32).clamp(260.0, 420.0);
+    final previewHeight =
+        (previewWidth * 1.25).clamp(280.0, size.height * 0.72);
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 3,
+                child: Hero(
+                  tag: _profileAvatarHeroTag,
+                  createRectTween: (begin, end) {
+                    return MaterialRectCenterArcTween(
+                      begin: begin,
+                      end: end,
+                    );
+                  },
+                  flightShuttleBuilder: _profileAvatarFlightShuttleBuilder,
+                  child: _LargeAvatarPreview(
+                    displayName: displayName,
+                    avatarBytes: avatarBytes,
+                    width: previewWidth,
+                    height: previewHeight,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton.filledTonal(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1694,21 +1775,23 @@ class _LargeAvatarPreview extends StatelessWidget {
   const _LargeAvatarPreview({
     required this.displayName,
     required this.avatarBytes,
-    required this.size,
+    required this.width,
+    required this.height,
   });
 
   final String displayName;
   final Uint8List? avatarBytes;
-  final double size;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final fallback = Container(
-      height: size,
-      width: size,
+      height: height,
+      width: width,
       decoration: BoxDecoration(
         color: AppTheme.actionSurface(context),
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(28),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -1722,11 +1805,12 @@ class _LargeAvatarPreview extends StatelessWidget {
       return fallback;
     }
 
-    return ClipOval(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
       child: Image.memory(
         bytes,
-        height: size,
-        width: size,
+        height: height,
+        width: width,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => fallback,
       ),
