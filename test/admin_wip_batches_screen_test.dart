@@ -3,11 +3,11 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_wip_batch
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('current location filter keeps only exact location matches', () {
+  test('current location filter keeps only canonical location matches', () {
     final batches = [
       _batch('one', '7 ta rangli pechat chiqim'),
       _batch('two', 'Laminatsiya 1'),
-      _batch('three', '7 ta rangli pechat chiqim'),
+      _batch('three', '7 ta rangli pechat'),
       _batch('four', '7 ta rangli pechat chiqim', wipStatus: 'in_use'),
     ];
 
@@ -19,7 +19,8 @@ void main() {
     expect(filtered.map((batch) => batch.batchId), ['one', 'three']);
     expect(
       filtered.every(
-        (batch) => batch.currentLocation == '7 ta rangli pechat chiqim',
+        (batch) =>
+            canonicalWaitingLocation(batch) == '7 ta rangli pechat chiqim',
       ),
       isTrue,
     );
@@ -37,6 +38,12 @@ void main() {
 
     expect(filtered.map((batch) => batch.batchId), ['one', 'three']);
     expect(filtered.every((batch) => batch.wipStatus == 'waiting'), isTrue);
+  });
+
+  test('waiting location canonicalizes legacy apparatus-only location', () {
+    final batch = _batch('one', '7 ta rangli pechat');
+
+    expect(canonicalWaitingLocation(batch), '7 ta rangli pechat chiqim');
   });
 }
 

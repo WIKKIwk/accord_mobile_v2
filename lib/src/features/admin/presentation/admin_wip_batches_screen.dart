@@ -362,6 +362,7 @@ class _WipBatchTile extends StatelessWidget {
     ]);
     final productTitle = _headlineForBatch(rawTitle);
     final currentPlace = _firstNotEmpty([
+      canonicalWaitingLocation(batch),
       batch.currentLocation,
       batch.currentApparatus,
       batch.apparatus,
@@ -575,7 +576,7 @@ String _firstNotEmpty(List<String> values) {
 List<String> _locationOptions(Iterable<AdminProgressBatch> batches) {
   final values = <String>{};
   for (final batch in batches) {
-    final location = batch.currentLocation.trim();
+    final location = canonicalWaitingLocation(batch);
     if (location.isNotEmpty) {
       values.add(location);
     }
@@ -594,9 +595,24 @@ List<AdminProgressBatch> filterWipBatchesForWaitingDisplay(
   return [
     for (final batch in batches)
       if (batch.wipStatus.trim() == _WipBatchStatus.waiting.apiValue &&
-          (normalized.isEmpty || batch.currentLocation.trim() == normalized))
+          (normalized.isEmpty || canonicalWaitingLocation(batch) == normalized))
         batch,
   ];
+}
+
+String canonicalWaitingLocation(AdminProgressBatch batch) {
+  final location = batch.currentLocation.trim();
+  final apparatus = batch.currentApparatus.trim().isNotEmpty
+      ? batch.currentApparatus.trim()
+      : batch.apparatus.trim();
+  if (apparatus.isEmpty) {
+    return location;
+  }
+  final outputLocation = '$apparatus chiqim';
+  if (location.isEmpty || location == apparatus) {
+    return outputLocation;
+  }
+  return location;
 }
 
 String _valueOrDash(String value) {
