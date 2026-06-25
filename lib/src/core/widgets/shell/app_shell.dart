@@ -220,7 +220,12 @@ class _AppShellState extends State<AppShell>
       final canNavigateBack =
           (route?.canPop ?? false) && !(route?.isFirst ?? true);
       if (canNavigateBack) {
-        return NativeBackButtonSlot(
+        if (useNativeBackButton(context)) {
+          return const SizedBox.shrink();
+        }
+        return IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: () => Navigator.of(context).maybePop(),
         );
       }
@@ -292,11 +297,6 @@ class _AppShellState extends State<AppShell>
     final shouldHideLeading = widget.leading != null &&
         NativeBackButtonBridge.shouldUseNativeBackButton(context);
     final route = ModalRoute.of(context);
-    final canUseDrawerBackLeading = !shouldHideLeading &&
-        widget.drawer != null &&
-        widget.titleWidget == null &&
-        (route?.canPop ?? false) &&
-        !(route?.isFirst ?? true);
     final inferredBackLeading = !shouldHideLeading &&
         widget.automaticallyImplyNativeLeading &&
         widget.leading == null &&
@@ -318,7 +318,6 @@ class _AppShellState extends State<AppShell>
           ? AppBar(
               title: widget.titleWidget ?? _nativeAppBarTitle(theme),
               leading: _nativeAppBarLeading(shouldHideLeading),
-              leadingWidth: canUseDrawerBackLeading ? 38 : null,
               automaticallyImplyLeading: shouldHideLeading
                   ? false
                   : widget.automaticallyImplyNativeLeading &&
