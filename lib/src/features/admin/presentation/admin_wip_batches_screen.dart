@@ -85,7 +85,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
     ]);
     final availableLocations =
         _locationOptions(allResults.expand((item) => item));
-    final results = location.isEmpty
+    final loadedResults = location.isEmpty
         ? allResults
         : await Future.wait([
             for (final status in _WipBatchStatus.values)
@@ -95,6 +95,13 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen>
                 limit: _wipFetchLimit,
               ),
           ]);
+    final results = [
+      for (final batches in loadedResults)
+        if (location.isEmpty)
+          batches
+        else
+          filterWipBatchesByCurrentLocation(batches, location),
+    ];
     return _WipBatchesData({
       for (var i = 0; i < _WipBatchStatus.values.length; i++)
         _WipBatchStatus.values[i]: results[i],
@@ -613,6 +620,20 @@ List<String> _locationOptions(Iterable<AdminProgressBatch> batches) {
   sorted
       .sort((left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
   return sorted;
+}
+
+List<AdminProgressBatch> filterWipBatchesByCurrentLocation(
+  List<AdminProgressBatch> batches,
+  String location,
+) {
+  final normalized = location.trim();
+  if (normalized.isEmpty) {
+    return batches;
+  }
+  return [
+    for (final batch in batches)
+      if (batch.currentLocation.trim() == normalized) batch,
+  ];
 }
 
 String _valueOrDash(String value) {
