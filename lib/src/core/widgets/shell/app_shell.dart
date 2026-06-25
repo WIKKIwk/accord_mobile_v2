@@ -723,11 +723,11 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
                 : ClipOval(
                     child: Image.memory(
                       _avatarBytes!,
-                      width: 28,
-                      height: 28,
+                      width: 38,
+                      height: 38,
                       fit: BoxFit.cover,
-                      cacheWidth: 64,
-                      cacheHeight: 64,
+                      cacheWidth: 96,
+                      cacheHeight: 96,
                       filterQuality: FilterQuality.low,
                       gaplessPlayback: true,
                     ),
