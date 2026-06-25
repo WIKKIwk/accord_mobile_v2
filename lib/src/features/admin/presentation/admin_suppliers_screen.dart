@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
@@ -76,6 +76,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final List<AdminUserListEntry> _items = [];
   final List<AdminWorker> _workers = [];
   final List<AdminRoleAssignment> _assignments = [];
@@ -100,6 +101,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     _usersChanged.removeListener(_handleUsersChanged);
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -464,9 +466,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       title: '',
       subtitle: '',
       nativeTopBar: true,
-      titleWidget: _AdminUserSearchField(
+      titleWidget: AdminCatalogSearchField(
         controller: _searchController,
-        inAppBar: true,
+        focusNode: _searchFocusNode,
+        hintText: 'Foydalanuvchi qidirish',
         onChanged: _onSearchChanged,
         onClear: () {
           _searchController.clear();
@@ -667,94 +670,6 @@ class _AdminUserRoleOption extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AdminUserSearchField extends StatelessWidget {
-  const _AdminUserSearchField({
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-    this.inAppBar = false,
-  });
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-  final bool inAppBar;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final field = ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final hasText = controller.text.trim().isNotEmpty;
-        return TextField(
-          controller: controller,
-          onChanged: onChanged,
-          textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyLarge,
-          decoration: InputDecoration(
-            hintText: 'Foydalanuvchi qidirish',
-            isDense: inAppBar,
-            prefixIcon: inAppBar
-                ? IconButton(
-                    icon: const Icon(Icons.menu_rounded),
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).openAppDrawerTooltip,
-                    onPressed: () =>
-                        AppShellDrawerScope.maybeOf(context)?.openDrawer(),
-                  )
-                : const Icon(Icons.search_rounded),
-            prefixIconConstraints: inAppBar
-                ? const BoxConstraints(minWidth: 58, minHeight: 58)
-                : null,
-            suffixIcon: hasText
-                ? IconButton(
-                    tooltip: 'Tozalash',
-                    onPressed: onClear,
-                    icon: const Icon(Icons.close_rounded),
-                  )
-                : null,
-            filled: true,
-            fillColor: scheme.surfaceContainerHighest,
-            contentPadding: inAppBar
-                ? const EdgeInsets.symmetric(vertical: 12)
-                : const EdgeInsets.symmetric(vertical: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(inAppBar ? 999 : 22),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        );
-      },
-    );
-    if (inAppBar) {
-      return Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: SizedBox(
-          height: AppTheme.appBarHeight,
-          child: Align(
-            alignment: Alignment.center,
-            child: SizedBox(height: 58, width: double.infinity, child: field),
-          ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: field,
     );
   }
 }
