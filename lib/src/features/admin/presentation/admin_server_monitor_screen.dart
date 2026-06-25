@@ -3,12 +3,10 @@ import 'dart:async';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../../core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
-import 'widgets/admin_dock.dart';
+import 'widgets/admin_shell.dart';
 
 class AdminServerMonitorScreen extends StatefulWidget {
   const AdminServerMonitorScreen({super.key});
@@ -145,17 +143,14 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           _goHomeOrPop();
         }
       },
-      child: AppShell(
+      child: AdminShell(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: _goHomeOrPop,
         ),
         title: 'Server holati',
-        subtitle: '',
-        nativeTopBar: true,
-        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        bottom: const AdminDock(activeTab: null),
-        contentPadding: EdgeInsets.zero,
+        selectedRouteName: AppRoutes.adminServerMonitor,
+        activeTab: null,
         child: _buildBody(context),
       ),
     );

@@ -2,17 +2,15 @@ import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/session/session.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../shared/models/app_models.dart';
 import '../state/admin_store.dart';
 import 'widgets/admin_dock.dart';
-import 'widgets/admin_drawer_navigation.dart';
-import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_shell.dart';
 import 'widgets/admin_summary_card.dart';
 import 'package:flutter/material.dart';
 
@@ -67,14 +65,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return AppSession.instance.can('party.supplier.read');
   }
 
-  void _openDrawerRoute(String routeName) {
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == routeName) {
-      return;
-    }
-    AdminDrawerNavigation.openRoute(context, routeName);
-  }
-
   Future<void> _openAndReload(String routeName) async {
     if (_openingRoute) {
       return;
@@ -99,18 +89,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        onNavigate: _openDrawerRoute,
-      ),
+    return AdminShell(
       title: context.l10n.adminRoleName,
-      subtitle: '',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.home),
+      selectedRouteName: AppRoutes.adminHome,
+      activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
-      contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: scheme.surfaceContainerHighest,
         child: AnimatedBuilder(

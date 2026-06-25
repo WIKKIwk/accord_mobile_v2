@@ -1,15 +1,13 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import 'widgets/admin_dock.dart';
-import 'widgets/admin_drawer_navigation.dart';
-import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_shell.dart';
 import 'package:flutter/material.dart';
 
 const double _wipPanelGap = 4;
@@ -96,14 +94,6 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
     await nextFuture;
   }
 
-  void _openDrawerRoute(String routeName) {
-    if (routeName == AppRoutes.adminWipBatches) {
-      Navigator.of(context).pop();
-      return;
-    }
-    AdminDrawerNavigation.openRoute(context, routeName);
-  }
-
   void _setLocationFilter(String location) {
     final next = location.trim();
     if (_locationFilter == next) {
@@ -120,19 +110,11 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminWipBatches,
-        onNavigate: _openDrawerRoute,
-      ),
+    return AdminShell(
       title: 'Oraliq mahsulotlar',
-      subtitle: '',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.home),
+      selectedRouteName: AppRoutes.adminWipBatches,
+      activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
-      contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: scheme.surfaceContainerHighest,
         child: FutureBuilder<_WipBatchesData>(
