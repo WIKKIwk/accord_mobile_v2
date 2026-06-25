@@ -122,22 +122,6 @@ class MobileApi {
     return send();
   }
 
-  Future<http.StreamedResponse> _sendAuthorizedStream(
-    Future<http.StreamedResponse> Function() send,
-  ) async {
-    final http.StreamedResponse response = await send();
-    if (response.statusCode != 401) {
-      return response;
-    }
-
-    final bool refreshed = await _reauthenticateFromStorage();
-    if (!refreshed) {
-      await AppSession.instance.clear();
-      return response;
-    }
-    return send();
-  }
-
   Future<http.StreamedResponse> _sendMultipartAuthorized(
     Future<http.StreamedResponse> Function() send,
   ) async {

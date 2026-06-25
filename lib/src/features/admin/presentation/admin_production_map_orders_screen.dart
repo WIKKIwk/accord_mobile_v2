@@ -104,8 +104,7 @@ class _AdminProductionMapOrdersScreenState
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
   int _liveStreamGeneration = 0;
-  StreamSubscription<String>? _liveStreamSubscription;
-  final http.Client _liveHttpClient = http.Client();
+  StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
   AdminWarehouse? _selectedApparatus;
@@ -154,7 +153,6 @@ class _AdminProductionMapOrdersScreenState
       WidgetsBinding.instance.removeObserver(this);
     }
     _stopWorkerLiveStream();
-    _liveHttpClient.close();
     if (!widget.workerMode) {
       _tabController.removeListener(_syncModuleFromTab);
     }

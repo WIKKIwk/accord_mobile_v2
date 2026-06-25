@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -29,7 +28,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   List<AdminCompletionRequestNotification> _requests = const [];
   String? _expandedRequestId;
   final Set<String> _decidingRequestIds = {};
-  StreamSubscription<String>? _liveSubscription;
+  StreamSubscription<AdminProductionMapLiveSnapshot>? _liveSubscription;
   int _liveGeneration = 0;
 
   @override
@@ -89,51 +88,20 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   }
 
   Future<void> _connectLiveStreamOnce(int generation) async {
-    final response = await MobileApi.instance.adminProductionMapLiveConnect();
-    if (response.statusCode < 200 || response.statusCode > 299) {
-      throw MobileApiException(
-        code: 'production_map_live',
-        message: 'Live ulanish ochilmadi',
-        statusCode: response.statusCode,
-      );
-    }
-
     final completer = Completer<void>();
-    final dataLines = <String>[];
 
     await _liveSubscription?.cancel();
-    _liveSubscription = response.stream
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(
-      (line) {
+    _liveSubscription =
+        MobileApi.instance.adminProductionMapLiveEvents().listen(
+      (snapshot) {
         if (!mounted || generation != _liveGeneration) {
           return;
         }
-        if (line.isEmpty) {
-          if (dataLines.isEmpty) {
-            return;
-          }
-          final payloadText = dataLines.join('\n');
-          dataLines.clear();
-          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-          if (payload['ok'] != true) {
-            return;
-          }
-          final snapshot = AdminProductionMapLiveSnapshot.fromJson(payload);
-          setState(() {
-            _requests = snapshot.completionRequests;
-            _loading = false;
-            _error = null;
-          });
-          return;
-        }
-        if (line.startsWith(':')) {
-          return;
-        }
-        if (line.startsWith('data:')) {
-          dataLines.add(line.substring(5).trimLeft());
-        }
+        setState(() {
+          _requests = snapshot.completionRequests;
+          _loading = false;
+          _error = null;
+        });
       },
       onError: (error, _) {
         if (!completer.isCompleted) {

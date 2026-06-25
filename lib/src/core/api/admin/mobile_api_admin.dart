@@ -2150,17 +2150,26 @@ extension MobileApiAdmin on MobileApi {
     return AdminApparatusQueuePolicy.fromJson(raw.cast<String, dynamic>());
   }
 
-  Future<http.StreamedResponse> adminProductionMapLiveConnect() async {
-    final request = http.Request(
-      'GET',
-      Uri.parse('$baseUrl/v1/mobile/admin/production-maps/live'),
+  Uri adminProductionMapLiveUri() {
+    final Uri base = Uri.parse(baseUrl);
+    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return base.replace(
+      scheme: scheme,
+      path: '/v1/mobile/admin/production-maps/live',
+      queryParameters: {'token': requireToken()},
     );
-    request.headers.addAll({
-      ..._headers(requireToken()),
-      'Accept': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-    });
-    return _sendAuthorizedStream(() => http.Client().send(request));
+  }
+
+  Stream<AdminProductionMapLiveSnapshot> adminProductionMapLiveEvents() async* {
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    await for (final event
+        in connectWarehouseLive(adminProductionMapLiveUri())) {
+      if (event['ok'] == true) {
+        yield AdminProductionMapLiveSnapshot.fromJson(event);
+      }
+    }
   }
 
   Future<List<AdminRawMaterialRule>> adminRawMaterialRules() async {

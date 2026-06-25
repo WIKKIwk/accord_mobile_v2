@@ -54,15 +54,29 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _connectWorkerLiveStreamOnce(int generation) async {
-    final response = await _connectProductionMapLiveStream();
+    final completer = Completer<void>();
     await _liveStreamSubscription?.cancel();
-    final connection = _productionMapLiveConnection(
-      response: response,
-      isActive: () => mounted && generation == _liveStreamGeneration,
-      onSnapshot: _applyWorkerLiveSnapshot,
+    _liveStreamSubscription =
+        MobileApi.instance.adminProductionMapLiveEvents().listen(
+      (snapshot) {
+        if (!mounted || generation != _liveStreamGeneration) {
+          return;
+        }
+        _applyWorkerLiveSnapshot(snapshot);
+      },
+      onError: (error, _) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      cancelOnError: true,
     );
-    _liveStreamSubscription = connection.subscription;
-    await connection.completed;
+    await completer.future;
   }
 
   Future<void> _loadWorkerApparatus() async {
