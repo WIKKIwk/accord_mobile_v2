@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
+import 'widgets/admin_dock.dart';
 
 class AdminServerMonitorScreen extends StatefulWidget {
   const AdminServerMonitorScreen({super.key});
@@ -153,6 +154,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+        bottom: const AdminDock(activeTab: null),
         contentPadding: EdgeInsets.zero,
         child: _buildBody(context),
       ),
@@ -175,21 +177,19 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPadding),
+        padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
         children: [
-          _StatusHeroCard(
+          _StatusSummaryPanel(
             report: report,
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
           ),
-          const SizedBox(height: 10),
-          _QuickStatusCard(
+          const SizedBox(height: 12),
+          _MetricGrid(
             report: report,
             liveConnected: _liveConnected,
           ),
-          const SizedBox(height: 10),
-          _HealthCards(report: report),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _TechnicalDetailsCard(
             report: report,
             initiallyExpanded: _error != null,
@@ -209,8 +209,8 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   }
 }
 
-class _StatusHeroCard extends StatelessWidget {
-  const _StatusHeroCard({
+class _StatusSummaryPanel extends StatelessWidget {
+  const _StatusSummaryPanel({
     required this.report,
     required this.liveConnected,
     required this.lastUpdated,
@@ -226,97 +226,73 @@ class _StatusHeroCard extends StatelessWidget {
     final serverOk = report.server.status == 'running';
     final dbOk = report.database.reachable;
     final backupOk = report.backups.exists && report.backups.fileCount > 0;
-    final healthScore = _healthScore(report);
-    final summary = [
-      if (serverOk) 'Server ishlayapti' else 'Server to‘xtagan',
-      if (dbOk) 'DB ulangan' else 'DB ulanmagan',
-      if (backupOk) 'Backup bor' else 'Backup yo‘q',
-    ].join(' • ');
-    final heroColor = _statusColor(context, serverOk && dbOk && backupOk);
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-        side: BorderSide(color: heroColor.withValues(alpha: 0.18)),
+    final allOk = liveConnected && serverOk && dbOk && backupOk;
+    final accent = _statusColor(context, allOk);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              height: 58,
-              width: 58,
+            Row(
+              children: [
+                Icon(
+                  allOk ? Icons.check_circle_rounded : Icons.error_rounded,
+                  color: accent,
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    allOk ? 'Barqaror' : 'Diqqat kerak',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                _StatusPill(
+                  label: liveConnected ? 'Live' : 'Ulanmoqda',
+                  active: liveConnected,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: heroColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(color: heroColor.withValues(alpha: 0.22)),
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                serverOk ? Icons.monitor_heart_rounded : Icons.warning_rounded,
-                color: heroColor,
-                size: 30,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    _InlineStateDot(ok: serverOk),
+                    const SizedBox(width: 6),
+                    const Text('Server'),
+                    const SizedBox(width: 14),
+                    _InlineStateDot(ok: dbOk),
+                    const SizedBox(width: 6),
+                    const Text('DB'),
+                    const SizedBox(width: 14),
+                    _InlineStateDot(ok: backupOk),
+                    const SizedBox(width: 6),
+                    const Text('Backup'),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          serverOk && dbOk
-                              ? 'Tizim sog‘lom'
-                              : 'Tizim tekshirish kerak',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                      ),
-                      _StatusPill(
-                        label: liveConnected ? 'Live' : 'Ulanmoqda',
-                        active: liveConnected && serverOk,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    summary,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HealthScoreBar(
-                          score: healthScore,
-                          color: heroColor,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$healthScore%',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _TinyInfoLine(
-                    icon: Icons.schedule_rounded,
-                    text: 'Yangilandi: ${_formatLocal(lastUpdated)}',
-                  ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            _KeyValueLine(
+                label: 'Oxirgi update', value: _formatLocal(lastUpdated)),
+            _KeyValueLine(
+              label: 'Uptime',
+              value: _formatDuration(report.server.uptimeSeconds),
             ),
           ],
         ),
@@ -325,8 +301,8 @@ class _StatusHeroCard extends StatelessWidget {
   }
 }
 
-class _QuickStatusCard extends StatelessWidget {
-  const _QuickStatusCard({
+class _MetricGrid extends StatelessWidget {
+  const _MetricGrid({
     required this.report,
     required this.liveConnected,
   });
@@ -337,60 +313,112 @@ class _QuickStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backup = report.backups.latest;
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: Colors.white,
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.22,
+      children: [
+        _MetricTile(
+          label: 'Live',
+          value: liveConnected ? 'Ulangan' : 'Qayta ulanish',
+          detail: 'WebSocket',
+          ok: liveConnected,
+          icon: Icons.bolt_rounded,
+        ),
+        _MetricTile(
+          label: 'Database',
+          value: report.database.reachable ? 'Online' : 'Offline',
+          detail: report.database.pingMs > 0
+              ? '${report.database.pingMs} ms'
+              : _databaseStatusLabel(report.database.status),
+          ok: report.database.reachable,
+          icon: Icons.storage_rounded,
+        ),
+        _MetricTile(
+          label: 'Server',
+          value: _serverStatusLabel(report.server.status),
+          detail: _formatDuration(report.server.uptimeSeconds),
+          ok: report.server.status == 'running',
+          icon: Icons.dns_rounded,
+        ),
+        _MetricTile(
+          label: 'Backup',
+          value: '${report.backups.fileCount} ta fayl',
+          detail: backup == null ? 'Oxirgi fayl yo‘q' : _backupAgeLabel(backup),
+          ok: report.backups.exists && report.backups.fileCount > 0,
+          icon: Icons.inventory_2_rounded,
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.ok,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final String detail;
+  final bool ok;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = _statusColor(context, ok);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(
-                  'Tezkor holat',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
+                Icon(icon, size: 20, color: accent),
                 const Spacer(),
-                _StatusPill(
-                  label: liveConnected ? 'Live' : 'Ulanmoqda',
-                  active: liveConnected,
-                ),
+                _InlineStateDot(ok: ok),
               ],
             ),
-            const SizedBox(height: 14),
-            _QuickStatusRow(
-              icon: Icons.bolt_rounded,
-              label: 'Live aloqa',
-              value: liveConnected
-                  ? 'WebSocket ulangan'
-                  : 'WebSocket qayta ulanmoqda',
-              ok: liveConnected,
+            const Spacer(),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
-            _QuickStatusRow(
-              icon: Icons.speed_rounded,
-              label: 'Ma\'lumotlar bazasi',
-              value: report.database.pingMs > 0
-                  ? 'Ulangan, ping ${report.database.pingMs} ms'
-                  : _databaseStatusLabel(report.database.status),
-              ok: report.database.reachable,
+            const SizedBox(height: 3),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
-            _QuickStatusRow(
-              icon: Icons.timer_rounded,
-              label: 'Server ishlash vaqti',
-              value: _formatDuration(report.server.uptimeSeconds),
-              ok: report.server.status == 'running',
-            ),
-            _QuickStatusRow(
-              icon: Icons.inventory_2_rounded,
-              label: 'Backup',
-              value: backup == null
-                  ? '${report.backups.fileCount} ta fayl'
-                  : '${report.backups.fileCount} ta fayl, ${_backupAgeLabel(backup)}',
-              ok: report.backups.exists && report.backups.fileCount > 0,
-              showDivider: false,
+            const SizedBox(height: 3),
+            Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ],
         ),
@@ -399,221 +427,55 @@ class _QuickStatusCard extends StatelessWidget {
   }
 }
 
-class _QuickStatusRow extends StatelessWidget {
-  const _QuickStatusRow({
-    required this.icon,
+class _InlineStateDot extends StatelessWidget {
+  const _InlineStateDot({required this.ok});
+
+  final bool ok;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _statusColor(context, ok);
+    return Container(
+      height: 9,
+      width: 9,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _KeyValueLine extends StatelessWidget {
+  const _KeyValueLine({
     required this.label,
     required this.value,
-    required this.ok,
-    this.showDivider = true,
   });
 
-  final IconData icon;
   final String label;
   final String value;
-  final bool ok;
-  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = _statusColor(context, ok);
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 38,
-              width: 38,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: accent, size: 21),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                          height: 1.2,
-                        ),
-                  ),
-                ],
-              ),
             ),
-            const SizedBox(width: 10),
-            Icon(
-              ok ? Icons.check_circle_rounded : Icons.error_rounded,
-              color: accent,
-              size: 22,
-            ),
-          ],
-        ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(50, 12, 0, 12),
-            child: Divider(
-              height: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.75),
-            ),
-          )
-        else
-          const SizedBox(height: 2),
-      ],
-    );
-  }
-}
-
-class _HealthCards extends StatelessWidget {
-  const _HealthCards({required this.report});
-
-  final AdminServerMonitorReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final serverOk = report.server.status == 'running';
-    final dbOk = report.database.reachable;
-    final backupOk = report.backups.exists && report.backups.fileCount > 0;
-    return Column(
-      children: [
-        _HealthCard(
-          icon: Icons.dns_rounded,
-          title: 'Server',
-          status: _serverStatusLabel(report.server.status),
-          description:
-              'Server ${report.server.bindAddr} da ishlab turibdi. Ishlash davomiyligi: ${_formatDuration(report.server.uptimeSeconds)}.',
-          ok: serverOk,
-          value: _formatDuration(report.server.uptimeSeconds),
-        ),
-        const SizedBox(height: 10),
-        _HealthCard(
-          icon: Icons.storage_rounded,
-          title: 'Ma\'lumotlar bazasi',
-          status: _databaseStatusLabel(report.database.status),
-          description: dbOk
-              ? 'DB ulanishi faol. So‘nggi ping: ${report.database.pingMs} ms.'
-              : 'DB ulanishida muammo bor: ${report.database.error}',
-          ok: dbOk,
-          value:
-              report.database.pingMs > 0 ? '${report.database.pingMs} ms' : '-',
-        ),
-        const SizedBox(height: 10),
-        _HealthCard(
-          icon: Icons.backup_rounded,
-          title: 'Backup',
-          status: _backupStatusLabel(report),
-          description: _backupDescription(report),
-          ok: backupOk,
-          value: '${report.backups.fileCount} ta',
-        ),
-      ],
-    );
-  }
-}
-
-class _HealthCard extends StatelessWidget {
-  const _HealthCard({
-    required this.icon,
-    required this.title,
-    required this.status,
-    required this.description,
-    required this.ok,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String title;
-  final String status;
-  final String description;
-  final bool ok;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final accent = _statusColor(context, ok);
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: scheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 46,
-              width: 46,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: accent),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                      ),
-                      _StatusPill(label: status, active: ok),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HealthScoreBar(
-                          score: ok ? 100 : 32,
-                          color: accent,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        value,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -775,59 +637,6 @@ class _InlineWarning extends StatelessWidget {
   }
 }
 
-class _HealthScoreBar extends StatelessWidget {
-  const _HealthScoreBar({
-    required this.score,
-    required this.color,
-  });
-
-  final int score;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: LinearProgressIndicator(
-        minHeight: 8,
-        value: (score.clamp(0, 100) as num).toDouble() / 100,
-        backgroundColor: color.withValues(alpha: 0.14),
-        valueColor: AlwaysStoppedAnimation<Color>(color),
-      ),
-    );
-  }
-}
-
-class _TinyInfoLine extends StatelessWidget {
-  const _TinyInfoLine({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MonitorRow extends StatelessWidget {
   const _MonitorRow({
     required this.label,
@@ -907,44 +716,6 @@ class _StatusPill extends StatelessWidget {
 Color _statusColor(BuildContext context, bool ok) {
   final scheme = Theme.of(context).colorScheme;
   return ok ? scheme.primary : scheme.error;
-}
-
-int _healthScore(AdminServerMonitorReport report) {
-  var score = 0;
-  if (report.server.status == 'running') {
-    score += 34;
-  }
-  if (report.database.reachable) {
-    score += 33;
-  }
-  if (report.backups.exists && report.backups.fileCount > 0) {
-    score += 33;
-  }
-  return score;
-}
-
-String _backupStatusLabel(AdminServerMonitorReport report) {
-  if (!report.backups.exists) {
-    return 'Topilmadi';
-  }
-  if (report.backups.fileCount <= 0) {
-    return 'Fayl yo‘q';
-  }
-  return 'Backup bor';
-}
-
-String _backupDescription(AdminServerMonitorReport report) {
-  final latest = report.backups.latest;
-  if (!report.backups.exists) {
-    final error = report.backups.error.trim();
-    return error.isEmpty
-        ? 'Backup papkasi topilmadi.'
-        : 'Backup papkasi topilmadi: $error.';
-  }
-  if (latest == null) {
-    return 'Backup papkasi bor, lekin ichida dump fayl topilmadi.';
-  }
-  return 'Oxirgi backup ${latest.name}. Hajmi ${_formatBytes(latest.sizeBytes)}, yoshi ${_formatDuration(latest.ageSeconds)}.';
 }
 
 String _backupAgeLabel(AdminServerMonitorBackupFile backup) {

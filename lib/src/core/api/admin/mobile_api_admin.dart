@@ -1345,8 +1345,9 @@ extension MobileApiAdmin on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
-    await for (final event
-        in connectWarehouseLive(adminServerMonitorLiveUri())) {
+    await for (final event in withLiveStreamSilenceTimeout(
+      connectWarehouseLive(adminServerMonitorLiveUri()),
+    )) {
       if (event['ok'] == true) {
         yield AdminServerMonitorReport.fromJson(event);
       }

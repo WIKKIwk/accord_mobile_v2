@@ -12,6 +12,7 @@ import '../search/search_normalizer.dart';
 import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -54,6 +55,13 @@ String maskPushToken(String token) {
     return trimmed;
   }
   return '${trimmed.substring(0, 6)}...${trimmed.substring(trimmed.length - 6)}';
+}
+
+Stream<T> withLiveStreamSilenceTimeout<T>(
+  Stream<T> source, {
+  Duration timeout = const Duration(seconds: 7),
+}) {
+  return source.timeout(timeout);
 }
 
 class MobileApi {

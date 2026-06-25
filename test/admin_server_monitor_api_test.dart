@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -25,5 +27,19 @@ void main() {
     expect(report.backups.exists, isTrue);
     expect(report.backups.fileCount, 1);
     expect(report.backups.latest?.name, endsWith('.dump'));
+  });
+
+  test('live stream watchdog fails silent streams so screen reconnects',
+      () async {
+    final controller = StreamController<int>();
+    addTearDown(controller.close);
+
+    await expectLater(
+      withLiveStreamSilenceTimeout<int>(
+        controller.stream,
+        timeout: const Duration(milliseconds: 1),
+      ).drain<void>(),
+      throwsA(isA<TimeoutException>()),
+    );
   });
 }
