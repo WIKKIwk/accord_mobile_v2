@@ -15,6 +15,46 @@ ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   }
 }
 
+List<String> effectiveQueueSequence({
+  required List<String> sequence,
+  required Iterable<String> visibleOrderIds,
+}) {
+  final visible = <String>[];
+  final visibleSeen = <String>{};
+  for (final id in visibleOrderIds) {
+    final normalized = id.trim();
+    if (normalized.isNotEmpty && visibleSeen.add(normalized)) {
+      visible.add(normalized);
+    }
+  }
+  if (visible.isEmpty) {
+    final normalizedSequence = <String>[];
+    final seen = <String>{};
+    for (final id in sequence) {
+      final normalized = id.trim();
+      if (normalized.isNotEmpty && seen.add(normalized)) {
+        normalizedSequence.add(normalized);
+      }
+    }
+    return normalizedSequence;
+  }
+  final visibleSet = visible.toSet();
+  final effective = <String>[];
+  final seen = <String>{};
+  for (final id in sequence) {
+    final normalized = id.trim();
+    if (visibleSet.contains(normalized) && seen.add(normalized)) {
+      effective.add(normalized);
+    }
+  }
+  for (final id in visible) {
+    if (seen.add(id)) {
+      effective.add(id);
+    }
+  }
+  return effective;
+}
+
 String? firstActionableQueueOrderId({
   required List<String> sequence,
   required Map<String, String> states,
@@ -25,15 +65,20 @@ String? firstActionableQueueOrderId({
       ?.map((id) => id.trim())
       .where((id) => id.isNotEmpty)
       .toSet();
+  final effectiveSequence = visibleOrderIds == null
+      ? sequence
+      : effectiveQueueSequence(
+          sequence: sequence,
+          visibleOrderIds: visibleOrderIds,
+        );
   final active = firstActiveQueueOrderId(
-    sequence: sequence,
+    sequence: effectiveSequence,
     states: states,
-    visibleOrderIds: visible,
   );
   if (active != null) {
     return active;
   }
-  for (final id in sequence) {
+  for (final id in effectiveSequence) {
     final normalized = id.trim();
     if (normalized.isEmpty) {
       continue;
@@ -76,7 +121,13 @@ String? firstActiveQueueOrderId({
       ?.map((id) => id.trim())
       .where((id) => id.isNotEmpty)
       .toSet();
-  for (final id in sequence) {
+  final effectiveSequence = visibleOrderIds == null
+      ? sequence
+      : effectiveQueueSequence(
+          sequence: sequence,
+          visibleOrderIds: visibleOrderIds,
+        );
+  for (final id in effectiveSequence) {
     final normalized = id.trim();
     if (normalized.isEmpty) {
       continue;

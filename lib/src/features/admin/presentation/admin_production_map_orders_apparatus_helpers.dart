@@ -122,9 +122,13 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     apparatus,
     sequenceByApparatus: sequenceByApparatus,
   );
+  final visibleOrderIds = filtered.map((order) => order.map.id).toList();
   final ordered = _applyApparatusOrderSequence(
     orders: filtered,
-    sequence: sequence,
+    sequence: effectiveQueueSequence(
+      sequence: sequence,
+      visibleOrderIds: visibleOrderIds,
+    ),
   );
   if (!workerMode) {
     return ordered;

@@ -31,57 +31,70 @@ class _PreviousProgressQrTile extends StatelessWidget {
             : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: ready
-                  ? scheme.primary.withValues(alpha: 0.14)
-                  : scheme.surface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              ready ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
-              color: ready ? scheme.primary : scheme.onSurfaceVariant,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ready ? 'Oldingi bosqich tasdiqlandi' : 'Oldingi bosqich QR',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ready
+                      ? scheme.primary.withValues(alpha: 0.14)
+                      : scheme.surface,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  ready && progressBatch != null
-                      ? '${progressBatch.apparatus} • $batchQty ${progressBatch.uom}'
-                      : previousStage,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Icon(
+                  ready ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
+                  color: ready ? scheme.primary : scheme.onSurfaceVariant,
+                  size: 22,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ready
+                          ? 'Oldingi bosqich tasdiqlandi'
+                          : 'Oldingi bosqich QR',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ready && progressBatch != null
+                          ? '${progressBatch.apparatus} • $batchQty ${progressBatch.uom}'
+                          : previousStage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 10),
           FilledButton.tonalIcon(
             onPressed: actionInFlight ? null : onScan,
             icon: Icon(
               ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
             ),
             label: Text(ready ? 'Qayta scan' : 'Scan'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),

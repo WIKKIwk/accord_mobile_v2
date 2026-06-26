@@ -76,10 +76,19 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await _usePhoneViewport(tester);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 1200);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: const TextScaler.linear(1.25),
+          ),
+          child: child!,
+        ),
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -2770,6 +2779,87 @@ void main() {
 
     expect(find.text('Tugagan'), findsOneWidget);
     expect(find.text('Jarayonda'), findsOneWidget);
+  });
+
+  testWidgets('later stage detail keeps previous progress QR scan visible', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-lamin-previous-qr-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Laminatsiya aparatchi',
+        legalName: '',
+        ref: 'worker-lamin-previous-qr',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['Laminatsiya 1'],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _twoStageProductionOrderMap(
+        id: 'zakaz-worker-previous-qr',
+        title: 'Worker previous QR',
+        productCode: 'WPQ',
+        product: 'worker previous qr product',
+        firstApparatus: '7 ta rangli pechat',
+        secondApparatus: 'Laminatsiya 1',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: '7 ta rangli pechat',
+      orderIds: const ['zakaz-worker-previous-qr'],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Laminatsiya 1',
+      orderIds: const ['stale-zakaz'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: '7 ta rangli pechat',
+      orderId: 'zakaz-worker-previous-qr',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: '7 ta rangli pechat',
+      orderId: 'zakaz-worker-previous-qr',
+      action: 'complete',
+      producedQty: 12,
+      grossQty: 9,
+      uom: 'm',
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Laminatsiya 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('previous-qr').first);
+    await tester.pumpAndSettle();
+
+    final previousQrLabel = find.text('Oldingi bosqich QR');
+    expect(previousQrLabel, findsOneWidget);
+    expect(find.text('Scan'), findsOneWidget);
+    expect(tester.getSize(previousQrLabel).width, greaterThan(120));
+    expect(tester.getRect(find.text('Scan')).right, lessThan(360));
   });
 
   testWidgets('production map sheet closes when tapping the dimmed barrier', (

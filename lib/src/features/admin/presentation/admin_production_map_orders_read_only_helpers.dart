@@ -357,8 +357,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final previousStage = station.isEmpty
       ? null
       : productionMapPreviousWorkStageStation(map: map, station: station);
-  final sequence =
-      sequenceOrderIds.isNotEmpty ? sequenceOrderIds : visibleOrderIds;
+  final sequence = effectiveQueueSequence(
+    sequence: sequenceOrderIds,
+    visibleOrderIds: visibleOrderIds,
+  );
   final actionableId = canManageQueue
       ? firstActionableQueueOrderId(
           sequence: sequence,

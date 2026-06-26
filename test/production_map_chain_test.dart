@@ -224,6 +224,17 @@ void main() {
     expect(actionable, 'zakaz-b');
   });
 
+  test('effective queue sequence removes stale ids and appends visible orders',
+      () {
+    expect(
+      effectiveQueueSequence(
+        sequence: const ['old-zakaz', 'zakaz-b'],
+        visibleOrderIds: const ['zakaz-a', 'zakaz-b'],
+      ),
+      const ['zakaz-b', 'zakaz-a'],
+    );
+  });
+
   test('first actionable prioritizes in progress order', () {
     final actionable = firstActionableQueueOrderId(
       sequence: const ['zakaz-a', 'zakaz-b'],
