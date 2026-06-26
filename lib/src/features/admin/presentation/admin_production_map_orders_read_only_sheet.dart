@@ -33,11 +33,14 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   late Map<String, String> _queueStates;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
+  List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
   AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
   bool _materialsLoading = true;
   String _materialsError = '';
+  bool _inputProgressLoading = false;
+  String _inputProgressError = '';
   bool _mapExpanded = false;
 
   @override
@@ -45,6 +48,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     super.initState();
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
     unawaited(_loadMaterialAssignments());
+    unawaited(_loadInputProgressBatches());
   }
 
   @override
@@ -56,6 +60,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
       _startInputProgressBatch = null;
+      _availableInputProgressBatches = const [];
+      _inputProgressError = '';
+      _inputProgressLoading = false;
+      unawaited(_loadInputProgressBatches());
     }
     if (_actionInFlight) {
       return;
@@ -159,6 +167,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
       }
+      if (states != null) {
+        unawaited(_loadInputProgressBatches());
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -251,7 +262,32 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             context, 'Bu QR oldingi bosqich mahsulotiga mos emas');
         return;
       }
-      setState(() => _startInputProgressBatch = batch);
+      final latest = await _fetchInputProgressBatches(previousStage);
+      if (!mounted) {
+        return;
+      }
+      final match = _matchingInputProgressBatch(
+        batches: latest,
+        batch: batch,
+      );
+      if (match == null) {
+        showAdminTopNotice(
+          context,
+          'Bu QR ushbu orderning ${widget.apparatus?.warehouse.trim() ?? ''} WIP listida topilmadi',
+        );
+        setState(() {
+          _availableInputProgressBatches = latest;
+          _inputProgressLoading = false;
+          _inputProgressError = '';
+        });
+        return;
+      }
+      setState(() {
+        _availableInputProgressBatches = latest;
+        _startInputProgressBatch = match;
+        _inputProgressLoading = false;
+        _inputProgressError = '';
+      });
       showAdminTopNotice(context, 'Oldingi bosqich QR tasdiqlandi');
     } catch (error) {
       if (!mounted) {
@@ -259,6 +295,70 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       showAdminTopNotice(context, _progressQrLookupErrorText(error));
     }
+  }
+
+  Future<void> _loadInputProgressBatches() async {
+    final station = widget.apparatus?.warehouse.trim() ?? '';
+    if (station.isEmpty) {
+      return;
+    }
+    final previousStage = productionMapPreviousWorkStageStation(
+        map: widget.order.map, station: station);
+    if (previousStage == null) {
+      return;
+    }
+    setState(() {
+      _inputProgressLoading = true;
+      _inputProgressError = '';
+    });
+    try {
+      final batches = await _fetchInputProgressBatches(previousStage);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _availableInputProgressBatches = batches;
+        _inputProgressLoading = false;
+        _inputProgressError = '';
+        if (_startInputProgressBatch != null &&
+            _matchingInputProgressBatch(
+                  batches: batches,
+                  batch: _startInputProgressBatch!,
+                ) ==
+                null) {
+          _startInputProgressBatch = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _availableInputProgressBatches = const [];
+        _inputProgressLoading = false;
+        _inputProgressError = 'WIP ro‘yxati yuklanmadi';
+      });
+    }
+  }
+
+  Future<List<AdminProgressBatch>> _fetchInputProgressBatches(
+    String previousStage,
+  ) async {
+    final station = widget.apparatus?.warehouse.trim() ?? '';
+    final batches = await MobileApi.instance.adminWipBatches(
+      orderId: widget.order.map.id.trim(),
+      limit: 250,
+    );
+    return [
+      for (final batch in batches)
+        if (_progressBatchMatchesPreviousStage(
+              batch: batch,
+              orderId: widget.order.map.id.trim(),
+              previousStage: previousStage,
+            ) &&
+            _progressBatchCanFeedStation(batch: batch, station: station))
+          batch,
+    ];
   }
 
   @override
@@ -288,6 +388,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       materialsError: _materialsError,
       actionInFlight: _actionInFlight,
       previousProgressBatch: _startInputProgressBatch,
+      inputProgressBatches: _availableInputProgressBatches,
+      inputProgressLoading: _inputProgressLoading,
+      inputProgressError: _inputProgressError,
       mapExpanded: _mapExpanded,
       onToggleMapExpanded: () {
         setState(() => _mapExpanded = !_mapExpanded);

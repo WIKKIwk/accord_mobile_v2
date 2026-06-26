@@ -146,6 +146,36 @@ bool _progressBatchMatchesPreviousStage({
   return matchesOrder && matchesStage && usableAction && usableStatus;
 }
 
+bool _progressBatchCanFeedStation({
+  required AdminProgressBatch batch,
+  required String station,
+}) {
+  final wipStatus = batch.wipStatus.trim().toLowerCase();
+  if (wipStatus == 'processed') {
+    return false;
+  }
+  final nextApparatus = batch.nextApparatus.trim();
+  return nextApparatus.isEmpty ||
+      productionMapWarehouseTitlesMatch(nextApparatus, station);
+}
+
+AdminProgressBatch? _matchingInputProgressBatch({
+  required List<AdminProgressBatch> batches,
+  required AdminProgressBatch batch,
+}) {
+  for (final item in batches) {
+    final sameBatch = item.batchId.trim().isNotEmpty &&
+        item.batchId.trim() == batch.batchId.trim();
+    final sameQr = item.qrPayload.trim().isNotEmpty &&
+        item.qrPayload.trim().toUpperCase() ==
+            batch.qrPayload.trim().toUpperCase();
+    if (sameBatch || sameQr) {
+      return item;
+    }
+  }
+  return null;
+}
+
 Future<AdminProgressBatch?> _scanProgressBatchFromQrDialog(
   BuildContext context,
 ) async {

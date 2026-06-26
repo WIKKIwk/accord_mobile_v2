@@ -11,6 +11,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.materialsError,
     required this.actionInFlight,
     required this.previousProgressBatch,
+    required this.inputProgressBatches,
+    required this.inputProgressLoading,
+    required this.inputProgressError,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
     required this.onScan,
@@ -30,6 +33,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String materialsError;
   final bool actionInFlight;
   final AdminProgressBatch? previousProgressBatch;
+  final List<AdminProgressBatch> inputProgressBatches;
+  final bool inputProgressLoading;
+  final String inputProgressError;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
   final VoidCallback onScan;
@@ -74,6 +80,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 previousProgressRequired: uiState.previousProgressRequired,
                 previousProgressReady: uiState.previousProgressReady,
                 previousProgressBatch: previousProgressBatch,
+                inputProgressBatches: inputProgressBatches,
+                inputProgressLoading: inputProgressLoading,
+                inputProgressError: inputProgressError,
                 onScan: onScan,
                 onProgressScan: onProgressScan,
                 onStart: onStart,
@@ -405,6 +414,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.previousProgressRequired,
     required this.previousProgressReady,
     required this.previousProgressBatch,
+    required this.inputProgressBatches,
+    required this.inputProgressLoading,
+    required this.inputProgressError,
     required this.onScan,
     required this.onProgressScan,
     required this.onStart,
@@ -432,6 +444,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool previousProgressRequired;
   final bool previousProgressReady;
   final AdminProgressBatch? previousProgressBatch;
+  final List<AdminProgressBatch> inputProgressBatches;
+  final bool inputProgressLoading;
+  final String inputProgressError;
   final VoidCallback onScan;
   final VoidCallback? onProgressScan;
   final VoidCallback onStart;
@@ -627,6 +642,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 previousStage: previousStage ?? '',
                 ready: previousProgressReady,
                 batch: previousProgressBatch,
+                availableBatches: inputProgressBatches,
+                loading: inputProgressLoading,
+                error: inputProgressError,
                 actionInFlight: actionInFlight,
                 onScan: onProgressScan,
               ),

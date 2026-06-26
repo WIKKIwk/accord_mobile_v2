@@ -2858,6 +2858,11 @@ void main() {
     final previousQrLabel = find.text('Oldingi bosqich QR');
     expect(previousQrLabel, findsOneWidget);
     expect(find.text('Scan'), findsOneWidget);
+    expect(find.text('Bu orderda 1 ta WIP bor'), findsOneWidget);
+    expect(
+      find.textContaining('7 ta rangli pechat chiqargan WIPlardan'),
+      findsOneWidget,
+    );
     expect(tester.getSize(previousQrLabel).width, greaterThan(120));
     expect(tester.getRect(find.text('Scan')).right, lessThan(360));
   });
