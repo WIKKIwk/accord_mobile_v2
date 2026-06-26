@@ -215,6 +215,59 @@ void main() {
     );
   });
 
+  test('chain readiness uses alternative assigned apparatus title', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-alt-chain',
+      productCode: 'ALT',
+      title: 'Alternative chain',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'pechat',
+          kind: 'apparatus',
+          title: '7 ta rangli pechat',
+          alternativeAssignedTitle: '8 ta rangli pechat',
+        ),
+        ProductionMapNode(
+          id: 'lamin',
+          kind: 'apparatus',
+          title: 'Laminatsiya 1',
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'pechat'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin'),
+        ProductionMapEdge(from: 'lamin', to: 'end'),
+      ],
+    );
+
+    expect(
+      productionMapLinearWorkStages(map)
+          .map((stage) => stage.stationTitle)
+          .toList(),
+      ['8 ta rangli pechat', 'Laminatsiya 1'],
+    );
+    expect(
+      productionMapPreviousWorkStageStation(
+        map: map,
+        station: 'Laminatsiya 1',
+      ),
+      '8 ta rangli pechat',
+    );
+    expect(
+      productionMapOrderReadyForStation(
+        map: map,
+        orderId: 'zakaz-alt-chain',
+        station: 'Laminatsiya 1',
+        queueStatesByApparatus: const {
+          '8 ta rangli pechat': {'zakaz-alt-chain': 'completed'},
+        },
+      ),
+      isTrue,
+    );
+  });
+
   test('first actionable skips orders blocked by chain', () {
     final actionable = firstActionableQueueOrderId(
       sequence: const ['zakaz-a', 'zakaz-b'],
