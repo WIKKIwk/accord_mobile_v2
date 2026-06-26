@@ -2867,6 +2867,74 @@ void main() {
     expect(tester.getRect(find.text('Scan')).right, lessThan(360));
   });
 
+  testWidgets(
+    'later stage waits for previous apparatus before showing progress QR scan',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await AppSession.instance.setSession(
+        token: 'worker-lamin-wait-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Laminatsiya aparatchi',
+          legalName: '',
+          ref: 'worker-lamin-wait',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: ['Laminatsiya 1'],
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _twoStageProductionOrderMap(
+          id: 'zakaz-worker-lamin-wait',
+          title: 'Worker lamin wait',
+          productCode: 'WLW',
+          product: 'worker lamin wait product',
+          firstApparatus: '7 ta rangli pechat',
+          secondApparatus: 'Laminatsiya 1',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: 'Laminatsiya 1',
+        orderIds: const ['zakaz-worker-lamin-wait'],
+      );
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Laminatsiya 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('lamin-wait').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Oldingi bosqich QR'), findsNothing);
+      expect(find.text('Scan'), findsNothing);
+      expect(
+        find.text(
+            'Oldingi bosqich tugallanguncha kutilmoqda: 7 ta rangli pechat'),
+        findsOneWidget,
+      );
+      expect(find.text('2 / 5 bosqich'), findsOneWidget);
+    },
+  );
+
   testWidgets('production map sheet closes when tapping the dimmed barrier', (
     tester,
   ) async {
@@ -3228,6 +3296,11 @@ ProductionMapDefinition _twoStageProductionOrderMap({
     nodes: [
       const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
       ProductionMapNode(
+        id: 'product-task',
+        kind: 'task',
+        title: product,
+      ),
+      ProductionMapNode(
         id: 'first-apparatus',
         kind: 'apparatus',
         title: firstApparatus,
@@ -3245,7 +3318,8 @@ ProductionMapDefinition _twoStageProductionOrderMap({
       ),
     ],
     edges: const [
-      ProductionMapEdge(from: 'start', to: 'first-apparatus'),
+      ProductionMapEdge(from: 'start', to: 'product-task'),
+      ProductionMapEdge(from: 'product-task', to: 'first-apparatus'),
       ProductionMapEdge(from: 'first-apparatus', to: 'second-apparatus'),
       ProductionMapEdge(from: 'second-apparatus', to: 'end'),
     ],

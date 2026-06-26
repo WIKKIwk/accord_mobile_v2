@@ -172,25 +172,16 @@ bool _orderMapNodeMatchesStation(ProductionMapNode node, String station) {
           _orderMapNodeStationTitle(node), station);
 }
 
-int _orderMapCurrentStepIndex(
-  List<ProductionMapNode> steps,
-  String currentStation,
-) {
-  if (currentStation.trim().isEmpty) {
-    return -1;
-  }
-  return steps.indexWhere(
-    (node) => _orderMapNodeMatchesStation(node, currentStation),
-  );
-}
-
-bool _orderMapStepIsPast({
+bool _orderMapStepIsIntro({
   required List<ProductionMapNode> steps,
   required int index,
-  required String currentStation,
 }) {
-  final currentIndex = _orderMapCurrentStepIndex(steps, currentStation);
-  return currentIndex >= 0 && index < currentIndex;
+  if (index < 0 || index >= steps.length) {
+    return false;
+  }
+  final firstApparatusIndex =
+      steps.indexWhere((node) => node.kind == 'apparatus');
+  return firstApparatusIndex > 0 && index < firstApparatusIndex;
 }
 
 bool _orderMapStepIsDone({
@@ -201,10 +192,9 @@ bool _orderMapStepIsDone({
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
-  if (_orderMapStepIsPast(
+  if (_orderMapStepIsIntro(
     steps: steps,
     index: index,
-    currentStation: currentStation,
   )) {
     return true;
   }

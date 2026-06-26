@@ -369,6 +369,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       order: widget.order,
       apparatus: widget.apparatus,
       queueStates: _queueStates,
+      queueStatesByApparatus: widget.queueStatesByApparatus,
       materialAssignments: _materialAssignments,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,

@@ -357,6 +357,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required ProductionMapSaved order,
   required AdminWarehouse? apparatus,
   required Map<String, String> queueStates,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
@@ -387,6 +388,12 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final previousStage = station.isEmpty
       ? null
       : productionMapPreviousWorkStageStation(map: map, station: station);
+  final previousStageReady = productionMapOrderReadyForStation(
+    map: map,
+    orderId: orderId,
+    station: station,
+    queueStatesByApparatus: queueStatesByApparatus,
+  );
   final sequence = effectiveQueueSequence(
     sequence: sequenceOrderIds,
     visibleOrderIds: visibleOrderIds,
@@ -407,6 +414,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       : null;
   final freePick = queuePolicy == ApparatusQueuePolicy.freePick;
   final canStartWithPreviousProgress = previousStage != null &&
+      previousStageReady &&
       queueState == ApparatusQueueOrderState.pending &&
       (activeOrderId == null || activeOrderId == orderId);
   final isActionable = canManageQueue &&
@@ -425,13 +433,18 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     previousProgressRequired: previousProgressRequired,
     previousProgressReady:
         !previousProgressRequired || startInputProgressBatch != null,
-    showStart: isActionable && queueState == ApparatusQueueOrderState.pending,
+    showStart: isActionable &&
+        previousStageReady &&
+        queueState == ApparatusQueueOrderState.pending,
     showPause:
         isActionable && queueState == ApparatusQueueOrderState.inProgress,
     showComplete:
         isActionable && queueState == ApparatusQueueOrderState.inProgress,
     showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
-    showWaitingForPrevious: false,
+    showWaitingForPrevious: canManageQueue &&
+        previousStage != null &&
+        !previousStageReady &&
+        queueState == ApparatusQueueOrderState.pending,
   );
 }
 
