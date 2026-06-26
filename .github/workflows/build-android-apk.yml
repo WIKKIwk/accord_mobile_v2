@@ -66,16 +66,16 @@ jobs:
 
       - name: Build APK
         run: |
-          flutter build apk --release --dart-define=MOBILE_API_BASE_URL="${MOBILE_API_BASE_URL}"
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/accord.apk
+          flutter build apk --release --split-per-abi --target-platform=android-arm64 --dart-define=MOBILE_API_BASE_URL="${MOBILE_API_BASE_URL}"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/accord-arm64-v8a.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: accord-apk
           path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/flutter-apk/accord.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/accord-arm64-v8a.apk
           if-no-files-found: error
 
   build-ios-ipa:
@@ -147,6 +147,6 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           files: |
-            artifacts/apk/app-release.apk
-            artifacts/apk/accord.apk
+            artifacts/apk/app-arm64-v8a-release.apk
+            artifacts/apk/accord-arm64-v8a.apk
             artifacts/ipa/accord-ios-unsigned.ipa
