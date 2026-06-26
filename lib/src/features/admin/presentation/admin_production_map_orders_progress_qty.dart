@@ -407,7 +407,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           const SizedBox(height: 10),
                           _qtyField(
                             controller: _rezkaEdgeWasteController,
-                            label: 'Mahsulot chetidan chiqindi',
+                            label: 'Tayyor mahsulot chetidan chiqqan chiqindi',
                             error:
                                 'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
                             suffix: 'kg',
