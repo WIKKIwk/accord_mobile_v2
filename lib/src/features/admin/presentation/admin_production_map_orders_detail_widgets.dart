@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
+    required this.noticeAnchorKey,
     required this.map,
     required this.steps,
     required this.uiState,
@@ -24,6 +25,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onResume,
   });
 
+  final GlobalKey noticeAnchorKey;
   final ProductionMapDefinition map;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
@@ -55,6 +57,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
       maxChildSize: 0.96,
       builder: (context, controller) {
         return ColoredBox(
+          key: noticeAnchorKey,
           color: scheme.surfaceContainerHighest,
           child: ListView(
             controller: controller,

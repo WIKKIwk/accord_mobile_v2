@@ -31,6 +31,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 }
 
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
+  final GlobalKey _noticeAnchorKey = GlobalKey();
   late Map<String, String> _queueStates;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
@@ -131,7 +132,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return;
     }
     if (prepared.blockReason != null) {
-      showAdminTopNotice(context, prepared.blockReason!);
+      _showSheetNotice(prepared.blockReason!);
       return;
     }
     setState(() => _actionInFlight = true);
@@ -175,7 +176,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         return;
       }
       setState(() => _actionInFlight = false);
-      showAdminTopNotice(context, _readOnlyQueueActionErrorText(error));
+      _showSheetNotice(_readOnlyQueueActionErrorText(error));
     }
   }
 
@@ -229,7 +230,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     final match = scan.assignment;
     if (match == null) {
-      showAdminTopNotice(context, 'Bu homashyo zakazga mos emas');
+      _showSheetNotice('Bu homashyo zakazga mos emas');
       return;
     }
     setState(() {
@@ -240,7 +241,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       scannedBarcodes: _scannedMaterialBarcodes,
       orderId: orderId,
     )) {
-      showAdminTopNotice(context, 'Homashyolar tasdiqlandi');
+      _showSheetNotice('Homashyolar tasdiqlandi');
     }
   }
 
@@ -258,8 +259,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         orderId: widget.order.map.id.trim(),
         previousStage: previousStage,
       )) {
-        showAdminTopNotice(
-            context, 'Bu QR oldingi bosqich mahsulotiga mos emas');
+        _showSheetNotice('Bu QR oldingi bosqich mahsulotiga mos emas');
         return;
       }
       final latest = await _fetchInputProgressBatches(previousStage);
@@ -271,8 +271,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         batch: batch,
       );
       if (match == null) {
-        showAdminTopNotice(
-          context,
+        _showSheetNotice(
           'Bu QR ushbu orderning ${widget.apparatus?.warehouse.trim() ?? ''} WIP listida topilmadi',
         );
         setState(() {
@@ -288,12 +287,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _inputProgressLoading = false;
         _inputProgressError = '';
       });
-      showAdminTopNotice(context, 'Oldingi bosqich QR tasdiqlandi');
+      _showSheetNotice('Oldingi bosqich QR tasdiqlandi');
     } catch (error) {
       if (!mounted) {
         return;
       }
-      showAdminTopNotice(context, _progressQrLookupErrorText(error));
+      _showSheetNotice(_progressQrLookupErrorText(error));
     }
   }
 
@@ -383,6 +382,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
 
     return _ReadOnlyOrderDetailContent(
+      noticeAnchorKey: _noticeAnchorKey,
       map: map,
       steps: steps,
       uiState: uiState,
@@ -407,6 +407,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onPause: () => unawaited(_runProgressAction('pause')),
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),
+    );
+  }
+
+  void _showSheetNotice(String message) {
+    showAdminTopNotice(
+      context,
+      message,
+      anchorKey: _noticeAnchorKey,
     );
   }
 }
