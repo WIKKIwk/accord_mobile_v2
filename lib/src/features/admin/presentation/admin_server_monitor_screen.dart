@@ -464,7 +464,7 @@ class _UsageTicksPanel extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
