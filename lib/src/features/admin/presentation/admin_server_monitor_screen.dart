@@ -695,7 +695,7 @@ class _VolumeTicksPainter extends CustomPainter {
   }
 }
 
-class _PingSparklinePanel extends StatelessWidget {
+class _PingSparklinePanel extends StatefulWidget {
   const _PingSparklinePanel({
     required this.latencyMs,
     required this.samples,
@@ -705,6 +705,29 @@ class _PingSparklinePanel extends StatelessWidget {
   final int latencyMs;
   final List<int> samples;
   final bool connected;
+
+  @override
+  State<_PingSparklinePanel> createState() => _PingSparklinePanelState();
+}
+
+class _PingSparklinePanelState extends State<_PingSparklinePanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -721,24 +744,28 @@ class _PingSparklinePanel extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  connected ? Icons.arrow_forward_rounded : Icons.sync_rounded,
-                  color: _statusColor(context, connected),
+                  widget.connected
+                      ? Icons.arrow_forward_rounded
+                      : Icons.sync_rounded,
+                  color: _statusColor(context, widget.connected),
                   size: 18,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    connected ? 'Mobile ↔ server' : 'Ulanmoqda',
+                    'Ping',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: _statusColor(context, connected),
+                          color: _statusColor(context, widget.connected),
                           fontWeight: FontWeight.w900,
                         ),
                   ),
                 ),
                 Text(
-                  latencyMs > 0 ? '$latencyMs ms' : 'aniqlanmadi',
+                  widget.latencyMs > 0
+                      ? '${widget.latencyMs} ms'
+                      : 'aniqlanmadi',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -748,13 +775,20 @@ class _PingSparklinePanel extends StatelessWidget {
             const SizedBox(height: 8),
             SizedBox(
               height: 54,
-              child: CustomPaint(
-                painter: _PingSparklinePainter(
-                  samples: List<int>.of(samples),
-                  lineColor: scheme.primary,
-                  gridColor: scheme.outlineVariant.withValues(alpha: 0.7),
-                  textColor: scheme.onSurfaceVariant,
-                ),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: _PingSparklinePainter(
+                      samples: List<int>.of(widget.samples),
+                      wavePhase: _controller.value,
+                      lineColor: scheme.primary,
+                      gridColor: scheme.outlineVariant.withValues(alpha: 0.7),
+                      textColor: scheme.onSurfaceVariant,
+                    ),
+                    child: const SizedBox.expand(),
+                  );
+                },
                 child: const SizedBox.expand(),
               ),
             ),
@@ -768,12 +802,14 @@ class _PingSparklinePanel extends StatelessWidget {
 class _PingSparklinePainter extends CustomPainter {
   const _PingSparklinePainter({
     required this.samples,
+    required this.wavePhase,
     required this.lineColor,
     required this.gridColor,
     required this.textColor,
   });
 
   final List<int> samples;
+  final double wavePhase;
   final Color lineColor;
   final Color gridColor;
   final Color textColor;
@@ -794,14 +830,14 @@ class _PingSparklinePainter extends CustomPainter {
     final values = samples.isEmpty ? const <int>[0] : samples;
     final maxValue = math.max(4, values.reduce(math.max));
     if (values.length == 1) {
-      final y = _pingY(graphRect, values.first, maxValue);
+      final y = _animatedPingY(graphRect, values.first, maxValue, 0);
       canvas.drawCircle(
           Offset(graphRect.left, y), 2.5, Paint()..color = lineColor);
     } else {
       final path = Path();
       for (var i = 0; i < values.length; i++) {
         final x = graphRect.left + (graphRect.width * i / (values.length - 1));
-        final y = _pingY(graphRect, values[i], maxValue);
+        final y = _animatedPingY(graphRect, values[i], maxValue, i);
         if (i == 0) {
           path.moveTo(x, y);
         } else {
@@ -834,6 +870,12 @@ class _PingSparklinePainter extends CustomPainter {
     return rect.bottom - normalized * rect.height;
   }
 
+  double _animatedPingY(Rect rect, int value, int maxValue, int index) {
+    final baseY = _pingY(rect, value, maxValue);
+    final wave = math.sin((wavePhase * math.pi * 2) + index * 0.75) * 2.4;
+    return (baseY + wave).clamp(rect.top + 2, rect.bottom - 2).toDouble();
+  }
+
   void _drawAxisLabel(Canvas canvas, String text, Offset offset, Color color) {
     final painter = TextPainter(
       text: TextSpan(
@@ -852,6 +894,7 @@ class _PingSparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PingSparklinePainter oldDelegate) {
     return samples != oldDelegate.samples ||
+        wavePhase != oldDelegate.wavePhase ||
         lineColor != oldDelegate.lineColor ||
         gridColor != oldDelegate.gridColor ||
         textColor != oldDelegate.textColor;
