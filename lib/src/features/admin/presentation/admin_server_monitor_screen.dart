@@ -23,6 +23,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   bool _loading = true;
   bool _liveConnected = false;
   DateTime? _lastUpdated;
+  final List<int> _pingSamples = <int>[];
   StreamSubscription<AdminServerMonitorReport>? _liveSubscription;
   int _liveGeneration = 0;
 
@@ -52,8 +53,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         return;
       }
       setState(() {
-        _report = report;
-        _lastUpdated = DateTime.now();
+        _applyReport(report);
         _loading = false;
         _error = null;
       });
@@ -104,8 +104,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           return;
         }
         setState(() {
-          _report = report;
-          _lastUpdated = DateTime.now();
+          _applyReport(report);
           _loading = false;
           _liveConnected = true;
           _error = null;
@@ -124,6 +123,18 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       cancelOnError: true,
     );
     await completer.future;
+  }
+
+  void _applyReport(AdminServerMonitorReport report) {
+    _report = report;
+    _lastUpdated = DateTime.now();
+    final ping = report.database.pingMs;
+    if (ping > 0) {
+      _pingSamples.add(ping);
+      if (_pingSamples.length > 24) {
+        _pingSamples.removeRange(0, _pingSamples.length - 24);
+      }
+    }
   }
 
   void _goHomeOrPop() {
@@ -179,6 +190,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             report: report,
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
+            pingSamples: _pingSamples,
           ),
           const SizedBox(height: 12),
           _MetricGrid(
@@ -210,11 +222,13 @@ class _StatusSummaryPanel extends StatelessWidget {
     required this.report,
     required this.liveConnected,
     required this.lastUpdated,
+    required this.pingSamples,
   });
 
   final AdminServerMonitorReport report;
   final bool liveConnected;
   final DateTime? lastUpdated;
+  final List<int> pingSamples;
 
   @override
   Widget build(BuildContext context) {
@@ -308,6 +322,14 @@ class _StatusSummaryPanel extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            _DataVolumePanel(runtime: report.runtime),
+            const SizedBox(height: 10),
+            _PingSparklinePanel(
+              pingMs: report.database.pingMs,
+              samples: pingSamples,
+              connected: liveConnected && report.database.reachable,
             ),
             const SizedBox(height: 12),
             _KeyValueLine(
@@ -564,6 +586,297 @@ class _CompactStatusChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DataVolumePanel extends StatelessWidget {
+  const _DataVolumePanel({required this.runtime});
+
+  final AdminServerMonitorRuntime runtime;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final percent = runtime.diskPercent.clamp(0, 100);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'SSD joy',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.2,
+                        ),
+                  ),
+                ),
+                Text(
+                  '$percent%',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 20,
+              child: CustomPaint(
+                painter: _VolumeTicksPainter(
+                  percent: percent,
+                  color: _usageColor(context, percent),
+                  trackColor: scheme.outlineVariant.withValues(alpha: 0.62),
+                ),
+              ),
+            ),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_formatStorageMb(runtime.diskUsedMb)} band',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                Text(
+                  '${_formatStorageMb(runtime.diskTotalMb)} jami',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+            if (runtime.diskPath.trim().isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(
+                _shortDiskPath(runtime.diskPath),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VolumeTicksPainter extends CustomPainter {
+  const _VolumeTicksPainter({
+    required this.percent,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final int percent;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const tickCount = 42;
+    final active = ((percent.clamp(0, 100) / 100) * tickCount).round();
+    final tickWidth = size.width / (tickCount * 1.8);
+    final gap = (size.width - tickWidth * tickCount) / (tickCount - 1);
+    for (var i = 0; i < tickCount; i++) {
+      final left = i * (tickWidth + gap);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, 1, tickWidth, size.height - 2),
+        const Radius.circular(999),
+      );
+      final paint = Paint()..color = i < active ? color : trackColor;
+      canvas.drawRRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VolumeTicksPainter oldDelegate) {
+    return percent != oldDelegate.percent ||
+        color != oldDelegate.color ||
+        trackColor != oldDelegate.trackColor;
+  }
+}
+
+class _PingSparklinePanel extends StatelessWidget {
+  const _PingSparklinePanel({
+    required this.pingMs,
+    required this.samples,
+    required this.connected,
+  });
+
+  final int pingMs;
+  final List<int> samples;
+  final bool connected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  connected ? Icons.arrow_forward_rounded : Icons.sync_rounded,
+                  color: _statusColor(context, connected),
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    connected ? 'To‘g‘ridan-to‘g‘ri ulanish' : 'Ulanmoqda',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: _statusColor(context, connected),
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                Text(
+                  pingMs > 0 ? '$pingMs ms' : 'aniqlanmadi',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 54,
+              child: CustomPaint(
+                painter: _PingSparklinePainter(
+                  samples: List<int>.of(samples),
+                  lineColor: scheme.primary,
+                  gridColor: scheme.outlineVariant.withValues(alpha: 0.7),
+                  textColor: scheme.onSurfaceVariant,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PingSparklinePainter extends CustomPainter {
+  const _PingSparklinePainter({
+    required this.samples,
+    required this.lineColor,
+    required this.gridColor,
+    required this.textColor,
+  });
+
+  final List<int> samples;
+  final Color lineColor;
+  final Color gridColor;
+  final Color textColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final graphWidth = size.width - 42;
+    final graphRect = Rect.fromLTWH(0, 0, graphWidth, size.height);
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (final fraction in const [0.0, 0.5, 1.0]) {
+      final y = graphRect.top + graphRect.height * fraction;
+      canvas.drawLine(
+          Offset(graphRect.left, y), Offset(graphRect.right, y), gridPaint);
+    }
+
+    final values = samples.isEmpty ? const <int>[0] : samples;
+    final maxValue = math.max(4, values.reduce(math.max));
+    if (values.length == 1) {
+      final y = _pingY(graphRect, values.first, maxValue);
+      canvas.drawCircle(
+          Offset(graphRect.left, y), 2.5, Paint()..color = lineColor);
+    } else {
+      final path = Path();
+      for (var i = 0; i < values.length; i++) {
+        final x = graphRect.left + (graphRect.width * i / (values.length - 1));
+        final y = _pingY(graphRect, values[i], maxValue);
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = lineColor
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke,
+      );
+    }
+    _drawAxisLabel(
+        canvas, '${maxValue}ms', Offset(graphRect.right + 8, 0), textColor);
+    _drawAxisLabel(
+      canvas,
+      '${(maxValue / 2).round()}ms',
+      Offset(graphRect.right + 8, graphRect.height / 2 - 7),
+      textColor,
+    );
+    _drawAxisLabel(canvas, '0ms',
+        Offset(graphRect.right + 8, graphRect.height - 14), textColor);
+  }
+
+  double _pingY(Rect rect, int value, int maxValue) {
+    final normalized = (value.clamp(0, maxValue) / maxValue).toDouble();
+    return rect.bottom - normalized * rect.height;
+  }
+
+  void _drawAxisLabel(Canvas canvas, String text, Offset offset, Color color) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PingSparklinePainter oldDelegate) {
+    return samples != oldDelegate.samples ||
+        lineColor != oldDelegate.lineColor ||
+        gridColor != oldDelegate.gridColor ||
+        textColor != oldDelegate.textColor;
   }
 }
 
@@ -1045,6 +1358,43 @@ String _formatLoad(double value) {
     return 'load 0.00';
   }
   return 'load ${value.toStringAsFixed(2)}';
+}
+
+String _formatStorageMb(int value) {
+  if (value <= 0) {
+    return '0 GB';
+  }
+  final gb = value / 1024;
+  if (gb >= 100) {
+    return '${gb.toStringAsFixed(0)} GB';
+  }
+  if (gb >= 10) {
+    return '${gb.toStringAsFixed(1)} GB';
+  }
+  return '${gb.toStringAsFixed(2)} GB';
+}
+
+String _shortDiskPath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  final parts = trimmed.split('/').where((part) => part.isNotEmpty).toList();
+  if (parts.length <= 3) {
+    return trimmed;
+  }
+  return '.../${parts.sublist(parts.length - 3).join('/')}';
+}
+
+Color _usageColor(BuildContext context, int percent) {
+  final scheme = Theme.of(context).colorScheme;
+  if (percent >= 90) {
+    return scheme.error;
+  }
+  if (percent >= 75) {
+    return const Color(0xFFB56B20);
+  }
+  return scheme.primary;
 }
 
 String _backupAgeLabel(AdminServerMonitorBackupFile backup) {

@@ -32,6 +32,11 @@ void main() {
     expect(report.runtime.memoryUsedMb, greaterThanOrEqualTo(0));
     expect(report.runtime.memoryTotalMb, greaterThanOrEqualTo(0));
     expect(report.runtime.loadAverage, greaterThanOrEqualTo(0));
+    expect(report.runtime.diskPath, isNotEmpty);
+    expect(report.runtime.diskPercent, greaterThanOrEqualTo(0));
+    expect(report.runtime.diskUsedMb, greaterThanOrEqualTo(0));
+    expect(report.runtime.diskTotalMb, greaterThanOrEqualTo(0));
+    expect(report.runtime.diskAvailableMb, greaterThanOrEqualTo(0));
   });
 
   test('live stream watchdog fails silent streams so screen reconnects',

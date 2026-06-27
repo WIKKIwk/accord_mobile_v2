@@ -943,6 +943,11 @@ class AdminServerMonitorRuntime {
     required this.memoryPercent,
     required this.memoryUsedMb,
     required this.memoryTotalMb,
+    required this.diskPath,
+    required this.diskPercent,
+    required this.diskUsedMb,
+    required this.diskTotalMb,
+    required this.diskAvailableMb,
     required this.loadAverage,
     required this.sampleSeconds,
   });
@@ -951,6 +956,11 @@ class AdminServerMonitorRuntime {
   final int memoryPercent;
   final int memoryUsedMb;
   final int memoryTotalMb;
+  final String diskPath;
+  final int diskPercent;
+  final int diskUsedMb;
+  final int diskTotalMb;
+  final int diskAvailableMb;
   final double loadAverage;
   final int sampleSeconds;
 
@@ -960,6 +970,11 @@ class AdminServerMonitorRuntime {
       memoryPercent: (json['memory_percent'] as num?)?.round() ?? 0,
       memoryUsedMb: (json['memory_used_mb'] as num?)?.round() ?? 0,
       memoryTotalMb: (json['memory_total_mb'] as num?)?.round() ?? 0,
+      diskPath: json['disk_path']?.toString() ?? '',
+      diskPercent: (json['disk_percent'] as num?)?.round() ?? 0,
+      diskUsedMb: (json['disk_used_mb'] as num?)?.round() ?? 0,
+      diskTotalMb: (json['disk_total_mb'] as num?)?.round() ?? 0,
+      diskAvailableMb: (json['disk_available_mb'] as num?)?.round() ?? 0,
       loadAverage: (json['load_average'] as num?)?.toDouble() ?? 0,
       sampleSeconds: (json['sample_seconds'] as num?)?.round() ?? 0,
     );
@@ -1493,6 +1508,11 @@ extension MobileApiAdmin on MobileApi {
           memoryPercent: 42,
           memoryUsedMb: 1720,
           memoryTotalMb: 4096,
+          diskPath: '/home/wikki/mini_rs_erp_deploy/src',
+          diskPercent: 38,
+          diskUsedMb: 190000,
+          diskTotalMb: 500000,
+          diskAvailableMb: 310000,
           loadAverage: 0.7,
           sampleSeconds: 2,
         ),
