@@ -463,6 +463,10 @@ class _QrReportView extends StatelessWidget {
           ? current.currentApparatus
           : current.apparatus,
     );
+    final currentBatchState = _progressQrBatchDisplayState(
+      batch: current,
+      queueState: currentQueueState,
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
@@ -526,9 +530,9 @@ class _QrReportView extends StatelessWidget {
         _SummarySection(
           report: report,
           current: current,
-          queueState: currentQueueState,
+          queueState: currentBatchState,
         ),
-        _ResultSection(batch: current, queueState: currentQueueState),
+        _ResultSection(batch: current, queueState: currentBatchState),
         if (report.activeSessions.isNotEmpty)
           _ActiveWorkSection(sessions: report.activeSessions),
         if (report.runSessions.isNotEmpty)
@@ -1322,6 +1326,28 @@ String _apparatusStateSentence(String apparatus, String state) {
     'stopped' || 'cancelled' => '$name aparatidagi ish to‘xtatilgan.',
     _ => 'Mahsulot $name aparatida. Holati: ${_stateDescription(state)}.',
   };
+}
+
+String _progressQrBatchDisplayState({
+  required AdminProgressBatch batch,
+  required String queueState,
+}) {
+  return progressQrBatchDisplayState(
+    batchStatus: batch.status,
+    queueState: queueState,
+  );
+}
+
+@visibleForTesting
+String progressQrBatchDisplayState({
+  required String batchStatus,
+  required String queueState,
+}) {
+  final normalizedBatchStatus = batchStatus.trim();
+  if (normalizedBatchStatus.isNotEmpty) {
+    return normalizedBatchStatus;
+  }
+  return queueState;
 }
 
 String _nextApparatusSentence(String apparatus) {
