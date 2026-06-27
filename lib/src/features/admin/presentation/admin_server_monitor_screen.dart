@@ -714,11 +714,17 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late List<int> _fromSamples;
+  late List<int> _toSamples;
+  late int _fromLatencyMs;
+  late int _toLatencyMs;
 
   @override
   void initState() {
     super.initState();
     _fromSamples = List<int>.of(widget.samples);
+    _toSamples = List<int>.of(widget.samples);
+    _fromLatencyMs = widget.latencyMs;
+    _toLatencyMs = widget.latencyMs;
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
@@ -729,8 +735,15 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
   @override
   void didUpdateWidget(covariant _PingSparklinePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_sameSamples(oldWidget.samples, widget.samples)) {
-      _fromSamples = List<int>.of(oldWidget.samples);
+    final nextSamples = List<int>.of(widget.samples);
+    final nextLatencyMs = widget.latencyMs;
+    if (!_sameSamples(_toSamples, nextSamples) ||
+        _toLatencyMs != nextLatencyMs) {
+      final transition = Curves.easeOutCubic.transform(_controller.value);
+      _fromSamples = _lerpSamples(_fromSamples, _toSamples, transition);
+      _fromLatencyMs = _lerpInt(_fromLatencyMs, _toLatencyMs, transition);
+      _toSamples = nextSamples;
+      _toLatencyMs = nextLatencyMs;
       _controller.forward(from: 0);
     }
   }
@@ -751,66 +764,97 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            Row(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final transition = Curves.easeOutCubic.transform(_controller.value);
+            final latencyMs = _lerpInt(
+              _fromLatencyMs,
+              _toLatencyMs,
+              transition,
+            );
+            return Column(
               children: [
-                Icon(
-                  widget.connected
-                      ? Icons.arrow_forward_rounded
-                      : Icons.sync_rounded,
-                  color: _statusColor(context, widget.connected),
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Ping',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: _statusColor(context, widget.connected),
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                ),
-                Text(
-                  widget.latencyMs > 0
-                      ? '${widget.latencyMs} ms'
-                      : 'aniqlanmadi',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
+                Row(
+                  children: [
+                    Icon(
+                      widget.connected
+                          ? Icons.arrow_forward_rounded
+                          : Icons.sync_rounded,
+                      color: _statusColor(context, widget.connected),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Ping',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(
+                              color: _statusColor(context, widget.connected),
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
+                    ),
+                    Text(
+                      latencyMs > 0 ? '$latencyMs ms' : 'aniqlanmadi',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 54,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  return CustomPaint(
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 54,
+                  child: CustomPaint(
                     painter: _PingSparklinePainter(
-                      samples: List<int>.of(widget.samples),
+                      samples: _toSamples,
                       fromSamples: _fromSamples,
-                      transition: Curves.easeOutCubic.transform(
-                        _controller.value,
-                      ),
+                      transition: transition,
                       lineColor: scheme.primary,
                       gridColor: scheme.outlineVariant.withValues(alpha: 0.7),
                       textColor: scheme.onSurfaceVariant,
                     ),
                     child: const SizedBox.expand(),
-                  );
-                },
-                child: const SizedBox.expand(),
-              ),
-            ),
-          ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
+  }
+
+  List<int> _lerpSamples(List<int> from, List<int> to, double transition) {
+    final fallback = to.isEmpty ? from : to;
+    final length = math.max(from.length, to.length);
+    if (length == 0) {
+      return <int>[];
+    }
+    return List<int>.generate(length, (index) {
+      final fromValue = _sampleAt(from, fallback, index);
+      final toValue = _sampleAt(to, fallback, index);
+      return _lerpInt(fromValue, toValue, transition);
+    });
+  }
+
+  int _lerpInt(int from, int to, double transition) {
+    return (from + (to - from) * transition).round();
+  }
+
+  int _sampleAt(List<int> source, List<int> fallback, int index) {
+    if (source.isEmpty) {
+      return fallback[index.clamp(0, fallback.length - 1)];
+    }
+    if (index < source.length) {
+      return source[index];
+    }
+    return source.last;
   }
 
   bool _sameSamples(List<int> a, List<int> b) {
