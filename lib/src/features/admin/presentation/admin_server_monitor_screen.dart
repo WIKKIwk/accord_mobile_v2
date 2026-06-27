@@ -713,14 +713,26 @@ class _PingSparklinePanel extends StatefulWidget {
 class _PingSparklinePanelState extends State<_PingSparklinePanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late List<int> _fromSamples;
 
   @override
   void initState() {
     super.initState();
+    _fromSamples = List<int>.of(widget.samples);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat();
+      duration: const Duration(milliseconds: 520),
+      value: 1,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _PingSparklinePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameSamples(oldWidget.samples, widget.samples)) {
+      _fromSamples = List<int>.of(oldWidget.samples);
+      _controller.forward(from: 0);
+    }
   }
 
   @override
@@ -781,7 +793,10 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
                   return CustomPaint(
                     painter: _PingSparklinePainter(
                       samples: List<int>.of(widget.samples),
-                      wavePhase: _controller.value,
+                      fromSamples: _fromSamples,
+                      transition: Curves.easeOutCubic.transform(
+                        _controller.value,
+                      ),
                       lineColor: scheme.primary,
                       gridColor: scheme.outlineVariant.withValues(alpha: 0.7),
                       textColor: scheme.onSurfaceVariant,
@@ -797,19 +812,36 @@ class _PingSparklinePanelState extends State<_PingSparklinePanel>
       ),
     );
   }
+
+  bool _sameSamples(List<int> a, List<int> b) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
 
 class _PingSparklinePainter extends CustomPainter {
   const _PingSparklinePainter({
     required this.samples,
-    required this.wavePhase,
+    required this.fromSamples,
+    required this.transition,
     required this.lineColor,
     required this.gridColor,
     required this.textColor,
   });
 
   final List<int> samples;
-  final double wavePhase;
+  final List<int> fromSamples;
+  final double transition;
   final Color lineColor;
   final Color gridColor;
   final Color textColor;
@@ -830,14 +862,14 @@ class _PingSparklinePainter extends CustomPainter {
     final values = samples.isEmpty ? const <int>[0] : samples;
     final maxValue = math.max(4, values.reduce(math.max));
     if (values.length == 1) {
-      final y = _animatedPingY(graphRect, values.first, maxValue, 0);
+      final y = _animatedPingY(graphRect, values, maxValue, 0);
       canvas.drawCircle(
           Offset(graphRect.left, y), 2.5, Paint()..color = lineColor);
     } else {
       final path = Path();
       for (var i = 0; i < values.length; i++) {
         final x = graphRect.left + (graphRect.width * i / (values.length - 1));
-        final y = _animatedPingY(graphRect, values[i], maxValue, i);
+        final y = _animatedPingY(graphRect, values, maxValue, i);
         if (i == 0) {
           path.moveTo(x, y);
         } else {
@@ -870,10 +902,23 @@ class _PingSparklinePainter extends CustomPainter {
     return rect.bottom - normalized * rect.height;
   }
 
-  double _animatedPingY(Rect rect, int value, int maxValue, int index) {
-    final baseY = _pingY(rect, value, maxValue);
-    final wave = math.sin((wavePhase * math.pi * 2) + index * 0.75) * 2.4;
-    return (baseY + wave).clamp(rect.top + 2, rect.bottom - 2).toDouble();
+  double _animatedPingY(Rect rect, List<int> values, int maxValue, int index) {
+    final fromValue = _sampleAt(fromSamples, values, index);
+    final toValue = values[index];
+    final value = fromValue + (toValue - fromValue) * transition;
+    return _pingY(rect, value.round(), maxValue)
+        .clamp(rect.top + 2, rect.bottom - 2)
+        .toDouble();
+  }
+
+  int _sampleAt(List<int> source, List<int> fallback, int index) {
+    if (source.isEmpty) {
+      return fallback[index];
+    }
+    if (index < source.length) {
+      return source[index];
+    }
+    return source.last;
   }
 
   void _drawAxisLabel(Canvas canvas, String text, Offset offset, Color color) {
@@ -894,7 +939,8 @@ class _PingSparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PingSparklinePainter oldDelegate) {
     return samples != oldDelegate.samples ||
-        wavePhase != oldDelegate.wavePhase ||
+        fromSamples != oldDelegate.fromSamples ||
+        transition != oldDelegate.transition ||
         lineColor != oldDelegate.lineColor ||
         gridColor != oldDelegate.gridColor ||
         textColor != oldDelegate.textColor;
