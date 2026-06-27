@@ -346,6 +346,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   ) async {
     final station = widget.apparatus?.warehouse.trim() ?? '';
     final batches = await MobileApi.instance.adminWipBatches(
+      status: 'waiting',
+      apparatus: previousStage,
+      nextApparatus: station,
       orderId: widget.order.map.id.trim(),
       limit: 250,
     );

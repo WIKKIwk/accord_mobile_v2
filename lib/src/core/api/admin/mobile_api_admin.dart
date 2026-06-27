@@ -1829,12 +1829,14 @@ extension MobileApiAdmin on MobileApi {
   Future<List<AdminProgressBatch>> adminWipBatches({
     String status = '',
     String apparatus = '',
+    String nextApparatus = '',
     String currentLocation = '',
     String orderId = '',
     int limit = 100,
   }) async {
     final normalizedStatus = status.trim();
     final normalizedApparatus = apparatus.trim();
+    final normalizedNextApparatus = nextApparatus.trim();
     final normalizedCurrentLocation = currentLocation.trim();
     final normalizedOrderId = orderId.trim();
     final boundedLimit = limit.clamp(1, 1000).toInt();
@@ -1847,6 +1849,10 @@ extension MobileApiAdmin on MobileApi {
             }
             if (normalizedApparatus.isNotEmpty &&
                 batch.currentApparatus.trim() != normalizedApparatus) {
+              return false;
+            }
+            if (normalizedNextApparatus.isNotEmpty &&
+                batch.nextApparatus.trim() != normalizedNextApparatus) {
               return false;
             }
             if (normalizedCurrentLocation.isNotEmpty &&
@@ -1871,6 +1877,8 @@ extension MobileApiAdmin on MobileApi {
             if (normalizedStatus.isNotEmpty) 'status': normalizedStatus,
             if (normalizedApparatus.isNotEmpty)
               'apparatus': normalizedApparatus,
+            if (normalizedNextApparatus.isNotEmpty)
+              'next_apparatus': normalizedNextApparatus,
             if (normalizedCurrentLocation.isNotEmpty)
               'current_location': normalizedCurrentLocation,
             if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
