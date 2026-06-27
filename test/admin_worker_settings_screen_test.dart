@@ -88,7 +88,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu));
     await tester.pumpAndSettle();
 
-    expect(find.text('GScale Mode'), findsOneWidget);
+    expect(find.text('Ishchilar'), findsWidgets);
   });
 
   testWidgets('worker group can be assigned to an apparatus from edit mode', (

@@ -160,7 +160,7 @@ void main() {
 
     expect(find.text('Uy'), findsOneWidget);
     expect(find.text('Profil'), findsOneWidget);
-    expect(find.text('GScale Mode'), findsOneWidget);
+    expect(find.text('Tarozilar rejimi'), findsOneWidget);
     expect(find.text('Foydalanuvchilar'), findsNothing);
     expect(find.text('Harakatlar'), findsNothing);
     expect(find.text('Rollar'), findsNothing);
@@ -196,9 +196,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('reja menu'), findsOneWidget);
-    expect(find.text('Oraliq mahsulotlar'), findsOneWidget);
-    expect(find.text('Aparat sozlamalari'), findsOneWidget);
+    expect(find.text('Ish xaritasi'), findsOneWidget);
+    expect(find.text('Yarim tayyor mahsulotlar'), findsOneWidget);
+    expect(find.text('Aparatlar'), findsOneWidget);
   });
 
   testWidgets('custom catalog profile home returns to capability home route', (
