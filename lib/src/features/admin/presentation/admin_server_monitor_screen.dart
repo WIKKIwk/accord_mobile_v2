@@ -1003,63 +1003,50 @@ class _MetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backup = report.backups.latest;
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 1.22,
+    return Column(
       children: [
-        _MetricTile(
-          label: 'Live',
-          value: liveConnected ? 'Ulangan' : 'Qayta ulanish',
-          detail: 'WebSocket',
-          ok: liveConnected,
-          icon: Icons.bolt_rounded,
-        ),
-        _MetricTile(
-          label: 'Database',
-          value: report.database.reachable ? 'Online' : 'Offline',
+        _StorageHealthCard(
+          icon: Icons.storage_rounded,
+          title: 'Ma’lumotlar bazasi',
+          status: report.database.reachable ? 'Ulangan' : 'Ulanmagan',
           detail: report.database.pingMs > 0
-              ? '${report.database.pingMs} ms'
+              ? 'Javob vaqti ${report.database.pingMs} ms'
               : _databaseStatusLabel(report.database.status),
           ok: report.database.reachable,
-          icon: Icons.storage_rounded,
+          segments: report.database.reachable ? 12 : 3,
         ),
-        _MetricTile(
-          label: 'Server',
-          value: _serverStatusLabel(report.server.status),
-          detail: _formatDuration(report.server.uptimeSeconds),
-          ok: report.server.status == 'running',
-          icon: Icons.dns_rounded,
-        ),
-        _MetricTile(
-          label: 'Backup',
-          value: '${report.backups.fileCount} ta fayl',
+        const SizedBox(height: 10),
+        _StorageHealthCard(
+          icon: Icons.inventory_2_rounded,
+          title: 'Backup saqlovi',
+          status: report.backups.fileCount > 0
+              ? '${report.backups.fileCount} ta fayl saqlangan'
+              : 'Backup topilmadi',
           detail: backup == null ? 'Oxirgi fayl yo‘q' : _backupAgeLabel(backup),
           ok: report.backups.exists && report.backups.fileCount > 0,
-          icon: Icons.inventory_2_rounded,
+          segments: report.backups.fileCount.clamp(0, 12),
         ),
       ],
     );
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
+class _StorageHealthCard extends StatelessWidget {
+  const _StorageHealthCard({
+    required this.icon,
+    required this.title,
+    required this.status,
     required this.detail,
     required this.ok,
-    required this.icon,
+    required this.segments,
   });
 
-  final String label;
-  final String value;
+  final IconData icon;
+  final String title;
+  final String status;
   final String detail;
   final bool ok;
-  final IconData icon;
+  final int segments;
 
   @override
   Widget build(BuildContext context) {
@@ -1068,50 +1055,118 @@ class _MetricTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: scheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.045),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(12),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: accent),
-                const Spacer(),
-                _InlineStateDot(ok: ok),
-              ],
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: accent.withValues(alpha: 0.18)),
+              ),
+              child: Icon(icon, color: accent, size: 24),
             ),
-            const Spacer(),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ),
+                      _InlineStateDot(ok: ok),
+                    ],
                   ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 2),
+                  Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              detail,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 6),
+                  _MiniSignalBar(
+                    activeSegments: ok ? segments : 0,
+                    color: accent,
+                    trackColor: scheme.outlineVariant.withValues(alpha: 0.58),
                   ),
+                  const SizedBox(height: 5),
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MiniSignalBar extends StatelessWidget {
+  const _MiniSignalBar({
+    required this.activeSegments,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final int activeSegments;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activeSegments.clamp(0, 12);
+    return SizedBox(
+      height: 10,
+      child: Row(
+        children: List.generate(12, (index) {
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: index == 11 ? 0 : 3),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: index < active ? color : trackColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
