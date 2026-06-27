@@ -581,6 +581,8 @@ class AdminProductionOrderStatusDetail {
     this.acceptedWipCount = 0,
     this.activeSessionCount = 0,
     this.pausedSessionCount = 0,
+    this.completedQueueCount = 0,
+    this.completedWithIssueCount = 0,
   });
 
   final String orderStatus;
@@ -597,6 +599,8 @@ class AdminProductionOrderStatusDetail {
   final int acceptedWipCount;
   final int activeSessionCount;
   final int pausedSessionCount;
+  final int completedQueueCount;
+  final int completedWithIssueCount;
 
   factory AdminProductionOrderStatusDetail.fromJson(Object? raw) {
     if (raw is! Map) {
@@ -621,6 +625,10 @@ class AdminProductionOrderStatusDetail {
       acceptedWipCount: (json['accepted_wip_count'] as num?)?.toInt() ?? 0,
       activeSessionCount: (json['active_session_count'] as num?)?.toInt() ?? 0,
       pausedSessionCount: (json['paused_session_count'] as num?)?.toInt() ?? 0,
+      completedQueueCount:
+          (json['completed_queue_count'] as num?)?.toInt() ?? 0,
+      completedWithIssueCount:
+          (json['completed_with_issue_count'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -176,6 +176,8 @@ void main() {
       expect(report.orderStatus.orderStatus, 'finished_pending_acceptance');
       expect(report.orderStatus.stockStatus, 'pending_acceptance');
       expect(report.orderStatus.finishedPendingAcceptanceCount, 1);
+      expect(report.orderStatus.completedQueueCount, 1);
+      expect(report.orderStatus.completedWithIssueCount, 0);
       expect(report.isStale, isTrue);
       expect(report.staleReason, 'processed_by_next_stage');
       expect(report.order?.id, 'zakaz-1');
@@ -1033,6 +1035,8 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'accepted_wip_count': 0,
             'active_session_count': 0,
             'paused_session_count': 0,
+            'completed_queue_count': 1,
+            'completed_with_issue_count': 0,
           },
           'queue_states': {
             'Qadoqlash stol': {'zakaz-1': 'completed'},
