@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEVICE_ID="${DEVICE_ID:-00008030-000E09812150802E}"
 XCODE_DEVELOPER_DIR="${XCODE_DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
 BUNDLE_ID="${BUNDLE_ID:-com.example.accordMobileV2}"
+API_URL="${API_URL:-https://mini-rs-erp-dev.wspace.sbs}"
 
 if [[ ! -d "$XCODE_DEVELOPER_DIR" ]]; then
   echo "Xcode developer dir topilmadi: $XCODE_DEVELOPER_DIR" >&2
@@ -25,7 +26,7 @@ if [ -z "$FLUTTER_BIN" ]; then
 fi
 
 echo "Release build boshlanyapti..."
-"$FLUTTER_BIN" build ios --release
+"$FLUTTER_BIN" build ios --release --dart-define=MOBILE_API_BASE_URL="$API_URL"
 
 APP_PATH="build/ios/Release-iphoneos/Runner.app"
 if [[ ! -d "$APP_PATH" ]]; then
