@@ -519,7 +519,11 @@ class _QrReportView extends StatelessWidget {
                     if (order?.orderNumber.trim().isNotEmpty == true)
                       'Zakaz ${order!.orderNumber}',
                     current.apparatus,
-                    _stateLabel(current.status),
+                    progressQrHumanStatusLabel(
+                      workStatus: current.statusDetail.workStatus,
+                      flowStatus: current.statusDetail.flowStatus,
+                      wipStatus: current.wipStatus,
+                    ),
                   ].where((item) => item.trim().isNotEmpty).join(' • '),
                 ),
               ],
@@ -674,6 +678,13 @@ class _SummarySection extends StatelessWidget {
         ? ''
         : formatUnixSecondsLocalDateTime(report.openedBy!.openedAtUnix);
     final state = queueState.isEmpty ? current.status : queueState;
+    final productStatus = progressQrHumanStatusLabel(
+      workStatus: current.statusDetail.workStatus.isNotEmpty
+          ? current.statusDetail.workStatus
+          : state,
+      flowStatus: current.statusDetail.flowStatus,
+      wipStatus: current.wipStatus,
+    );
     final title = order?.title.trim().isNotEmpty == true
         ? order!.title.trim()
         : current.labelItemName.trim();
@@ -685,6 +696,8 @@ class _SummarySection extends StatelessWidget {
         '$title mahsuloti tekshirildi.',
       if (report.isStale)
         'Scan qilingan QR eski bosqichga tegishli. Quyida mahsulotning hozirgi holati ko‘rsatilgan.',
+      if (productStatus.isNotEmpty)
+        'Yarim tayyor mahsulot holati: ${productStatus.toLowerCase()}.',
       _apparatusStateSentence(current.apparatus, state),
       if (quantity.isNotEmpty) '$quantity mahsulot qayd qilingan.',
       _nextApparatusSentence(current.nextApparatus),
@@ -715,10 +728,19 @@ class _ResultSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = queueState.isEmpty ? batch.status : queueState;
+    final productStatus = progressQrHumanStatusLabel(
+      workStatus: batch.statusDetail.workStatus.isNotEmpty
+          ? batch.statusDetail.workStatus
+          : state,
+      flowStatus: batch.statusDetail.flowStatus,
+      wipStatus: batch.wipStatus,
+    );
     final lines = [
+      if (productStatus.isNotEmpty)
+        'Yarim tayyor mahsulot holati: $productStatus.',
       _apparatusStateSentence(batch.apparatus, state),
       if (batch.executorName.trim().isNotEmpty)
-        '${batch.executorName.trim()} shu aparatdagi ishni bajargan.',
+        'Bajargan ishchi: ${batch.executorName.trim()}.',
       if (_quantityText(batch).trim().isNotEmpty)
         'Qayd qilingan miqdor: ${_quantityText(batch)}.',
       ..._metricSentences(batch),
@@ -727,7 +749,7 @@ class _ResultSection extends StatelessWidget {
         'Izoh: ${batch.description.trim()}',
     ].where((item) => item.trim().isNotEmpty).toList();
     return _InfoSection(
-      title: 'Ish natijasi',
+      title: 'Mahsulot natijasi',
       children: [
         for (final line in lines) _SentenceLine(text: line),
       ],
@@ -924,7 +946,7 @@ class _TimelineStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _logTitle(log),
+                  progressQrTimelineTitle(log.action),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
@@ -979,8 +1001,12 @@ class _TechnicalQrSection extends StatelessWidget {
           _InfoRow(label: 'Scan batch', value: report.scannedBatch.batchId),
           _InfoRow(label: 'Hozirgi batch', value: current.batchId),
           _InfoRow(
-            label: 'WIP holat',
-            value: _stateLabel(report.scannedBatch.wipStatus),
+            label: 'Mahsulot holati',
+            value: progressQrTechnicalProductStatusLabel(
+              workStatus: report.scannedBatch.statusDetail.workStatus,
+              flowStatus: report.scannedBatch.statusDetail.flowStatus,
+              wipStatus: report.scannedBatch.wipStatus,
+            ),
           ),
         ],
       ),
@@ -1285,9 +1311,13 @@ String _stateLabel(String value) {
     'in_progress' => 'Jarayonda',
     'paused' => 'Pauzada',
     'completed' => 'Tugagan',
-    'waiting' => 'Kutmoqda',
-    'in_use' => 'Ishlatilmoqda',
-    'processed' => 'Eski QR',
+    'waiting' => 'Keyingi ishni kutmoqda',
+    'in_use' => 'Ish jarayonida',
+    'processed' => 'Keyingi bosqichda ishlatilgan',
+    'finished_pending_acceptance' => 'Ombor qabulini kutmoqda',
+    'accepted_to_stock' => 'Omborga qabul qilingan',
+    'waiting_next_stage' => 'Keyingi bosqichni kutmoqda',
+    'consumed_by_next_stage' => 'Keyingi bosqichda ishlatilgan',
     _ => value,
   };
 }
@@ -1302,8 +1332,12 @@ String _stateDescription(String value) {
     'in_progress' => 'ish jarayonda',
     'paused' => 'ish vaqtincha pauzada',
     'stopped' || 'cancelled' => 'ish to‘xtatilgan',
-    'in_use' => 'ishlatilmoqda',
-    'processed' => 'eski QR holatida',
+    'in_use' => 'ish jarayonida',
+    'processed' => 'keyingi bosqichda ishlatilgan',
+    'finished_pending_acceptance' => 'ombor qabulini kutmoqda',
+    'accepted_to_stock' => 'omborga qabul qilingan',
+    'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
+    'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',
     _ => _stateLabel(value).toLowerCase(),
   };
 }
@@ -1354,6 +1388,73 @@ String progressQrBatchDisplayState({
   return queueState;
 }
 
+@visibleForTesting
+String progressQrHumanStatusLabel({
+  required String workStatus,
+  required String flowStatus,
+  required String wipStatus,
+}) {
+  final work = workStatus.trim();
+  final flow = flowStatus.trim();
+  final product = wipStatus.trim();
+  if (flow == 'finished_pending_acceptance') {
+    return work == 'completed'
+        ? 'Ishi tugagan, ombor qabulini kutmoqda'
+        : 'Ombor qabulini kutmoqda';
+  }
+  if (flow == 'accepted_to_stock') {
+    return 'Omborga qabul qilingan';
+  }
+  if (flow == 'waiting_next_stage') {
+    return 'Keyingi bosqichni kutmoqda';
+  }
+  if (flow == 'consumed_by_next_stage') {
+    return 'Keyingi bosqichda ishlatilgan';
+  }
+  if (flow == 'in_progress') {
+    return 'Ish jarayonida';
+  }
+  if (work.isNotEmpty) {
+    return switch (work) {
+      'completed' || 'complete' => 'Ishi tugagan',
+      'paused' || 'pause' => 'Ishi vaqtincha to‘xtatilgan',
+      'in_progress' || 'start' || 'resume' => 'Ish jarayonida',
+      'pending' || 'waiting' => 'Ish boshlanishini kutmoqda',
+      _ => _stateLabel(work),
+    };
+  }
+  return switch (product) {
+    'waiting' => 'Keyingi ishni kutmoqda',
+    'in_use' => 'Ish jarayonida',
+    'processed' => 'Keyingi bosqichda ishlatilgan',
+    _ => _stateLabel(product),
+  };
+}
+
+@visibleForTesting
+String progressQrTechnicalProductStatusLabel({
+  required String workStatus,
+  required String flowStatus,
+  required String wipStatus,
+}) {
+  final flow = flowStatus.trim();
+  final status = switch (flow) {
+    'finished_pending_acceptance' => 'ombor qabulini kutmoqda',
+    'accepted_to_stock' => 'omborga qabul qilingan',
+    'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
+    'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',
+    _ => progressQrHumanStatusLabel(
+        workStatus: workStatus,
+        flowStatus: flowStatus,
+        wipStatus: wipStatus,
+      ).toLowerCase(),
+  };
+  if (status.trim().isEmpty) {
+    return '';
+  }
+  return 'Yarim tayyor mahsulot holati: $status';
+}
+
 String _nextApparatusSentence(String apparatus) {
   final name = apparatus.trim();
   if (name.isEmpty) {
@@ -1386,13 +1487,13 @@ List<String> _metricSentences(AdminProgressBatch batch) {
     if (batch.totalWaste != null)
       '${_formatMetric(batch.totalWaste, 'kg')} jami chiqindi chiqqan.',
     if (batch.finishedGoodsKg != null)
-      '${_formatMetric(batch.finishedGoodsKg, 'kg')} tayyor mahsulot kg bo‘yicha qayd qilingan.',
+      'Tayyor mahsulot og‘irligi: ${_formatMetric(batch.finishedGoodsKg, 'kg')}.',
     if (batch.finishedGoodsMeter != null)
-      '${_formatMetric(batch.finishedGoodsMeter, 'm')} tayyor mahsulot metr bo‘yicha qayd qilingan.',
+      'Tayyor mahsulot uzunligi: ${_formatMetric(batch.finishedGoodsMeter, 'm')}.',
     if (batch.laminationPrintLeftoverRolls != null)
-      '${_formatMetric(batch.laminationPrintLeftoverRolls, 'rulon')} laminatsiyadan qolgan bosma rulon qayd qilingan.',
+      'Laminatsiyadan qaytgan bosma rulon: ${_formatMetric(batch.laminationPrintLeftoverRolls, 'rulon')}.',
     if (batch.laminationFilmLeftoverRolls != null)
-      '${_formatMetric(batch.laminationFilmLeftoverRolls, 'rulon')} laminatsiyadan qolgan plyonka rulon qayd qilingan.',
+      'Laminatsiyadan qaytgan plyonka rulon: ${_formatMetric(batch.laminationFilmLeftoverRolls, 'rulon')}.',
     if (batch.rezkaBosmaWaste != null)
       '${_formatMetric(batch.rezkaBosmaWaste, 'kg')} rezka bosma chiqindisi chiqqan.',
     if (batch.rezkaLaminationWaste != null)
@@ -1419,13 +1520,14 @@ String _workerSessionStatusSentence(String status) {
   };
 }
 
-String _logTitle(AdminProductionOrderLogEntry log) {
-  return switch (log.action.trim()) {
-    'start' => 'Ish boshlandi',
-    'pause' => 'Ish pauzaga olindi',
-    'resume' => 'Ish davom ettirildi',
-    'complete' => 'Ish tugadi',
-    _ => _stateLabel(log.action),
+@visibleForTesting
+String progressQrTimelineTitle(String action) {
+  return switch (action.trim()) {
+    'start' => 'Bosqichdagi ish boshlandi',
+    'pause' => 'Bosqichdagi ish vaqtincha to‘xtatildi',
+    'resume' => 'Bosqichdagi ish davom ettirildi',
+    'complete' => 'Bosqichdagi ish yakunlandi',
+    _ => _stateLabel(action),
   };
 }
 
@@ -1435,11 +1537,11 @@ String _logSentence(AdminProductionOrderLogEntry log, String time) {
       : 'Ijrochi';
   final apparatus = log.apparatus.trim();
   final actionSentence = switch (log.action.trim()) {
-    'start' => '$actor $apparatus aparatida ishni boshlagan.',
-    'pause' => '$actor $apparatus aparatidagi ishni pauzaga olgan.',
-    'resume' => '$actor $apparatus aparatidagi ishni davom ettirgan.',
-    'complete' => '$actor $apparatus aparatidagi ishni tugatgan.',
-    _ => '$actor $apparatus aparatida amal bajargan.',
+    'start' => '$actor $apparatus bosqichida ishni boshladi.',
+    'pause' => '$actor $apparatus bosqichidagi ishni vaqtincha to‘xtatdi.',
+    'resume' => '$actor $apparatus bosqichidagi ishni davom ettirdi.',
+    'complete' => '$actor $apparatus bosqichidagi ishni yakunladi.',
+    _ => '$actor $apparatus bosqichida amal bajardi.',
   };
   return [
     actionSentence,
