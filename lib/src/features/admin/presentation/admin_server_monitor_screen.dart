@@ -322,6 +322,12 @@ class _StatusSummaryPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            _PingSparklinePanel(
+              latencyMs: latencySamples.isEmpty ? 0 : latencySamples.last,
+              samples: latencySamples,
+              connected: liveConnected && report.database.reachable,
+            ),
+            const SizedBox(height: 10),
             _UsageTicksPanel(
               label: 'CPU bosim',
               percent: report.runtime.cpuPercent,
@@ -331,12 +337,6 @@ class _StatusSummaryPanel extends StatelessWidget {
             _DataVolumePanel(runtime: report.runtime),
             const SizedBox(height: 10),
             _DatabaseStatusPanel(database: report.database),
-            const SizedBox(height: 10),
-            _PingSparklinePanel(
-              latencyMs: latencySamples.isEmpty ? 0 : latencySamples.last,
-              samples: latencySamples,
-              connected: liveConnected && report.database.reachable,
-            ),
             const SizedBox(height: 10),
             _BackupCalendarPanel(backups: report.backups),
             const SizedBox(height: 12),
