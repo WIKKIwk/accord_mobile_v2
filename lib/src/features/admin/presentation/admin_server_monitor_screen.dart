@@ -202,11 +202,6 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             lastUpdated: _lastUpdated,
             latencySamples: _latencySamples,
           ),
-          const SizedBox(height: 12),
-          _TechnicalDetailsCard(
-            report: report,
-            initiallyExpanded: _error != null,
-          ),
           if (_error != null) ...[
             const SizedBox(height: 10),
             _InlineWarning(message: _error.toString()),
@@ -1268,95 +1263,6 @@ class _KeyValueLine extends StatelessWidget {
   }
 }
 
-class _TechnicalDetailsCard extends StatelessWidget {
-  const _TechnicalDetailsCard({
-    required this.report,
-    required this.initiallyExpanded,
-  });
-
-  final AdminServerMonitorReport report;
-  final bool initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: initiallyExpanded,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          leading: const Icon(Icons.tune_rounded),
-          title: Text(
-            'Texnik tafsilotlar',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          subtitle: const Text('Bind, backup papkasi va xato matnlari'),
-          children: [
-            _MonitorRow(
-                label: 'Server',
-                value: _serverStatusLabel(report.server.status)),
-            _MonitorRow(label: 'Bind', value: report.server.bindAddr),
-            _MonitorRow(
-              label: 'Boshlangan vaqt',
-              value: _formatUnix(report.server.startedAtUnix),
-            ),
-            _MonitorRow(
-              label: 'DB holati',
-              value: _databaseStatusLabel(report.database.status),
-            ),
-            _MonitorRow(
-              label: 'DB ping',
-              value: report.database.pingMs > 0
-                  ? '${report.database.pingMs} ms'
-                  : 'Aniqlanmadi',
-            ),
-            _MonitorRow(
-              label: 'CPU bosim',
-              value: '${report.runtime.cpuPercent.clamp(0, 100)}%',
-            ),
-            _MonitorRow(
-              label: 'Xotira',
-              value: report.runtime.memoryTotalMb > 0
-                  ? '${report.runtime.memoryUsedMb} / ${report.runtime.memoryTotalMb} MB (${report.runtime.memoryPercent.clamp(0, 100)}%)'
-                  : 'Aniqlanmadi',
-            ),
-            _MonitorRow(
-              label: 'Load average',
-              value: _formatLoad(report.runtime.loadAverage),
-            ),
-            if (report.database.error.trim().isNotEmpty)
-              _MonitorRow(label: 'DB xato', value: report.database.error),
-            _MonitorRow(
-                label: 'Backup papkasi', value: report.backups.directory),
-            _MonitorRow(
-              label: 'Backup fayllar',
-              value: '${report.backups.fileCount} ta',
-            ),
-            if (report.backups.latest != null) ...[
-              _MonitorRow(
-                label: 'Oxirgi backup',
-                value: report.backups.latest!.name,
-              ),
-              _MonitorRow(
-                label: 'Yangilangan',
-                value: _formatUnix(report.backups.latest!.modifiedAtUnix),
-              ),
-              _MonitorRow(
-                label: 'Hajm',
-                value: _formatBytes(report.backups.latest!.sizeBytes),
-              ),
-            ],
-            if (report.backups.error.trim().isNotEmpty)
-              _MonitorRow(label: 'Backup xato', value: report.backups.error),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _LastUpdatedCard extends StatelessWidget {
   const _LastUpdatedCard({
     required this.liveConnected,
@@ -1434,49 +1340,6 @@ class _InlineWarning extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MonitorRow extends StatelessWidget {
-  const _MonitorRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 42,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.25,
-                ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 58,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                  height: 1.25,
-                ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1643,13 +1506,6 @@ String _databaseStatusLabel(String status) {
   }
 }
 
-String _formatUnix(int unixSeconds) {
-  if (unixSeconds <= 0) {
-    return 'Aniqlanmadi';
-  }
-  return formatUnixSecondsLocalDateTime(unixSeconds);
-}
-
 String _formatLocal(DateTime? value) {
   if (value == null) {
     return 'Kutilmoqda';
@@ -1678,21 +1534,4 @@ String _formatDuration(int seconds) {
     parts.add('$seconds soniya');
   }
   return parts.join(' ');
-}
-
-String _formatBytes(int value) {
-  if (value <= 0) {
-    return '0 B';
-  }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  var size = value.toDouble();
-  var unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-  if (unitIndex == 0) {
-    return '${size.toStringAsFixed(0)} ${units[unitIndex]}';
-  }
-  return '${size.toStringAsFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}';
 }
