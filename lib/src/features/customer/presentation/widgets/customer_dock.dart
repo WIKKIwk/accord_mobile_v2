@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
 import '../../../../core/session/session.dart';
@@ -29,6 +30,7 @@ class CustomerDock extends StatelessWidget {
         NativeDockBridge.instance,
       ]),
       builder: (context, _) {
+        final l10n = context.l10n;
         final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
               AppSession.instance.profile,
             ) &&
@@ -75,7 +77,7 @@ class CustomerDock extends StatelessWidget {
           destinations: [
             RoleDockDestination(
               id: 'customer-home',
-              label: 'Uy',
+              label: l10n.homeNavTitle,
               icon: Icons.home_outlined,
               selectedIcon: Icons.home_filled,
               active: activeTab == CustomerDockTab.home,
@@ -85,7 +87,7 @@ class CustomerDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'customer-notifications',
-              label: 'Bildirish',
+              label: l10n.notificationsShortTitle,
               icon: Icons.notifications_outlined,
               selectedIcon: Icons.notifications,
               active: activeTab == CustomerDockTab.notifications,

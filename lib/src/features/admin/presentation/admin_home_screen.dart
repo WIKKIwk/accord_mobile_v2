@@ -243,8 +243,8 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.grid_view_rounded,
       routeName: AppRoutes.adminItemBulkMove,
     ),
-    const _AdminHomeAction(
-      title: 'Ombor',
+    _AdminHomeAction(
+      title: l10n.adminWarehousesNavTitle,
       icon: Icons.warehouse_rounded,
       routeName: AppRoutes.adminWarehouses,
     ),
@@ -268,33 +268,33 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.admin_panel_settings_outlined,
       routeName: AppRoutes.adminRoles,
     ),
-    const _AdminHomeAction(
-      title: 'Tezkor buyurtmalar',
+    _AdminHomeAction(
+      title: l10n.adminQuickOrdersTitle,
       icon: Icons.list_alt_rounded,
       routeName: AppRoutes.adminCalculateOrders,
     ),
-    const _AdminHomeAction(
-      title: 'Production map test',
+    _AdminHomeAction(
+      title: l10n.adminProductionMapTestTitle,
       icon: Icons.schema_rounded,
       routeName: AppRoutes.adminProductionMapTest,
     ),
-    const _AdminHomeAction(
-      title: 'Aparat sozlamalari',
+    _AdminHomeAction(
+      title: l10n.adminEquipmentNavTitle,
       icon: Icons.precision_manufacturing_rounded,
       routeName: AppRoutes.adminApparatusSettings,
     ),
-    const _AdminHomeAction(
-      title: 'Homashyo sozlamalari',
+    _AdminHomeAction(
+      title: l10n.adminRawMaterialRulesNavTitle,
       icon: Icons.rule_rounded,
       routeName: AppRoutes.adminRawMaterialSettings,
     ),
-    const _AdminHomeAction(
-      title: 'reja menu',
+    _AdminHomeAction(
+      title: l10n.adminWorkMapNavTitle,
       icon: Icons.account_tree_outlined,
       routeName: AppRoutes.adminProductionMapOrders,
     ),
-    const _AdminHomeAction(
-      title: 'Oraliq mahsulotlar',
+    _AdminHomeAction(
+      title: l10n.adminSemiFinishedProductsNavTitle,
       icon: Icons.inventory_2_outlined,
       routeName: AppRoutes.adminWipBatches,
     ),
@@ -313,8 +313,8 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       icon: Icons.history_outlined,
       routeName: AppRoutes.adminActivity,
     ),
-    const _AdminHomeAction(
-      title: 'Server monitor',
+    _AdminHomeAction(
+      title: l10n.adminServerStatusNavTitle,
       icon: Icons.monitor_heart_outlined,
       routeName: AppRoutes.adminServerMonitor,
     ),
@@ -361,7 +361,7 @@ class _AdminSummaryList extends StatelessWidget {
           slot: M3SegmentVerticalSlot.top,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: 'Jami users',
+          title: context.l10n.adminTotalUsersTitle,
           value: summary.totalSuppliers.toString(),
           onTap: onTapTotal,
           elevation: 2,
@@ -370,7 +370,7 @@ class _AdminSummaryList extends StatelessWidget {
           slot: M3SegmentVerticalSlot.middle,
           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: 'Faol users',
+          title: context.l10n.adminActiveUsersTitle,
           value: summary.activeSuppliers.toString(),
           onTap: onTapActive,
           elevation: 2,
@@ -379,7 +379,7 @@ class _AdminSummaryList extends StatelessWidget {
           slot: M3SegmentVerticalSlot.bottom,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: 'Bloklangan users',
+          title: context.l10n.adminBlockedUsersTitle,
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
           elevation: 2,
@@ -402,6 +402,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: _adminHomePanelCardGap,
@@ -420,7 +421,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Blok nazorati',
+                      l10n.adminBlockedUsersControlTitle,
                       style: theme.textTheme.titleLarge,
                     ),
                   ),
@@ -445,7 +446,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Bloklangan users: $count ta',
+                      l10n.adminBlockedUsersCountLabel(count),
                       style: theme.textTheme.titleMedium,
                     ),
                   ),

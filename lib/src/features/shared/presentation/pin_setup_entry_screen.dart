@@ -1,4 +1,5 @@
 import '../../../app/app_router.dart';
+import '../../../core/localization/app_localizations.dart';
 import 'pin_setup_confirm_screen.dart';
 import 'widgets/pin_entry_scaffold.dart';
 import 'package:flutter/material.dart';
@@ -40,11 +41,12 @@ class _PinSetupEntryScreenState extends State<PinSetupEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return PinEntryScaffold(
-      title: 'PIN kiriting',
+      title: l10n.pinEnterTitle,
       subtitle: '',
       controller: _pinController,
-      actionLabel: 'Keyingi',
+      actionLabel: l10n.nextItemAction,
       onAction: _handleNext,
     );
   }

@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
@@ -32,6 +33,7 @@ class WerkaDock extends StatelessWidget {
         ProfileRouteOverlayNotifier.instance,
       ]),
       builder: (context, _) {
+        final l10n = context.l10n;
         final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab;
         final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
@@ -89,7 +91,7 @@ class WerkaDock extends StatelessWidget {
               destinations: [
                 RoleDockDestination(
                   id: 'werka-home',
-                  label: 'Uy',
+                  label: l10n.homeNavTitle,
                   icon: Icons.home_outlined,
                   selectedIcon: Icons.home_rounded,
                   active: activeTab == WerkaDockTab.home,
@@ -98,7 +100,7 @@ class WerkaDock extends StatelessWidget {
                 ),
                 RoleDockDestination(
                   id: 'werka-notifications',
-                  label: 'Bildirish',
+                  label: l10n.notificationsShortTitle,
                   icon: Icons.notifications_outlined,
                   selectedIcon: Icons.notifications_rounded,
                   active: activeTab == WerkaDockTab.notifications,
@@ -108,7 +110,7 @@ class WerkaDock extends StatelessWidget {
                 ),
                 RoleDockDestination(
                   id: 'werka-create',
-                  label: 'Yangi',
+                  label: l10n.createNavTitle,
                   icon: Icons.add_rounded,
                   selectedIcon: Icons.add_rounded,
                   active: activeTab == WerkaDockTab.create,
@@ -117,7 +119,7 @@ class WerkaDock extends StatelessWidget {
                 ),
                 RoleDockDestination(
                   id: 'werka-archive',
-                  label: 'Arxiv',
+                  label: l10n.archiveNavTitle,
                   icon: Icons.archive_outlined,
                   selectedIcon: Icons.archive_rounded,
                   nativeIcon: Icons.playlist_add_check_rounded,

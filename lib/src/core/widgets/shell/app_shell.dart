@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../../app/app_router.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
+import '../../localization/app_localizations.dart';
 import '../../session/session.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
@@ -715,7 +716,7 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Profil',
+      label: context.l10n.profileTitle,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),

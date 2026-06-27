@@ -260,6 +260,175 @@ void main() {
     expect(find.text('Work map'), findsNothing);
   });
 
+  testWidgets('profile labels follow selected language', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.customer,
+      displayName: 'Custom operator',
+      legalName: '',
+      ref: 'custom',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['catalog.item.read'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(AppThemeVariant.earthy),
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        home: const ProfileScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Role-based account'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Choose the app language'), findsOneWidget);
+    expect(find.text('Security'), findsOneWidget);
+    expect(find.text('Role asosidagi account'), findsNothing);
+    expect(find.text('Til'), findsNothing);
+    expect(find.text('Xavfsizlik'), findsNothing);
+  });
+
+  testWidgets('admin home summary labels follow selected language', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: [
+        'admin.access',
+        'catalog.item.read',
+        'catalog.item.create',
+        'catalog.item_group.create',
+        'party.supplier.read',
+        'party.supplier.create',
+        'warehouse.read',
+        'production.map.manage',
+        'production.wip.read',
+        'gscale.print',
+        'server.monitor.read',
+      ],
+    );
+    AdminStore.instance.clear();
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminHomeScreen(),
+        ),
+      );
+      for (var i = 0;
+          i < 20 && find.text('Total users').evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(find.text('Total users'), findsOneWidget);
+      expect(find.text('Active users'), findsOneWidget);
+      expect(find.text('Blocked users'), findsOneWidget);
+      expect(find.text('Jami users'), findsNothing);
+    }, createHttpClient: (_) => _SummaryHttpClient(<String>[]));
+  });
+
+  testWidgets('admin home action labels follow selected language', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.customer,
+      displayName: 'Custom operator',
+      legalName: '',
+      ref: 'custom',
+      phone: '',
+      avatarUrl: '',
+      capabilities: [
+        'admin.access',
+        'catalog.item.read',
+        'catalog.item.create',
+        'catalog.item.bulk_move',
+        'catalog.item_group.read',
+        'catalog.item_group.manage',
+        'production.map.manage',
+        'raw_material.rule.manage',
+        'raw_material.assign',
+        'gscale.print',
+      ],
+    );
+    AdminStore.instance.clear();
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminHomeScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Warehouses'), findsOneWidget);
+      expect(find.text('Ombor'), findsNothing);
+
+      await tester.dragUntilVisible(
+        find.text('Quick orders'),
+        find.byType(ListView),
+        const Offset(0, -320),
+      );
+      expect(find.text('Quick orders'), findsOneWidget);
+      expect(find.text('Tezkor buyurtmalar'), findsNothing);
+
+      await tester.dragUntilVisible(
+        find.text('Work map'),
+        find.byType(ListView),
+        const Offset(0, -320),
+      );
+      expect(find.text('Work map'), findsOneWidget);
+      expect(find.text('reja menu'), findsNothing);
+
+      await tester.dragUntilVisible(
+        find.text('Semi-finished products'),
+        find.byType(ListView),
+        const Offset(0, -320),
+      );
+      expect(find.text('Semi-finished products'), findsOneWidget);
+      expect(find.text('Oraliq mahsulotlar'), findsNothing);
+    }, createHttpClient: (_) => _RecordingHttpClient(<String>[]));
+  });
+
   testWidgets('custom catalog profile home returns to capability home route', (
     tester,
   ) async {

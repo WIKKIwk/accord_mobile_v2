@@ -1,4 +1,5 @@
 import '../../../core/security/state/security_controller.dart';
+import '../../../core/localization/app_localizations.dart';
 import 'widgets/pin_entry_scaffold.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +40,7 @@ class _PinSetupConfirmScreenState extends State<PinSetupConfirmScreen> {
     if (pin != widget.args.firstPin) {
       setState(() {
         _pinController.clear();
-        _error = 'PIN bir xil emas. Qayta kiriting.';
+        _error = context.l10n.pinMismatch;
       });
       return;
     }
@@ -56,7 +57,7 @@ class _PinSetupConfirmScreenState extends State<PinSetupConfirmScreen> {
       }
       setState(() {
         _pinController.clear();
-        _error = 'PIN saqlanmadi';
+        _error = context.l10n.pinSaveFailed;
       });
     } finally {
       if (mounted) {
@@ -67,11 +68,12 @@ class _PinSetupConfirmScreenState extends State<PinSetupConfirmScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return PinEntryScaffold(
-      title: 'PIN takrorlang',
+      title: l10n.pinRepeatTitle,
       subtitle: '',
       controller: _pinController,
-      actionLabel: 'Saqlash',
+      actionLabel: l10n.save,
       onAction: _handleConfirm,
       errorText: _error,
       busy: _saving,

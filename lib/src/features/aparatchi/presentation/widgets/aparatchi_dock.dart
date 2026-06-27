@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
@@ -25,6 +26,7 @@ class AparatchiDock extends StatelessWidget {
     return AnimatedBuilder(
       animation: NativeDockBridge.instance,
       builder: (context, _) {
+        final l10n = context.l10n;
         final bool selectionVisible = activeTab != null;
         final int selectedIndex = switch (activeTab) {
           AparatchiDockTab.home => 0,
@@ -67,7 +69,7 @@ class AparatchiDock extends StatelessWidget {
           destinations: [
             RoleDockDestination(
               id: 'aparatchi-home',
-              label: 'Uy',
+              label: l10n.homeNavTitle,
               icon: Icons.home_outlined,
               selectedIcon: Icons.home_filled,
               active: activeTab == AparatchiDockTab.home,
@@ -78,7 +80,7 @@ class AparatchiDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'aparatchi-profile',
-              label: 'Profil',
+              label: l10n.profileTitle,
               icon: Icons.person_outline_rounded,
               selectedIcon: Icons.person_rounded,
               active: activeTab == AparatchiDockTab.profile,

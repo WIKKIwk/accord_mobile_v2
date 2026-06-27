@@ -60,6 +60,11 @@ class AppLocalizations {
       _t('Haridor akkaunti', 'Customer account', 'Аккаунт покупателя');
   String get adminAccount =>
       _t('Admin akkaunti', 'Admin account', 'Аккаунт администратора');
+  String get capabilityBasedAccount => _t(
+        'Role asosidagi account',
+        'Role-based account',
+        'Аккаунт на основе роли',
+      );
   String get nicknameSaveFailed => _t(
         'Nickname saqlanmadi',
         'Nickname was not saved',
@@ -90,6 +95,14 @@ class AppLocalizations {
   String get pinSet => _t('PIN o‘rnatish', 'Set PIN', 'Установить PIN');
   String get pinChange => _t('PIN almashtirish', 'Change PIN', 'Изменить PIN');
   String get pinRemove => _t('PIN o‘chirish', 'Remove PIN', 'Удалить PIN');
+  String get pinEnterTitle => _t('PIN kiriting', 'Enter PIN', 'Введите PIN');
+  String get pinRepeatTitle =>
+      _t('PIN takrorlang', 'Repeat PIN', 'Повторите PIN');
+  String get pinMismatch => _t(
+        'PIN bir xil emas. Qayta kiriting.',
+        'PINs do not match. Enter again.',
+        'PIN не совпадает. Введите заново.',
+      );
   String get biometricEnableTitle => _t(
         'Biometrik autentifikatsiya',
         'Biometric authentication',
@@ -98,6 +111,32 @@ class AppLocalizations {
   String get biometricEnabledBody => _t('Yoqilgan', 'Enabled', 'Включено');
   String get biometricDisabledBody =>
       _t('O‘chirilgan', 'Disabled', 'Выключено');
+  String get biometricQuickUnlockTitle =>
+      _t('Tezkor ochish', 'Quick unlock', 'Быстрая разблокировка');
+  String get biometricQuickUnlockPrompt => _t(
+        'Face ID yoki fingerprint bilan tez ochishni yoqasizmi?',
+        'Enable quick unlock with Face ID or fingerprint?',
+        'Включить быструю разблокировку через Face ID или отпечаток?',
+      );
+  String get pinSaveFailed =>
+      _t('PIN saqlanmadi', 'PIN was not saved', 'PIN не сохранен');
+  String get pinRemoveFailed =>
+      _t('PIN o‘chirilmadi', 'PIN was not removed', 'PIN не удален');
+  String get biometricEnableFailed => _t(
+        'Biometrik ochish yoqilmadi',
+        'Biometric unlock was not enabled',
+        'Биометрическая разблокировка не включена',
+      );
+  String get biometricDisableFailed => _t(
+        'Biometrik ochish o‘chirilmadi',
+        'Biometric unlock was not disabled',
+        'Биометрическая разблокировка не отключена',
+      );
+  String get profileAvatarZoomLabel => _t(
+        'Profil rasmini kattalashtirish',
+        'Enlarge profile photo',
+        'Увеличить фото профиля',
+      );
   String get languageTitle => _t('Til', 'Language', 'Язык');
   String get languageUnselected =>
       _t('Tanlanmagan', 'Unselected', 'Не выбрано');
@@ -167,6 +206,7 @@ class AppLocalizations {
   String get no => _t('Yo‘q', 'No', 'Нет');
   String get retry => _t('Qayta urinish', 'Retry', 'Повторить');
   String get loading => _t('Yuklanmoqda...', 'Loading...', 'Загрузка...');
+  String get accessDenied => _t('Ruxsat yo‘q', 'Access denied', 'Нет доступа');
   String get confirmTitle => _t('Tasdiqlash', 'Confirm', 'Подтверждение');
   String get qtyRequired =>
       _t('Miqdor kiriting', 'Enter quantity', 'Введите количество');
@@ -248,8 +288,14 @@ class AppLocalizations {
       );
   String get batchSubmitResultTitle => _t('Natija', 'Result', 'Результат');
   String get closeAction => _t('Yopish', 'Close', 'Закрыть');
+  String get homeNavTitle => _t('Uy', 'Home', 'Главная');
   String get notificationsTitle =>
       _t('Bildirishnomalar', 'Notifications', 'Уведомления');
+  String get notificationsShortTitle => _t('Bildirish', 'Notify', 'Уведомл.');
+  String get createNavTitle => _t('Yangi', 'New', 'Новый');
+  String get historyNavTitle => _t('Tarix', 'History', 'История');
+  String get archiveNavTitle => _t('Arxiv', 'Archive', 'Архив');
+  String get monitoringNavTitle => _t('Kuzatish', 'Monitoring', 'Мониторинг');
   String get noNotifications => _t(
         'Hali bildirishnomalar yo‘q.',
         'No notifications yet.',
@@ -641,6 +687,26 @@ class AppLocalizations {
   String get adminScalesModeNavTitle =>
       _t('Tarozilar rejimi', 'Scales mode', 'Режим весов');
   String get adminCuttingNavTitle => _t('Kesish', 'Cutting', 'Резка');
+  String get adminQuickOrdersTitle =>
+      _t('Tezkor buyurtmalar', 'Quick orders', 'Быстрые заказы');
+  String get adminProductionMapTestTitle =>
+      _t('Ish xaritasi testi', 'Work map test', 'Тест карты работ');
+  String get adminTotalUsersTitle =>
+      _t('Jami foydalanuvchilar', 'Total users', 'Всего пользователей');
+  String get adminActiveUsersTitle =>
+      _t('Faol foydalanuvchilar', 'Active users', 'Активные пользователи');
+  String get adminBlockedUsersTitle => _t(
+        'Bloklangan foydalanuvchilar',
+        'Blocked users',
+        'Заблокированные пользователи',
+      );
+  String get adminBlockedUsersControlTitle =>
+      _t('Blok nazorati', 'Block control', 'Контроль блокировок');
+  String adminBlockedUsersCountLabel(int count) => _t(
+        'Bloklangan foydalanuvchilar: $count ta',
+        'Blocked users: $count',
+        'Заблокированные пользователи: $count',
+      );
   String get adminUsersTitle => _t('Foydalanuvchilar', 'Users', 'Пользователи');
   String get adminWorkersNavTitle => _t('Ishchilar', 'Workers', 'Сотрудники');
   String get adminProductsTitle => _t('Mahsulotlar', 'Products', 'Товары');

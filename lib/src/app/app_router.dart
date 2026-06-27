@@ -77,6 +77,7 @@ import '../features/werka/presentation/werka_unannounced_supplier_screen.dart';
 import '../features/werka/presentation/werka_status_detail_screen.dart';
 import '../features/werka/presentation/werka_status_breakdown_screen.dart';
 import '../features/werka/presentation/werka_success_screen.dart';
+import '../core/localization/app_localizations.dart';
 import '../core/session/state/app_session.dart';
 import '../core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
@@ -817,6 +818,6 @@ class _CapabilityDeniedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Ruxsat yo‘q')));
+    return Scaffold(body: Center(child: Text(context.l10n.accessDenied)));
   }
 }

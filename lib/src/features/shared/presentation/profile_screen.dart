@@ -310,8 +310,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       }
       final enable = await showM3ConfirmDialog(
         context: context,
-        title: 'Tezkor ochish',
-        message: 'Face ID yoki fingerprint bilan tez ochishni yoqasizmi?',
+        title: context.l10n.biometricQuickUnlockTitle,
+        message: context.l10n.biometricQuickUnlockPrompt,
         cancelLabel: context.l10n.no,
         confirmLabel: context.l10n.yes,
       );
@@ -325,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         return;
       }
       setState(() {
-        errorMessage = 'PIN saqlanmadi';
+        errorMessage = context.l10n.pinSaveFailed;
       });
     } finally {
       if (mounted) {
@@ -352,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         return;
       }
       setState(() {
-        errorMessage = 'PIN o‘chirilmadi';
+        errorMessage = context.l10n.pinRemoveFailed;
       });
     } finally {
       if (mounted) {
@@ -374,8 +374,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (!ok && mounted) {
         setState(() {
           errorMessage = enabled
-              ? 'Biometrik ochish yoqilmadi'
-              : 'Biometrik ochish o‘chirilmadi';
+              ? context.l10n.biometricEnableFailed
+              : context.l10n.biometricDisableFailed;
         });
       } else if (mounted) {
         setState(() {});
@@ -416,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
         final bottomPadding = bottomInset + 136.0;
         final subtitle = current.isCapabilityOnlyProfile
-            ? 'Role asosidagi account'
+            ? l10n.capabilityBasedAccount
             : current.accessRole == UserRole.supplier
                 ? l10n.supplierAccount
                 : current.accessRole == UserRole.werka
@@ -1649,6 +1649,7 @@ class _AvatarPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final fallback = Container(
       height: 96,
       width: 96,
@@ -1690,7 +1691,7 @@ class _AvatarPreview extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Profil rasmini kattalashtirish',
+      label: l10n.profileAvatarZoomLabel,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

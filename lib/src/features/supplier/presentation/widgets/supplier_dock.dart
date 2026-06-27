@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
@@ -33,6 +34,7 @@ class SupplierDock extends StatelessWidget {
         ProfileRouteOverlayNotifier.instance,
       ]),
       builder: (context, _) {
+        final l10n = context.l10n;
         final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab;
         final showBadge = NotificationUnreadStore.instance.hasUnreadForProfile(
@@ -89,7 +91,7 @@ class SupplierDock extends StatelessWidget {
           destinations: [
             RoleDockDestination(
               id: 'supplier-home',
-              label: 'Uy',
+              label: l10n.homeNavTitle,
               icon: Icons.home_outlined,
               selectedIcon: Icons.home_rounded,
               active: activeTab == SupplierDockTab.home && !centerActive,
@@ -98,7 +100,7 @@ class SupplierDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'supplier-notifications',
-              label: 'Bildirish',
+              label: l10n.notificationsShortTitle,
               icon: Icons.notifications_outlined,
               selectedIcon: Icons.notifications_rounded,
               active: activeTab == SupplierDockTab.notifications,
@@ -108,7 +110,7 @@ class SupplierDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'supplier-create',
-              label: 'Yangi',
+              label: l10n.createNavTitle,
               icon: Icons.add_rounded,
               selectedIcon: Icons.add_rounded,
               active: centerActive,
@@ -117,7 +119,7 @@ class SupplierDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'supplier-recent',
-              label: 'Tarix',
+              label: l10n.historyNavTitle,
               icon: Icons.history_outlined,
               selectedIcon: Icons.history_rounded,
               active: activeTab == SupplierDockTab.recent,
