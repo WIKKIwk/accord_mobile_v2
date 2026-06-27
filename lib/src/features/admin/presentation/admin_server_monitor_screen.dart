@@ -1076,7 +1076,7 @@ class _BackupCalendarPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '$backedUpDays kun saqlangan',
+                '$backedUpDays/7 kun',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w900,
@@ -1094,7 +1094,7 @@ class _BackupCalendarPanel extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: SizedBox(
-              height: 68,
+              height: 34,
               child: CustomPaint(
                 painter: _BackupCalendarPainter(
                   days: days,
@@ -1152,11 +1152,11 @@ class _BackupCalendarPanel extends StatelessWidget {
       );
       counts[day] = (counts[day] ?? 0) + 1;
     }
-    return List<_BackupDay>.generate(30, (index) {
-      final day = today.subtract(Duration(days: 29 - index));
+    return List<_BackupDay>.generate(7, (index) {
+      final day = today.subtract(Duration(days: 6 - index));
       return _BackupDay(
         count: counts[day] ?? 0,
-        isToday: index == 29,
+        isToday: index == 6,
       );
     });
   }
@@ -1191,31 +1191,22 @@ class _BackupCalendarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const columns = 10;
-    const rows = 3;
-    const gap = 3.0;
-    final cellWidth = (size.width - gap * (columns - 1)) / columns;
-    final cellHeight = (size.height - gap * (rows - 1)) / rows;
-    final cellSize = math.min(cellWidth, cellHeight);
-    final leftOffset =
-        (size.width - (cellSize * columns + gap * (columns - 1))) / 2;
-    final topOffset = (size.height - (cellSize * rows + gap * (rows - 1))) / 2;
+    const segmentCount = 7;
+    const gap = 6.0;
+    final segmentWidth = (size.width - gap * (segmentCount - 1)) / segmentCount;
 
-    for (var index = 0; index < math.min(days.length, 30); index++) {
+    for (var index = 0; index < math.min(days.length, segmentCount); index++) {
       final day = days[index];
-      final column = index % columns;
-      final row = index ~/ columns;
-      final left = leftOffset + column * (cellSize + gap);
-      final top = topOffset + row * (cellSize + gap);
+      final left = index * (segmentWidth + gap);
       final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, top, cellSize, cellSize),
-        const Radius.circular(3),
+        Rect.fromLTWH(left, 0, segmentWidth, size.height),
+        const Radius.circular(8),
       );
       canvas.drawRRect(
         rect,
         Paint()
           ..color = day.count > 0
-              ? activeColor.withValues(alpha: day.count > 1 ? 0.95 : 0.72)
+              ? activeColor.withValues(alpha: day.count > 1 ? 0.95 : 0.78)
               : trackColor,
       );
       if (day.isToday) {
