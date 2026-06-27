@@ -166,6 +166,13 @@ void main() {
 
       expect(report.scannedBatch.qrPayload, 'GSP:PROGRESS-OLD');
       expect(report.currentBatch?.qrPayload, 'GSP:PROGRESS-NEW');
+      expect(report.currentBatch?.statusDetail.workStatus, 'completed');
+      expect(
+        report.currentBatch?.statusDetail.flowStatus,
+        'finished_pending_acceptance',
+      );
+      expect(
+          report.currentBatch?.statusDetail.stockStatus, 'pending_acceptance');
       expect(report.isStale, isTrue);
       expect(report.staleReason, 'processed_by_next_stage');
       expect(report.order?.id, 'zakaz-1');
@@ -991,6 +998,12 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'label_item_name': 'Zakaz tayyor',
             'executor_name': 'Aparatchi',
             'wip_status': 'waiting',
+            'status_detail': {
+              'work_status': 'completed',
+              'wip_status': 'waiting',
+              'flow_status': 'finished_pending_acceptance',
+              'stock_status': 'pending_acceptance',
+            },
           },
           'is_stale': true,
           'stale_reason': 'processed_by_next_stage',

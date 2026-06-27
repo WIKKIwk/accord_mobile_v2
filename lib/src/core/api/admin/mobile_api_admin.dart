@@ -367,6 +367,7 @@ class AdminProgressBatch {
     this.workerRef = '',
     this.workerDisplayName = '',
     this.wipStatus = '',
+    this.statusDetail = const AdminProgressBatchStatusDetail(),
     this.currentApparatus = '',
     this.currentApparatusKey = '',
     this.currentLocation = '',
@@ -404,6 +405,7 @@ class AdminProgressBatch {
   final String workerRef;
   final String workerDisplayName;
   final String wipStatus;
+  final AdminProgressBatchStatusDetail statusDetail;
   final String currentApparatus;
   final String currentApparatusKey;
   final String currentLocation;
@@ -445,6 +447,7 @@ class AdminProgressBatch {
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       wipStatus: json['wip_status']?.toString() ?? '',
+      statusDetail: AdminProgressBatchStatusDetail.fromJsonOrBatchJson(json),
       currentApparatus: json['current_apparatus']?.toString() ?? '',
       currentApparatusKey: json['current_apparatus_key']?.toString() ?? '',
       currentLocation: json['current_location']?.toString() ?? '',
@@ -485,6 +488,7 @@ class AdminProgressBatch {
       workerRef: workerRef,
       workerDisplayName: workerDisplayName,
       wipStatus: wipStatus,
+      statusDetail: statusDetail,
       currentApparatus: currentApparatus,
       currentApparatusKey: currentApparatusKey,
       currentLocation: currentLocation,
@@ -494,6 +498,69 @@ class AdminProgressBatch {
       usedByApparatus: usedByApparatus,
       processedBySessionId: processedBySessionId,
       processedByApparatus: processedByApparatus,
+    );
+  }
+}
+
+class AdminProgressBatchStatusDetail {
+  const AdminProgressBatchStatusDetail({
+    this.workStatus = '',
+    this.wipStatus = '',
+    this.flowStatus = '',
+    this.stockStatus = '',
+  });
+
+  final String workStatus;
+  final String wipStatus;
+  final String flowStatus;
+  final String stockStatus;
+
+  factory AdminProgressBatchStatusDetail.fromJsonOrBatchJson(
+    Map<String, dynamic> batchJson,
+  ) {
+    final raw = batchJson['status_detail'];
+    if (raw is Map) {
+      return AdminProgressBatchStatusDetail(
+        workStatus: raw['work_status']?.toString() ?? '',
+        wipStatus: raw['wip_status']?.toString() ?? '',
+        flowStatus: raw['flow_status']?.toString() ?? '',
+        stockStatus: raw['stock_status']?.toString() ?? '',
+      );
+    }
+    final batchStatus = batchJson['status']?.toString().trim() ?? '';
+    final action = batchJson['action']?.toString().trim() ?? '';
+    final wipStatus = batchJson['wip_status']?.toString().trim() ?? '';
+    final nextApparatus = batchJson['next_apparatus']?.toString().trim() ?? '';
+    final processedBy =
+        batchJson['processed_by_apparatus']?.toString().trim() ?? '';
+    final workStatus = switch (batchStatus) {
+      'paused' => 'paused',
+      'resumed' => 'in_progress',
+      'completed' => 'completed',
+      _ => batchStatus,
+    };
+    final isFinalOutput = action == 'complete' &&
+        batchStatus == 'completed' &&
+        nextApparatus.isEmpty;
+    final flowStatus = switch (wipStatus) {
+      'waiting' when isFinalOutput => 'finished_pending_acceptance',
+      'waiting' => 'waiting_next_stage',
+      'in_use' => 'in_progress',
+      'processed' when processedBy.toLowerCase().startsWith('warehouse:') =>
+        'accepted_to_stock',
+      'processed' => 'consumed_by_next_stage',
+      _ => '',
+    };
+    final stockStatus = switch (flowStatus) {
+      'finished_pending_acceptance' => 'pending_acceptance',
+      'accepted_to_stock' => 'accepted',
+      _ => '',
+    };
+    return AdminProgressBatchStatusDetail(
+      workStatus: workStatus,
+      wipStatus: wipStatus,
+      flowStatus: flowStatus,
+      stockStatus: stockStatus,
     );
   }
 }

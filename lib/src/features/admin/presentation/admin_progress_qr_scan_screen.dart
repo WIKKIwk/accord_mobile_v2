@@ -1332,6 +1332,10 @@ String _progressQrBatchDisplayState({
   required AdminProgressBatch batch,
   required String queueState,
 }) {
+  final serverWorkStatus = batch.statusDetail.workStatus.trim();
+  if (serverWorkStatus.isNotEmpty) {
+    return serverWorkStatus;
+  }
   return progressQrBatchDisplayState(
     batchStatus: batch.status,
     queueState: queueState,
