@@ -565,6 +565,66 @@ class AdminProgressBatchStatusDetail {
   }
 }
 
+class AdminProductionOrderStatusDetail {
+  const AdminProductionOrderStatusDetail({
+    this.orderStatus = '',
+    this.workStatus = '',
+    this.flowStatus = '',
+    this.stockStatus = '',
+    this.totalWipCount = 0,
+    this.waitingWipCount = 0,
+    this.inUseWipCount = 0,
+    this.processedWipCount = 0,
+    this.waitingNextStageCount = 0,
+    this.consumedByNextStageCount = 0,
+    this.finishedPendingAcceptanceCount = 0,
+    this.acceptedWipCount = 0,
+    this.activeSessionCount = 0,
+    this.pausedSessionCount = 0,
+  });
+
+  final String orderStatus;
+  final String workStatus;
+  final String flowStatus;
+  final String stockStatus;
+  final int totalWipCount;
+  final int waitingWipCount;
+  final int inUseWipCount;
+  final int processedWipCount;
+  final int waitingNextStageCount;
+  final int consumedByNextStageCount;
+  final int finishedPendingAcceptanceCount;
+  final int acceptedWipCount;
+  final int activeSessionCount;
+  final int pausedSessionCount;
+
+  factory AdminProductionOrderStatusDetail.fromJson(Object? raw) {
+    if (raw is! Map) {
+      return const AdminProductionOrderStatusDetail();
+    }
+    final json = raw.cast<String, dynamic>();
+    return AdminProductionOrderStatusDetail(
+      orderStatus: json['order_status']?.toString() ?? '',
+      workStatus: json['work_status']?.toString() ?? '',
+      flowStatus: json['flow_status']?.toString() ?? '',
+      stockStatus: json['stock_status']?.toString() ?? '',
+      totalWipCount: (json['total_wip_count'] as num?)?.toInt() ?? 0,
+      waitingWipCount: (json['waiting_wip_count'] as num?)?.toInt() ?? 0,
+      inUseWipCount: (json['in_use_wip_count'] as num?)?.toInt() ?? 0,
+      processedWipCount: (json['processed_wip_count'] as num?)?.toInt() ?? 0,
+      waitingNextStageCount:
+          (json['waiting_next_stage_count'] as num?)?.toInt() ?? 0,
+      consumedByNextStageCount:
+          (json['consumed_by_next_stage_count'] as num?)?.toInt() ?? 0,
+      finishedPendingAcceptanceCount:
+          (json['finished_pending_acceptance_count'] as num?)?.toInt() ?? 0,
+      acceptedWipCount: (json['accepted_wip_count'] as num?)?.toInt() ?? 0,
+      activeSessionCount: (json['active_session_count'] as num?)?.toInt() ?? 0,
+      pausedSessionCount: (json['paused_session_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AdminWorkerRunSession {
   const AdminWorkerRunSession({
     required this.sessionId,
@@ -638,6 +698,7 @@ class AdminProgressQrReport {
     required this.activeSessions,
     this.currentBatch,
     this.order,
+    this.orderStatus = const AdminProductionOrderStatusDetail(),
     this.openedBy,
   });
 
@@ -646,6 +707,7 @@ class AdminProgressQrReport {
   final bool isStale;
   final String staleReason;
   final ProductionMapDefinition? order;
+  final AdminProductionOrderStatusDetail orderStatus;
   final Map<String, Map<String, String>> queueStates;
   final List<AdminProductionOrderLogEntry> logs;
   final List<AdminProgressBatch> progressBatches;
@@ -676,6 +738,9 @@ class AdminProgressQrReport {
       order: orderRaw is Map
           ? ProductionMapDefinition.fromJson(orderRaw.cast<String, dynamic>())
           : null,
+      orderStatus: AdminProductionOrderStatusDetail.fromJson(
+        json['order_status'],
+      ),
       queueStates: _stringMapOfStringMaps(json['queue_states']),
       logs: [
         for (final item in (json['logs'] as List? ?? const []))
@@ -893,11 +958,13 @@ class AdminServerMonitorReport {
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
+    this.orderStatus = const AdminProductionOrderStatusDetail(),
     this.progressBatch,
     this.completionRequest,
   });
 
   final Map<String, String> states;
+  final AdminProductionOrderStatusDetail orderStatus;
   final AdminProgressBatch? progressBatch;
   final AdminCompletionRequestNotification? completionRequest;
 }
@@ -2950,6 +3017,9 @@ extension MobileApiAdmin on MobileApi {
         for (final entry in raw.entries)
           entry.key.toString(): entry.value.toString(),
       },
+      orderStatus: AdminProductionOrderStatusDetail.fromJson(
+        payload['order_status'],
+      ),
       progressBatch: progressRaw is Map
           ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())
           : null,
