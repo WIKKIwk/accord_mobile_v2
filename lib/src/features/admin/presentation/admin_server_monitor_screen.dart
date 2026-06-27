@@ -1058,40 +1058,43 @@ class _BackupCalendarPanel extends StatelessWidget {
     final days = _backupDays(files);
     final backedUpDays = days.where((day) => day.count > 0).length;
     final ok = backups.exists && backups.fileCount > 0;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Backup',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.2,
-                        ),
-                  ),
-                ),
-                Text(
-                  '$backedUpDays kun saqlangan',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Backup',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
                       ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 9),
-            SizedBox(
-              height: 50,
+              ),
+              Text(
+                '$backedUpDays kun saqlangan',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: SizedBox(
+              height: 68,
               child: CustomPaint(
                 painter: _BackupCalendarPainter(
                   days: days,
@@ -1101,34 +1104,37 @@ class _BackupCalendarPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 7),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    backups.latest == null
-                        ? 'Oxirgi backup yo‘q'
-                        : 'Oxirgi backup: ${_shortBackupAgeLabel(backups.latest!)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                Text(
-                  '${backups.fileCount} ta fayl',
+          ),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  backups.latest == null
+                      ? 'Oxirgi backup yo‘q'
+                      : 'Oxirgi backup: ${_shortBackupAgeLabel(backups.latest!)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w800,
                       ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              Text(
+                '${backups.fileCount} ta fayl',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
