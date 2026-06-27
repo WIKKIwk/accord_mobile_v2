@@ -23,8 +23,8 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   bool _loading = true;
   bool _liveConnected = false;
   DateTime? _lastUpdated;
-  final List<int> _pingSamples = <int>[];
-  StreamSubscription<AdminServerMonitorReport>? _liveSubscription;
+  final List<int> _latencySamples = <int>[];
+  StreamSubscription<AdminServerMonitorLiveEvent>? _liveSubscription;
   int _liveGeneration = 0;
 
   @override
@@ -104,7 +104,14 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           return;
         }
         setState(() {
-          _applyReport(report);
+          final snapshot = report.report;
+          if (snapshot != null) {
+            _applyReport(snapshot);
+          }
+          final latency = report.latencyMs;
+          if (latency != null) {
+            _applyLatency(latency);
+          }
           _loading = false;
           _liveConnected = true;
           _error = null;
@@ -128,12 +135,15 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   void _applyReport(AdminServerMonitorReport report) {
     _report = report;
     _lastUpdated = DateTime.now();
-    final ping = report.database.pingMs;
-    if (ping > 0) {
-      _pingSamples.add(ping);
-      if (_pingSamples.length > 24) {
-        _pingSamples.removeRange(0, _pingSamples.length - 24);
-      }
+  }
+
+  void _applyLatency(int latencyMs) {
+    if (latencyMs <= 0) {
+      return;
+    }
+    _latencySamples.add(latencyMs);
+    if (_latencySamples.length > 24) {
+      _latencySamples.removeRange(0, _latencySamples.length - 24);
     }
   }
 
@@ -190,7 +200,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             report: report,
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
-            pingSamples: _pingSamples,
+            latencySamples: _latencySamples,
           ),
           const SizedBox(height: 12),
           _MetricGrid(
@@ -222,13 +232,13 @@ class _StatusSummaryPanel extends StatelessWidget {
     required this.report,
     required this.liveConnected,
     required this.lastUpdated,
-    required this.pingSamples,
+    required this.latencySamples,
   });
 
   final AdminServerMonitorReport report;
   final bool liveConnected;
   final DateTime? lastUpdated;
-  final List<int> pingSamples;
+  final List<int> latencySamples;
 
   @override
   Widget build(BuildContext context) {
@@ -292,8 +302,6 @@ class _StatusSummaryPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            _RuntimeStrip(report: report),
-            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -324,11 +332,17 @@ class _StatusSummaryPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            _UsageTicksPanel(
+              label: 'CPU bosim',
+              percent: report.runtime.cpuPercent,
+              caption: _formatLoad(report.runtime.loadAverage),
+            ),
+            const SizedBox(height: 10),
             _DataVolumePanel(runtime: report.runtime),
             const SizedBox(height: 10),
             _PingSparklinePanel(
-              pingMs: report.database.pingMs,
-              samples: pingSamples,
+              latencyMs: latencySamples.isEmpty ? 0 : latencySamples.last,
+              samples: latencySamples,
               connected: liveConnected && report.database.reachable,
             ),
             const SizedBox(height: 12),
@@ -427,58 +441,21 @@ class _HealthDialPainter extends CustomPainter {
   }
 }
 
-class _RuntimeStrip extends StatelessWidget {
-  const _RuntimeStrip({required this.report});
-
-  final AdminServerMonitorReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final runtime = report.runtime;
-    return Row(
-      children: [
-        Expanded(
-          child: _MetricBar(
-            label: 'CPU bosim',
-            value: runtime.cpuPercent,
-            caption: _formatLoad(runtime.loadAverage),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _MetricBar(
-            label: 'Xotira',
-            value: runtime.memoryPercent,
-            caption: runtime.memoryTotalMb > 0
-                ? '${runtime.memoryUsedMb}/${runtime.memoryTotalMb} MB'
-                : 'aniqlanmadi',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetricBar extends StatelessWidget {
-  const _MetricBar({
+class _UsageTicksPanel extends StatelessWidget {
+  const _UsageTicksPanel({
     required this.label,
-    required this.value,
+    required this.percent,
     required this.caption,
   });
 
   final String label;
-  final int value;
+  final int percent;
   final String caption;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final normalized = value.clamp(0, 100).toDouble() / 100;
-    final color = value >= 85
-        ? scheme.error
-        : value >= 70
-            ? const Color(0xFFB56B20)
-            : scheme.primary;
+    final safePercent = percent.clamp(0, 100);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -503,7 +480,7 @@ class _MetricBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$value%',
+                  '$safePercent%',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -511,16 +488,17 @@ class _MetricBar extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: normalized,
-                minHeight: 7,
-                backgroundColor: scheme.surface.withValues(alpha: 0.75),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
+            SizedBox(
+              height: 20,
+              child: CustomPaint(
+                painter: _VolumeTicksPainter(
+                  percent: safePercent,
+                  color: _usageColor(context, safePercent),
+                  trackColor: scheme.outlineVariant.withValues(alpha: 0.62),
+                ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             Text(
               caption,
               maxLines: 1,
@@ -719,12 +697,12 @@ class _VolumeTicksPainter extends CustomPainter {
 
 class _PingSparklinePanel extends StatelessWidget {
   const _PingSparklinePanel({
-    required this.pingMs,
+    required this.latencyMs,
     required this.samples,
     required this.connected,
   });
 
-  final int pingMs;
+  final int latencyMs;
   final List<int> samples;
   final bool connected;
 
@@ -750,7 +728,7 @@ class _PingSparklinePanel extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    connected ? 'To‘g‘ridan-to‘g‘ri ulanish' : 'Ulanmoqda',
+                    connected ? 'Mobile ↔ server' : 'Ulanmoqda',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -760,7 +738,7 @@ class _PingSparklinePanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  pingMs > 0 ? '$pingMs ms' : 'aniqlanmadi',
+                  latencyMs > 0 ? '$latencyMs ms' : 'aniqlanmadi',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),

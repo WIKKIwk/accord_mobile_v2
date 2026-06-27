@@ -1012,6 +1012,38 @@ class AdminServerMonitorReport {
   }
 }
 
+class AdminServerMonitorLiveEvent {
+  const AdminServerMonitorLiveEvent({
+    this.report,
+    this.latencyMs,
+  });
+
+  final AdminServerMonitorReport? report;
+  final int? latencyMs;
+
+  factory AdminServerMonitorLiveEvent.fromJson(
+    Map<String, dynamic> json, {
+    int Function()? nowMs,
+  }) {
+    if (json['ok'] == true) {
+      return AdminServerMonitorLiveEvent(
+        report: AdminServerMonitorReport.fromJson(json),
+      );
+    }
+    if (json['type'] == 'pong') {
+      final sentAt = (json['sent_at_ms'] as num?)?.toInt();
+      if (sentAt != null && sentAt > 0) {
+        final now = nowMs?.call() ?? DateTime.now().millisecondsSinceEpoch;
+        final latency = now - sentAt;
+        return AdminServerMonitorLiveEvent(
+          latencyMs: latency <= 0 ? 1 : latency,
+        );
+      }
+    }
+    return const AdminServerMonitorLiveEvent();
+  }
+}
+
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
@@ -1545,15 +1577,16 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
-  Stream<AdminServerMonitorReport> adminServerMonitorLiveEvents() async* {
+  Stream<AdminServerMonitorLiveEvent> adminServerMonitorLiveEvents() async* {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
     await for (final event in withLiveStreamSilenceTimeout(
-      connectWarehouseLive(adminServerMonitorLiveUri()),
+      connectSystemMonitorLive(adminServerMonitorLiveUri()),
     )) {
-      if (event['ok'] == true) {
-        yield AdminServerMonitorReport.fromJson(event);
+      final liveEvent = AdminServerMonitorLiveEvent.fromJson(event);
+      if (liveEvent.report != null || liveEvent.latencyMs != null) {
+        yield liveEvent;
       }
     }
   }

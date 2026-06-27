@@ -7,3 +7,7 @@ import 'warehouse_live_client_stub.dart'
 Stream<Map<String, dynamic>> connectWarehouseLive(Uri uri) {
   return connectWarehouseLivePlatform(uri);
 }
+
+Stream<Map<String, dynamic>> connectSystemMonitorLive(Uri uri) {
+  return connectSystemMonitorLivePlatform(uri);
+}

@@ -52,4 +52,14 @@ void main() {
       throwsA(isA<TimeoutException>()),
     );
   });
+
+  test('server monitor pong event reports websocket round trip latency', () {
+    final event = AdminServerMonitorLiveEvent.fromJson(
+      const {'type': 'pong', 'id': 9, 'sent_at_ms': 1000},
+      nowMs: () => 1042,
+    );
+
+    expect(event.report, isNull);
+    expect(event.latencyMs, 42);
+  });
 }
