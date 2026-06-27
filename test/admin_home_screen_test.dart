@@ -105,7 +105,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Item qo‘shish'), findsOneWidget);
+      expect(find.text('Mahsulot qo‘shish'), findsOneWidget);
       expect(find.text('GScale'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
@@ -472,7 +472,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ruxsat yo‘q'), findsNothing);
-    expect(find.text('Item qo‘shish'), findsOneWidget);
+    expect(find.text('Mahsulot qo‘shish'), findsOneWidget);
   });
 }
 

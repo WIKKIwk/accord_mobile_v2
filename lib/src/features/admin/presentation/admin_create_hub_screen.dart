@@ -76,7 +76,7 @@ class AdminCreateHubScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1, thickness: 1),
                 _CreateHubRow(
-                  title: 'Zakaz yaratish',
+                  title: context.l10n.adminCreateOrderTitle,
                   subtitle: 'Formula uchun yangi saqlanadigan zakaz ochish',
                   onTap: () =>
                       Navigator.of(context).pushNamed(AppRoutes.adminCalculate),

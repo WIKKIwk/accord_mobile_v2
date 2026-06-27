@@ -27,6 +27,31 @@ Widget _wrap(Widget child, {List<NavigatorObserver> observers = const []}) {
 }
 
 void main() {
+  testWidgets('admin create hub uses clean Uzbek labels', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        Builder(
+          builder: (context) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showAdminCreateHubSheet(context);
+            });
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mahsulot qo‘shish'), findsOneWidget);
+    expect(find.text('QR skanerlash'), findsOneWidget);
+    expect(find.text('Buyurtma yaratish'), findsOneWidget);
+    expect(find.text('Item qo‘shish'), findsNothing);
+    expect(find.text('QR scan'), findsNothing);
+    expect(find.text('Zakaz yaratish'), findsNothing);
+  });
+
   testWidgets('admin create hub groups user creation into one action', (
     tester,
   ) async {

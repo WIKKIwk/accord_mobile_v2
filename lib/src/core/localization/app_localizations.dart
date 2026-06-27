@@ -1001,11 +1001,15 @@ class AppLocalizations {
         'URL, key, secret и настройки склада',
       );
   String get adminCreateItemTitle =>
-      _t('Item qo‘shish', 'Add item', 'Добавить товар');
+      _t('Mahsulot qo‘shish', 'Add item', 'Добавить товар');
   String get adminCreateItemSubtitle =>
       _t('Yangi mahsulot yaratish', 'Create a new item', 'Создать новый товар');
   String get adminCreateItemGroupTitle =>
       _t('Item Group yaratish', 'Create item group', 'Создать группу товаров');
+  String get adminQrScanTitle =>
+      _t('QR skanerlash', 'QR scan', 'Сканировать QR');
+  String get adminCreateOrderTitle =>
+      _t('Buyurtma yaratish', 'Create order', 'Создать заказ');
   String get adminCreateItemGroupSubtitle => _t(
         'Parent-child mahsulot guruhlarini yaratish',
         'Create parent-child item groups',

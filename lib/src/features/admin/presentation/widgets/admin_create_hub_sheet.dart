@@ -276,21 +276,21 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
         icon: Icons.inventory_2_outlined,
         routeName: AppRoutes.adminItemCreate,
       ),
-      const _AdminHubActionCandidate(
-        key: ValueKey('admin-hub-progress-qr-scan'),
-        title: 'QR scan',
+      _AdminHubActionCandidate(
+        key: const ValueKey('admin-hub-progress-qr-scan'),
+        title: l10n.adminQrScanTitle,
         icon: Icons.qr_code_scanner_rounded,
         routeName: AppRoutes.adminProgressQrScan,
       ),
-      const _AdminHubActionCandidate(
-        key: ValueKey('admin-hub-quick-orders'),
-        title: 'Tezkor buyurtmalar',
+      _AdminHubActionCandidate(
+        key: const ValueKey('admin-hub-quick-orders'),
+        title: l10n.adminQuickOrdersTitle,
         icon: Icons.list_alt_outlined,
         routeName: AppRoutes.adminCalculateOrders,
       ),
-      const _AdminHubActionCandidate(
-        key: ValueKey('admin-hub-calculate-order-create'),
-        title: 'Zakaz yaratish',
+      _AdminHubActionCandidate(
+        key: const ValueKey('admin-hub-calculate-order-create'),
+        title: l10n.adminCreateOrderTitle,
         icon: Icons.add_task_outlined,
         routeName: AppRoutes.adminCalculate,
       ),
