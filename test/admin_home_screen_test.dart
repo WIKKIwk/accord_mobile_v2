@@ -201,6 +201,65 @@ void main() {
     expect(find.text('Aparatlar'), findsOneWidget);
   });
 
+  testWidgets('admin drawer labels follow selected language', (tester) async {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['admin.access', 'production.map.manage'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(AppThemeVariant.earthy),
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: AdminNavigationDrawer(selectedIndex: 0, onNavigate: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Work map'), findsOneWidget);
+    expect(find.text('Semi-finished products'), findsOneWidget);
+    expect(find.text('Equipment'), findsOneWidget);
+    expect(find.text('Ish xaritasi'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(AppThemeVariant.earthy),
+        locale: const Locale('ru'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: AdminNavigationDrawer(selectedIndex: 0, onNavigate: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Карта работ'), findsOneWidget);
+    expect(find.text('Полуфабрикаты'), findsOneWidget);
+    expect(find.text('Оборудование'), findsOneWidget);
+    expect(find.text('Work map'), findsNothing);
+  });
+
   testWidgets('custom catalog profile home returns to capability home route', (
     tester,
   ) async {

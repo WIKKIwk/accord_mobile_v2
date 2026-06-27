@@ -53,46 +53,46 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminHomeNavTitle,
       routeName: AppRoutes.adminHome,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.account_tree_outlined,
       selectedIcon: Icons.account_tree_rounded,
-      label: 'Ish xaritasi',
+      label: l10n.adminWorkMapNavTitle,
       routeName: AppRoutes.adminProductionMapOrders,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.inventory_2_outlined,
       selectedIcon: Icons.inventory_2_rounded,
-      label: 'Yarim tayyor mahsulotlar',
+      label: l10n.adminSemiFinishedProductsNavTitle,
       routeName: AppRoutes.adminWipBatches,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications_rounded,
-      label: 'Bildirishnomalar',
+      label: l10n.adminNotificationsNavTitle,
       routeName: AppRoutes.adminNotifications,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.precision_manufacturing_outlined,
       selectedIcon: Icons.precision_manufacturing_rounded,
-      label: 'Aparatlar',
+      label: l10n.adminEquipmentNavTitle,
       routeName: AppRoutes.adminApparatusSettings,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.warehouse_outlined,
       selectedIcon: Icons.warehouse_rounded,
-      label: 'Omborlar',
+      label: l10n.adminWarehousesNavTitle,
       routeName: AppRoutes.adminWarehouses,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.rule_outlined,
       selectedIcon: Icons.rule_rounded,
-      label: 'Homashyo qoidalari',
+      label: l10n.adminRawMaterialRulesNavTitle,
       routeName: AppRoutes.adminRawMaterialSettings,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups_rounded,
-      label: 'Ishchilar',
+      label: l10n.adminWorkersNavTitle,
       routeName: AppRoutes.adminWorkerSettings,
     ),
     RoleNavigationDrawerDestination(
@@ -101,16 +101,16 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminRolesTitle,
       routeName: AppRoutes.adminRoles,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.account_tree_outlined,
       selectedIcon: Icons.account_tree_rounded,
-      label: 'Mahsulot guruhlari',
+      label: l10n.adminProductGroupsNavTitle,
       routeName: AppRoutes.adminItemGroupCreate,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.monitor_heart_outlined,
       selectedIcon: Icons.monitor_heart_rounded,
-      label: 'Server holati',
+      label: l10n.adminServerStatusNavTitle,
       routeName: AppRoutes.adminServerMonitor,
     ),
     RoleNavigationDrawerDestination(
@@ -120,17 +120,17 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.profile,
       push: true,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.swap_horiz_rounded,
       selectedIcon: Icons.swap_horiz_rounded,
-      label: 'Tarozilar rejimi',
+      label: l10n.adminScalesModeNavTitle,
       routeName: AppRoutes.gscaleMode,
       push: true,
     ),
-    const RoleNavigationDrawerDestination(
+    RoleNavigationDrawerDestination(
       icon: Icons.content_cut_rounded,
       selectedIcon: Icons.content_cut_rounded,
-      label: 'Kesish',
+      label: l10n.adminCuttingNavTitle,
       routeName: AppRoutes.rezkaSplit,
       push: true,
     ),
