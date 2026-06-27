@@ -203,11 +203,6 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             latencySamples: _latencySamples,
           ),
           const SizedBox(height: 12),
-          _MetricGrid(
-            report: report,
-            liveConnected: _liveConnected,
-          ),
-          const SizedBox(height: 12),
           _TechnicalDetailsCard(
             report: report,
             initiallyExpanded: _error != null,
@@ -340,11 +335,15 @@ class _StatusSummaryPanel extends StatelessWidget {
             const SizedBox(height: 10),
             _DataVolumePanel(runtime: report.runtime),
             const SizedBox(height: 10),
+            _DatabaseStatusPanel(database: report.database),
+            const SizedBox(height: 10),
             _PingSparklinePanel(
               latencyMs: latencySamples.isEmpty ? 0 : latencySamples.last,
               samples: latencySamples,
               connected: liveConnected && report.database.reachable,
             ),
+            const SizedBox(height: 10),
+            _BackupCalendarPanel(backups: report.backups),
             const SizedBox(height: 12),
             _KeyValueLine(
                 label: 'Oxirgi update', value: _formatLocal(lastUpdated)),
@@ -574,8 +573,62 @@ class _DataVolumePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final percent = runtime.diskPercent.clamp(0, 100);
+    return _TickStatusPanel(
+      title: 'SSD joy',
+      percent: percent,
+      color: _usageColor(context, percent),
+      leadingText: '${_formatStorageMb(runtime.diskUsedMb)} band',
+      trailingText: '${_formatStorageMb(runtime.diskTotalMb)} jami',
+      footer: runtime.diskPath.trim().isEmpty
+          ? null
+          : _shortDiskPath(runtime.diskPath),
+    );
+  }
+}
+
+class _DatabaseStatusPanel extends StatelessWidget {
+  const _DatabaseStatusPanel({required this.database});
+
+  final AdminServerMonitorDatabase database;
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = database.reachable;
+    return _TickStatusPanel(
+      title: 'Ma’lumotlar bazasi',
+      percent: ok ? 100 : 0,
+      color: _statusColor(context, ok),
+      leadingText: ok ? 'Ulangan' : 'Ulanmagan',
+      trailingText: database.pingMs > 0
+          ? '${database.pingMs} ms'
+          : _databaseStatusLabel(database.status),
+      footer: ok ? 'Saqlov ishlayapti' : database.error,
+    );
+  }
+}
+
+class _TickStatusPanel extends StatelessWidget {
+  const _TickStatusPanel({
+    required this.title,
+    required this.percent,
+    required this.color,
+    required this.leadingText,
+    required this.trailingText,
+    this.footer,
+  });
+
+  final String title;
+  final int percent;
+  final Color color;
+  final String leadingText;
+  final String trailingText;
+  final String? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final safePercent = percent.clamp(0, 100);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -590,7 +643,7 @@ class _DataVolumePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'SSD joy',
+                    title,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w900,
@@ -599,7 +652,7 @@ class _DataVolumePanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$percent%',
+                  '$safePercent%',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -611,8 +664,8 @@ class _DataVolumePanel extends StatelessWidget {
               height: 20,
               child: CustomPaint(
                 painter: _VolumeTicksPainter(
-                  percent: percent,
-                  color: _usageColor(context, percent),
+                  percent: safePercent,
+                  color: color,
                   trackColor: scheme.outlineVariant.withValues(alpha: 0.62),
                 ),
               ),
@@ -622,7 +675,7 @@ class _DataVolumePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${_formatStorageMb(runtime.diskUsedMb)} band',
+                    leadingText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -632,7 +685,7 @@ class _DataVolumePanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${_formatStorageMb(runtime.diskTotalMb)} jami',
+                  trailingText,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -640,10 +693,10 @@ class _DataVolumePanel extends StatelessWidget {
                 ),
               ],
             ),
-            if (runtime.diskPath.trim().isNotEmpty) ...[
+            if (footer != null && footer!.trim().isNotEmpty) ...[
               const SizedBox(height: 3),
               Text(
-                _shortDiskPath(runtime.diskPath),
+                footer!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -991,200 +1044,191 @@ class _PingSparklinePainter extends CustomPainter {
   }
 }
 
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({
-    required this.report,
-    required this.liveConnected,
-  });
+class _BackupCalendarPanel extends StatelessWidget {
+  const _BackupCalendarPanel({required this.backups});
 
-  final AdminServerMonitorReport report;
-  final bool liveConnected;
-
-  @override
-  Widget build(BuildContext context) {
-    final backup = report.backups.latest;
-    return Column(
-      children: [
-        _StorageHealthCard(
-          icon: Icons.storage_rounded,
-          title: 'Ma’lumotlar bazasi',
-          status: report.database.reachable ? 'Ulangan' : 'Ulanmagan',
-          detail: report.database.pingMs > 0
-              ? 'Javob vaqti ${report.database.pingMs} ms'
-              : _databaseStatusLabel(report.database.status),
-          ok: report.database.reachable,
-          segments: report.database.reachable ? 12 : 3,
-        ),
-        const SizedBox(height: 10),
-        _StorageHealthCard(
-          icon: Icons.inventory_2_rounded,
-          title: 'Backup saqlovi',
-          status: report.backups.fileCount > 0
-              ? '${report.backups.fileCount} ta fayl saqlangan'
-              : 'Backup topilmadi',
-          detail: backup == null ? 'Oxirgi fayl yo‘q' : _backupAgeLabel(backup),
-          ok: report.backups.exists && report.backups.fileCount > 0,
-          segments: report.backups.fileCount.clamp(0, 12),
-        ),
-      ],
-    );
-  }
-}
-
-class _StorageHealthCard extends StatelessWidget {
-  const _StorageHealthCard({
-    required this.icon,
-    required this.title,
-    required this.status,
-    required this.detail,
-    required this.ok,
-    required this.segments,
-  });
-
-  final IconData icon;
-  final String title;
-  final String status;
-  final String detail;
-  final bool ok;
-  final int segments;
+  final AdminServerMonitorBackups backups;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = _statusColor(context, ok);
+    final files = backups.files.isEmpty && backups.latest != null
+        ? [backups.latest!]
+        : backups.files;
+    final days = _backupDays(files);
+    final backedUpDays = days.where((day) => day.count > 0).length;
+    final ok = backups.exists && backups.fileCount > 0;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.045),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: accent.withValues(alpha: 0.18)),
-              ),
-              child: Icon(icon, color: accent, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                      ),
-                      _InlineStateDot(ok: ok),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    status,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  _MiniSignalBar(
-                    activeSegments: ok ? segments : 0,
-                    color: accent,
-                    trackColor: scheme.outlineVariant.withValues(alpha: 0.58),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    detail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Backup tarixi',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.2,
                         ),
                   ),
-                ],
+                ),
+                Text(
+                  '$backedUpDays/30 kun',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            SizedBox(
+              height: 58,
+              child: CustomPaint(
+                painter: _BackupCalendarPainter(
+                  days: days,
+                  activeColor: _statusColor(context, ok),
+                  todayColor: scheme.onSurface,
+                  trackColor: scheme.outlineVariant.withValues(alpha: 0.58),
+                ),
               ),
+            ),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    backups.latest == null
+                        ? 'Oxirgi backup yo‘q'
+                        : 'Oxirgi: ${_backupAgeLabel(backups.latest!)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                Text(
+                  '${backups.fileCount} ta fayl',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _MiniSignalBar extends StatelessWidget {
-  const _MiniSignalBar({
-    required this.activeSegments,
-    required this.color,
-    required this.trackColor,
-  });
+  List<_BackupDay> _backupDays(List<AdminServerMonitorBackupFile> files) {
+    final today = _dateOnly(DateTime.now());
+    final counts = <DateTime, int>{};
+    for (final file in files) {
+      if (file.modifiedAtUnix <= 0) {
+        continue;
+      }
+      final day = _dateOnly(
+        DateTime.fromMillisecondsSinceEpoch(
+          file.modifiedAtUnix * 1000,
+        ).toLocal(),
+      );
+      counts[day] = (counts[day] ?? 0) + 1;
+    }
+    return List<_BackupDay>.generate(30, (index) {
+      final day = today.subtract(Duration(days: 29 - index));
+      return _BackupDay(
+        count: counts[day] ?? 0,
+        isToday: index == 29,
+      );
+    });
+  }
 
-  final int activeSegments;
-  final Color color;
-  final Color trackColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = activeSegments.clamp(0, 12);
-    return SizedBox(
-      height: 10,
-      child: Row(
-        children: List.generate(12, (index) {
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: index == 11 ? 0 : 3),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: index < active ? color : trackColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
 }
 
-class _InlineStateDot extends StatelessWidget {
-  const _InlineStateDot({required this.ok});
+class _BackupDay {
+  const _BackupDay({
+    required this.count,
+    required this.isToday,
+  });
 
-  final bool ok;
+  final int count;
+  final bool isToday;
+}
+
+class _BackupCalendarPainter extends CustomPainter {
+  const _BackupCalendarPainter({
+    required this.days,
+    required this.activeColor,
+    required this.todayColor,
+    required this.trackColor,
+  });
+
+  final List<_BackupDay> days;
+  final Color activeColor;
+  final Color todayColor;
+  final Color trackColor;
 
   @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(context, ok);
-    return Container(
-      height: 9,
-      width: 9,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
+  void paint(Canvas canvas, Size size) {
+    const columns = 6;
+    const rows = 5;
+    const gap = 4.0;
+    final cellWidth = (size.width - gap * (columns - 1)) / columns;
+    final cellHeight = (size.height - gap * (rows - 1)) / rows;
+    final cellSize = math.min(cellWidth, cellHeight);
+    final leftOffset =
+        (size.width - (cellSize * columns + gap * (columns - 1))) / 2;
+    final topOffset = (size.height - (cellSize * rows + gap * (rows - 1))) / 2;
+
+    for (var index = 0; index < math.min(days.length, 30); index++) {
+      final day = days[index];
+      final column = index % columns;
+      final row = index ~/ columns;
+      final left = leftOffset + column * (cellSize + gap);
+      final top = topOffset + row * (cellSize + gap);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, top, cellSize, cellSize),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = day.count > 0
+              ? activeColor.withValues(alpha: day.count > 1 ? 0.95 : 0.72)
+              : trackColor,
+      );
+      if (day.isToday) {
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = todayColor.withValues(alpha: 0.7)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.4,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BackupCalendarPainter oldDelegate) {
+    return days != oldDelegate.days ||
+        activeColor != oldDelegate.activeColor ||
+        todayColor != oldDelegate.todayColor ||
+        trackColor != oldDelegate.trackColor;
   }
 }
 

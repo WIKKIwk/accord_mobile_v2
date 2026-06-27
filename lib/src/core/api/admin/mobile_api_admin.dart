@@ -863,6 +863,7 @@ class AdminServerMonitorBackups {
     required this.exists,
     required this.fileCount,
     required this.latest,
+    required this.files,
     required this.error,
   });
 
@@ -870,6 +871,7 @@ class AdminServerMonitorBackups {
   final bool exists;
   final int fileCount;
   final AdminServerMonitorBackupFile? latest;
+  final List<AdminServerMonitorBackupFile> files;
   final String error;
 
   factory AdminServerMonitorBackups.fromJson(Map<String, dynamic> json) {
@@ -883,6 +885,12 @@ class AdminServerMonitorBackups {
               latestRaw.cast<String, dynamic>(),
             )
           : null,
+      files: [
+        for (final item in (json['files'] as List? ?? const []))
+          AdminServerMonitorBackupFile.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
       error: json['error']?.toString() ?? '',
     );
   }
@@ -1533,6 +1541,15 @@ extension MobileApiAdmin on MobileApi {
             modifiedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
             ageSeconds: 1800,
           ),
+          files: [
+            AdminServerMonitorBackupFile(
+              name: 'mini_rs_erp_20260624_180448.dump',
+              path: 'backups/mini_rs_erp_db/mini_rs_erp_20260624_180448.dump',
+              sizeBytes: 12 * 1024 * 1024,
+              modifiedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              ageSeconds: 1800,
+            ),
+          ],
           error: '',
         ),
         runtime: const AdminServerMonitorRuntime(
