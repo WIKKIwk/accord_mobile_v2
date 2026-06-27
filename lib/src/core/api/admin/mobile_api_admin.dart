@@ -1844,7 +1844,7 @@ extension MobileApiAdmin on MobileApi {
       return _testModeProgressBatchesByQr.values
           .where((batch) {
             if (normalizedStatus.isNotEmpty &&
-                batch.wipStatus != normalizedStatus) {
+                !_wipStatusMatchesFilter(batch.wipStatus, normalizedStatus)) {
               return false;
             }
             if (normalizedApparatus.isNotEmpty &&
@@ -3859,6 +3859,18 @@ bool _isSameProductionMapOrder(
   return current.id.trim() == next.id.trim() &&
       current.title.trim() == next.title.trim() &&
       current.productCode.trim() == next.productCode.trim();
+}
+
+bool _wipStatusMatchesFilter(String rawStatus, String rawFilter) {
+  final status = rawStatus.trim().toLowerCase();
+  final filter = rawFilter.trim().toLowerCase();
+  if (filter.isEmpty || filter == 'all') {
+    return true;
+  }
+  if (filter == 'open' || filter == 'active') {
+    return status != 'processed';
+  }
+  return status == filter;
 }
 
 AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(

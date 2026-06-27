@@ -150,13 +150,13 @@ bool _progressBatchCanFeedStation({
   required AdminProgressBatch batch,
   required String station,
 }) {
-  final wipStatus = batch.wipStatus.trim().toLowerCase();
-  if (wipStatus == 'processed') {
-    return false;
-  }
   final nextApparatus = batch.nextApparatus.trim();
   return nextApparatus.isEmpty ||
       productionMapWarehouseTitlesMatch(nextApparatus, station);
+}
+
+bool _progressBatchCanBeScanned(AdminProgressBatch batch) {
+  return batch.wipStatus.trim().toLowerCase() != 'processed';
 }
 
 AdminProgressBatch? _matchingInputProgressBatch({
@@ -169,7 +169,7 @@ AdminProgressBatch? _matchingInputProgressBatch({
     final sameQr = item.qrPayload.trim().isNotEmpty &&
         item.qrPayload.trim().toUpperCase() ==
             batch.qrPayload.trim().toUpperCase();
-    if (sameBatch || sameQr) {
+    if ((sameBatch || sameQr) && _progressBatchCanBeScanned(item)) {
       return item;
     }
   }

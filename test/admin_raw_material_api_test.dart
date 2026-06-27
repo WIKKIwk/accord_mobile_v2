@@ -477,6 +477,43 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('wip batches endpoint can include already used batches', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Laminatsiya worker',
+      legalName: '',
+      ref: 'worker-lamin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        apparatus: '7 ta rangli pechat',
+        nextApparatus: 'Laminatsiya 1',
+        orderId: 'zakaz-1111',
+        limit: 250,
+      );
+
+      expect(batches.map((batch) => batch.wipStatus), [
+        'waiting',
+        'processed',
+      ]);
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/production-maps/wip-batches?'
+          'status=all&apparatus=7+ta+rangli+pechat&next_apparatus=Laminatsiya+1&'
+          'order_id=zakaz-1111&limit=250',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('raw material rule and assignment endpoints use backend contract',
       () async {
     final seenRequests = <String>[];
@@ -1106,6 +1143,56 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'current_apparatus': '7 ta rangli pechat',
               'current_apparatus_key': 'pechat:7',
               'current_location': '7 ta rangli pechat chiqim',
+              'next_apparatus': 'Laminatsiya 1',
+              'worker_role': 'aparatchi',
+              'worker_ref': 'worker-pechat',
+              'worker_display_name': 'Pechatchi',
+            },
+          ],
+        };
+      case 'GET /v1/mobile/admin/production-maps/wip-batches?status=all&apparatus=7+ta+rangli+pechat&next_apparatus=Laminatsiya+1&order_id=zakaz-1111&limit=250':
+        body = const {
+          'ok': true,
+          'batches': [
+            {
+              'batch_id': 'progress-1111',
+              'session_id': 'session-1111',
+              'apparatus': '7 ta rangli pechat',
+              'order_id': 'zakaz-1111',
+              'action': 'pause',
+              'status': 'paused',
+              'produced_qty': 1,
+              'uom': 'm',
+              'qr_payload': 'GSP:WIP-1111',
+              'label_item_code': 'zakaz-1111',
+              'label_item_name': 'ABCD Family',
+              'executor_name': 'Pechatchi',
+              'wip_status': 'waiting',
+              'current_apparatus': '7 ta rangli pechat',
+              'current_apparatus_key': 'pechat:7',
+              'current_location': '7 ta rangli pechat chiqim',
+              'next_apparatus': 'Laminatsiya 1',
+              'worker_role': 'aparatchi',
+              'worker_ref': 'worker-pechat',
+              'worker_display_name': 'Pechatchi',
+            },
+            {
+              'batch_id': 'progress-1111-used',
+              'session_id': 'session-1111',
+              'apparatus': '7 ta rangli pechat',
+              'order_id': 'zakaz-1111',
+              'action': 'complete',
+              'status': 'completed',
+              'produced_qty': 1,
+              'uom': 'm',
+              'qr_payload': 'GSP:WIP-1111-USED',
+              'label_item_code': 'zakaz-1111',
+              'label_item_name': 'ABCD Family',
+              'executor_name': 'Pechatchi',
+              'wip_status': 'processed',
+              'current_apparatus': 'Laminatsiya 1',
+              'current_apparatus_key': 'laminatsiya 1',
+              'current_location': 'Laminatsiya 1',
               'next_apparatus': 'Laminatsiya 1',
               'worker_role': 'aparatchi',
               'worker_ref': 'worker-pechat',

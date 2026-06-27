@@ -135,6 +135,8 @@ class _InputProgressBatchList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final openCount = batches.where(_progressBatchCanBeScanned).length;
+    final usedCount = batches.length - openCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
@@ -145,15 +147,20 @@ class _InputProgressBatchList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Bu orderda ${batches.length} ta WIP bor',
+            'Oldingi bosqichdan kelgan mahsulotlar',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 3),
           Text(
-            '$previousStage chiqargan WIPlardan birini scan qiling',
-            maxLines: 2,
+            _inputProgressSummaryText(
+              previousStage: previousStage,
+              total: batches.length,
+              open: openCount,
+              used: usedCount,
+            ),
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -175,7 +182,7 @@ class _InputProgressBatchList extends StatelessWidget {
           ] else if (batches.isEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'WIP topilmadi',
+              '$previousStage hali bu order uchun mahsulot chiqarmagan.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
@@ -215,8 +222,10 @@ class _InputProgressBatchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final qty = _productionMapQtyLabel(batch.producedQty);
-    final status =
-        batch.wipStatus.trim().isEmpty ? 'kutmoqda' : batch.wipStatus;
+    final canScan = _progressBatchCanBeScanned(batch);
+    final statusLabel = canScan ? 'Scan qilish kerak' : 'Ishlatilgan';
+    final statusColor = canScan ? scheme.primary : scheme.onSurfaceVariant;
+    final title = _inputProgressBatchTitle(batch);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
@@ -239,8 +248,16 @@ class _InputProgressBatchTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              selected ? Icons.check_rounded : Icons.inventory_2_outlined,
-              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              selected
+                  ? Icons.check_rounded
+                  : canScan
+                      ? Icons.qr_code_scanner_rounded
+                      : Icons.done_all_rounded,
+              color: selected
+                  ? scheme.primary
+                  : canScan
+                      ? scheme.primary
+                      : scheme.onSurfaceVariant,
               size: 20,
             ),
           ),
@@ -250,9 +267,7 @@ class _InputProgressBatchTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  batch.labelItemName.trim().isEmpty
-                      ? batch.batchId
-                      : batch.labelItemName.trim(),
+                  title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -261,12 +276,22 @@ class _InputProgressBatchTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$qty ${batch.uom} • $status • ${batch.qrPayload}',
-                  maxLines: 2,
+                  '$statusLabel • Miqdor: $qty ${batch.uom}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'QR: ${batch.qrPayload}',
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -276,6 +301,40 @@ class _InputProgressBatchTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _inputProgressSummaryText({
+  required String previousStage,
+  required int total,
+  required int open,
+  required int used,
+}) {
+  if (total == 0) {
+    return '$previousStage chiqargan mahsulotlar shu yerda ko‘rinadi.';
+  }
+  if (used == 0) {
+    return '$previousStage chiqargan $total ta mahsulot bor. $open tasini scan qilish kerak.';
+  }
+  if (open == 0) {
+    return '$previousStage chiqargan $total ta mahsulotning hammasi ishlatilgan.';
+  }
+  return '$previousStage chiqargan $total ta mahsulot bor: $open tasi scan qilinadi, $used tasi ishlatilgan.';
+}
+
+String _inputProgressBatchTitle(AdminProgressBatch batch) {
+  final itemName = batch.labelItemName.trim();
+  final action = batch.action.trim().toLowerCase();
+  final source = batch.apparatus.trim();
+  final actionText = switch (action) {
+    'complete' => 'tugatib chiqargan',
+    'pause' => 'pauzada chiqargan',
+    _ => 'chiqargan',
+  };
+  final base = itemName.isEmpty ? batch.orderId.trim() : itemName;
+  if (source.isEmpty) {
+    return base.isEmpty ? batch.batchId : base;
+  }
+  return '$source $actionText mahsulot';
 }
 
 class _AssignedMaterialTile extends StatelessWidget {
