@@ -194,7 +194,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
+        padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPadding),
         children: [
           _StatusSummaryPanel(
             report: report,
