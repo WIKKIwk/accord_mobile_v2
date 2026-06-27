@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -222,32 +223,63 @@ class _StatusSummaryPanel extends StatelessWidget {
     final dbOk = report.database.reachable;
     final backupOk = report.backups.exists && report.backups.fileCount > 0;
     final allOk = liveConnected && serverOk && dbOk && backupOk;
-    final accent = _statusColor(context, allOk);
+    final score = _healthScore(
+      liveConnected: liveConnected,
+      serverOk: serverOk,
+      dbOk: dbOk,
+      backupOk: backupOk,
+      cpuPercent: report.runtime.cpuPercent,
+      memoryPercent: report.runtime.memoryPercent,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: scheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  allOk ? Icons.check_circle_rounded : Icons.error_rounded,
-                  color: accent,
-                  size: 24,
+                _HealthDial(
+                  value: score,
+                  active: allOk,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    allOk ? 'Barqaror' : 'Diqqat kerak',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        allOk ? 'Tizim barqaror' : 'Tekshiruv kerak',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.4,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Live, server, baza va backup bir joyda nazorat qilinadi.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              height: 1.25,
+                            ),
+                      ),
+                    ],
                   ),
                 ),
                 _StatusPill(
@@ -257,30 +289,36 @@ class _StatusSummaryPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    _InlineStateDot(ok: serverOk),
-                    const SizedBox(width: 6),
-                    const Text('Server'),
-                    const SizedBox(width: 14),
-                    _InlineStateDot(ok: dbOk),
-                    const SizedBox(width: 6),
-                    const Text('DB'),
-                    const SizedBox(width: 14),
-                    _InlineStateDot(ok: backupOk),
-                    const SizedBox(width: 6),
-                    const Text('Backup'),
-                  ],
+            _RuntimeStrip(report: report),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _CompactStatusChip(
+                    label: 'Server',
+                    value: _serverStatusLabel(report.server.status),
+                    ok: serverOk,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _CompactStatusChip(
+                    label: 'Baza',
+                    value: report.database.pingMs > 0
+                        ? '${report.database.pingMs} ms'
+                        : _databaseStatusLabel(report.database.status),
+                    ok: dbOk,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _CompactStatusChip(
+                    label: 'Backup',
+                    value: '${report.backups.fileCount} fayl',
+                    ok: backupOk,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _KeyValueLine(
@@ -288,6 +326,262 @@ class _StatusSummaryPanel extends StatelessWidget {
             _KeyValueLine(
               label: 'Uptime',
               value: _formatDuration(report.server.uptimeSeconds),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HealthDial extends StatelessWidget {
+  const _HealthDial({
+    required this.value,
+    required this.active,
+  });
+
+  final int value;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = active ? scheme.primary : const Color(0xFFB56B20);
+    return SizedBox(
+      width: 92,
+      height: 92,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size.square(92),
+            painter: _HealthDialPainter(
+              value: value,
+              color: color,
+              trackColor: scheme.outlineVariant.withValues(alpha: 0.68),
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$value%',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.8,
+                    ),
+              ),
+              Text(
+                active ? 'sog‘lom' : 'diqqat',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthDialPainter extends CustomPainter {
+  const _HealthDialPainter({
+    required this.value,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final int value;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2 - 7;
+    final activeTicks = ((value.clamp(0, 100) / 100) * 28).round();
+    for (var i = 0; i < 28; i++) {
+      final angle = -math.pi * 0.78 + i * (math.pi * 1.56 / 27);
+      final start = Offset(
+        center.dx + math.cos(angle) * (radius - 8),
+        center.dy + math.sin(angle) * (radius - 8),
+      );
+      final end = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      final paint = Paint()
+        ..color = i < activeTicks ? color : trackColor
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(start, end, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HealthDialPainter oldDelegate) {
+    return value != oldDelegate.value ||
+        color != oldDelegate.color ||
+        trackColor != oldDelegate.trackColor;
+  }
+}
+
+class _RuntimeStrip extends StatelessWidget {
+  const _RuntimeStrip({required this.report});
+
+  final AdminServerMonitorReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final runtime = report.runtime;
+    return Row(
+      children: [
+        Expanded(
+          child: _MetricBar(
+            label: 'CPU bosim',
+            value: runtime.cpuPercent,
+            caption: _formatLoad(runtime.loadAverage),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _MetricBar(
+            label: 'Xotira',
+            value: runtime.memoryPercent,
+            caption: runtime.memoryTotalMb > 0
+                ? '${runtime.memoryUsedMb}/${runtime.memoryTotalMb} MB'
+                : 'aniqlanmadi',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricBar extends StatelessWidget {
+  const _MetricBar({
+    required this.label,
+    required this.value,
+    required this.caption,
+  });
+
+  final String label;
+  final int value;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final normalized = value.clamp(0, 100).toDouble() / 100;
+    final color = value >= 85
+        ? scheme.error
+        : value >= 70
+            ? const Color(0xFFB56B20)
+            : scheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                Text(
+                  '$value%',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: normalized,
+                minHeight: 7,
+                backgroundColor: scheme.surface.withValues(alpha: 0.75),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactStatusChip extends StatelessWidget {
+  const _CompactStatusChip({
+    required this.label,
+    required this.value,
+    required this.ok,
+  });
+
+  final String label;
+  final String value;
+  final bool ok;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = _statusColor(context, ok);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
           ],
         ),
@@ -520,6 +814,20 @@ class _TechnicalDetailsCard extends StatelessWidget {
                   ? '${report.database.pingMs} ms'
                   : 'Aniqlanmadi',
             ),
+            _MonitorRow(
+              label: 'CPU bosim',
+              value: '${report.runtime.cpuPercent.clamp(0, 100)}%',
+            ),
+            _MonitorRow(
+              label: 'Xotira',
+              value: report.runtime.memoryTotalMb > 0
+                  ? '${report.runtime.memoryUsedMb} / ${report.runtime.memoryTotalMb} MB (${report.runtime.memoryPercent.clamp(0, 100)}%)'
+                  : 'Aniqlanmadi',
+            ),
+            _MonitorRow(
+              label: 'Load average',
+              value: _formatLoad(report.runtime.loadAverage),
+            ),
             if (report.database.error.trim().isNotEmpty)
               _MonitorRow(label: 'DB xato', value: report.database.error),
             _MonitorRow(
@@ -711,6 +1019,55 @@ class _StatusPill extends StatelessWidget {
 Color _statusColor(BuildContext context, bool ok) {
   final scheme = Theme.of(context).colorScheme;
   return ok ? scheme.primary : scheme.error;
+}
+
+int _healthScore({
+  required bool liveConnected,
+  required bool serverOk,
+  required bool dbOk,
+  required bool backupOk,
+  required int cpuPercent,
+  required int memoryPercent,
+}) {
+  var score = 0;
+  if (liveConnected) {
+    score += 16;
+  }
+  if (serverOk) {
+    score += 22;
+  }
+  if (dbOk) {
+    score += 22;
+  }
+  if (backupOk) {
+    score += 16;
+  }
+  score += _resourceScore(cpuPercent, 12);
+  score += _resourceScore(memoryPercent, 12);
+  return score.clamp(0, 100);
+}
+
+int _resourceScore(int percent, int weight) {
+  if (percent <= 0) {
+    return weight;
+  }
+  if (percent >= 95) {
+    return 0;
+  }
+  if (percent >= 85) {
+    return (weight * 0.35).round();
+  }
+  if (percent >= 70) {
+    return (weight * 0.7).round();
+  }
+  return weight;
+}
+
+String _formatLoad(double value) {
+  if (value <= 0) {
+    return 'load 0.00';
+  }
+  return 'load ${value.toStringAsFixed(2)}';
 }
 
 String _backupAgeLabel(AdminServerMonitorBackupFile backup) {

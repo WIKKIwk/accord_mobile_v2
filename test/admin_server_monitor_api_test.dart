@@ -27,6 +27,11 @@ void main() {
     expect(report.backups.exists, isTrue);
     expect(report.backups.fileCount, 1);
     expect(report.backups.latest?.name, endsWith('.dump'));
+    expect(report.runtime.cpuPercent, greaterThanOrEqualTo(0));
+    expect(report.runtime.memoryPercent, greaterThanOrEqualTo(0));
+    expect(report.runtime.memoryUsedMb, greaterThanOrEqualTo(0));
+    expect(report.runtime.memoryTotalMb, greaterThanOrEqualTo(0));
+    expect(report.runtime.loadAverage, greaterThanOrEqualTo(0));
   });
 
   test('live stream watchdog fails silent streams so screen reconnects',

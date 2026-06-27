@@ -937,16 +937,47 @@ class AdminServerMonitorServer {
   }
 }
 
+class AdminServerMonitorRuntime {
+  const AdminServerMonitorRuntime({
+    required this.cpuPercent,
+    required this.memoryPercent,
+    required this.memoryUsedMb,
+    required this.memoryTotalMb,
+    required this.loadAverage,
+    required this.sampleSeconds,
+  });
+
+  final int cpuPercent;
+  final int memoryPercent;
+  final int memoryUsedMb;
+  final int memoryTotalMb;
+  final double loadAverage;
+  final int sampleSeconds;
+
+  factory AdminServerMonitorRuntime.fromJson(Map<String, dynamic> json) {
+    return AdminServerMonitorRuntime(
+      cpuPercent: (json['cpu_percent'] as num?)?.round() ?? 0,
+      memoryPercent: (json['memory_percent'] as num?)?.round() ?? 0,
+      memoryUsedMb: (json['memory_used_mb'] as num?)?.round() ?? 0,
+      memoryTotalMb: (json['memory_total_mb'] as num?)?.round() ?? 0,
+      loadAverage: (json['load_average'] as num?)?.toDouble() ?? 0,
+      sampleSeconds: (json['sample_seconds'] as num?)?.round() ?? 0,
+    );
+  }
+}
+
 class AdminServerMonitorReport {
   const AdminServerMonitorReport({
     required this.server,
     required this.database,
     required this.backups,
+    required this.runtime,
   });
 
   final AdminServerMonitorServer server;
   final AdminServerMonitorDatabase database;
   final AdminServerMonitorBackups backups;
+  final AdminServerMonitorRuntime runtime;
 
   factory AdminServerMonitorReport.fromJson(Map<String, dynamic> json) {
     return AdminServerMonitorReport(
@@ -958,6 +989,9 @@ class AdminServerMonitorReport {
       ),
       backups: AdminServerMonitorBackups.fromJson(
         (json['backups'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
+      runtime: AdminServerMonitorRuntime.fromJson(
+        (json['runtime'] as Map? ?? const {}).cast<String, dynamic>(),
       ),
     );
   }
@@ -1453,6 +1487,14 @@ extension MobileApiAdmin on MobileApi {
             ageSeconds: 1800,
           ),
           error: '',
+        ),
+        runtime: const AdminServerMonitorRuntime(
+          cpuPercent: 26,
+          memoryPercent: 42,
+          memoryUsedMb: 1720,
+          memoryTotalMb: 4096,
+          loadAverage: 0.7,
+          sampleSeconds: 2,
         ),
       );
     }
