@@ -1072,7 +1072,7 @@ class _BackupCalendarPanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Backup tarixi',
+                    'Backup',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w900,
@@ -1081,8 +1081,9 @@ class _BackupCalendarPanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$backedUpDays/30 kun',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  '$backedUpDays kun saqlangan',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w900,
                       ),
                 ),
@@ -1090,7 +1091,7 @@ class _BackupCalendarPanel extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             SizedBox(
-              height: 58,
+              height: 50,
               child: CustomPaint(
                 painter: _BackupCalendarPainter(
                   days: days,
@@ -1107,7 +1108,7 @@ class _BackupCalendarPanel extends StatelessWidget {
                   child: Text(
                     backups.latest == null
                         ? 'Oxirgi backup yo‘q'
-                        : 'Oxirgi: ${_backupAgeLabel(backups.latest!)}',
+                        : 'Oxirgi backup: ${_shortBackupAgeLabel(backups.latest!)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1184,9 +1185,9 @@ class _BackupCalendarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const columns = 6;
-    const rows = 5;
-    const gap = 4.0;
+    const columns = 10;
+    const rows = 3;
+    const gap = 3.0;
     final cellWidth = (size.width - gap * (columns - 1)) / columns;
     final cellHeight = (size.height - gap * (rows - 1)) / rows;
     final cellSize = math.min(cellWidth, cellHeight);
@@ -1607,8 +1608,20 @@ Color _usageColor(BuildContext context, int percent) {
   return scheme.primary;
 }
 
-String _backupAgeLabel(AdminServerMonitorBackupFile backup) {
-  return '${_formatDuration(backup.ageSeconds)} oldin';
+String _shortBackupAgeLabel(AdminServerMonitorBackupFile backup) {
+  final days = backup.ageSeconds ~/ Duration.secondsPerDay;
+  if (days > 0) {
+    return '$days kun oldin';
+  }
+  final hours = backup.ageSeconds ~/ Duration.secondsPerHour;
+  if (hours > 0) {
+    return '$hours soat oldin';
+  }
+  final minutes = backup.ageSeconds ~/ Duration.secondsPerMinute;
+  if (minutes > 0) {
+    return '$minutes daqiqa oldin';
+  }
+  return 'hozir';
 }
 
 String _serverStatusLabel(String status) {
