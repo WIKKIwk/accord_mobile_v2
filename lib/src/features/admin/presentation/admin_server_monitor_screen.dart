@@ -268,17 +268,6 @@ class _StatusSummaryPanel extends StatelessWidget {
                               letterSpacing: -0.4,
                             ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Live, server, baza va backup bir joyda nazorat qilinadi.',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                              height: 1.25,
-                            ),
-                      ),
                     ],
                   ),
                 ),
@@ -361,24 +350,12 @@ class _HealthDial extends StatelessWidget {
               trackColor: scheme.outlineVariant.withValues(alpha: 0.68),
             ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$value%',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.8,
-                    ),
-              ),
-              Text(
-                active ? 'sog‘lom' : 'diqqat',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ],
+          Text(
+            '$value%',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                ),
           ),
         ],
       ),
