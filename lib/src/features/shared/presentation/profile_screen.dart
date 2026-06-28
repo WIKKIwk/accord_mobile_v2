@@ -1287,6 +1287,7 @@ class _ProfileHeroCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
+                bottom: 72,
                 child: _ProfileCoverPreview(
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
