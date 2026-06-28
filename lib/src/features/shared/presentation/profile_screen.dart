@@ -850,8 +850,8 @@ Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
   try {
     final codec = await ui.instantiateImageCodec(
       bytes,
-      targetWidth: 36,
-      targetHeight: 36,
+      targetWidth: 64,
+      targetHeight: 64,
     );
     final frame = await codec.getNextFrame();
     final image = frame.image;
@@ -862,10 +862,10 @@ Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
       return null;
     }
     final pixels = byteData.buffer.asUint8List();
-    const sampleWidth = 36;
-    const sampleHeight = 36;
+    const sampleWidth = 64;
+    const sampleHeight = 64;
     final buckets = <int, _PaletteBucket>{};
-    final luminance = List<double>.filled(sampleWidth * sampleHeight, 0);
+    final imageShape = _extractImageShape(pixels, sampleWidth, sampleHeight);
     for (var i = 0; i + 3 < pixels.length; i += 16) {
       final r = pixels[i];
       final g = pixels[i + 1];
@@ -876,16 +876,6 @@ Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
       }
       final key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
       buckets.putIfAbsent(key, () => _PaletteBucket()).add(r, g, b);
-    }
-    for (var i = 0, pixel = 0; i + 3 < pixels.length; i += 4, pixel++) {
-      final a = pixels[i + 3];
-      if (a < 120 || pixel >= luminance.length) {
-        continue;
-      }
-      luminance[pixel] = (pixels[i] * 0.2126 +
-              pixels[i + 1] * 0.7152 +
-              pixels[i + 2] * 0.0722) /
-          255;
     }
     if (buckets.isEmpty) {
       return null;
@@ -927,15 +917,54 @@ Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
     }
     return _ProfileCoverArt(
       colors: colors,
-      shapePoints: _extractShapePoints(luminance, sampleWidth, sampleHeight),
+      contourPoints: imageShape.contourPoints,
+      edgePoints: imageShape.edgePoints,
+      contrast: imageShape.contrast,
     );
   } catch (_) {
     return null;
   }
 }
 
-List<Offset> _extractShapePoints(
-    List<double> luminance, int width, int height) {
+_ImageShape _extractImageShape(Uint8List pixels, int width, int height) {
+  final luminance = List<double>.filled(width * height, 0);
+  var count = 0;
+  var sum = 0.0;
+  for (var i = 0, pixel = 0; i + 3 < pixels.length; i += 4, pixel++) {
+    if (pixel >= luminance.length) {
+      break;
+    }
+    final a = pixels[i + 3];
+    if (a < 80) {
+      continue;
+    }
+    final value = (pixels[i] * 0.2126 +
+            pixels[i + 1] * 0.7152 +
+            pixels[i + 2] * 0.0722) /
+        255;
+    luminance[pixel] = value;
+    sum += value;
+    count += 1;
+  }
+  if (count == 0) {
+    return const _ImageShape(
+      contourPoints: [],
+      edgePoints: [],
+      contrast: 0,
+    );
+  }
+
+  final mean = sum / count;
+  var variance = 0.0;
+  for (final value in luminance) {
+    if (value == 0) {
+      continue;
+    }
+    final delta = value - mean;
+    variance += delta * delta;
+  }
+  final contrast = math.sqrt(variance / count).clamp(0.0, 1.0);
+  final mask = List<bool>.filled(width * height, false);
   final edges = <_EdgePoint>[];
   for (var y = 1; y < height - 1; y++) {
     for (var x = 1; x < width - 1; x++) {
@@ -953,30 +982,111 @@ List<Offset> _extractShapePoints(
           2 * luminance[i + width] +
           luminance[i + width + 1];
       final strength = gx * gx + gy * gy;
-      if (strength > 0.035) {
+      final tonalDelta = (luminance[i] - mean).abs();
+      final isShapePixel =
+          tonalDelta > math.max(0.055, contrast * 0.58) || strength > 0.018;
+      if (isShapePixel) {
+        mask[i] = true;
+      }
+      if (strength > 0.014) {
         edges.add(_EdgePoint(x / (width - 1), y / (height - 1), strength));
       }
     }
   }
+
+  final contour = <Offset>[];
+  for (var y = 2; y < height - 2; y += 3) {
+    var minX = width;
+    var maxX = -1;
+    for (var x = 2; x < width - 2; x++) {
+      if (!mask[y * width + x]) {
+        continue;
+      }
+      minX = math.min(minX, x);
+      maxX = math.max(maxX, x);
+    }
+    if (maxX >= minX) {
+      contour.add(Offset(minX / (width - 1), y / (height - 1)));
+      if (maxX != minX) {
+        contour.add(Offset(maxX / (width - 1), y / (height - 1)));
+      }
+    }
+  }
+  for (var x = 2; x < width - 2; x += 4) {
+    var minY = height;
+    var maxY = -1;
+    for (var y = 2; y < height - 2; y++) {
+      if (!mask[y * width + x]) {
+        continue;
+      }
+      minY = math.min(minY, y);
+      maxY = math.max(maxY, y);
+    }
+    if (maxY >= minY) {
+      contour.add(Offset(x / (width - 1), minY / (height - 1)));
+      if (maxY != minY) {
+        contour.add(Offset(x / (width - 1), maxY / (height - 1)));
+      }
+    }
+  }
+
   edges.sort((a, b) => b.strength.compareTo(a.strength));
-  final points = <Offset>[];
+  final edgePoints = <Offset>[];
   for (final edge in edges) {
     final point = Offset(edge.x, edge.y);
-    if (points.every((picked) => (picked - point).distance > 0.11)) {
-      points.add(point);
+    if (edgePoints.every((picked) => (picked - point).distance > 0.075)) {
+      edgePoints.add(point);
     }
-    if (points.length == 9) {
+    if (edgePoints.length == 28) {
       break;
     }
   }
-  return points;
+
+  final contourPoints = _dedupeShapePoints(contour, maxCount: 56);
+  return _ImageShape(
+    contourPoints: contourPoints.length >= 6 ? contourPoints : edgePoints,
+    edgePoints: edgePoints,
+    contrast: contrast.toDouble(),
+  );
+}
+
+List<Offset> _dedupeShapePoints(List<Offset> points, {required int maxCount}) {
+  final result = <Offset>[];
+  for (final point in points) {
+    if (result.every((picked) => (picked - point).distance > 0.045)) {
+      result.add(point);
+    }
+    if (result.length == maxCount) {
+      break;
+    }
+  }
+  return result;
 }
 
 class _ProfileCoverArt {
-  const _ProfileCoverArt({required this.colors, required this.shapePoints});
+  const _ProfileCoverArt({
+    required this.colors,
+    required this.contourPoints,
+    required this.edgePoints,
+    required this.contrast,
+  });
 
   final List<Color> colors;
-  final List<Offset> shapePoints;
+  final List<Offset> contourPoints;
+  final List<Offset> edgePoints;
+  final double contrast;
+}
+
+class _ImageShape {
+  const _ImageShape({
+    required this.contourPoints,
+    required this.edgePoints,
+    required this.contrast,
+  });
+
+  final List<Offset> contourPoints;
+  final List<Offset> edgePoints;
+  final double contrast;
 }
 
 class _EdgePoint {
@@ -1345,7 +1455,9 @@ class _ProfileCoverPreview extends StatelessWidget {
           child: CustomPaint(
             painter: _ProfileAbstractGradientPainter(
               colors: colors,
-              shapePoints: art?.shapePoints ?? const [],
+              contourPoints: art?.contourPoints ?? const [],
+              edgePoints: art?.edgePoints ?? const [],
+              imageContrast: art?.contrast ?? 0,
               seed: _stableCoverSeed(displayName, bytes),
               surface: scheme.surface,
             ),
@@ -1399,13 +1511,17 @@ int _stableCoverSeed(String displayName, Uint8List? bytes) {
 class _ProfileAbstractGradientPainter extends CustomPainter {
   const _ProfileAbstractGradientPainter({
     required this.colors,
-    required this.shapePoints,
+    required this.contourPoints,
+    required this.edgePoints,
+    required this.imageContrast,
     required this.seed,
     required this.surface,
   });
 
   final List<Color> colors;
-  final List<Offset> shapePoints;
+  final List<Offset> contourPoints;
+  final List<Offset> edgePoints;
+  final double imageContrast;
   final int seed;
   final Color surface;
 
@@ -1447,8 +1563,11 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         index: i,
       );
     }
-    if (shapePoints.length >= 3) {
-      _drawObjectEchoes(canvas, size, artColors, rng);
+    if (contourPoints.length >= 3) {
+      _drawContourShadows(canvas, size, artColors, rng);
+    }
+    if (edgePoints.length >= 4) {
+      _drawEdgeStreaks(canvas, size, artColors, rng);
     }
 
     _drawFlowBlob(
@@ -1508,27 +1627,27 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
     canvas.drawRect(rect, washPaint);
   }
 
-  void _drawObjectEchoes(
+  void _drawContourShadows(
     Canvas canvas,
     Size size,
     List<Color> artColors,
     math.Random rng,
   ) {
-    final centroid = shapePoints.fold<Offset>(
+    final centroid = contourPoints.fold<Offset>(
           Offset.zero,
           (sum, point) => sum + point,
         ) /
-        shapePoints.length.toDouble();
-    final sorted = [...shapePoints]..sort((a, b) {
+        contourPoints.length.toDouble();
+    final sorted = [...contourPoints]..sort((a, b) {
         final aa = math.atan2(a.dy - centroid.dy, a.dx - centroid.dx);
         final bb = math.atan2(b.dy - centroid.dy, b.dx - centroid.dx);
         return aa.compareTo(bb);
       });
-    for (var layer = 0; layer < 4; layer++) {
-      final scale = 1.45 + layer * 0.34;
+    for (var layer = 0; layer < 5; layer++) {
+      final scale = 1.18 + layer * 0.23 + imageContrast * 0.34;
       final offset = Offset(
-        size.width * (-0.06 + rng.nextDouble() * 0.14 + layer * 0.035),
-        size.height * (-0.08 + rng.nextDouble() * 0.18 - layer * 0.012),
+        size.width * (-0.12 + rng.nextDouble() * 0.18 + layer * 0.032),
+        size.height * (-0.14 + rng.nextDouble() * 0.22 - layer * 0.010),
       );
       final path = Path();
       for (var i = 0; i < sorted.length; i++) {
@@ -1554,12 +1673,55 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
           ),
           radius: 1.0,
           colors: [
-            artColors[layer % artColors.length].withValues(alpha: 0.18),
-            surface.withValues(alpha: 0.10),
-            artColors[(layer + 1) % artColors.length].withValues(alpha: 0.02),
+            artColors[layer % artColors.length]
+                .withValues(alpha: 0.16 + imageContrast * 0.20),
+            surface.withValues(alpha: 0.08 + imageContrast * 0.08),
+            artColors[(layer + 1) % artColors.length].withValues(alpha: 0.01),
           ],
         ).createShader(bounds)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 20 + layer * 5);
+        ..maskFilter = MaskFilter.blur(
+          BlurStyle.normal,
+          18 + layer * 6 + imageContrast * 14,
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _drawEdgeStreaks(
+    Canvas canvas,
+    Size size,
+    List<Color> artColors,
+    math.Random rng,
+  ) {
+    final sorted = [...edgePoints]
+      ..sort((a, b) => (a.dx + a.dy).compareTo(b.dx + b.dy));
+    final count = math.min(sorted.length - 1, 12);
+    for (var i = 0; i < count; i++) {
+      final a = sorted[i];
+      final b = sorted[(i + 3).clamp(0, sorted.length - 1)];
+      final start = Offset(a.dx * size.width, a.dy * size.height);
+      final end = Offset(b.dx * size.width, b.dy * size.height);
+      final lift = Offset(
+        size.width * (-0.12 + rng.nextDouble() * 0.24),
+        size.height * (-0.22 + rng.nextDouble() * 0.18),
+      );
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..cubicTo(
+          start.dx + size.width * (0.10 + rng.nextDouble() * 0.24),
+          start.dy - size.height * (0.18 + rng.nextDouble() * 0.20),
+          end.dx + lift.dx,
+          end.dy + lift.dy,
+          end.dx + size.width * (0.10 + rng.nextDouble() * 0.22),
+          end.dy - size.height * (0.04 + rng.nextDouble() * 0.18),
+        );
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * (0.055 + rng.nextDouble() * 0.075)
+        ..strokeCap = StrokeCap.round
+        ..color = artColors[(i + 1) % artColors.length]
+            .withValues(alpha: 0.10 + imageContrast * 0.14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13);
       canvas.drawPath(path, paint);
     }
   }
@@ -1667,9 +1829,12 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
     return oldDelegate.seed != seed ||
         oldDelegate.surface != surface ||
         oldDelegate.colors.length != colors.length ||
-        oldDelegate.shapePoints.length != shapePoints.length ||
+        oldDelegate.contourPoints.length != contourPoints.length ||
+        oldDelegate.edgePoints.length != edgePoints.length ||
+        oldDelegate.imageContrast != imageContrast ||
         !_sameColors(oldDelegate.colors, colors) ||
-        !_samePoints(oldDelegate.shapePoints, shapePoints);
+        !_samePoints(oldDelegate.contourPoints, contourPoints) ||
+        !_samePoints(oldDelegate.edgePoints, edgePoints);
   }
 
   bool _sameColors(List<Color> a, List<Color> b) {
