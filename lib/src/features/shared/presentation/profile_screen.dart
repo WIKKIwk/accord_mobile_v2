@@ -561,171 +561,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                   SmoothAppear(
                     delay: const Duration(milliseconds: 20),
                     child: AppSegmentSurfaceCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Stack(
-                                children: [
-                                  _AvatarPreview(
-                                    displayName: displayName,
-                                    cachedAvatarBytes: cachedAvatarBytes,
-                                    pendingAvatarBytes: pendingAvatarBytes,
-                                    onTap: () =>
-                                        _showAvatarPreview(displayName),
-                                  ),
-                                  Positioned(
-                                    right: 0,
-                                    bottom: 0,
-                                    child: GestureDetector(
-                                      onTap: savingAvatar ? null : _pickAvatar,
-                                      child: Container(
-                                        height: 32,
-                                        width: 32,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.surface,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.camera_alt_rounded,
-                                          size: 16,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      displayName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      subtitle,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    if (current.phone.trim().isNotEmpty) ...[
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.phone_rounded,
-                                            size: 16,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              current.phone,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                    if (effectiveLegalName.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.badge_rounded,
-                                            size: 16,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              effectiveLegalName,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: nicknameController,
-                            onChanged: (_) => setState(() {}),
-                            decoration: appSurfaceInputDecoration(
-                              context,
-                              labelText: l10n.nicknameLabel,
-                              hintText: l10n.nicknameHint,
-                            ),
-                          ),
-                          if (_hasProfileChanges) ...[
-                            const SizedBox(height: 14),
-                            FilledButton.icon(
-                              onPressed: savingProfileChanges
-                                  ? null
-                                  : _saveProfileChanges,
-                              icon: savingProfileChanges
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.check_rounded),
-                              label: Text(l10n.save),
-                            ),
-                          ],
-                          if (pendingAvatarBytes != null) ...[
-                            const SizedBox(height: 10),
-                            Text(
-                              l10n.selectedImageNotice,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ],
+                      padding: EdgeInsets.zero,
+                      child: _ProfileHeroCard(
+                        displayName: displayName,
+                        subtitle: subtitle,
+                        phone: current.phone,
+                        legalName: effectiveLegalName,
+                        nicknameController: nicknameController,
+                        cachedAvatarBytes: cachedAvatarBytes,
+                        pendingAvatarBytes: pendingAvatarBytes,
+                        savingAvatar: savingAvatar,
+                        savingProfileChanges: savingProfileChanges,
+                        hasProfileChanges: _hasProfileChanges,
+                        hasPendingAvatar: pendingAvatarBytes != null,
+                        onAvatarTap: () => _showAvatarPreview(displayName),
+                        onPickAvatar: _pickAvatar,
+                        onNicknameChanged: () => setState(() {}),
+                        onSaveProfileChanges: _saveProfileChanges,
                       ),
                     ),
                   ),
@@ -813,6 +665,402 @@ class _ProfilePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSegmentSurfaceCard(child: child);
+  }
+}
+
+class _ProfileHeroCard extends StatelessWidget {
+  const _ProfileHeroCard({
+    required this.displayName,
+    required this.subtitle,
+    required this.phone,
+    required this.legalName,
+    required this.nicknameController,
+    required this.cachedAvatarBytes,
+    required this.pendingAvatarBytes,
+    required this.savingAvatar,
+    required this.savingProfileChanges,
+    required this.hasProfileChanges,
+    required this.hasPendingAvatar,
+    required this.onAvatarTap,
+    required this.onPickAvatar,
+    required this.onNicknameChanged,
+    required this.onSaveProfileChanges,
+  });
+
+  final String displayName;
+  final String subtitle;
+  final String phone;
+  final String legalName;
+  final TextEditingController nicknameController;
+  final Uint8List? cachedAvatarBytes;
+  final Uint8List? pendingAvatarBytes;
+  final bool savingAvatar;
+  final bool savingProfileChanges;
+  final bool hasProfileChanges;
+  final bool hasPendingAvatar;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onPickAvatar;
+  final VoidCallback onNicknameChanged;
+  final VoidCallback onSaveProfileChanges;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final phoneText = phone.trim();
+    final legalNameText = legalName.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 176,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                bottom: 52,
+                child: _ProfileCoverPreview(
+                  displayName: displayName,
+                  cachedAvatarBytes: cachedAvatarBytes,
+                  pendingAvatarBytes: pendingAvatarBytes,
+                ),
+              ),
+              Positioned(
+                left: 16,
+                top: 72,
+                child: _ProfileAvatarWithCamera(
+                  displayName: displayName,
+                  cachedAvatarBytes: cachedAvatarBytes,
+                  pendingAvatarBytes: pendingAvatarBytes,
+                  savingAvatar: savingAvatar,
+                  onAvatarTap: onAvatarTap,
+                  onPickAvatar: onPickAvatar,
+                ),
+              ),
+              Positioned(
+                left: 128,
+                right: 16,
+                top: 130,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (phoneText.isNotEmpty || legalNameText.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (phoneText.isNotEmpty)
+                      _ProfileInfoChip(
+                        icon: Icons.phone_rounded,
+                        label: phoneText,
+                      ),
+                    if (legalNameText.isNotEmpty)
+                      _ProfileInfoChip(
+                        icon: Icons.badge_rounded,
+                        label: legalNameText,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+              TextField(
+                controller: nicknameController,
+                onChanged: (_) => onNicknameChanged(),
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: l10n.nicknameLabel,
+                  hintText: l10n.nicknameHint,
+                ),
+              ),
+              if (hasProfileChanges) ...[
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: savingProfileChanges ? null : onSaveProfileChanges,
+                  icon: savingProfileChanges
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(l10n.save),
+                ),
+              ],
+              if (hasPendingAvatar) ...[
+                const SizedBox(height: 10),
+                Text(
+                  l10n.selectedImageNotice,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileCoverPreview extends StatelessWidget {
+  const _ProfileCoverPreview({
+    required this.displayName,
+    required this.cachedAvatarBytes,
+    required this.pendingAvatarBytes,
+  });
+
+  final String displayName;
+  final Uint8List? cachedAvatarBytes;
+  final Uint8List? pendingAvatarBytes;
+
+  Uint8List? get _previewBytes {
+    if (pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty) {
+      return pendingAvatarBytes;
+    }
+    if (cachedAvatarBytes != null && cachedAvatarBytes!.isNotEmpty) {
+      return cachedAvatarBytes;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bytes = _previewBytes;
+    final fallbackLetter =
+        (displayName.isNotEmpty ? displayName[0] : 'U').toUpperCase();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                scheme.primaryContainer.withValues(alpha: 0.72),
+                scheme.secondaryContainer.withValues(alpha: 0.82),
+                scheme.tertiaryContainer.withValues(alpha: 0.64),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          right: -22,
+          top: -34,
+          child: _ProfileCoverOrb(
+            size: 112,
+            color: scheme.primary.withValues(alpha: 0.12),
+          ),
+        ),
+        Positioned(
+          left: 30,
+          bottom: 22,
+          child: _ProfileCoverOrb(
+            size: 74,
+            color: scheme.surface.withValues(alpha: 0.22),
+          ),
+        ),
+        if (bytes != null)
+          Positioned.fill(
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              cacheWidth: 640,
+              filterQuality: FilterQuality.low,
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
+            ),
+          ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.28),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.58),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (bytes == null)
+          Positioned(
+            right: 18,
+            bottom: 14,
+            child: Text(
+              fallbackLetter,
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: scheme.onPrimaryContainer.withValues(alpha: 0.16),
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProfileCoverOrb extends StatelessWidget {
+  const _ProfileCoverOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _ProfileAvatarWithCamera extends StatelessWidget {
+  const _ProfileAvatarWithCamera({
+    required this.displayName,
+    required this.cachedAvatarBytes,
+    required this.pendingAvatarBytes,
+    required this.savingAvatar,
+    required this.onAvatarTap,
+    required this.onPickAvatar,
+  });
+
+  final String displayName;
+  final Uint8List? cachedAvatarBytes;
+  final Uint8List? pendingAvatarBytes;
+  final bool savingAvatar;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onPickAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context)
+                    .colorScheme
+                    .shadow
+                    .withValues(alpha: 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: _AvatarPreview(
+              displayName: displayName,
+              cachedAvatarBytes: cachedAvatarBytes,
+              pendingAvatarBytes: pendingAvatarBytes,
+              onTap: onAvatarTap,
+            ),
+          ),
+        ),
+        Positioned(
+          right: 2,
+          bottom: 2,
+          child: GestureDetector(
+            onTap: savingAvatar ? null : onPickAvatar,
+            child: Container(
+              height: 32,
+              width: 32,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                Icons.camera_alt_rounded,
+                size: 16,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileInfoChip extends StatelessWidget {
+  const _ProfileInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width - 72,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
