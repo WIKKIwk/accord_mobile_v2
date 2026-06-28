@@ -8,6 +8,7 @@ import '../../../core/session/session.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/widgets/feedback/logout_prompt.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -389,6 +390,59 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _openProfileSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
+      builder: (sheetContext) {
+        final mediaQuery = MediaQuery.of(sheetContext);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(sheetContext).maybePop(),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {},
+              child: AnimatedBuilder(
+                animation: SecurityController.instance,
+                builder: (context, _) {
+                  return AnimatedBuilder(
+                    animation: ThemeController.instance,
+                    builder: (context, _) {
+                      return _ProfileSettingsSheet(
+                        maxHeight: mediaQuery.size.height * 0.78,
+                        bottomPadding: mediaQuery.padding.bottom + 24,
+                        currentLocale: LocaleController.instance.locale,
+                        themeVariant: ThemeController.instance.variant,
+                        isDarkMode: ThemeController.instance.isDark,
+                        hasPin:
+                            SecurityController.instance.hasPinForCurrentUser,
+                        savingPin: savingPin,
+                        biometricEnabled: SecurityController
+                            .instance.biometricEnabledForCurrentUser,
+                        savingBiometric: savingBiometric,
+                        onShowPinFlow: _showPinFlow,
+                        onRemovePin: _removePin,
+                        onToggleBiometric: _toggleBiometric,
+                        onLogout: () async {
+                          Navigator.of(sheetContext).pop();
+                          await showLogoutPrompt(context);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -424,9 +478,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                     : current.accessRole == UserRole.customer
                         ? l10n.customerAccount
                         : l10n.adminAccount;
-        final bool hasPin = SecurityController.instance.hasPinForCurrentUser;
-        final bool biometricEnabled =
-            SecurityController.instance.biometricEnabledForCurrentUser;
         final bool savingProfileChanges = savingNickname || savingAvatar;
         final displayName = _normalizedDisplayName(current);
         final legalName = _normalizedLegalName(current);
@@ -627,10 +678,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              _ThemeIconToggle(
-                                isDark: ThemeController.instance.isDark,
-                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -668,53 +715,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
-                          const SizedBox(height: 18),
-                          _LanguagePreferenceRow(
-                            currentLocale: LocaleController.instance.locale,
-                          ),
-                          const SizedBox(height: 16),
-                          _ThemePreferenceRow(
-                            variant: ThemeController.instance.variant,
-                          ),
-                          const SizedBox(height: 24),
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.55),
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            l10n.securityTitle,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 14),
-                          _ProfileActionButton(
-                            primary: true,
-                            onPressed: savingPin ? null : _showPinFlow,
-                            label: savingPin
-                                ? l10n.pinSaving
-                                : hasPin
-                                    ? l10n.pinChange
-                                    : l10n.pinSet,
-                          ),
-                          if (hasPin) ...[
-                            const SizedBox(height: 10),
-                            _ProfileActionButton(
-                              primary: false,
-                              onPressed: savingPin ? null : _removePin,
-                              label: l10n.pinRemove,
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          _BiometricPreferenceRow(
-                            enabled: biometricEnabled,
-                            interactive: hasPin && !savingBiometric,
-                            onChanged: (value) => _toggleBiometric(value),
-                          ),
                         ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SmoothAppear(
+                    delay: const Duration(milliseconds: 60),
+                    child: AppSegmentSurfaceCard(
+                      child: _ProfileSettingsEntry(
+                        onTap: () => _openProfileSettings(),
                       ),
                     ),
                   ),
@@ -802,6 +812,231 @@ class _ProfilePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSegmentSurfaceCard(child: child);
+  }
+}
+
+class _ProfileSettingsEntry extends StatelessWidget {
+  const _ProfileSettingsEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Row(
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer.withValues(alpha: 0.84),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.tune_rounded,
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.profileSettingsTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    l10n.profileSettingsBody,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSettingsSheet extends StatelessWidget {
+  const _ProfileSettingsSheet({
+    required this.maxHeight,
+    required this.bottomPadding,
+    required this.currentLocale,
+    required this.themeVariant,
+    required this.isDarkMode,
+    required this.hasPin,
+    required this.savingPin,
+    required this.biometricEnabled,
+    required this.savingBiometric,
+    required this.onShowPinFlow,
+    required this.onRemovePin,
+    required this.onToggleBiometric,
+    required this.onLogout,
+  });
+
+  final double maxHeight;
+  final double bottomPadding;
+  final Locale currentLocale;
+  final AppThemeVariant themeVariant;
+  final bool isDarkMode;
+  final bool hasPin;
+  final bool savingPin;
+  final bool biometricEnabled;
+  final bool savingBiometric;
+  final VoidCallback onShowPinFlow;
+  final VoidCallback onRemovePin;
+  final ValueChanged<bool> onToggleBiometric;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return _ProfileSelectionSheet(
+      title: l10n.profileSettingsTitle,
+      subtitle: l10n.profileSettingsBody,
+      maxHeight: maxHeight,
+      bottomPadding: bottomPadding,
+      child: AppSegmentSurfaceCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ProfileSettingsRowPadding(
+              child: _LanguagePreferenceRow(currentLocale: currentLocale),
+            ),
+            const SizedBox(height: 16),
+            _ProfileSettingsRowPadding(
+              child: _ThemeModePreferenceRow(isDark: isDarkMode),
+            ),
+            const SizedBox(height: 16),
+            _ProfileSettingsRowPadding(
+              child: _ThemePreferenceRow(variant: themeVariant),
+            ),
+            const SizedBox(height: 22),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+            const SizedBox(height: 22),
+            Text(l10n.securityTitle, style: theme.textTheme.titleLarge),
+            const SizedBox(height: 14),
+            _ProfileActionButton(
+              primary: true,
+              onPressed: savingPin ? null : onShowPinFlow,
+              label: savingPin
+                  ? l10n.pinSaving
+                  : hasPin
+                      ? l10n.pinChange
+                      : l10n.pinSet,
+            ),
+            if (hasPin) ...[
+              const SizedBox(height: 10),
+              _ProfileActionButton(
+                primary: false,
+                onPressed: savingPin ? null : onRemovePin,
+                label: l10n.pinRemove,
+              ),
+            ],
+            const SizedBox(height: 16),
+            _ProfileSettingsRowPadding(
+              child: _BiometricPreferenceRow(
+                enabled: biometricEnabled,
+                interactive: hasPin && !savingBiometric,
+                onChanged: onToggleBiometric,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+            const SizedBox(height: 14),
+            _LogoutSettingsRow(onTap: onLogout),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSettingsRowPadding extends StatelessWidget {
+  const _ProfileSettingsRowPadding({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: child,
+    );
+  }
+}
+
+class _LogoutSettingsRow extends StatelessWidget {
+  const _LogoutSettingsRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.logout_rounded, color: scheme.error),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.logoutTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.logoutBody,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -923,6 +1158,41 @@ class _LanguagePreferenceRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ThemeModePreferenceRow extends StatelessWidget {
+  const _ThemeModePreferenceRow({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.themeModeTitle, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                l10n.themeModeBody,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        _ThemeIconToggle(isDark: isDark),
+      ],
     );
   }
 }

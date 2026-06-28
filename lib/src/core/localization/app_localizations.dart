@@ -52,6 +52,13 @@ class AppLocalizations {
         'Пожалуйста, подключитесь к интернету.',
       );
   String get profileTitle => _t('Profil', 'Profile', 'Профиль');
+  String get profileSettingsTitle =>
+      _t('Profil sozlamalari', 'Profile settings', 'Настройки профиля');
+  String get profileSettingsBody => _t(
+        'Til, tema va xavfsizlik sozlamalari',
+        'Language, theme, and security settings',
+        'Язык, тема и настройки безопасности',
+      );
   String get werkaAccount =>
       _t('Omborchi akkaunti', 'Wmanager account', 'Аккаунт кладовщика');
   String get supplierAccount =>
@@ -151,6 +158,13 @@ class AppLocalizations {
         'Choose the color style',
         'Выберите цветовой стиль',
       );
+  String get themeModeTitle =>
+      _t('Yorug‘lik rejimi', 'Appearance mode', 'Режим оформления');
+  String get themeModeBody => _t(
+        'Yorug‘ yoki qorong‘i ko‘rinishni tanlang',
+        'Choose light or dark appearance',
+        'Выберите светлое или темное оформление',
+      );
   String get themeClassicLabel => _t('Klassik', 'Classic', 'Классика');
   String get themeEarthLabel => _t('Qumli', 'Earthy', 'Песочная');
   String get themeBlushLabel => _t('Atirgul', 'Blush', 'Розовая');
@@ -197,6 +211,11 @@ class AppLocalizations {
 
   String get clearTitle => _t('Tozalash', 'Clear', 'Очистить');
   String get logoutTitle => _t('Chiqish', 'Logout', 'Выход');
+  String get logoutBody => _t(
+        'Joriy sessiyani yakunlash',
+        'End the current session',
+        'Завершить текущую сессию',
+      );
   String get logoutPrompt => _t(
         'Dasturdan chiqaymi?',
         'Do you want to log out?',
