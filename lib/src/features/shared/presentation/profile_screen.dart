@@ -39,6 +39,9 @@ import 'package:image_picker/image_picker.dart';
 
 const double _profilePanelGap = 4;
 const String _profileAvatarHeroTag = 'profile-avatar-preview';
+const int _profileCoverArtCacheLimit = 8;
+final Map<int, _ProfileCoverArt?> _profileCoverArtCache = {};
+final Map<int, Future<_ProfileCoverArt?>> _profileCoverArtInflight = {};
 
 Widget _profileAvatarFlightShuttleBuilder(
   BuildContext flightContext,
@@ -91,6 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Uint8List? cachedCoverBytes;
   Uint8List? pendingCoverBytes;
   _ProfileCoverArt? coverArt;
+  int? _coverArtKey;
   int _coverArtGeneration = 0;
 
   SessionProfile get profile => AppSession.instance.profile!;
@@ -364,13 +368,44 @@ class _ProfileScreenState extends State<ProfileScreen>
         cachedCoverBytes ??
         pendingAvatarBytes ??
         cachedAvatarBytes;
+    if (source == null || source.isEmpty) {
+      _coverArtGeneration++;
+      if (coverArt != null || _coverArtKey != null) {
+        setState(() {
+          coverArt = null;
+          _coverArtKey = null;
+        });
+      }
+      return;
+    }
+    final key = _profileCoverArtKey(source);
+    if (_coverArtKey == key && coverArt != null) {
+      return;
+    }
     final generation = ++_coverArtGeneration;
-    final art = await _extractProfileCoverArt(source);
+    if (_profileCoverArtCache.containsKey(key)) {
+      final cached = _profileCoverArtCache[key];
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        coverArt = cached;
+        _coverArtKey = key;
+      });
+      return;
+    }
+    final art = await _profileCoverArtInflight.putIfAbsent(
+      key,
+      () => _extractProfileCoverArt(source),
+    );
+    _profileCoverArtInflight.remove(key);
+    _cacheProfileCoverArt(key, art);
     if (!mounted || generation != _coverArtGeneration) {
       return;
     }
     setState(() {
       coverArt = art;
+      _coverArtKey = key;
     });
   }
 
@@ -841,6 +876,22 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };
+}
+
+int _profileCoverArtKey(Uint8List bytes) {
+  var hash = 0x811c9dc5;
+  for (final byte in bytes) {
+    hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
+  }
+  return Object.hash(bytes.length, hash);
+}
+
+void _cacheProfileCoverArt(int key, _ProfileCoverArt? art) {
+  _profileCoverArtCache[key] = art;
+  if (_profileCoverArtCache.length <= _profileCoverArtCacheLimit) {
+    return;
+  }
+  _profileCoverArtCache.remove(_profileCoverArtCache.keys.first);
 }
 
 Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
