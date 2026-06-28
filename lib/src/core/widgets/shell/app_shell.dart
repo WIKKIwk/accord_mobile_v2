@@ -736,10 +736,6 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer.withValues(alpha: 0.92),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: scheme.primary.withValues(alpha: 0.34),
-                        width: 1.4,
-                      ),
                     ),
                     child: Icon(
                       Icons.person_rounded,
