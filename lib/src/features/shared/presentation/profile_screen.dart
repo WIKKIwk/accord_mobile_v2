@@ -1463,6 +1463,24 @@ class _ProfileCoverPreview extends StatelessWidget {
             ),
           ),
         ),
+        if (bytes != null)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.30,
+              child: ImageFiltered(
+                imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Transform.scale(
+                  scale: 1.34,
+                  child: Image.memory(
+                    bytes,
+                    fit: BoxFit.cover,
+                    cacheWidth: 360,
+                    filterQuality: FilterQuality.low,
+                  ),
+                ),
+              ),
+            ),
+          ),
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -1470,8 +1488,8 @@ class _ProfileCoverPreview extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.14),
-                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.44),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.04),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.20),
                 ],
               ),
             ),
@@ -1554,6 +1572,12 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
       ).createShader(rect);
     canvas.drawRect(rect, basePaint);
 
+    if (contourPoints.length >= 3) {
+      _drawContourShadows(canvas, size, artColors, rng);
+    }
+    if (edgePoints.length >= 4) {
+      _drawEdgeStreaks(canvas, size, artColors, rng);
+    }
     for (var i = 0; i < 5; i++) {
       _drawPetalVeil(
         canvas,
@@ -1562,12 +1586,6 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         color: artColors[i % artColors.length],
         index: i,
       );
-    }
-    if (contourPoints.length >= 3) {
-      _drawContourShadows(canvas, size, artColors, rng);
-    }
-    if (edgePoints.length >= 4) {
-      _drawEdgeStreaks(canvas, size, artColors, rng);
     }
 
     _drawFlowBlob(
@@ -1620,7 +1638,7 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         center: const Alignment(0.12, -0.18),
         radius: 1.0,
         colors: [
-          surface.withValues(alpha: 0.18),
+          surface.withValues(alpha: 0.08),
           surface.withValues(alpha: 0.02),
         ],
       ).createShader(rect);
@@ -1674,9 +1692,10 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
           radius: 1.0,
           colors: [
             artColors[layer % artColors.length]
-                .withValues(alpha: 0.16 + imageContrast * 0.20),
-            surface.withValues(alpha: 0.08 + imageContrast * 0.08),
-            artColors[(layer + 1) % artColors.length].withValues(alpha: 0.01),
+                .withValues(alpha: 0.26 + imageContrast * 0.28),
+            surface.withValues(alpha: 0.04 + imageContrast * 0.06),
+            artColors[(layer + 1) % artColors.length]
+                .withValues(alpha: 0.08 + imageContrast * 0.10),
           ],
         ).createShader(bounds)
         ..maskFilter = MaskFilter.blur(
@@ -1720,7 +1739,7 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         ..strokeWidth = size.width * (0.055 + rng.nextDouble() * 0.075)
         ..strokeCap = StrokeCap.round
         ..color = artColors[(i + 1) % artColors.length]
-            .withValues(alpha: 0.10 + imageContrast * 0.14)
+            .withValues(alpha: 0.18 + imageContrast * 0.20)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13);
       canvas.drawPath(path, paint);
     }
@@ -1742,10 +1761,10 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
       final hsl = HSLColor.fromColor(source.first);
       final base = hsl.withSaturation(0.02);
       return [
-        base.withLightness((hsl.lightness - 0.18).clamp(0.24, 0.58)).toColor(),
-        base.withLightness((hsl.lightness + 0.02).clamp(0.42, 0.70)).toColor(),
-        base.withLightness((hsl.lightness + 0.16).clamp(0.58, 0.86)).toColor(),
-        surface.withValues(alpha: 1),
+        base.withLightness(0.30).toColor(),
+        base.withLightness(0.48).toColor(),
+        base.withLightness(0.72).toColor(),
+        base.withLightness(0.88).toColor(),
       ];
     }
     return [
@@ -1801,8 +1820,8 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         end: Alignment.bottomRight,
         colors: [
           color.withValues(alpha: index.isEven ? 0.26 : 0.18),
-          surface.withValues(alpha: index.isEven ? 0.16 : 0.10),
-          color.withValues(alpha: 0.02),
+          surface.withValues(alpha: index.isEven ? 0.08 : 0.05),
+          color.withValues(alpha: 0.06),
         ],
       ).createShader(bounds)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
