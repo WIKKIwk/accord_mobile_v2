@@ -246,9 +246,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool get _hasNicknameChanges =>
       nicknameController.text.trim() != _normalizedDisplayName(profile).trim();
 
-  bool get _hasProfileChanges =>
-      _hasNicknameChanges || pendingAvatarBytes != null;
-
   void _showAvatarPreview(String displayName) {
     final bytes = pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty
         ? pendingAvatarBytes
@@ -287,6 +284,61 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (pendingAvatarBytes != null) {
       await _saveAvatar();
     }
+  }
+
+  Future<void> _openNicknameEditor() async {
+    final editController = TextEditingController(
+      text: nicknameController.text.trim(),
+    );
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: AppMotion.sheetEaseOut,
+      builder: (sheetContext) {
+        final mediaQuery = MediaQuery.of(sheetContext);
+        return Padding(
+          padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+          child: _ProfileSelectionSheet(
+            title: context.l10n.nicknameLabel,
+            subtitle: context.l10n.nicknameHint,
+            bottomPadding: mediaQuery.padding.bottom + 24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: editController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  decoration: appSurfaceInputDecoration(
+                    sheetContext,
+                    labelText: context.l10n.nicknameLabel,
+                    hintText: context.l10n.nicknameHint,
+                  ),
+                  onSubmitted: (_) =>
+                      Navigator.of(sheetContext).pop(editController.text),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.of(sheetContext).pop(editController.text),
+                  child: Text(context.l10n.save),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    editController.dispose();
+    final next = result?.trim();
+    if (next == null || next.isEmpty) {
+      return;
+    }
+    nicknameController.text = next;
+    await _saveNickname();
   }
 
   Future<void> _showPinFlow() async {
@@ -567,16 +619,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                         subtitle: subtitle,
                         phone: current.phone,
                         legalName: effectiveLegalName,
-                        nicknameController: nicknameController,
                         cachedAvatarBytes: cachedAvatarBytes,
                         pendingAvatarBytes: pendingAvatarBytes,
                         savingAvatar: savingAvatar,
                         savingProfileChanges: savingProfileChanges,
-                        hasProfileChanges: _hasProfileChanges,
                         hasPendingAvatar: pendingAvatarBytes != null,
                         onAvatarTap: () => _showAvatarPreview(displayName),
                         onPickAvatar: _pickAvatar,
-                        onNicknameChanged: () => setState(() {}),
+                        onEditNickname: _openNicknameEditor,
                         onSaveProfileChanges: _saveProfileChanges,
                       ),
                     ),
@@ -674,16 +724,14 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.subtitle,
     required this.phone,
     required this.legalName,
-    required this.nicknameController,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
     required this.savingAvatar,
     required this.savingProfileChanges,
-    required this.hasProfileChanges,
     required this.hasPendingAvatar,
     required this.onAvatarTap,
     required this.onPickAvatar,
-    required this.onNicknameChanged,
+    required this.onEditNickname,
     required this.onSaveProfileChanges,
   });
 
@@ -691,16 +739,14 @@ class _ProfileHeroCard extends StatelessWidget {
   final String subtitle;
   final String phone;
   final String legalName;
-  final TextEditingController nicknameController;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
   final bool savingAvatar;
   final bool savingProfileChanges;
-  final bool hasProfileChanges;
   final bool hasPendingAvatar;
   final VoidCallback onAvatarTap;
   final VoidCallback onPickAvatar;
-  final VoidCallback onNicknameChanged;
+  final VoidCallback onEditNickname;
   final VoidCallback onSaveProfileChanges;
 
   @override
@@ -724,6 +770,14 @@ class _ProfileHeroCard extends StatelessWidget {
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
                   pendingAvatarBytes: pendingAvatarBytes,
+                ),
+              ),
+              Positioned(
+                right: 14,
+                top: 14,
+                child: _ProfileCoverActionButton(
+                  icon: Icons.edit_rounded,
+                  onTap: onEditNickname,
                 ),
               ),
               Positioned(
@@ -793,16 +847,7 @@ class _ProfileHeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
               ],
-              TextField(
-                controller: nicknameController,
-                onChanged: (_) => onNicknameChanged(),
-                decoration: appSurfaceInputDecoration(
-                  context,
-                  labelText: l10n.nicknameLabel,
-                  hintText: l10n.nicknameHint,
-                ),
-              ),
-              if (hasProfileChanges) ...[
+              if (hasPendingAvatar) ...[
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: savingProfileChanges ? null : onSaveProfileChanges,
@@ -946,6 +991,32 @@ class _ProfileCoverOrb extends StatelessWidget {
       height: size,
       width: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _ProfileCoverActionButton extends StatelessWidget {
+  const _ProfileCoverActionButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface.withValues(alpha: 0.78),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          height: 38,
+          width: 38,
+          child: Icon(icon, size: 20, color: scheme.onSurface),
+        ),
+      ),
     );
   }
 }
