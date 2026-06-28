@@ -731,15 +731,15 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
           child: Center(
             child: _avatarBytes == null || _avatarBytes!.isEmpty
                 ? Container(
-                    width: 30,
-                    height: 30,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer.withValues(alpha: 0.92),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.person_rounded,
-                      size: 18,
+                      size: AppTheme.headerActionIconSize,
                       color: scheme.onPrimaryContainer,
                     ),
                   )
