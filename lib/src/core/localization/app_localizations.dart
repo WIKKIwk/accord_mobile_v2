@@ -59,6 +59,20 @@ class AppLocalizations {
         'Language, theme, and security settings',
         'Язык, тема и настройки безопасности',
       );
+  String get profileEditTitle =>
+      _t('Profilni tahrirlash', 'Edit profile', 'Редактировать профиль');
+  String get profileEditBody => _t(
+        'Nickname, profil rasmi va orqa fon rasmini yangilang',
+        'Update nickname, profile photo, and cover photo',
+        'Обновите псевдоним, фото профиля и фоновое фото',
+      );
+  String get profilePhotoTitle =>
+      _t('Profil rasmi', 'Profile photo', 'Фото профиля');
+  String get profileCoverTitle =>
+      _t('Orqa fon rasmi', 'Cover photo', 'Фоновое фото');
+  String get chooseImage =>
+      _t('Rasm tanlash', 'Choose image', 'Выбрать изображение');
+  String get changeImage => _t('Almashtirish', 'Change', 'Изменить');
   String get werkaAccount =>
       _t('Omborchi akkaunti', 'Wmanager account', 'Аккаунт кладовщика');
   String get supplierAccount =>

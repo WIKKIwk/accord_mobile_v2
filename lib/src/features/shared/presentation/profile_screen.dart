@@ -16,6 +16,7 @@ import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../data/profile_avatar_cache.dart';
+import '../data/profile_cover_cache.dart';
 import '../models/app_models.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
@@ -84,6 +85,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   Uint8List? cachedAvatarBytes;
   Uint8List? pendingAvatarBytes;
   String? pendingAvatarName;
+  Uint8List? cachedCoverBytes;
+  Uint8List? pendingCoverBytes;
 
   SessionProfile get profile => AppSession.instance.profile!;
 
@@ -107,6 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     WidgetsBinding.instance.addObserver(this);
     nicknameController.text = _normalizedDisplayName(profile);
     _loadCachedAvatar();
+    _loadCachedCover();
   }
 
   Future<void> _loadCachedAvatar() async {
@@ -119,6 +123,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
   }
 
+  Future<void> _loadCachedCover() async {
+    final bytes = await ProfileCoverCache.getCached(profile);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      cachedCoverBytes = bytes;
+    });
+  }
+
   Future<void> _refreshProfile() async {
     final updated = await MobileApi.instance.profile();
     final bytes = await ProfileAvatarCache.ensureCached(updated);
@@ -128,8 +142,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() {
       nicknameController.text = _normalizedDisplayName(updated);
       cachedAvatarBytes = bytes;
+      pendingCoverBytes = null;
       errorMessage = null;
     });
+    await _loadCachedCover();
   }
 
   Future<void> _saveNickname() async {
@@ -183,6 +199,38 @@ class _ProfileScreenState extends State<ProfileScreen>
         errorMessage = null;
         pendingAvatarBytes = bytes;
         pendingAvatarName = picked.name;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        errorMessage = context.l10n.imagePickFailed;
+      });
+    }
+  }
+
+  Future<void> _pickCover() async {
+    try {
+      final picked = await _avatarPicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 900,
+        imageQuality: 84,
+      );
+      if (picked == null) {
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
+        throw Exception('empty cover');
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        errorMessage = null;
+        pendingCoverBytes = bytes;
       });
     } catch (_) {
       if (!mounted) {
@@ -284,12 +332,28 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (pendingAvatarBytes != null) {
       await _saveAvatar();
     }
+    if (pendingCoverBytes != null) {
+      final cached = await ProfileCoverCache.cacheFromBytes(
+        profile,
+        pendingCoverBytes!,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        cachedCoverBytes = cached ?? pendingCoverBytes;
+        pendingCoverBytes = null;
+      });
+    }
   }
 
-  Future<void> _openNicknameEditor() async {
+  Future<void> _openProfileEditor() async {
     final editController = TextEditingController(
       text: nicknameController.text.trim(),
     );
+    final previousPendingAvatarBytes = pendingAvatarBytes;
+    final previousPendingAvatarName = pendingAvatarName;
+    final previousPendingCoverBytes = pendingCoverBytes;
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -301,32 +365,63 @@ class _ProfileScreenState extends State<ProfileScreen>
         return Padding(
           padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
           child: _ProfileSelectionSheet(
-            title: context.l10n.nicknameLabel,
-            subtitle: context.l10n.nicknameHint,
+            title: context.l10n.profileEditTitle,
+            subtitle: context.l10n.profileEditBody,
             bottomPadding: mediaQuery.padding.bottom + 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: editController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.done,
-                  decoration: appSurfaceInputDecoration(
-                    sheetContext,
-                    labelText: context.l10n.nicknameLabel,
-                    hintText: context.l10n.nicknameHint,
-                  ),
-                  onSubmitted: (_) =>
-                      Navigator.of(sheetContext).pop(editController.text),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () =>
-                      Navigator.of(sheetContext).pop(editController.text),
-                  child: Text(context.l10n.save),
-                ),
-              ],
+            child: StatefulBuilder(
+              builder: (context, setSheetState) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: editController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      decoration: appSurfaceInputDecoration(
+                        sheetContext,
+                        labelText: context.l10n.nicknameLabel,
+                        hintText: context.l10n.nicknameHint,
+                      ),
+                      onSubmitted: (_) =>
+                          Navigator.of(sheetContext).pop(editController.text),
+                    ),
+                    const SizedBox(height: 16),
+                    _ProfileEditImageRow(
+                      title: context.l10n.profilePhotoTitle,
+                      actionLabel: pendingAvatarBytes == null
+                          ? context.l10n.chooseImage
+                          : context.l10n.changeImage,
+                      imageBytes: pendingAvatarBytes ?? cachedAvatarBytes,
+                      fallbackIcon: Icons.person_rounded,
+                      onTap: () async {
+                        await _pickAvatar();
+                        setSheetState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _ProfileEditImageRow(
+                      title: context.l10n.profileCoverTitle,
+                      actionLabel: pendingCoverBytes == null
+                          ? context.l10n.chooseImage
+                          : context.l10n.changeImage,
+                      imageBytes: pendingCoverBytes ?? cachedCoverBytes,
+                      fallbackIcon: Icons.image_rounded,
+                      wide: true,
+                      onTap: () async {
+                        await _pickCover();
+                        setSheetState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.of(sheetContext).pop(editController.text),
+                      child: Text(context.l10n.save),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         );
@@ -334,11 +429,21 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
     editController.dispose();
     final next = result?.trim();
-    if (next == null || next.isEmpty) {
+    if (next == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        pendingAvatarBytes = previousPendingAvatarBytes;
+        pendingAvatarName = previousPendingAvatarName;
+        pendingCoverBytes = previousPendingCoverBytes;
+      });
       return;
     }
-    nicknameController.text = next;
-    await _saveNickname();
+    if (next.isNotEmpty) {
+      nicknameController.text = next;
+    }
+    await _saveProfileChanges();
   }
 
   Future<void> _showPinFlow() async {
@@ -621,12 +726,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                         legalName: effectiveLegalName,
                         cachedAvatarBytes: cachedAvatarBytes,
                         pendingAvatarBytes: pendingAvatarBytes,
+                        cachedCoverBytes: cachedCoverBytes,
+                        pendingCoverBytes: pendingCoverBytes,
                         savingAvatar: savingAvatar,
                         savingProfileChanges: savingProfileChanges,
                         hasPendingAvatar: pendingAvatarBytes != null,
                         onAvatarTap: () => _showAvatarPreview(displayName),
                         onPickAvatar: _pickAvatar,
-                        onEditNickname: _openNicknameEditor,
+                        onEditProfile: _openProfileEditor,
                         onSaveProfileChanges: _saveProfileChanges,
                       ),
                     ),
@@ -718,6 +825,85 @@ class _ProfilePanel extends StatelessWidget {
   }
 }
 
+class _ProfileEditImageRow extends StatelessWidget {
+  const _ProfileEditImageRow({
+    required this.title,
+    required this.actionLabel,
+    required this.imageBytes,
+    required this.fallbackIcon,
+    required this.onTap,
+    this.wide = false,
+  });
+
+  final String title;
+  final String actionLabel;
+  final Uint8List? imageBytes;
+  final IconData fallbackIcon;
+  final VoidCallback onTap;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(wide ? 14 : 999),
+              child: SizedBox(
+                height: 54,
+                width: wide ? 88 : 54,
+                child: imageBytes == null || imageBytes!.isEmpty
+                    ? ColoredBox(
+                        color: scheme.surfaceContainerHighest,
+                        child: Icon(
+                          fallbackIcon,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      )
+                    : Image.memory(
+                        imageBytes!,
+                        fit: BoxFit.cover,
+                        cacheWidth: wide ? 220 : 120,
+                        filterQuality: FilterQuality.low,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    actionLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileHeroCard extends StatelessWidget {
   const _ProfileHeroCard({
     required this.displayName,
@@ -726,12 +912,14 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.legalName,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
+    required this.cachedCoverBytes,
+    required this.pendingCoverBytes,
     required this.savingAvatar,
     required this.savingProfileChanges,
     required this.hasPendingAvatar,
     required this.onAvatarTap,
     required this.onPickAvatar,
-    required this.onEditNickname,
+    required this.onEditProfile,
     required this.onSaveProfileChanges,
   });
 
@@ -741,12 +929,14 @@ class _ProfileHeroCard extends StatelessWidget {
   final String legalName;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
+  final Uint8List? cachedCoverBytes;
+  final Uint8List? pendingCoverBytes;
   final bool savingAvatar;
   final bool savingProfileChanges;
   final bool hasPendingAvatar;
   final VoidCallback onAvatarTap;
   final VoidCallback onPickAvatar;
-  final VoidCallback onEditNickname;
+  final VoidCallback onEditProfile;
   final VoidCallback onSaveProfileChanges;
 
   @override
@@ -770,6 +960,8 @@ class _ProfileHeroCard extends StatelessWidget {
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
                   pendingAvatarBytes: pendingAvatarBytes,
+                  cachedCoverBytes: cachedCoverBytes,
+                  pendingCoverBytes: pendingCoverBytes,
                 ),
               ),
               Positioned(
@@ -777,7 +969,7 @@ class _ProfileHeroCard extends StatelessWidget {
                 top: 14,
                 child: _ProfileCoverActionButton(
                   icon: Icons.edit_rounded,
-                  onTap: onEditNickname,
+                  onTap: onEditProfile,
                 ),
               ),
               Positioned(
@@ -883,13 +1075,23 @@ class _ProfileCoverPreview extends StatelessWidget {
     required this.displayName,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
+    required this.cachedCoverBytes,
+    required this.pendingCoverBytes,
   });
 
   final String displayName;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
+  final Uint8List? cachedCoverBytes;
+  final Uint8List? pendingCoverBytes;
 
   Uint8List? get _previewBytes {
+    if (pendingCoverBytes != null && pendingCoverBytes!.isNotEmpty) {
+      return pendingCoverBytes;
+    }
+    if (cachedCoverBytes != null && cachedCoverBytes!.isNotEmpty) {
+      return cachedCoverBytes;
+    }
     if (pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty) {
       return pendingAvatarBytes;
     }
