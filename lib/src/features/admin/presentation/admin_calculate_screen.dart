@@ -961,7 +961,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
-        AppShellIconAction(icon: Icons.list_alt_rounded, onTap: _openOrders),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: AppShellIconAction(
+            icon: Icons.list_alt_rounded,
+            size: 38,
+            onTap: _openOrders,
+          ),
+        ),
         if (!_editingAllFields)
           AppShellIconAction(icon: Icons.edit_outlined, onTap: _enableFullEdit),
       ],

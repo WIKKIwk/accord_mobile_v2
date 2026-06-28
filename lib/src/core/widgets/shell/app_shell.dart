@@ -646,12 +646,16 @@ class AppShellIconAction extends StatefulWidget {
     super.key,
     this.icon,
     this.iconWidget,
+    this.size = AppTheme.headerActionSize,
+    this.iconSize = AppTheme.headerActionIconSize,
     this.showBorder = false,
     required this.onTap,
   });
 
   final IconData? icon;
   final Widget? iconWidget;
+  final double size;
+  final double iconSize;
   final bool showBorder;
   final VoidCallback onTap;
 
@@ -786,8 +790,8 @@ class _AppShellIconActionState extends State<AppShellIconAction> {
           child: AnimatedContainer(
             duration: AppMotion.fast,
             curve: AppMotion.smooth,
-            height: AppTheme.headerActionSize,
-            width: AppTheme.headerActionSize,
+            height: widget.size,
+            width: widget.size,
             decoration: BoxDecoration(
               color: scheme.secondaryContainer.withValues(alpha: 0.82),
               shape: BoxShape.circle,
@@ -801,7 +805,7 @@ class _AppShellIconActionState extends State<AppShellIconAction> {
               child: widget.iconWidget ??
                   Icon(
                     widget.icon,
-                    size: AppTheme.headerActionIconSize,
+                    size: widget.iconSize,
                     color: scheme.onSecondaryContainer,
                   ),
             ),
