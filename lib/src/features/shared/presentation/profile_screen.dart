@@ -29,7 +29,9 @@ import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -87,6 +89,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   String? pendingAvatarName;
   Uint8List? cachedCoverBytes;
   Uint8List? pendingCoverBytes;
+  List<Color>? coverPalette;
+  int _coverPaletteGeneration = 0;
 
   SessionProfile get profile => AppSession.instance.profile!;
 
@@ -121,6 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() {
       cachedAvatarBytes = bytes;
     });
+    unawaited(_refreshCoverPalette());
   }
 
   Future<void> _loadCachedCover() async {
@@ -131,6 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() {
       cachedCoverBytes = bytes;
     });
+    unawaited(_refreshCoverPalette());
   }
 
   Future<void> _refreshProfile() async {
@@ -146,6 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       errorMessage = null;
     });
     await _loadCachedCover();
+    unawaited(_refreshCoverPalette());
   }
 
   Future<void> _saveNickname() async {
@@ -200,6 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         pendingAvatarBytes = bytes;
         pendingAvatarName = picked.name;
       });
+      unawaited(_refreshCoverPalette());
     } catch (_) {
       if (!mounted) {
         return;
@@ -232,6 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         errorMessage = null;
         pendingCoverBytes = bytes;
       });
+      unawaited(_refreshCoverPalette());
     } catch (_) {
       if (!mounted) {
         return;
@@ -275,6 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         pendingAvatarBytes = null;
         pendingAvatarName = null;
       });
+      unawaited(_refreshCoverPalette());
     } catch (_) {
       if (!mounted) {
         return;
@@ -344,7 +354,23 @@ class _ProfileScreenState extends State<ProfileScreen>
         cachedCoverBytes = cached ?? pendingCoverBytes;
         pendingCoverBytes = null;
       });
+      unawaited(_refreshCoverPalette());
     }
+  }
+
+  Future<void> _refreshCoverPalette() async {
+    final source = pendingCoverBytes ??
+        cachedCoverBytes ??
+        pendingAvatarBytes ??
+        cachedAvatarBytes;
+    final generation = ++_coverPaletteGeneration;
+    final palette = await _extractAbstractPalette(source);
+    if (!mounted || generation != _coverPaletteGeneration) {
+      return;
+    }
+    setState(() {
+      coverPalette = palette;
+    });
   }
 
   Future<void> _openProfileEditor() async {
@@ -438,6 +464,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         pendingAvatarName = previousPendingAvatarName;
         pendingCoverBytes = previousPendingCoverBytes;
       });
+      unawaited(_refreshCoverPalette());
       return;
     }
     if (next.isNotEmpty) {
@@ -728,6 +755,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         pendingAvatarBytes: pendingAvatarBytes,
                         cachedCoverBytes: cachedCoverBytes,
                         pendingCoverBytes: pendingCoverBytes,
+                        coverPalette: coverPalette,
                         savingAvatar: savingAvatar,
                         savingProfileChanges: savingProfileChanges,
                         hasPendingAvatar: pendingAvatarBytes != null,
@@ -812,6 +840,107 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };
+}
+
+Future<List<Color>?> _extractAbstractPalette(Uint8List? bytes) async {
+  if (bytes == null || bytes.isEmpty) {
+    return null;
+  }
+  try {
+    final codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: 36,
+      targetHeight: 36,
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    image.dispose();
+    codec.dispose();
+    if (byteData == null) {
+      return null;
+    }
+    final pixels = byteData.buffer.asUint8List();
+    final buckets = <int, _PaletteBucket>{};
+    for (var i = 0; i + 3 < pixels.length; i += 16) {
+      final r = pixels[i];
+      final g = pixels[i + 1];
+      final b = pixels[i + 2];
+      final a = pixels[i + 3];
+      if (a < 180) {
+        continue;
+      }
+      final key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+      buckets.putIfAbsent(key, () => _PaletteBucket()).add(r, g, b);
+    }
+    if (buckets.isEmpty) {
+      return null;
+    }
+    final ranked = buckets.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    final colors = <Color>[];
+    for (final bucket in ranked) {
+      final color = bucket.color;
+      if (colors.every((picked) => _colorDistance(picked, color) > 1764)) {
+        colors.add(_coverColor(color));
+      }
+      if (colors.length == 3) {
+        break;
+      }
+    }
+    if (colors.isEmpty) {
+      return null;
+    }
+    while (colors.length < 3) {
+      final hsl = HSLColor.fromColor(colors.first);
+      colors.add(
+        hsl
+            .withHue((hsl.hue + (colors.length * 42)) % 360)
+            .withLightness((hsl.lightness + 0.08).clamp(0.35, 0.78))
+            .toColor(),
+      );
+    }
+    return colors;
+  } catch (_) {
+    return null;
+  }
+}
+
+double _colorDistance(Color a, Color b) {
+  final dr = (a.r - b.r) * 255;
+  final dg = (a.g - b.g) * 255;
+  final db = (a.b - b.b) * 255;
+  return (dr * dr + dg * dg + db * db).abs().toDouble();
+}
+
+Color _coverColor(Color color) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withSaturation(hsl.saturation.clamp(0.38, 0.72))
+      .withLightness(hsl.lightness.clamp(0.46, 0.72))
+      .toColor();
+}
+
+class _PaletteBucket {
+  int r = 0;
+  int g = 0;
+  int b = 0;
+  int count = 0;
+
+  void add(int red, int green, int blue) {
+    r += red;
+    g += green;
+    b += blue;
+    count += 1;
+  }
+
+  Color get color => Color.fromARGB(255, r ~/ count, g ~/ count, b ~/ count);
+
+  double get score {
+    final hsl = HSLColor.fromColor(color);
+    final balancedLightness = 1 - (hsl.lightness - 0.56).abs();
+    return count * (0.36 + hsl.saturation) * balancedLightness.clamp(0.2, 1.0);
+  }
 }
 
 class _ProfilePanel extends StatelessWidget {
@@ -914,6 +1043,7 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.pendingAvatarBytes,
     required this.cachedCoverBytes,
     required this.pendingCoverBytes,
+    required this.coverPalette,
     required this.savingAvatar,
     required this.savingProfileChanges,
     required this.hasPendingAvatar,
@@ -931,6 +1061,7 @@ class _ProfileHeroCard extends StatelessWidget {
   final Uint8List? pendingAvatarBytes;
   final Uint8List? cachedCoverBytes;
   final Uint8List? pendingCoverBytes;
+  final List<Color>? coverPalette;
   final bool savingAvatar;
   final bool savingProfileChanges;
   final bool hasPendingAvatar;
@@ -962,6 +1093,7 @@ class _ProfileHeroCard extends StatelessWidget {
                   pendingAvatarBytes: pendingAvatarBytes,
                   cachedCoverBytes: cachedCoverBytes,
                   pendingCoverBytes: pendingCoverBytes,
+                  palette: coverPalette,
                 ),
               ),
               Positioned(
@@ -1077,6 +1209,7 @@ class _ProfileCoverPreview extends StatelessWidget {
     required this.pendingAvatarBytes,
     required this.cachedCoverBytes,
     required this.pendingCoverBytes,
+    required this.palette,
   });
 
   final String displayName;
@@ -1084,6 +1217,7 @@ class _ProfileCoverPreview extends StatelessWidget {
   final Uint8List? pendingAvatarBytes;
   final Uint8List? cachedCoverBytes;
   final Uint8List? pendingCoverBytes;
+  final List<Color>? palette;
 
   Uint8List? get _previewBytes {
     if (pendingCoverBytes != null && pendingCoverBytes!.isNotEmpty) {
@@ -1105,6 +1239,12 @@ class _ProfileCoverPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bytes = _previewBytes;
+    final colors = palette ??
+        [
+          scheme.primaryContainer,
+          scheme.secondaryContainer,
+          scheme.tertiaryContainer,
+        ];
     final fallbackLetter =
         (displayName.isNotEmpty ? displayName[0] : 'U').toUpperCase();
     return Stack(
@@ -1116,9 +1256,9 @@ class _ProfileCoverPreview extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                scheme.primaryContainer.withValues(alpha: 0.72),
-                scheme.secondaryContainer.withValues(alpha: 0.82),
-                scheme.tertiaryContainer.withValues(alpha: 0.64),
+                colors[0].withValues(alpha: 0.82),
+                colors[1].withValues(alpha: 0.78),
+                colors[2].withValues(alpha: 0.72),
               ],
             ),
           ),
@@ -1127,29 +1267,26 @@ class _ProfileCoverPreview extends StatelessWidget {
           right: -22,
           top: -34,
           child: _ProfileCoverOrb(
-            size: 112,
-            color: scheme.primary.withValues(alpha: 0.12),
+            size: 136,
+            color: colors[2].withValues(alpha: 0.26),
           ),
         ),
         Positioned(
           left: 30,
           bottom: 22,
           child: _ProfileCoverOrb(
-            size: 74,
-            color: scheme.surface.withValues(alpha: 0.22),
+            size: 86,
+            color: colors[0].withValues(alpha: 0.22),
           ),
         ),
-        if (bytes != null)
-          Positioned.fill(
-            child: Image.memory(
-              bytes,
-              fit: BoxFit.cover,
-              cacheWidth: 640,
-              filterQuality: FilterQuality.low,
-              errorBuilder: (context, error, stackTrace) =>
-                  const SizedBox.shrink(),
-            ),
+        Positioned(
+          left: -44,
+          top: -26,
+          child: _ProfileCoverOrb(
+            size: 124,
+            color: colors[1].withValues(alpha: 0.18),
           ),
+        ),
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -1157,8 +1294,8 @@ class _ProfileCoverPreview extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.28),
-                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.58),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.14),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.44),
                 ],
               ),
             ),
