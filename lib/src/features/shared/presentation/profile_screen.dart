@@ -30,6 +30,7 @@ import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -1271,41 +1272,13 @@ class _ProfileCoverPreview extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colors[0].withValues(alpha: 0.82),
-                colors[1].withValues(alpha: 0.78),
-                colors[2].withValues(alpha: 0.72),
-              ],
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _ProfileAbstractGradientPainter(
+              colors: colors,
+              seed: _stableCoverSeed(displayName, bytes),
+              surface: scheme.surface,
             ),
-          ),
-        ),
-        Positioned(
-          right: -22,
-          top: -34,
-          child: _ProfileCoverOrb(
-            size: 136,
-            color: colors[2].withValues(alpha: 0.26),
-          ),
-        ),
-        Positioned(
-          left: 30,
-          bottom: 22,
-          child: _ProfileCoverOrb(
-            size: 86,
-            color: colors[0].withValues(alpha: 0.22),
-          ),
-        ),
-        Positioned(
-          left: -44,
-          top: -26,
-          child: _ProfileCoverOrb(
-            size: 124,
-            color: colors[1].withValues(alpha: 0.18),
           ),
         ),
         Positioned.fill(
@@ -1339,19 +1312,143 @@ class _ProfileCoverPreview extends StatelessWidget {
   }
 }
 
-class _ProfileCoverOrb extends StatelessWidget {
-  const _ProfileCoverOrb({required this.size, required this.color});
+int _stableCoverSeed(String displayName, Uint8List? bytes) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in displayName.codeUnits) {
+    hash = (hash ^ codeUnit) * 0x01000193;
+  }
+  if (bytes != null && bytes.isNotEmpty) {
+    final step = math.max(1, bytes.length ~/ 48);
+    for (var i = 0; i < bytes.length; i += step) {
+      hash = (hash ^ bytes[i]) * 0x01000193;
+    }
+  }
+  return hash & 0x7fffffff;
+}
 
-  final double size;
-  final Color color;
+class _ProfileAbstractGradientPainter extends CustomPainter {
+  const _ProfileAbstractGradientPainter({
+    required this.colors,
+    required this.seed,
+    required this.surface,
+  });
+
+  final List<Color> colors;
+  final int seed;
+  final Color surface;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: size,
-      width: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(seed);
+    final rect = Offset.zero & size;
+    final basePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment(
+          -0.9 + rng.nextDouble() * 0.35,
+          -1,
+        ),
+        end: Alignment(
+          0.65 + rng.nextDouble() * 0.35,
+          1,
+        ),
+        colors: [
+          colors[0].withValues(alpha: 0.92),
+          colors[1].withValues(alpha: 0.82),
+          colors[2].withValues(alpha: 0.76),
+        ],
+      ).createShader(rect);
+    canvas.drawRect(rect, basePaint);
+
+    _drawFlowBlob(
+      canvas,
+      size,
+      center: Offset(size.width * 0.18, size.height * 0.08),
+      radius: size.width * (0.42 + rng.nextDouble() * 0.16),
+      color: colors[1].withValues(alpha: 0.24),
     );
+    _drawFlowBlob(
+      canvas,
+      size,
+      center: Offset(size.width * (0.72 + rng.nextDouble() * 0.16), -8),
+      radius: size.width * (0.36 + rng.nextDouble() * 0.18),
+      color: colors[2].withValues(alpha: 0.22),
+    );
+    _drawFlowBlob(
+      canvas,
+      size,
+      center: Offset(size.width * (0.22 + rng.nextDouble() * 0.20),
+          size.height * (0.82 + rng.nextDouble() * 0.12)),
+      radius: size.width * 0.48,
+      color: surface.withValues(alpha: 0.24),
+    );
+
+    for (var i = 0; i < 3; i++) {
+      final path = Path();
+      final startY = size.height * (0.18 + rng.nextDouble() * 0.52);
+      path.moveTo(-size.width * 0.18, startY);
+      path.cubicTo(
+        size.width * (0.18 + rng.nextDouble() * 0.20),
+        startY - size.height * (0.38 + rng.nextDouble() * 0.28),
+        size.width * (0.52 + rng.nextDouble() * 0.20),
+        startY + size.height * (0.24 + rng.nextDouble() * 0.34),
+        size.width * 1.18,
+        size.height * (0.20 + rng.nextDouble() * 0.62),
+      );
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * (0.18 + rng.nextDouble() * 0.16)
+        ..strokeCap = StrokeCap.round
+        ..color = (i.isEven ? surface : colors[i])
+            .withValues(alpha: i.isEven ? 0.18 : 0.12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+      canvas.drawPath(path, paint);
+    }
+
+    final washPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.12, -0.18),
+        radius: 1.0,
+        colors: [
+          surface.withValues(alpha: 0.24),
+          surface.withValues(alpha: 0.02),
+        ],
+      ).createShader(rect);
+    canvas.drawRect(rect, washPaint);
+  }
+
+  void _drawFlowBlob(
+    Canvas canvas,
+    Size size, {
+    required Offset center,
+    required double radius,
+    required Color color,
+  }) {
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color, color.withValues(alpha: 0)],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfileAbstractGradientPainter oldDelegate) {
+    return oldDelegate.seed != seed ||
+        oldDelegate.surface != surface ||
+        oldDelegate.colors.length != colors.length ||
+        !_sameColors(oldDelegate.colors, colors);
+  }
+
+  bool _sameColors(List<Color> a, List<Color> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 
