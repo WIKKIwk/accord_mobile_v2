@@ -116,6 +116,7 @@ The main app expects:
 - Admin endpoints under `/v1/mobile/admin/*`
 - Qolip endpoints under `/v1/mobile/qolip/*`
 - Rezka endpoints under `/v1/mobile/rezka/*`
+- calculation endpoints under `/v1/mobile/calculate*`
 - GScale/RPS bridge endpoints used by `lib/src/core/api/gscale/`
 - notification endpoints under `/v1/mobile/notifications/*`
 - stock-entry and QR lookup endpoints used by warehouse/admin flows
@@ -406,6 +407,91 @@ Admin screens handle:
 Admin is the widest surface in the app. New admin functionality should be split
 into focused state/model/helper files when it grows, but not fragmented so far
 that the flow becomes harder to read.
+
+### Calculation And Quick Order Flow
+
+The calculation screen is the mobile entry point for creating a calculated
+production order before the real order is opened.
+
+Main files:
+
+| Path | Responsibility |
+| --- | --- |
+| `lib/src/features/admin/presentation/admin_calculate_screen.dart` | UI for selecting customer/product, entering calculation inputs, viewing result, linking map, and opening order. |
+| `lib/src/core/api/calculate/mobile_api_calculate.dart` | Request/response models and `/v1/mobile/calculate*` API calls. |
+| `lib/src/features/admin/state/calculate_order_store.dart` | Cached quick-order template list and upsert/delete behavior. |
+| `lib/src/features/admin/presentation/admin_calculate_orders_screen.dart` | Saved quick-order list. |
+| `lib/src/features/admin/presentation/admin_production_map_test_screen.dart` | Production map editor/viewer used after calculation. |
+
+The normal user flow is:
+
+1. Admin opens `AdminCalculateScreen`.
+2. Admin selects customer and product.
+3. App can auto-select a likely customer for the product when customer is not
+   chosen yet.
+4. Admin enters KG, one-frame product size, frame count, waste percent, optional
+   roll count, and material layers.
+5. First and second material layers are required; the third layer is optional.
+6. App calculates derived width as `frameProductSizeMm * frameCount + 15`.
+7. App sends `CalculateRequest` to `POST /v1/mobile/calculate`.
+8. Backend returns calculation result with coefficients, size, base length,
+   waste length, rounded final length, minimum mold size, and rubber size.
+9. UI shows the result card and print/roll compatibility summary.
+10. Admin can link the calculated template to a production map.
+11. After a fresh calculation, admin can open a real `zakaz` from the saved map.
+12. App clones the source production map, applies order number, product, roll
+    count, width, KG, and base length, then calls
+    `/v1/mobile/admin/production-maps/with-order`.
+
+Calculation input fields:
+
+| Field | Meaning |
+| --- | --- |
+| `customer` / `customerRef` | Customer selected from admin customer directory. |
+| `product` / `itemCode` | Product selected from customer-specific or global catalog. |
+| `kg` | Target order weight. |
+| `frameProductSizeMm` | Product size inside one frame. |
+| `frameCount` | Number of frames. |
+| `edgeAllowanceMm` | Fixed edge allowance; currently `15 mm`. |
+| `wastePercent` | Waste percentage added to base length. |
+| `rollCount` | Optional roll count for print/roll compatibility. |
+| `firstLayer` | Required material and micron. |
+| `secondLayer` | Required material and micron. |
+| `thirdLayer` | Optional material and micron. |
+| `note` | Operator/admin note saved with the quick-order template. |
+| `image` | Optional reference image uploaded through `/v1/mobile/calculate/orders/image`. |
+
+Calculation output shown to the user:
+
+| Output | Meaning |
+| --- | --- |
+| `coeffSum` | Sum coefficient used by backend calculation. |
+| `widthSm` | Calculated working width in centimeters. |
+| `minMoldSizeMm` | Minimum mold size; mobile fallback is `frameProductSizeMm * frameCount + 50`. |
+| `rubberSizeMm` | Rubber size selected from production-map print rules. |
+| `baseLength` | Base calculated material length before waste. |
+| `wasteLength` | Extra material length from waste percent. |
+| `roundedLength` | Final rounded length displayed as the main result. |
+
+Quick-order template behavior:
+
+- Saved calculation templates are loaded from `GET /v1/mobile/calculate/orders`.
+- Templates are upserted through `POST /v1/mobile/calculate/orders`.
+- Templates are deduplicated by `code` in `CalculateOrderTemplateStore`.
+- Images are uploaded through `POST /v1/mobile/calculate/orders/image`.
+- A template can keep `sourceMapId`, which points to the reusable production map
+  used later when opening a real order.
+- When opening a real order, the app saves both the cloned production map and
+  the calculate template through one backend call so they stay consistent.
+
+Important boundary:
+
+- Mobile derives simple UI-side values such as width preview and freshness
+  signature.
+- Backend owns the authoritative calculation and order/map persistence.
+- A stale result cannot open an order: if inputs change after calculation, the
+  app requires pressing `Hisoblash` again.
+- Order number uniqueness and final save validation belong to `mini_rs_erp`.
 
 ### Aparatchi Flow
 
