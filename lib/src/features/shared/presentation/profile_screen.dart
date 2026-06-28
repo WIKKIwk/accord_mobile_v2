@@ -714,12 +714,12 @@ class _ProfileHeroCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: 176,
+          height: 204,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                bottom: 52,
+                bottom: 72,
                 child: _ProfileCoverPreview(
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
@@ -728,7 +728,7 @@ class _ProfileHeroCard extends StatelessWidget {
               ),
               Positioned(
                 left: 16,
-                top: 72,
+                top: 74,
                 child: _ProfileAvatarWithCamera(
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
@@ -741,7 +741,7 @@ class _ProfileHeroCard extends StatelessWidget {
               Positioned(
                 left: 128,
                 right: 16,
-                top: 130,
+                top: 140,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -751,10 +751,10 @@ class _ProfileHeroCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        height: 1.05,
+                        height: 1.08,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 6),
                     Text(
                       subtitle,
                       maxLines: 1,
@@ -770,7 +770,7 @@ class _ProfileHeroCard extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -791,7 +791,7 @@ class _ProfileHeroCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
               ],
               TextField(
                 controller: nicknameController,
