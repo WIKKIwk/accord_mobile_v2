@@ -893,12 +893,23 @@ Future<List<Color>?> _extractAbstractPalette(Uint8List? bytes) async {
     }
     while (colors.length < 3) {
       final hsl = HSLColor.fromColor(colors.first);
-      colors.add(
-        hsl
-            .withHue((hsl.hue + (colors.length * 42)) % 360)
-            .withLightness((hsl.lightness + 0.08).clamp(0.35, 0.78))
-            .toColor(),
-      );
+      if (_isNeutralColor(colors.first)) {
+        colors.add(
+          hsl
+              .withSaturation(0.03)
+              .withLightness(
+                (hsl.lightness + (colors.length * 0.08)).clamp(0.34, 0.82),
+              )
+              .toColor(),
+        );
+      } else {
+        colors.add(
+          hsl
+              .withHue((hsl.hue + (colors.length * 42)) % 360)
+              .withLightness((hsl.lightness + 0.08).clamp(0.35, 0.78))
+              .toColor(),
+        );
+      }
     }
     return colors;
   } catch (_) {
@@ -915,10 +926,20 @@ double _colorDistance(Color a, Color b) {
 
 Color _coverColor(Color color) {
   final hsl = HSLColor.fromColor(color);
+  if (hsl.saturation < 0.12) {
+    return hsl
+        .withSaturation(0.03)
+        .withLightness(hsl.lightness.clamp(0.36, 0.76))
+        .toColor();
+  }
   return hsl
-      .withSaturation(hsl.saturation.clamp(0.38, 0.72))
+      .withSaturation(hsl.saturation.clamp(0.22, 0.72))
       .withLightness(hsl.lightness.clamp(0.46, 0.72))
       .toColor();
+}
+
+bool _isNeutralColor(Color color) {
+  return HSLColor.fromColor(color).saturation < 0.12;
 }
 
 class _PaletteBucket {
