@@ -1,133 +1,110 @@
-# Accord Mobile
+# Accord Mobile V2
 
-Accord Mobile is the Flutter client for the Accord operational workflow on top
-of ERPNext. The app is a presentation and device-integration layer: it renders
-role-specific mobile screens, keeps local session and UI state, talks to
-`accord_mobile_server_rs`, and leaves business truth and document persistence to
-ERPNext.
+`accord_mobile_v2` is the Flutter client for the Accord mini ERP ecosystem.
+It is not a standalone business system. The app renders role-specific mobile
+workspaces, keeps device/session/UI state, and calls `mini_rs_erp` through the
+stable `/v1/mobile/*` HTTP contract.
 
-## System Topology
+The backend owns business truth: authentication, roles, production maps, WIP,
+warehouse state, Qolip inventory, QR validation, customer/supplier workflow,
+admin operations, printing side effects, push dispatch, and persistence. The
+mobile app owns presentation, navigation, local device behavior, and API
+orchestration.
 
-```mermaid
-graph LR
-  A[accord_mobile] --> B[accord_mobile_server_rs]
-  B --> C[ERPNext]
-  D[accord_erp_custom_field] --> C
-  B --> D
-  A --> E[gscale-zebra mobileapi]
-```
+## Current Scope
 
-The normal Accord execution chain is:
+The app currently covers these mobile areas:
 
-`accord_mobile -> accord_mobile_server_rs -> ERPNext`
+| Area | Responsibility |
+| --- | --- |
+| Auth and session | Phone/code login, token restore, automatic re-authentication, logout. |
+| Role routing | Opens the correct workspace from backend role/capability data. |
+| Supplier | Item selection, quantity entry, dispatch confirmation, history, notifications. |
+| Werka | Warehouse/operator dashboard, pending/history/archive, confirmations, customer issue, unannounced receipt, QR lookup. |
+| Customer | Delivery review, approve/reject flow, status details, notifications. |
+| Admin | Users, roles, suppliers, customers, items, warehouses, production maps, WIP, monitoring, settings. |
+| Aparatchi | Operator queue workspace for production-map work stages. |
+| Qolipchi | Qolip/block/location inventory workspace. |
+| Rezka | Cutting/split workflow entry point. |
+| GScale/RPS | Embedded scale/print workflow and mobileapi integration. |
+| Device runtime | Camera, QR scanner, biometric lock, push notifications, local files, theme, locale, preview mode. |
 
-The GScale mode has a separate local-network execution chain:
+`werka` is still used in routes, capabilities, endpoints, labels, and local
+keys as the compatibility name for the warehouse/operator flow. Do not rename it
+casually: it is part of the mobile contract and persisted app state.
 
-`accord_mobile GScale mode -> gscale-zebra mobileapi -> scale / printer / ERPNext`
-
-## System Architecture
+## Runtime Model
 
 ```mermaid
 flowchart TB
-  App[Accord Mobile Flutter app]
-  Shell[App shell<br/>role routing, app lock, network gate,<br/>native back button, dock bridge]
-  Core[Core mobile runtime<br/>session, security, notifications,<br/>localization, theme, files, search]
-  Features[Role features<br/>Supplier, Werka, Customer, Admin, GScale]
-  Api[Mobile API client<br/>/v1/mobile/*]
-  Push[Firebase Messaging<br/>device token and local notifications]
-  Native[Device integrations<br/>camera, biometrics, files,<br/>iOS native scene bridges]
+    App["Accord Mobile V2<br/>Flutter app"]
+    Shell["App shell<br/>routing, lock, network gate,<br/>notifications, dock/back bridge"]
+    Api["MobileApi<br/>/v1/mobile/*"]
+    Domain["mini_rs_erp<br/>Axum mini ERP API"]
+    DB["PostgreSQL<br/>ERP state"]
+    Local["Mobile local state<br/>SharedPreferences, caches"]
+    Push["Firebase Messaging<br/>push token + local notifications"]
+    Device["Device integrations<br/>camera, biometrics, files, QR"]
+    GScale["GScale / RPS mobileapi<br/>LAN scale and printer"]
+    DomainSide["Backend side effects<br/>FCM, print, AI, QR"]
+    Tunnel["Domain / Cloudflare tunnel"]
 
-  Backend[accord_mobile_server_rs<br/>primary Accord mobile backend]
-  ERP[ERPNext<br/>documents, workflow state, validations]
-  DB[(ERPNext MariaDB<br/>direct read models)]
-  FCM[Firebase Cloud Messaging]
-  Gemini[Gemini Vision<br/>AI-assisted search]
-  GScale[gscale-zebra mobileapi<br/>LAN scale and printer runtime]
-
-  App --> Shell
-  Shell --> Core
-  Shell --> Features
-  Features --> Api
-  Core --> Api
-  Core --> Push
-  Core --> Native
-  Api --> Backend
-  Backend --> ERP
-  Backend --> DB
-  Backend --> FCM
-  Backend --> Gemini
-  Features --> GScale
+    App --> Shell
+    Shell --> Api
+    Shell --> Local
+    Shell --> Push
+    Shell --> Device
+    Api --> Tunnel
+    Tunnel --> Domain
+    Domain --> DB
+    Domain --> DomainSide
+    App --> GScale
 ```
 
-The app owns screens, navigation, local UX state, and device integration. The
-Rust backend owns the mobile HTTP contract and ERP-facing business operations.
-ERPNext remains the durable source for documents, item groups, workflow state,
-and validation rules.
+Default test backend:
 
-## Repository Role
+```text
+https://mini-rs-erp-dev.wspace.sbs
+```
 
-This repository owns the user-facing mobile application only.
+This domain is wired in both `Makefile` and `MobileApi.baseUrl`. A build should
+not hardcode old domains or local-only URLs unless the run target explicitly
+asks for local mode.
 
-It is responsible for:
+## Repository Boundary
 
-- authentication, re-authentication, logout, and session bootstrap
-- role-based navigation and screen composition
-- local cache, notification, app-lock, theme, and locale orchestration
-- API calls to the mobile backend
-- Firebase push registration and local notification display
-- Android and iOS device permissions needed by the app
-- native iOS back-button and dock bridge integration
-- rendering Supplier, Werka, Customer, Admin, and GScale workflows
+This repository is responsible for:
 
-It does not define business truth. It does not write ERP documents directly. It
-does not own ERP field definitions.
+- Flutter app startup and role routing.
+- Mobile screens, shared components, theme, motion, navigation, and preview.
+- Calling `mini_rs_erp` through `MobileApi`.
+- Keeping local UI/session state in device storage.
+- Registering Firebase push tokens and displaying local notifications.
+- Camera, QR scan, file, biometric, iOS native back/dock, and Android runtime
+  permission integration.
+- Shared UI architecture so top bars, docks, drawers, fields, cards, dialogs,
+  lists, and shells are reused instead of copy-pasted per role.
 
-## What This Repo Depends On
+This repository is not responsible for:
 
-`accord_mobile` is not standalone in production.
+- PostgreSQL schema or production ERP persistence.
+- Production-map calculation truth.
+- Queue validation truth.
+- Qolip inventory truth.
+- Stock movement truth.
+- Role/capability truth.
+- Push dispatch decisions.
+- Print job business decisions.
 
-It requires:
+Those belong to `mini_rs_erp`.
 
-- Flutter SDK `>=3.24.0`
-- Dart SDK `>=3.5.0 <4.0.0`
-- `accord_mobile_server_rs` for the main mobile API
-- ERPNext for document persistence and workflow state
-- `accord_erp_custom_field` installed in the ERPNext bench so Accord custom
-  fields exist on ERP documents
-- Firebase configuration for push notifications on Android and iOS
-- a reachable backend URL passed through `MOBILE_API_BASE_URL`
-- optional GScale LAN service at `gscale.local:39117` or another approved
-  `gscale-zebra` mobileapi port
+## Backend Dependency
 
-## Runtime Configuration
+`accord_mobile_v2` requires a reachable `mini_rs_erp` instance. Login and role
+navigation depend on the backend. There is no production fallback that should
+pretend ERP is working when the backend/database is unavailable.
 
-The main app reads its backend base URL from:
-
-- `MOBILE_API_BASE_URL`
-
-If no value is passed, the app defaults to:
-
-- `https://mini-rs-erp-dev.wspace.sbs`
-
-GScale mode reads its default server URL from:
-
-- `API_BASE_URL`
-
-If no GScale value is passed, it defaults to:
-
-- `http://gscale.local:39117`
-
-Preview and QA builds can also use:
-
-- `APP_FORCE_DEVICE_PREVIEW`
-- `APP_PREVIEW_ROUTE`
-- `APP_PREVIEW_PHONE`
-- `APP_PREVIEW_CODE`
-- `APP_PREVIEW_BATCH_DISPATCH_DEMO`
-
-## Backend Contract
-
-At runtime the main Accord app expects the backend to expose:
+The main app expects:
 
 - `GET /healthz`
 - endpoints under `/v1/mobile/auth/*`
@@ -137,167 +114,73 @@ At runtime the main Accord app expects the backend to expose:
 - Werka endpoints under `/v1/mobile/werka/*`
 - Customer endpoints under `/v1/mobile/customer/*`
 - Admin endpoints under `/v1/mobile/admin/*`
-- shared notification endpoints under `/v1/mobile/notifications/*`
-- stock-entry barcode lookup under `/v1/mobile/stock-entry/lookup`
+- Qolip endpoints under `/v1/mobile/qolip/*`
+- Rezka endpoints under `/v1/mobile/rezka/*`
+- GScale/RPS bridge endpoints used by `lib/src/core/api/gscale/`
+- notification endpoints under `/v1/mobile/notifications/*`
+- stock-entry and QR lookup endpoints used by warehouse/admin flows
+- websocket endpoint for warehouse live updates
 
-When a logged-in session is active, the app checks backend health before
-continuing critical flows. If the backend is unavailable, it shows the offline
-network gate instead of pretending to work locally.
+The app sends bearer tokens from `AppSession`. If a request returns `401`,
+`MobileApi` tries to re-authenticate from stored phone/code credentials. If that
+fails, the session is cleared and the user must log in again.
 
-GScale mode expects a nearby GScale mobileapi server with:
+## Runtime Configuration
 
-- `GET /healthz`
-- `GET /v1/mobile/handshake`
-- `GET /v1/mobile/monitor/stream`
-- `GET /v1/mobile/monitor/state`
-- setup endpoints under `/v1/mobile/setup/*`
-- item and warehouse lookup endpoints under `/v1/mobile/items` and
-  `/v1/mobile/warehouses`
-- batch endpoints under `/v1/mobile/batch/*`
-- archive endpoints under `/v1/mobile/archive*`
+Main backend URL:
 
-## Functional Boundaries
+| Variable | Default | Used by |
+| --- | --- | --- |
+| `MOBILE_API_BASE_URL` | `https://mini-rs-erp-dev.wspace.sbs` | Main Accord mobile API. |
+| `API_URL` | `https://mini-rs-erp-dev.wspace.sbs` | Makefile wrapper value passed into `MOBILE_API_BASE_URL`. |
+| `LOCAL_API_URL` | `http://127.0.0.1:18081` | Local backend helper targets. |
 
-### Supplier
+GScale LAN/mobileapi URL:
 
-Supplier flows cover:
+| Variable | Default | Used by |
+| --- | --- | --- |
+| `API_BASE_URL` | `http://gscale.local:39117` | Embedded GScale runtime. |
 
-- login and session restore
-- item selection and quantity entry
-- dispatch confirmation and submission
-- summary, history, recent, notification, and detail views
-- submitted category and status breakdown pages
-- response to unannounced supplier requests
+Preview variables:
 
-### Werka
+| Variable | Description |
+| --- | --- |
+| `APP_FORCE_DEVICE_PREVIEW` | Forces DevicePreview in debug mode. `make run` sets this by default. |
+| `APP_PREVIEW_ROUTE` | Opens a specific route for focused UI preview. |
+| `APP_PREVIEW_PHONE` | Phone used by preview login helpers. |
+| `APP_PREVIEW_CODE` | Code used by preview login helpers. |
+| `APP_PREVIEW_BATCH_DISPATCH_DEMO` | Enables direct batch dispatch preview mode when paired with a route. |
 
-Werka flows cover:
+## Quick Start
 
-- summary, pending queues, and status breakdowns
-- supplier receipt confirmation
-- customer issue creation
-- batch customer issue creation
-- unannounced supplier creation
-- stock-entry barcode lookup and QR scanning
-- archive calendar/list views by sent hub, day, month, year, and period
-- archive PDF retrieval, saving, photo extraction, and sharing
-- Batch QR parsing and customer issue submission
-- notification views
-- AI-assisted item search when the backend enables it
-
-Important dispatch behavior:
-
-- stock-entry QR dispatch sends source barcode, stock entry name, and line
-  index to the backend so duplicate protection can be enforced server-side
-- Batch QR dispatch requires an exact item match before submission
-- Batch QR customer selection uses the shared preferred-customer ordering logic
-
-### Customer
-
-Customer flows cover:
-
-- delivery note review
-- approve and reject actions
-- customer-facing status breakdown and detail pages
-- notification views and shared notification detail screens
-
-### Admin
-
-Admin flows cover:
-
-- supplier creation, detail, item assignment, inactive supplier restore/removal
-- customer creation, detail, code regeneration, item assignment, and removal
-- item creation, item group creation, item group parent move, and item group
-  bulk move
-- Werka/admin module access
-- operational settings and activity review
-
-### GScale
-
-GScale mode is available from Werka/Admin navigation and embeds the GScale
-operator app inside the main Flutter application.
-
-GScale flows cover:
-
-- LAN server discovery using `gscale.local`, cached servers, direct probes, and
-  approved mobileapi ports
-- server health, handshake, and live monitor stream
-- ERP setup status and ERP setup submission/removal
-- item and warehouse lookup
-- scale/manual batch start and stop
-- manual print requests
-- Zebra/Godex printer mode selection
-- archive listing and archive print requests
-- local draft persistence for operator control settings
-
-## Data And State Model
-
-The app stores local session and UI state only.
-
-Important local concerns:
-
-- auth token, last phone, and last code persistence in `SharedPreferences`
-- automatic re-authentication after a `401` when stored credentials are present
-- unread and hidden notification state
-- runtime stores for Supplier, Werka, and Customer delivery state
-- search activity history and search normalization
-- PIN, biometric, theme, and locale preferences
-- profile avatar cache and runtime reset behavior
-- cached GScale servers and operator-control drafts
-
-Important ERP-facing concerns are not owned here:
-
-- `Delivery Note` state
-- `accord_flow_state`
-- `accord_customer_state`
-- `accord_customer_reason`
-- `accord_delivery_actor`
-- `accord_status_section`
-- `accord_ui_status`
-
-## Device Features
-
-Android permissions include:
-
-- internet access
-- camera access for QR scanning and AI-assisted item search images
-- biometric authentication
-- push notification posting
-- legacy external storage write support up to Android API 29
-
-iOS configuration includes:
-
-- Face ID usage text for app unlock
-- camera usage text for photo/search flows
-- photo library usage text for archive page saving
-- remote notification registration
-- native scene integration for back navigation and bottom dock behavior
-
-## Localization And UI Runtime
-
-The app supports:
-
-- Uzbek
-- English
-- Russian
-
-Startup loads the native bridge, local notifications, session, unread
-notifications, security settings, theme, locale, and platform helper before the
-app shell is rendered. The main shell wraps routes with app lock, notification
-runtime, network requirement checks, and dock gesture handling.
-
-## Build And Run
-
-Install dependencies:
+Install Flutter dependencies:
 
 ```bash
-flutter pub get
+make deps
 ```
 
-Run against a local backend:
+Run against the current test domain in Chromium with DevicePreview:
+
+```bash
+make run
+```
+
+Run against a custom backend:
+
+```bash
+make run API_URL=https://mini-rs-erp-dev.wspace.sbs
+```
+
+Run against a local mini ERP backend:
 
 ```bash
 make run-local
+```
+
+Run web explicitly:
+
+```bash
+make web
 ```
 
 Run web against a local backend:
@@ -306,169 +189,544 @@ Run web against a local backend:
 make web-local
 ```
 
-Run against the public/domain backend:
-
-```bash
-make run-domain
-```
-
-Run with a custom backend:
-
-```bash
-make run API_URL=https://example.com
-```
-
-Build a release APK for the public/domain backend:
-
-```bash
-make apk-domain
-```
-
-Build a release APK with a custom backend:
-
-```bash
-make apk API_URL=https://example.com APK_NAME=accord.apk
-```
-
-Release APK builds are arm64-v8a only by design.
-
-## Make Targets
-
-Common app targets:
-
-- `make deps`
-- `make run`
-- `make run-local`
-- `make web`
-- `make web-local`
-- `make run-domain`
-- `make apk`
-- `make apk-domain`
-- `make analyze`
-- `make test`
-
-Backend/runtime helpers:
-
-- `make backend-up`
-- `make backend-stop`
-- `make core-up`
-- `make core-stop`
-- `make remote-up`
-- `make remote-stop`
-- `make remote-url`
-- `make domain-up`
-- `make domain-up-fast`
-- `make domain-url`
-
-ERP bench helpers:
-
-- `make bench-start`
-- `make bench-restart`
-- `make bench-stop`
-- `make bench-limit-start`
-- `make bench-limit-stop`
-
-Android setup:
-
-- `make android-sdk-setup`
-
-## iOS Device Install
-
-Use the runbook when fresh-installing on a physical iPhone:
-
-- `docs/runbooks/ios_device_install_runbook.md`
-
-The documented path uses a signed `profile` build because Flutter debug builds
-do not behave like normal home-screen apps on iOS. The iOS project also includes
-native asset framework re-signing for physical device installs.
-
-## File Map
-
-Core app entry points:
-
-- `lib/main.dart`
-- `lib/src/app/app.dart`
-- `lib/src/app/app_router.dart`
-- `lib/src/core/api/mobile_api.dart`
-- `lib/src/core/network/network_requirement_runtime.dart`
-- `lib/src/core/notifications/service/push_messaging_service.dart`
-
-Core runtime areas:
-
-- `lib/src/core/session/`
-- `lib/src/core/security/`
-- `lib/src/core/notifications/`
-- `lib/src/core/search/`
-- `lib/src/core/files/`
-- `lib/src/core/localization/`
-- `lib/src/core/theme/`
-- `lib/src/core/widgets/`
-
-Feature areas:
-
-- `lib/src/features/auth/`
-- `lib/src/features/supplier/`
-- `lib/src/features/werka/`
-- `lib/src/features/customer/`
-- `lib/src/features/admin/`
-- `lib/src/features/gscale/`
-- `lib/src/features/shared/`
-
-Operational helpers:
-
-- `docs/runbooks/ios_device_install_runbook.md`
-- `docs/bug-hunt-findings.md`
-- `tools/bootstrap/setup_android_sdk.sh`
-- `tools/bootstrap/ensure_core.sh`
-- `tools/bootstrap/ensure_mobileapi.sh`
-- `tools/runtime/run_linux_preview.sh`
-- `tools/runtime/start_domain_core.sh`
-- `tools/runtime/start_remote_core.sh`
-- `tools/runtime/stop_remote_core.sh`
-
-## Tests And Checks
-
-Run static analysis:
+Static analysis:
 
 ```bash
 make analyze
 ```
 
-Run the Flutter test suite:
+Flutter tests:
 
 ```bash
 make test
 ```
 
-The app-owned analyzer config excludes `third_party/**` so vendored plugin code
-does not pollute app analysis.
+## Domain And Backend Startup Helpers
+
+The mobile repo includes helper targets that delegate to runtime scripts and
+the neighboring backend workspace. They are convenience wrappers, not the
+source of backend truth.
+
+Common backend/domain helpers:
+
+| Target | Purpose |
+| --- | --- |
+| `make core-up` | Start required local core/runtime helpers. |
+| `make core-stop` | Stop local core/runtime helpers. |
+| `make remote-up` | Start a remote/tunnel runtime helper. |
+| `make remote-stop` | Stop remote/tunnel runtime helper. |
+| `make remote-url` | Print generated remote URL from `garbage/.core_tunnel_url`. |
+| `make domain-up` | Start backend through the configured domain helper. |
+| `make domain-up-fast` | Start domain helper without public healthcheck. |
+| `make domain-url` | Print generated domain URL from `garbage/.core_domain_url`. |
+| `make backend-up` | Start local mobile API helper when `API_URL` is local. |
+| `make backend-stop` | Stop local mobile API helper. |
+
+For the current shared test environment, the expected public API is:
+
+```bash
+curl https://mini-rs-erp-dev.wspace.sbs/healthz
+```
+
+Expected healthy response:
+
+```json
+{"ok":true}
+```
+
+If the domain is down, fix `mini_rs_erp` first. The mobile app cannot pass login
+or ERP workflow smoke tests without it.
+
+## Build Targets
+
+Release APK through Makefile:
+
+```bash
+make apk API_URL=https://mini-rs-erp-dev.wspace.sbs APK_NAME=accord.apk
+```
+
+The Makefile release APK target builds arm64 only:
+
+```make
+--release --target-platform android-arm64
+```
+
+Debug arm64 APK, when a non-release test APK is needed:
+
+```bash
+flutter build apk --debug --target-platform android-arm64 \
+  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs
+```
+
+Domain-backed release APK:
+
+```bash
+make apk-domain
+```
+
+Remote/tunnel-backed release APK:
+
+```bash
+make apk-remote
+```
+
+Android SDK bootstrap:
+
+```bash
+make android-sdk-setup
+```
+
+## Main Workflows
+
+### Startup
+
+Startup happens in `lib/main.dart`:
+
+1. Flutter binding is initialized.
+2. Edge-to-edge system UI is enabled.
+3. Native back-button bridge is initialized.
+4. Native dock bridge is initialized.
+5. Local notifications are initialized.
+6. Session is loaded.
+7. Unread notification state is loaded.
+8. Security, theme, locale, and platform helpers are loaded.
+9. `ErpnextStockMobileApp` is rendered inside `DevicePreview` when preview is
+   enabled.
+10. Firebase push messaging is initialized outside web builds.
+
+### App Shell
+
+The app shell in `lib/src/app/app.dart` wraps every route with:
+
+- `DockGestureOverlay`
+- `NetworkRequirementRuntime`
+- `NotificationRuntime`
+- `AppLockGate`
+- theme controller
+- locale controller
+- native back/dock navigation observers
+- route capability checks
+
+This means feature pages should not reimplement global lock, network,
+notification, or native navigation behavior.
+
+### Auth And Capability Flow
+
+The backend returns profile, role, access role, and capability data. The app
+uses that profile to decide which routes can be opened.
+
+Role enum:
+
+```dart
+enum UserRole { supplier, werka, customer, aparatchi, qolipchi, admin }
+```
+
+Capability enforcement lives in `AppRouter.canOpenRoute` and
+`_routeCapabilities`. Feature pages should not bypass that route gate. If a new
+screen requires a permission, add the route capability there and keep the
+backend capability contract in sync.
+
+### Supplier Flow
+
+Supplier screens handle:
+
+- supplier dashboard and status summary
+- item picker
+- quantity entry
+- confirm dispatch
+- success/result page
+- recent/history views
+- notification views
+- status breakdown and submitted-category details
+
+Supplier pages should use shared navigation, shared cards, shared buttons, and
+`MobileApi` supplier methods. They should not create their own HTTP clients.
+
+### Werka Flow
+
+Werka is the warehouse/operator workspace. It handles:
+
+- dashboard and pending queues
+- status breakdown and detail pages
+- supplier receipt confirmation
+- customer issue creation
+- batch customer issue creation
+- unannounced supplier creation
+- stock-entry barcode lookup
+- stock-entry QR scan
+- archive by sent hub, day, month, year, period, and list
+- Batch QR lookup and dispatch
+- archive PDF/file save/share flows
+- notifications
+
+Important behavior:
+
+- QR and stock-entry validation is backend-owned.
+- Duplicate dispatch protection is backend-owned.
+- Customer selection ordering is shared, not copied per screen.
+- Archive/file flows may use local file APIs, but ERP truth remains in backend
+  state.
+
+### Customer Flow
+
+Customer screens handle:
+
+- delivery list and status summary
+- delivery detail
+- approve/reject response
+- notifications
+- shared notification detail
+
+Customer priority and state helpers live under `lib/src/core/customer/` and the
+customer feature state folder.
+
+### Admin Flow
+
+Admin screens handle:
+
+- home/dashboard
+- users and worker profiles
+- roles and capabilities
+- suppliers and customers
+- supplier/customer item assignment
+- inactive supplier restore/removal
+- item and item group creation
+- item group bulk move
+- warehouses
+- calculate and calculate orders
+- production map test/editor
+- production map live order queue
+- WIP batches
+- progress QR scan
+- raw material rules and assignments
+- apparatus settings, groups, and queue policies
+- server monitor
+- activity and notifications
+
+Admin is the widest surface in the app. New admin functionality should be split
+into focused state/model/helper files when it grows, but not fragmented so far
+that the flow becomes harder to read.
+
+### Aparatchi Flow
+
+Aparatchi uses the production-map queue workspace for operator execution. Its
+capabilities are centered around:
+
+- viewing assigned apparatus queue
+- starting/pause/resume/complete actions through backend-owned validation
+- progress QR and material validation where required
+- worker-mode route access
+
+### Qolipchi Flow
+
+Qolipchi screens are the mobile entry for Qolip inventory work:
+
+- blocks
+- locations
+- cells
+- QR-based inventory identity
+- checkout/return/move actions through backend endpoints
+
+The app should display the workflow and collect scans/actions. Inventory truth
+belongs to `mini_rs_erp`.
+
+### Rezka Flow
+
+Rezka exposes split/cutting workflow screens behind the
+`rezka.split.manage` capability. Quantity rules and final state changes must
+stay backend-owned.
+
+### GScale/RPS Flow
+
+GScale mode is embedded in the app but has a separate LAN/mobileapi runtime.
+It covers:
+
+- LAN server discovery with `gscale.local` and approved ports
+- health and handshake
+- live monitor stream
+- ERP setup status and setup submission/removal
+- item and warehouse lookup
+- batch start/stop
+- manual print requests
+- Zebra/Godex printer mode selection
+- archive listing and archive print requests
+- local draft persistence for operator settings
+
+The main `mini_rs_erp` API is still used for related catalog/RPS bridge calls
+where the code routes through `MobileApi`.
+
+## Code Architecture
+
+Top-level layout:
+
+| Path | Purpose |
+| --- | --- |
+| `lib/main.dart` | Process startup and app bootstrap. |
+| `lib/src/app/` | `MaterialApp`, router, route capability gate, page transitions. |
+| `lib/src/core/api/` | API client facade and endpoint groups. |
+| `lib/src/core/session/` | Session load/save, auth token, profile runtime. |
+| `lib/src/core/security/` | PIN/biometric/app-lock runtime. |
+| `lib/src/core/network/` | Network requirement gate. |
+| `lib/src/core/notifications/` | Push, local notifications, unread/runtime stores. |
+| `lib/src/core/realtime/` | Websocket/live clients. |
+| `lib/src/core/search/` | Search normalization and activity state. |
+| `lib/src/core/files/` | File save/share helpers. |
+| `lib/src/core/localization/` | Uzbek, English, Russian localization runtime. |
+| `lib/src/core/theme/` | Theme, typography, motion, visual tokens. |
+| `lib/src/core/widgets/` | Shared app shell, cards, buttons, forms, lists, feedback, navigation widgets. |
+| `lib/src/features/` | Role and feature-specific presentation/state/logic. |
+| `test/` | Flutter widget/unit tests. |
+| `docs/` | Runbooks and refactor plans. |
+| `tools/` | Bootstrap/runtime helper scripts. |
+
+Feature layout:
+
+| Path | Purpose |
+| --- | --- |
+| `lib/src/features/auth/` | Login and app entry. |
+| `lib/src/features/supplier/` | Supplier workspace. |
+| `lib/src/features/werka/` | Warehouse/operator workspace. |
+| `lib/src/features/customer/` | Customer workspace. |
+| `lib/src/features/admin/` | Admin, production map, roles, warehouses, WIP, raw material, monitoring. |
+| `lib/src/features/aparatchi/` | Operator-specific presentation entry points. |
+| `lib/src/features/qolip/` | Qolipchi inventory workspace. |
+| `lib/src/features/rezka/` | Rezka split workflow. |
+| `lib/src/features/gscale/` | Embedded GScale/RPS runtime. |
+| `lib/src/features/shared/` | Shared models and cross-role presentation. |
+
+## Shared UI Rules
+
+This app intentionally avoids copy-paste UI per role. Reusable pieces should
+live in `lib/src/core/widgets/`, `lib/src/core/theme/`, or
+`lib/src/features/shared/` when they are cross-role.
+
+Use shared components for:
+
+- top bars and native title styles
+- bottom docks
+- drawers
+- profile shell
+- cards and expandable cards
+- form fields
+- confirm dialogs
+- loading/error/empty states
+- list rows
+- scroll physics
+- route transition behavior
+
+Do not create a new role-local copy of a component just to change text or a
+small callback. Add parameters to the shared component instead. Role-local
+widgets are acceptable when the workflow is genuinely unique.
+
+## Navigation And Motion
+
+Routes are centralized in `lib/src/app/app_router.dart`.
+
+Current behavior:
+
+- Most routes use `MaterialPageRoute`.
+- Admin custom transition is disabled by `_usesAdminPageTransition`, which
+  currently returns `false`.
+- Static dock routes are listed in `AppRouter.staticDockRoutes`.
+- Route access is capability-gated before building the page.
+
+If a new transition is introduced, it should be intentional and shared. Do not
+add one-off page slide effects that make back navigation feel inconsistent.
+
+## Data And Local State
+
+Local state is allowed for device/runtime concerns:
+
+- auth token, last phone, and last code
+- app profile and avatar cache
+- unread/hidden notification state
+- Supplier, Werka, and Customer runtime stores
+- search activity and search normalization
+- PIN, biometric, theme, and locale preferences
+- cached GScale servers and operator-control drafts
+- temporary files used for archive save/share flows
+
+Local state is not the ERP source of truth. Any production action must go
+through backend endpoints.
+
+## Device Features
+
+Android dependencies and permissions support:
+
+- camera and QR scanning
+- Firebase Cloud Messaging
+- local notifications
+- biometric unlock
+- file save/share
+- gallery access where needed
+- legacy external storage support where required by older Android versions
+
+iOS support includes:
+
+- Face ID usage text
+- camera usage text
+- photo library usage text
+- remote notification registration
+- native scene integration for back navigation and bottom dock behavior
+- signed profile build runbook for physical device installs
+
+iOS physical device runbook:
+
+```text
+docs/runbooks/ios_device_install_runbook.md
+```
+
+## Testing
+
+Run all Flutter tests:
+
+```bash
+make test
+```
+
+Run analyzer:
+
+```bash
+make analyze
+```
 
 Focused test coverage currently includes:
 
 - app navigation and retry state
-- native top-bar and bottom-nav behavior
-- admin supplier/customer/item workflows
-- admin item group creation, parent selection, and parent move UI behavior
+- route capability gates
+- app shell native top-bar and bottom-nav behavior
+- shared theme behavior
+- supplier confirm flow
 - customer delivery runtime and priority behavior
-- Supplier confirm flow
-- Werka archive, Batch QR, create hub, runtime store, and stock-entry lookup
+- Werka archive, QR, create hub, runtime store, and stock-entry lookup
+- admin supplier/customer/item workflows
+- admin roles, users, warehouses, WIP, server monitor, raw material screens
+- production map models, chain, branch labels, stress paths
+- GScale discovery/catalog/print helpers
+- shared dialogs, async pickers, scroll physics
 - search normalization and search activity persistence
-- shared confirmation dialog and scroll physics
+
+Docs-only changes do not require a full Flutter test run, but code changes
+should at minimum pass `make analyze` and the relevant focused tests.
+
+## Operational Smoke Test
+
+Before validating the mobile app, validate backend health:
+
+```bash
+curl https://mini-rs-erp-dev.wspace.sbs/healthz
+```
+
+Then run:
+
+```bash
+make run
+```
+
+Minimum manual smoke path:
+
+1. Login with a valid test user.
+2. Confirm the correct role workspace opens.
+3. Open profile and return.
+4. Open notifications.
+5. For Supplier: select item, enter quantity, reach confirm page.
+6. For Werka: open pending/history/archive and one QR/lookup screen.
+7. For Customer: open a delivery detail.
+8. For Admin: open roles, users, production map orders, WIP, server monitor.
+9. Confirm navigation back behavior is normal.
+10. Confirm no page uses an old backend domain.
+
+## Troubleshooting
+
+### `make: flutter: No such file or directory`
+
+Flutter is not installed or not in `PATH`. The Makefile also checks:
+
+```text
+$HOME/.local/flutter/bin/flutter
+```
+
+Install Flutter or export the Flutter binary path before running Make targets.
+
+### Linux build asks for `clang++`
+
+That happens when running the Linux desktop target without the native build
+toolchain. For normal preview, use the default Chromium target:
+
+```bash
+make run
+```
+
+If Linux desktop is required, install the C++ compiler/CMake GTK toolchain for
+the host OS.
+
+### Preview does not show phone frames
+
+`make run` sets:
+
+```text
+APP_FORCE_DEVICE_PREVIEW=true
+```
+
+If running manually, pass it:
+
+```bash
+flutter run -d chrome \
+  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs \
+  --dart-define=APP_FORCE_DEVICE_PREVIEW=true
+```
+
+### Login does not work
+
+Check in this order:
+
+1. `mini_rs_erp` domain responds to `/healthz`.
+2. Backend database is connected and not asleep.
+3. The test user exists and has the expected role/capabilities.
+4. The app was built with the expected `MOBILE_API_BASE_URL`.
+5. Browser/device is not using a stale build with an old domain.
+
+### CORS or web-only failures
+
+`make run` uses Chromium flags that relax web security for local preview. Do
+not treat those flags as production behavior. Production/mobile APKs must rely
+on a real reachable HTTPS backend.
+
+### APK points to the wrong backend
+
+Rebuild with the explicit define:
+
+```bash
+flutter build apk --debug --target-platform android-arm64 \
+  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs
+```
+
+or for Makefile release builds:
+
+```bash
+make apk API_URL=https://mini-rs-erp-dev.wspace.sbs
+```
+
+## Development Rules
+
+- Keep backend truth in `mini_rs_erp`; keep this repo focused on mobile UX and
+  device integration.
+- Use `MobileApi.instance` and existing endpoint groups instead of creating
+  ad-hoc HTTP clients in screens.
+- Keep route names, role names, capability codes, and endpoint paths compatible
+  with the backend.
+- Do not hardcode old domains.
+- Do not duplicate role UI when a shared component can be parameterized.
+- Add or update tests when behavior changes.
+- Keep `third_party/**` vendored code out of app-owned analyzer cleanup unless
+  the vendored patch is intentional.
+- Update this README when changing run commands, backend domain behavior,
+  role/capability flow, or build artifacts.
 
 ## Related Repositories
 
-- Primary mobile backend: `accord_mobile_server_rs`
-- ERP custom field app: `accord_erp_custom_field`
-- GScale mobileapi: `gscale-zebra`
-
-## Operational Notes
-
-- Use a public/domain backend for release builds, never `localhost` or
-  `127.0.0.1`.
-- Keep business logic in `accord_mobile_server_rs`, GScale mobileapi, and
-  ERPNext, not in this Flutter client.
-- Generated logs, pid files, tunnel state, and scratch output live in
-  `garbage/`.
-- Keep `third_party/local_auth_darwin` vendored and excluded from app analysis.
-- If a field, endpoint, route, or device permission changes, update this README
-  together with the backend and ERP app README files.
+| Repository | Relationship |
+| --- | --- |
+| `mini_rs_erp` | Primary backend and ERP source of truth for this app. |
+| `accord_mobile_v2` | Flutter mobile client in this repository. |
+| `gscale-zebra` | Optional LAN/mobileapi scale and printer runtime used by GScale mode. |
