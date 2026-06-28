@@ -1341,6 +1341,11 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rng = math.Random(seed);
     final rect = Offset.zero & size;
+    final artColors = _artDirectedColors(colors, surface);
+    final c0 = artColors[0];
+    final c1 = artColors[1];
+    final c2 = artColors[2];
+    final c3 = artColors[3];
     final basePaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment(
@@ -1352,26 +1357,38 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
           1,
         ),
         colors: [
-          colors[0].withValues(alpha: 0.92),
-          colors[1].withValues(alpha: 0.82),
-          colors[2].withValues(alpha: 0.76),
+          c0.withValues(alpha: 0.98),
+          c1.withValues(alpha: 0.88),
+          c2.withValues(alpha: 0.86),
+          c3.withValues(alpha: 0.76),
         ],
+        stops: const [0.0, 0.42, 0.72, 1.0],
       ).createShader(rect);
     canvas.drawRect(rect, basePaint);
+
+    for (var i = 0; i < 5; i++) {
+      _drawPetalVeil(
+        canvas,
+        size,
+        rng: rng,
+        color: artColors[i % artColors.length],
+        index: i,
+      );
+    }
 
     _drawFlowBlob(
       canvas,
       size,
       center: Offset(size.width * 0.18, size.height * 0.08),
-      radius: size.width * (0.42 + rng.nextDouble() * 0.16),
-      color: colors[1].withValues(alpha: 0.24),
+      radius: size.width * (0.52 + rng.nextDouble() * 0.18),
+      color: c1.withValues(alpha: 0.30),
     );
     _drawFlowBlob(
       canvas,
       size,
       center: Offset(size.width * (0.72 + rng.nextDouble() * 0.16), -8),
-      radius: size.width * (0.36 + rng.nextDouble() * 0.18),
-      color: colors[2].withValues(alpha: 0.22),
+      radius: size.width * (0.46 + rng.nextDouble() * 0.20),
+      color: c2.withValues(alpha: 0.28),
     );
     _drawFlowBlob(
       canvas,
@@ -1379,10 +1396,10 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
       center: Offset(size.width * (0.22 + rng.nextDouble() * 0.20),
           size.height * (0.82 + rng.nextDouble() * 0.12)),
       radius: size.width * 0.48,
-      color: surface.withValues(alpha: 0.24),
+      color: c3.withValues(alpha: 0.22),
     );
 
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 5; i++) {
       final path = Path();
       final startY = size.height * (0.18 + rng.nextDouble() * 0.52);
       path.moveTo(-size.width * 0.18, startY);
@@ -1396,11 +1413,11 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
       );
       final paint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * (0.18 + rng.nextDouble() * 0.16)
+        ..strokeWidth = size.width * (0.16 + rng.nextDouble() * 0.22)
         ..strokeCap = StrokeCap.round
-        ..color = (i.isEven ? surface : colors[i])
-            .withValues(alpha: i.isEven ? 0.18 : 0.12)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+        ..color = (i.isEven ? surface : artColors[i % artColors.length])
+            .withValues(alpha: i.isEven ? 0.22 : 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22);
       canvas.drawPath(path, paint);
     }
 
@@ -1409,11 +1426,83 @@ class _ProfileAbstractGradientPainter extends CustomPainter {
         center: const Alignment(0.12, -0.18),
         radius: 1.0,
         colors: [
-          surface.withValues(alpha: 0.24),
+          surface.withValues(alpha: 0.18),
           surface.withValues(alpha: 0.02),
         ],
       ).createShader(rect);
     canvas.drawRect(rect, washPaint);
+  }
+
+  List<Color> _artDirectedColors(List<Color> source, Color surface) {
+    if (source.every(_isNeutralColor)) {
+      final hsl = HSLColor.fromColor(source.first);
+      final base = hsl.withSaturation(0.02);
+      return [
+        base.withLightness((hsl.lightness - 0.18).clamp(0.24, 0.58)).toColor(),
+        base.withLightness((hsl.lightness + 0.02).clamp(0.42, 0.70)).toColor(),
+        base.withLightness((hsl.lightness + 0.16).clamp(0.58, 0.86)).toColor(),
+        surface.withValues(alpha: 1),
+      ];
+    }
+    return [
+      source[0],
+      source[1],
+      source[2],
+      HSLColor.fromColor(source[1])
+          .withHue((HSLColor.fromColor(source[1]).hue + 24) % 360)
+          .withLightness(
+            (HSLColor.fromColor(source[1]).lightness + 0.16).clamp(0.54, 0.86),
+          )
+          .toColor(),
+    ];
+  }
+
+  void _drawPetalVeil(
+    Canvas canvas,
+    Size size, {
+    required math.Random rng,
+    required Color color,
+    required int index,
+  }) {
+    final startX = size.width * (-0.16 + rng.nextDouble() * 0.34);
+    final startY = size.height * (0.18 + rng.nextDouble() * 0.58);
+    final endX = size.width * (0.82 + rng.nextDouble() * 0.36);
+    final endY = size.height * (-0.04 + rng.nextDouble() * 0.86);
+    final lift = size.height * (0.32 + rng.nextDouble() * 0.36);
+    final thickness = size.height * (0.28 + rng.nextDouble() * 0.30);
+    final path = Path()
+      ..moveTo(startX, startY)
+      ..cubicTo(
+        size.width * (0.20 + rng.nextDouble() * 0.18),
+        startY - lift,
+        size.width * (0.42 + rng.nextDouble() * 0.24),
+        endY + lift * 0.22,
+        endX,
+        endY,
+      )
+      ..cubicTo(
+        size.width * (0.54 + rng.nextDouble() * 0.24),
+        endY + thickness,
+        size.width * (0.18 + rng.nextDouble() * 0.20),
+        startY + thickness * 0.72,
+        startX - size.width * 0.10,
+        startY + thickness * 0.28,
+      )
+      ..close();
+
+    final bounds = path.getBounds().inflate(size.width * 0.08);
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          color.withValues(alpha: index.isEven ? 0.26 : 0.18),
+          surface.withValues(alpha: index.isEven ? 0.16 : 0.10),
+          color.withValues(alpha: 0.02),
+        ],
+      ).createShader(bounds)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+    canvas.drawPath(path, paint);
   }
 
   void _drawFlowBlob(
