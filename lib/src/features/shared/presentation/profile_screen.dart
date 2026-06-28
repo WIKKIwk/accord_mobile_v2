@@ -488,6 +488,16 @@ class _ProfileScreenState extends State<ProfileScreen>
           title: l10n.profileTitle,
           subtitle: '',
           nativeTopBar: true,
+          actions: [
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 10),
+              child: AppShellIconAction(
+                icon: Icons.tune_rounded,
+                size: 38,
+                onTap: _openProfileSettings,
+              ),
+            ),
+          ],
           animateOnEnter: current.accessRole != UserRole.customer,
           drawer: switch (shellKind) {
             _ProfileShellKind.werka => WerkaNavigationDrawer(
@@ -719,15 +729,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SmoothAppear(
-                    delay: const Duration(milliseconds: 60),
-                    child: AppSegmentSurfaceCard(
-                      child: _ProfileSettingsEntry(
-                        onTap: () => _openProfileSettings(),
-                      ),
-                    ),
-                  ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: 10),
                     _ProfilePanel(child: Text(errorMessage!)),
@@ -812,65 +813,6 @@ class _ProfilePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSegmentSurfaceCard(child: child);
-  }
-}
-
-class _ProfileSettingsEntry extends StatelessWidget {
-  const _ProfileSettingsEntry({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: Row(
-          children: [
-            Container(
-              height: 44,
-              width: 44,
-              decoration: BoxDecoration(
-                color: scheme.secondaryContainer.withValues(alpha: 0.84),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.tune_rounded,
-                color: scheme.onSecondaryContainer,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.profileSettingsTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    l10n.profileSettingsBody,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-          ],
-        ),
-      ),
-    );
   }
 }
 

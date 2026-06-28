@@ -292,13 +292,15 @@ void main() {
 
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Role-based account'), findsOneWidget);
-    expect(find.text('Profile settings'), findsOneWidget);
+    expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
+    expect(find.text('Profile settings'), findsNothing);
     expect(find.text('Language'), findsNothing);
     expect(find.text('Security'), findsNothing);
 
-    await tester.tap(find.text('Profile settings'));
+    await tester.tap(find.byIcon(Icons.tune_rounded));
     await tester.pumpAndSettle();
 
+    expect(find.text('Profile settings'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('Choose the app language'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
