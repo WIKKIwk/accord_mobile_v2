@@ -714,9 +714,14 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final localizations = Localizations.of<AppLocalizations>(
+      context,
+      AppLocalizations,
+    );
     return Semantics(
       button: true,
-      label: context.l10n.profileTitle,
+      label: localizations?.profileTitle ?? 'Profile',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
@@ -725,7 +730,23 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
           height: 38,
           child: Center(
             child: _avatarBytes == null || _avatarBytes!.isEmpty
-                ? const Icon(Icons.person_rounded)
+                ? Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer.withValues(alpha: 0.92),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.34),
+                        width: 1.4,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.person_rounded,
+                      size: 18,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  )
                 : ClipOval(
                     child: Image.memory(
                       _avatarBytes!,
