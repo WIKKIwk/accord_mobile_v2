@@ -1287,7 +1287,6 @@ class _ProfileHeroCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                bottom: 72,
                 child: _ProfileCoverPreview(
                   displayName: displayName,
                   cachedAvatarBytes: cachedAvatarBytes,
@@ -1489,8 +1488,10 @@ class _ProfileCoverPreview extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   scheme.surface.withValues(alpha: bytes == null ? 0.02 : 0.04),
-                  scheme.surface.withValues(alpha: bytes == null ? 0.18 : 0.20),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.10 : 0.16),
+                  scheme.surface.withValues(alpha: bytes == null ? 0.52 : 0.68),
                 ],
+                stops: const [0.0, 0.58, 1.0],
               ),
             ),
           ),
