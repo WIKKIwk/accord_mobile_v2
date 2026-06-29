@@ -179,44 +179,34 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
               }
               final current = snapshot.data!;
               _fill(current);
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final minCardHeight =
-                      (constraints.maxHeight - 116 - _werkaDetailPanelGap * 2)
-                          .clamp(0.0, double.infinity);
-                  return ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      _werkaDetailPanelGap,
-                      _werkaDetailPanelGap,
-                      _werkaDetailPanelGap,
-                      116,
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  _werkaDetailPanelGap,
+                  _werkaDetailPanelGap,
+                  _werkaDetailPanelGap,
+                  116,
+                ),
+                children: [
+                  AppSegmentSurfaceCard(
+                    padding: EdgeInsets.zero,
+                    child: _AdminWerkaDetailCard(
+                      name: name,
+                      phone: phone,
+                      avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
+                      code: werkaCode,
+                      retryAfterSec: _retryAfterSec,
+                      expanded: adminPanelExpanded,
+                      saving: saving,
+                      regenerating: regenerating,
+                      onExpandedChanged: (expanded) {
+                        setState(() => adminPanelExpanded = expanded);
+                      },
+                      onSave: () => _save(current),
+                      onCopyCode: _copyCode,
+                      onRegenerateCode: _regenerate,
                     ),
-                    children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minCardHeight),
-                        child: AppSegmentSurfaceCard(
-                          padding: EdgeInsets.zero,
-                          child: _AdminWerkaDetailCard(
-                            name: name,
-                            phone: phone,
-                            avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
-                            code: werkaCode,
-                            retryAfterSec: _retryAfterSec,
-                            expanded: adminPanelExpanded,
-                            saving: saving,
-                            regenerating: regenerating,
-                            onExpandedChanged: (expanded) {
-                              setState(() => adminPanelExpanded = expanded);
-                            },
-                            onSave: () => _save(current),
-                            onCopyCode: _copyCode,
-                            onRegenerateCode: _regenerate,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                  ),
+                ],
               );
             },
           ),
