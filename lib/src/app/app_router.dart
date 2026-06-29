@@ -9,6 +9,7 @@ import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
 import '../features/admin/presentation/admin_calculate_orders_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
+import '../features/admin/presentation/admin_factory_map_screen.dart';
 import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
 import '../features/admin/presentation/admin_item_create_screen.dart';
@@ -142,6 +143,7 @@ class AppRoutes {
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
+  static const String adminFactoryMap = '/admin-factory-map';
   static const String adminWipBatches = '/admin-wip-batches';
   static const String adminQueuePolicies = '/admin-queue-policies';
   static const String adminApparatusSettings = '/admin-apparatus-settings';
@@ -194,6 +196,7 @@ class AppRouter {
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminProgressQrScan,
     AppRoutes.adminServerMonitor,
+    AppRoutes.adminFactoryMap,
     AppRoutes.adminWipBatches,
     AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusSettings,
@@ -439,6 +442,8 @@ class AppRouter {
         return _buildRoute(settings, const AdminProgressQrScanScreen());
       case AppRoutes.adminServerMonitor:
         return _buildRoute(settings, const AdminServerMonitorScreen());
+      case AppRoutes.adminFactoryMap:
+        return _buildRoute(settings, const AdminFactoryMapScreen());
       case AppRoutes.adminWipBatches:
         return _buildRoute(settings, const AdminWipBatchesScreen());
       case AppRoutes.adminQueuePolicies:
@@ -696,6 +701,7 @@ class AppRouter {
       'production.map.manage',
     },
     AppRoutes.adminServerMonitor: {'admin.access'},
+    AppRoutes.adminFactoryMap: {'admin.access'},
     AppRoutes.adminWipBatches: {
       'admin.access',
       'production.map.manage',

@@ -38,6 +38,8 @@
 	<string>The app needs photo library access to save rendered archive pages into Photos.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

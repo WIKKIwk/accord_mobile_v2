@@ -34,6 +34,7 @@ dependencies:
   mobile_scanner: ^7.2.0
   pdfx: ^2.9.2
   share_plus: ^12.0.2
+  model_viewer_plus: ^1.10.0
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +52,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/models/zavod6-phone.glb
 
 flutter_launcher_icons:
   android: true

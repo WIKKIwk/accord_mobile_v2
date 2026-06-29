@@ -114,6 +114,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminServerMonitor,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.view_in_ar_outlined,
+      selectedIcon: Icons.view_in_ar_rounded,
+      label: l10n.adminFactoryMapNavTitle,
+      routeName: AppRoutes.adminFactoryMap,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
       label: l10n.profileTitle,

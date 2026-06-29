@@ -717,6 +717,8 @@ class AppLocalizations {
       );
   String get adminServerStatusNavTitle =>
       _t('Server holati', 'Server status', 'Состояние сервера');
+  String get adminFactoryMapNavTitle =>
+      _t('Zavod kartasi', 'Factory map', 'Карта завода');
   String get adminScalesModeNavTitle =>
       _t('Tarozilar rejimi', 'Scales mode', 'Режим весов');
   String get adminCuttingNavTitle => _t('Kesish', 'Cutting', 'Резка');
