@@ -94,7 +94,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       return;
     }
     try {
-      final printer = _qolipPrinterChoice(option.printerLabel);
+      final printer = qolipPrinterChoiceForDriver(
+        kind: option.printerKind,
+        label: option.printerLabel,
+      );
       final cellQr = await MobileApi.instance.qolipPrintCellQr(
         block: block,
         rowLetter: rowLetter,
@@ -1006,11 +1009,13 @@ class _QolipPrinterOption {
   const _QolipPrinterOption({
     required this.server,
     required this.driverUrl,
+    required this.printerKind,
     required this.printerLabel,
   });
 
   final DiscoveredServer server;
   final String driverUrl;
+  final String printerKind;
   final String printerLabel;
 }
 
@@ -1229,6 +1234,7 @@ Future<_QolipPrinterOption?> _connectedQolipPrinter(
     return _QolipPrinterOption(
       server: server,
       driverUrl: driverUrlForRs(server).replaceFirst(RegExp(r'/+$'), ''),
+      printerKind: kind,
       printerLabel: _qolipJsonText(printerRaw['label'], fallback: kind),
     );
   } catch (_) {
@@ -1255,9 +1261,23 @@ String _qolipJsonText(Object? value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
-String _qolipPrinterChoice(String printerLabel) {
-  final normalized = printerLabel.trim().toLowerCase();
-  return normalized.contains('godex') ? 'godex' : 'zebra';
+String qolipPrinterChoiceForDriver({
+  required String kind,
+  required String label,
+}) {
+  final normalizedKind = kind.trim().toLowerCase();
+  if (normalizedKind == 'godex' ||
+      normalizedKind == 'go-dex' ||
+      normalizedKind == 'g500') {
+    return 'godex';
+  }
+  if (normalizedKind == 'zebra' ||
+      normalizedKind == 'zpl' ||
+      normalizedKind == 'rfid') {
+    return 'zebra';
+  }
+  final normalizedLabel = label.trim().toLowerCase();
+  return normalizedLabel.contains('godex') ? 'godex' : 'zebra';
 }
 
 List<QolipProduct> _qolipProductsWithSavedCodeOnly(
