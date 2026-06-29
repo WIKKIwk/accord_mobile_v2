@@ -486,25 +486,31 @@ class _WorkerAdminPanel extends StatelessWidget {
         const _WorkerDetailLabel('Telefon'),
         const SizedBox(height: 6),
         AppDetailField(
-          value: detail.phone.trim().isEmpty
-              ? 'Kiritilmagan'
-              : detail.phone.trim(),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.tonal(
-            style: appFilledActionButtonStyle(
-              borderRadius: _workerDetailFieldRadius,
-            ),
-            onPressed: savingPhone ? null : () => onAddPhone(detail),
-            child: Text(
-              savingPhone
-                  ? 'Saqlanmoqda...'
-                  : detail.phone.trim().isEmpty
-                      ? 'Telefon raqami kiritish'
-                      : 'Telefonni yangilash',
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  detail.phone.trim().isEmpty
+                      ? 'Kiritilmagan'
+                      : detail.phone.trim(),
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('admin-worker-detail-phone-action'),
+                tooltip: detail.phone.trim().isEmpty
+                    ? 'Telefon raqami kiritish'
+                    : 'Telefonni yangilash',
+                onPressed: savingPhone ? null : () => onAddPhone(detail),
+                icon: savingPhone
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.edit_rounded),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 14),
