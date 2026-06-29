@@ -224,39 +224,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> _pickCover() async {
-    try {
-      final picked = await _avatarPicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        maxHeight: 900,
-        imageQuality: 84,
-      );
-      if (picked == null) {
-        return;
-      }
-      final bytes = await picked.readAsBytes();
-      if (bytes.isEmpty) {
-        throw Exception('empty cover');
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        errorMessage = null;
-        pendingCoverBytes = bytes;
-      });
-      unawaited(_refreshCoverArt());
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        errorMessage = context.l10n.imagePickFailed;
-      });
-    }
-  }
-
   Future<void> _saveAvatar() async {
     final bytes = pendingAvatarBytes;
     final filename = pendingAvatarName;
@@ -459,20 +426,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                       fallbackIcon: Icons.person_rounded,
                       onTap: () async {
                         await _pickAvatar();
-                        setSheetState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _ProfileEditImageRow(
-                      title: context.l10n.profileCoverTitle,
-                      actionLabel: pendingCoverBytes == null
-                          ? context.l10n.chooseImage
-                          : context.l10n.changeImage,
-                      imageBytes: pendingCoverBytes ?? cachedCoverBytes,
-                      fallbackIcon: Icons.image_rounded,
-                      wide: true,
-                      onTap: () async {
-                        await _pickCover();
                         setSheetState(() {});
                       },
                     ),
@@ -1213,7 +1166,6 @@ class _ProfileEditImageRow extends StatelessWidget {
     required this.imageBytes,
     required this.fallbackIcon,
     required this.onTap,
-    this.wide = false,
   });
 
   final String title;
@@ -1221,7 +1173,6 @@ class _ProfileEditImageRow extends StatelessWidget {
   final Uint8List? imageBytes;
   final IconData fallbackIcon;
   final VoidCallback onTap;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,10 +1186,10 @@ class _ProfileEditImageRow extends StatelessWidget {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(wide ? 14 : 999),
+              borderRadius: BorderRadius.circular(999),
               child: SizedBox(
                 height: 54,
-                width: wide ? 88 : 54,
+                width: 54,
                 child: imageBytes == null || imageBytes!.isEmpty
                     ? ColoredBox(
                         color: scheme.surfaceContainerHighest,
@@ -1250,7 +1201,7 @@ class _ProfileEditImageRow extends StatelessWidget {
                     : Image.memory(
                         imageBytes!,
                         fit: BoxFit.cover,
-                        cacheWidth: wide ? 220 : 120,
+                        cacheWidth: 120,
                         filterQuality: FilterQuality.low,
                       ),
               ),
