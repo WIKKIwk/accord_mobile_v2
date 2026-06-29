@@ -352,6 +352,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('Profil'), findsOneWidget);
+      expect(find.text('Admin boshqaruv'), findsNothing);
+
+      await tester.tap(find.byKey(
+        const ValueKey('admin-worker-detail-admin-toggle'),
+      ));
+      await tester.pumpAndSettle();
       expect(find.text('Admin boshqaruv'), findsOneWidget);
       expect(find.text('Telefon'), findsOneWidget);
       expect(find.text('Kiritilmagan'), findsOneWidget);

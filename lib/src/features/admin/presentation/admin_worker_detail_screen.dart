@@ -37,6 +37,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   bool _loading = true;
   bool _savingPhone = false;
   bool _regeneratingCode = false;
+  bool _adminPanelExpanded = false;
   bool _changed = false;
   late final RetryAfterCountdown _retryAfter;
   int get _retryAfterSec => _retryAfter.seconds;
@@ -213,23 +214,23 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
             children: [
               AppSegmentSurfaceCard(
                 padding: EdgeInsets.zero,
-                child: _WorkerProfileHeroCard(
+                child: _WorkerProfileExpandableCard(
                   detail: detail,
                   statusLabel: _loading
                       ? 'Yuklanmoqda'
                       : _loadError != null
                           ? 'Xato'
                           : 'Tayyor',
+                  expanded: _adminPanelExpanded,
+                  savingPhone: _savingPhone || _loading,
+                  regeneratingCode: _regeneratingCode,
+                  onExpandedChanged: (expanded) {
+                    setState(() => _adminPanelExpanded = expanded);
+                  },
+                  onAddPhone: _addPhone,
+                  onRegenerateCode: _regenerateCode,
+                  onCopyCode: _copyCode,
                 ),
-              ),
-              const SizedBox(height: 10),
-              _WorkerAdminPanel(
-                detail: detail,
-                savingPhone: _savingPhone || _loading,
-                regeneratingCode: _regeneratingCode,
-                onAddPhone: _addPhone,
-                onRegenerateCode: _regenerateCode,
-                onCopyCode: _copyCode,
               ),
               const SizedBox(height: 12),
               OutlinedButton(
@@ -260,14 +261,28 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   }
 }
 
-class _WorkerProfileHeroCard extends StatelessWidget {
-  const _WorkerProfileHeroCard({
+class _WorkerProfileExpandableCard extends StatelessWidget {
+  const _WorkerProfileExpandableCard({
     required this.detail,
     required this.statusLabel,
+    required this.expanded,
+    required this.savingPhone,
+    required this.regeneratingCode,
+    required this.onExpandedChanged,
+    required this.onAddPhone,
+    required this.onRegenerateCode,
+    required this.onCopyCode,
   });
 
   final AdminWorkerDetail detail;
   final String statusLabel;
+  final bool expanded;
+  final bool savingPhone;
+  final bool regeneratingCode;
+  final ValueChanged<bool> onExpandedChanged;
+  final Future<void> Function(AdminWorkerDetail detail) onAddPhone;
+  final Future<void> Function() onRegenerateCode;
+  final Future<void> Function(String code) onCopyCode;
 
   @override
   Widget build(BuildContext context) {
@@ -372,20 +387,60 @@ class _WorkerProfileHeroCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              ProfileInfoChip(
-                icon: Icons.phone_rounded,
-                label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ProfileInfoChip(
+                      icon: Icons.phone_rounded,
+                      label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+                    ),
+                    ProfileInfoChip(
+                      icon: Icons.badge_rounded,
+                      label: level.isEmpty ? 'Daraja belgilanmagan' : level,
+                    ),
+                  ],
+                ),
               ),
-              ProfileInfoChip(
-                icon: Icons.badge_rounded,
-                label: level.isEmpty ? 'Daraja belgilanmagan' : level,
+              const SizedBox(width: 8),
+              IconButton(
+                key: const ValueKey('admin-worker-detail-admin-toggle'),
+                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                onPressed: () => onExpandedChanged(!expanded),
+                icon: AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: expanded
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _WorkerAdminPanel(
+                    detail: detail,
+                    savingPhone: savingPhone,
+                    regeneratingCode: regeneratingCode,
+                    onAddPhone: onAddPhone,
+                    onRegenerateCode: onRegenerateCode,
+                    onCopyCode: onCopyCode,
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
@@ -413,90 +468,93 @@ class _WorkerAdminPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AppSegmentSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Admin boshqaruv',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(
+          height: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Admin boshqaruv',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 14),
+        const _WorkerDetailLabel('Worker ref'),
+        const SizedBox(height: 6),
+        AppDetailField(value: detail.id),
+        const SizedBox(height: 14),
+        const _WorkerDetailLabel('Telefon'),
+        const SizedBox(height: 6),
+        AppDetailField(
+          value: detail.phone.trim().isEmpty
+              ? 'Kiritilmagan'
+              : detail.phone.trim(),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            style: appFilledActionButtonStyle(
+              borderRadius: _workerDetailFieldRadius,
+            ),
+            onPressed: savingPhone ? null : () => onAddPhone(detail),
+            child: Text(
+              savingPhone
+                  ? 'Saqlanmoqda...'
+                  : detail.phone.trim().isEmpty
+                      ? 'Telefon raqami kiritish'
+                      : 'Telefonni yangilash',
             ),
           ),
-          const SizedBox(height: 14),
-          const _WorkerDetailLabel('Worker ref'),
-          const SizedBox(height: 6),
-          AppDetailField(value: detail.id),
-          const SizedBox(height: 14),
-          const _WorkerDetailLabel('Telefon'),
-          const SizedBox(height: 6),
-          AppDetailField(
-            value: detail.phone.trim().isEmpty
-                ? 'Kiritilmagan'
-                : detail.phone.trim(),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonal(
-              style: appFilledActionButtonStyle(
-                borderRadius: _workerDetailFieldRadius,
-              ),
-              onPressed: savingPhone ? null : () => onAddPhone(detail),
-              child: Text(
-                savingPhone
-                    ? 'Saqlanmoqda...'
-                    : detail.phone.trim().isEmpty
-                        ? 'Telefon raqami kiritish'
-                        : 'Telefonni yangilash',
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const _WorkerDetailLabel('Kirish kodi'),
-          const SizedBox(height: 6),
-          AppDetailField(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    detail.code.trim().isEmpty
-                        ? 'Hali generatsiya qilinmagan'
-                        : detail.code,
-                    style: theme.textTheme.titleMedium,
-                  ),
+        ),
+        const SizedBox(height: 14),
+        const _WorkerDetailLabel('Kirish kodi'),
+        const SizedBox(height: 6),
+        AppDetailField(
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  detail.code.trim().isEmpty
+                      ? 'Hali generatsiya qilinmagan'
+                      : detail.code,
+                  style: theme.textTheme.titleMedium,
                 ),
-                if (detail.code.trim().isNotEmpty)
-                  IconButton(
-                    onPressed: () => onCopyCode(detail.code),
-                    icon: const Icon(Icons.content_copy_outlined),
-                  ),
+              ),
+              if (detail.code.trim().isNotEmpty)
                 IconButton(
-                  onPressed: regeneratingCode || detail.codeLocked
-                      ? null
-                      : onRegenerateCode,
-                  icon: regeneratingCode
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
+                  onPressed: () => onCopyCode(detail.code),
+                  icon: const Icon(Icons.content_copy_outlined),
                 ),
-              ],
+              IconButton(
+                onPressed: regeneratingCode || detail.codeLocked
+                    ? null
+                    : onRegenerateCode,
+                icon: regeneratingCode
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+        ),
+        if (detail.codeRetryAfterSec > 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
           ),
-          if (detail.codeRetryAfterSec > 0) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }
