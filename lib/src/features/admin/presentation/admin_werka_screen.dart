@@ -3,11 +3,13 @@ import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 import 'dart:async';
 
@@ -15,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 const double _werkaDetailPanelGap = 4;
-const double _werkaDetailCardRadius = 18;
 const double _werkaDetailFieldRadius = 14;
 
 class AdminWerkaScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
   bool regenerating = false;
   bool hydrated = false;
   bool changed = false;
+  bool adminPanelExpanded = false;
 
   @override
   void initState() {
@@ -151,7 +153,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
         Navigator.of(context).pop(changed);
       },
       child: AppShell(
-        title: 'Werka',
+        title: 'Profil',
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -183,16 +185,23 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                   116,
                 ),
                 children: [
-                  _AdminWerkaDetailCard(
-                    name: name,
-                    phone: phone,
-                    code: werkaCode,
-                    retryAfterSec: _retryAfterSec,
-                    saving: saving,
-                    regenerating: regenerating,
-                    onSave: () => _save(current),
-                    onCopyCode: _copyCode,
-                    onRegenerateCode: _regenerate,
+                  AppSegmentSurfaceCard(
+                    padding: EdgeInsets.zero,
+                    child: _AdminWerkaDetailCard(
+                      name: name,
+                      phone: phone,
+                      code: werkaCode,
+                      retryAfterSec: _retryAfterSec,
+                      expanded: adminPanelExpanded,
+                      saving: saving,
+                      regenerating: regenerating,
+                      onExpandedChanged: (expanded) {
+                        setState(() => adminPanelExpanded = expanded);
+                      },
+                      onSave: () => _save(current),
+                      onCopyCode: _copyCode,
+                      onRegenerateCode: _regenerate,
+                    ),
                   ),
                 ],
               );
@@ -206,6 +215,202 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
 
 class _AdminWerkaDetailCard extends StatelessWidget {
   const _AdminWerkaDetailCard({
+    required this.name,
+    required this.phone,
+    required this.code,
+    required this.retryAfterSec,
+    required this.expanded,
+    required this.saving,
+    required this.regenerating,
+    required this.onExpandedChanged,
+    required this.onSave,
+    required this.onCopyCode,
+    required this.onRegenerateCode,
+  });
+
+  final TextEditingController name;
+  final TextEditingController phone;
+  final String code;
+  final int retryAfterSec;
+  final bool expanded;
+  final bool saving;
+  final bool regenerating;
+  final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onSave;
+  final Future<void> Function() onCopyCode;
+  final Future<void> Function() onRegenerateCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final displayName =
+        name.text.trim().isEmpty ? 'Omborchi' : name.text.trim();
+    final phoneText = phone.text.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 204,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                top: 112,
+                child: ColoredBox(color: scheme.surface),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 112,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        scheme.surfaceContainerHighest,
+                        scheme.surfaceContainerLow,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+              const Positioned(
+                right: 14,
+                top: 14,
+                child: AppStatusChip(label: 'Tayyor'),
+              ),
+              Positioned(
+                left: 16,
+                top: 74,
+                child: Container(
+                  height: 92,
+                  width: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.primaryContainer,
+                    border: Border.all(color: scheme.surface, width: 5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withValues(alpha: 0.16),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _werkaInitials(displayName),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 124,
+                right: 16,
+                top: 140,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Omborchi profili',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ProfileInfoChip(
+                      icon: Icons.phone_rounded,
+                      label: phoneText.isEmpty
+                          ? 'Telefon kiritilmagan'
+                          : phoneText,
+                    ),
+                    const ProfileInfoChip(
+                      icon: Icons.warehouse_rounded,
+                      label: 'Omborchi',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                key: const ValueKey('admin-werka-detail-admin-toggle'),
+                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                onPressed: () => onExpandedChanged(!expanded),
+                icon: AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: expanded
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _WerkaAdminPanel(
+                    name: name,
+                    phone: phone,
+                    code: code,
+                    retryAfterSec: retryAfterSec,
+                    saving: saving,
+                    regenerating: regenerating,
+                    onSave: onSave,
+                    onCopyCode: onCopyCode,
+                    onRegenerateCode: onRegenerateCode,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _WerkaAdminPanel extends StatelessWidget {
+  const _WerkaAdminPanel({
     required this.name,
     required this.phone,
     required this.code,
@@ -231,102 +436,103 @@ class _AdminWerkaDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_werkaDetailCardRadius),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    name.text.trim().isEmpty ? 'Werka' : name.text.trim(),
-                    style: theme.textTheme.headlineMedium,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(
+          height: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Admin boshqaruv',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text('Nomi', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        _WerkaTextField(
+          controller: name,
+          hintText: 'Omborchi',
+        ),
+        const SizedBox(height: 14),
+        Text('Telefon', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        _WerkaTextField(
+          controller: phone,
+          hintText: '+998901234567',
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 14),
+        Text('Kirish kodi', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        AppDetailField(
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  code.trim().isEmpty ? 'Hali generatsiya qilinmagan' : code,
+                  style: theme.textTheme.titleMedium,
                 ),
-                const AppStatusChip(label: 'Tayyor'),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text('Nomi', style: theme.textTheme.bodySmall),
-            const SizedBox(height: 6),
-            _WerkaTextField(
-              controller: name,
-              hintText: 'Werka',
-            ),
-            const SizedBox(height: 14),
-            Text('Telefon', style: theme.textTheme.bodySmall),
-            const SizedBox(height: 6),
-            _WerkaTextField(
-              controller: phone,
-              hintText: '+998901234567',
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 14),
-            Text('Code', style: theme.textTheme.bodySmall),
-            const SizedBox(height: 6),
-            AppDetailField(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      code.trim().isEmpty
-                          ? 'Hali generatsiya qilinmagan'
-                          : code,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  if (code.trim().isNotEmpty)
-                    IconButton(
-                      onPressed: onCopyCode,
-                      icon: const Icon(Icons.content_copy_outlined),
-                    ),
-                  IconButton(
-                    onPressed: regenerating || retryAfterSec > 0
-                        ? null
-                        : onRegenerateCode,
-                    icon: regenerating
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded),
-                  ),
-                ],
               ),
-            ),
-            if (retryAfterSec > 0) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Keyingi code uchun $retryAfterSec soniya kuting.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (code.trim().isNotEmpty)
+                IconButton(
+                  onPressed: onCopyCode,
+                  icon: const Icon(Icons.content_copy_outlined),
                 ),
+              IconButton(
+                onPressed:
+                    regenerating || retryAfterSec > 0 ? null : onRegenerateCode,
+                icon: regenerating
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
               ),
             ],
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                style: appFilledActionButtonStyle(),
-                onPressed: saving ? null : onSave,
-                child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (retryAfterSec > 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Keyingi code uchun $retryAfterSec soniya kuting.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            style: appFilledActionButtonStyle(),
+            onPressed: saving ? null : onSave,
+            child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
+          ),
+        ),
+      ],
     );
   }
+}
+
+String _werkaInitials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) {
+    return 'O';
+  }
+  final first = parts.first.characters.first.toUpperCase();
+  if (parts.length == 1) {
+    return first;
+  }
+  return '$first${parts.last.characters.first.toUpperCase()}';
 }
 
 class _WerkaTextField extends StatelessWidget {

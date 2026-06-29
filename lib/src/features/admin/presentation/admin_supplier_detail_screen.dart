@@ -2,18 +2,24 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/timers/retry_after_countdown.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
+import '../../../core/widgets/display/app_detail_field.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../../core/widgets/feedback/app_text_input_dialog.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../../core/widgets/display/motion_widgets.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+const double _supplierDetailPanelGap = 4;
+const double _supplierDetailButtonRadius = 14;
 
 class AdminSupplierDetailScreen extends StatefulWidget {
   const AdminSupplierDetailScreen({super.key, required this.supplierRef});
@@ -31,6 +37,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
   bool _savingPhone = false;
   bool _regeneratingCode = false;
   bool _removing = false;
+  bool _adminPanelExpanded = false;
   bool _changed = false;
   late final RetryAfterCountdown _retryAfter;
   int get _retryAfterSec => _retryAfter.seconds;
@@ -90,14 +97,9 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
     }
   }
 
-  Future<void> _addPhone(AdminSupplierDetail detail) async {
-    final phone = await showAppTextInputDialog(
-      context: context,
-      title: 'Telefon raqam qo‘shish',
-      hintText: '+998901234567',
-      keyboardType: TextInputType.phone,
-    );
-    if (phone == null || phone.trim().isEmpty) {
+  Future<void> _savePhone(AdminSupplierDetail detail, String phone) async {
+    final trimmedPhone = phone.trim();
+    if (trimmedPhone.isEmpty) {
       return;
     }
 
@@ -105,7 +107,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
     try {
       final updated = await MobileApi.instance.adminUpdateSupplierPhone(
         ref: detail.ref,
-        phone: phone,
+        phone: trimmedPhone,
       );
       _changed = true;
       setState(() {
@@ -192,253 +194,572 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: 'Supplier',
+        title: 'Profil',
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-        contentPadding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        contentPadding: EdgeInsets.zero,
         bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
-        child: FutureBuilder<AdminSupplierDetail>(
-          future: _detailFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: AppLoadingIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: AppRetryState(onRetry: _reload));
-            }
+        child: SafeArea(
+          top: false,
+          child: FutureBuilder<AdminSupplierDetail>(
+            future: _detailFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: AppLoadingIndicator());
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  children: [
+                    AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
+                  ],
+                );
+              }
 
-            final detail = snapshot.data!;
-            final hasPhone = detail.phone.trim().isNotEmpty;
-            final theme = Theme.of(context);
-            final scheme = theme.colorScheme;
-
-            return ListView(
-              padding: const EdgeInsets.only(top: 4),
-              children: [
-                SmoothAppear(
-                  delay: const Duration(milliseconds: 20),
-                  child: Card.filled(
-                    margin: EdgeInsets.zero,
-                    color: scheme.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  detail.name,
-                                  style: theme.textTheme.headlineMedium,
-                                ),
-                              ),
-                              if (detail.blocked)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.errorContainer,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    'Blocked',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: scheme.onErrorContainer,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            hasPhone
-                                ? detail.phone
-                                : 'Telefon raqam berilmagan',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          if (!hasPhone) ...[
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              height: 32,
-                              width: 32,
-                              child: OutlinedButton(
-                                onPressed: _savingPhone
-                                    ? null
-                                    : () => _addPhone(detail),
-                                style: OutlinedButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: _savingPhone
-                                    ? const SizedBox(
-                                        height: 14,
-                                        width: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.add_rounded, size: 18),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          Text('Code', style: theme.textTheme.bodySmall),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: SelectableText(
-                                    detail.code,
-                                    style: theme.textTheme.titleLarge,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => _copyCode(detail.code),
-                                  icon: const Icon(Icons.content_copy_outlined),
-                                ),
-                                IconButton(
-                                  onPressed:
-                                      _regeneratingCode || _retryAfterSec > 0
-                                          ? null
-                                          : _regenerateCode,
-                                  icon: _regeneratingCode
-                                      ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.refresh_rounded),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_retryAfterSec > 0) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Keyingi code uchun $_retryAfterSec soniyadan keyin qayta urining.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: _savingStatus
-                                  ? null
-                                  : () => _toggleBlocked(detail),
-                              child: Text(
-                                _savingStatus
-                                    ? 'Saqlanmoqda...'
-                                    : detail.blocked
-                                        ? 'Unblock qilish'
-                                        : 'Block qilish',
-                              ),
-                            ),
-                          ),
-                        ],
+              final detail = snapshot.data!;
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  _supplierDetailPanelGap,
+                  _supplierDetailPanelGap,
+                  _supplierDetailPanelGap,
+                  116,
+                ),
+                children: [
+                  AppSegmentSurfaceCard(
+                    padding: EdgeInsets.zero,
+                    child: _AdminSupplierDetailCard(
+                      detail: detail,
+                      retryAfterSec: _retryAfterSec,
+                      expanded: _adminPanelExpanded,
+                      savingStatus: _savingStatus,
+                      savingPhone: _savingPhone,
+                      regeneratingCode: _regeneratingCode,
+                      removing: _removing,
+                      onExpandedChanged: (expanded) {
+                        setState(() => _adminPanelExpanded = expanded);
+                      },
+                      onSavePhone: _savePhone,
+                      onToggleBlocked: _toggleBlocked,
+                      onRegenerateCode: _regenerateCode,
+                      onCopyCode: _copyCode,
+                      onRemove: _removeSupplier,
+                      onViewItems: () => Navigator.of(context).pushNamed(
+                        AppRoutes.adminSupplierItemsView,
+                        arguments: widget.supplierRef,
+                      ),
+                      onAddItem: () => Navigator.of(context).pushNamed(
+                        AppRoutes.adminSupplierItemsAdd,
+                        arguments: widget.supplierRef,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SmoothAppear(
-                  delay: const Duration(milliseconds: 60),
-                  child: Card.filled(
-                    margin: EdgeInsets.zero,
-                    color: scheme.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Biriktirilgan mahsulotlar',
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            detail.assignedItems.isEmpty
-                                ? 'Hozircha mahsulot biriktirilmagan.'
-                                : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pushNamed(
-                                    AppRoutes.adminSupplierItemsView,
-                                    arguments: widget.supplierRef,
-                                  ),
-                                  child: const Text('Ko‘rish'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pushNamed(
-                                    AppRoutes.adminSupplierItemsAdd,
-                                    arguments: widget.supplierRef,
-                                  ),
-                                  child: const Text('Qo‘shish'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _removing ? null : _removeSupplier,
-                    child: Text(
-                      _removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
+}
+
+class _AdminSupplierDetailCard extends StatelessWidget {
+  const _AdminSupplierDetailCard({
+    required this.detail,
+    required this.retryAfterSec,
+    required this.expanded,
+    required this.savingStatus,
+    required this.savingPhone,
+    required this.regeneratingCode,
+    required this.removing,
+    required this.onExpandedChanged,
+    required this.onSavePhone,
+    required this.onToggleBlocked,
+    required this.onRegenerateCode,
+    required this.onCopyCode,
+    required this.onRemove,
+    required this.onViewItems,
+    required this.onAddItem,
+  });
+
+  final AdminSupplierDetail detail;
+  final int retryAfterSec;
+  final bool expanded;
+  final bool savingStatus;
+  final bool savingPhone;
+  final bool regeneratingCode;
+  final bool removing;
+  final ValueChanged<bool> onExpandedChanged;
+  final Future<void> Function(AdminSupplierDetail detail, String phone)
+      onSavePhone;
+  final Future<void> Function(AdminSupplierDetail detail) onToggleBlocked;
+  final Future<void> Function() onRegenerateCode;
+  final Future<void> Function(String code) onCopyCode;
+  final Future<void> Function() onRemove;
+  final VoidCallback onViewItems;
+  final VoidCallback onAddItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final phone = detail.phone.trim();
+    final displayName =
+        detail.name.trim().isEmpty ? 'Yetkazib beruvchi' : detail.name.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 204,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                top: 112,
+                child: ColoredBox(color: scheme.surface),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 112,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        scheme.surfaceContainerHighest,
+                        scheme.surfaceContainerLow,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 14,
+                top: 14,
+                child: AppStatusChip(
+                  label: detail.blocked ? 'Bloklangan' : 'Tayyor',
+                ),
+              ),
+              Positioned(
+                left: 16,
+                top: 74,
+                child: Container(
+                  height: 92,
+                  width: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.primaryContainer,
+                    border: Border.all(color: scheme.surface, width: 5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withValues(alpha: 0.16),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _supplierInitials(displayName),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 124,
+                right: 16,
+                top: 140,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Yetkazib beruvchi profili',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ProfileInfoChip(
+                      icon: Icons.phone_rounded,
+                      label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+                    ),
+                    ProfileInfoChip(
+                      icon: Icons.inventory_2_rounded,
+                      label: '${detail.assignedItems.length} ta mahsulot',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                key: const ValueKey('admin-supplier-detail-admin-toggle'),
+                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                onPressed: () => onExpandedChanged(!expanded),
+                icon: AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: expanded
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _AdminSupplierPanel(
+                    detail: detail,
+                    retryAfterSec: retryAfterSec,
+                    savingStatus: savingStatus,
+                    savingPhone: savingPhone,
+                    regeneratingCode: regeneratingCode,
+                    removing: removing,
+                    onSavePhone: onSavePhone,
+                    onToggleBlocked: onToggleBlocked,
+                    onRegenerateCode: onRegenerateCode,
+                    onCopyCode: onCopyCode,
+                    onRemove: onRemove,
+                    onViewItems: onViewItems,
+                    onAddItem: onAddItem,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminSupplierPanel extends StatelessWidget {
+  const _AdminSupplierPanel({
+    required this.detail,
+    required this.retryAfterSec,
+    required this.savingStatus,
+    required this.savingPhone,
+    required this.regeneratingCode,
+    required this.removing,
+    required this.onSavePhone,
+    required this.onToggleBlocked,
+    required this.onRegenerateCode,
+    required this.onCopyCode,
+    required this.onRemove,
+    required this.onViewItems,
+    required this.onAddItem,
+  });
+
+  final AdminSupplierDetail detail;
+  final int retryAfterSec;
+  final bool savingStatus;
+  final bool savingPhone;
+  final bool regeneratingCode;
+  final bool removing;
+  final Future<void> Function(AdminSupplierDetail detail, String phone)
+      onSavePhone;
+  final Future<void> Function(AdminSupplierDetail detail) onToggleBlocked;
+  final Future<void> Function() onRegenerateCode;
+  final Future<void> Function(String code) onCopyCode;
+  final Future<void> Function() onRemove;
+  final VoidCallback onViewItems;
+  final VoidCallback onAddItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(
+          height: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Admin boshqaruv',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text('Telefon', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        _SupplierPhoneInlineField(
+          detail: detail,
+          savingPhone: savingPhone,
+          onSavePhone: onSavePhone,
+        ),
+        const SizedBox(height: 14),
+        Text('Kirish kodi', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        AppDetailField(
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  detail.code.trim().isEmpty
+                      ? 'Hali generatsiya qilinmagan'
+                      : detail.code,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              if (detail.code.trim().isNotEmpty)
+                IconButton(
+                  onPressed: () => onCopyCode(detail.code),
+                  icon: const Icon(Icons.content_copy_outlined),
+                ),
+              IconButton(
+                onPressed: regeneratingCode || retryAfterSec > 0
+                    ? null
+                    : onRegenerateCode,
+                icon: regeneratingCode
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+        ),
+        if (retryAfterSec > 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Keyingi code uchun $retryAfterSec soniya kuting.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 18),
+        Text(
+          'Biriktirilgan mahsulotlar',
+          style: theme.textTheme.titleLarge,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          detail.assignedItems.isEmpty
+              ? 'Hozircha mahsulot biriktirilmagan.'
+              : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: appOutlinedActionButtonStyle(
+                  borderRadius: _supplierDetailButtonRadius,
+                ),
+                onPressed: onViewItems,
+                child: const Text('Ko‘rish'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                style: appOutlinedActionButtonStyle(
+                  borderRadius: _supplierDetailButtonRadius,
+                ),
+                onPressed: onAddItem,
+                child: const Text('Qo‘shish'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            style: appOutlinedActionButtonStyle(
+              borderRadius: _supplierDetailButtonRadius,
+            ),
+            onPressed: savingStatus ? null : () => onToggleBlocked(detail),
+            child: Text(
+              savingStatus
+                  ? 'Saqlanmoqda...'
+                  : detail.blocked
+                      ? 'Blokdan chiqarish'
+                      : 'Bloklash',
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            style: appOutlinedActionButtonStyle(
+              borderRadius: _supplierDetailButtonRadius,
+            ),
+            onPressed: removing ? null : onRemove,
+            child: Text(
+              removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SupplierPhoneInlineField extends StatefulWidget {
+  const _SupplierPhoneInlineField({
+    required this.detail,
+    required this.savingPhone,
+    required this.onSavePhone,
+  });
+
+  final AdminSupplierDetail detail;
+  final bool savingPhone;
+  final Future<void> Function(AdminSupplierDetail detail, String phone)
+      onSavePhone;
+
+  @override
+  State<_SupplierPhoneInlineField> createState() =>
+      _SupplierPhoneInlineFieldState();
+}
+
+class _SupplierPhoneInlineFieldState extends State<_SupplierPhoneInlineField> {
+  late final TextEditingController _controller;
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.detail.phone.trim());
+  }
+
+  @override
+  void didUpdateWidget(covariant _SupplierPhoneInlineField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_editing && oldWidget.detail.phone != widget.detail.phone) {
+      _controller.text = widget.detail.phone.trim();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    await widget.onSavePhone(widget.detail, _controller.text);
+    if (mounted) {
+      setState(() => _editing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final phone = widget.detail.phone.trim();
+    return AppDetailField(
+      child: Row(
+        children: [
+          Expanded(
+            child: _editing
+                ? TextField(
+                    key: const ValueKey('admin-supplier-detail-phone-input'),
+                    controller: _controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      hintText: '+998901234567',
+                    ),
+                    style: theme.textTheme.titleMedium,
+                    onSubmitted: (_) => _submit(),
+                  )
+                : Text(
+                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    style: theme.textTheme.titleMedium,
+                  ),
+          ),
+          IconButton(
+            key: const ValueKey('admin-supplier-detail-phone-action'),
+            tooltip: _editing
+                ? 'Telefonni saqlash'
+                : phone.isEmpty
+                    ? 'Telefon raqami kiritish'
+                    : 'Telefonni yangilash',
+            onPressed: widget.savingPhone
+                ? null
+                : _editing
+                    ? _submit
+                    : () => setState(() => _editing = true),
+            icon: widget.savingPhone
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_editing ? Icons.check_rounded : Icons.edit_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _supplierInitials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) {
+    return 'Y';
+  }
+  final first = parts.first.characters.first.toUpperCase();
+  if (parts.length == 1) {
+    return first;
+  }
+  return '$first${parts.last.characters.first.toUpperCase()}';
 }

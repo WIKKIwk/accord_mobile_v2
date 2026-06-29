@@ -30,17 +30,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Customer'), findsOneWidget);
+    expect(find.text('Profil'), findsOneWidget);
     expect(find.byType(AdminDock), findsOneWidget);
     expect(find.text('comfi'), findsWidgets);
     expect(find.text('+998901000333'), findsOneWidget);
-    expect(find.text('30SFT8WLPTR9'), findsOneWidget);
+    expect(find.text('Ref'), findsNothing);
+    expect(find.text('Admin boshqaruv'), findsNothing);
 
-    await tester.tap(find.text('Telefonni yangilash'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(find.widgetWithText(OutlinedButton, 'Bekor qilish'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Saqlash'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('admin-customer-detail-admin-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Admin boshqaruv'), findsOneWidget);
+    expect(find.text('30SFT8WLPTR9'), findsOneWidget);
+    tester
+        .widget<IconButton>(
+          find.byKey(const ValueKey('admin-customer-detail-phone-action')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.byKey(const ValueKey('admin-customer-detail-phone-input')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('admin customer detail renders with semantics enabled', (
