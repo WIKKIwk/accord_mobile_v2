@@ -14,6 +14,7 @@ import '../../../core/widgets/feedback/app_text_input_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 
 const double _workerDetailPanelGap = 4;
@@ -375,11 +376,11 @@ class _WorkerProfileHeroCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _WorkerProfileChip(
+              ProfileInfoChip(
                 icon: Icons.phone_rounded,
                 label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
               ),
-              _WorkerProfileChip(
+              ProfileInfoChip(
                 icon: Icons.badge_rounded,
                 label: level.isEmpty ? 'Daraja belgilanmagan' : level,
               ),
@@ -387,44 +388,6 @@ class _WorkerProfileHeroCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _WorkerProfileChip extends StatelessWidget {
-  const _WorkerProfileChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: scheme.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

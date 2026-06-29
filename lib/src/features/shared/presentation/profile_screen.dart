@@ -18,6 +18,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../data/profile_avatar_cache.dart';
 import '../data/profile_cover_cache.dart';
 import '../models/app_models.dart';
+import 'widgets/profile_info_chip.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../supplier/presentation/widgets/supplier_navigation_drawer.dart';
@@ -989,10 +990,9 @@ _ImageShape _extractImageShape(Uint8List pixels, int width, int height) {
     if (a < 80) {
       continue;
     }
-    final value = (pixels[i] * 0.2126 +
-            pixels[i + 1] * 0.7152 +
-            pixels[i + 2] * 0.0722) /
-        255;
+    final value =
+        (pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722) /
+            255;
     luminance[pixel] = value;
     sum += value;
     count += 1;
@@ -1417,12 +1417,12 @@ class _ProfileHeroCard extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     if (phoneText.isNotEmpty)
-                      _ProfileInfoChip(
+                      ProfileInfoChip(
                         icon: Icons.phone_rounded,
                         label: phoneText,
                       ),
                     if (legalNameText.isNotEmpty)
-                      _ProfileInfoChip(
+                      ProfileInfoChip(
                         icon: Icons.badge_rounded,
                         label: legalNameText,
                       ),
@@ -2022,45 +2022,6 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ProfileInfoChip extends StatelessWidget {
-  const _ProfileInfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width - 72,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
