@@ -11,6 +11,7 @@ import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
 import '../../../core/widgets/feedback/app_text_input_dialog.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_dock.dart';
@@ -193,65 +194,244 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: AppShell(
-        title: 'Worker',
+        title: 'Profil',
         subtitle: '',
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         contentPadding: EdgeInsets.zero,
         bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            _workerDetailPanelGap,
-            _workerDetailPanelGap,
-            _workerDetailPanelGap,
-            116,
-          ),
-          children: [
-            _WorkerDetailCard(
-              detail: detail,
-              statusLabel: _loading
-                  ? 'Yuklanmoqda'
-                  : _loadError != null
-                      ? 'Xato'
-                      : 'Tayyor',
-              savingPhone: _savingPhone || _loading,
-              regeneratingCode: _regeneratingCode,
-              onAddPhone: _addPhone,
-              onRegenerateCode: _regenerateCode,
-              onCopyCode: _copyCode,
+        child: ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              _workerDetailPanelGap,
+              _workerDetailPanelGap,
+              _workerDetailPanelGap,
+              116,
             ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              style: appOutlinedActionButtonStyle(
-                borderRadius: _workerDetailFieldRadius,
+            children: [
+              AppSegmentSurfaceCard(
+                padding: EdgeInsets.zero,
+                child: _WorkerProfileHeroCard(
+                  detail: detail,
+                  statusLabel: _loading
+                      ? 'Yuklanmoqda'
+                      : _loadError != null
+                          ? 'Xato'
+                          : 'Tayyor',
+                ),
               ),
-              onPressed: () => Navigator.of(context).pushNamed(
-                AppRoutes.adminWorkerProfileDetail,
-                arguments: widget.entry,
+              const SizedBox(height: 10),
+              _WorkerAdminPanel(
+                detail: detail,
+                savingPhone: _savingPhone || _loading,
+                regeneratingCode: _regeneratingCode,
+                onAddPhone: _addPhone,
+                onRegenerateCode: _regenerateCode,
+                onCopyCode: _copyCode,
               ),
-              child: const Text('Worker detail'),
-            ),
-            if (_loadError != null) ...[
               const SizedBox(height: 12),
               OutlinedButton(
                 style: appOutlinedActionButtonStyle(
                   borderRadius: _workerDetailFieldRadius,
                 ),
-                onPressed: _reload,
-                child: const Text('Qayta yuklash'),
+                onPressed: () => Navigator.of(context).pushNamed(
+                  AppRoutes.adminWorkerProfileDetail,
+                  arguments: widget.entry,
+                ),
+                child: const Text('Ish faoliyati tafsilotlari'),
               ),
+              if (_loadError != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  style: appOutlinedActionButtonStyle(
+                    borderRadius: _workerDetailFieldRadius,
+                  ),
+                  onPressed: _reload,
+                  child: const Text('Qayta yuklash'),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _WorkerDetailCard extends StatelessWidget {
-  const _WorkerDetailCard({
+class _WorkerProfileHeroCard extends StatelessWidget {
+  const _WorkerProfileHeroCard({
     required this.detail,
     required this.statusLabel,
+  });
+
+  final AdminWorkerDetail detail;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final phone = detail.phone.trim();
+    final level = detail.level.trim();
+    final initials = _workerInitials(detail.name);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 204,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                  top: 112, child: ColoredBox(color: scheme.surface)),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 112,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        scheme.surfaceContainerHighest,
+                        scheme.surfaceContainerLow,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 14,
+                top: 14,
+                child: AppStatusChip(label: statusLabel),
+              ),
+              Positioned(
+                left: 16,
+                top: 74,
+                child: Container(
+                  height: 92,
+                  width: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: scheme.primaryContainer,
+                    border: Border.all(color: scheme.surface, width: 5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withValues(alpha: 0.16),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initials,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 124,
+                right: 16,
+                top: 140,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      detail.name.trim().isEmpty
+                          ? 'Nomsiz ishchi'
+                          : detail.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      level.isEmpty ? 'Ishchi profili' : '$level profili',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _WorkerProfileChip(
+                icon: Icons.phone_rounded,
+                label: phone.isEmpty ? 'Telefon kiritilmagan' : phone,
+              ),
+              _WorkerProfileChip(
+                icon: Icons.badge_rounded,
+                label: level.isEmpty ? 'Daraja belgilanmagan' : level,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkerProfileChip extends StatelessWidget {
+  const _WorkerProfileChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkerAdminPanel extends StatelessWidget {
+  const _WorkerAdminPanel({
+    required this.detail,
     required this.savingPhone,
     required this.regeneratingCode,
     required this.onAddPhone,
@@ -260,7 +440,6 @@ class _WorkerDetailCard extends StatelessWidget {
   });
 
   final AdminWorkerDetail detail;
-  final String statusLabel;
   final bool savingPhone;
   final bool regeneratingCode;
   final Future<void> Function(AdminWorkerDetail detail) onAddPhone;
@@ -271,112 +450,108 @@ class _WorkerDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_workerDetailCardRadius),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    return AppSegmentSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Admin boshqaruv',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _WorkerDetailLabel('Worker ref'),
+          const SizedBox(height: 6),
+          AppDetailField(value: detail.id),
+          const SizedBox(height: 14),
+          const _WorkerDetailLabel('Telefon'),
+          const SizedBox(height: 6),
+          AppDetailField(
+            value: detail.phone.trim().isEmpty
+                ? 'Kiritilmagan'
+                : detail.phone.trim(),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonal(
+              style: appFilledActionButtonStyle(
+                borderRadius: _workerDetailFieldRadius,
+              ),
+              onPressed: savingPhone ? null : () => onAddPhone(detail),
+              child: Text(
+                savingPhone
+                    ? 'Saqlanmoqda...'
+                    : detail.phone.trim().isEmpty
+                        ? 'Telefon raqami kiritish'
+                        : 'Telefonni yangilash',
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _WorkerDetailLabel('Kirish kodi'),
+          const SizedBox(height: 6),
+          AppDetailField(
+            child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    detail.name,
-                    style: theme.textTheme.headlineMedium,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    detail.code.trim().isEmpty
+                        ? 'Hali generatsiya qilinmagan'
+                        : detail.code,
+                    style: theme.textTheme.titleMedium,
                   ),
                 ),
-                AppStatusChip(label: statusLabel),
+                if (detail.code.trim().isNotEmpty)
+                  IconButton(
+                    onPressed: () => onCopyCode(detail.code),
+                    icon: const Icon(Icons.content_copy_outlined),
+                  ),
+                IconButton(
+                  onPressed: regeneratingCode || detail.codeLocked
+                      ? null
+                      : onRegenerateCode,
+                  icon: regeneratingCode
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
               ],
             ),
-            const SizedBox(height: 18),
-            const _WorkerDetailLabel('Ref'),
-            const SizedBox(height: 6),
-            AppDetailField(value: detail.id),
-            const SizedBox(height: 14),
-            const _WorkerDetailLabel('User ismi'),
-            const SizedBox(height: 6),
-            AppDetailField(value: detail.name),
-            const SizedBox(height: 14),
-            const _WorkerDetailLabel('Telefon'),
-            const SizedBox(height: 6),
-            AppDetailField(value: detail.phone),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                style: appFilledActionButtonStyle(
-                  borderRadius: _workerDetailFieldRadius,
-                ),
-                onPressed: savingPhone ? null : () => onAddPhone(detail),
-                child: Text(
-                  savingPhone
-                      ? 'Saqlanmoqda...'
-                      : detail.phone.trim().isEmpty
-                          ? 'Telefon raqami kiritish'
-                          : 'Telefonni yangilash',
-                ),
+          ),
+          if (detail.codeRetryAfterSec > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 14),
-            const _WorkerDetailLabel('Code'),
-            const SizedBox(height: 6),
-            AppDetailField(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      detail.code.trim().isEmpty
-                          ? 'Hali generatsiya qilinmagan'
-                          : detail.code,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  if (detail.code.trim().isNotEmpty)
-                    IconButton(
-                      onPressed: () => onCopyCode(detail.code),
-                      icon: const Icon(Icons.content_copy_outlined),
-                    ),
-                  IconButton(
-                    onPressed: regeneratingCode || detail.codeLocked
-                        ? null
-                        : onRegenerateCode,
-                    icon: regeneratingCode
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded),
-                  ),
-                ],
-              ),
-            ),
-            if (detail.codeRetryAfterSec > 0) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Keyingi code uchun ${detail.codeRetryAfterSec} soniya kuting.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            const _WorkerDetailLabel('Daraja'),
-            const SizedBox(height: 6),
-            AppDetailField(value: detail.level),
           ],
-        ),
+        ],
       ),
     );
   }
+}
+
+String _workerInitials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) {
+    return 'I';
+  }
+  final first = parts.first.characters.first.toUpperCase();
+  if (parts.length == 1) {
+    return first;
+  }
+  return '$first${parts.last.characters.first.toUpperCase()}';
 }
 
 class _WorkerDetailLabel extends StatelessWidget {

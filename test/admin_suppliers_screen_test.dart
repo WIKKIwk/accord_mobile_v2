@@ -320,9 +320,10 @@ void main() {
 
       for (var i = 0;
           i < 20 &&
-          find.byKey(const ValueKey('admin-users-role-picker'))
-              .evaluate()
-              .isEmpty;
+              find
+                  .byKey(const ValueKey('admin-users-role-picker'))
+                  .evaluate()
+                  .isEmpty;
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
@@ -350,12 +351,12 @@ void main() {
       await tester.tap(find.text('Jasur worker'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Worker'), findsOneWidget);
-      expect(find.text('User ismi'), findsOneWidget);
+      expect(find.text('Profil'), findsOneWidget);
+      expect(find.text('Admin boshqaruv'), findsOneWidget);
       expect(find.text('Telefon'), findsOneWidget);
       expect(find.text('Kiritilmagan'), findsOneWidget);
       expect(find.text('Telefon raqami kiritish'), findsOneWidget);
-      expect(find.text('Code'), findsOneWidget);
+      expect(find.text('Kirish kodi'), findsOneWidget);
       expect(find.text('Hali generatsiya qilinmagan'), findsOneWidget);
       expect(find.text('worker-1'), findsOneWidget);
 
@@ -374,7 +375,7 @@ void main() {
 
       await tester.drag(find.byType(ListView).last, const Offset(0, -360));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Worker detail'));
+      await tester.tap(find.text('Ish faoliyati tafsilotlari'));
       await tester.pumpAndSettle();
       expect(find.text('Assign qilingan guruhlar'), findsOneWidget);
       expect(find.text('7 ta rangli pechat'), findsWidgets);
@@ -445,7 +446,7 @@ void main() {
 
       expect(find.text('Qolipchi'), findsWidgets);
       expect(find.text('Qolipchi user'), findsWidgets);
-      expect(find.text('998900003'), findsOneWidget);
+      expect(find.text('998900003'), findsWidgets);
       expect(
         client.requests,
         contains('GET /v1/mobile/admin/workers/detail?id=worker-q'),
