@@ -69,6 +69,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           defaultUom: uom.text.trim(),
           werkaPhone: werkaPhone.text.trim(),
           werkaName: werkaName.text.trim(),
+          werkaAvatarUrl: current.werkaAvatarUrl,
           werkaCode: current.werkaCode,
           werkaCodeLocked: current.werkaCodeLocked,
           werkaCodeRetryAfterSec: current.werkaCodeRetryAfterSec,

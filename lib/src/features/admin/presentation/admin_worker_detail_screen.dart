@@ -15,6 +15,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_profile_avatar.dart';
 
 const double _workerDetailPanelGap = 4;
 const double _workerDetailFieldRadius = 14;
@@ -170,6 +171,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
           id: _workerId,
           name: widget.entry.name,
           phone: _loading ? 'Yuklanmoqda...' : widget.entry.phone,
+          avatarUrl: '',
           level: widget.entry.roleLabel,
           code: _loading ? 'Yuklanmoqda...' : '',
           codeLocked: false,
@@ -317,29 +319,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
               Positioned(
                 left: 16,
                 top: 74,
-                child: Container(
-                  height: 92,
-                  width: 92,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primaryContainer,
-                    border: Border.all(color: scheme.surface, width: 5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.shadow.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                child: AdminProfileAvatar(
+                  avatarUrl: detail.avatarUrl,
+                  fallbackText: initials,
                 ),
               ),
               Positioned(

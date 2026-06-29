@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'widgets/admin_aparatchi_apparatus_card.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -315,6 +316,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
           ref: widget.customerRef,
           name: _loading ? 'Yuklanmoqda...' : 'Customer',
           phone: _loading ? 'Yuklanmoqda...' : 'Kiritilmagan',
+          avatarUrl: '',
           code: _loading ? 'Yuklanmoqda...' : 'Hali generatsiya qilinmagan',
           codeLocked: false,
           codeRetryAfterSec: _retryAfterSec,
@@ -598,29 +600,9 @@ class _AdminCustomerDetailCard extends StatelessWidget {
               Positioned(
                 left: 16,
                 top: 74,
-                child: Container(
-                  height: 92,
-                  width: 92,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primaryContainer,
-                    border: Border.all(color: scheme.surface, width: 5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.shadow.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                child: AdminProfileAvatar(
+                  avatarUrl: detail.avatarUrl,
+                  fallbackText: initials,
                 ),
               ),
               Positioned(

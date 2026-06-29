@@ -13,6 +13,7 @@ import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_profile_avatar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -348,29 +349,9 @@ class _AdminSupplierDetailCard extends StatelessWidget {
               Positioned(
                 left: 16,
                 top: 74,
-                child: Container(
-                  height: 92,
-                  width: 92,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primaryContainer,
-                    border: Border.all(color: scheme.surface, width: 5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.shadow.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _supplierInitials(displayName),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                child: AdminProfileAvatar(
+                  avatarUrl: detail.avatarUrl,
+                  fallbackText: _supplierInitials(displayName),
                 ),
               ),
               Positioned(

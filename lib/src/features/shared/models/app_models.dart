@@ -1357,6 +1357,7 @@ class AdminSettings {
     required this.defaultUom,
     required this.werkaPhone,
     required this.werkaName,
+    required this.werkaAvatarUrl,
     required this.werkaCode,
     required this.werkaCodeLocked,
     required this.werkaCodeRetryAfterSec,
@@ -1371,6 +1372,7 @@ class AdminSettings {
   final String defaultUom;
   final String werkaPhone;
   final String werkaName;
+  final String werkaAvatarUrl;
   final String werkaCode;
   final bool werkaCodeLocked;
   final int werkaCodeRetryAfterSec;
@@ -1386,6 +1388,7 @@ class AdminSettings {
       defaultUom: json['default_uom'] as String? ?? '',
       werkaPhone: json['werka_phone'] as String? ?? '',
       werkaName: json['werka_name'] as String? ?? '',
+      werkaAvatarUrl: json['werka_avatar_url'] as String? ?? '',
       werkaCode: json['werka_code'] as String? ?? '',
       werkaCodeLocked: json['werka_code_locked'] as bool? ?? false,
       werkaCodeRetryAfterSec: json['werka_code_retry_after_sec'] as int? ?? 0,
@@ -1403,6 +1406,7 @@ class AdminSettings {
       'default_uom': defaultUom,
       'werka_phone': werkaPhone,
       'werka_name': werkaName,
+      'werka_avatar_url': werkaAvatarUrl,
       'werka_code': werkaCode,
       'werka_code_locked': werkaCodeLocked,
       'werka_code_retry_after_sec': werkaCodeRetryAfterSec,
@@ -1559,6 +1563,7 @@ class AdminWorkerDetail {
     required this.id,
     required this.name,
     required this.phone,
+    required this.avatarUrl,
     required this.level,
     required this.code,
     required this.codeLocked,
@@ -1568,6 +1573,7 @@ class AdminWorkerDetail {
   final String id;
   final String name;
   final String phone;
+  final String avatarUrl;
   final String level;
   final String code;
   final bool codeLocked;
@@ -1578,6 +1584,7 @@ class AdminWorkerDetail {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? '',
       level: json['level'] as String? ?? '',
       code: json['code'] as String? ?? '',
       codeLocked: json['code_locked'] as bool? ?? false,
@@ -1589,6 +1596,7 @@ class AdminWorkerDetail {
     String? id,
     String? name,
     String? phone,
+    String? avatarUrl,
     String? level,
     String? code,
     bool? codeLocked,
@@ -1598,6 +1606,7 @@ class AdminWorkerDetail {
       id: id ?? this.id,
       name: name ?? this.name,
       phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       level: level ?? this.level,
       code: code ?? this.code,
       codeLocked: codeLocked ?? this.codeLocked,
@@ -1777,6 +1786,7 @@ class AdminSupplierDetail {
     required this.ref,
     required this.name,
     required this.phone,
+    required this.avatarUrl,
     required this.code,
     required this.blocked,
     required this.removed,
@@ -1788,6 +1798,7 @@ class AdminSupplierDetail {
   final String ref;
   final String name;
   final String phone;
+  final String avatarUrl;
   final String code;
   final bool blocked;
   final bool removed;
@@ -1800,6 +1811,7 @@ class AdminSupplierDetail {
       ref: json['ref'] as String? ?? '',
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? '',
       code: json['code'] as String? ?? '',
       blocked: json['blocked'] as bool? ?? false,
       removed: json['removed'] as bool? ?? false,
@@ -1815,6 +1827,7 @@ class AdminSupplierDetail {
     String? ref,
     String? name,
     String? phone,
+    String? avatarUrl,
     String? code,
     bool? blocked,
     bool? removed,
@@ -1826,6 +1839,7 @@ class AdminSupplierDetail {
       ref: ref ?? this.ref,
       name: name ?? this.name,
       phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       code: code ?? this.code,
       blocked: blocked ?? this.blocked,
       removed: removed ?? this.removed,
@@ -1841,6 +1855,7 @@ class AdminCustomerDetail {
     required this.ref,
     required this.name,
     required this.phone,
+    required this.avatarUrl,
     required this.code,
     required this.codeLocked,
     required this.codeRetryAfterSec,
@@ -1850,6 +1865,7 @@ class AdminCustomerDetail {
   final String ref;
   final String name;
   final String phone;
+  final String avatarUrl;
   final String code;
   final bool codeLocked;
   final int codeRetryAfterSec;
@@ -1860,6 +1876,7 @@ class AdminCustomerDetail {
       ref: json['ref'] as String? ?? '',
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? '',
       code: json['code'] as String? ?? '',
       codeLocked: json['code_locked'] as bool? ?? false,
       codeRetryAfterSec: json['code_retry_after_sec'] as int? ?? 0,

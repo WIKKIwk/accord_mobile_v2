@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_profile_avatar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -100,6 +101,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
           defaultUom: current.defaultUom,
           werkaPhone: phone.text.trim(),
           werkaName: name.text.trim(),
+          werkaAvatarUrl: current.werkaAvatarUrl,
           werkaCode: werkaCode,
           werkaCodeLocked: current.werkaCodeLocked,
           werkaCodeRetryAfterSec: _retryAfterSec,
@@ -190,6 +192,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                     child: _AdminWerkaDetailCard(
                       name: name,
                       phone: phone,
+                      avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
                       code: werkaCode,
                       retryAfterSec: _retryAfterSec,
                       expanded: adminPanelExpanded,
@@ -217,6 +220,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
   const _AdminWerkaDetailCard({
     required this.name,
     required this.phone,
+    required this.avatarUrl,
     required this.code,
     required this.retryAfterSec,
     required this.expanded,
@@ -230,6 +234,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
 
   final TextEditingController name;
   final TextEditingController phone;
+  final String avatarUrl;
   final String code;
   final int retryAfterSec;
   final bool expanded;
@@ -286,29 +291,9 @@ class _AdminWerkaDetailCard extends StatelessWidget {
               Positioned(
                 left: 16,
                 top: 74,
-                child: Container(
-                  height: 92,
-                  width: 92,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primaryContainer,
-                    border: Border.all(color: scheme.surface, width: 5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.shadow.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _werkaInitials(displayName),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                child: AdminProfileAvatar(
+                  avatarUrl: avatarUrl,
+                  fallbackText: _werkaInitials(displayName),
                 ),
               ),
               Positioned(
