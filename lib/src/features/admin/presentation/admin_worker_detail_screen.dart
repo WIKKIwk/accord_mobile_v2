@@ -10,7 +10,6 @@ import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
-import '../../../core/widgets/feedback/app_text_input_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -18,7 +17,6 @@ import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 
 const double _workerDetailPanelGap = 4;
-const double _workerDetailCardRadius = 18;
 const double _workerDetailFieldRadius = 14;
 
 class AdminWorkerDetailScreen extends StatefulWidget {
@@ -96,18 +94,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     }
   }
 
-  Future<void> _addPhone(AdminWorkerDetail detail) async {
-    final phone = await showAppTextInputDialog(
-      context: context,
-      title: 'Telefon raqam qo‘shish',
-      initialText: detail.phone,
-      hintText: '+998901234567',
-      keyboardType: TextInputType.phone,
-      cardRadius: _workerDetailCardRadius,
-      fieldRadius: _workerDetailFieldRadius,
-      buttonRadius: _workerDetailFieldRadius,
-    );
-    if (phone == null || phone.trim().isEmpty) {
+  Future<void> _savePhone(AdminWorkerDetail detail, String phone) async {
+    final trimmedPhone = phone.trim();
+    if (trimmedPhone.isEmpty) {
       return;
     }
 
@@ -115,7 +104,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     try {
       final updated = await MobileApi.instance.adminUpdateWorkerPhone(
         id: detail.id,
-        phone: phone,
+        phone: trimmedPhone,
       );
       if (!mounted) {
         return;
@@ -222,12 +211,12 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                           ? 'Xato'
                           : 'Tayyor',
                   expanded: _adminPanelExpanded,
-                  savingPhone: _savingPhone || _loading,
+                  savingPhone: _savingPhone,
                   regeneratingCode: _regeneratingCode,
                   onExpandedChanged: (expanded) {
                     setState(() => _adminPanelExpanded = expanded);
                   },
-                  onAddPhone: _addPhone,
+                  onSavePhone: _savePhone,
                   onRegenerateCode: _regenerateCode,
                   onCopyCode: _copyCode,
                 ),
@@ -269,7 +258,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
     required this.savingPhone,
     required this.regeneratingCode,
     required this.onExpandedChanged,
-    required this.onAddPhone,
+    required this.onSavePhone,
     required this.onRegenerateCode,
     required this.onCopyCode,
   });
@@ -280,7 +269,8 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   final bool savingPhone;
   final bool regeneratingCode;
   final ValueChanged<bool> onExpandedChanged;
-  final Future<void> Function(AdminWorkerDetail detail) onAddPhone;
+  final Future<void> Function(AdminWorkerDetail detail, String phone)
+      onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
 
@@ -435,7 +425,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                     detail: detail,
                     savingPhone: savingPhone,
                     regeneratingCode: regeneratingCode,
-                    onAddPhone: onAddPhone,
+                    onSavePhone: onSavePhone,
                     onRegenerateCode: onRegenerateCode,
                     onCopyCode: onCopyCode,
                   ),
@@ -452,7 +442,7 @@ class _WorkerAdminPanel extends StatelessWidget {
     required this.detail,
     required this.savingPhone,
     required this.regeneratingCode,
-    required this.onAddPhone,
+    required this.onSavePhone,
     required this.onRegenerateCode,
     required this.onCopyCode,
   });
@@ -460,7 +450,8 @@ class _WorkerAdminPanel extends StatelessWidget {
   final AdminWorkerDetail detail;
   final bool savingPhone;
   final bool regeneratingCode;
-  final Future<void> Function(AdminWorkerDetail detail) onAddPhone;
+  final Future<void> Function(AdminWorkerDetail detail, String phone)
+      onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
 
@@ -485,33 +476,10 @@ class _WorkerAdminPanel extends StatelessWidget {
         const SizedBox(height: 14),
         const _WorkerDetailLabel('Telefon'),
         const SizedBox(height: 6),
-        AppDetailField(
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  detail.phone.trim().isEmpty
-                      ? 'Kiritilmagan'
-                      : detail.phone.trim(),
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                key: const ValueKey('admin-worker-detail-phone-action'),
-                tooltip: detail.phone.trim().isEmpty
-                    ? 'Telefon raqami kiritish'
-                    : 'Telefonni yangilash',
-                onPressed: savingPhone ? null : () => onAddPhone(detail),
-                icon: savingPhone
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.edit_rounded),
-              ),
-            ],
-          ),
+        _WorkerPhoneInlineField(
+          detail: detail,
+          savingPhone: savingPhone,
+          onSavePhone: onSavePhone,
         ),
         const SizedBox(height: 14),
         const _WorkerDetailLabel('Kirish kodi'),
@@ -557,6 +525,107 @@ class _WorkerAdminPanel extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _WorkerPhoneInlineField extends StatefulWidget {
+  const _WorkerPhoneInlineField({
+    required this.detail,
+    required this.savingPhone,
+    required this.onSavePhone,
+  });
+
+  final AdminWorkerDetail detail;
+  final bool savingPhone;
+  final Future<void> Function(AdminWorkerDetail detail, String phone)
+      onSavePhone;
+
+  @override
+  State<_WorkerPhoneInlineField> createState() =>
+      _WorkerPhoneInlineFieldState();
+}
+
+class _WorkerPhoneInlineFieldState extends State<_WorkerPhoneInlineField> {
+  late final TextEditingController _controller;
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.detail.phone.trim());
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkerPhoneInlineField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_editing && oldWidget.detail.phone != widget.detail.phone) {
+      _controller.text = widget.detail.phone.trim();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    await widget.onSavePhone(widget.detail, _controller.text);
+    if (mounted) {
+      setState(() => _editing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final phone = widget.detail.phone.trim();
+    return AppDetailField(
+      child: Row(
+        children: [
+          Expanded(
+            child: _editing
+                ? TextField(
+                    key: const ValueKey('admin-worker-detail-phone-input'),
+                    controller: _controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      hintText: '+998901234567',
+                    ),
+                    style: theme.textTheme.titleMedium,
+                    onSubmitted: (_) => _submit(),
+                  )
+                : Text(
+                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    style: theme.textTheme.titleMedium,
+                  ),
+          ),
+          IconButton(
+            key: const ValueKey('admin-worker-detail-phone-action'),
+            tooltip: _editing
+                ? 'Telefonni saqlash'
+                : phone.isEmpty
+                    ? 'Telefon raqami kiritish'
+                    : 'Telefonni yangilash',
+            onPressed: widget.savingPhone
+                ? null
+                : _editing
+                    ? _submit
+                    : () => setState(() => _editing = true),
+            icon: widget.savingPhone
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_editing ? Icons.check_rounded : Icons.edit_rounded),
+          ),
+        ],
+      ),
     );
   }
 }

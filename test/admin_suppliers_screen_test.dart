@@ -365,6 +365,30 @@ void main() {
         find.byKey(const ValueKey('admin-worker-detail-phone-action')),
         findsOneWidget,
       );
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('admin-worker-detail-phone-action')),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.byKey(const ValueKey('admin-worker-detail-phone-input')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('admin-worker-detail-phone-input')),
+        '+998901112233',
+      );
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('admin-worker-detail-phone-action')),
+          )
+          .onPressed!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('+998901112233'), findsWidgets);
+      expect(client.requests, contains('PUT /v1/mobile/admin/workers'));
       expect(find.text('Kirish kodi'), findsOneWidget);
       expect(find.text('Hali generatsiya qilinmagan'), findsOneWidget);
 
@@ -656,6 +680,20 @@ class _AdminUsersHttpClient implements HttpClient {
           'code_retry_after_sec': 0,
         };
       }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
+    if (key == 'PUT /v1/mobile/admin/workers') {
+      body = const {
+        'id': 'worker-1',
+        'name': 'Jasur worker',
+        'phone': '+998901112233',
+        'level': 'Master',
+      };
       return _FakeHttpClientRequest(
         response: _FakeHttpClientResponse(
           body: jsonEncode(body),
