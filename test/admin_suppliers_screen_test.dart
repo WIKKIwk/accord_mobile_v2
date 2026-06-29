@@ -364,7 +364,6 @@ void main() {
       expect(find.text('Telefon raqami kiritish'), findsOneWidget);
       expect(find.text('Kirish kodi'), findsOneWidget);
       expect(find.text('Hali generatsiya qilinmagan'), findsOneWidget);
-      expect(find.text('worker-1'), findsOneWidget);
 
       final refreshButton = find.ancestor(
         of: find.byIcon(Icons.refresh_rounded),

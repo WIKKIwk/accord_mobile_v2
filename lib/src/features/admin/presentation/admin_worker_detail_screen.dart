@@ -483,10 +483,6 @@ class _WorkerAdminPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        const _WorkerDetailLabel('Worker ref'),
-        const SizedBox(height: 6),
-        AppDetailField(value: detail.id),
-        const SizedBox(height: 14),
         const _WorkerDetailLabel('Telefon'),
         const SizedBox(height: 6),
         AppDetailField(
