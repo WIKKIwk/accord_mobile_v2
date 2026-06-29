@@ -161,55 +161,52 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         bottom: const AdminDock(activeTab: AdminDockTab.settings),
         contentPadding: EdgeInsets.zero,
-        child: SafeArea(
-          top: false,
-          child: FutureBuilder<AdminSettings>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: AppLoadingIndicator());
-              }
-              if (snapshot.hasError) {
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  children: [
-                    AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
-                  ],
-                );
-              }
-              final current = snapshot.data!;
-              _fill(current);
+        child: FutureBuilder<AdminSettings>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: AppLoadingIndicator());
+            }
+            if (snapshot.hasError) {
               return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  _werkaDetailPanelGap,
-                  _werkaDetailPanelGap,
-                  _werkaDetailPanelGap,
-                  116,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 children: [
-                  AppSegmentSurfaceCard(
-                    padding: EdgeInsets.zero,
-                    child: _AdminWerkaDetailCard(
-                      name: name,
-                      phone: phone,
-                      avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
-                      code: werkaCode,
-                      retryAfterSec: _retryAfterSec,
-                      expanded: adminPanelExpanded,
-                      saving: saving,
-                      regenerating: regenerating,
-                      onExpandedChanged: (expanded) {
-                        setState(() => adminPanelExpanded = expanded);
-                      },
-                      onSave: () => _save(current),
-                      onCopyCode: _copyCode,
-                      onRegenerateCode: _regenerate,
-                    ),
-                  ),
+                  AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
                 ],
               );
-            },
-          ),
+            }
+            final current = snapshot.data!;
+            _fill(current);
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                _werkaDetailPanelGap,
+                _werkaDetailPanelGap,
+                _werkaDetailPanelGap,
+                116,
+              ),
+              children: [
+                AppSegmentSurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: _AdminWerkaDetailCard(
+                    name: name,
+                    phone: phone,
+                    avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
+                    code: werkaCode,
+                    retryAfterSec: _retryAfterSec,
+                    expanded: adminPanelExpanded,
+                    saving: saving,
+                    regenerating: regenerating,
+                    onExpandedChanged: (expanded) {
+                      setState(() => adminPanelExpanded = expanded);
+                    },
+                    onSave: () => _save(current),
+                    onCopyCode: _copyCode,
+                    onRegenerateCode: _regenerate,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -424,11 +421,6 @@ class _WerkaAdminPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Divider(
-          height: 1,
-          color: scheme.outlineVariant.withValues(alpha: 0.7),
-        ),
-        const SizedBox(height: 14),
         Text(
           'Admin boshqaruv',
           style: theme.textTheme.titleMedium?.copyWith(
