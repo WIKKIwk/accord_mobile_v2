@@ -572,25 +572,43 @@ class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
                     style: theme.textTheme.titleMedium,
                   ),
           ),
-          IconButton(
-            key: const ValueKey('admin-werka-detail-phone-action'),
-            tooltip: _editing
-                ? 'Telefonni saqlash'
-                : phone.isEmpty
-                    ? 'Telefon raqami kiritish'
-                    : 'Telefonni yangilash',
-            onPressed: widget.saving
-                ? null
-                : _editing
-                    ? _submit
-                    : () => setState(() => _editing = true),
-            icon: widget.saving
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(_editing ? Icons.check_rounded : Icons.edit_rounded),
+          SizedBox(
+            height: 32,
+            width: 32,
+            child: IconButton(
+              key: const ValueKey('admin-werka-detail-phone-action'),
+              tooltip: _editing
+                  ? 'Telefonni saqlash'
+                  : phone.isEmpty
+                      ? 'Telefon raqami kiritish'
+                      : 'Telefonni yangilash',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(
+                height: 32,
+                width: 32,
+              ),
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+              ),
+              onPressed: widget.saving
+                  ? null
+                  : _editing
+                      ? _submit
+                      : () => setState(() => _editing = true),
+              icon: widget.saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _editing ? Icons.check_rounded : Icons.edit_rounded,
+                      size: 20,
+                    ),
+            ),
           ),
         ],
       ),
