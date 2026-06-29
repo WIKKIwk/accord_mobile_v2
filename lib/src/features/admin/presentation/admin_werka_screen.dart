@@ -179,34 +179,44 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
               }
               final current = snapshot.data!;
               _fill(current);
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  _werkaDetailPanelGap,
-                  _werkaDetailPanelGap,
-                  _werkaDetailPanelGap,
-                  116,
-                ),
-                children: [
-                  AppSegmentSurfaceCard(
-                    padding: EdgeInsets.zero,
-                    child: _AdminWerkaDetailCard(
-                      name: name,
-                      phone: phone,
-                      avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
-                      code: werkaCode,
-                      retryAfterSec: _retryAfterSec,
-                      expanded: adminPanelExpanded,
-                      saving: saving,
-                      regenerating: regenerating,
-                      onExpandedChanged: (expanded) {
-                        setState(() => adminPanelExpanded = expanded);
-                      },
-                      onSave: () => _save(current),
-                      onCopyCode: _copyCode,
-                      onRegenerateCode: _regenerate,
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final minCardHeight =
+                      (constraints.maxHeight - 116 - _werkaDetailPanelGap * 2)
+                          .clamp(0.0, double.infinity);
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      _werkaDetailPanelGap,
+                      _werkaDetailPanelGap,
+                      _werkaDetailPanelGap,
+                      116,
                     ),
-                  ),
-                ],
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: minCardHeight),
+                        child: AppSegmentSurfaceCard(
+                          padding: EdgeInsets.zero,
+                          child: _AdminWerkaDetailCard(
+                            name: name,
+                            phone: phone,
+                            avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
+                            code: werkaCode,
+                            retryAfterSec: _retryAfterSec,
+                            expanded: adminPanelExpanded,
+                            saving: saving,
+                            regenerating: regenerating,
+                            onExpandedChanged: (expanded) {
+                              setState(() => adminPanelExpanded = expanded);
+                            },
+                            onSave: () => _save(current),
+                            onCopyCode: _copyCode,
+                            onRegenerateCode: _regenerate,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -241,7 +251,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
   final bool saving;
   final bool regenerating;
   final ValueChanged<bool> onExpandedChanged;
-  final VoidCallback onSave;
+  final Future<void> Function() onSave;
   final Future<void> Function() onCopyCode;
   final Future<void> Function() onRegenerateCode;
 
@@ -413,7 +423,7 @@ class _WerkaAdminPanel extends StatelessWidget {
   final int retryAfterSec;
   final bool saving;
   final bool regenerating;
-  final VoidCallback onSave;
+  final Future<void> Function() onSave;
   final Future<void> Function() onCopyCode;
   final Future<void> Function() onRegenerateCode;
 
@@ -445,10 +455,10 @@ class _WerkaAdminPanel extends StatelessWidget {
         const SizedBox(height: 14),
         Text('Telefon', style: theme.textTheme.bodySmall),
         const SizedBox(height: 6),
-        _WerkaTextField(
+        _WerkaPhoneInlineField(
           controller: phone,
-          hintText: '+998901234567',
-          keyboardType: TextInputType.phone,
+          saving: saving,
+          onSave: onSave,
         ),
         const SizedBox(height: 14),
         Text('Kirish kodi', style: theme.textTheme.bodySmall),
@@ -495,7 +505,7 @@ class _WerkaAdminPanel extends StatelessWidget {
           width: double.infinity,
           child: FilledButton.tonal(
             style: appFilledActionButtonStyle(),
-            onPressed: saving ? null : onSave,
+            onPressed: saving ? null : () => onSave(),
             child: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
           ),
         ),
@@ -520,23 +530,98 @@ String _werkaInitials(String name) {
   return '$first${parts.last.characters.first.toUpperCase()}';
 }
 
+class _WerkaPhoneInlineField extends StatefulWidget {
+  const _WerkaPhoneInlineField({
+    required this.controller,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final TextEditingController controller;
+  final bool saving;
+  final Future<void> Function() onSave;
+
+  @override
+  State<_WerkaPhoneInlineField> createState() => _WerkaPhoneInlineFieldState();
+}
+
+class _WerkaPhoneInlineFieldState extends State<_WerkaPhoneInlineField> {
+  bool _editing = false;
+
+  Future<void> _submit() async {
+    await widget.onSave();
+    if (mounted) {
+      setState(() => _editing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final phone = widget.controller.text.trim();
+    return AppDetailField(
+      child: Row(
+        children: [
+          Expanded(
+            child: _editing
+                ? TextField(
+                    key: const ValueKey('admin-werka-detail-phone-input'),
+                    controller: widget.controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      hintText: '+998901234567',
+                    ),
+                    style: theme.textTheme.titleMedium,
+                    onSubmitted: (_) => _submit(),
+                  )
+                : Text(
+                    phone.isEmpty ? 'Kiritilmagan' : phone,
+                    style: theme.textTheme.titleMedium,
+                  ),
+          ),
+          IconButton(
+            key: const ValueKey('admin-werka-detail-phone-action'),
+            tooltip: _editing
+                ? 'Telefonni saqlash'
+                : phone.isEmpty
+                    ? 'Telefon raqami kiritish'
+                    : 'Telefonni yangilash',
+            onPressed: widget.saving
+                ? null
+                : _editing
+                    ? _submit
+                    : () => setState(() => _editing = true),
+            icon: widget.saving
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_editing ? Icons.check_rounded : Icons.edit_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WerkaTextField extends StatelessWidget {
   const _WerkaTextField({
     required this.controller,
     required this.hintText,
-    this.keyboardType,
   });
 
   final TextEditingController controller;
   final String hintText;
-  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return TextField(
       controller: controller,
-      keyboardType: keyboardType,
       decoration: InputDecoration(
         hintText: hintText,
         filled: true,
