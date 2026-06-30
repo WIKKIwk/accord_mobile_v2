@@ -232,7 +232,12 @@ class _QolipDebtListState extends State<_QolipDebtList> {
     final checkouts = widget.checkouts;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        4,
+        4,
+        MediaQuery.viewPaddingOf(context).bottom + 112,
+      ),
       children: [
         M3SegmentSpacedColumn(
           children: [
