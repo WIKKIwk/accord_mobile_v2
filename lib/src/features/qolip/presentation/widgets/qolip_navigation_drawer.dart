@@ -26,6 +26,12 @@ class QolipNavigationDrawer extends StatelessWidget {
           label: l10n.homeNavTitle,
           routeName: AppRoutes.qolipHome,
         ),
+        const RoleNavigationDrawerDestination(
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2_rounded,
+          label: 'Qoliplar',
+          routeName: AppRoutes.qolipProducts,
+        ),
         RoleNavigationDrawerDestination(
           icon: Icons.person_outline_rounded,
           selectedIcon: Icons.person_rounded,

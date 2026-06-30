@@ -40,6 +40,7 @@ import '../features/admin/models/production_map_models.dart';
 import '../features/admin/state/calculate_order_store.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
 import '../features/qolip/presentation/qolip_home_screen.dart';
+import '../features/qolip/presentation/qolip_products_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
 import '../features/shared/presentation/pin_setup_confirm_screen.dart';
@@ -173,6 +174,7 @@ class AppRoutes {
   static const String adminWerka = '/admin-werka';
   static const String gscaleMode = '/gscale-mode';
   static const String qolipHome = '/qolip';
+  static const String qolipProducts = '/qolip-products';
   static const String rezkaSplit = '/rezka-split';
 }
 
@@ -214,6 +216,7 @@ class AppRouter {
     AppRoutes.customerHome,
     AppRoutes.customerNotifications,
     AppRoutes.qolipHome,
+    AppRoutes.qolipProducts,
   };
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -576,6 +579,8 @@ class AppRouter {
         return _buildRoute(settings, const GScaleModeScreen());
       case AppRoutes.qolipHome:
         return _buildRoute(settings, const QolipHomeScreen());
+      case AppRoutes.qolipProducts:
+        return _buildRoute(settings, const QolipProductsScreen());
       case AppRoutes.rezkaSplit:
         return _buildRoute(settings, const RezkaSplitScreen());
       default:
@@ -649,6 +654,7 @@ class AppRouter {
       'rps.batch.manage',
     },
     AppRoutes.qolipHome: {'qolip.manage'},
+    AppRoutes.qolipProducts: {'qolip.manage'},
     AppRoutes.rezkaSplit: {'rezka.split.manage'},
     AppRoutes.adminHome: {
       'admin.access',

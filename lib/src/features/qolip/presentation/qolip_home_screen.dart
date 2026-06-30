@@ -6,10 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
@@ -21,6 +22,7 @@ import '../../gscale/gscale_mobile_app.dart'
         printTargetLabel;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'qolip_cell_qr_scan_screen.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -34,11 +36,21 @@ class QolipHomeScreen extends StatefulWidget {
 class _QolipHomeScreenState extends State<QolipHomeScreen> {
   late Future<QolipBlocksResult> _blocksFuture;
   final Map<String, Future<List<QolipLocationEntry>>> _locations = {};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _blocksFuture = _loadBlocks();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   Future<QolipBlocksResult> _loadBlocks() async {
@@ -84,12 +96,18 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     Navigator.of(context).pushReplacementNamed(route);
   }
 
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value.trim();
+    });
+  }
+
   Future<void> _printCellQr(
     QolipBlock block,
     String rowLetter,
     int columnNumber,
   ) async {
-    final option = await _showQolipPrinterPicker(context);
+    final option = await showQolipPrinterPicker(context);
     if (!mounted || option == null) {
       return;
     }
@@ -226,6 +244,42 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     }
   }
 
+  Future<void> _scanCellAndAttach(List<QolipBlock> blocks) async {
+    if (blocks.isEmpty) {
+      return;
+    }
+    final cell = await Navigator.of(context).push<QolipCellQr>(
+      MaterialPageRoute(
+        builder: (context) => const QolipCellQrScanScreen(),
+      ),
+    );
+    if (cell == null || !mounted) {
+      return;
+    }
+    QolipBlock? matchedBlock;
+    for (final block in blocks) {
+      if (block.name.trim().toLowerCase() == cell.block.trim().toLowerCase() &&
+          block.warehouse.trim().toLowerCase() ==
+              cell.warehouse.trim().toLowerCase()) {
+        matchedBlock = block;
+        break;
+      }
+    }
+    if (matchedBlock == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu yachayka sizga biriktirilmagan')),
+      );
+      return;
+    }
+    await _openAttachSheet(
+      blocks,
+      mode: _QolipAttachMode.cellPlacement,
+      initialBlock: matchedBlock,
+      rowLetter: cell.rowLetter,
+      columnNumber: cell.columnNumber,
+    );
+  }
+
   Future<void> _openBlockCreateSheet({
     required List<String> warehouses,
     String initialWarehouse = '',
@@ -250,10 +304,25 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Qolipchi',
+      title: '',
       subtitle: '',
       nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        hintText: 'Mahsulot qidirish',
+        onChanged: _onSearchChanged,
+        onClear: () {
+          _searchController.clear();
+          _onSearchChanged('');
+        },
+        onBackWithContext: (context) =>
+            AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+        leadingIcon: Icons.menu_rounded,
+        leadingTooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+      ),
       drawer: QolipNavigationDrawer(
         selectedIndex: 0,
         onNavigate: _openDrawerRoute,
@@ -345,6 +414,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                 _QolipBlockGrid(
                                   block: block,
                                   future: _locationsFor(block.name),
+                                  searchQuery: _searchQuery,
                                   onRefresh: () async {
                                     _refreshBlock(block.name);
                                     await _locationsFor(block.name);
@@ -376,11 +446,23 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                 right: 16,
                 bottom: MediaQuery.viewPaddingOf(context).bottom + 112,
                 child: FloatingActionButton.extended(
+                  heroTag: 'qolip-attach-fab',
                   onPressed: () => _openFabAction(data),
                   icon: const Icon(Icons.add_location_alt_rounded),
                   label: const Text('Biriktirish'),
                 ),
               ),
+              if (data.blocks.isNotEmpty)
+                Positioned(
+                  right: 16,
+                  bottom: MediaQuery.viewPaddingOf(context).bottom + 176,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'qolip-scan-cell-fab',
+                    onPressed: () => _scanCellAndAttach(data.blocks),
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    label: const Text('Scan'),
+                  ),
+                ),
             ],
           );
         },
@@ -397,6 +479,7 @@ class _QolipBlockGrid extends StatelessWidget {
   const _QolipBlockGrid({
     required this.block,
     required this.future,
+    required this.searchQuery,
     required this.onRefresh,
     required this.onAttachAt,
     required this.onPrintCellQr,
@@ -404,6 +487,7 @@ class _QolipBlockGrid extends StatelessWidget {
 
   final QolipBlock block;
   final Future<List<QolipLocationEntry>> future;
+  final String searchQuery;
   final Future<void> Function() onRefresh;
   final Future<void> Function(
     QolipBlock block,
@@ -521,6 +605,7 @@ class _QolipBlockGrid extends StatelessWidget {
                     letters: _letters,
                     rowCount: _gridRowCount,
                     byCell: byCell,
+                    searchQuery: searchQuery,
                     onCellTap: (cellLabel, items) =>
                         _openCellAction(context, cellLabel, items),
                     onCellLongPress: (cellLabel) =>
@@ -702,6 +787,7 @@ class _QolipGridTable extends StatelessWidget {
     required this.letters,
     required this.rowCount,
     required this.byCell,
+    required this.searchQuery,
     required this.onCellTap,
     required this.onCellLongPress,
   });
@@ -709,6 +795,7 @@ class _QolipGridTable extends StatelessWidget {
   final List<String> letters;
   final int rowCount;
   final Map<String, List<QolipLocationEntry>> byCell;
+  final String searchQuery;
   final void Function(String cellLabel, List<QolipLocationEntry> items)
       onCellTap;
   final void Function(String cellLabel) onCellLongPress;
@@ -750,6 +837,7 @@ class _QolipGridTable extends StatelessWidget {
                         child: _GridDataCell(
                           cellLabel: '$letter$rowNumber',
                           items: byCell['$letter$rowNumber'] ?? const [],
+                          searchQuery: searchQuery,
                           onTap: onCellTap,
                           onLongPress: () =>
                               onCellLongPress('$letter$rowNumber'),
@@ -852,12 +940,14 @@ class _GridDataCell extends StatelessWidget {
   const _GridDataCell({
     required this.cellLabel,
     required this.items,
+    required this.searchQuery,
     required this.onTap,
     required this.onLongPress,
   });
 
   final String cellLabel;
   final List<QolipLocationEntry> items;
+  final String searchQuery;
   final void Function(String cellLabel, List<QolipLocationEntry> items) onTap;
   final VoidCallback onLongPress;
 
@@ -867,11 +957,21 @@ class _GridDataCell extends StatelessWidget {
     final filled = items.isNotEmpty;
     final qty = items.fold<int>(0, (sum, item) => sum + item.quantity);
     final title = filled ? items.first.itemName : '';
+    final matchCount = qolipContainerSearchMatchCount(items, searchQuery);
+    final highlighted = matchCount > 0;
+    final green = const Color(0xFF2E7D32);
+    final background = highlighted
+        ? Color.alphaBlend(
+            green.withValues(alpha: 0.22),
+            scheme.secondaryContainer,
+          )
+        : filled
+            ? scheme.secondaryContainer
+            : scheme.surfaceContainerHighest.withValues(alpha: 0.45);
+    final foreground = highlighted ? green : scheme.onSecondaryContainer;
 
     return Material(
-      color: filled
-          ? scheme.secondaryContainer
-          : scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      color: background,
       elevation: filled ? 1 : 0,
       shadowColor: scheme.shadow.withValues(alpha: 0.12),
       surfaceTintColor: Colors.transparent,
@@ -891,11 +991,8 @@ class _GridDataCell extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.layers_rounded,
-                            size: 14,
-                            color: scheme.onSecondaryContainer,
-                          ),
+                          Icon(Icons.layers_rounded,
+                              size: 14, color: foreground),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -906,18 +1003,22 @@ class _GridDataCell extends StatelessWidget {
                                   .textTheme
                                   .labelSmall
                                   ?.copyWith(
-                                    color: scheme.onSecondaryContainer,
+                                    color: foreground,
                                     fontWeight: FontWeight.w800,
                                   ),
                             ),
                           ),
+                          if (highlighted) ...[
+                            const SizedBox(width: 4),
+                            _QolipSearchBadge(count: matchCount),
+                          ],
                         ],
                       ),
                       const Spacer(),
                       Text(
                         '$qty ta',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: scheme.onSecondaryContainer,
+                              color: foreground,
                               fontWeight: FontWeight.w700,
                             ),
                       ),
@@ -930,6 +1031,35 @@ class _GridDataCell extends StatelessWidget {
                       color: scheme.outlineVariant.withValues(alpha: 0.75),
                     ),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QolipSearchBadge extends StatelessWidget {
+  const _QolipSearchBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFF2E7D32),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox.square(
+        dimension: 18,
+        child: Center(
+          child: Text(
+            '$count',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
           ),
         ),
       ),
@@ -1005,8 +1135,8 @@ class _QolipUnplacedTile extends StatelessWidget {
   }
 }
 
-class _QolipPrinterOption {
-  const _QolipPrinterOption({
+class QolipPrinterOption {
+  const QolipPrinterOption({
     required this.server,
     required this.driverUrl,
     required this.printerKind,
@@ -1019,8 +1149,8 @@ class _QolipPrinterOption {
   final String printerLabel;
 }
 
-Future<_QolipPrinterOption?> _showQolipPrinterPicker(BuildContext context) {
-  return showModalBottomSheet<_QolipPrinterOption>(
+Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) {
+  return showModalBottomSheet<QolipPrinterOption>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -1038,7 +1168,7 @@ class _QolipPrinterPickerSheet extends StatefulWidget {
 
 class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
   final http.Client _client = http.Client();
-  List<_QolipPrinterOption> _options = const [];
+  List<QolipPrinterOption> _options = const [];
   bool _loading = true;
   String _error = '';
 
@@ -1187,7 +1317,7 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
   }
 }
 
-Future<List<_QolipPrinterOption>> _connectedQolipPrinters(
+Future<List<QolipPrinterOption>> _connectedQolipPrinters(
   http.Client client,
   List<DiscoveredServer> servers,
 ) async {
@@ -1207,7 +1337,7 @@ Future<List<_QolipPrinterOption>> _connectedQolipPrinters(
   ];
 }
 
-Future<_QolipPrinterOption?> _connectedQolipPrinter(
+Future<QolipPrinterOption?> _connectedQolipPrinter(
   http.Client client,
   DiscoveredServer server,
 ) async {
@@ -1231,7 +1361,7 @@ Future<_QolipPrinterOption?> _connectedQolipPrinter(
       return null;
     }
     final kind = _qolipJsonText(printerRaw['kind'], fallback: 'printer');
-    return _QolipPrinterOption(
+    return QolipPrinterOption(
       server: server,
       driverUrl: driverUrlForRs(server).replaceFirst(RegExp(r'/+$'), ''),
       printerKind: kind,
@@ -1291,6 +1421,23 @@ List<QolipProduct> _qolipProductsWithSavedCodeOnly(
             product.qolipSize > 0,
       )
       .toList(growable: false);
+}
+
+int qolipContainerSearchMatchCount(
+  Iterable<QolipLocationEntry> items,
+  String query,
+) {
+  final normalizedQuery = query.trim();
+  if (normalizedQuery.isEmpty) {
+    return 0;
+  }
+  var count = 0;
+  for (final item in items) {
+    if (searchMatches(normalizedQuery, [item.itemName])) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 class _QolipBlockCreateSheet extends StatefulWidget {
@@ -1459,12 +1606,13 @@ class _QolipAttachSheet extends StatefulWidget {
 class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
-  final _quantity = TextEditingController();
   QolipBlock? _block;
   QolipProduct? _product;
+  QolipProduct? _savedProductSpec;
   String? _rowLetter;
   int? _columnNumber;
   bool _saving = false;
+  bool _printingQr = false;
 
   @override
   void initState() {
@@ -1478,7 +1626,6 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   void dispose() {
     _qolipCode.dispose();
     _size.dispose();
-    _quantity.dispose();
     super.dispose();
   }
 
@@ -1512,9 +1659,12 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
+        final isCellPlacement = widget.mode == _QolipAttachMode.cellPlacement;
         return M3AsyncPickerSheet<QolipProduct>(
-          title: 'Tayyor mahsulot tanlang',
-          hintText: 'Mahsulot nomi bilan qidiring',
+          title: isCellPlacement ? 'Qolip tanlang' : 'Tayyor mahsulot tanlang',
+          hintText: isCellPlacement
+              ? 'Qolip code yoki mahsulot nomi'
+              : 'Mahsulot nomi bilan qidiring',
           pageSize: 80,
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
               ? null
@@ -1538,13 +1688,22 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
             return name.isEmpty ? item.code : name;
           },
           itemSubtitle: (item) {
-            final parts = [
-              item.code.trim(),
-              item.itemGroup.trim(),
-              if (item.hasQolipSpec)
-                '${item.qolipCode.trim()} • ${item.qolipSize}',
-            ].where((value) => value.isNotEmpty).toList(growable: false);
-            return parts.join(' • ');
+            final parts = isCellPlacement
+                ? [
+                    if (item.hasQolipSpec)
+                      '${item.qolipCode.trim()} • ${item.qolipSize}',
+                    item.code.trim(),
+                  ]
+                : [
+                    item.code.trim(),
+                    item.itemGroup.trim(),
+                    if (item.hasQolipSpec)
+                      '${item.qolipCode.trim()} • ${item.qolipSize}',
+                  ];
+            final filtered = parts
+                .where((value) => value.isNotEmpty)
+                .toList(growable: false);
+            return filtered.join(' • ');
           },
           onSelected: (item) => Navigator.of(context).pop(item),
         );
@@ -1562,10 +1721,34 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
   }
 
+  Future<void> _scanQolipQr() async {
+    final qr = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => const QolipRawQrScanScreen(),
+      ),
+    );
+    if (qr == null || !mounted) {
+      return;
+    }
+    try {
+      final product = await MobileApi.instance.qolipProductByQr(qr);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _product = product);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Qolip QR topilmadi')),
+      );
+    }
+  }
+
   Future<void> _save() async {
     final product = _product;
     final size = int.tryParse(_size.text.trim());
-    final quantity = int.tryParse(_quantity.text.trim());
     if (_saving || product == null) {
       return;
     }
@@ -1575,26 +1758,31 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         if (_qolipCode.text.trim().isEmpty || size == null || size <= 0) {
           return;
         }
-        await MobileApi.instance.qolipSaveProductSpec(
+        final saved = await MobileApi.instance.qolipSaveProductSpec(
           product: product,
           qolipCode: _qolipCode.text,
           size: size,
         );
+        if (mounted) {
+          setState(() {
+            _product = saved;
+            _savedProductSpec = saved;
+            _qolipCode.text = saved.qolipCode;
+            _size.text = saved.qolipSize > 0 ? '${saved.qolipSize}' : '';
+          });
+        }
+        return;
       } else {
         final block = _block;
         final hasPartialLocation =
             (_rowLetter == null) != (_columnNumber == null);
-        if (block == null ||
-            quantity == null ||
-            quantity <= 0 ||
-            !product.hasQolipSpec ||
-            hasPartialLocation) {
+        if (block == null || !product.hasQolipSpec || hasPartialLocation) {
           return;
         }
         await MobileApi.instance.qolipSaveLocation(
           block: block,
           product: product,
-          quantity: quantity,
+          quantity: 1,
           rowLetter: _rowLetter ?? '',
           columnNumber: _columnNumber,
         );
@@ -1611,16 +1799,60 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
   }
 
+  Future<void> _printSavedCodeQr() async {
+    final saved = _savedProductSpec;
+    if (_printingQr || saved == null) {
+      return;
+    }
+    final option = await showQolipPrinterPicker(context);
+    if (!mounted || option == null) {
+      return;
+    }
+    setState(() => _printingQr = true);
+    try {
+      final printer = qolipPrinterChoiceForDriver(
+        kind: option.printerKind,
+        label: option.printerLabel,
+      );
+      final qr = await MobileApi.instance.qolipPrintCodeQr(
+        qolipCode: saved.qolipCode,
+        driverUrl: option.driverUrl,
+        printer: printer,
+        printMode: printer == 'godex' ? 'label' : 'rfid',
+      );
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(content: Text('${qr.qolipCode} QR chop etildi')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Qolip QR chop etilmadi')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _printingQr = false);
+      }
+    }
+  }
+
   bool get _canSave {
     final size = int.tryParse(_size.text.trim()) ?? 0;
-    final quantity = int.tryParse(_quantity.text.trim()) ?? 0;
     if (widget.mode == _QolipAttachMode.productSpec) {
-      return _product != null && _qolipCode.text.trim().isNotEmpty && size > 0;
+      return _savedProductSpec == null &&
+          _product != null &&
+          _qolipCode.text.trim().isNotEmpty &&
+          size > 0;
     }
     return _block != null &&
         _product != null &&
         _product!.hasQolipSpec &&
-        quantity > 0 &&
         _rowLetter != null &&
         _columnNumber != null;
   }
@@ -1644,6 +1876,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final productSpecSaved = _savedProductSpec != null;
     return Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
       child: DecoratedBox(
@@ -1668,11 +1901,23 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                _title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
                     ),
+                  ),
+                  if (widget.mode == _QolipAttachMode.cellPlacement)
+                    IconButton.filledTonal(
+                      onPressed: _scanQolipQr,
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                      tooltip: 'Qolip QR scan',
+                    ),
+                ],
               ),
               const SizedBox(height: 14),
               if (widget.mode == _QolipAttachMode.cellPlacement &&
@@ -1686,16 +1931,20 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
               ],
               InkWell(
-                onTap: _pickProduct,
+                onTap: productSpecSaved ? null : _pickProduct,
                 borderRadius: BorderRadius.circular(12),
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Tayyor mahsulot',
-                    suffixIcon: Icon(Icons.search_rounded),
+                  decoration: InputDecoration(
+                    labelText: widget.mode == _QolipAttachMode.cellPlacement
+                        ? 'Qolip code / mahsulot'
+                        : 'Tayyor mahsulot',
+                    suffixIcon: const Icon(Icons.search_rounded),
                   ),
                   child: Text(
                     _product == null
-                        ? 'Mahsulot nomi bilan qidirish'
+                        ? widget.mode == _QolipAttachMode.cellPlacement
+                            ? 'Qolip code yoki mahsulot nomi'
+                            : 'Mahsulot nomi bilan qidirish'
                         : _productLabel(_product!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1706,6 +1955,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               if (widget.mode == _QolipAttachMode.productSpec) ...[
                 TextField(
                   controller: _qolipCode,
+                  enabled: !productSpecSaved,
                   decoration: const InputDecoration(labelText: 'Qolip code'),
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {}),
@@ -1713,6 +1963,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _size,
+                  enabled: !productSpecSaved,
                   decoration: const InputDecoration(labelText: 'Razmeri'),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -1731,28 +1982,35 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                TextField(
-                  controller: _quantity,
-                  decoration: const InputDecoration(labelText: 'Qolip soni'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.done,
-                  onChanged: (_) => setState(() {}),
-                ),
               ],
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _canSave && !_saving ? _save : null,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Saqlash'),
-                ),
+                child: widget.mode == _QolipAttachMode.productSpec &&
+                        productSpecSaved
+                    ? FilledButton.icon(
+                        onPressed: _printingQr ? null : _printSavedCodeQr,
+                        icon: _printingQr
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.qr_code_2_rounded),
+                        label: const Text('QR chiqarish'),
+                      )
+                    : FilledButton(
+                        onPressed: _canSave && !_saving ? _save : null,
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Saqlash'),
+                      ),
               ),
             ],
           ),

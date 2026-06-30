@@ -268,6 +268,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: _itemsSearchFocusNode,
+      showProfileActionResolver: () => !_itemsSearchFocusNode.hasFocus,
       titleWidget: AdminCatalogSearchField(
         controller: _itemsSearchController,
         focusNode: _itemsSearchFocusNode,

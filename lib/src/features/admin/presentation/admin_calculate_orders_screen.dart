@@ -121,6 +121,8 @@ class _AdminCalculateOrdersScreenState
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,

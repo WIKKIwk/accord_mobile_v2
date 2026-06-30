@@ -66,21 +66,25 @@ extension MobileApiQolip on MobileApi {
       final normalized = query.trim().toLowerCase();
       return TestModeDemoData.items
           .where((item) =>
-              normalized.isEmpty ||
-              item.name.toLowerCase().contains(normalized) ||
-              item.code.toLowerCase().contains(normalized))
-          .where((item) =>
               !withQolipOnly ||
               _testModeQolipSpecs.containsKey(item.code.trim().toLowerCase()))
+          .where((item) {
+            final spec = _testModeQolipSpecs[item.code.trim().toLowerCase()];
+            return normalized.isEmpty ||
+                item.name.toLowerCase().contains(normalized) ||
+                item.code.toLowerCase().contains(normalized) ||
+                (spec?.qolipCode.toLowerCase().contains(normalized) ?? false);
+          })
           .take(limit)
           .map((item) {
-        return _testModeQolipSpecs[item.code.trim().toLowerCase()] ??
-            QolipProduct(
-              code: item.code,
-              name: item.name,
-              itemGroup: item.itemGroup,
-            );
-      }).toList(growable: false);
+            return _testModeQolipSpecs[item.code.trim().toLowerCase()] ??
+                QolipProduct(
+                  code: item.code,
+                  name: item.name,
+                  itemGroup: item.itemGroup,
+                );
+          })
+          .toList(growable: false);
     }
     final response = await _sendAuthorized(
       () => http.get(
@@ -104,6 +108,30 @@ extension MobileApiQolip on MobileApi {
         for (final item in raw)
           QolipProduct.fromJson((item as Map).cast<String, dynamic>()),
     ];
+  }
+
+  Future<QolipProduct> qolipProductByQr(String qrPayload) async {
+    final code = qrPayload.trim();
+    if (code.isEmpty) {
+      throw const MobileApiException(
+        code: 'qolip_code_required',
+        message: 'Qolip QR bo‘sh.',
+      );
+    }
+    final products = await qolipProducts(
+      query: code,
+      limit: 20,
+      withQolipOnly: true,
+    );
+    for (final product in products) {
+      if (product.qolipCode.trim().toLowerCase() == code.toLowerCase()) {
+        return product;
+      }
+    }
+    throw const MobileApiException(
+      code: 'qolip_code_not_found',
+      message: 'Qolip QR topilmadi.',
+    );
   }
 
   Future<List<QolipLocationEntry>> qolipLocations(String block) async {
@@ -142,13 +170,17 @@ extension MobileApiQolip on MobileApi {
     String rowLetter = '',
     int? columnNumber,
   }) async {
+    final effectiveQolipCode = qolipCode.trim().isNotEmpty
+        ? qolipCode.trim()
+        : product?.qolipCode.trim() ?? '';
+    final effectiveSize = size > 0 ? size : product?.qolipSize ?? 0;
     final payload = {
       'block': block.name.trim(),
       'warehouse': block.warehouse.trim(),
       if (product != null) 'item_code': product.code.trim(),
       if (product != null) 'item_name': product.name.trim(),
-      if (qolipCode.trim().isNotEmpty) 'qolip_code': qolipCode.trim(),
-      if (size > 0) 'size': size,
+      if (effectiveQolipCode.isNotEmpty) 'qolip_code': effectiveQolipCode,
+      if (effectiveSize > 0) 'size': effectiveSize,
       'quantity': quantity,
       if (rowLetter.trim().isNotEmpty) 'row_letter': rowLetter.trim(),
       if (columnNumber != null) 'column_number': columnNumber,
@@ -304,6 +336,140 @@ extension MobileApiQolip on MobileApi {
       (data['cell_qr'] as Map).cast<String, dynamic>(),
     );
   }
+
+  Future<QolipCodeQr> qolipPrintCodeQr({
+    required String qolipCode,
+    required String driverUrl,
+    String printer = '',
+    String printMode = '',
+  }) async {
+    final code = qolipCode.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final spec = _testModeQolipSpecs.values
+          .where((item) =>
+              item.qolipCode.trim().toLowerCase() == code.toLowerCase())
+          .cast<QolipProduct?>()
+          .firstWhere((item) => item != null, orElse: () => null);
+      if (spec == null) {
+        throw Exception('Qolip code not found');
+      }
+      return QolipCodeQr(
+        qolipCode: spec.qolipCode,
+        qrPayload: spec.qolipCode,
+        itemCode: spec.code,
+        itemName: spec.name,
+        itemGroup: spec.itemGroup,
+        size: spec.qolipSize,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/code-qr/print'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'qolip_code': code,
+          'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
+          if (printer.trim().isNotEmpty) 'printer': printer.trim(),
+          if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Qolip code QR print failed');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipCodeQr.fromJson(
+      (data['qolip_qr'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<QolipCellQr> qolipCellQrLookup(String qrPayload) async {
+    final qr = qrPayload.trim();
+    if (qr.isEmpty) {
+      throw const MobileApiException(
+        code: 'qolip_cell_qr_required',
+        message: 'Yachayka QR bo‘sh.',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final blocks = await qolipBlocks();
+      for (final block in blocks) {
+        for (var rowUnit = 'A'.codeUnitAt(0);
+            rowUnit <= 'Z'.codeUnitAt(0);
+            rowUnit++) {
+          for (var column = 1; column <= 9; column++) {
+            final row = String.fromCharCode(rowUnit);
+            final id = [
+              'qolip-cell',
+              block.warehouse,
+              block.name,
+              row,
+              column,
+            ].join(':');
+            final payload = _testModeQolipCellQrPayload(id);
+            if (payload.toLowerCase() == qr.toLowerCase()) {
+              return QolipCellQr(
+                id: id,
+                block: block.name,
+                warehouse: block.warehouse,
+                rowLetter: row,
+                columnNumber: column,
+                locationLabel: '$row$column',
+                qrPayload: payload,
+              );
+            }
+          }
+        }
+      }
+      throw const MobileApiException(
+        code: 'qolip_cell_qr_not_found',
+        message: 'Yachayka QR topilmadi.',
+      );
+    }
+
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/cell-qr').replace(
+          queryParameters: {'qr': qr},
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipCellQrException(response);
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipCellQr.fromJson(
+      (data['cell_qr'] as Map).cast<String, dynamic>(),
+    );
+  }
+}
+
+MobileApiException _qolipCellQrException(http.Response response) {
+  String code = 'qolip_cell_qr_lookup_failed';
+  String message = 'Yachayka QR tekshirishda xatolik.';
+  try {
+    final data = jsonDecode(response.body);
+    if (data is Map) {
+      code = data['error']?.toString() ?? data['code']?.toString() ?? code;
+      final serverMessage = data['message']?.toString() ?? '';
+      if (serverMessage.trim().isNotEmpty) {
+        message = serverMessage.trim();
+      } else if (code == 'cell_qr_not_found') {
+        message = 'Bu QR yachayka uchun topilmadi.';
+      } else if (code == 'qr_required') {
+        message = 'Yachayka QR bo‘sh.';
+      }
+    }
+  } catch (_) {
+    // Keep the user-facing fallback above.
+  }
+  return MobileApiException(
+    code: code,
+    message: message,
+    statusCode: response.statusCode,
+  );
 }
 
 String _testModeQolipCellQrPayload(String value) {

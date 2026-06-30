@@ -383,6 +383,35 @@ class QolipCellQr {
   }
 }
 
+class QolipCodeQr {
+  const QolipCodeQr({
+    required this.qolipCode,
+    required this.qrPayload,
+    required this.itemCode,
+    required this.itemName,
+    required this.itemGroup,
+    required this.size,
+  });
+
+  final String qolipCode;
+  final String qrPayload;
+  final String itemCode;
+  final String itemName;
+  final String itemGroup;
+  final int size;
+
+  factory QolipCodeQr.fromJson(Map<String, dynamic> json) {
+    return QolipCodeQr(
+      qolipCode: json['qolip_code']?.toString() ?? '',
+      qrPayload: json['qr_payload']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      itemGroup: json['item_group']?.toString() ?? '',
+      size: (json['size'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AdminApparatusGroup {
   const AdminApparatusGroup({required this.name, required this.apparatus});
 

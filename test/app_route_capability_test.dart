@@ -155,4 +155,21 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.rezkaSplit), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
+
+  test('qolip product list route follows qolip capability', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.qolipchi,
+      displayName: 'Qolipchi',
+      legalName: '',
+      ref: 'qolipchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['qolip.manage'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.qolipHome), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.qolipProducts), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
+  });
 }

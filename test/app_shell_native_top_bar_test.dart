@@ -24,6 +24,69 @@ void main() {
     expect(find.text('Werka'), findsOneWidget);
   });
 
+  testWidgets('AppShell can hide profile action while search is focused', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: AppShell(
+          title: '',
+          subtitle: '',
+          nativeTopBar: true,
+          profileActionListenable: focusNode,
+          showProfileActionResolver: () => !focusNode.hasFocus,
+          titleWidget: EditableText(
+            controller: controller,
+            focusNode: focusNode,
+            style: const TextStyle(color: Colors.black),
+            cursorColor: Colors.black,
+            backgroundCursorColor: Colors.white,
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.byType(AppShellProfileAction), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('app-shell-profile-action-slot')),
+          )
+          .width,
+      58,
+    );
+
+    await tester.showKeyboard(find.byType(EditableText));
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 90));
+    final midAnimationWidth = tester
+        .getSize(
+          find.byKey(const ValueKey('app-shell-profile-action-slot')),
+        )
+        .width;
+    expect(midAnimationWidth, greaterThan(0));
+    expect(midAnimationWidth, lessThan(58));
+
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('app-shell-profile-action-slot')),
+          )
+          .width,
+      0,
+    );
+  });
+
   testWidgets('AppShell opens drawer from left edge drag', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

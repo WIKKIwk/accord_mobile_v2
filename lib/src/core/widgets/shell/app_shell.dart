@@ -23,6 +23,7 @@ const double _contentHorizontalInset = 6;
 const double _contentTopCornerRadius = 18;
 const double _contentBottomCornerRadius = 18;
 const double _contentBottomDockHeight = 60;
+const double _nativeProfileActionSlotWidth = 58;
 
 /// [AppShell] AppBar [bottom] uchun chiziqli progress.
 Widget _appShellStyleLinearProgress(ThemeData theme, {double? value}) {
@@ -74,6 +75,8 @@ class AppShell extends StatefulWidget {
     this.appBarBottomLoading = false,
     this.nativeTopBarBottomInset = 3,
     this.showProfileAction = true,
+    this.profileActionListenable,
+    this.showProfileActionResolver,
   });
 
   final String title;
@@ -100,6 +103,8 @@ class AppShell extends StatefulWidget {
   final bool appBarBottomLoading;
   final double nativeTopBarBottomInset;
   final bool showProfileAction;
+  final Listenable? profileActionListenable;
+  final bool Function()? showProfileActionResolver;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -273,10 +278,23 @@ class _AppShellState extends State<AppShell>
         widget.showProfileAction && routeName != AppRoutes.profile;
     final actions = <Widget>[
       ...?widget.actions,
-      if (showProfile) const AppShellProfileAction(),
-      if (showProfile) const SizedBox(width: 10),
+      if (showProfile) _nativeAppBarProfileAction(),
     ];
     return actions.isEmpty ? null : actions;
+  }
+
+  Widget _nativeAppBarProfileAction() {
+    final listenable = widget.profileActionListenable;
+    if (listenable == null) {
+      return const _AnimatedNativeProfileActionSlot(visible: true);
+    }
+    return ListenableBuilder(
+      listenable: listenable,
+      builder: (context, _) {
+        final visible = widget.showProfileActionResolver?.call() != false;
+        return _AnimatedNativeProfileActionSlot(visible: visible);
+      },
+    );
   }
 
   double _drawerEdgeDragTopInset(BuildContext context) {
@@ -638,6 +656,43 @@ class _AppShellState extends State<AppShell>
           thinGestureBottom:
               DockGestureOverlayScope.thinGestureBottomOf(context),
         );
+  }
+}
+
+class _AnimatedNativeProfileActionSlot extends StatelessWidget {
+  const _AnimatedNativeProfileActionSlot({required this.visible});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      key: const ValueKey('app-shell-profile-action-slot'),
+      width: visible ? _nativeProfileActionSlotWidth : 0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: ClipRect(
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 120),
+          child: const OverflowBox(
+            alignment: Alignment.centerLeft,
+            minWidth: _nativeProfileActionSlotWidth,
+            maxWidth: _nativeProfileActionSlotWidth,
+            child: SizedBox(
+              width: _nativeProfileActionSlotWidth,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppShellProfileAction(),
+                  SizedBox(width: 10),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -12,6 +12,9 @@ class AdminCatalogSearchField extends StatelessWidget {
     required this.onClear,
     this.onActivate,
     this.onBack,
+    this.onBackWithContext,
+    this.leadingIcon = Icons.arrow_back_rounded,
+    this.leadingTooltip,
     this.searchCloseKey,
   });
 
@@ -22,9 +25,16 @@ class AdminCatalogSearchField extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback? onActivate;
   final VoidCallback? onBack;
+  final void Function(BuildContext context)? onBackWithContext;
+  final IconData leadingIcon;
+  final String? leadingTooltip;
   final Key? searchCloseKey;
 
   void _handleBack(BuildContext context) {
+    if (onBackWithContext != null) {
+      onBackWithContext!(context);
+      return;
+    }
     if (onBack != null) {
       onBack!();
       return;
@@ -163,13 +173,12 @@ class AdminCatalogSearchField extends StatelessWidget {
                       opacity: searchActive ? 0 : 1,
                       duration: const Duration(milliseconds: 120),
                       child: IconButton(
-                        tooltip: MaterialLocalizations.of(
-                          context,
-                        ).backButtonTooltip,
+                        tooltip: leadingTooltip ??
+                            MaterialLocalizations.of(context).backButtonTooltip,
                         style: IconButton.styleFrom(padding: EdgeInsets.zero),
                         onPressed: () => _handleBack(context),
                         icon: Icon(
-                          Icons.arrow_back_rounded,
+                          leadingIcon,
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
