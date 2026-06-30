@@ -23,6 +23,7 @@ import '../../gscale/gscale_mobile_app.dart'
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'qolip_cell_qr_scan_screen.dart';
+import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -141,6 +142,143 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Yachayka QR chop etilmadi')),
       );
+    }
+  }
+
+  Future<int?> _promptMoveQuantity(QolipLocationEntry item) async {
+    if (item.quantity <= 1) {
+      return 1;
+    }
+    final controller = TextEditingController(text: '${item.quantity}');
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        String? errorText;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Qolip soni'),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  helperText: 'Eng ko‘pi ${item.quantity} ta',
+                  errorText: errorText,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Bekor'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final qty = int.tryParse(controller.text.trim()) ?? 0;
+                    if (qty <= 0) {
+                      setDialogState(() => errorText = 'Son noto‘g‘ri');
+                      return;
+                    }
+                    if (qty > item.quantity) {
+                      setDialogState(
+                        () => errorText = 'Joyda faqat ${item.quantity} ta bor',
+                      );
+                      return;
+                    }
+                    Navigator.of(context).pop(qty);
+                  },
+                  child: const Text('Davom'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<bool> _moveQolipToCell(
+    QolipLocationEntry item, {
+    required String rowLetter,
+    required int columnNumber,
+    required String cellLabel,
+    int? quantity,
+  }) async {
+    final moveQty = quantity ?? await _promptMoveQuantity(item);
+    if (moveQty == null) {
+      return false;
+    }
+    try {
+      await MobileApi.instance.qolipMoveLocation(
+        locationId: item.id,
+        quantity: moveQty,
+        rowLetter: rowLetter,
+        columnNumber: columnNumber,
+      );
+      if (!mounted) {
+        return false;
+      }
+      _refreshBlock(item.block);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.itemName} $cellLabel ga ko‘chirildi')),
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(error, fallback: 'Ko‘chirish amalga oshmadi'),
+          ),
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<void> _moveQolip(
+    QolipLocationEntry item, {
+    String? excludeCellLabel,
+  }) async {
+    final cellLabel = await showQolipCellPickerSheet(
+      context,
+      title: 'Qayerga ko‘chirasiz?',
+      excludeCellLabel: excludeCellLabel,
+    );
+    if (cellLabel == null || !mounted) {
+      return;
+    }
+    final normalizedCell = normalizeQolipCellLabel(cellLabel);
+    final columnNumber = normalizedCell == null
+        ? null
+        : int.tryParse(normalizedCell.substring(1));
+    if (normalizedCell == null || columnNumber == null) {
+      return;
+    }
+    await _moveQolipToCell(
+      item,
+      rowLetter: normalizedCell.substring(0, 1),
+      columnNumber: columnNumber,
+      cellLabel: normalizedCell,
+    );
+  }
+
+  Future<void> _takeQolip(QolipLocationEntry item) async {
+    final taken = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (context) => _QolipTakeSheet(item: item),
+    );
+    if (taken == true && mounted) {
+      _refreshBlock(item.block);
     }
   }
 
@@ -432,6 +570,20 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                                     columnNumber: columnNumber,
                                   ),
                                   onPrintCellQr: _printCellQr,
+                                  onMove: _moveQolip,
+                                  onMoveToCell: (
+                                    item,
+                                    rowLetter,
+                                    columnNumber,
+                                    cellLabel,
+                                  ) =>
+                                      _moveQolipToCell(
+                                    item,
+                                    rowLetter: rowLetter,
+                                    columnNumber: columnNumber,
+                                    cellLabel: cellLabel,
+                                  ),
+                                  onTake: _takeQolip,
                                 ),
                               const SizedBox.shrink(),
                             ],
@@ -483,6 +635,9 @@ class _QolipBlockGrid extends StatelessWidget {
     required this.onRefresh,
     required this.onAttachAt,
     required this.onPrintCellQr,
+    required this.onMove,
+    required this.onMoveToCell,
+    required this.onTake,
   });
 
   final QolipBlock block;
@@ -499,6 +654,17 @@ class _QolipBlockGrid extends StatelessWidget {
     String rowLetter,
     int columnNumber,
   ) onPrintCellQr;
+  final Future<void> Function(
+    QolipLocationEntry item, {
+    String? excludeCellLabel,
+  }) onMove;
+  final Future<bool> Function(
+    QolipLocationEntry item,
+    String rowLetter,
+    int columnNumber,
+    String cellLabel,
+  ) onMoveToCell;
+  final Future<void> Function(QolipLocationEntry item) onTake;
 
   static const List<String> _letters = [
     'A',
@@ -607,7 +773,7 @@ class _QolipBlockGrid extends StatelessWidget {
                     byCell: byCell,
                     searchQuery: searchQuery,
                     onCellTap: (cellLabel, items) =>
-                        _openCellAction(context, cellLabel, items),
+                        _openCellAction(context, cellLabel, items, locations),
                     onCellLongPress: (cellLabel) =>
                         _openCellQrPrint(context, cellLabel),
                   ),
@@ -683,6 +849,7 @@ class _QolipBlockGrid extends StatelessWidget {
     BuildContext context,
     String cellLabel,
     List<QolipLocationEntry> items,
+    List<QolipLocationEntry> blockLocations,
   ) async {
     final rowLetter = _cellRowLetter(cellLabel);
     final columnNumber = _cellColumnNumber(cellLabel);
@@ -696,10 +863,28 @@ class _QolipBlockGrid extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
+    final normalizedCell = cellLabel.trim().toUpperCase();
+    final unplaced = blockLocations
+        .where((item) => item.locationLabel.trim().isEmpty)
+        .toList(growable: false);
+    final movableIn = blockLocations.where((item) {
+      final label = item.locationLabel.trim().toUpperCase();
+      return label.isNotEmpty && label != normalizedCell;
+    }).toList(growable: false);
     await _openCellDetail(
       context,
       cellLabel,
       items,
+      unplaced: unplaced,
+      movableIn: movableIn,
+      onTake: onTake,
+      onMoveOut: (item) => onMove(item, excludeCellLabel: cellLabel),
+      onMoveToCell: (item) => onMoveToCell(
+        item,
+        rowLetter,
+        columnNumber,
+        normalizedCell,
+      ),
       onAdd: () => onAttachAt(block, rowLetter, columnNumber),
     );
   }
@@ -732,13 +917,15 @@ class _QolipBlockGrid extends StatelessWidget {
     BuildContext context,
     String cellLabel,
     List<QolipLocationEntry> items, {
+    required List<QolipLocationEntry> unplaced,
+    required List<QolipLocationEntry> movableIn,
+    required Future<void> Function(QolipLocationEntry item) onTake,
+    required Future<void> Function(QolipLocationEntry item) onMoveOut,
+    required Future<bool> Function(QolipLocationEntry item) onMoveToCell,
     required Future<void> Function() onAdd,
   }) async {
-    if (items.isEmpty) {
-      return;
-    }
     final scheme = Theme.of(context).colorScheme;
-    final addRequested = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -758,14 +945,55 @@ class _QolipBlockGrid extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 for (final item in items) ...[
-                  _QolipUnplacedTile(item: item),
+                  _QolipCellActionTile(
+                    item: item,
+                    onTake: () => Navigator.of(context).pop(
+                      _QolipCellItemSelection(
+                        item: item,
+                        action: _QolipCellItemAction.take,
+                      ),
+                    ),
+                    onMove: () => Navigator.of(context).pop(
+                      _QolipCellItemSelection(
+                        item: item,
+                        action: _QolipCellItemAction.moveOut,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                 ],
                 const SizedBox(height: 10),
+                if (unplaced.isNotEmpty) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => Navigator.of(context)
+                          .pop(_QolipCellSheetAction.placeUnplaced),
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: Text('Joylashmagan qolip (${unplaced.length})'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (movableIn.isNotEmpty) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => Navigator.of(context)
+                          .pop(_QolipCellSheetAction.moveIn),
+                      icon: const Icon(Icons.move_down_rounded),
+                      label: Text(
+                        'Boshqa joydan ko‘chirish (${movableIn.length})',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).pop(true),
+                    onPressed: () =>
+                        Navigator.of(context).pop(_QolipCellSheetAction.add),
                     icon: const Icon(Icons.add_location_alt_rounded),
                     label: const Text('Shu joyga qolip qo‘shish'),
                   ),
@@ -776,10 +1004,103 @@ class _QolipBlockGrid extends StatelessWidget {
         );
       },
     );
-    if (addRequested == true && context.mounted) {
+    if (!context.mounted || action == null) {
+      return;
+    }
+    if (action == _QolipCellSheetAction.add) {
       await onAdd();
+      return;
+    }
+    if (action == _QolipCellSheetAction.placeUnplaced) {
+      final picked = await _pickQolipLocation(
+        context,
+        title: 'Joylashmagan qolip tanlang',
+        options: unplaced,
+      );
+      if (picked != null && context.mounted) {
+        await onMoveToCell(picked);
+      }
+      return;
+    }
+    if (action == _QolipCellSheetAction.moveIn) {
+      final picked = await _pickQolipLocation(
+        context,
+        title: 'Ko‘chiriladigan qolip tanlang',
+        options: movableIn,
+      );
+      if (picked != null && context.mounted) {
+        await onMoveToCell(picked);
+      }
+      return;
+    }
+    if (action is _QolipCellItemSelection) {
+      switch (action.action) {
+        case _QolipCellItemAction.take:
+          await onTake(action.item);
+        case _QolipCellItemAction.moveOut:
+          await onMoveOut(action.item);
+      }
     }
   }
+
+  static Future<QolipLocationEntry?> _pickQolipLocation(
+    BuildContext context, {
+    required String title,
+    required List<QolipLocationEntry> options,
+  }) {
+    return showModalBottomSheet<QolipLocationEntry>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              for (final item in options)
+                ListTile(
+                  leading: const Icon(Icons.layers_rounded),
+                  title: Text(
+                    item.itemName.trim().isEmpty
+                        ? item.qolipCode
+                        : item.itemName,
+                  ),
+                  subtitle: Text(
+                    [
+                      item.qolipCode,
+                      '${item.size}',
+                      '${item.quantity} ta',
+                      if (item.locationLabel.trim().isNotEmpty)
+                        item.locationLabel,
+                    ].where((value) => value.trim().isNotEmpty).join(' • '),
+                  ),
+                  onTap: () => Navigator.of(context).pop(item),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+enum _QolipCellSheetAction { add, placeUnplaced, moveIn }
+
+enum _QolipCellItemAction { take, moveOut }
+
+class _QolipCellItemSelection {
+  const _QolipCellItemSelection({required this.item, required this.action});
+
+  final QolipLocationEntry item;
+  final _QolipCellItemAction action;
 }
 
 class _QolipGridTable extends StatelessWidget {
@@ -1067,6 +1388,83 @@ class _QolipSearchBadge extends StatelessWidget {
   }
 }
 
+class _QolipCellActionTile extends StatelessWidget {
+  const _QolipCellActionTile({
+    required this.item,
+    required this.onTake,
+    required this.onMove,
+  });
+
+  final QolipLocationEntry item;
+  final VoidCallback onTake;
+  final VoidCallback onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = item.itemName.trim().isEmpty ? item.qolipCode : item.itemName;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        child: Row(
+          children: [
+            Icon(Icons.layers_rounded, size: 20, color: scheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.qolipCode} • ${item.size} • ${item.quantity} ta',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            FilledButton.tonal(
+              onPressed: onMove,
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 34),
+              ),
+              child: const Text('Ko‘chirish'),
+            ),
+            const SizedBox(width: 6),
+            FilledButton.tonal(
+              onPressed: onTake,
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                minimumSize: const Size(0, 34),
+              ),
+              child: const Text('Olish'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _QolipUnplacedTile extends StatelessWidget {
   const _QolipUnplacedTile({required this.item});
 
@@ -1128,6 +1526,201 @@ class _QolipUnplacedTile extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QolipTakeSheet extends StatefulWidget {
+  const _QolipTakeSheet({required this.item});
+
+  final QolipLocationEntry item;
+
+  @override
+  State<_QolipTakeSheet> createState() => _QolipTakeSheetState();
+}
+
+class _QolipTakeSheetState extends State<_QolipTakeSheet> {
+  late final TextEditingController _quantityController;
+  QolipWorkerOption? _worker;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '1');
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickWorker() async {
+    if (_submitting) {
+      return;
+    }
+    final picked = await showModalBottomSheet<QolipWorkerOption>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (sheetContext) {
+        return M3AsyncPickerSheet<QolipWorkerOption>(
+          title: 'Ishchini tanlang',
+          hintText: 'Ishchi nomi bilan qidiring',
+          pageSize: 80,
+          loadPage: (query, offset, limit) {
+            if (offset > 0) {
+              return Future.value(const <QolipWorkerOption>[]);
+            }
+            return MobileApi.instance.qolipWorkers(query: query);
+          },
+          itemTitle: (worker) => worker.name,
+          itemSubtitle: (worker) => worker.level,
+          onSelected: (worker) => Navigator.of(sheetContext).pop(worker),
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _worker = picked;
+        _error = null;
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
+    if (quantity <= 0) {
+      setState(() => _error = 'Qolip soni noto‘g‘ri');
+      return;
+    }
+    if (quantity > widget.item.quantity) {
+      setState(() => _error = 'Joyda faqat ${widget.item.quantity} ta bor');
+      return;
+    }
+    final worker = _worker;
+    if (worker == null) {
+      setState(() => _error = 'Ishchini tanlang');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await MobileApi.instance.qolipIssueCheckout(
+        locationId: widget.item.id,
+        quantity: quantity,
+        workerId: worker.id,
+      );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = qolipErrorMessage(
+            error,
+            fallback: 'Qolip olish amalga oshmadi',
+          );
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final item = widget.item;
+    final worker = _worker;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Qolip olish',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${item.itemName} • ${item.qolipCode} • ${item.quantity} ta',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: _submitting ? null : _pickWorker,
+                  icon: const Icon(Icons.person_search_rounded),
+                  label: Text(
+                    worker == null
+                        ? 'Ishchini tanlang'
+                        : worker.level.trim().isEmpty
+                            ? worker.name
+                            : '${worker.name} • ${worker.level}',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _quantityController,
+                  enabled: !_submitting,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'Qolip soni',
+                    helperText: 'Eng ko‘pi ${item.quantity} ta',
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.assignment_returned_rounded),
+                  label: const Text('Qarzga berish'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

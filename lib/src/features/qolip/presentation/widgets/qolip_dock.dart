@@ -5,7 +5,7 @@ import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
 import 'package:flutter/material.dart';
 
-enum QolipDockTab { home, products, profile }
+enum QolipDockTab { home, products, checkouts, profile }
 
 class QolipDock extends StatelessWidget {
   const QolipDock({
@@ -31,7 +31,8 @@ class QolipDock extends StatelessWidget {
         final int selectedIndex = switch (activeTab) {
           QolipDockTab.home => 0,
           QolipDockTab.products => 1,
-          QolipDockTab.profile => 2,
+          QolipDockTab.checkouts => 2,
+          QolipDockTab.profile => 3,
           null => 0,
         };
 
@@ -62,6 +63,20 @@ class QolipDock extends StatelessWidget {
             return;
           }
           if (index == 2) {
+            if (activeTab == QolipDockTab.checkouts) {
+              return;
+            }
+            if (onTabSelected != null) {
+              onTabSelected!(QolipDockTab.checkouts);
+            } else {
+              AppRootNavigation.replaceRootRoute(
+                context,
+                AppRoutes.qolipCheckouts,
+              );
+            }
+            return;
+          }
+          if (index == 3) {
             if (activeTab == QolipDockTab.profile) {
               return;
             }
@@ -100,6 +115,17 @@ class QolipDock extends StatelessWidget {
               onTap: () => handleSelection(1),
             ),
             RoleDockDestination(
+              id: 'qolip-checkouts',
+              label: 'Qarz',
+              icon: Icons.assignment_return_outlined,
+              selectedIcon: Icons.assignment_return_rounded,
+              active: activeTab == QolipDockTab.checkouts,
+              routeName:
+                  onTabSelected == null ? AppRoutes.qolipCheckouts : null,
+              replaceStack: onTabSelected == null,
+              onTap: () => handleSelection(2),
+            ),
+            RoleDockDestination(
               id: 'qolip-profile',
               label: l10n.profileTitle,
               icon: Icons.person_outline_rounded,
@@ -107,7 +133,7 @@ class QolipDock extends StatelessWidget {
               active: activeTab == QolipDockTab.profile,
               routeName: onTabSelected == null ? AppRoutes.profile : null,
               replaceStack: onTabSelected == null,
-              onTap: () => handleSelection(2),
+              onTap: () => handleSelection(3),
             ),
           ],
         );

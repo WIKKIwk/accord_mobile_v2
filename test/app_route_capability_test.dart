@@ -170,6 +170,7 @@ void main() {
 
     expect(AppRouter.canOpenRoute(AppRoutes.qolipHome), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.qolipProducts), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.qolipCheckouts), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 }

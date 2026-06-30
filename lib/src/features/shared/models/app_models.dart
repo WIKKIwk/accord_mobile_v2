@@ -383,6 +383,84 @@ class QolipCellQr {
   }
 }
 
+class QolipWorkerOption {
+  const QolipWorkerOption({
+    required this.id,
+    required this.name,
+    required this.level,
+  });
+
+  final String id;
+  final String name;
+  final String level;
+
+  factory QolipWorkerOption.fromJson(Map<String, dynamic> json) {
+    return QolipWorkerOption(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      level: json['level']?.toString() ?? '',
+    );
+  }
+}
+
+class QolipCheckoutEntry {
+  const QolipCheckoutEntry({
+    required this.id,
+    required this.locationId,
+    required this.block,
+    this.warehouse = '',
+    this.itemCode = '',
+    required this.itemName,
+    required this.qolipCode,
+    required this.size,
+    required this.quantity,
+    this.rowLetter = '',
+    this.columnNumber,
+    required this.locationLabel,
+    required this.issuedToName,
+    required this.status,
+    this.issuedAt = '',
+  });
+
+  final String id;
+  final String locationId;
+  final String block;
+  final String warehouse;
+  final String itemCode;
+  final String itemName;
+  final String qolipCode;
+  final int size;
+  final int quantity;
+  final String rowLetter;
+  final int? columnNumber;
+  final String locationLabel;
+  final String issuedToName;
+  final String status;
+  final String issuedAt;
+
+  bool get isOpen => status.trim().toLowerCase() == 'open';
+
+  factory QolipCheckoutEntry.fromJson(Map<String, dynamic> json) {
+    return QolipCheckoutEntry(
+      id: json['id']?.toString() ?? '',
+      locationId: json['location_id']?.toString() ?? '',
+      block: json['block']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      qolipCode: json['qolip_code']?.toString() ?? '',
+      size: (json['size'] as num?)?.toInt() ?? 0,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      rowLetter: json['row_letter']?.toString() ?? '',
+      columnNumber: (json['column_number'] as num?)?.toInt(),
+      locationLabel: json['location_label']?.toString() ?? '',
+      issuedToName: json['issued_to_name']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      issuedAt: json['issued_at']?.toString() ?? '',
+    );
+  }
+}
+
 class QolipCodeQr {
   const QolipCodeQr({
     required this.qolipCode,

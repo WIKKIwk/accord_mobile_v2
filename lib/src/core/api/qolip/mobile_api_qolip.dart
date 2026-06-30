@@ -2,6 +2,52 @@ part of '../mobile_api.dart';
 
 final List<QolipLocationEntry> _testModeQolipLocations = [];
 final Map<String, QolipProduct> _testModeQolipSpecs = {};
+final List<QolipCheckoutEntry> _testModeQolipCheckouts = [];
+
+String qolipErrorMessage(
+  Object error, {
+  String fallback = 'Amal bajarilmadi',
+}) {
+  final code = switch (error) {
+    MobileApiException(code: final value) => value,
+    _ => error.toString(),
+  };
+  return switch (code) {
+    'insufficient_stock' => 'Joyda yetarli qolip qolmadi',
+    'location_not_found' => 'Qolip joyi topilmadi',
+    'location_invalid' => 'Joy noto‘g‘ri tanlangan',
+    'checkout_not_found' => 'Berilgan qolip topilmadi',
+    'checkout_not_returnable' => 'Bu qolipni qaytarib bo‘lmaydi',
+    'worker_required' => 'Ishchini tanlang',
+    'worker_not_found' => 'Ishchi topilmadi',
+    'quantity_required' => 'Qolip soni noto‘g‘ri',
+    'location_identity_mismatch' =>
+      'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
+    'forbidden' => 'Bu amal uchun ruxsat yo‘q',
+    'unauthorized' => 'Sessiya tugagan. Qayta kiring',
+    _ when code.contains('insufficient_stock') => 'Joyda yetarli qolip qolmadi',
+    _ when code.contains('location_not_found') => 'Qolip joyi topilmadi',
+    _ => fallback,
+  };
+}
+
+String _testModeQolipLocationId({
+  required String block,
+  required String itemCode,
+  required String qolipCode,
+  required int size,
+  required String rowLetter,
+  int? columnNumber,
+}) {
+  return [
+    block.trim(),
+    itemCode.trim(),
+    qolipCode.trim(),
+    size,
+    rowLetter.trim(),
+    columnNumber ?? 0,
+  ].join(':');
+}
 
 extension MobileApiQolip on MobileApi {
   Future<List<QolipBlock>> qolipBlocks() async {
@@ -285,6 +331,413 @@ extension MobileApiQolip on MobileApi {
     );
   }
 
+  Future<List<QolipWorkerOption>> qolipWorkers({String query = ''}) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return const [
+        QolipWorkerOption(
+          id: 'worker_test_1',
+          name: 'Test ishchi',
+          level: 'Master',
+        ),
+      ];
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/workers').replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+            'limit': '100',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_workers_failed',
+        fallbackMessage: 'Qolipchilar yuklanmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final item in (data['workers'] as List<dynamic>? ?? const []))
+        QolipWorkerOption.fromJson((item as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  Future<QolipCheckoutEntry> qolipIssueCheckout({
+    required String locationId,
+    required int quantity,
+    required String workerId,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final sourceIndex = _testModeQolipLocations.indexWhere(
+        (item) => item.id == locationId.trim(),
+      );
+      if (sourceIndex < 0) {
+        throw const MobileApiException(
+          code: 'location_not_found',
+          message: 'location_not_found',
+        );
+      }
+      final source = _testModeQolipLocations[sourceIndex];
+      if (quantity <= 0 || quantity > source.quantity) {
+        throw const MobileApiException(
+          code: 'insufficient_stock',
+          message: 'insufficient_stock',
+        );
+      }
+      final remaining = source.quantity - quantity;
+      if (remaining > 0) {
+        _testModeQolipLocations[sourceIndex] = QolipLocationEntry(
+          id: source.id,
+          block: source.block,
+          warehouse: source.warehouse,
+          itemCode: source.itemCode,
+          itemName: source.itemName,
+          qolipCode: source.qolipCode,
+          size: source.size,
+          quantity: remaining,
+          rowLetter: source.rowLetter,
+          columnNumber: source.columnNumber,
+          locationLabel: source.locationLabel,
+        );
+      } else {
+        _testModeQolipLocations.removeAt(sourceIndex);
+      }
+      final entry = QolipCheckoutEntry(
+        id: 'checkout-test-${_testModeQolipCheckouts.length + 1}',
+        locationId: locationId.trim(),
+        block: source.block,
+        warehouse: source.warehouse,
+        itemCode: source.itemCode,
+        itemName: source.itemName,
+        qolipCode: source.qolipCode,
+        size: source.size,
+        quantity: quantity,
+        rowLetter: source.rowLetter,
+        columnNumber: source.columnNumber,
+        locationLabel: source.locationLabel,
+        issuedToName: 'Test ishchi',
+        status: 'open',
+      );
+      _testModeQolipCheckouts.insert(0, entry);
+      return entry;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'location_id': locationId.trim(),
+          'quantity': quantity,
+          'worker_id': workerId.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_checkout_failed',
+        fallbackMessage: 'Qolip olish amalga oshmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipCheckoutEntry.fromJson(
+      (data['checkout'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<List<QolipCheckoutEntry>> qolipCheckouts({
+    String block = '',
+    String status = 'open',
+    int limit = 100,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalizedBlock = block.trim().toLowerCase();
+      final normalizedStatus = status.trim().toLowerCase();
+      return _testModeQolipCheckouts
+          .where(
+            (item) =>
+                normalizedStatus.isEmpty ||
+                item.status.trim().toLowerCase() == normalizedStatus,
+          )
+          .where(
+            (item) =>
+                normalizedBlock.isEmpty ||
+                item.block.trim().toLowerCase() == normalizedBlock,
+          )
+          .take(limit)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => http.get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts').replace(
+          queryParameters: {
+            if (block.trim().isNotEmpty) 'block': block.trim(),
+            if (status.trim().isNotEmpty) 'status': status.trim(),
+            'limit': '$limit',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_checkouts_failed',
+        fallbackMessage: 'Qarz daftari yuklanmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final item in (data['checkouts'] as List<dynamic>? ?? const []))
+        QolipCheckoutEntry.fromJson((item as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  Future<QolipCheckoutEntry> qolipReturnCheckout(
+    String checkoutId, {
+    String rowLetter = '',
+    int? columnNumber,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeQolipCheckouts.indexWhere(
+        (item) => item.id == checkoutId.trim(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'checkout_not_found',
+          message: 'checkout_not_found',
+        );
+      }
+      final current = _testModeQolipCheckouts[index];
+      if (!current.isOpen) {
+        throw const MobileApiException(
+          code: 'checkout_not_returnable',
+          message: 'checkout_not_returnable',
+        );
+      }
+      final cleanRow = rowLetter.trim().isEmpty
+          ? current.rowLetter.trim().toUpperCase()
+          : rowLetter.trim().toUpperCase();
+      final cleanColumn = columnNumber ?? current.columnNumber;
+      if (cleanRow.isEmpty || cleanColumn == null) {
+        throw const MobileApiException(
+          code: 'location_invalid',
+          message: 'location_invalid',
+        );
+      }
+      final itemCode =
+          current.itemCode.isEmpty ? current.qolipCode : current.itemCode;
+      final targetId = _testModeQolipLocationId(
+        block: current.block,
+        itemCode: itemCode,
+        qolipCode: current.qolipCode,
+        size: current.size,
+        rowLetter: cleanRow,
+        columnNumber: cleanColumn,
+      );
+      final locIndex =
+          _testModeQolipLocations.indexWhere((item) => item.id == targetId);
+      if (locIndex >= 0) {
+        final loc = _testModeQolipLocations[locIndex];
+        _testModeQolipLocations[locIndex] = QolipLocationEntry(
+          id: loc.id,
+          block: loc.block,
+          warehouse: loc.warehouse,
+          itemCode: loc.itemCode,
+          itemName: loc.itemName,
+          qolipCode: loc.qolipCode,
+          size: loc.size,
+          quantity: loc.quantity + current.quantity,
+          rowLetter: loc.rowLetter,
+          columnNumber: loc.columnNumber,
+          locationLabel: loc.locationLabel,
+        );
+      } else {
+        _testModeQolipLocations.add(
+          QolipLocationEntry(
+            id: targetId,
+            block: current.block,
+            warehouse: current.warehouse,
+            itemCode: itemCode,
+            itemName: current.itemName,
+            qolipCode: current.qolipCode,
+            size: current.size,
+            quantity: current.quantity,
+            rowLetter: cleanRow,
+            columnNumber: cleanColumn,
+            locationLabel: '$cleanRow$cleanColumn',
+          ),
+        );
+      }
+      final returned = QolipCheckoutEntry(
+        id: current.id,
+        locationId: current.locationId,
+        block: current.block,
+        warehouse: current.warehouse,
+        itemCode: current.itemCode,
+        itemName: current.itemName,
+        qolipCode: current.qolipCode,
+        size: current.size,
+        quantity: current.quantity,
+        rowLetter: current.rowLetter,
+        columnNumber: current.columnNumber,
+        locationLabel: current.locationLabel,
+        issuedToName: current.issuedToName,
+        status: 'returned',
+        issuedAt: current.issuedAt,
+      );
+      _testModeQolipCheckouts[index] = returned;
+      return returned;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts/return'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'checkout_id': checkoutId.trim(),
+          if (rowLetter.trim().isNotEmpty)
+            'row_letter': rowLetter.trim().toUpperCase(),
+          if (columnNumber != null) 'column_number': columnNumber,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_checkout_return_failed',
+        fallbackMessage: 'Qolip qaytarilmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipCheckoutEntry.fromJson(
+      (data['checkout'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<QolipLocationEntry> qolipMoveLocation({
+    required String locationId,
+    required int quantity,
+    required String rowLetter,
+    required int columnNumber,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeQolipLocations.indexWhere(
+        (item) => item.id == locationId.trim(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'location_not_found',
+          message: 'location_not_found',
+        );
+      }
+      final source = _testModeQolipLocations[index];
+      if (quantity <= 0 || quantity > source.quantity) {
+        throw const MobileApiException(
+          code: 'insufficient_stock',
+          message: 'insufficient_stock',
+        );
+      }
+      final cleanRow = rowLetter.trim().toUpperCase();
+      final targetId = _testModeQolipLocationId(
+        block: source.block,
+        itemCode: source.itemCode,
+        qolipCode: source.qolipCode,
+        size: source.size,
+        rowLetter: cleanRow,
+        columnNumber: columnNumber,
+      );
+      if (targetId == source.id) {
+        throw const MobileApiException(
+          code: 'location_invalid',
+          message: 'location_invalid',
+        );
+      }
+      final remaining = source.quantity - quantity;
+      if (remaining > 0) {
+        _testModeQolipLocations[index] = QolipLocationEntry(
+          id: source.id,
+          block: source.block,
+          warehouse: source.warehouse,
+          itemCode: source.itemCode,
+          itemName: source.itemName,
+          qolipCode: source.qolipCode,
+          size: source.size,
+          quantity: remaining,
+          rowLetter: source.rowLetter,
+          columnNumber: source.columnNumber,
+          locationLabel: source.locationLabel,
+        );
+      } else {
+        _testModeQolipLocations.removeAt(index);
+      }
+      final targetIndex =
+          _testModeQolipLocations.indexWhere((item) => item.id == targetId);
+      if (targetIndex >= 0) {
+        final target = _testModeQolipLocations[targetIndex];
+        final merged = QolipLocationEntry(
+          id: target.id,
+          block: target.block,
+          warehouse: target.warehouse,
+          itemCode: target.itemCode,
+          itemName: target.itemName,
+          qolipCode: target.qolipCode,
+          size: target.size,
+          quantity: target.quantity + quantity,
+          rowLetter: target.rowLetter,
+          columnNumber: target.columnNumber,
+          locationLabel: target.locationLabel,
+        );
+        _testModeQolipLocations[targetIndex] = merged;
+        return merged;
+      }
+      final created = QolipLocationEntry(
+        id: targetId,
+        block: source.block,
+        warehouse: source.warehouse,
+        itemCode: source.itemCode,
+        itemName: source.itemName,
+        qolipCode: source.qolipCode,
+        size: source.size,
+        quantity: quantity,
+        rowLetter: cleanRow,
+        columnNumber: columnNumber,
+        locationLabel: '$cleanRow$columnNumber',
+      );
+      _testModeQolipLocations.add(created);
+      return created;
+    }
+    final response = await _sendAuthorized(
+      () => http.post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/locations/move'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'location_id': locationId.trim(),
+          'quantity': quantity,
+          'row_letter': rowLetter.trim().toUpperCase(),
+          'column_number': columnNumber,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_location_move_failed',
+        fallbackMessage: 'Ko‘chirish amalga oshmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QolipLocationEntry.fromJson(
+      (data['location'] as Map).cast<String, dynamic>(),
+    );
+  }
+
   Future<QolipCellQr> qolipPrintCellQr({
     required QolipBlock block,
     required String rowLetter,
@@ -464,6 +917,32 @@ MobileApiException _qolipCellQrException(http.Response response) {
     }
   } catch (_) {
     // Keep the user-facing fallback above.
+  }
+  return MobileApiException(
+    code: code,
+    message: message,
+    statusCode: response.statusCode,
+  );
+}
+
+MobileApiException _qolipApiException(
+  http.Response response, {
+  required String fallbackCode,
+  required String fallbackMessage,
+}) {
+  var code = fallbackCode;
+  var message = fallbackMessage;
+  try {
+    final data = jsonDecode(response.body);
+    if (data is Map) {
+      code = data['error']?.toString() ?? data['code']?.toString() ?? code;
+      final serverMessage = data['message']?.toString() ?? '';
+      if (serverMessage.trim().isNotEmpty) {
+        message = serverMessage.trim();
+      }
+    }
+  } catch (_) {
+    // Keep fallback values.
   }
   return MobileApiException(
     code: code,
