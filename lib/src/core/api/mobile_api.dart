@@ -6,6 +6,7 @@ import '../../features/admin/models/production_map_models.dart';
 import '../../features/shared/models/stock_entry_lookup.dart';
 import '../customer/customer_priority.dart';
 import '../notifications/service/push_messaging_service.dart';
+import '../native_iroh_transport.dart';
 import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
@@ -79,6 +80,65 @@ class MobileApi {
 
   Map<String, String> _headers(String token) {
     return {'Authorization': 'Bearer $token'};
+  }
+
+  Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) {
+    if (NativeIrohTransport.hasEndpointTicket) {
+      return NativeIrohTransport.send(
+        method: 'GET',
+        uri: uri,
+        headers: headers,
+      );
+    }
+    return http.get(uri, headers: headers);
+  }
+
+  Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    if (NativeIrohTransport.hasEndpointTicket) {
+      return NativeIrohTransport.send(
+        method: 'POST',
+        uri: uri,
+        headers: headers,
+        body: body,
+      );
+    }
+    return http.post(uri, headers: headers, body: body);
+  }
+
+  Future<http.Response> _put(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    if (NativeIrohTransport.hasEndpointTicket) {
+      return NativeIrohTransport.send(
+        method: 'PUT',
+        uri: uri,
+        headers: headers,
+        body: body,
+      );
+    }
+    return http.put(uri, headers: headers, body: body);
+  }
+
+  Future<http.Response> _delete(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    if (NativeIrohTransport.hasEndpointTicket) {
+      return NativeIrohTransport.send(
+        method: 'DELETE',
+        uri: uri,
+        headers: headers,
+        body: body,
+      );
+    }
+    return http.delete(uri, headers: headers, body: body);
   }
 
   String requireToken() {

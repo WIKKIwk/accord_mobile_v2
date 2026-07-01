@@ -14,7 +14,7 @@ extension MobileApiAuthProfile on MobileApi {
     required String phone,
     required String code,
   }) async {
-    final http.Response response = await http.post(
+    final http.Response response = await _post(
       Uri.parse('$baseUrl/v1/mobile/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phone': phone, 'code': code}),
@@ -34,8 +34,7 @@ extension MobileApiAuthProfile on MobileApi {
     profileJson['assigned_apparatus'] =
         json['assigned_apparatus'] as List<dynamic>? ?? [];
     final SessionProfile profile = SessionProfile.fromJson(profileJson);
-    final WerkaHomeData? werkaHome =
-        profile.role == UserRole.werka &&
+    final WerkaHomeData? werkaHome = profile.role == UserRole.werka &&
             json['werka_home'] is Map<String, dynamic>
         ? WerkaHomeData.fromJson(json['werka_home'] as Map<String, dynamic>)
         : null;
@@ -63,7 +62,7 @@ extension MobileApiAuthProfile on MobileApi {
       'token=${maskPushToken(trimmedToken)}',
     );
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/push/token'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -87,7 +86,7 @@ extension MobileApiAuthProfile on MobileApi {
     debugPrint(
       'push unregister request token=${maskPushToken(tokenValue.trim())}',
     );
-    await http.delete(
+    await _delete(
       Uri.parse(
         '$baseUrl/v1/mobile/push/token',
       ).replace(queryParameters: {'token': tokenValue}),
@@ -102,7 +101,7 @@ extension MobileApiAuthProfile on MobileApi {
         await PushMessagingService.instance.unregisterCurrentToken();
       } catch (_) {}
       try {
-        await http.post(
+        await _post(
           Uri.parse('$baseUrl/v1/mobile/auth/logout'),
           headers: _headers(token),
         );
@@ -113,7 +112,7 @@ extension MobileApiAuthProfile on MobileApi {
 
   Future<SessionProfile> profile() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/profile'),
         headers: _headers(requireToken()),
       ),
@@ -130,7 +129,7 @@ extension MobileApiAuthProfile on MobileApi {
 
   Future<SessionProfile> updateNickname(String nickname) async {
     final http.Response response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/profile'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',

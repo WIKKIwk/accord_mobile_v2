@@ -6,7 +6,7 @@ extension MobileApiAdminItemGroups on MobileApi {
       return TestModeDemoData.itemGroups;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups'),
         headers: _headers(requireToken()),
       ),
@@ -23,7 +23,7 @@ extension MobileApiAdminItemGroups on MobileApi {
       return TestModeDemoData.itemGroupTree;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups/tree'),
         headers: _headers(requireToken()),
       ),
@@ -46,7 +46,7 @@ extension MobileApiAdminItemGroups on MobileApi {
     required bool isGroup,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -66,7 +66,7 @@ extension MobileApiAdminItemGroups on MobileApi {
     required String parent,
   }) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/item-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',

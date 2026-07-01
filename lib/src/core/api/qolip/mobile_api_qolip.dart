@@ -66,7 +66,7 @@ extension MobileApiQolip on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
         headers: _headers(requireToken()),
       ),
@@ -86,7 +86,7 @@ extension MobileApiQolip on MobileApi {
       return QolipBlock(name: block.trim(), warehouse: warehouse.trim());
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -133,7 +133,7 @@ extension MobileApiQolip on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/products').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -188,7 +188,7 @@ extension MobileApiQolip on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/locations').replace(
           queryParameters: {'block': block.trim()},
         ),
@@ -275,7 +275,7 @@ extension MobileApiQolip on MobileApi {
       return entry;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/locations'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -309,7 +309,7 @@ extension MobileApiQolip on MobileApi {
       return saved;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/product-specs'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -342,7 +342,7 @@ extension MobileApiQolip on MobileApi {
       ];
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/workers').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -426,7 +426,7 @@ extension MobileApiQolip on MobileApi {
       return entry;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -473,7 +473,7 @@ extension MobileApiQolip on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts').replace(
           queryParameters: {
             if (block.trim().isNotEmpty) 'block': block.trim(),
@@ -595,7 +595,7 @@ extension MobileApiQolip on MobileApi {
       return returned;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/checkouts/return'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -713,7 +713,7 @@ extension MobileApiQolip on MobileApi {
       return created;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/locations/move'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -766,7 +766,7 @@ extension MobileApiQolip on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/cell-qr/print'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -816,7 +816,7 @@ extension MobileApiQolip on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/code-qr/print'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -882,7 +882,7 @@ extension MobileApiQolip on MobileApi {
     }
 
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/cell-qr').replace(
           queryParameters: {'qr': qr},
         ),

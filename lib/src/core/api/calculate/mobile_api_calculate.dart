@@ -10,7 +10,7 @@ extension MobileApiCalculate on MobileApi {
       return _testModeCalculate(request);
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -41,7 +41,7 @@ extension MobileApiCalculate on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders'),
         headers: _headers(requireToken()),
       ),
@@ -73,7 +73,7 @@ extension MobileApiCalculate on MobileApi {
       return _testModeUpsertCalculateOrderTemplate(template);
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -108,7 +108,7 @@ extension MobileApiCalculate on MobileApi {
       return;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders/delete'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -136,7 +136,7 @@ extension MobileApiCalculate on MobileApi {
     required String filename,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/orders/image'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'image/jpeg'

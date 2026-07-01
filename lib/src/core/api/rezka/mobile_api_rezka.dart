@@ -3,7 +3,7 @@ part of '../mobile_api.dart';
 extension MobileApiRezka on MobileApi {
   Future<RezkaSourceResponse> rezkaSource({required String barcode}) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/rezka/source',
         ).replace(queryParameters: {'barcode': barcode.trim()}),
@@ -29,7 +29,7 @@ extension MobileApiRezka on MobileApi {
 
   Future<RezkaSplitResponse> rezkaSplit(RezkaSplitRequest request) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rezka/split'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -195,9 +195,9 @@ class RezkaSplitResponse {
       sourceBarcode: _rezkaText(json['source_barcode']),
       outputs: outputsJson is List
           ? outputsJson
-                .whereType<Map<String, dynamic>>()
-                .map(RezkaOutputLabel.fromJson)
-                .toList(growable: false)
+              .whereType<Map<String, dynamic>>()
+              .map(RezkaOutputLabel.fromJson)
+              .toList(growable: false)
           : const <RezkaOutputLabel>[],
     );
   }

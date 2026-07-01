@@ -19,6 +19,9 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
+        freeCompilerArgs = freeCompilerArgs + listOf(
+            "-opt-in=kotlin.ExperimentalUnsignedTypes",
+        )
     }
 
     defaultConfig {
@@ -61,6 +64,11 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("computer.iroh:iroh:1.0.0") {
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
+    implementation("net.java.dev.jna:jna:5.15.0@aar")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
 
 val flutterApkDir = layout.buildDirectory.dir("outputs/flutter-apk")

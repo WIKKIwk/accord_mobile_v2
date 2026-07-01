@@ -30,8 +30,8 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: (payload?['code'] as String? ?? 'werka_ai_search_failed').trim(),
-        message: (payload?['error'] as String? ?? 'Werka AI search failed')
-            .trim(),
+        message:
+            (payload?['error'] as String? ?? 'Werka AI search failed').trim(),
         statusCode: response.statusCode,
       );
     }
@@ -43,7 +43,7 @@ extension MobileApiWerka on MobileApi {
     int limit = 20,
   }) async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/stock-entry/lookup').replace(
           queryParameters: {
             'barcode': barcode.trim(),
@@ -85,7 +85,7 @@ extension MobileApiWerka on MobileApi {
 
   Future<List<DispatchRecord>> werkaPending() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/pending'),
         headers: _headers(requireToken()),
       ),
@@ -105,7 +105,7 @@ extension MobileApiWerka on MobileApi {
     int offset = 0,
   }) async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/suppliers').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -187,11 +187,11 @@ extension MobileApiWerka on MobileApi {
     final filtered = query.trim().isEmpty
         ? candidates
         : candidates
-              .where(
-                (customer) =>
-                    _matchesCustomer(customer, query.trim().toLowerCase()),
-              )
-              .toList();
+            .where(
+              (customer) =>
+                  _matchesCustomer(customer, query.trim().toLowerCase()),
+            )
+            .toList();
 
     filtered.sort(
       (left, right) => compareCustomerNamesForDefault(left.name, right.name),
@@ -200,9 +200,8 @@ extension MobileApiWerka on MobileApi {
     if (offset >= filtered.length) {
       return const <CustomerDirectoryEntry>[];
     }
-    final end = (offset + limit) > filtered.length
-        ? filtered.length
-        : offset + limit;
+    final end =
+        (offset + limit) > filtered.length ? filtered.length : offset + limit;
     return filtered.sublist(offset, end);
   }
 
@@ -212,7 +211,7 @@ extension MobileApiWerka on MobileApi {
     required int offset,
   }) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/customers').replace(
           queryParameters: {
             if (query.isNotEmpty) 'q': query,
@@ -249,7 +248,7 @@ extension MobileApiWerka on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/supplier-items').replace(
           queryParameters: {
             'supplier_ref': supplierRef,
@@ -282,7 +281,7 @@ extension MobileApiWerka on MobileApi {
     int offset = 0,
   }) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/customer-items').replace(
           queryParameters: {
             'customer_ref': customerRef,
@@ -326,7 +325,7 @@ extension MobileApiWerka on MobileApi {
     required int offset,
   }) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/customer-item-options').replace(
           queryParameters: {
             if (query.isNotEmpty) 'q': query,
@@ -359,7 +358,7 @@ extension MobileApiWerka on MobileApi {
     required double qty,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/werka/unannounced/create'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -387,7 +386,7 @@ extension MobileApiWerka on MobileApi {
     int sourceLineIndex = 0,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/werka/customer-issue/create'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -435,7 +434,7 @@ extension MobileApiWerka on MobileApi {
     required List<WerkaCustomerIssueBatchLineRequest> lines,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/werka/customer-issue/batch-create'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -455,7 +454,7 @@ extension MobileApiWerka on MobileApi {
 
   Future<WerkaHomeSummary> werkaSummary() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/summary'),
         headers: _headers(requireToken()),
       ),
@@ -470,7 +469,7 @@ extension MobileApiWerka on MobileApi {
 
   Future<WerkaHomeData> werkaHome() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/home'),
         headers: _headers(requireToken()),
       ),
@@ -487,7 +486,7 @@ extension MobileApiWerka on MobileApi {
     WerkaStatusKind kind,
   ) async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/werka/status-breakdown',
         ).replace(queryParameters: {'kind': kind.name}),
@@ -511,7 +510,7 @@ extension MobileApiWerka on MobileApi {
     required String supplierRef,
   }) async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/status-details').replace(
           queryParameters: {'kind': kind.name, 'supplier_ref': supplierRef},
         ),
@@ -529,7 +528,7 @@ extension MobileApiWerka on MobileApi {
 
   Future<List<DispatchRecord>> werkaHistory() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/history'),
         headers: _headers(requireToken()),
       ),
@@ -545,7 +544,7 @@ extension MobileApiWerka on MobileApi {
 
   Future<List<DispatchRecord>> werkaNotifications() async {
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/werka/notifications'),
         headers: _headers(requireToken()),
       ),
@@ -574,7 +573,7 @@ extension MobileApiWerka on MobileApi {
       queryParameters['to'] = _formatArchiveDate(to);
     }
     final http.Response response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/werka/archive',
         ).replace(queryParameters: queryParameters),
@@ -604,7 +603,7 @@ extension MobileApiWerka on MobileApi {
       queryParameters['to'] = _formatArchiveDate(to);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/werka/archive/pdf',
         ).replace(queryParameters: queryParameters),
@@ -641,7 +640,7 @@ extension MobileApiWerka on MobileApi {
     String returnComment = '',
   }) async {
     final http.Response response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/werka/confirm'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -669,8 +668,7 @@ extension MobileApiWerka on MobileApi {
     final normalizedQuery = query.toLowerCase();
     final optionLists = await Future.wait(
       customers.map((customer) async {
-        final customerMatches =
-            normalizedQuery.isNotEmpty &&
+        final customerMatches = normalizedQuery.isNotEmpty &&
             _matchesCustomer(customer, normalizedQuery);
         final items = await werkaCustomerItems(
           customerRef: customer.ref,
@@ -741,8 +739,8 @@ extension MobileApiWerka on MobileApi {
 
   int _compareSupplierItems(SupplierItem left, SupplierItem right) {
     final nameCompare = left.name.toLowerCase().compareTo(
-      right.name.toLowerCase(),
-    );
+          right.name.toLowerCase(),
+        );
     if (nameCompare != 0) {
       return nameCompare;
     }
@@ -754,8 +752,8 @@ extension MobileApiWerka on MobileApi {
     CustomerItemOption right,
   ) {
     final itemCompare = left.itemName.toLowerCase().compareTo(
-      right.itemName.toLowerCase(),
-    );
+          right.itemName.toLowerCase(),
+        );
     if (itemCompare != 0) {
       return itemCompare;
     }

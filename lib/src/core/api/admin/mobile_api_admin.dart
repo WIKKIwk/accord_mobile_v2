@@ -1416,6 +1416,10 @@ MobileApiException _adminProductionMapException(
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
+      'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
+      'qolip_code_not_found' => 'Qolip QR topilmadi',
+      'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
+      'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'raw_material_assignment_locked' =>
@@ -1453,7 +1457,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.adminSettings;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/settings'),
         headers: _headers(requireToken()),
       ),
@@ -1468,7 +1472,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminSettings> updateAdminSettings(AdminSettings settings) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/settings'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -1485,7 +1489,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminSettings> adminRegenerateWerkaCode() async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/werka/code/regenerate'),
         headers: _headers(requireToken()),
       ),
@@ -1500,7 +1504,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<DispatchRecord>> adminActivity() async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/activity'),
         headers: _headers(requireToken()),
       ),
@@ -1568,7 +1572,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/system/monitor'),
         headers: _headers(requireToken()),
       ),
@@ -1598,6 +1602,19 @@ extension MobileApiAdmin on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
+    if (NativeIrohTransport.hasEndpointTicket) {
+      while (true) {
+        final report = await adminServerMonitor();
+        final measuredMs = NativeIrohTransport.lastRequestTotalMs;
+        final latencyMs =
+            measuredMs == null || measuredMs <= 0 ? 1 : measuredMs;
+        yield AdminServerMonitorLiveEvent(
+          report: report,
+          latencyMs: latencyMs,
+        );
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+    }
     await for (final event in withLiveStreamSilenceTimeout(
       connectSystemMonitorLive(adminServerMonitorLiveUri()),
     )) {
@@ -1613,7 +1630,7 @@ extension MobileApiAdmin on MobileApi {
       return List<AdminApparatusGroup>.from(_testModeApparatusGroups);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/apparatus-groups'),
         headers: _headers(requireToken()),
       ),
@@ -1646,7 +1663,7 @@ extension MobileApiAdmin on MobileApi {
       return normalized;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/apparatus-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -1663,7 +1680,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<AdminCapability>> adminCapabilities() async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/capabilities'),
         headers: _headers(requireToken()),
       ),
@@ -1682,7 +1699,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.roles;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/roles'),
         headers: _headers(requireToken()),
       ),
@@ -1703,7 +1720,7 @@ extension MobileApiAdmin on MobileApi {
       return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),
         headers: _headers(requireToken()),
       ),
@@ -1731,7 +1748,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps',
         ).replace(queryParameters: {'id': normalized}),
@@ -1783,7 +1800,7 @@ extension MobileApiAdmin on MobileApi {
       return saved;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -1839,7 +1856,7 @@ extension MobileApiAdmin on MobileApi {
       }
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/with-order'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -1943,7 +1960,7 @@ extension MobileApiAdmin on MobileApi {
       return updated;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/move-batch'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2022,7 +2039,7 @@ extension MobileApiAdmin on MobileApi {
       return saved;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/move'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2064,7 +2081,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/sequence'),
         headers: _headers(requireToken()),
       ),
@@ -2123,7 +2140,7 @@ extension MobileApiAdmin on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps/wip-batches',
         ).replace(
@@ -2164,7 +2181,7 @@ extension MobileApiAdmin on MobileApi {
       ];
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/completed-orders'),
         headers: _headers(requireToken()),
       ),
@@ -2189,7 +2206,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps/completion-requests',
         ),
@@ -2264,7 +2281,7 @@ extension MobileApiAdmin on MobileApi {
       return notification;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps/completion-requests/decision',
         ),
@@ -2296,7 +2313,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/production-maps/completion-request-decisions',
         ),
@@ -2326,7 +2343,7 @@ extension MobileApiAdmin on MobileApi {
       return const [];
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/closed-orders'),
         headers: _headers(requireToken()),
       ),
@@ -2353,7 +2370,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-policies'),
         headers: _headers(requireToken()),
       ),
@@ -2388,7 +2405,7 @@ extension MobileApiAdmin on MobileApi {
       return record;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-policies'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2439,7 +2456,7 @@ extension MobileApiAdmin on MobileApi {
       return _testModeRawMaterialRules.values.toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-rules'),
         headers: _headers(requireToken()),
       ),
@@ -2481,7 +2498,7 @@ extension MobileApiAdmin on MobileApi {
       return rule;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-rules'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2508,7 +2525,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
         headers: _headers(requireToken()),
       ),
@@ -2570,7 +2587,7 @@ extension MobileApiAdmin on MobileApi {
       return assignment;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2610,7 +2627,7 @@ extension MobileApiAdmin on MobileApi {
       return _testModeRawMaterialAssignments.removeAt(index);
     }
     final response = await _sendAuthorized(
-      () => http.delete(
+      () => _delete(
         Uri.parse('$baseUrl/v1/mobile/admin/raw-material-assignments'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -2643,7 +2660,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/raw-material-assignments/lookup',
         ).replace(queryParameters: {'barcode': normalized}),
@@ -2731,6 +2748,7 @@ extension MobileApiAdmin on MobileApi {
     required String action,
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
+    String qolipCode = '',
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -2754,6 +2772,7 @@ extension MobileApiAdmin on MobileApi {
       action: action,
       materialBarcode: materialBarcode,
       materialBarcodes: materialBarcodes,
+      qolipCode: qolipCode,
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
@@ -2780,6 +2799,7 @@ extension MobileApiAdmin on MobileApi {
     required String action,
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
+    String qolipCode = '',
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -3079,6 +3099,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final trimmedBarcode = materialBarcode.trim();
+    final trimmedQolipCode = qolipCode.trim();
     final trimmedBarcodes = [
       for (final barcode in materialBarcodes)
         if (barcode.trim().isNotEmpty) barcode.trim(),
@@ -3086,7 +3107,7 @@ extension MobileApiAdmin on MobileApi {
     final trimmedDriverUrl = driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final trimmedCompletionRequestNote = completionRequestNote.trim();
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/queue-action'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3097,6 +3118,7 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
           if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
             'material_barcode': trimmedBarcode,
+          if (trimmedQolipCode.isNotEmpty) 'qolip_code': trimmedQolipCode,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,
@@ -3164,7 +3186,7 @@ extension MobileApiAdmin on MobileApi {
       return batch;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
             '$baseUrl/v1/mobile/admin/production-maps/progress-qr/lookup'),
         headers: _headers(requireToken())
@@ -3209,7 +3231,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
             '$baseUrl/v1/mobile/admin/production-maps/progress-qr/report'),
         headers: _headers(requireToken())
@@ -3241,7 +3263,7 @@ extension MobileApiAdmin on MobileApi {
       return;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/sequence'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3257,7 +3279,7 @@ extension MobileApiAdmin on MobileApi {
     ProductionMapRunRequest input,
   ) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/production-maps/run'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3274,7 +3296,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminRoleDefinition> adminUpsertRole(AdminRoleDefinition role) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/roles'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3294,7 +3316,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.roleAssignments;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/role-assignments'),
         headers: _headers(requireToken()),
       ),
@@ -3323,7 +3345,7 @@ extension MobileApiAdmin on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/workers').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -3356,7 +3378,7 @@ extension MobileApiAdmin on MobileApi {
       return worker;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/workers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3385,7 +3407,7 @@ extension MobileApiAdmin on MobileApi {
       return updated;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/workers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3414,7 +3436,7 @@ extension MobileApiAdmin on MobileApi {
       return updated;
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/workers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3447,7 +3469,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/workers/detail',
         ).replace(queryParameters: {'id': id}),
@@ -3478,7 +3500,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/workers/profile-detail',
         ).replace(queryParameters: {'id': id}),
@@ -3514,7 +3536,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/workers/code/regenerate',
         ).replace(queryParameters: {'id': id}),
@@ -3543,7 +3565,7 @@ extension MobileApiAdmin on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/worker-groups').replace(
           queryParameters: {
             if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
@@ -3585,7 +3607,7 @@ extension MobileApiAdmin on MobileApi {
       return _hydrateTestModeWorkerGroup(normalized);
     }
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/worker-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3637,7 +3659,7 @@ extension MobileApiAdmin on MobileApi {
     AdminRoleAssignment assignment,
   ) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/role-assignments'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3662,7 +3684,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers'),
         headers: _headers(requireToken()),
       ),
@@ -3683,7 +3705,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.supplierPage(limit: limit, offset: offset);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers/list').replace(
           queryParameters: {
             if (limit > 0) 'limit': '$limit',
@@ -3715,7 +3737,7 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/users/list').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -3739,7 +3761,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.supplierSummary;
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers/summary'),
         headers: _headers(requireToken()),
       ),
@@ -3757,7 +3779,7 @@ extension MobileApiAdmin on MobileApi {
       return const <AdminSupplier>[];
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers/inactive'),
         headers: _headers(requireToken()),
       ),
@@ -3776,7 +3798,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.supplierDetail(ref);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/detail',
         ).replace(queryParameters: {'ref': ref}),
@@ -3796,7 +3818,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.customerDetail(ref);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/customers/detail',
         ).replace(queryParameters: {'ref': ref}),
@@ -3816,7 +3838,7 @@ extension MobileApiAdmin on MobileApi {
     required String phone,
   }) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/customers/phone',
         ).replace(queryParameters: {'ref': ref}),
@@ -3835,7 +3857,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminCustomerDetail> adminRegenerateCustomerCode(String ref) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/customers/code/regenerate',
         ).replace(queryParameters: {'ref': ref}),
@@ -3852,7 +3874,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<void> adminRemoveCustomer(String ref) async {
     final response = await _sendAuthorized(
-      () => http.delete(
+      () => _delete(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/customers/remove',
         ).replace(queryParameters: {'ref': ref}),
@@ -3869,7 +3891,7 @@ extension MobileApiAdmin on MobileApi {
     required String phone,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/suppliers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3889,7 +3911,7 @@ extension MobileApiAdmin on MobileApi {
     required String phone,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/admin/customers'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -3913,7 +3935,7 @@ extension MobileApiAdmin on MobileApi {
       return TestModeDemoData.customerPage(limit: limit, offset: offset);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/admin/customers/list').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -3941,7 +3963,7 @@ extension MobileApiAdmin on MobileApi {
     required bool blocked,
   }) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/status',
         ).replace(queryParameters: {'ref': ref}),
@@ -3963,7 +3985,7 @@ extension MobileApiAdmin on MobileApi {
     required String phone,
   }) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/phone',
         ).replace(queryParameters: {'ref': ref}),
@@ -3982,7 +4004,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminSupplierDetail> adminRegenerateSupplierCode(String ref) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/code/regenerate',
         ).replace(queryParameters: {'ref': ref}),
@@ -4002,7 +4024,7 @@ extension MobileApiAdmin on MobileApi {
     required List<String> itemCodes,
   }) async {
     final response = await _sendAuthorized(
-      () => http.put(
+      () => _put(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/items',
         ).replace(queryParameters: {'ref': ref}),
@@ -4021,7 +4043,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<SupplierItem>> adminAssignedSupplierItems(String ref) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/items/assigned',
         ).replace(queryParameters: {'ref': ref}),
@@ -4042,7 +4064,7 @@ extension MobileApiAdmin on MobileApi {
     required String itemCode,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/items/add',
         ).replace(queryParameters: {'ref': ref}),
@@ -4064,7 +4086,7 @@ extension MobileApiAdmin on MobileApi {
     required String itemCode,
   }) async {
     final response = await _sendAuthorized(
-      () => http.delete(
+      () => _delete(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/items/remove',
         ).replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
@@ -4081,7 +4103,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<void> adminRemoveSupplier(String ref) async {
     final response = await _sendAuthorized(
-      () => http.delete(
+      () => _delete(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/remove',
         ).replace(queryParameters: {'ref': ref}),
@@ -4095,7 +4117,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminSupplierDetail> adminRestoreSupplier(String ref) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/suppliers/restore',
         ).replace(queryParameters: {'ref': ref}),

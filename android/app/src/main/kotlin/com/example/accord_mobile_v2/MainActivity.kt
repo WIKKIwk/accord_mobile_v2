@@ -34,6 +34,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var nativeDockHost: NativeDockHostView? = null
     private var nativeDockBridge: NativeDockChannelBridge? = null
     private var systemNavigationModeChannel: SystemNavigationModeChannel? = null
+    private var irohTransportChannel: IrohTransportChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +82,10 @@ class MainActivity : FlutterFragmentActivity() {
         systemNavigationModeChannel = SystemNavigationModeChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             this,
+        )
+        irohTransportChannel = IrohTransportChannel(
+            activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
     }
 

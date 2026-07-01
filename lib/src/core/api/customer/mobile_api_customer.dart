@@ -5,7 +5,7 @@ extension MobileApiCustomer on MobileApi {
 
   Future<CustomerHomeSummary> customerSummary() async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/customer/summary'),
         headers: _headers(requireToken()),
       ),
@@ -20,7 +20,7 @@ extension MobileApiCustomer on MobileApi {
 
   Future<List<DispatchRecord>> customerHistory() async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('$baseUrl/v1/mobile/customer/history'),
         headers: _headers(requireToken()),
       ),
@@ -38,7 +38,7 @@ extension MobileApiCustomer on MobileApi {
     CustomerStatusKind kind,
   ) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/customer/status-details',
         ).replace(queryParameters: {'kind': kind.name}),
@@ -58,7 +58,7 @@ extension MobileApiCustomer on MobileApi {
     String deliveryNoteID,
   ) async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/customer/detail',
         ).replace(queryParameters: {'delivery_note_id': deliveryNoteID}),
@@ -102,7 +102,7 @@ extension MobileApiCustomer on MobileApi {
       body['comment'] = comment.trim();
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('$baseUrl/v1/mobile/customer/respond'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',

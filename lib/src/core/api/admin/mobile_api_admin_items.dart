@@ -64,7 +64,7 @@ extension MobileApiAdminItems on MobileApi {
     required String itemCode,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/customers/items/add',
         ).replace(queryParameters: {'ref': ref}),
@@ -86,7 +86,7 @@ extension MobileApiAdminItems on MobileApi {
     required String itemCode,
   }) async {
     final response = await _sendAuthorized(
-      () => http.delete(
+      () => _delete(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/customers/items/remove',
         ).replace(queryParameters: {'ref': ref, 'item_code': itemCode}),
@@ -140,7 +140,7 @@ extension MobileApiAdminItems on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -186,7 +186,7 @@ extension MobileApiAdminItems on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -214,7 +214,7 @@ extension MobileApiAdminItems on MobileApi {
       return _testModeWarehouseSummaries(query: query, limit: limit);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses/summary')
             .replace(
           queryParameters: {
@@ -251,7 +251,7 @@ extension MobileApiAdminItems on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock')
             .replace(
           queryParameters: {
@@ -300,7 +300,7 @@ extension MobileApiAdminItems on MobileApi {
       return item;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -329,7 +329,7 @@ extension MobileApiAdminItems on MobileApi {
           .toList(growable: false);
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments',
         ).replace(
@@ -386,7 +386,7 @@ extension MobileApiAdminItems on MobileApi {
       return assignment;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse(
             '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments'),
         headers: _headers(requireToken())
@@ -435,7 +435,7 @@ extension MobileApiAdminItems on MobileApi {
       return item;
     }
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -455,7 +455,7 @@ extension MobileApiAdminItems on MobileApi {
     required String itemGroup,
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/bulk-move-group'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -478,7 +478,7 @@ extension MobileApiAdminItems on MobileApi {
     String customerRef = '',
   }) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',

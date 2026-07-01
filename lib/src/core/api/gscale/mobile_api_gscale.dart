@@ -16,7 +16,7 @@ extension MobileApiGScale on MobileApi {
       );
     }
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/gscale/items').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
@@ -50,7 +50,7 @@ extension MobileApiGScale on MobileApi {
     GScaleRpsBatchStartRequest request,
   ) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/start'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -76,7 +76,7 @@ extension MobileApiGScale on MobileApi {
 
   Future<GScaleRpsBatchResponse> gscaleRpsBatchState() async {
     final response = await _sendAuthorized(
-      () => http.get(
+      () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/state'),
         headers: _headers(requireToken()),
       ),
@@ -100,7 +100,7 @@ extension MobileApiGScale on MobileApi {
 
   Future<GScaleRpsBatchResponse> gscaleRpsBatchStop() async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/stop'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
@@ -128,7 +128,7 @@ extension MobileApiGScale on MobileApi {
     GScaleRpsBatchPrintRequest request,
   ) async {
     final response = await _sendAuthorized(
-      () => http.post(
+      () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/print'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
