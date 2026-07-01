@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Display
@@ -31,9 +32,14 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+    private companion object {
+        const val TAG = "AccordMainActivity"
+    }
+
     private var nativeDockHost: NativeDockHostView? = null
     private var nativeDockBridge: NativeDockChannelBridge? = null
     private var systemNavigationModeChannel: SystemNavigationModeChannel? = null
+    private var usbPrinterChannel: UsbPrinterChannel? = null
     private var irohTransportChannel: IrohTransportChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,10 +89,19 @@ class MainActivity : FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             this,
         )
-        irohTransportChannel = IrohTransportChannel(
+        usbPrinterChannel = UsbPrinterChannel(
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+        irohTransportChannel = try {
+            IrohTransportChannel(
+                activity = this,
+                messenger = flutterEngine.dartExecutor.binaryMessenger,
+            )
+        } catch (error: UnsatisfiedLinkError) {
+            Log.w(TAG, "Iroh native transport disabled: ${error.message}")
+            null
+        }
     }
 
     private fun ensureNativeDockHost() {

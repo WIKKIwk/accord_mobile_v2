@@ -32,10 +32,19 @@ void main() {
 
   test('parses ticket discovery response', () {
     final response = IrohTicketDiscoveryResponse.fromBody(
-      '{"ticket":" abc-123 ","source":"file"}',
+      '{"ticket":" abc-123 ","source":"file","supports_connection_reuse":true}',
     );
 
     expect(response.ticket, 'abc-123');
+    expect(response.supportsConnectionReuse, isTrue);
+  });
+
+  test('defaults ticket discovery connection reuse to false', () {
+    final response = IrohTicketDiscoveryResponse.fromBody(
+      '{"ticket":" abc-123 ","source":"file"}',
+    );
+
+    expect(response.supportsConnectionReuse, isFalse);
   });
 
   test('rejects blank ticket discovery response', () {

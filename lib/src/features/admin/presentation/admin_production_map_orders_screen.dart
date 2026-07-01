@@ -24,6 +24,7 @@ import '../../gscale/gscale_mobile_app.dart'
         driverUrlForRs,
         loadLastUsedServer,
         printTargetLabel;
+import '../../qolip/presentation/qolip_cell_qr_scan_screen.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';

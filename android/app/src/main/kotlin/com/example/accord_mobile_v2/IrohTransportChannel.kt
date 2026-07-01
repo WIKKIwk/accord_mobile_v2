@@ -15,11 +15,20 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 
@@ -30,6 +39,7 @@ class IrohTransportChannel(
     private val channel = MethodChannel(messenger, "accord/iroh_transport")
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val liveJobs = ConcurrentHashMap<Int, Job>()
 
     init {
         installAndroidContextOnce(activity)
@@ -40,11 +50,15 @@ class IrohTransportChannel(
         when (call.method) {
             "isSupported" -> result.success(true)
             "reset" -> {
-                IrohEndpointStore.reset()
-                result.success(null)
+                scope.launch {
+                    IrohEndpointStore.reset()
+                    postSuccess(result, null)
+                }
             }
             "healthCheck" -> healthCheck(call, result)
             "request" -> request(call, result)
+            "startLive" -> startLive(call, result)
+            "stopLive" -> stopLive(call, result)
             else -> result.notImplemented()
         }
     }
@@ -75,6 +89,7 @@ class IrohTransportChannel(
         val path = call.argument<String>("path")?.trim().orEmpty().ifEmpty { "/" }
         val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
         val body = call.argument<ByteArray>("body") ?: ByteArray(0)
+        val reuseConnection = call.argument<Boolean>("reuseConnection") ?: false
         if (ticket.isEmpty()) {
             result.error("iroh_invalid_ticket", "Iroh endpoint ticket is empty", null)
             return
@@ -82,7 +97,7 @@ class IrohTransportChannel(
 
         scope.launch {
             try {
-                val response = runHttpRequest(ticket, method, path, headers, body)
+                val response = runHttpRequest(ticket, method, path, headers, body, reuseConnection)
                 postSuccess(result, response)
             } catch (error: IrohTicketException) {
                 postError(result, "iroh_invalid_ticket", error.message ?: "Invalid Iroh ticket")
@@ -90,6 +105,37 @@ class IrohTransportChannel(
                 postError(result, "iroh_request_failed", error.message ?: error.toString())
             }
         }
+    }
+
+    private fun startLive(call: MethodCall, result: MethodChannel.Result) {
+        val id = call.argument<Int>("id") ?: 0
+        val ticket = call.argument<String>("ticket")?.trim().orEmpty()
+        val path = call.argument<String>("path")?.trim().orEmpty().ifEmpty { "/" }
+        val reuseConnection = call.argument<Boolean>("reuseConnection") ?: false
+        val sendPings = call.argument<Boolean>("sendPings") ?: false
+        if (id <= 0 || ticket.isEmpty()) {
+            result.error("iroh_live_failed", "Invalid live stream arguments", null)
+            return
+        }
+
+        liveJobs.remove(id)?.cancel()
+        liveJobs[id] = scope.launch {
+            try {
+                runLiveRequest(id, ticket, path, reuseConnection, sendPings)
+                emitLiveClosed(id)
+            } catch (error: Throwable) {
+                emitLiveError(id, error.message ?: error.toString())
+            } finally {
+                liveJobs.remove(id)
+            }
+        }
+        result.success(null)
+    }
+
+    private fun stopLive(call: MethodCall, result: MethodChannel.Result) {
+        val id = call.argument<Int>("id") ?: 0
+        liveJobs.remove(id)?.cancel()
+        result.success(null)
     }
 
     private suspend fun runHealthCheck(ticket: String, runs: Int): Map<String, Any?> {
@@ -133,10 +179,7 @@ class IrohTransportChannel(
                         )
                     }
                 } finally {
-                    try {
-                        connection.close(0, "done".toByteArray(StandardCharsets.UTF_8))
-                    } catch (_: Throwable) {
-                    }
+                    closeConnection(connection, "done")
                 }
             }
         } catch (error: Throwable) {
@@ -161,13 +204,17 @@ class IrohTransportChannel(
         path: String,
         headers: Map<String, String>,
         body: ByteArray,
+        reuseConnection: Boolean,
     ): Map<String, Any?> {
         val endpointAddr = decodeEndpointTicket(ticket).toEndpointAddr()
-        val endpoint = IrohEndpointStore.endpoint()
         val startedNs = System.nanoTime()
 
         try {
-            val connection = endpoint.connect(endpointAddr, ALPN)
+            val connection = if (reuseConnection) {
+                IrohEndpointStore.connection(ticket, endpointAddr)
+            } else {
+                IrohEndpointStore.endpoint().connect(endpointAddr, ALPN)
+            }
             try {
                 val bi = connection.openBi()
                 val send = bi.send()
@@ -198,14 +245,146 @@ class IrohTransportChannel(
                     "pathInfo" to pathInfo,
                 )
             } finally {
-                try {
-                    connection.close(0, "done".toByteArray(StandardCharsets.UTF_8))
-                } catch (_: Throwable) {
+                if (!reuseConnection) {
+                    closeConnection(connection, "done")
                 }
             }
         } catch (error: Throwable) {
-            IrohEndpointStore.reset(endpoint)
+            if (reuseConnection) {
+                IrohEndpointStore.resetConnection(ticket)
+            }
             throw error
+        }
+    }
+
+    private suspend fun runLiveRequest(
+        id: Int,
+        ticket: String,
+        path: String,
+        reuseConnection: Boolean,
+        sendPings: Boolean,
+    ) {
+        val endpointAddr = decodeEndpointTicket(ticket).toEndpointAddr()
+        val connection = if (reuseConnection) {
+            IrohEndpointStore.connection(ticket, endpointAddr)
+        } else {
+            IrohEndpointStore.endpoint().connect(endpointAddr, ALPN)
+        }
+        try {
+            val bi = connection.openBi()
+            val send = bi.send()
+            val recv = bi.recv()
+            val writer = IrohLiveWriter(send)
+            writer.write(buildWebSocketUpgradeRequest(path))
+
+            val response = readWebSocketResponseHead(recv)
+            val parsed = parseHttpResponse(response.first)
+            if (parsed.statusCode != 101) {
+                throw IllegalStateException(
+                    "unexpected WebSocket status ${parsed.statusCode}: ${
+                        String(parsed.body, StandardCharsets.UTF_8)
+                    }",
+                )
+            }
+
+            val pingJob = if (sendPings) {
+                scope.launch {
+                    var pingId = 0
+                    while (isActive) {
+                        pingId += 1
+                        val payload =
+                            """{"type":"ping","id":$pingId,"sent_at_ms":${System.currentTimeMillis()}}"""
+                        try {
+                            writer.write(buildWebSocketFrame(0x1, payload.toByteArray(StandardCharsets.UTF_8)))
+                        } catch (_: Throwable) {
+                            break
+                        }
+                        delay(2_000)
+                    }
+                }
+            } else {
+                null
+            }
+
+            try {
+                val frameBuffer = WebSocketFrameBuffer()
+                frameBuffer.append(response.second)
+                drainWebSocketFrames(id, frameBuffer, writer)
+                while (currentCoroutineContext().isActive) {
+                    val chunk = recv.read((16 * 1024).toUInt())
+                    if (chunk.isEmpty()) {
+                        break
+                    }
+                    frameBuffer.append(chunk)
+                    drainWebSocketFrames(id, frameBuffer, writer)
+                }
+            } finally {
+                pingJob?.cancel()
+                writer.finish()
+            }
+        } finally {
+            if (!reuseConnection) {
+                closeConnection(connection, "done")
+            }
+        }
+    }
+
+    private suspend fun readWebSocketResponseHead(
+        recv: computer.iroh.RecvStream,
+    ): Pair<ByteArray, ByteArray> {
+        val marker = "\r\n\r\n".toByteArray(StandardCharsets.UTF_8)
+        val buffer = ByteArrayOutputStream()
+        while (true) {
+            val chunk = recv.read(4096u)
+            if (chunk.isEmpty()) {
+                throw IllegalStateException("WebSocket response ended before headers")
+            }
+            buffer.write(chunk)
+            val bytes = buffer.toByteArray()
+            val headerEnd = bytes.indexOf(marker)
+            if (headerEnd >= 0) {
+                return bytes.copyOfRange(0, headerEnd + marker.size) to
+                    bytes.copyOfRange(headerEnd + marker.size, bytes.size)
+            }
+            if (bytes.size > 64 * 1024) {
+                throw IllegalStateException("WebSocket response headers exceed size limit")
+            }
+        }
+    }
+
+    private suspend fun drainWebSocketFrames(
+        id: Int,
+        frameBuffer: WebSocketFrameBuffer,
+        writer: IrohLiveWriter,
+    ) {
+        while (true) {
+            val frame = frameBuffer.pop() ?: return
+            when (frame.opcode) {
+                0x1 -> emitLiveMessage(id, String(frame.payload, StandardCharsets.UTF_8))
+                0x8 -> {
+                    runCatching { writer.write(buildWebSocketFrame(0x8, frame.payload)) }
+                    return
+                }
+                0x9 -> writer.write(buildWebSocketFrame(0xA, frame.payload))
+            }
+        }
+    }
+
+    private fun emitLiveMessage(id: Int, text: String) {
+        mainHandler.post {
+            channel.invokeMethod("liveMessage", mapOf("id" to id, "text" to text))
+        }
+    }
+
+    private fun emitLiveError(id: Int, message: String) {
+        mainHandler.post {
+            channel.invokeMethod("liveError", mapOf("id" to id, "message" to message))
+        }
+    }
+
+    private fun emitLiveClosed(id: Int) {
+        mainHandler.post {
+            channel.invokeMethod("liveClosed", mapOf("id" to id))
         }
     }
 
@@ -233,13 +412,115 @@ class IrohTransportChannel(
     }
 }
 
+private class IrohLiveWriter(
+    private val send: computer.iroh.SendStream,
+) {
+    private val lock = Mutex()
+
+    suspend fun write(data: ByteArray) {
+        lock.withLock {
+            send.writeAll(data)
+        }
+    }
+
+    suspend fun finish() {
+        runCatching {
+            lock.withLock {
+                send.finish()
+            }
+        }
+    }
+}
+
+private data class WebSocketFrame(
+    val opcode: Int,
+    val payload: ByteArray,
+)
+
+private class WebSocketFrameBuffer {
+    private val buffer = ArrayList<Byte>()
+
+    fun append(bytes: ByteArray) {
+        for (byte in bytes) {
+            buffer.add(byte)
+        }
+    }
+
+    fun pop(): WebSocketFrame? {
+        if (buffer.size < 2) {
+            return null
+        }
+        val first = buffer[0].toInt() and 0xff
+        val second = buffer[1].toInt() and 0xff
+        val opcode = first and 0x0f
+        val masked = (second and 0x80) != 0
+        var length = second and 0x7f
+        var offset = 2
+
+        if (length == 126) {
+            if (buffer.size < offset + 2) {
+                return null
+            }
+            length = ((buffer[offset].toInt() and 0xff) shl 8) or
+                (buffer[offset + 1].toInt() and 0xff)
+            offset += 2
+        } else if (length == 127) {
+            if (buffer.size < offset + 8) {
+                return null
+            }
+            var longLength = 0L
+            repeat(8) {
+                longLength = (longLength shl 8) or (buffer[offset + it].toLong() and 0xff)
+            }
+            if (longLength > Int.MAX_VALUE) {
+                throw IllegalStateException("WebSocket frame too large")
+            }
+            length = longLength.toInt()
+            offset += 8
+        }
+
+        val mask = ByteArray(4)
+        if (masked) {
+            if (buffer.size < offset + 4) {
+                return null
+            }
+            repeat(4) {
+                mask[it] = buffer[offset + it]
+            }
+            offset += 4
+        }
+
+        if (buffer.size < offset + length) {
+            return null
+        }
+        val payload = ByteArray(length)
+        repeat(length) { index ->
+            var byte = buffer[offset + index]
+            if (masked) {
+                byte = (byte.toInt() xor mask[index % 4].toInt()).toByte()
+            }
+            payload[index] = byte
+        }
+        repeat(offset + length) {
+            buffer.removeAt(0)
+        }
+        return WebSocketFrame(opcode, payload)
+    }
+}
+
 private object IrohEndpointStore {
+    private val endpointLock = Mutex()
+    private val connectionLock = Mutex()
     @Volatile
     private var cachedEndpoint: Endpoint? = null
+    @Volatile
+    private var cachedConnection: computer.iroh.Connection? = null
+    @Volatile
+    private var cachedConnectionTicket: String? = null
 
-    fun endpoint(): Endpoint {
+    suspend fun endpoint(): Endpoint {
         cachedEndpoint?.let { return it }
-        return synchronized(this) {
+        return endpointLock.withLock {
             cachedEndpoint ?: Endpoint.bind(
                 EndpointOptions(
                     preset = presetN0(),
@@ -249,23 +530,122 @@ private object IrohEndpointStore {
         }
     }
 
-    fun reset(endpoint: Endpoint) {
-        synchronized(this) {
+    suspend fun connection(ticket: String, addr: EndpointAddr): computer.iroh.Connection {
+        return connectionLock.withLock {
+            val connection = cachedConnection
+            if (connection != null && cachedConnectionTicket == ticket) {
+                return@withLock connection
+            }
+            val newConnection = endpoint().connect(addr, IrohTransportChannelAlpn.ALPN)
+            cachedConnection = newConnection
+            cachedConnectionTicket = ticket
+            newConnection
+        }
+    }
+
+    suspend fun resetConnection(ticket: String) {
+        val connection = connectionLock.withLock {
+            if (cachedConnectionTicket != ticket) {
+                return
+            }
+            cachedConnection.also {
+                cachedConnection = null
+                cachedConnectionTicket = null
+            }
+        }
+        closeConnection(connection, "reset")
+    }
+
+    suspend fun reset(endpoint: Endpoint) {
+        val connection = connectionLock.withLock {
             if (cachedEndpoint !== endpoint) {
                 return
             }
+            val connection = cachedConnection
             cachedEndpoint = null
+            cachedConnection = null
+            cachedConnectionTicket = null
+            connection
         }
+        closeConnection(connection, "reset")
         endpoint.shutdown()
         endpoint.close()
     }
 
-    fun reset() {
-        val endpoint = synchronized(this) {
-            cachedEndpoint.also { cachedEndpoint = null }
-        } ?: return
+    suspend fun reset() {
+        val snapshot = connectionLock.withLock {
+            val endpoint = cachedEndpoint
+            val connection = cachedConnection
+            cachedEndpoint = null
+            cachedConnection = null
+            cachedConnectionTicket = null
+            endpoint to connection
+        }
+        closeConnection(snapshot.second, "reset")
+        val endpoint = snapshot.first ?: return
         endpoint.shutdown()
         endpoint.close()
+    }
+
+    private fun closeConnection(connection: computer.iroh.Connection?, reason: String) {
+        if (connection == null) {
+            return
+        }
+        try {
+            connection.close(0, reason.toByteArray(StandardCharsets.UTF_8))
+        } catch (_: Throwable) {
+        }
+    }
+}
+
+private val webSocketRandom = SecureRandom()
+
+private fun buildWebSocketUpgradeRequest(path: String): ByteArray {
+    val keyBytes = ByteArray(16)
+    webSocketRandom.nextBytes(keyBytes)
+    val key = Base64.encodeToString(keyBytes, Base64.NO_WRAP)
+    return buildString {
+        append("GET ").append(path).append(" HTTP/1.1\r\n")
+        append("Host: mini-rs-erp\r\n")
+        append("Connection: Upgrade\r\n")
+        append("Upgrade: websocket\r\n")
+        append("Sec-WebSocket-Version: 13\r\n")
+        append("Sec-WebSocket-Key: ").append(key).append("\r\n")
+        append("\r\n")
+    }.toByteArray(StandardCharsets.UTF_8)
+}
+
+private fun buildWebSocketFrame(opcode: Int, payload: ByteArray): ByteArray {
+    val output = ByteArrayOutputStream()
+    output.write(0x80 or (opcode and 0x0f))
+    when {
+        payload.size <= 125 -> output.write(0x80 or payload.size)
+        payload.size <= UShort.MAX_VALUE.toInt() -> {
+            output.write(0x80 or 126)
+            output.write((payload.size shr 8) and 0xff)
+            output.write(payload.size and 0xff)
+        }
+        else -> {
+            output.write(0x80 or 127)
+            val length = payload.size.toLong()
+            for (shift in 56 downTo 0 step 8) {
+                output.write(((length shr shift) and 0xff).toInt())
+            }
+        }
+    }
+    val mask = ByteArray(4)
+    webSocketRandom.nextBytes(mask)
+    output.write(mask)
+    payload.forEachIndexed { index, byte ->
+        output.write(byte.toInt() xor mask[index % 4].toInt())
+    }
+    return output.toByteArray()
+}
+
+private fun closeConnection(connection: computer.iroh.Connection, reason: String) {
+    try {
+        connection.close(0, reason.toByteArray(StandardCharsets.UTF_8))
+    } catch (_: Throwable) {
     }
 }
 
@@ -279,15 +659,10 @@ private data class DecodedEndpointTicket(
     val addresses: List<String>,
 ) {
     fun toEndpointAddr(): EndpointAddr {
-        val usableAddresses = if (relayUrl == null) {
-            addresses
-        } else {
-            emptyList()
-        }
         return EndpointAddr(
             EndpointId.fromString(endpointId),
             relayUrl,
-            usableAddresses,
+            addresses,
         )
     }
 }

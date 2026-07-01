@@ -88,8 +88,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       final scheme = Theme.of(context).colorScheme;
       final Color authBackgroundColor =
           Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF000000)
-          : scheme.surfaceContainerLow;
+              ? const Color(0xFF000000)
+              : scheme.surfaceContainerLow;
       final Widget currentScreen = _showWelcome
           ? WelcomeScreen(
               key: const ValueKey<String>('welcome-screen'),
@@ -151,8 +151,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
         child: _navigated
             ? const SizedBox.shrink()
             : _booting
-            ? const AppLoadingIndicator()
-            : const SizedBox.shrink(),
+                ? const AppLoadingIndicator()
+                : const SizedBox.shrink(),
       ),
     );
   }

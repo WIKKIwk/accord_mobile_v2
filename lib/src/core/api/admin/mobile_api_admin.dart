@@ -1602,19 +1602,6 @@ extension MobileApiAdmin on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
-    if (NativeIrohTransport.hasEndpointTicket) {
-      while (true) {
-        final report = await adminServerMonitor();
-        final measuredMs = NativeIrohTransport.lastRequestTotalMs;
-        final latencyMs =
-            measuredMs == null || measuredMs <= 0 ? 1 : measuredMs;
-        yield AdminServerMonitorLiveEvent(
-          report: report,
-          latencyMs: latencyMs,
-        );
-        await Future<void>.delayed(const Duration(seconds: 1));
-      }
-    }
     await for (final event in withLiveStreamSilenceTimeout(
       connectSystemMonitorLive(adminServerMonitorLiveUri()),
     )) {

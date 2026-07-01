@@ -36,6 +36,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
+  String _scannedQolipCode = '';
   AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
   bool _materialsLoading = true;
@@ -60,6 +61,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
+      _scannedQolipCode = '';
       _startInputProgressBatch = null;
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
@@ -135,6 +137,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _showSheetNotice(prepared.blockReason!);
       return;
     }
+    final qolipCode = await _qolipCodeForQueueAction(action, prepared);
+    if (!mounted || qolipCode == null) {
+      return;
+    }
     setState(() => _actionInFlight = true);
     try {
       final states = await prepared.onQueueAction(
@@ -148,6 +154,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           progressBatchId: progressBatchId,
           driverUrl: driverUrl,
           completionRequestNote: completionRequestNote,
+          qolipCode: qolipCode,
         ),
       );
       if (!mounted) {
@@ -164,6 +171,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         )) {
           _startInputProgressBatch = null;
         }
+        if (action == 'start' && states != null) {
+          _scannedQolipCode = '';
+        }
       });
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
         unawaited(_loadMaterialAssignments());
@@ -178,6 +188,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() => _actionInFlight = false);
       _showSheetNotice(_readOnlyQueueActionErrorText(error));
     }
+  }
+
+  Future<String?> _qolipCodeForQueueAction(
+    String action,
+    _PreparedReadOnlyQueueAction prepared,
+  ) async {
+    if (action != 'start' ||
+        !_apparatusRequiresQolipScan(prepared.apparatus.warehouse)) {
+      return '';
+    }
+    if (_scannedQolipCode.trim().isNotEmpty) {
+      return _scannedQolipCode.trim();
+    }
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const QolipRawQrScanScreen()),
+    );
+    if (!mounted || code == null || code.trim().isEmpty) {
+      return null;
+    }
+    setState(() => _scannedQolipCode = code.trim());
+    return code.trim();
   }
 
   Future<void> _runProgressAction(String action) async {

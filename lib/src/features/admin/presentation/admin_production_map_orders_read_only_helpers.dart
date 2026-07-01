@@ -248,6 +248,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required String progressBatchId,
   required String driverUrl,
   required String completionRequestNote,
+  required String qolipCode,
 }) {
   return _ReadOnlyQueueActionRequest(
     apparatus: prepared.apparatus,
@@ -257,6 +258,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
       action: action,
       assignments: prepared.materialAssignments,
     ),
+    qolipCode: qolipCode,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
     returnInkKg: progressInput?.returnInkKg,
@@ -280,6 +282,10 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     driverUrl: driverUrl,
     completionRequestNote: completionRequestNote,
   );
+}
+
+bool _apparatusRequiresQolipScan(String apparatus) {
+  return apparatus.trim().toLowerCase().contains('pechat');
 }
 
 String? _queueActionStartBlockReason({

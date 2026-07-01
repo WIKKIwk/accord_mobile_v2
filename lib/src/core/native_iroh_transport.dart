@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -17,10 +18,74 @@ class NativeIrohTransport {
     defaultValue: 'https://mini-rs-erp-dev.wspace.sbs/v1/mobile/iroh-ticket',
   );
   static const String _endpointTicketPreferenceKey = 'iroh_endpoint_ticket';
+  static const String _supportsConnectionReusePreferenceKey =
+      'iroh_supports_connection_reuse';
   static String? _runtimeEndpointTicket;
+  static bool _runtimeSupportsConnectionReuse = false;
   static int? _lastRequestTotalMs;
+  static int _nextLiveSubscriptionId = 1;
+  static bool _callbackHandlerInstalled = false;
+  static final Map<int, StreamController<Map<String, dynamic>>>
+      _liveControllers = {};
 
   static int? get lastRequestTotalMs => _lastRequestTotalMs;
+
+  static Stream<Map<String, dynamic>> liveEvents({
+    required Uri uri,
+    bool sendPings = false,
+  }) {
+    final controller = StreamController<Map<String, dynamic>>();
+    final subscriptionId = _nextLiveSubscriptionId++;
+    var started = false;
+
+    controller.onListen = () async {
+      _ensureCallbackHandler();
+      _liveControllers[subscriptionId] = controller;
+      try {
+        final supported = await isSupported();
+        if (!supported) {
+          throw MissingPluginException('Iroh transport is not supported');
+        }
+        final config = await _resolveEndpointConfig();
+        if (config.ticket.isEmpty) {
+          throw MissingPluginException('Iroh endpoint ticket is empty');
+        }
+        await _channel.invokeMethod<void>('startLive', {
+          'id': subscriptionId,
+          'ticket': config.ticket,
+          'reuseConnection': config.supportsConnectionReuse,
+          'path': uri.hasQuery && uri.query.isNotEmpty
+              ? '${uri.path}?${uri.query}'
+              : uri.path,
+          'sendPings': sendPings,
+        });
+        started = true;
+      } catch (error, stackTrace) {
+        _liveControllers.remove(subscriptionId);
+        if (!controller.isClosed) {
+          controller.addError(error, stackTrace);
+          await controller.close();
+        }
+      }
+    };
+
+    controller.onCancel = () async {
+      _liveControllers.remove(subscriptionId);
+      if (started) {
+        try {
+          await _channel.invokeMethod<void>('stopLive', {
+            'id': subscriptionId,
+          });
+        } on MissingPluginException {
+          // Native side is already gone; nothing else to stop.
+        } on PlatformException {
+          // Stop is best-effort for live streams.
+        }
+      }
+    };
+
+    return controller.stream;
+  }
 
   static Future<bool> isSupported() async {
     try {
@@ -64,8 +129,8 @@ class NativeIrohTransport {
       );
     }
 
-    final ticket = await _resolveEndpointTicket();
-    if (ticket.isEmpty) {
+    final config = await _resolveEndpointConfig();
+    if (config.ticket.isEmpty) {
       return _directHttpRequest(
         method: method,
         uri: uri,
@@ -76,55 +141,72 @@ class NativeIrohTransport {
 
     try {
       return await _sendNative(
-        ticket: ticket,
+        config: config,
         method: method,
         uri: uri,
         headers: headers,
         bodyBytes: bodyBytes,
       );
-    } catch (error) {
-      String refreshedTicket = '';
+    } catch (_) {
+      await resetEndpoint();
+      var retryConfig = config;
       try {
-        refreshedTicket = await refreshEndpointTicket(force: true);
-      } catch (_) {
-        refreshedTicket = '';
-      }
-      if (refreshedTicket.isNotEmpty && refreshedTicket != ticket) {
-        await resetEndpoint();
-        return _sendNative(
-          ticket: refreshedTicket,
-          method: method,
-          uri: uri,
-          headers: headers,
-          bodyBytes: bodyBytes,
-        );
-      }
-      rethrow;
+        final refreshedConfig = await refreshEndpointConfig(force: true);
+        if (refreshedConfig.ticket.isNotEmpty) {
+          retryConfig = refreshedConfig;
+        }
+      } catch (_) {}
+      return _sendNative(
+        config: retryConfig,
+        method: method,
+        uri: uri,
+        headers: headers,
+        bodyBytes: bodyBytes,
+      );
     }
   }
 
   static Future<String> refreshEndpointTicket({bool force = false}) async {
+    return (await refreshEndpointConfig(force: force)).ticket;
+  }
+
+  static Future<IrohEndpointConfig> refreshEndpointConfig({
+    bool force = false,
+  }) async {
     if (!force) {
       final existing = _runtimeEndpointTicket?.trim() ?? '';
       if (existing.isNotEmpty) {
-        return existing;
+        return IrohEndpointConfig(
+          ticket: existing,
+          supportsConnectionReuse: _runtimeSupportsConnectionReuse,
+        );
       }
     }
 
     final discoveryUrl = endpointTicketDiscoveryUrl.trim();
     if (discoveryUrl.isEmpty) {
-      return _setRuntimeEndpointTicket(endpointTicketFromEnvironment);
+      return _setRuntimeEndpointConfig(
+        const IrohEndpointConfig(
+          ticket: endpointTicketFromEnvironment,
+          supportsConnectionReuse: false,
+        ),
+      );
     }
 
     final response = await http
         .get(Uri.parse(discoveryUrl))
         .timeout(const Duration(seconds: 5));
     if (response.statusCode != 200) {
-      return '';
+      return const IrohEndpointConfig.empty();
     }
 
-    final ticket = IrohTicketDiscoveryResponse.fromBody(response.body).ticket;
-    return _setRuntimeEndpointTicket(ticket);
+    final discovery = IrohTicketDiscoveryResponse.fromBody(response.body);
+    return _setRuntimeEndpointConfig(
+      IrohEndpointConfig(
+        ticket: discovery.ticket,
+        supportsConnectionReuse: discovery.supportsConnectionReuse,
+      ),
+    );
   }
 
   static Future<void> resetEndpoint() async {
@@ -137,10 +219,18 @@ class NativeIrohTransport {
     }
   }
 
-  static Future<String> _resolveEndpointTicket() async {
+  static Future<IrohEndpointConfig> _resolveEndpointConfig() async {
     final runtimeTicket = _runtimeEndpointTicket?.trim() ?? '';
     if (runtimeTicket.isNotEmpty) {
-      return runtimeTicket;
+      return IrohEndpointConfig(
+        ticket: runtimeTicket,
+        supportsConnectionReuse: _runtimeSupportsConnectionReuse,
+      );
+    }
+
+    final discoveredConfig = await refreshEndpointConfig();
+    if (discoveredConfig.ticket.isNotEmpty) {
+      return discoveredConfig;
     }
 
     final preferences = await SharedPreferences.getInstance();
@@ -148,25 +238,82 @@ class NativeIrohTransport {
         preferences.getString(_endpointTicketPreferenceKey)?.trim() ?? '';
     if (storedTicket.isNotEmpty) {
       _runtimeEndpointTicket = storedTicket;
-      return storedTicket;
+      _runtimeSupportsConnectionReuse =
+          preferences.getBool(_supportsConnectionReusePreferenceKey) ?? false;
+      return IrohEndpointConfig(
+        ticket: storedTicket,
+        supportsConnectionReuse: _runtimeSupportsConnectionReuse,
+      );
+    }
+    return _setRuntimeEndpointConfig(
+      const IrohEndpointConfig(
+        ticket: endpointTicketFromEnvironment,
+        supportsConnectionReuse: false,
+      ),
+    );
+  }
+
+  static void _ensureCallbackHandler() {
+    if (_callbackHandlerInstalled) {
+      return;
+    }
+    _callbackHandlerInstalled = true;
+    _channel.setMethodCallHandler(_handleNativeCallback);
+  }
+
+  static Future<void> _handleNativeCallback(MethodCall call) async {
+    final rawArguments = call.arguments;
+    final arguments = rawArguments is Map ? rawArguments : const {};
+    final id = (arguments['id'] as num?)?.toInt();
+    if (id == null) {
+      return;
+    }
+    final controller = _liveControllers[id];
+    if (controller == null) {
+      return;
     }
 
-    final discoveredTicket = await refreshEndpointTicket();
-    if (discoveredTicket.isNotEmpty) {
-      return discoveredTicket;
+    switch (call.method) {
+      case 'liveMessage':
+        final text = arguments['text']?.toString() ?? '';
+        if (text.isEmpty || controller.isClosed) {
+          return;
+        }
+        final decoded = jsonDecode(text);
+        if (decoded is Map<String, dynamic>) {
+          controller.add(decoded);
+        }
+        break;
+      case 'liveError':
+        _liveControllers.remove(id);
+        if (!controller.isClosed) {
+          controller.addError(
+            Exception(
+              arguments['message']?.toString() ?? 'Iroh live stream failed',
+            ),
+          );
+          await controller.close();
+        }
+        break;
+      case 'liveClosed':
+        _liveControllers.remove(id);
+        if (!controller.isClosed) {
+          await controller.close();
+        }
+        break;
     }
-    return _setRuntimeEndpointTicket(endpointTicketFromEnvironment);
   }
 
   static Future<http.Response> _sendNative({
-    required String ticket,
+    required IrohEndpointConfig config,
     required String method,
     required Uri uri,
     required Map<String, String>? headers,
     required List<int> bodyBytes,
   }) async {
     final raw = await _channel.invokeMapMethod<String, Object?>('request', {
-      'ticket': ticket,
+      'ticket': config.ticket,
+      'reuseConnection': config.supportsConnectionReuse,
       'method': method,
       'path': uri.hasQuery && uri.query.isNotEmpty
           ? '${uri.path}?${uri.query}'
@@ -224,15 +371,25 @@ class NativeIrohTransport {
     }
   }
 
-  static Future<String> _setRuntimeEndpointTicket(String ticket) async {
-    final cleaned = ticket.trim();
+  static Future<IrohEndpointConfig> _setRuntimeEndpointConfig(
+    IrohEndpointConfig config,
+  ) async {
+    final cleaned = config.ticket.trim();
     if (cleaned.isEmpty) {
-      return '';
+      return const IrohEndpointConfig.empty();
     }
     _runtimeEndpointTicket = cleaned;
+    _runtimeSupportsConnectionReuse = config.supportsConnectionReuse;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_endpointTicketPreferenceKey, cleaned);
-    return cleaned;
+    await preferences.setBool(
+      _supportsConnectionReusePreferenceKey,
+      config.supportsConnectionReuse,
+    );
+    return IrohEndpointConfig(
+      ticket: cleaned,
+      supportsConnectionReuse: config.supportsConnectionReuse,
+    );
   }
 
   static List<int> _bodyBytes(Object? body) {
@@ -250,10 +407,28 @@ class NativeIrohTransport {
   }
 }
 
-class IrohTicketDiscoveryResponse {
-  const IrohTicketDiscoveryResponse({required this.ticket});
+class IrohEndpointConfig {
+  const IrohEndpointConfig({
+    required this.ticket,
+    required this.supportsConnectionReuse,
+  });
+
+  const IrohEndpointConfig.empty()
+      : ticket = '',
+        supportsConnectionReuse = false;
 
   final String ticket;
+  final bool supportsConnectionReuse;
+}
+
+class IrohTicketDiscoveryResponse {
+  const IrohTicketDiscoveryResponse({
+    required this.ticket,
+    required this.supportsConnectionReuse,
+  });
+
+  final String ticket;
+  final bool supportsConnectionReuse;
 
   factory IrohTicketDiscoveryResponse.fromBody(String body) {
     final decoded = jsonDecode(body);
@@ -264,7 +439,10 @@ class IrohTicketDiscoveryResponse {
     if (ticket.isEmpty) {
       throw const FormatException('Iroh discovery ticket is empty');
     }
-    return IrohTicketDiscoveryResponse(ticket: ticket);
+    return IrohTicketDiscoveryResponse(
+      ticket: ticket,
+      supportsConnectionReuse: decoded['supports_connection_reuse'] == true,
+    );
   }
 }
 

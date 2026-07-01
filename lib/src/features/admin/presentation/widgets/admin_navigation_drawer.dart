@@ -113,6 +113,18 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       label: l10n.adminServerStatusNavTitle,
       routeName: AppRoutes.adminServerMonitor,
     ),
+    const RoleNavigationDrawerDestination(
+      icon: Icons.print_outlined,
+      selectedIcon: Icons.print_rounded,
+      label: 'USB printer test',
+      routeName: AppRoutes.adminUsbPrinterTest,
+    ),
+    const RoleNavigationDrawerDestination(
+      icon: Icons.hub_outlined,
+      selectedIcon: Icons.hub_rounded,
+      label: 'Iroh transport test',
+      routeName: AppRoutes.adminIrohTransportTest,
+    ),
     RoleNavigationDrawerDestination(
       icon: Icons.view_in_ar_outlined,
       selectedIcon: Icons.view_in_ar_rounded,

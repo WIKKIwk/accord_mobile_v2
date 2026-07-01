@@ -181,6 +181,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     orderId: request.order.map.id,
     action: request.action,
     materialBarcodes: request.materialBarcodes,
+    qolipCode: request.qolipCode,
     producedQty: request.producedQty,
     grossQty: request.grossQty,
     returnInkKg: request.returnInkKg,

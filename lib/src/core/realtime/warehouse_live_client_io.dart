@@ -2,7 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../native_iroh_transport.dart';
+
 Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri) async* {
+  if (NativeIrohTransport.hasEndpointTicket) {
+    try {
+      yield* NativeIrohTransport.liveEvents(uri: uri);
+      return;
+    } catch (_) {}
+  }
   final WebSocket socket = await WebSocket.connect(uri.toString());
   try {
     await for (final Object? message in socket) {
@@ -39,6 +47,22 @@ Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) {
 
   controller.onListen = () async {
     try {
+      if (NativeIrohTransport.hasEndpointTicket) {
+        try {
+          await for (final event in NativeIrohTransport.liveEvents(
+            uri: uri,
+            sendPings: true,
+          )) {
+            if (!controller.isClosed) {
+              controller.add(event);
+            }
+          }
+          if (!controller.isClosed) {
+            await controller.close();
+          }
+          return;
+        } catch (_) {}
+      }
       socket = await WebSocket.connect(uri.toString());
       sendPing();
       timer = Timer.periodic(const Duration(seconds: 2), (_) => sendPing());

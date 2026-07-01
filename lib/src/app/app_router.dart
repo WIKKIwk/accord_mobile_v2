@@ -12,6 +12,7 @@ import '../features/admin/presentation/admin_create_hub_screen.dart';
 import '../features/admin/presentation/admin_factory_map_screen.dart';
 import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
+import '../features/admin/presentation/admin_iroh_transport_test_screen.dart';
 import '../features/admin/presentation/admin_item_create_screen.dart';
 import '../features/admin/presentation/admin_item_group_create_screen.dart';
 import '../features/admin/presentation/admin_notifications_screen.dart';
@@ -29,6 +30,7 @@ import '../features/admin/presentation/admin_supplier_detail_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_add_screen.dart';
 import '../features/admin/presentation/admin_supplier_items_view_screen.dart';
 import '../features/admin/presentation/admin_suppliers_screen.dart';
+import '../features/admin/presentation/admin_usb_printer_test_screen.dart';
 import '../features/admin/presentation/admin_user_create_screen.dart';
 import '../features/admin/presentation/admin_werka_screen.dart';
 import '../features/admin/presentation/admin_wip_batches_screen.dart';
@@ -145,6 +147,8 @@ class AppRoutes {
   static const String adminProductionMapOrders = '/admin-production-map-orders';
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
+  static const String adminUsbPrinterTest = '/admin-usb-printer-test';
+  static const String adminIrohTransportTest = '/admin-iroh-transport-test';
   static const String adminFactoryMap = '/admin-factory-map';
   static const String adminWipBatches = '/admin-wip-batches';
   static const String adminQueuePolicies = '/admin-queue-policies';
@@ -200,6 +204,8 @@ class AppRouter {
     AppRoutes.adminProductionMapOrders,
     AppRoutes.adminProgressQrScan,
     AppRoutes.adminServerMonitor,
+    AppRoutes.adminUsbPrinterTest,
+    AppRoutes.adminIrohTransportTest,
     AppRoutes.adminFactoryMap,
     AppRoutes.adminWipBatches,
     AppRoutes.adminQueuePolicies,
@@ -448,6 +454,10 @@ class AppRouter {
         return _buildRoute(settings, const AdminProgressQrScanScreen());
       case AppRoutes.adminServerMonitor:
         return _buildRoute(settings, const AdminServerMonitorScreen());
+      case AppRoutes.adminUsbPrinterTest:
+        return _buildRoute(settings, const AdminUsbPrinterTestScreen());
+      case AppRoutes.adminIrohTransportTest:
+        return _buildRoute(settings, const AdminIrohTransportTestScreen());
       case AppRoutes.adminFactoryMap:
         return _buildRoute(settings, const AdminFactoryMapScreen());
       case AppRoutes.adminWipBatches:
@@ -713,6 +723,8 @@ class AppRouter {
       'production.map.manage',
     },
     AppRoutes.adminServerMonitor: {'admin.access'},
+    AppRoutes.adminUsbPrinterTest: {'admin.access'},
+    AppRoutes.adminIrohTransportTest: {'admin.access'},
     AppRoutes.adminFactoryMap: {'admin.access'},
     AppRoutes.adminWipBatches: {
       'admin.access',
