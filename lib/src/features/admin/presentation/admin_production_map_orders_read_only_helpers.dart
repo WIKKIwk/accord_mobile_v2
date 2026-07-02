@@ -463,3 +463,58 @@ String _productTitle(ProductionMapDefinition map) {
   }
   return map.title;
 }
+
+ProductionMapNode? _rezkaNodeForStation({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final trimmedStation = station.trim();
+  if (trimmedStation.isEmpty ||
+      !productionMapIsRezkaApparatus(trimmedStation)) {
+    return null;
+  }
+  final rezkaNodes = _linearProductionMapNodes(map)
+      .where(
+        (node) =>
+            node.kind == 'apparatus' &&
+            productionMapIsRezkaApparatus(node.title),
+      )
+      .toList(growable: false);
+  for (final node in rezkaNodes) {
+    if (productionMapWarehouseTitlesMatch(node.title, trimmedStation)) {
+      return node;
+    }
+  }
+  return rezkaNodes.isEmpty ? null : rezkaNodes.first;
+}
+
+List<String> _rezkaWipSplitInstructionLines({
+  required ProductionMapDefinition map,
+  required String station,
+}) {
+  final node = _rezkaNodeForStation(map: map, station: station);
+  if (node == null) {
+    return const [];
+  }
+  final groups =
+      node.rezkaFrameGroups.where((group) => group > 0).toList(growable: false);
+  if (groups.isNotEmpty) {
+    final totalFrames = groups.fold<int>(0, (sum, group) => sum + group);
+    return [
+      'WIP ${groups.length} bo‘lakka bo‘linadi',
+      for (var index = 0; index < groups.length; index++)
+        '${index + 1}-bo‘lak: ${groups[index]} kadr',
+      if (totalFrames > 0) 'Jami: $totalFrames kadr',
+    ];
+  }
+  final lines = <String>[];
+  final kadrCount = node.rezkaKadrCount;
+  if (kadrCount != null && kadrCount > 0) {
+    lines.add('${formatRawQuantity(kadrCount.toDouble())} kadr bo‘yicha');
+  }
+  final labelLength = node.rezkaLabelLength;
+  if (labelLength != null && labelLength > 0) {
+    lines.add('Etiketka uzunligi: ${formatRawQuantity(labelLength)} mm');
+  }
+  return lines;
+}

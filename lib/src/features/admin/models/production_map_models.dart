@@ -116,6 +116,7 @@ class ProductionMapNode {
     this.alternativeAssignedTitle = '',
     this.rezkaKadrCount,
     this.rezkaLabelLength,
+    this.rezkaFrameGroups = const [],
     this.x = 0,
     this.y = 0,
   });
@@ -134,6 +135,7 @@ class ProductionMapNode {
   final String alternativeAssignedTitle;
   final int? rezkaKadrCount;
   final double? rezkaLabelLength;
+  final List<int> rezkaFrameGroups;
   final double x;
   final double y;
 
@@ -152,6 +154,7 @@ class ProductionMapNode {
     String? alternativeAssignedTitle,
     int? rezkaKadrCount,
     double? rezkaLabelLength,
+    List<int>? rezkaFrameGroups,
     double? x,
     double? y,
   }) {
@@ -172,6 +175,7 @@ class ProductionMapNode {
           alternativeAssignedTitle ?? this.alternativeAssignedTitle,
       rezkaKadrCount: rezkaKadrCount ?? this.rezkaKadrCount,
       rezkaLabelLength: rezkaLabelLength ?? this.rezkaLabelLength,
+      rezkaFrameGroups: rezkaFrameGroups ?? this.rezkaFrameGroups,
       x: x ?? this.x,
       y: y ?? this.y,
     );
@@ -196,6 +200,11 @@ class ProductionMapNode {
           json['alternative_assigned_title'] as String? ?? '',
       rezkaKadrCount: (json['rezka_kadr_count'] as num?)?.toInt(),
       rezkaLabelLength: (json['rezka_label_length'] as num?)?.toDouble(),
+      rezkaFrameGroups: (json['rezka_frame_groups'] as List? ?? const [])
+          .whereType<num>()
+          .map((item) => item.toInt())
+          .where((item) => item > 0)
+          .toList(growable: false),
       x: (json['x'] as num?)?.toDouble() ?? 0,
       y: (json['y'] as num?)?.toDouble() ?? 0,
     );
@@ -220,6 +229,7 @@ class ProductionMapNode {
         'alternative_assigned_title': alternativeAssignedTitle.trim(),
       if (rezkaKadrCount != null) 'rezka_kadr_count': rezkaKadrCount,
       if (rezkaLabelLength != null) 'rezka_label_length': rezkaLabelLength,
+      if (rezkaFrameGroups.isNotEmpty) 'rezka_frame_groups': rezkaFrameGroups,
       'x': x,
       'y': y,
     };

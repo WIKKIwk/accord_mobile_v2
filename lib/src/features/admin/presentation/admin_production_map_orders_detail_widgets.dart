@@ -50,6 +50,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
+      map: map,
+      station: uiState.station,
+    );
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.86,
@@ -86,6 +90,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 inputProgressBatches: inputProgressBatches,
                 inputProgressLoading: inputProgressLoading,
                 inputProgressError: inputProgressError,
+                rezkaInstructionLines: rezkaInstructionLines,
                 onScan: onScan,
                 onProgressScan: onProgressScan,
                 onStart: onStart,
@@ -420,6 +425,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
+    required this.rezkaInstructionLines,
     required this.onScan,
     required this.onProgressScan,
     required this.onStart,
@@ -450,6 +456,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
+  final List<String> rezkaInstructionLines;
   final VoidCallback onScan;
   final VoidCallback? onProgressScan;
   final VoidCallback onStart;
@@ -653,6 +660,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
+            if (rezkaInstructionLines.isNotEmpty) ...[
+              _RezkaWipSplitInstruction(lines: rezkaInstructionLines),
+              const SizedBox(height: 10),
+            ],
             if (showStart)
               FilledButton.icon(
                 onPressed: actionInFlight ||
@@ -740,6 +751,65 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _RezkaWipSplitInstruction extends StatelessWidget {
+  const _RezkaWipSplitInstruction({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.content_cut_rounded,
+                  size: 20,
+                  color: scheme.onSecondaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Map bo‘yicha rezka',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: scheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < lines.length; index++) ...[
+              if (index > 0) const SizedBox(height: 4),
+              Text(
+                lines[index],
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSecondaryContainer,
+                  fontWeight: index == 0 ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

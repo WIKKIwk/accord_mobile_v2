@@ -220,7 +220,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _derivedWidthMm(),
         );
-      } catch (_) {
+      } catch (error) {
+        if (_isProductionMapMissing(error)) {
+          await _handleMissingSourceMap();
+          return;
+        }
         if (mounted) {
           showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
         }
@@ -267,9 +271,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           readOnly: true,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
+        if (_isProductionMapMissing(error)) {
+          await _handleMissingSourceMap();
+        } else {
+          showAdminTopNotice(context, 'Tezkor zakaz mapini yuklab bo‘lmadi');
+        }
       }
     }
   }
@@ -359,6 +367,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       if (!mounted) {
         return;
       }
+      if (_isProductionMapMissing(error)) {
+        await _handleMissingSourceMap();
+        return;
+      }
       showAdminTopNotice(
         context,
         error is MobileApiException ? error.message : 'Zakaz ochilmadi',
@@ -367,6 +379,43 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       if (mounted) {
         setState(() => _openingSavedOrder = false);
       }
+    }
+  }
+
+  bool _isProductionMapMissing(Object error) {
+    return error is MobileApiException && error.code == 'map_not_found';
+  }
+
+  Future<void> _handleMissingSourceMap() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _sourceMapId = '';
+      _editingAllFields = true;
+    });
+    try {
+      final saved = await CalculateOrderTemplateStore.instance.upsert(
+        _buildTemplateDraft().copyWith(
+          kg: 0,
+          orderNumber: '',
+          sourceMapId: '',
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _templateId = saved.id;
+        _orderCode = saved.code;
+        _sourceMapId = saved.sourceMapId;
+        _editingAllFields = true;
+      });
+    } catch (_) {
+      // The screen can still recover locally and let the user relink the map.
+    }
+    if (mounted) {
+      showAdminTopNotice(context, 'Tezkor zakaz mapi topilmadi. Qayta ulang');
     }
   }
 
@@ -1556,7 +1605,7 @@ class _ResultVariant extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _ResultRow(label: 'Koeff', value: _fmt(result.coeffSum)),
-        _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm)} sm'),
+        _ResultRow(label: 'Razmer', value: '${_fmt(result.widthSm * 10)} mm'),
         _ResultRow(
           label: 'Minimum qolip',
           value: '${_fmt(minMoldSizeMm)} mm',

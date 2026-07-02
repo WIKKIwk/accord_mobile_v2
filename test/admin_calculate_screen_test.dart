@@ -115,6 +115,22 @@ void main() {
     expect(find.text('Hotlunch'), findsWidgets);
   });
 
+  testWidgets('calculation result shows razmer in millimeters', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(tester, template: _template(itemCode: 'ITEM-1'));
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
+    await tester.tap(find.text('Hisoblash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('63 sm'), findsNothing);
+    expect(find.text('630 mm'), findsWidgets);
+  });
+
   testWidgets('saved quick order opens zakaz from stored source map', (
     tester,
   ) async {
@@ -181,6 +197,50 @@ void main() {
     expect(quickTemplate.frameProductSizeMm, 250);
     expect(quickTemplate.frameCount, 3);
     expect(quickTemplate.widthMm, 765);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('saved quick order with missing source map asks to relink', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(
+      tester,
+      template: _template(itemCode: 'ITEM-1', sourceMapId: 'zakaz-1953'),
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
+    await tester.tap(find.text('Hisoblash'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Zakaz ochish'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Zakaz ochish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('production-map-order-number-field')),
+      '5555',
+    );
+    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zakaz topilmadi'), findsNothing);
+    expect(
+        find.text('Tezkor zakaz mapi topilmadi. Qayta ulang'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Production mapga ulash'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Production mapga ulash'), findsOneWidget);
+    expect(find.text('Zakaz ochish'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
   });
 

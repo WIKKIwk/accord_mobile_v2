@@ -37,6 +37,7 @@ class UsbPrinterChannel(
     private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "printTest" -> printTest(call, result)
+            "printRpsTest" -> printRpsTest(call, result)
             else -> result.notImplemented()
         }
     }
@@ -54,14 +55,44 @@ class UsbPrinterChannel(
         val title = call.argument<String>("title").orEmpty().ifBlank { "ACCORD USB TEST" }
         val payload = call.argument<String>("payload").orEmpty().ifBlank { "ACCORD-USB-TEST" }
         val bytes = buildEscPosTestLabel(title, payload)
-        val request = PendingUsbPrint(printer.device, bytes, result)
-        if (usbManager.hasPermission(printer.device)) {
+        val request = PendingUsbPrint(printer.device, bytes, result) { device, sent ->
+            mapOf(
+                "ok" to true,
+                "bytes" to sent,
+                "deviceName" to device.deviceName,
+                "vendorId" to device.vendorId,
+                "productId" to device.productId,
+            )
+        }
+        startPrint(request)
+    }
+
+    private fun printRpsTest(call: MethodCall, result: MethodChannel.Result) {
+        if (pendingPrint != null) {
+            result.error("usb_printer_busy", "Printer permission request is already open", null)
+            return
+        }
+        val printer = findPrinterCandidate()
+        if (printer == null) {
+            result.error("usb_printer_not_found", "USB printer not found", null)
+            return
+        }
+        val requestBody = UsbRpsPrintRequest.fromCall(call)
+        val bytes = repeatBytes(buildGodexRpsTestLabel(requestBody), requestBody.printCount)
+        val request = PendingUsbPrint(printer.device, bytes, result) { device, sent ->
+            requestBody.response(device, sent)
+        }
+        startPrint(request)
+    }
+
+    private fun startPrint(request: PendingUsbPrint) {
+        if (usbManager.hasPermission(request.device)) {
             finishPrint(request)
             return
         }
         pendingPrint = request
         registerPermissionReceiver()
-        usbManager.requestPermission(printer.device, permissionIntent())
+        usbManager.requestPermission(request.device, permissionIntent())
     }
 
     private fun findPrinterCandidate(): UsbPrinterCandidate? {
@@ -159,15 +190,7 @@ class UsbPrinterChannel(
             val candidate = printerCandidate(request.device, requirePrinterClass = false)
                 ?: throw IllegalStateException("USB printer endpoint not found")
             val sent = writeBytes(candidate, request.bytes)
-            request.result.success(
-                mapOf(
-                    "ok" to true,
-                    "bytes" to sent,
-                    "deviceName" to request.device.deviceName,
-                    "vendorId" to request.device.vendorId,
-                    "productId" to request.device.productId,
-                ),
-            )
+            request.result.success(request.response(request.device, sent))
         } catch (error: Throwable) {
             request.result.error(
                 "usb_printer_write_failed",
@@ -243,6 +266,22 @@ class UsbPrinterChannel(
         writeText("\n$payload\n\n\n")
         return output.toByteArray()
     }
+
+    private fun buildGodexRpsTestLabel(request: UsbRpsPrintRequest): ByteArray {
+        return GodexRpsRenderer.render(request)
+    }
+
+    private fun repeatBytes(bytes: ByteArray, count: Int): ByteArray {
+        val safeCount = count.coerceAtLeast(1)
+        if (safeCount == 1) {
+            return bytes
+        }
+        val output = ByteArray(bytes.size * safeCount)
+        for (index in 0 until safeCount) {
+            System.arraycopy(bytes, 0, output, index * bytes.size, bytes.size)
+        }
+        return output
+    }
 }
 
 private data class UsbPrinterCandidate(
@@ -255,4 +294,80 @@ private data class PendingUsbPrint(
     val device: UsbDevice,
     val bytes: ByteArray,
     val result: MethodChannel.Result,
+    val response: (UsbDevice, Int) -> Map<String, Any>,
 )
+
+internal data class UsbRpsPrintRequest(
+    val epc: String,
+    val itemCode: String,
+    val itemName: String,
+    val warehouse: String,
+    val printer: String,
+    val printMode: String,
+    val grossQty: Double,
+    val unit: String,
+    val tareEnabled: Boolean,
+    val tareKg: Double,
+    val printCount: Int,
+) {
+    fun response(device: UsbDevice, bytes: Int): Map<String, Any> {
+        val netQty = netQty()
+        return mapOf(
+            "ok" to true,
+            "status" to "done",
+            "epc" to epc,
+            "item_code" to itemCode,
+            "item_name" to itemName,
+            "warehouse" to warehouse,
+            "printer" to printer,
+            "mode" to printMode,
+            "qty" to netQty,
+            "net_qty" to netQty,
+            "gross_qty" to grossQty,
+            "unit" to unit,
+            "tare" to tareEnabled,
+            "tare_kg" to tareKg,
+            "printer_status" to "USB OK",
+            "print_count" to printCount,
+            "bytes" to bytes,
+            "deviceName" to device.deviceName,
+            "vendorId" to device.vendorId,
+            "productId" to device.productId,
+        )
+    }
+
+    fun netQty(): Double {
+        return (grossQty - tareKg).coerceAtLeast(0.0)
+    }
+
+    companion object {
+        fun fromCall(call: MethodCall): UsbRpsPrintRequest {
+            val grossQty = call.argument<Number>("gross_qty")?.toDouble()
+                ?.takeIf { it.isFinite() && it > 0.0 }
+                ?: 1.0
+            val tareKg = call.argument<Number>("tare_kg")?.toDouble()
+                ?.takeIf { it.isFinite() && it > 0.0 }
+                ?: 0.0
+            val printCount = call.argument<Number>("print_count")?.toInt()
+                ?.takeIf { it > 0 }
+                ?: 1
+            return UsbRpsPrintRequest(
+                epc = clean(call.argument<String>("epc"), "RPS-USB-TEST").uppercase(Locale.US),
+                itemCode = clean(call.argument<String>("item_code"), "USB-TEST"),
+                itemName = clean(call.argument<String>("item_name"), "USB printer test"),
+                warehouse = clean(call.argument<String>("warehouse"), "RPS USB TEST"),
+                printer = clean(call.argument<String>("printer"), "godex").lowercase(Locale.US),
+                printMode = clean(call.argument<String>("print_mode"), "label").lowercase(Locale.US),
+                grossQty = grossQty,
+                unit = clean(call.argument<String>("unit"), "kg").lowercase(Locale.US),
+                tareEnabled = call.argument<Boolean>("tare_enabled") == true || tareKg > 0.0,
+                tareKg = tareKg,
+                printCount = printCount,
+            )
+        }
+
+        private fun clean(value: String?, fallback: String): String {
+            return value.orEmpty().trim().ifBlank { fallback }
+        }
+    }
+}

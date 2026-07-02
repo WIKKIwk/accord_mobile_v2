@@ -10,9 +10,10 @@ class _NodeEditSheet extends StatefulWidget {
 }
 
 class _RezkaNodeEditSheet extends StatefulWidget {
-  const _RezkaNodeEditSheet({required this.node});
+  const _RezkaNodeEditSheet({required this.node, required this.frameCount});
 
   final ProductionMapNode node;
+  final int frameCount;
 
   @override
   State<_RezkaNodeEditSheet> createState() => _RezkaNodeEditSheetState();
@@ -22,6 +23,8 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
   late final TextEditingController _title;
   late final TextEditingController _kadrCount;
   late final TextEditingController _labelLength;
+  late bool _byFrame;
+  late List<int> _frameGroups;
 
   @override
   void initState() {
@@ -35,6 +38,10 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
           ? ''
           : _formatRezkaNumber(widget.node.rezkaLabelLength!),
     );
+    _byFrame = widget.node.rezkaFrameGroups.isNotEmpty;
+    _frameGroups = widget.node.rezkaFrameGroups.isNotEmpty
+        ? List<int>.from(widget.node.rezkaFrameGroups)
+        : List<int>.filled(widget.frameCount, 1, growable: true);
   }
 
   @override
@@ -75,19 +82,37 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
             const SizedBox(height: 14),
             _SheetField(label: 'Nomi', controller: _title),
             const SizedBox(height: 10),
-            _SheetField(
-              label: 'Kadr soni',
-              controller: _kadrCount,
-              keyboardType: TextInputType.number,
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text('Buyurtma bo‘yicha'),
+                ),
+                ButtonSegment(value: true, label: Text('Kadr bo‘yicha')),
+              ],
+              selected: {_byFrame},
+              onSelectionChanged: (selection) {
+                setState(() => _byFrame = selection.single);
+              },
             ),
             const SizedBox(height: 10),
-            _SheetField(
-              label: 'Etiketka uzunligi',
-              controller: _labelLength,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+            if (_byFrame)
+              _buildFrameGroups(context)
+            else ...[
+              _SheetField(
+                label: 'Kadr soni',
+                controller: _kadrCount,
+                keyboardType: TextInputType.number,
               ),
-            ),
+              const SizedBox(height: 10),
+              _SheetField(
+                label: 'Etiketka uzunligi',
+                controller: _labelLength,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             _PlainActionButton(
               label: 'Saqlash',
@@ -98,6 +123,60 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
         ),
       ),
     );
+  }
+
+  Widget _buildFrameGroups(BuildContext context) {
+    if (widget.frameCount <= 0) {
+      return const Text('Kadr soni topilmadi');
+    }
+    var cursor = 1;
+    final children = <Widget>[];
+    for (var index = 0; index < _frameGroups.length; index++) {
+      final count = _frameGroups[index];
+      final start = cursor;
+      final end = cursor + count - 1;
+      children.add(
+        _RezkaFrameCard(
+          label: start == end ? 'Kadr $start' : 'Kadr $start-$end',
+          merged: count > 1,
+          onSplit: count > 1 ? () => _splitFrameGroup(index) : null,
+        ),
+      );
+      cursor = end + 1;
+      if (index < _frameGroups.length - 1) {
+        children.add(
+          IconButton.filledTonal(
+            key: ValueKey('rezka-frame-join-$index'),
+            tooltip: 'Jipslash',
+            onPressed: () => _joinFrameGroups(index),
+            icon: const Icon(Icons.join_inner_rounded),
+          ),
+        );
+      }
+    }
+    return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
+
+  void _joinFrameGroups(int index) {
+    if (index < 0 || index >= _frameGroups.length - 1) {
+      return;
+    }
+    setState(() {
+      _frameGroups[index] = _frameGroups[index] + _frameGroups[index + 1];
+      _frameGroups.removeAt(index + 1);
+    });
+  }
+
+  void _splitFrameGroup(int index) {
+    if (index < 0 || index >= _frameGroups.length || _frameGroups[index] <= 1) {
+      return;
+    }
+    setState(() {
+      final count = _frameGroups[index];
+      _frameGroups
+        ..removeAt(index)
+        ..insertAll(index, List<int>.filled(count, 1));
+    });
   }
 
   void _save() {
@@ -125,10 +204,47 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
         alternativeGroupId: widget.node.alternativeGroupId,
         alternativeGroupLabel: widget.node.alternativeGroupLabel,
         alternativeAssignedTitle: widget.node.alternativeAssignedTitle,
-        rezkaKadrCount: kadr,
-        rezkaLabelLength: label,
+        rezkaKadrCount: _byFrame ? widget.frameCount : kadr,
+        rezkaLabelLength: _byFrame ? null : label,
+        rezkaFrameGroups: _byFrame ? List<int>.from(_frameGroups) : const [],
         x: widget.node.x,
         y: widget.node.y,
+      ),
+    );
+  }
+}
+
+class _RezkaFrameCard extends StatelessWidget {
+  const _RezkaFrameCard({
+    required this.label,
+    required this.merged,
+    required this.onSplit,
+  });
+
+  final String label;
+  final bool merged;
+  final VoidCallback? onSplit;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      color: merged ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onSplit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: merged ? scheme.onPrimaryContainer : scheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
       ),
     );
   }

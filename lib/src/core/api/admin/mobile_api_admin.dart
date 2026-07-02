@@ -24,6 +24,54 @@ final Map<String, String> _testModeWorkerCodes = {};
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 
+const _defaultBosmaApparatusGroupName = 'Bosma aparat';
+
+String _defaultBosmaApparatusName(int colorCount) {
+  return '$colorCount ta rangli bosma aparat';
+}
+
+bool _adminApparatusGroupIsBosma(AdminApparatusGroup group) {
+  if (productionMapPechatColorCount(group.name) != null) {
+    return true;
+  }
+  return group.apparatus.any(
+    (apparatus) => productionMapPechatColorCount(apparatus) != null,
+  );
+}
+
+List<AdminApparatusGroup> _normalizeDefaultAdminApparatusGroups(
+  List<AdminApparatusGroup> groups,
+) {
+  final normalized = <AdminApparatusGroup>[];
+  var hasBosma = false;
+  var bosmaInsertIndex = -1;
+  for (final group in groups) {
+    if (_adminApparatusGroupIsBosma(group)) {
+      hasBosma = true;
+      if (bosmaInsertIndex < 0) {
+        bosmaInsertIndex = normalized.length;
+      }
+      continue;
+    }
+    if (productionMapIsLaminatsiyaApparatus(group.name) ||
+        group.apparatus.any(productionMapIsLaminatsiyaApparatus)) {
+      normalized.add(
+        AdminApparatusGroup(name: 'Laminatsiya', apparatus: group.apparatus),
+      );
+      continue;
+    }
+    normalized.add(group);
+  }
+  if (hasBosma) {
+    final bosmaGroup = AdminApparatusGroup(
+      name: _defaultBosmaApparatusGroupName,
+      apparatus: [7, 8, 9].map(_defaultBosmaApparatusName).toList(),
+    );
+    normalized.insert(bosmaInsertIndex < 0 ? 0 : bosmaInsertIndex, bosmaGroup);
+  }
+  return normalized;
+}
+
 void setMobileApiTestModeForceSequenceSaveFailure(bool value) {
   _testModeForceSequenceSaveFailure = value;
 }
@@ -1614,7 +1662,9 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<AdminApparatusGroup>> adminApparatusGroups() async {
     if (await TestModeController.instance.isEnabled()) {
-      return List<AdminApparatusGroup>.from(_testModeApparatusGroups);
+      return _normalizeDefaultAdminApparatusGroups(
+        List<AdminApparatusGroup>.from(_testModeApparatusGroups),
+      );
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -1626,11 +1676,14 @@ extension MobileApiAdmin on MobileApi {
       throw Exception('Admin apparatus groups failed');
     }
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
-    return json
-        .map(
-          (item) => AdminApparatusGroup.fromJson(item as Map<String, dynamic>),
-        )
-        .toList(growable: false);
+    return _normalizeDefaultAdminApparatusGroups(
+      json
+          .map(
+            (item) =>
+                AdminApparatusGroup.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false),
+    );
   }
 
   Future<AdminApparatusGroup> adminSaveApparatusGroup(
@@ -1822,9 +1875,20 @@ extension MobileApiAdmin on MobileApi {
       }
       try {
         final savedMap = await adminSaveProductionMap(map);
-        final savedTemplate = _testModeUpsertCalculateOrderTemplate(
-          template.copyWith(sourceMapId: savedMap.map.id),
-        );
+        final opensQuickTemplateAsOrder =
+            template.sourceMapId.trim().isNotEmpty &&
+                template.sourceMapId.trim() != savedMap.map.id.trim() &&
+                _isSheetOrderMap(savedMap.map);
+        final savedTemplate = opensQuickTemplateAsOrder
+            ? null
+            : _testModeUpsertCalculateOrderTemplate(
+                template.copyWith(
+                  sourceMapId: _templateSourceMapIdForSave(
+                    savedMap.map,
+                    template,
+                  ),
+                ),
+              );
         return ProductionMapSaveWithOrderResult(
           saved: savedMap,
           template: savedTemplate,
@@ -4127,6 +4191,23 @@ bool _isSameProductionMapOrder(
   return current.id.trim() == next.id.trim() &&
       current.title.trim() == next.title.trim() &&
       current.productCode.trim() == next.productCode.trim();
+}
+
+bool _isSheetOrderMap(ProductionMapDefinition map) {
+  final id = map.id.trim();
+  final orderNumber = map.orderNumber.trim();
+  return id.startsWith('zakaz-') && RegExp(r'^\d{4}$').hasMatch(orderNumber);
+}
+
+String _templateSourceMapIdForSave(
+  ProductionMapDefinition map,
+  CalculateOrderTemplate template,
+) {
+  final sourceMapId = template.sourceMapId.trim();
+  if (sourceMapId.isEmpty && !_isSheetOrderMap(map)) {
+    return map.id.trim();
+  }
+  return sourceMapId;
 }
 
 bool _wipStatusMatchesFilter(String rawStatus, String rawFilter) {

@@ -34,11 +34,12 @@ class _AdminUsbPrinterTestScreenState extends State<AdminUsbPrinterTestScreen> {
       _status = 'Yuborilmoqda...';
     });
     try {
-      final result = await NativeUsbPrinter.printTest(
-        title: 'ACCORD USB TEST',
-        payload: _payloadController.text.trim().isEmpty
-            ? 'ACCORD-USB-TEST'
-            : _payloadController.text.trim(),
+      final result = await NativeUsbPrinter.printRpsTest(
+        UsbRpsPrintRequest.test(
+          epc: _payloadController.text.trim().isEmpty
+              ? 'RPS-USB-TEST'
+              : _payloadController.text.trim(),
+        ),
       );
       if (!mounted) {
         return;
@@ -46,7 +47,7 @@ class _AdminUsbPrinterTestScreenState extends State<AdminUsbPrinterTestScreen> {
       setState(() {
         _printing = false;
         _status =
-            'OK: ${result.bytes} byte, ${result.deviceName}, VID ${result.vendorId}, PID ${result.productId}';
+            '${result.status.toUpperCase()}: ${result.epc} • ${result.bytes} byte, ${result.deviceName}, VID ${result.vendorId}, PID ${result.productId}';
       });
     } catch (error) {
       if (!mounted) {

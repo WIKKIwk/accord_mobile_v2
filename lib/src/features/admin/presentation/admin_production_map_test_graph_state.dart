@@ -23,10 +23,15 @@ extension _AdminProductionMapTestGraphState
     }
   }
 
-  void _addRezkaNode() {
+  Future<void> _addRezkaNode() async {
     final id = 'rezka_${_nextNodeIndex++}';
+    final node = _newNode(id, 'apparatus').copyWith(title: 'Rezka');
+    final edited = await _showRezkaEditSheet(node);
+    if (edited == null || !mounted) {
+      return;
+    }
     _updateScreenState(() {
-      _insertBeforeEnd(_newNode(id, 'apparatus').copyWith(title: 'Rezka'));
+      _insertBeforeEnd(edited);
     });
   }
 
@@ -39,15 +44,13 @@ extension _AdminProductionMapTestGraphState
     );
     final compatible = warehouses
         .where(
-          (warehouse) =>
-              groupNames.contains(warehouse.warehouse.trim().toLowerCase()),
-        )
-        .where(
-          (warehouse) => productionMapApparatusMatchesOrder(
+          (warehouse) => _warehouseBelongsToApparatusGroup(
+            group,
+            groupNames,
             warehouse,
-            widget.orderContext,
           ),
         )
+        .where(_apparatusMatchesCurrentMap)
         .toList(growable: false);
     if (!mounted) {
       return;
@@ -143,6 +146,25 @@ extension _AdminProductionMapTestGraphState
       edges.add(ProductionMapEdge(from: node.id, to: end.id));
     }
     _pushEndDown();
+  }
+
+  bool _warehouseBelongsToApparatusGroup(
+    AdminApparatusGroup group,
+    Set<String> groupNames,
+    AdminWarehouse warehouse,
+  ) {
+    final warehouseName = warehouse.warehouse.trim();
+    if (groupNames.contains(warehouseName.toLowerCase())) {
+      return true;
+    }
+    final warehouseColorCount = productionMapPechatColorCount(warehouseName);
+    if (warehouseColorCount == null) {
+      return false;
+    }
+    return group.apparatus.any(
+      (apparatus) =>
+          productionMapPechatColorCount(apparatus) == warehouseColorCount,
+    );
   }
 
   ProductionMapNode _newNode(String id, String kind) {
@@ -581,15 +603,7 @@ extension _AdminProductionMapTestGraphState
     }
     final node = nodes[index];
     if (_isRezkaProductionNode(node)) {
-      final edited = await showModalBottomSheet<ProductionMapNode>(
-        context: context,
-        isDismissible: true,
-        enableDrag: true,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.32),
-        builder: (context) => _RezkaNodeEditSheet(node: node),
-      );
+      final edited = await _showRezkaEditSheet(node);
       if (edited == null || !mounted) {
         return;
       }
@@ -621,10 +635,7 @@ extension _AdminProductionMapTestGraphState
               );
               return warehouses
                   .where(
-                    (warehouse) => productionMapApparatusMatchesOrder(
-                      warehouse,
-                      widget.orderContext,
-                    ),
+                    _apparatusMatchesCurrentMap,
                   )
                   .skip(offset)
                   .take(limit)
@@ -713,7 +724,12 @@ extension _AdminProductionMapTestGraphState
             AdminFabMenuAction(
               title: group.name,
               icon: Icons.precision_manufacturing_rounded,
+              enabled: !_apparatusGroupBlocked(group),
               onTap: () => _runMapToolAction(() {
+                if (_apparatusGroupBlocked(group)) {
+                  showAdminTopNotice(context, _laminatsiyaOversizeMessage);
+                  return;
+                }
                 unawaited(_addApparatusGroup(group));
               }),
             ),
@@ -735,7 +751,7 @@ extension _AdminProductionMapTestGraphState
         AdminFabMenuAction(
           title: 'Rezka',
           icon: Icons.content_cut_rounded,
-          onTap: () => _runMapToolAction(_addRezkaNode),
+          onTap: () => _runMapToolAction(() => unawaited(_addRezkaNode())),
         ),
       ];
     }
@@ -753,7 +769,7 @@ extension _AdminProductionMapTestGraphState
       AdminFabMenuAction(
         title: 'Rezka',
         icon: Icons.content_cut_rounded,
-        onTap: () => _runMapToolAction(_addRezkaNode),
+        onTap: () => _runMapToolAction(() => unawaited(_addRezkaNode())),
       ),
       AdminFabMenuAction(
         title: 'Formula',
@@ -769,10 +785,51 @@ extension _AdminProductionMapTestGraphState
   }
 
   bool _apparatusGroupMatchesOrder(AdminApparatusGroup group) {
+    if (_apparatusGroupIsLaminatsiya(group)) {
+      return true;
+    }
     return group.apparatus.any(
       (apparatus) => productionMapApparatusMatchesOrder(
         AdminWarehouse(warehouse: apparatus, parentWarehouse: 'aparat - A'),
         widget.orderContext,
+      ),
+    );
+  }
+
+  bool _apparatusGroupIsLaminatsiya(AdminApparatusGroup group) {
+    return productionMapIsLaminatsiyaApparatus(group.name) ||
+        group.apparatus.any(productionMapIsLaminatsiyaApparatus);
+  }
+
+  bool _apparatusGroupBlocked(AdminApparatusGroup group) {
+    return _apparatusGroupIsLaminatsiya(group) &&
+        !_productionMapLaminatsiyaMatchesCurrentMap(
+          widget.orderContext,
+          nodes,
+        );
+  }
+
+  bool _apparatusMatchesCurrentMap(AdminWarehouse warehouse) {
+    if (productionMapIsLaminatsiyaApparatus(warehouse.warehouse)) {
+      return _productionMapLaminatsiyaMatchesCurrentMap(
+        widget.orderContext,
+        nodes,
+      );
+    }
+    return productionMapApparatusMatchesOrder(warehouse, widget.orderContext);
+  }
+
+  Future<ProductionMapNode?> _showRezkaEditSheet(ProductionMapNode node) {
+    return showModalBottomSheet<ProductionMapNode>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (context) => _RezkaNodeEditSheet(
+        node: node,
+        frameCount: _productionMapOrderFrameCount(widget.orderContext),
       ),
     );
   }

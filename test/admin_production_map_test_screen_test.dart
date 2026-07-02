@@ -35,6 +35,33 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  test('admin apparatus groups normalize default bosma names', () async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveApparatusGroup(
+      const AdminApparatusGroup(
+        name: 'pechat',
+        apparatus: [
+          '7 ta rangli pechat',
+          '8 ta rangli pechat',
+          '9 ta rangli pechat',
+        ],
+      ),
+    );
+
+    final groups = await MobileApi.instance.adminApparatusGroups();
+    final bosmaGroups = groups
+        .where((group) => group.name == 'Bosma aparat')
+        .toList(growable: false);
+
+    expect(bosmaGroups, hasLength(1));
+    expect(bosmaGroups.single.apparatus, [
+      '7 ta rangli bosma aparat',
+      '8 ta rangli bosma aparat',
+      '9 ta rangli bosma aparat',
+    ]);
+    expect(groups.any((group) => group.name == 'pechat'), isFalse);
+  });
+
   testWidgets('production map page can add and select an apparatus node', (
     tester,
   ) async {
@@ -119,7 +146,8 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('admin-fab-menu-pechat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('admin-fab-menu-Rezka')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-kk li mahsulot')),
@@ -179,10 +207,10 @@ void main() {
         ProductionMapNode(
           id: 'apparatus-7',
           kind: 'apparatus',
-          title: '7 ta rangli pechat',
+          title: '7 ta rangli bosma aparat',
           alternativeGroupId: 'pechat-group',
           alternativeGroupLabel: 'pechat',
-          alternativeAssignedTitle: '8 ta rangli pechat',
+          alternativeAssignedTitle: '8 ta rangli bosma aparat',
         ),
         ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
       ],
@@ -386,9 +414,8 @@ void main() {
     expect(after.dy, greaterThan(before.dy + 20));
   });
 
-  testWidgets('production map order flow hides laminatsiya group above 1050', (
-    tester,
-  ) async {
+  testWidgets('production map order flow shows disabled laminatsiya above 1050',
+      (tester) async {
     await TestModeController.instance.setEnabled(true);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -419,12 +446,116 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(productionMapRubberSizeFromWidth(1070), 1100);
-    expect(find.byKey(const ValueKey('admin-fab-menu-pechat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')),
+        findsOneWidget);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')),
-      findsNothing,
+      findsOneWidget,
     );
+    await tester.tap(find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling',
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
   });
+
+  testWidgets(
+    'production map order flow enables laminatsiya after fitting kadr rezka',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdminProductionMapTestScreen(
+            orderContext: ProductionMapOrderContext(
+              orderName: 'Large kadr order',
+              productName: 'large kadr product',
+              itemCode: 'ITEM-1400',
+              rollCount: 7,
+              widthMm: 1070,
+              templateDraft: CalculateOrderTemplate(
+                id: 'template-large',
+                code: 'Z-LARGE',
+                name: 'Large kadr order',
+                savedAt: DateTime.fromMillisecondsSinceEpoch(0),
+                orderNumber: '',
+                customerRef: 'CUST-001',
+                customer: 'Mijoz',
+                itemCode: 'ITEM-1400',
+                product: 'large kadr product',
+                status: 'Ready',
+                materialDisplay: '',
+                color: '',
+                imageId: '',
+                imageName: '',
+                imageMime: '',
+                imageSizeBytes: 0,
+                imageUrl: '',
+                frameProductSizeMm: 250,
+                frameCount: 4,
+                widthMm: 1070,
+                wastePercent: 5,
+                rollCount: 7,
+                firstLayerMaterial: 'pet',
+                firstLayerMicron: '12',
+                secondLayerMaterial: 'pe oq',
+                secondLayerMicron: '30',
+                thirdLayerMaterial: '',
+                thirdLayerMicron: '',
+                note: '',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _tapMapTool(tester, 'Rezka');
+      await tester.pumpAndSettle();
+      expect(find.text('Buyurtma bo‘yicha'), findsOneWidget);
+
+      await tester.tap(find.text('Kadr bo‘yicha'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kadr 1'), findsOneWidget);
+      expect(find.text('Kadr 4'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('rezka-frame-join-0')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rezka-frame-join-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Laminatsiya 1'), findsOneWidget);
+      expect(find.text('Laminatsiya 2'), findsOneWidget);
+      expect(
+        find.text(
+          'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling',
+        ),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('production map order flow hides color pechat group for flex', (
     tester,
@@ -458,7 +589,8 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('admin-fab-menu-pechat')), findsNothing);
+    expect(find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')),
+        findsNothing);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')),
       findsOneWidget,
@@ -497,19 +629,20 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('admin-fab-menu-pechat')));
+      await tester
+          .tap(find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')));
       await tester.pumpAndSettle();
 
       expect(find.text('Skip'), findsOneWidget);
-      expect(find.text('7 ta rangli pechat'), findsOneWidget);
-      expect(find.text('8 ta rangli pechat'), findsOneWidget);
-      expect(find.text('9 ta rangli pechat'), findsNothing);
+      expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
+      expect(find.text('8 ta rangli bosma aparat'), findsOneWidget);
+      expect(find.text('9 ta rangli bosma aparat'), findsNothing);
 
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
 
-      expect(find.text('7 ta rangli pechat'), findsOneWidget);
-      expect(find.text('8 ta rangli pechat'), findsOneWidget);
+      expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
+      expect(find.text('8 ta rangli bosma aparat'), findsOneWidget);
     },
   );
 
@@ -553,7 +686,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _tapMapTool(tester, 'pechat');
+    await _tapMapTool(tester, 'Bosma aparat');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
@@ -575,15 +708,15 @@ void main() {
     final saved = await MobileApi.instance.adminProductionMap('zakaz-9468');
     final map = saved.map;
     final pechatNodes = map.nodes
-        .where((node) => node.title.trim().contains('rangli pechat'))
+        .where((node) => node.title.trim().contains('rangli bosma'))
         .toList(growable: false);
     final laminatsiyaNodes = map.nodes
         .where((node) => node.title.trim().contains('Laminatsiya'))
         .toList(growable: false);
 
     expect(pechatNodes.map((node) => node.title), [
-      '7 ta rangli pechat',
-      '8 ta rangli pechat',
+      '7 ta rangli bosma aparat',
+      '8 ta rangli bosma aparat',
     ]);
     expect(laminatsiyaNodes.map((node) => node.title), [
       'Laminatsiya 1',
@@ -669,7 +802,7 @@ void main() {
               const ProductionMapNode(
                 id: 'apparatus_1',
                 kind: 'apparatus',
-                title: '7 ta rangli pechat',
+                title: '7 ta rangli bosma aparat',
                 alternativeGroupId: 'alt_pechat_1',
                 alternativeGroupLabel: 'pechat',
                 x: 280,
@@ -678,7 +811,7 @@ void main() {
               const ProductionMapNode(
                 id: 'apparatus_2',
                 kind: 'apparatus',
-                title: '8 ta rangli pechat',
+                title: '8 ta rangli bosma aparat',
                 alternativeGroupId: 'alt_pechat_1',
                 alternativeGroupLabel: 'pechat',
                 x: 560,
@@ -726,7 +859,7 @@ void main() {
     final map = saved.map;
     final ids = map.nodes.map((node) => node.id).toList(growable: false);
     final pechatNodes = map.nodes
-        .where((node) => node.title.trim().contains('rangli pechat'))
+        .where((node) => node.title.trim().contains('rangli bosma'))
         .toList(growable: false);
     final laminatsiyaNodes = map.nodes
         .where((node) => node.title.trim().contains('Laminatsiya'))
@@ -822,12 +955,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _tapMapTool(tester, 'pechat');
+    await _tapMapTool(tester, 'Bosma aparat');
     await tester.pumpAndSettle();
 
-    expect(find.text('8 ta rangli pechat'), findsOneWidget);
-    expect(find.text('7 ta rangli pechat'), findsNothing);
-    expect(find.text('9 ta rangli pechat'), findsNothing);
+    expect(find.text('8 ta rangli bosma aparat'), findsOneWidget);
+    expect(find.text('7 ta rangli bosma aparat'), findsNothing);
+    expect(find.text('9 ta rangli bosma aparat'), findsNothing);
   });
 
   test('production map edges are unrestricted between supported nodes', () {
@@ -904,7 +1037,7 @@ void main() {
       expect(
         productionMapApparatusMatchesOrder(
           const AdminWarehouse(
-            warehouse: '7 ta rangli pechat',
+            warehouse: '7 ta rangli bosma aparat',
             parentWarehouse: 'aparat - A',
           ),
           context,
@@ -914,7 +1047,7 @@ void main() {
       expect(
         productionMapApparatusMatchesOrder(
           const AdminWarehouse(
-            warehouse: '8 ta rangli pechat',
+            warehouse: '8 ta rangli bosma aparat',
             parentWarehouse: 'aparat - A',
           ),
           context,
@@ -924,7 +1057,7 @@ void main() {
       expect(
         productionMapApparatusMatchesOrder(
           const AdminWarehouse(
-            warehouse: '9 ta rangli pechat',
+            warehouse: '9 ta rangli bosma aparat',
             parentWarehouse: 'aparat - A',
           ),
           context,
@@ -953,7 +1086,7 @@ void main() {
       expect(
         productionMapApparatusMatchesOrder(
           const AdminWarehouse(
-            warehouse: '8 ta rangli pechat',
+            warehouse: '8 ta rangli bosma aparat',
             parentWarehouse: 'aparat - A',
           ),
           smallRubberContext,
@@ -984,7 +1117,7 @@ void main() {
         expect(
           productionMapApparatusMatchesOrder(
             const AdminWarehouse(
-              warehouse: '7 ta rangli pechat',
+              warehouse: '7 ta rangli bosma aparat',
               parentWarehouse: 'aparat - A',
             ),
             context,
@@ -994,7 +1127,7 @@ void main() {
         expect(
           productionMapApparatusMatchesOrder(
             const AdminWarehouse(
-              warehouse: '8 ta rangli pechat',
+              warehouse: '8 ta rangli bosma aparat',
               parentWarehouse: 'aparat - A',
             ),
             context,
@@ -1159,7 +1292,10 @@ void main() {
         title: 'Alternative move order',
         productCode: 'ALT-MOVE',
         product: 'alternative move product',
-        apparatus: const ['7 ta rangli pechat', '8 ta rangli pechat'],
+        apparatus: const [
+          '7 ta rangli bosma aparat',
+          '8 ta rangli bosma aparat'
+        ],
         rollCount: 7,
         widthMm: 650,
       );
@@ -1169,7 +1305,7 @@ void main() {
             for (final node in map.nodes)
               node.kind == 'apparatus'
                   ? node.copyWith(
-                      alternativeAssignedTitle: '7 ta rangli pechat',
+                      alternativeAssignedTitle: '7 ta rangli bosma aparat',
                     )
                   : node,
           ],
@@ -1178,22 +1314,22 @@ void main() {
 
       final moved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: const ['zakaz-alt-move'],
-        fromApparatus: '7 ta rangli pechat',
-        toApparatus: '8 ta rangli pechat',
+        fromApparatus: '7 ta rangli bosma aparat',
+        toApparatus: '8 ta rangli bosma aparat',
       );
 
       expect(_apparatusTitles(moved, 'zakaz-alt-move'), [
-        '7 ta rangli pechat',
-        '8 ta rangli pechat',
+        '7 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
       expect(_alternativeAssignedTitles(moved, 'zakaz-alt-move'), [
-        '8 ta rangli pechat',
-        '8 ta rangli pechat',
+        '8 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
       final maps = await MobileApi.instance.adminProductionMaps();
       expect(_alternativeAssignedTitles(maps, 'zakaz-alt-move'), [
-        '8 ta rangli pechat',
-        '8 ta rangli pechat',
+        '8 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
     },
   );
@@ -1596,7 +1732,7 @@ void main() {
         id: 'zakaz-move-ok',
         title: 'Move ok order',
         productCode: 'MOVE-OK',
-        apparatus: '8 ta rangli pechat',
+        apparatus: '8 ta rangli bosma aparat',
         product: 'move ok product',
         rollCount: 7,
         widthMm: 650,
@@ -1608,7 +1744,7 @@ void main() {
         id: 'zakaz-move-blocked',
         title: 'Move blocked order',
         productCode: 'MOVE-BLOCK',
-        apparatus: '8 ta rangli pechat',
+        apparatus: '8 ta rangli bosma aparat',
         product: 'move blocked product',
         rollCount: 8,
         widthMm: 700,
@@ -1651,27 +1787,30 @@ void main() {
     await _dragOrderTitleToTopZone(
       tester,
       orderTitle: 'Move ok order',
-      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
+      targetText: '7 ta rangli bosma aparat uchun zakaz yo‘q',
     );
     var maps = await MobileApi.instance.adminProductionMaps();
-    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli pechat');
-    expect(find.text('7 ta rangli pechat uchun zakaz yo‘q'), findsOneWidget);
+    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli bosma aparat');
+    expect(
+        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'), findsOneWidget);
 
     await _dragOrderHandleToTopZone(
       tester,
       orderTitle: 'Move ok order',
-      targetText: '7 ta rangli pechat uchun zakaz yo‘q',
+      targetText: '7 ta rangli bosma aparat uchun zakaz yo‘q',
     );
-    expect(find.text('7 ta rangli pechat uchun zakaz yo‘q'), findsNothing);
+    expect(
+        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'), findsNothing);
     expect(find.textContaining('Move ok order'), findsOneWidget);
     maps = await MobileApi.instance.adminProductionMaps();
-    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli pechat');
+    expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli bosma aparat');
     expect(
       _apparatusTitles(maps, 'zakaz-move-ok'),
-      isNot(contains('8 ta rangli pechat')),
+      isNot(contains('8 ta rangli bosma aparat')),
     );
     maps = await MobileApi.instance.adminProductionMaps();
-    expect(_apparatusTitle(maps, 'zakaz-move-blocked'), '8 ta rangli pechat');
+    expect(_apparatusTitle(maps, 'zakaz-move-blocked'),
+        '8 ta rangli bosma aparat');
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -1685,7 +1824,7 @@ void main() {
           id: 'zakaz-batch-move-$index',
           title: 'Batch move order ${index + 1}',
           productCode: 'BATCH-$index',
-          apparatus: '7 ta rangli pechat',
+          apparatus: '7 ta rangli bosma aparat',
           product: 'batch move product ${index + 1}',
           rollCount: 7,
           widthMm: 650,
@@ -1698,7 +1837,10 @@ void main() {
         title: 'Batch move order ${index + 1}',
         productCode: 'BATCH-$index',
         product: 'batch move product ${index + 1}',
-        apparatus: const ['7 ta rangli pechat', '8 ta rangli pechat'],
+        apparatus: const [
+          '7 ta rangli bosma aparat',
+          '8 ta rangli bosma aparat'
+        ],
         rollCount: 7,
         widthMm: 650,
       );
@@ -1708,7 +1850,7 @@ void main() {
             for (final node in map.nodes)
               node.kind == 'apparatus'
                   ? node.copyWith(
-                      alternativeAssignedTitle: '7 ta rangli pechat',
+                      alternativeAssignedTitle: '7 ta rangli bosma aparat',
                     )
                   : node,
           ],
@@ -1720,7 +1862,7 @@ void main() {
         id: 'zakaz-batch-move-target',
         title: 'Batch move target order',
         productCode: 'BATCH-TARGET',
-        apparatus: '8 ta rangli pechat',
+        apparatus: '8 ta rangli bosma aparat',
         product: 'batch move target product',
         rollCount: 7,
         widthMm: 650,
@@ -1748,7 +1890,8 @@ void main() {
     for (var index = 0; index < 4; index++) {
       await _tapMoveOrderBadge(
         tester,
-        key: ValueKey('move-order-7 ta rangli pechat-zakaz-batch-move-$index'),
+        key: ValueKey(
+            'move-order-7 ta rangli bosma aparat-zakaz-batch-move-$index'),
       );
     }
 
@@ -1762,13 +1905,13 @@ void main() {
     for (var index = 0; index < 2; index++) {
       expect(
         _apparatusTitle(maps, 'zakaz-batch-move-$index'),
-        '8 ta rangli pechat',
+        '8 ta rangli bosma aparat',
       );
     }
     for (var index = 2; index < 4; index++) {
       expect(_alternativeAssignedTitles(maps, 'zakaz-batch-move-$index'), [
-        '8 ta rangli pechat',
-        '8 ta rangli pechat',
+        '8 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
     }
     await tester.pump(const Duration(seconds: 3));
@@ -1783,7 +1926,7 @@ void main() {
           id: 'zakaz-move-9-only',
           title: 'Nine color rubber order',
           productCode: 'MOVE-9',
-          apparatus: '8 ta rangli pechat',
+          apparatus: '8 ta rangli bosma aparat',
           product: 'nine color product',
           rollCount: 7,
           widthMm: 1250,
@@ -1811,7 +1954,8 @@ void main() {
       expect(find.textContaining('Nine color rubber order'), findsNothing);
 
       final maps = await MobileApi.instance.adminProductionMaps();
-      expect(_apparatusTitle(maps, 'zakaz-move-9-only'), '8 ta rangli pechat');
+      expect(_apparatusTitle(maps, 'zakaz-move-9-only'),
+          '8 ta rangli bosma aparat');
     },
   );
 
@@ -1824,7 +1968,7 @@ void main() {
           id: 'zakaz-direct-pechat',
           title: 'Direct pechat order',
           productCode: 'DIRECT-7',
-          apparatus: '7 ta rangli pechat',
+          apparatus: '7 ta rangli bosma aparat',
           product: 'direct product',
           rollCount: 7,
           widthMm: 650,
@@ -1851,7 +1995,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byKey(
-          const ValueKey('move-order-7 ta rangli pechat-zakaz-direct-pechat'),
+          const ValueKey(
+              'move-order-7 ta rangli bosma aparat-zakaz-direct-pechat'),
         ),
         findsOneWidget,
       );
@@ -1872,7 +2017,8 @@ void main() {
 
       expect(
         find.byKey(
-          const ValueKey('move-order-7 ta rangli pechat-zakaz-direct-pechat'),
+          const ValueKey(
+              'move-order-7 ta rangli bosma aparat-zakaz-direct-pechat'),
         ),
         findsOneWidget,
       );
@@ -1884,7 +2030,7 @@ void main() {
       );
       final maps = await MobileApi.instance.adminProductionMaps();
       expect(_apparatusTitles(maps, 'zakaz-direct-pechat'), [
-        '7 ta rangli pechat',
+        '7 ta rangli bosma aparat',
       ]);
     },
   );
@@ -1917,13 +2063,13 @@ void main() {
       find.byKey(const ValueKey('move-boundary-apparatus-picker')),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('7 ta rangli pechat'), findsNWidgets(2));
+    expect(find.textContaining('7 ta rangli bosma aparat'), findsNWidgets(2));
     Navigator.of(tester.element(find.text('Aparat tanlang'))).pop();
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('move-top-apparatus-picker')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('8 ta rangli pechat'), findsNWidgets(2));
+    expect(find.textContaining('8 ta rangli bosma aparat'), findsNWidgets(2));
   });
 
   testWidgets('opened orders move top apparatus picker is centered', (
@@ -1953,7 +2099,7 @@ void main() {
     final pickerRect = tester.getRect(
       find.descendant(
         of: find.byKey(const ValueKey('move-top-apparatus-picker')),
-        matching: find.textContaining('7 ta rangli pechat'),
+        matching: find.textContaining('7 ta rangli bosma aparat'),
       ),
     );
     final screenCenterX = tester.getSize(find.byType(MaterialApp)).width / 2;
@@ -1969,7 +2115,7 @@ void main() {
         id: 'zakaz-resize-a',
         title: 'Resize top order',
         productCode: 'RESIZE-A',
-        apparatus: '7 ta rangli pechat',
+        apparatus: '7 ta rangli bosma aparat',
         product: 'resize product a',
         rollCount: 7,
         widthMm: 650,
@@ -1980,7 +2126,7 @@ void main() {
         id: 'zakaz-resize-b',
         title: 'Resize bottom order',
         productCode: 'RESIZE-B',
-        apparatus: '8 ta rangli pechat',
+        apparatus: '8 ta rangli bosma aparat',
         product: 'resize product b',
         rollCount: 7,
         widthMm: 650,
@@ -2027,7 +2173,10 @@ void main() {
           title: 'Skipped pechat order',
           productCode: 'SKIP-78',
           product: 'skipped product',
-          apparatus: const ['7 ta rangli pechat', '8 ta rangli pechat'],
+          apparatus: const [
+            '7 ta rangli bosma aparat',
+            '8 ta rangli bosma aparat'
+          ],
           rollCount: 7,
           widthMm: 650,
         ),
@@ -2038,7 +2187,7 @@ void main() {
           title: 'Skipped nine order',
           productCode: 'SKIP-9',
           product: 'skipped nine product',
-          apparatus: const ['9 ta rangli pechat'],
+          apparatus: const ['9 ta rangli bosma aparat'],
           rollCount: 9,
           widthMm: 900,
         ),
@@ -2048,7 +2197,7 @@ void main() {
           id: 'zakaz-skip-target-7',
           title: 'Skip target seven order',
           productCode: 'SKIP-TARGET-7',
-          apparatus: '7 ta rangli pechat',
+          apparatus: '7 ta rangli bosma aparat',
           product: 'skip target seven product',
           rollCount: 7,
           widthMm: 650,
@@ -2059,7 +2208,7 @@ void main() {
           id: 'zakaz-skip-target-8',
           title: 'Skip target eight order',
           productCode: 'SKIP-TARGET-8',
-          apparatus: '8 ta rangli pechat',
+          apparatus: '8 ta rangli bosma aparat',
           product: 'skip target product',
           rollCount: 7,
           widthMm: 650,
@@ -2103,7 +2252,7 @@ void main() {
       );
       expect(
         find.byKey(
-          const ValueKey('move-order-7 ta rangli pechat-zakaz-skip-7-8'),
+          const ValueKey('move-order-7 ta rangli bosma aparat-zakaz-skip-7-8'),
         ),
         findsNothing,
       );
@@ -2120,19 +2269,19 @@ void main() {
       );
       expect(
         find.byKey(
-          const ValueKey('move-order-7 ta rangli pechat-zakaz-skip-7-8'),
+          const ValueKey('move-order-7 ta rangli bosma aparat-zakaz-skip-7-8'),
         ),
         findsOneWidget,
       );
       final maps = await MobileApi.instance.adminProductionMaps();
       expect(_apparatusTitles(maps, 'zakaz-skip-7-8'), [
-        '7 ta rangli pechat',
-        '8 ta rangli pechat',
+        '7 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
       expect(_alternativeGroupIds(maps, 'zakaz-skip-7-8'), isNotEmpty);
       expect(_alternativeAssignedTitles(maps, 'zakaz-skip-7-8'), [
-        '7 ta rangli pechat',
-        '7 ta rangli pechat',
+        '7 ta rangli bosma aparat',
+        '7 ta rangli bosma aparat',
       ]);
 
       await _dragOrderHandleToBottomZone(
@@ -2147,8 +2296,8 @@ void main() {
       );
       final returnedMaps = await MobileApi.instance.adminProductionMaps();
       expect(_apparatusTitles(returnedMaps, 'zakaz-skip-7-8'), [
-        '7 ta rangli pechat',
-        '8 ta rangli pechat',
+        '7 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat',
       ]);
       expect(_alternativeGroupIds(returnedMaps, 'zakaz-skip-7-8'), isNotEmpty);
       expect(
@@ -2159,11 +2308,11 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('move-top-apparatus-picker')),
-          matching: find.textContaining('7 ta rangli pechat'),
+          matching: find.textContaining('7 ta rangli bosma aparat'),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('8 ta rangli pechat').first);
+      await tester.tap(find.text('8 ta rangli bosma aparat').first);
       await tester.pumpAndSettle();
 
       await _dragOrderHandleToTopZone(
@@ -2174,7 +2323,7 @@ void main() {
 
       expect(
         find.byKey(
-          const ValueKey('move-order-8 ta rangli pechat-zakaz-skip-7-8'),
+          const ValueKey('move-order-8 ta rangli bosma aparat-zakaz-skip-7-8'),
         ),
         findsOneWidget,
       );
@@ -2182,7 +2331,7 @@ void main() {
           await MobileApi.instance.adminProductionMaps();
       expect(
         _alternativeAssignedTitles(assignedToEightMaps, 'zakaz-skip-7-8'),
-        ['8 ta rangli pechat', '8 ta rangli pechat'],
+        ['8 ta rangli bosma aparat', '8 ta rangli bosma aparat'],
       );
       await tester.pump(const Duration(seconds: 3));
     },
@@ -2197,9 +2346,12 @@ void main() {
       title: 'Skipped laminatsiya order',
       productCode: 'LAM-SKIP',
       product: 'laminatsiya skipped product',
-      firstGroupApparatus: const ['7 ta rangli pechat', '8 ta rangli pechat'],
+      firstGroupApparatus: const [
+        '7 ta rangli bosma aparat',
+        '8 ta rangli bosma aparat'
+      ],
       secondGroupApparatus: const ['Laminatsiya 1', 'Laminatsiya 2'],
-      firstGroupAssignedTitle: '7 ta rangli pechat',
+      firstGroupAssignedTitle: '7 ta rangli bosma aparat',
       rollCount: 7,
       widthMm: 650,
     );
@@ -2260,7 +2412,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli pechat'],
+        assignedApparatus: ['7 ta rangli bosma aparat'],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -2268,7 +2420,7 @@ void main() {
         id: 'zakaz-worker-queue',
         title: 'Worker queue order',
         productCode: 'WRK-A',
-        apparatus: '7 ta rangli pechat',
+        apparatus: '7 ta rangli bosma aparat',
         product: 'worker mahsulot',
       ),
     );
@@ -2277,12 +2429,12 @@ void main() {
         id: 'zakaz-worker-queue-2',
         title: 'Worker queue order 2',
         productCode: 'WRK-B',
-        apparatus: '7 ta rangli pechat',
+        apparatus: '7 ta rangli bosma aparat',
         product: 'worker mahsulot 2',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderIds: const ['zakaz-worker-queue', 'zakaz-worker-queue-2'],
     );
     await _usePhoneViewport(tester);
@@ -2373,7 +2525,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli pechat'],
+        assignedApparatus: ['7 ta rangli bosma aparat'],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -2381,7 +2533,7 @@ void main() {
         id: 'zakaz-worker-completed-1',
         title: 'Worker completed order 1',
         productCode: 'WCD-A',
-        apparatus: '7 ta rangli pechat',
+        apparatus: '7 ta rangli bosma aparat',
         product: 'worker completed mahsulot 1',
       ),
     );
@@ -2390,12 +2542,12 @@ void main() {
         id: 'zakaz-worker-completed-2',
         title: 'Worker completed order 2',
         productCode: 'WCD-B',
-        apparatus: '7 ta rangli pechat',
+        apparatus: '7 ta rangli bosma aparat',
         product: 'worker completed mahsulot 2',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderIds: const [
         'zakaz-worker-completed-1',
         'zakaz-worker-completed-2',
@@ -2696,6 +2848,80 @@ void main() {
     );
   });
 
+  testWidgets('rezka worker detail explains WIP split from map', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-rezka-split-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'worker-rezka-split',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: ['Rezka'],
+      ),
+    );
+    await MobileApi.instance.adminCreateApparatus('Rezka');
+    final map = _twoStageProductionOrderMap(
+      id: 'zakaz-rezka-split',
+      title: 'Rezka split order',
+      productCode: 'RZS-A',
+      product: 'rezka split mahsulot',
+      firstApparatus: '7 ta rangli bosma aparat',
+      secondApparatus: 'Rezka',
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      map.copyWith(
+        nodes: [
+          for (final node in map.nodes)
+            node.id == 'second-apparatus'
+                ? node.copyWith(
+                    rezkaKadrCount: 4,
+                    rezkaFrameGroups: const [3, 1],
+                  )
+                : node,
+        ],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Rezka',
+      orderIds: const ['zakaz-rezka-split'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rezka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('rezka-split').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Map bo‘yicha rezka'), findsOneWidget);
+    expect(find.textContaining('2 bo‘lak'), findsOneWidget);
+    expect(find.textContaining('1-bo‘lak: 3 kadr'), findsOneWidget);
+    expect(find.textContaining('2-bo‘lak: 1 kadr'), findsOneWidget);
+  });
+
   testWidgets('worker completed detail keeps completed apparatus context', (
     tester,
   ) async {
@@ -2710,7 +2936,7 @@ void main() {
         phone: '',
         avatarUrl: '',
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-        assignedApparatus: ['7 ta rangli pechat'],
+        assignedApparatus: ['7 ta rangli bosma aparat'],
       ),
     );
     await MobileApi.instance.adminSaveProductionMap(
@@ -2719,12 +2945,12 @@ void main() {
         title: 'Worker completed context',
         productCode: 'WCC',
         product: 'worker context mahsulot',
-        firstApparatus: '7 ta rangli pechat',
+        firstApparatus: '7 ta rangli bosma aparat',
         secondApparatus: 'Laminatsiya 1',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderIds: const ['zakaz-worker-completed-context'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
@@ -2732,12 +2958,12 @@ void main() {
       orderIds: const ['zakaz-worker-completed-context'],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderId: 'zakaz-worker-completed-context',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderId: 'zakaz-worker-completed-context',
       action: 'complete',
       producedQty: 12,
@@ -2804,12 +3030,12 @@ void main() {
         title: 'Worker previous QR',
         productCode: 'WPQ',
         product: 'worker previous qr product',
-        firstApparatus: '7 ta rangli pechat',
+        firstApparatus: '7 ta rangli bosma aparat',
         secondApparatus: 'Laminatsiya 1',
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderIds: const ['zakaz-worker-previous-qr'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
@@ -2817,12 +3043,12 @@ void main() {
       orderIds: const ['stale-zakaz'],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderId: 'zakaz-worker-previous-qr',
       action: 'start',
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: '7 ta rangli pechat',
+      apparatus: '7 ta rangli bosma aparat',
       orderId: 'zakaz-worker-previous-qr',
       action: 'complete',
       producedQty: 12,
@@ -2889,7 +3115,7 @@ void main() {
           title: 'Worker lamin wait',
           productCode: 'WLW',
           product: 'worker lamin wait product',
-          firstApparatus: '7 ta rangli pechat',
+          firstApparatus: '7 ta rangli bosma aparat',
           secondApparatus: 'Laminatsiya 1',
         ),
       );
@@ -2927,7 +3153,7 @@ void main() {
       expect(find.text('Scan'), findsNothing);
       expect(
         find.text(
-            'Oldingi bosqich tugallanguncha kutilmoqda: 7 ta rangli pechat'),
+            'Oldingi bosqich tugallanguncha kutilmoqda: 7 ta rangli bosma aparat'),
         findsOneWidget,
       );
       expect(find.text('2 / 5 bosqich'), findsOneWidget);

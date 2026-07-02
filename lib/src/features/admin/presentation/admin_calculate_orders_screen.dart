@@ -1,4 +1,5 @@
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -27,6 +28,7 @@ class _AdminCalculateOrdersScreenState
   final _searchFocusNode = FocusNode();
   bool _loading = true;
   String _searchQuery = '';
+  Set<String> _sourceMapIds = const <String>{};
 
   @override
   void initState() {
@@ -43,10 +45,17 @@ class _AdminCalculateOrdersScreenState
 
   Future<void> _load() async {
     await CalculateOrderTemplateStore.instance.load();
+    final maps = await MobileApi.instance.adminProductionMaps();
     if (!mounted) {
       return;
     }
-    setState(() => _loading = false);
+    setState(() {
+      _sourceMapIds = maps
+          .map((item) => item.map.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      _loading = false;
+    });
   }
 
   void _openDrawerRoute(String routeName) {
@@ -80,11 +89,15 @@ class _AdminCalculateOrdersScreenState
   List<CalculateOrderTemplate> _visibleTemplates(
     List<CalculateOrderTemplate> templates,
   ) {
+    final activeTemplates = templates.where((template) {
+      final sourceMapId = template.sourceMapId.trim();
+      return sourceMapId.isNotEmpty && _sourceMapIds.contains(sourceMapId);
+    }).toList();
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) {
-      return templates;
+      return activeTemplates;
     }
-    return templates.where((template) {
+    return activeTemplates.where((template) {
       final haystack = [
         template.code,
         template.name,
@@ -149,8 +162,11 @@ class _AdminCalculateOrdersScreenState
                   return ListView(
                     padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
                     children: [
-                      if (templates.isEmpty)
-                        const _EmptyOrders(message: 'Saqlangan zakaz yo‘q')
+                      if (visibleTemplates.isEmpty &&
+                          _searchQuery.trim().isEmpty)
+                        const _EmptyOrders(
+                          message: 'Saqlangan shablonlar hozircha yo‘q',
+                        )
                       else if (visibleTemplates.isEmpty)
                         const _EmptyOrders(message: 'Zakaz topilmadi')
                       else

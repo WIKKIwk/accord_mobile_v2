@@ -1,6 +1,8 @@
 part of 'admin_production_map_test_screen.dart';
 
 const _maxLaminatsiyaRubberSizeMm = 1050;
+const _laminatsiyaOversizeMessage =
+    'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling';
 
 class ProductionMapTestArgs {
   const ProductionMapTestArgs({
@@ -124,6 +126,52 @@ bool _productionMapLaminatsiyaMatchesOrder(
   ProductionMapOrderContext? orderContext,
 ) {
   final widthMm = orderContext?.widthMm;
+  return _productionMapWidthFitsLaminatsiya(widthMm);
+}
+
+bool _productionMapLaminatsiyaMatchesCurrentMap(
+  ProductionMapOrderContext? orderContext,
+  Iterable<ProductionMapNode> nodes,
+) {
+  if (_productionMapLaminatsiyaMatchesOrder(orderContext)) {
+    return true;
+  }
+  final widthMm = orderContext?.widthMm;
+  final frameCount = _productionMapOrderFrameCount(orderContext);
+  if (widthMm == null || widthMm <= 0 || frameCount <= 0) {
+    return false;
+  }
+  for (final node in nodes) {
+    if (!_isRezkaProductionNode(node) || node.rezkaFrameGroups.isEmpty) {
+      continue;
+    }
+    final totalFrames = node.rezkaFrameGroups.fold<int>(
+      0,
+      (sum, group) => sum + group,
+    );
+    if (totalFrames != frameCount) {
+      continue;
+    }
+    final allGroupsFit = node.rezkaFrameGroups.every((group) {
+      final groupWidth = widthMm * group / frameCount;
+      return _productionMapWidthFitsLaminatsiya(groupWidth);
+    });
+    if (allGroupsFit) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int _productionMapOrderFrameCount(ProductionMapOrderContext? orderContext) {
+  final frameCount = orderContext?.templateDraft?.frameCount ?? 0;
+  if (frameCount <= 0) {
+    return 0;
+  }
+  return frameCount.round();
+}
+
+bool _productionMapWidthFitsLaminatsiya(double? widthMm) {
   if (widthMm == null || widthMm <= 0) {
     return true;
   }

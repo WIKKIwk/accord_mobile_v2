@@ -444,6 +444,7 @@ class _AdminHubAction {
     required this.routeName,
     required this.row,
     required this.staggerOrder,
+    this.enabled = true,
   });
 
   final Key key;
@@ -452,6 +453,7 @@ class _AdminHubAction {
   final String routeName;
   final int row;
   final int staggerOrder;
+  final bool enabled;
 }
 
 class _AdminHubActionCandidate {
@@ -733,6 +735,7 @@ class _AdminFabActionOverlayState extends State<_AdminFabActionOverlay>
           routeName: '',
           row: i,
           staggerOrder: n - 1 - i,
+          enabled: visible[i].enabled,
         ),
     ];
   }
@@ -834,12 +837,10 @@ class _AdminFabActionOverlayState extends State<_AdminFabActionOverlay>
                             motionKey: ValueKey(
                               'admin-fab-menu-reveal-${actions[rowStart + offset].row}',
                             ),
-                            onTap: widget.actions[rowStart + offset].enabled
-                                ? () {
-                                    _setOpen(false);
-                                    widget.actions[rowStart + offset].onTap();
-                                  }
-                                : null,
+                            onTap: () {
+                              _setOpen(false);
+                              widget.actions[rowStart + offset].onTap();
+                            },
                           ),
                           if (offset != columns - 1 &&
                               rowStart + offset + 1 < actions.length)
@@ -1039,6 +1040,7 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
           routeName: '',
           row: i,
           staggerOrder: n - 1 - i,
+          enabled: widget.actions[i].enabled,
         ),
     ];
   }
@@ -1113,9 +1115,7 @@ class _AdminFabActionMenuState extends State<AdminFabActionMenu>
                             motionKey: ValueKey(
                               'admin-fab-menu-reveal-${actions[rowStart + offset].row}',
                             ),
-                            onTap: widget.actions[rowStart + offset].enabled
-                                ? widget.actions[rowStart + offset].onTap
-                                : null,
+                            onTap: widget.actions[rowStart + offset].onTap,
                           ),
                           if (offset != columns - 1 &&
                               rowStart + offset + 1 < actions.length)
@@ -1262,12 +1262,16 @@ class _AdminHubActionPill extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final textDirection = Directionality.of(context);
+    final foreground =
+        action.enabled ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
+    final background =
+        action.enabled ? scheme.primaryContainer : scheme.surfaceContainerHigh;
     final TextStyle titleStyle = theme.textTheme.titleMedium?.copyWith(
-          color: scheme.onPrimaryContainer,
+          color: foreground,
           fontWeight: FontWeight.w600,
         ) ??
         TextStyle(
-          color: scheme.onPrimaryContainer,
+          color: foreground,
           fontWeight: FontWeight.w600,
         );
     final titlePainter = TextPainter(
@@ -1317,7 +1321,7 @@ class _AdminHubActionPill extends StatelessWidget {
                     button: true,
                     label: action.title,
                     child: Material(
-                      color: scheme.primaryContainer,
+                      color: background,
                       elevation: 0,
                       surfaceTintColor: Colors.transparent,
                       shape: const StadiumBorder(),
@@ -1342,7 +1346,7 @@ class _AdminHubActionPill extends StatelessWidget {
                                   Icon(
                                     action.icon,
                                     size: 24,
-                                    color: scheme.onPrimaryContainer,
+                                    color: foreground,
                                   ),
                                   const SizedBox(width: _adminHubActionIconGap),
                                   Flexible(
