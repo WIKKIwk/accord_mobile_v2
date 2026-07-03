@@ -3,6 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('does not enable native iroh transport by default', () {
+    expect(NativeIrohTransport.endpointTicketFromEnvironment, isEmpty);
+    expect(NativeIrohTransport.endpointTicketDiscoveryUrl, isEmpty);
+    expect(NativeIrohTransport.hasEndpointTicket, isFalse);
+  });
+
   test('parses native health check result', () {
     final result = IrohHealthCheckResult.fromMap({
       'ok': true,

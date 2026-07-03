@@ -15,7 +15,7 @@ class NativeIrohTransport {
   );
   static const String endpointTicketDiscoveryUrl = String.fromEnvironment(
     'IROH_TICKET_DISCOVERY_URL',
-    defaultValue: 'https://mini-rs-erp-dev.wspace.sbs/v1/mobile/iroh-ticket',
+    defaultValue: '',
   );
   static const String _endpointTicketPreferenceKey = 'iroh_endpoint_ticket';
   static const String _supportsConnectionReusePreferenceKey =
