@@ -1874,7 +1874,11 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       try {
+        final templateMap = _templateMapCopyForSave(map, template);
         final savedMap = await adminSaveProductionMap(map);
+        final savedTemplateMap = templateMap == null
+            ? null
+            : await adminSaveProductionMap(templateMap);
         final opensQuickTemplateAsOrder =
             template.sourceMapId.trim().isNotEmpty &&
                 template.sourceMapId.trim() != savedMap.map.id.trim() &&
@@ -1883,10 +1887,11 @@ extension MobileApiAdmin on MobileApi {
             ? null
             : _testModeUpsertCalculateOrderTemplate(
                 template.copyWith(
-                  sourceMapId: _templateSourceMapIdForSave(
-                    savedMap.map,
-                    template,
-                  ),
+                  sourceMapId: savedTemplateMap?.map.id ??
+                      _templateSourceMapIdForSave(
+                        savedMap.map,
+                        template,
+                      ),
                 ),
               );
         return ProductionMapSaveWithOrderResult(
@@ -4208,6 +4213,30 @@ String _templateSourceMapIdForSave(
     return map.id.trim();
   }
   return sourceMapId;
+}
+
+ProductionMapDefinition? _templateMapCopyForSave(
+  ProductionMapDefinition map,
+  CalculateOrderTemplate template,
+) {
+  if (template.sourceMapId.trim().isNotEmpty || !_isSheetOrderMap(map)) {
+    return null;
+  }
+  final mapId = map.id.trim();
+  if (mapId.isEmpty) {
+    return null;
+  }
+  return ProductionMapDefinition(
+    id: 'template-$mapId',
+    productCode: map.productCode,
+    title: map.title,
+    code: '',
+    orderNumber: '',
+    rollCount: map.rollCount,
+    widthMm: map.widthMm,
+    nodes: map.nodes,
+    edges: map.edges,
+  );
 }
 
 bool _wipStatusMatchesFilter(String rawStatus, String rawFilter) {

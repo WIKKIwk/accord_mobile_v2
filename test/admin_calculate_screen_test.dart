@@ -35,6 +35,25 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  test('test mode saves quick template with reusable map copy', () async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+
+    final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
+      map: _map(id: 'zakaz-5555', code: '5555', orderNumber: '5555'),
+      template: _template(itemCode: 'ITEM-1').copyWith(kg: 120),
+    );
+
+    expect(result.saved.map.id, 'zakaz-5555');
+    expect(result.template?.sourceMapId, 'template-zakaz-5555');
+
+    final maps = await MobileApi.instance.adminProductionMaps();
+    final templateMap = maps.firstWhere(
+      (item) => item.map.id == 'template-zakaz-5555',
+    );
+    expect(templateMap.map.orderNumber, isEmpty);
+  });
+
   testWidgets(
       'saved quick order edit hides production map link after calculation', (
     tester,
@@ -300,6 +319,47 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  testWidgets('saved quick order edits stored map in template mode', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const sourceMapId = 'template-zakaz-4444';
+    await MobileApi.instance.adminSaveProductionMap(
+      _map(id: sourceMapId, code: '', orderNumber: ''),
+    );
+    ProductionMapTestArgs? openedArgs;
+    await _pumpCalculateScreen(
+      tester,
+      template: _template(itemCode: 'ITEM-1', sourceMapId: sourceMapId),
+      onProductionMapArguments: (arguments) {
+        if (arguments is ProductionMapTestArgs) {
+          openedArgs = arguments;
+        }
+      },
+    );
+
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
+    await tester.tap(find.text('Hisoblash'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Production mapga ulash'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Production mapga ulash'));
+    await tester.pumpAndSettle();
+
+    expect(openedArgs, isNotNull);
+    expect(openedArgs!.templateOnly, isTrue);
+    expect(openedArgs!.savedMap?.id, sourceMapId);
   });
 
   testWidgets(

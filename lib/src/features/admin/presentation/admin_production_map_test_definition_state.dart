@@ -218,21 +218,26 @@ extension _AdminProductionMapTestDefinitionState
             context.templateId,
           ]);
     return ProductionMapDefinition(
-      id: _orderMode
-          ? ((savedMap?.id.trim().isNotEmpty ?? false)
-              ? savedMap!.id.trim()
-              : _zakazMapId(normalizedOrderNumber, context: context))
-          : (context == null
-              ? (savedMap?.id.trim().isNotEmpty ?? false)
+      id: widget.templateOnly
+          ? _templateMapId(context, savedMap)
+          : _orderMode
+              ? ((savedMap?.id.trim().isNotEmpty ?? false)
                   ? savedMap!.id.trim()
-                  : 'production-map-test'
-              : _orderMapId(context, normalizedOrderNumber)),
+                  : _zakazMapId(normalizedOrderNumber, context: context))
+              : (context == null
+                  ? (savedMap?.id.trim().isNotEmpty ?? false)
+                      ? savedMap!.id.trim()
+                      : 'production-map-test'
+                  : _orderMapId(context, normalizedOrderNumber)),
       productCode: productCode,
       title: title,
-      code: _orderMode && normalizedOrderNumber.isNotEmpty
-          ? normalizedOrderNumber
-          : _firstNonEmpty([context?.orderCode ?? '', savedMap?.code ?? '']),
-      orderNumber: normalizedOrderNumber,
+      code: widget.templateOnly
+          ? (savedMap?.code.trim() ?? '')
+          : _orderMode && normalizedOrderNumber.isNotEmpty
+              ? normalizedOrderNumber
+              : _firstNonEmpty(
+                  [context?.orderCode ?? '', savedMap?.code ?? '']),
+      orderNumber: widget.templateOnly ? '' : normalizedOrderNumber,
       // Re-saving an opened zakaz must keep its pechat constraints.
       rollCount: context?.rollCount ?? savedMap?.rollCount,
       widthMm: context?.widthMm ?? savedMap?.widthMm,
@@ -249,6 +254,23 @@ extension _AdminProductionMapTestDefinitionState
       return _orderMapId(context, orderNumber);
     }
     return 'production-map-test';
+  }
+
+  String _templateMapId(
+    ProductionMapOrderContext? context,
+    ProductionMapDefinition? savedMap,
+  ) {
+    final savedId = savedMap?.id.trim() ?? '';
+    if (savedId.isNotEmpty) {
+      return savedId;
+    }
+    final source = _firstNonEmpty([
+      context?.templateId ?? '',
+      context?.orderName ?? '',
+      context?.productName ?? '',
+      context?.itemCode ?? '',
+    ]);
+    return 'template-${_slug(source)}';
   }
 
   String _orderMapId(ProductionMapOrderContext context, String orderNumber) {

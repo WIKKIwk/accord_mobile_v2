@@ -39,11 +39,13 @@ class AdminProductionMapTestScreen extends StatefulWidget {
     this.orderContext,
     this.savedMap,
     this.readOnly = false,
+    this.templateOnly = false,
   });
 
   final ProductionMapOrderContext? orderContext;
   final ProductionMapDefinition? savedMap;
   final bool readOnly;
+  final bool templateOnly;
 
   @override
   State<AdminProductionMapTestScreen> createState() =>
@@ -78,8 +80,9 @@ class _AdminProductionMapTestScreenState
   void initState() {
     super.initState();
     final savedMap = widget.savedMap;
-    _orderMode = widget.orderContext != null ||
-        (savedMap?.id.trim().startsWith('zakaz-') ?? false);
+    _orderMode = !widget.templateOnly &&
+        (widget.orderContext != null ||
+            (savedMap?.id.trim().startsWith('zakaz-') ?? false));
     nodes = savedMap != null
         ? List<ProductionMapNode>.from(savedMap.nodes)
         : _orderMode
@@ -154,7 +157,7 @@ class _AdminProductionMapTestScreenState
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       actions: [
-        if (_orderMode && !widget.readOnly)
+        if ((_orderMode || widget.templateOnly) && !widget.readOnly)
           AppShellIconAction(
             key: const ValueKey('production-map-save'),
             icon:

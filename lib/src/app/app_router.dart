@@ -446,6 +446,7 @@ class AppRouter {
             orderContext: orderContext,
             savedMap: args?.savedMap ?? savedMap?.map,
             readOnly: args?.readOnly ?? false,
+            templateOnly: args?.templateOnly ?? false,
           ),
         );
       case AppRoutes.adminProductionMapOrders:

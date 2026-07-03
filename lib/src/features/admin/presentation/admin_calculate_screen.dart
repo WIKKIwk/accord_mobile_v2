@@ -236,12 +236,11 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     }
     final saved = await Navigator.of(context).pushNamed(
       AppRoutes.adminProductionMapTest,
-      arguments: savedMap == null
-          ? orderContext
-          : ProductionMapTestArgs(
-              orderContext: orderContext,
-              savedMap: savedMap,
-            ),
+      arguments: ProductionMapTestArgs(
+        orderContext: orderContext,
+        savedMap: savedMap,
+        templateOnly: sourceMapId.isNotEmpty,
+      ),
     );
     if (!mounted || saved is! CalculateOrderTemplate) {
       return;

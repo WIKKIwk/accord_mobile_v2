@@ -9,11 +9,13 @@ class ProductionMapTestArgs {
     this.orderContext,
     this.savedMap,
     this.readOnly = false,
+    this.templateOnly = false,
   });
 
   final ProductionMapOrderContext? orderContext;
   final ProductionMapDefinition? savedMap;
   final bool readOnly;
+  final bool templateOnly;
 }
 
 class ProductionMapOrderContext {
