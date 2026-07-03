@@ -138,13 +138,30 @@ class ProductionMapSaveWithOrderResult {
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
+    required this.visibleOrderIds,
     required this.queueStates,
     required this.queuePolicies,
   });
 
   final Map<String, List<String>> sequences;
+  final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
+}
+
+Map<String, List<String>> _parseRequiredProductionMapVisibleOrderIds(
+  Map<String, dynamic> json,
+) {
+  if (!json.containsKey('visible_order_ids') ||
+      json['visible_order_ids'] == null) {
+    throw const MobileApiException(
+      code: 'production_map_visible_order_ids_missing',
+      message: 'Production map navbati noto‘liq',
+    );
+  }
+  return MobileApi.instance.parseApparatusSequenceMap(
+    json['visible_order_ids'],
+  );
 }
 
 class AdminCompletedQueueOrder {
@@ -1371,6 +1388,7 @@ class AdminProductionMapLiveSnapshot {
   const AdminProductionMapLiveSnapshot({
     required this.maps,
     required this.sequences,
+    required this.visibleOrderIds,
     required this.queueStates,
     required this.queuePolicies,
     required this.completedOrders,
@@ -1380,6 +1398,7 @@ class AdminProductionMapLiveSnapshot {
 
   final List<ProductionMapSaved> maps;
   final Map<String, List<String>> sequences;
+  final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final List<AdminCompletedQueueOrder> completedOrders;
@@ -1401,6 +1420,7 @@ class AdminProductionMapLiveSnapshot {
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
       ),
+      visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(json),
       queueStates: MobileApi.instance.parseApparatusQueueStateMap(
         json['queue_states'],
       ),
@@ -2127,6 +2147,7 @@ extension MobileApiAdmin on MobileApi {
           for (final entry in _testModeApparatusSequences.entries)
             entry.key: List<String>.unmodifiable(entry.value),
         },
+        visibleOrderIds: const {},
         queueStates: {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),
@@ -2148,6 +2169,7 @@ extension MobileApiAdmin on MobileApi {
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return AdminApparatusQueueSnapshot(
       sequences: parseApparatusSequenceMap(payload['sequences']),
+      visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(payload),
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
     );

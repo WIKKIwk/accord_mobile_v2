@@ -117,6 +117,7 @@ class _AdminProductionMapOrdersScreenState
   List<ProductionMapSaved> _orders = const [];
   List<AdminWarehouse> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
+  final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
@@ -367,6 +368,7 @@ class _AdminProductionMapOrdersScreenState
     return _productionMapOrdersForApparatus(
       orders: _orders,
       apparatus: apparatus,
+      visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _sequenceByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
       workerMode: widget.workerMode,
@@ -436,6 +438,7 @@ class _AdminProductionMapOrdersScreenState
                       orders: _orders,
                       completedOrders: _completedWorkerOrders,
                       sequenceByApparatus: _sequenceByApparatus,
+                      visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
                       queueStatesByApparatus: _queueStatesByApparatus,
                       searchQuery: _searchQuery,
                       bottomPadding: bottomPadding,

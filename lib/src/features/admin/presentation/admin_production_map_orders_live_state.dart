@@ -99,6 +99,7 @@ extension _AdminProductionMapOrdersLiveState
       _orders = orders;
       _replaceQueueSnapshotMaps(
         sequences: snapshot.sequences,
+        visibleOrderIds: snapshot.visibleOrderIds,
         queueStates: snapshot.queueStates,
         queuePolicies: snapshot.queuePolicies,
       );
@@ -145,8 +146,17 @@ extension _AdminProductionMapOrdersLiveState
     await _refreshWorkerCompletionRequestDecisions();
   }
 
-  Future<void> _refreshAdminLiveBatch({required bool initial}) {
-    return Future.wait([
+  Future<void> _refreshAdminLiveBatch({required bool initial}) async {
+    if (initial) {
+      await _refreshMapsAndApparatus(initial: initial);
+      await _refreshQueueSnapshot();
+      await Future.wait([
+        _refreshCompletionRequests(),
+        _refreshClosedOrders(),
+      ]);
+      return;
+    }
+    await Future.wait([
       _refreshMapsAndApparatus(initial: initial),
       _refreshQueueSnapshot(),
       _refreshCompletionRequests(),
@@ -163,6 +173,7 @@ extension _AdminProductionMapOrdersLiveState
       if (!_queueSnapshotChanged(
         snapshot: queueSnapshot,
         sequenceByApparatus: _sequenceByApparatus,
+        visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
         queueStatesByApparatus: _queueStatesByApparatus,
         queuePoliciesByApparatus: _queuePoliciesByApparatus,
       )) {
@@ -171,23 +182,36 @@ extension _AdminProductionMapOrdersLiveState
       _updateScreenState(() {
         _replaceQueueSnapshotMaps(
           sequences: queueSnapshot.sequences,
+          visibleOrderIds: queueSnapshot.visibleOrderIds,
           queueStates: queueSnapshot.queueStates,
           queuePolicies: queueSnapshot.queuePolicies,
         );
       });
-    } catch (_) {
+    } catch (error) {
+      if (error is MobileApiException &&
+          error.code == 'production_map_visible_order_ids_missing' &&
+          mounted) {
+        _updateScreenState(() {
+          _loading = false;
+          _loadError = error.message;
+        });
+      }
       return;
     }
   }
 
   void _replaceQueueSnapshotMaps({
     required Map<String, List<String>> sequences,
+    required Map<String, List<String>> visibleOrderIds,
     required Map<String, Map<String, String>> queueStates,
     required Map<String, AdminApparatusQueuePolicy> queuePolicies,
   }) {
     _sequenceByApparatus
       ..clear()
       ..addAll(sequences);
+    _visibleOrderIdsByApparatus
+      ..clear()
+      ..addAll(visibleOrderIds);
     _queueStatesByApparatus
       ..clear()
       ..addAll(queueStates);

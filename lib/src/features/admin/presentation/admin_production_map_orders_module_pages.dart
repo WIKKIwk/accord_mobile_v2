@@ -247,6 +247,7 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.orders,
     required this.completedOrders,
     required this.sequenceByApparatus,
+    required this.visibleOrderIdsByApparatus,
     required this.queueStatesByApparatus,
     required this.searchQuery,
     required this.bottomPadding,
@@ -260,6 +261,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final List<ProductionMapSaved> orders;
   final List<AdminCompletedQueueOrder> completedOrders;
   final Map<String, List<String>> sequenceByApparatus;
+  final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final String searchQuery;
   final double bottomPadding;
@@ -281,6 +283,7 @@ class _WorkerWatchBody extends StatelessWidget {
     return _productionMapOrdersForApparatus(
       orders: orders,
       apparatus: item,
+      visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
       sequenceByApparatus: sequenceByApparatus,
       queueStatesByApparatus: queueStatesByApparatus,
       workerMode: true,

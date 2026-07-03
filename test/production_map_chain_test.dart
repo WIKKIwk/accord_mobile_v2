@@ -288,6 +288,127 @@ void main() {
     );
   });
 
+  test('backend visible order ids resolve by apparatus title', () {
+    const visible = {
+      '7 ta rangli pechat': ['zakaz-visible-alt'],
+      'Laminatsiya 1': ['zakaz-visible-alt'],
+    };
+
+    expect(
+      productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: visible,
+        station: '7 ta rangli pechat',
+      ),
+      ['zakaz-visible-alt'],
+    );
+    expect(
+      productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: visible,
+        station: '7 ta rangli pechat - A',
+      ),
+      ['zakaz-visible-alt'],
+    );
+    expect(
+      productionMapVisibleOrderIdsForStation(
+        visibleOrderIdsByApparatus: visible,
+        station: 'Laminatsiya 2',
+      ),
+      isNull,
+    );
+  });
+
+  test('station orders come only from backend visible ids', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-alt-visible',
+      productCode: 'ALT',
+      title: 'Alternative visible',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(id: 'order', kind: 'task', title: 'Product'),
+        ProductionMapNode(
+          id: 'pechat',
+          kind: 'apparatus',
+          title: '7 ta rangli pechat',
+        ),
+        ProductionMapNode(
+          id: 'lamin1',
+          kind: 'apparatus',
+          title: 'Laminatsiya 1',
+          alternativeGroupId: 'alt-lamin',
+          alternativeGroupLabel: 'Laminatsiya',
+          alternativeAssignedTitle: 'Laminatsiya 1',
+        ),
+        ProductionMapNode(
+          id: 'lamin2',
+          kind: 'apparatus',
+          title: 'Laminatsiya 2',
+          alternativeGroupId: 'alt-lamin',
+          alternativeGroupLabel: 'Laminatsiya',
+          alternativeAssignedTitle: 'Laminatsiya 1',
+        ),
+        ProductionMapNode(id: 'rezka', kind: 'apparatus', title: 'Rezka'),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'order'),
+        ProductionMapEdge(from: 'order', to: 'pechat'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin1'),
+        ProductionMapEdge(from: 'lamin1', to: 'rezka'),
+        ProductionMapEdge(from: 'rezka', to: 'end'),
+      ],
+    );
+    const order = ProductionMapSaved(
+      map: map,
+      program: ProductionMapProgram(
+        mapId: 'zakaz-alt-visible',
+        productCode: 'ALT',
+        operations: [],
+      ),
+    );
+
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: const [order],
+        visibleOrderIdsByApparatus: const {},
+        station: '7 ta rangli pechat',
+      ),
+      isEmpty,
+    );
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: const [order],
+        visibleOrderIdsByApparatus: const {
+          '7 ta rangli pechat': ['zakaz-alt-visible'],
+          'Laminatsiya 1': ['zakaz-alt-visible'],
+        },
+        station: '7 ta rangli pechat',
+      ),
+      const [order],
+    );
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: const [order],
+        visibleOrderIdsByApparatus: const {
+          '7 ta rangli pechat': ['zakaz-alt-visible'],
+          'Laminatsiya 1': ['zakaz-alt-visible'],
+        },
+        station: 'Laminatsiya 1',
+      ),
+      const [order],
+    );
+    expect(
+      productionMapOrdersVisibleByBackendIds(
+        orders: const [order],
+        visibleOrderIdsByApparatus: const {
+          '7 ta rangli pechat': ['zakaz-alt-visible'],
+          'Laminatsiya 1': ['zakaz-alt-visible'],
+        },
+        station: 'Laminatsiya 2',
+      ),
+      isEmpty,
+    );
+  });
+
   test('first actionable prioritizes in progress order', () {
     final actionable = firstActionableQueueOrderId(
       sequence: const ['zakaz-a', 'zakaz-b'],

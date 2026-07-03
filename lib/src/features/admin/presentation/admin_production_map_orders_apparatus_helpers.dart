@@ -14,13 +14,6 @@ bool _isAlternativeOrderForApparatus(
   });
 }
 
-bool _hasAlternativeApparatus(ProductionMapDefinition map) {
-  return map.nodes.any(
-    (node) =>
-        node.kind == 'apparatus' && node.alternativeGroupId.trim().isNotEmpty,
-  );
-}
-
 bool _hasUnassignedAlternativeGroupForApparatus(
   ProductionMapDefinition map,
   AdminWarehouse apparatus,
@@ -43,22 +36,6 @@ bool _hasUnassignedAlternativeGroupForApparatus(
     }
   }
   return matchingGroups.any((groupId) => !assignedGroups.contains(groupId));
-}
-
-bool _alternativeOrderAssignedToApparatus(
-  ProductionMapDefinition map,
-  AdminWarehouse apparatus,
-) {
-  final title = apparatus.warehouse.trim();
-  return map.nodes.any(
-    (node) =>
-        node.kind == 'apparatus' &&
-        node.alternativeGroupId.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(
-          node.alternativeAssignedTitle,
-          title,
-        ),
-  );
 }
 
 bool _isFlexoOrderBlockedForColorPechat(
@@ -89,26 +66,20 @@ String? _assignedAlternativeGroupIdForApparatus(
 List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
   required List<ProductionMapSaved> orders,
   required AdminWarehouse apparatus,
+  required Map<String, List<String>> visibleOrderIdsByApparatus,
 }) {
   final title = apparatus.warehouse.trim();
-  return orders.where((order) {
-    if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
-      return false;
-    }
-    final hasAlternative = _hasAlternativeApparatus(order.map);
-    if (hasAlternative) {
-      return _alternativeOrderAssignedToApparatus(order.map, apparatus);
-    }
-    return productionMapMapHasWorkStageForStation(
-      map: order.map,
-      station: title,
-    );
-  }).toList();
+  return productionMapOrdersVisibleByBackendIds(
+    orders: orders,
+    visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
+    station: title,
+  );
 }
 
 List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required List<ProductionMapSaved> orders,
   required AdminWarehouse apparatus,
+  required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required bool workerMode,
@@ -117,6 +88,7 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final filtered = _productionMapBaseOrdersForApparatus(
     orders: orders,
     apparatus: apparatus,
+    visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
   );
   final sequence = _sequenceOrderIdsForApparatus(
     apparatus,

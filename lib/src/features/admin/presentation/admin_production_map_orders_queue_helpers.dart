@@ -3,16 +3,26 @@ part of 'admin_production_map_orders_screen.dart';
 bool _queueSnapshotChanged({
   required AdminApparatusQueueSnapshot snapshot,
   required Map<String, List<String>> sequenceByApparatus,
+  required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
+      visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
       queuePoliciesByApparatus.length != snapshot.queuePolicies.length) {
     return true;
   }
   for (final entry in snapshot.sequences.entries) {
     final current = sequenceByApparatus[entry.key];
+    if (current == null ||
+        current.length != entry.value.length ||
+        !_stringListsEqual(current, entry.value)) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.visibleOrderIds.entries) {
+    final current = visibleOrderIdsByApparatus[entry.key];
     if (current == null ||
         current.length != entry.value.length ||
         !_stringListsEqual(current, entry.value)) {
@@ -207,6 +217,7 @@ Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
   } catch (_) {
     return const AdminApparatusQueueSnapshot(
       sequences: {},
+      visibleOrderIds: {},
       queueStates: {},
       queuePolicies: {},
     );

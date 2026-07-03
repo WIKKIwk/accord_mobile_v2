@@ -121,6 +121,53 @@ bool productionMapStationTitlesMatch(String left, String right) {
   return productionMapWarehouseTitlesMatch(left, right);
 }
 
+List<String>? productionMapVisibleOrderIdsForStation({
+  required Map<String, List<String>> visibleOrderIdsByApparatus,
+  required String station,
+}) {
+  final title = station.trim();
+  if (title.isEmpty) {
+    return null;
+  }
+  final direct = visibleOrderIdsByApparatus[title];
+  if (direct != null) {
+    return direct;
+  }
+  final color = productionMapPechatColorCount(title);
+  if (color != null) {
+    for (final entry in visibleOrderIdsByApparatus.entries) {
+      if (productionMapPechatColorCount(entry.key) == color) {
+        return entry.value;
+      }
+    }
+  }
+  for (final entry in visibleOrderIdsByApparatus.entries) {
+    if (productionMapStationTitlesMatch(entry.key, title)) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+List<ProductionMapSaved> productionMapOrdersVisibleByBackendIds({
+  required List<ProductionMapSaved> orders,
+  required Map<String, List<String>> visibleOrderIdsByApparatus,
+  required String station,
+}) {
+  final backendOrderIds = productionMapVisibleOrderIdsForStation(
+    visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
+    station: station,
+  );
+  if (backendOrderIds == null || backendOrderIds.isEmpty) {
+    return const [];
+  }
+  final byId = {for (final order in orders) order.map.id.trim(): order};
+  return [
+    for (final orderId in backendOrderIds)
+      if (byId.containsKey(orderId.trim())) byId[orderId.trim()]!,
+  ];
+}
+
 Map<String, String> _queueStatesForStation(
   String station,
   Map<String, Map<String, String>> queueStatesByApparatus,
