@@ -169,8 +169,16 @@ void main() {
       }
 
       expect(
+        client.requests.any(
+          (request) => request.startsWith('GET /v1/mobile/admin/users/list'),
+        ),
+        isFalse,
+      );
+
+      await _selectUserRole(tester, 'Ta’minotchi');
+      expect(
         client.requests,
-        contains('GET /v1/mobile/admin/users/list?limit=50'),
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=supplier'),
       );
       expect(
         client.requests,
@@ -239,10 +247,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      expect(
-        client.requests,
-        contains('GET /v1/mobile/admin/users/list?limit=50'),
-      );
       expect(client.requests, isNot(contains('GET /v1/mobile/admin/settings')));
       expect(
         client.requests,
@@ -253,6 +257,10 @@ void main() {
         isNot(contains('GET /v1/mobile/admin/customers/list?limit=50')),
       );
       await _selectUserRole(tester, 'Ta’minotchi');
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=supplier'),
+      );
       for (var i = 0;
           i < 20 && find.text('Supplier One').evaluate().isEmpty;
           i++) {
@@ -262,6 +270,10 @@ void main() {
       expect(find.text('Customer One'), findsNothing);
 
       await _selectUserRole(tester, 'Haridor');
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=customer'),
+      );
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Customer One'), findsOneWidget);
 
@@ -335,11 +347,21 @@ void main() {
 
       await tester.tap(find.text('Material taminotchisi').last);
       await tester.pumpAndSettle();
+      expect(
+        client.requests,
+        contains(
+          'GET /v1/mobile/admin/users/list?limit=50&role=material_taminotchi',
+        ),
+      );
       expect(find.text('Materialchi One'), findsOneWidget);
       expect(find.text('Customer One'), findsNothing);
       expect(find.textContaining('Material taminotchisi'), findsWidgets);
 
       await _selectUserRole(tester, 'Haridor');
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=customer'),
+      );
       expect(find.text('Customer One'), findsOneWidget);
       expect(find.text('Materialchi One'), findsNothing);
 
@@ -413,6 +435,10 @@ void main() {
       await _selectUserRole(tester, 'Ta’minotchi');
       expect(find.text('Ta’minotchi'), findsOneWidget);
       expect(find.text('Rollar tanlanmagan'), findsNothing);
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=supplier'),
+      );
       for (var i = 0;
           i < 20 && find.text('Supplier One').evaluate().isEmpty;
           i++) {
@@ -421,6 +447,10 @@ void main() {
       expect(find.text('Supplier One'), findsOneWidget);
 
       await _selectUserRole(tester, 'Ishchi');
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/workers?role=worker'),
+      );
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Jasur worker'), findsOneWidget);
       expect(find.text('Ali worker'), findsOneWidget);
@@ -548,6 +578,10 @@ void main() {
       }
 
       await _selectUserRole(tester, 'Qolipchi');
+      expect(
+        client.requests,
+        contains('GET /v1/mobile/admin/workers?role=qolipchi'),
+      );
       expect(find.text('Qolipchi user'), findsOneWidget);
 
       await tester.tap(find.text('Qolipchi user'));

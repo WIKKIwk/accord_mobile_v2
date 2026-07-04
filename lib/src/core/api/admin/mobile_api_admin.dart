@@ -3436,7 +3436,10 @@ extension MobileApiAdmin on MobileApi {
         .toList();
   }
 
-  Future<List<AdminWorker>> adminWorkers({String query = ''}) async {
+  Future<List<AdminWorker>> adminWorkers({
+    String query = '',
+    String role = '',
+  }) async {
     if (await TestModeController.instance.isEnabled()) {
       final needle = query.trim().toLowerCase();
       return _testModeWorkers
@@ -3453,6 +3456,7 @@ extension MobileApiAdmin on MobileApi {
         Uri.parse('$baseUrl/v1/mobile/admin/workers').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (role.trim().isNotEmpty) 'role': role.trim(),
           },
         ),
         headers: _headers(requireToken()),
@@ -3836,6 +3840,7 @@ extension MobileApiAdmin on MobileApi {
     String query = '',
     int limit = 20,
     int offset = 0,
+    String role = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.userListPage(
@@ -3851,6 +3856,7 @@ extension MobileApiAdmin on MobileApi {
             if (query.trim().isNotEmpty) 'q': query.trim(),
             if (limit > 0) 'limit': '$limit',
             if (offset > 0) 'offset': '$offset',
+            if (role.trim().isNotEmpty) 'role': role.trim(),
           },
         ),
         headers: _headers(requireToken()),

@@ -49,6 +49,21 @@ String _adminUserKindSelectionLabel(AdminUserKind? kind) {
   return kind == null ? 'Tanlanmagan' : _adminUserKindLabel(kind);
 }
 
+String _adminUserKindRoleQuery(AdminUserKind kind) {
+  return switch (kind) {
+    AdminUserKind.werka => 'werka',
+    AdminUserKind.customer => 'customer',
+    AdminUserKind.supplier => 'supplier',
+    AdminUserKind.materialTaminotchi => 'material_taminotchi',
+    AdminUserKind.worker => 'worker',
+    AdminUserKind.qolipchi => 'qolipchi',
+  };
+}
+
+bool _adminUserKindUsesWorkers(AdminUserKind? kind) {
+  return kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi;
+}
+
 bool _workerIsQolipchi(
   AdminWorker worker,
   List<AdminRoleAssignment> assignments,
@@ -228,11 +243,16 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     required int limit,
     required int offset,
   }) async {
+    final selectedKind = _selectedKind;
+    if (selectedKind == null || _adminUserKindUsesWorkers(selectedKind)) {
+      return const AdminUserListPage(items: [], hasMore: false);
+    }
     try {
       return await MobileApi.instance.adminUserList(
         query: _searchQuery,
         limit: limit,
         offset: offset,
+        role: _adminUserKindRoleQuery(selectedKind),
       );
     } catch (error) {
       debugPrint('admin user list failed: $error');
@@ -241,8 +261,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<List<AdminWorker>> _safeLoadWorkers() async {
+    final selectedKind = _selectedKind;
+    if (!_adminUserKindUsesWorkers(selectedKind)) {
+      return const <AdminWorker>[];
+    }
     try {
-      return await MobileApi.instance.adminWorkers(query: _searchQuery);
+      return await MobileApi.instance.adminWorkers(
+        query: _searchQuery,
+        role: _adminUserKindRoleQuery(selectedKind!),
+      );
     } catch (error) {
       debugPrint('admin workers failed: $error');
       return const <AdminWorker>[];
@@ -353,7 +380,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       _selectedKind = kind;
       _roleMenuOpen = false;
     });
-    _saveCache();
+    unawaited(_bootstrap(forceRefresh: true));
   }
 
   List<AdminUserListEntry> _workerEntries(AdminUserKind kind) {
