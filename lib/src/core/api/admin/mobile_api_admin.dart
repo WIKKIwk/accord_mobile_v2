@@ -1519,6 +1519,30 @@ MobileApiException _adminProductionMapException(
   );
 }
 
+MobileApiException _adminApiException(
+  http.Response response, {
+  required String fallbackCode,
+  required String fallbackMessage,
+}) {
+  var code = fallbackCode;
+  var message = fallbackMessage;
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+        message = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    message: message,
+    statusCode: response.statusCode,
+  );
+}
+
 extension MobileApiAdmin on MobileApi {
   String get baseUrl => MobileApi.baseUrl;
 
@@ -3747,7 +3771,11 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin role assignment save failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_role_assignment_save_failed',
+        fallbackMessage: 'Role biriktirish saqlanmadi',
+      );
     }
     return AdminRoleAssignment.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -3999,7 +4027,11 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin customer create failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_customer_create_failed',
+        fallbackMessage: 'Foydalanuvchi yaratilmadi',
+      );
     }
     return CustomerDirectoryEntry.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

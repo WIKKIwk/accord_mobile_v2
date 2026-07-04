@@ -669,9 +669,9 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       selectedItemGroups.clear();
       AdminSuppliersScreen.invalidateCache();
       showAdminTopNotice(context, 'Foydalanuvchi yaratildi');
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        showAdminTopNotice(context, 'Foydalanuvchi yaratilmadi');
+        showAdminTopNotice(context, _adminCreateErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -1234,6 +1234,16 @@ List<String> _normalizedItemGroups(List<String> groups) {
 
 List<String> _sortedSelection(Set<String> groups) {
   return groups.toList(growable: false)..sort();
+}
+
+String _adminCreateErrorMessage(Object error) {
+  if (error is MobileApiException) {
+    final message = error.message.trim();
+    if (message.isNotEmpty) {
+      return message;
+    }
+  }
+  return 'Foydalanuvchi yaratilmadi';
 }
 
 class _CreateUserForm extends StatelessWidget {

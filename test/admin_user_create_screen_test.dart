@@ -352,6 +352,54 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('admin user create screen shows backend role assignment error', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(
+      seenRequests,
+      roleAssignmentStatusCode: HttpStatus.badRequest,
+      roleAssignmentBody: const {'error': 'forbidden'},
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+      await _selectPickerItem(tester, 'Material taminotchisi');
+      await _selectMaterialItemGroups(tester, const ['Kraska']);
+      await tester.enterText(find.byType(TextField).at(0), 'Materialchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000060');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(find.text('forbidden'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('admin user create screen falls back to material role', (
     tester,
   ) async {
@@ -459,10 +507,14 @@ class _AdminUserCreateHttpClient implements HttpClient {
   _AdminUserCreateHttpClient(
     this.seenRequests, {
     this.includeMaterialRole = true,
+    this.roleAssignmentStatusCode = HttpStatus.ok,
+    this.roleAssignmentBody,
   });
 
   final List<String> seenRequests;
   final bool includeMaterialRole;
+  final int roleAssignmentStatusCode;
+  final Object? roleAssignmentBody;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -576,11 +628,13 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'phone': '+998900001111',
         };
       case 'PUT /v1/mobile/admin/role-assignments':
-        body = const {
-          'principal_role': 'customer',
-          'principal_ref': 'CUS-1',
-          'role_id': 'item_creator',
-        };
+        statusCode = roleAssignmentStatusCode;
+        body = roleAssignmentBody ??
+            const {
+              'principal_role': 'customer',
+              'principal_ref': 'CUS-1',
+              'role_id': 'item_creator',
+            };
       default:
         statusCode = HttpStatus.notFound;
         body = {'error': 'Unhandled request: $key'};
