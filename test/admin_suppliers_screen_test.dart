@@ -97,7 +97,7 @@ void main() {
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
       await _selectUserRole(tester, 'Haridor');
-      await tester.enterText(find.byType(TextField).first, 'chichqoq');
+      await tester.enterText(find.byType(EditableText).first, 'chichqoq');
       for (var i = 0; i < 20 && client.requests.isEmpty; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
@@ -264,6 +264,84 @@ void main() {
       await _selectUserRole(tester, 'Haridor');
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Customer One'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin users list filters material taminotchi users', (
+    tester,
+  ) async {
+    final client = _AdminUsersHttpClient(
+      users: const [
+        {
+          'id': 'customer:CUS-1',
+          'source': 'customer',
+          'entity_ref': 'CUS-1',
+          'name': 'Customer One',
+          'phone': '998900002',
+          'role_label': 'Customer',
+          'blocked': false,
+        },
+        {
+          'id': 'customer:CUS-MAT',
+          'source': 'customer',
+          'entity_ref': 'CUS-MAT',
+          'name': 'Materialchi One',
+          'phone': '998900003',
+          'role_label': 'Customer',
+          'blocked': false,
+        },
+      ],
+      roleAssignments: const [
+        {
+          'principal_role': 'material_taminotchi',
+          'principal_ref': 'CUS-MAT',
+          'role_id': 'material_taminotchi',
+          'assigned_item_groups': ['rulon'],
+        },
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0;
+          i < 20 &&
+              find
+                  .byKey(const ValueKey('admin-users-role-picker'))
+                  .evaluate()
+                  .isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      await tester.tap(find.byKey(const ValueKey('admin-users-role-picker')));
+      await tester.pumpAndSettle();
+      expect(find.text('Material taminotchisi'), findsOneWidget);
+
+      await tester.tap(find.text('Material taminotchisi').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Materialchi One'), findsOneWidget);
+      expect(find.text('Customer One'), findsNothing);
+      expect(find.textContaining('Material taminotchisi'), findsWidgets);
+
+      await _selectUserRole(tester, 'Haridor');
+      expect(find.text('Customer One'), findsOneWidget);
+      expect(find.text('Materialchi One'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);

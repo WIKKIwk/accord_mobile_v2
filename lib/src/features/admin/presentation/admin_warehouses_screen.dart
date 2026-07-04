@@ -1534,6 +1534,8 @@ UserRole _roleForUser(AdminUserListEntry user) {
       return UserRole.werka;
     case AdminUserKind.customer:
       return UserRole.customer;
+    case AdminUserKind.materialTaminotchi:
+      return UserRole.materialTaminotchi;
     case AdminUserKind.qolipchi:
       return UserRole.qolipchi;
     case AdminUserKind.worker:

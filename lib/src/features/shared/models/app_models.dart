@@ -2033,7 +2033,14 @@ class AdminCustomerDetail {
   }
 }
 
-enum AdminUserKind { supplier, werka, customer, worker, qolipchi }
+enum AdminUserKind {
+  supplier,
+  werka,
+  customer,
+  worker,
+  qolipchi,
+  materialTaminotchi,
+}
 
 class AdminUserListEntry {
   const AdminUserListEntry({
@@ -2063,11 +2070,13 @@ class AdminUserListEntry {
         ? AdminUserKind.worker
         : source == 'werka' || principalRole == UserRole.werka
             ? AdminUserKind.werka
-            : source == 'customer' || principalRole == UserRole.customer
-                ? AdminUserKind.customer
-                : principalRole == UserRole.qolipchi
-                    ? AdminUserKind.qolipchi
-                    : AdminUserKind.supplier;
+            : principalRole == UserRole.materialTaminotchi
+                ? AdminUserKind.materialTaminotchi
+                : source == 'customer' || principalRole == UserRole.customer
+                    ? AdminUserKind.customer
+                    : principalRole == UserRole.qolipchi
+                        ? AdminUserKind.qolipchi
+                        : AdminUserKind.supplier;
     final entityRef = (json['entity_ref'] as String? ?? '').trim();
     final rawId = (json['id'] as String? ?? '').trim();
     return AdminUserListEntry(
@@ -2092,9 +2101,11 @@ class AdminUserListEntry {
             ? 'Customer'
             : kind == AdminUserKind.qolipchi
                 ? 'Qolipchi'
-                : kind == AdminUserKind.worker
-                    ? userRoleLabel(principalRole)
-                    : 'Supplier';
+                : kind == AdminUserKind.materialTaminotchi
+                    ? 'Material taminotchisi'
+                    : kind == AdminUserKind.worker
+                        ? userRoleLabel(principalRole)
+                        : 'Supplier';
   }
 }
 

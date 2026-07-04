@@ -29,6 +29,7 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.werka,
   AdminUserKind.customer,
   AdminUserKind.supplier,
+  AdminUserKind.materialTaminotchi,
   AdminUserKind.worker,
   AdminUserKind.qolipchi,
 ];
@@ -38,6 +39,7 @@ String _adminUserKindLabel(AdminUserKind kind) {
     AdminUserKind.werka => 'Omborchi',
     AdminUserKind.customer => 'Haridor',
     AdminUserKind.supplier => 'Ta’minotchi',
+    AdminUserKind.materialTaminotchi => 'Material taminotchisi',
     AdminUserKind.worker => 'Ishchi',
     AdminUserKind.qolipchi => 'Qolipchi',
   };
@@ -62,6 +64,11 @@ bool _workerIsQolipchi(
     }
   }
   return false;
+}
+
+bool _assignmentIsMaterialTaminotchi(AdminRoleAssignment assignment) {
+  return assignment.principalRole == UserRole.materialTaminotchi ||
+      assignment.roleId.trim() == 'material_taminotchi';
 }
 
 class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
@@ -264,7 +271,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         context,
       ).pushNamed(AppRoutes.adminWerka);
       changed = result == true;
-    } else if (item.kind == AdminUserKind.customer) {
+    } else if (item.kind == AdminUserKind.customer ||
+        item.kind == AdminUserKind.materialTaminotchi) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item.id);
@@ -364,15 +372,58 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     ];
   }
 
+  bool _itemIsMaterialTaminotchi(AdminUserListEntry item) {
+    if (item.kind == AdminUserKind.materialTaminotchi ||
+        item.principalRole == UserRole.materialTaminotchi) {
+      return true;
+    }
+    final itemRef = item.id.trim().toLowerCase();
+    return _assignments.any((assignment) {
+      return assignment.principalRef.trim().toLowerCase() == itemRef &&
+          _assignmentIsMaterialTaminotchi(assignment);
+    });
+  }
+
+  AdminUserListEntry _materialTaminotchiEntry(AdminUserListEntry item) {
+    if (item.kind == AdminUserKind.materialTaminotchi &&
+        item.principalRole == UserRole.materialTaminotchi) {
+      return item;
+    }
+    return AdminUserListEntry(
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      kind: AdminUserKind.materialTaminotchi,
+      principalRole: UserRole.materialTaminotchi,
+      blocked: item.blocked,
+      roleLabelOverride: 'Material taminotchisi',
+    );
+  }
+
   List<AdminUserListEntry> _visibleItems(AdminUserKind? kind) {
     if (kind == null) {
       return const <AdminUserListEntry>[];
+    }
+    if (kind == AdminUserKind.materialTaminotchi) {
+      return _items
+          .where(_itemIsMaterialTaminotchi)
+          .map(_materialTaminotchiEntry)
+          .toList(growable: false);
     }
     if (kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi) {
       return [
         ..._workerEntries(kind),
         ..._items.where((item) => item.kind == kind),
       ];
+    }
+    if (kind == AdminUserKind.customer) {
+      return _items
+          .where(
+            (item) =>
+                item.kind == AdminUserKind.customer &&
+                !_itemIsMaterialTaminotchi(item),
+          )
+          .toList(growable: false);
     }
     return _items.where((item) => item.kind == kind).toList(growable: false);
   }
