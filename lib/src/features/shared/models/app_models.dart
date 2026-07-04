@@ -1,4 +1,12 @@
-enum UserRole { supplier, werka, customer, aparatchi, qolipchi, admin }
+enum UserRole {
+  supplier,
+  werka,
+  customer,
+  aparatchi,
+  qolipchi,
+  materialTaminotchi,
+  admin,
+}
 
 UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
@@ -10,9 +18,11 @@ UserRole userRoleFromJson(String? value) {
               ? UserRole.aparatchi
               : roleValue == 'qolipchi'
                   ? UserRole.qolipchi
-                  : roleValue == 'admin'
-                      ? UserRole.admin
-                      : UserRole.supplier;
+                  : roleValue == 'material_taminotchi'
+                      ? UserRole.materialTaminotchi
+                      : roleValue == 'admin'
+                          ? UserRole.admin
+                          : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
@@ -24,9 +34,11 @@ String userRoleToJson(UserRole role) {
               ? 'aparatchi'
               : role == UserRole.qolipchi
                   ? 'qolipchi'
-                  : role == UserRole.admin
-                      ? 'admin'
-                      : 'supplier';
+                  : role == UserRole.materialTaminotchi
+                      ? 'material_taminotchi'
+                      : role == UserRole.admin
+                          ? 'admin'
+                          : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
@@ -38,9 +50,11 @@ String userRoleLabel(UserRole role) {
               ? 'Aparatchi'
               : role == UserRole.qolipchi
                   ? 'Qolipchi'
-                  : role == UserRole.admin
-                      ? 'Admin'
-                      : 'Ta\'minotchi';
+                  : role == UserRole.materialTaminotchi
+                      ? 'Material ta\'minotchisi'
+                      : role == UserRole.admin
+                          ? 'Admin'
+                          : 'Ta\'minotchi';
 }
 
 enum DispatchStatus { draft, pending, accepted, partial, rejected, cancelled }
@@ -1171,6 +1185,7 @@ class SessionProfile {
     required this.avatarUrl,
     this.capabilities = const [],
     this.assignedApparatus = const [],
+    this.assignedItemGroups = const [],
   });
 
   final UserRole role;
@@ -1181,6 +1196,7 @@ class SessionProfile {
   final String avatarUrl;
   final List<String> capabilities;
   final List<String> assignedApparatus;
+  final List<String> assignedItemGroups;
 
   factory SessionProfile.fromJson(Map<String, dynamic> json) {
     return SessionProfile(
@@ -1197,6 +1213,10 @@ class SessionProfile {
           (json['assigned_apparatus'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
               .toList(growable: false),
+      assignedItemGroups:
+          (json['assigned_item_groups'] as List<dynamic>? ?? const [])
+              .map((item) => item as String)
+              .toList(growable: false),
     );
   }
 
@@ -1210,6 +1230,7 @@ class SessionProfile {
       'avatar_url': avatarUrl,
       'capabilities': capabilities,
       'assigned_apparatus': assignedApparatus,
+      'assigned_item_groups': assignedItemGroups,
     };
   }
 
@@ -1271,6 +1292,7 @@ class SessionProfile {
     String? avatarUrl,
     List<String>? capabilities,
     List<String>? assignedApparatus,
+    List<String>? assignedItemGroups,
   }) {
     return SessionProfile(
       role: role ?? this.role,
@@ -1281,6 +1303,7 @@ class SessionProfile {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       capabilities: capabilities ?? this.capabilities,
       assignedApparatus: assignedApparatus ?? this.assignedApparatus,
+      assignedItemGroups: assignedItemGroups ?? this.assignedItemGroups,
     );
   }
 }
@@ -1307,6 +1330,14 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
       return const ['apparatus.queue.read'];
     case UserRole.qolipchi:
       return const ['qolip.manage'];
+    case UserRole.materialTaminotchi:
+      return const [
+        'gscale.catalog.read',
+        'gscale.print',
+        'rps.batch.manage',
+        'catalog.item.create',
+        'raw_material.assign',
+      ];
     case UserRole.admin:
       return const [
         'admin.access',
@@ -1426,12 +1457,14 @@ class AdminRoleAssignment {
     required this.principalRef,
     required this.roleId,
     this.assignedApparatus = const [],
+    this.assignedItemGroups = const [],
   });
 
   final UserRole principalRole;
   final String principalRef;
   final String roleId;
   final List<String> assignedApparatus;
+  final List<String> assignedItemGroups;
 
   factory AdminRoleAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRoleAssignment(
@@ -1440,6 +1473,10 @@ class AdminRoleAssignment {
       roleId: json['role_id'] as String? ?? '',
       assignedApparatus:
           (json['assigned_apparatus'] as List<dynamic>? ?? const [])
+              .map((item) => item as String)
+              .toList(growable: false),
+      assignedItemGroups:
+          (json['assigned_item_groups'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
               .toList(growable: false),
     );
@@ -1451,6 +1488,8 @@ class AdminRoleAssignment {
       'principal_ref': principalRef,
       'role_id': roleId,
       if (assignedApparatus.isNotEmpty) 'assigned_apparatus': assignedApparatus,
+      if (assignedItemGroups.isNotEmpty)
+        'assigned_item_groups': assignedItemGroups,
     };
   }
 }

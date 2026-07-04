@@ -182,6 +182,11 @@ extension MobileApiAuthProfile on MobileApi {
       json['assigned_apparatus'] =
           AppSession.instance.profile?.assignedApparatus ?? [];
     }
+    if (!json.containsKey('assigned_item_groups')) {
+      json = Map<String, dynamic>.from(json);
+      json['assigned_item_groups'] =
+          AppSession.instance.profile?.assignedItemGroups ?? [];
+    }
     return SessionProfile.fromJson(json);
   }
 }

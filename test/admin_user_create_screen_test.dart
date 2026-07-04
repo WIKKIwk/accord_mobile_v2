@@ -211,6 +211,214 @@ void main() {
       await _pumpUi(tester);
     }, createHttpClient: (_) => client);
   });
+
+  testWidgets('admin user create screen assigns material taminotchi role', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(seenRequests);
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+
+      expect(find.text('Material taminotchisi'), findsOneWidget);
+
+      await _selectPickerItem(tester, 'Material taminotchisi');
+      await _selectMaterialItemGroups(tester, const ['Kraska']);
+      await tester.enterText(find.byType(TextField).at(0), 'Materialchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000060');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(seenRequests, isNot(contains('POST /v1/mobile/admin/workers')));
+      expect(
+        seenRequests.any(
+          (request) => request.contains('"role_id":"material_taminotchi"'),
+        ),
+        isTrue,
+      );
+      expect(
+        seenRequests.any(
+          (request) =>
+              request.contains('"principal_role":"material_taminotchi"'),
+        ),
+        isTrue,
+      );
+      expect(
+        seenRequests.any(
+          (request) => request.contains('"assigned_item_groups":["Kraska"]'),
+        ),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin user create screen requires material item groups', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(seenRequests);
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+      await _selectPickerItem(tester, 'Material taminotchisi');
+      await _waitForMaterialItemGroupSelector(tester);
+
+      expect(find.text('Mahsulot guruhlari'), findsOneWidget);
+      expect(find.text('Guruh tanlang'), findsOneWidget);
+      var saveButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      expect(saveButton.onPressed, isNull);
+
+      await tester.tap(find.text('Guruh tanlang').first);
+      await _pumpUi(tester);
+      expect(find.text('Mahsulot guruhlarini tanlang'), findsOneWidget);
+      await tester.tap(find.text('Kraska').last);
+      await tester.pump();
+      await tester.tap(find.text('Kley').last);
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Tanlash'));
+      await _pumpUi(tester);
+
+      expect(find.text('Kley, Kraska'), findsOneWidget);
+      saveButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      expect(saveButton.onPressed, isNotNull);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Materialchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000060');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('GET /v1/mobile/admin/item-groups'));
+      expect(
+        seenRequests.any(
+          (request) => request.contains(
+            '"assigned_item_groups":["Kley","Kraska"]',
+          ),
+        ),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('admin user create screen falls back to material role', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(
+      seenRequests,
+      includeMaterialRole: false,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+
+      expect(find.text('Material taminotchisi'), findsOneWidget);
+
+      await _selectPickerItem(tester, 'Material taminotchisi');
+      await _selectMaterialItemGroups(tester, const ['Kraska']);
+      await tester.enterText(find.byType(TextField).at(0), 'Materialchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000060');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
+      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests.any(
+          (request) => request.contains('"role_id":"material_taminotchi"'),
+        ),
+        isTrue,
+      );
+      expect(
+        seenRequests.any(
+          (request) =>
+              request.contains('"principal_role":"material_taminotchi"'),
+        ),
+        isTrue,
+      );
+      expect(
+        seenRequests.any(
+          (request) => request.contains('"assigned_item_groups":["Kraska"]'),
+        ),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
 }
 
 Future<void> _pumpUi(WidgetTester tester) async {
@@ -224,10 +432,37 @@ Future<void> _selectPickerItem(WidgetTester tester, String label) async {
   await _pumpUi(tester);
 }
 
+Future<void> _selectMaterialItemGroups(
+  WidgetTester tester,
+  List<String> groups,
+) async {
+  await _waitForMaterialItemGroupSelector(tester);
+  await tester.tap(find.text('Guruh tanlang').first);
+  await _pumpUi(tester);
+  for (final group in groups) {
+    await tester.tap(find.text(group).last);
+    await tester.pump();
+  }
+  await tester.tap(find.widgetWithText(FilledButton, 'Tanlash'));
+  await _pumpUi(tester);
+}
+
+Future<void> _waitForMaterialItemGroupSelector(WidgetTester tester) async {
+  for (var i = 0;
+      i < 20 && find.text('Guruh tanlang').evaluate().isEmpty;
+      i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 class _AdminUserCreateHttpClient implements HttpClient {
-  _AdminUserCreateHttpClient(this.seenRequests);
+  _AdminUserCreateHttpClient(
+    this.seenRequests, {
+    this.includeMaterialRole = true,
+  });
 
   final List<String> seenRequests;
+  final bool includeMaterialRole;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -245,7 +480,7 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'werka_code': 'WERKA-1',
         };
       case 'GET /v1/mobile/admin/roles':
-        body = const [
+        body = [
           {
             'id': 'werka',
             'label': 'Werka',
@@ -286,7 +521,23 @@ class _AdminUserCreateHttpClient implements HttpClient {
             'capability_codes': ['qolip.manage'],
             'system': true,
           },
+          if (includeMaterialRole)
+            {
+              'id': 'material_taminotchi',
+              'label': 'Material taminotchisi',
+              'base_role': 'material_taminotchi',
+              'capability_codes': [
+                'gscale.catalog.read',
+                'gscale.print',
+                'rps.batch.manage',
+                'catalog.item.create',
+                'raw_material.assign',
+              ],
+              'system': true,
+            },
         ];
+      case 'GET /v1/mobile/admin/item-groups':
+        body = const ['Kraska', 'Kley', 'Products'];
       case 'GET /v1/mobile/admin/warehouses?parent=aparat+-+A&limit=200':
         body = const [
           {

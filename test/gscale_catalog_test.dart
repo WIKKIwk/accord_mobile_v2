@@ -72,6 +72,33 @@ void main() {
       ['Stores - CH', 'Kalidor', 'Ombor'],
     );
   });
+
+  test('material taminotchi create item groups use assigned scope', () {
+    const profile = SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-001',
+      phone: '',
+      avatarUrl: '',
+      assignedItemGroups: ['Kraska', 'Kley', 'Kraska', ' '],
+    );
+
+    expect(gscaleCreateItemGroupsForProfile(profile), ['Kley', 'Kraska']);
+  });
+
+  test('non material create item group keeps default catalog group', () {
+    const profile = SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+    );
+
+    expect(gscaleCreateItemGroupsForProfile(profile), ['All Item Groups']);
+  });
 }
 
 CustomerItemOption _option({

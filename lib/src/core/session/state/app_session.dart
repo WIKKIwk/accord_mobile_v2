@@ -34,6 +34,14 @@ class AppSession {
     if (profile.hasCapability('customer.access')) {
       return '/customer-home';
     }
+    if (profile.role == UserRole.materialTaminotchi &&
+        profile.hasAnyCapability(const [
+          'gscale.print',
+          'gscale.catalog.read',
+          'rps.batch.manage',
+        ])) {
+      return '/gscale-mode';
+    }
     if (profile.hasAnyCapability(const [
       'admin.access',
       'role.capability.read',
@@ -88,6 +96,8 @@ class AppSession {
         return '/apparatus-queue';
       case UserRole.qolipchi:
         return '/qolip';
+      case UserRole.materialTaminotchi:
+        return '/gscale-mode';
       case UserRole.admin:
         return '/admin-home';
     }

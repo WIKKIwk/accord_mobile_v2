@@ -21,8 +21,7 @@ import '../shared/models/app_models.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'gscale_catalog.dart';
 import 'network_candidates_stub.dart'
-    if (dart.library.io) 'network_candidates_io.dart'
-    as network_candidates;
+    if (dart.library.io) 'network_candidates_io.dart' as network_candidates;
 
 // Keep in sync with gscale-zebra mobileapi approved ports.
 const _defaultApiPort = 39117;
@@ -47,6 +46,27 @@ const _configuredApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: _defaultWifiServerAddress,
 );
+
+class GScalePickerEmptyCopy {
+  const GScalePickerEmptyCopy({
+    required this.title,
+    required this.message,
+    required this.primaryActionLabel,
+    required this.secondaryActionLabel,
+  });
+
+  const GScalePickerEmptyCopy.noDevices()
+      : title = 'Qurilma topilmadi',
+        message =
+            'Ishlayotgan tarozi yoki printer ko‘rinmadi. Qayta qidiring yoki manzil qo‘shing.',
+        primaryActionLabel = 'Qayta qidirish',
+        secondaryActionLabel = 'Manzil qo‘shish';
+
+  final String title;
+  final String message;
+  final String primaryActionLabel;
+  final String secondaryActionLabel;
+}
 
 bool get previewEnabled {
   if (kReleaseMode) {
@@ -124,6 +144,28 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
     });
   }
 
+  Future<void> _openServerPicker(BuildContext context) async {
+    final server = await showModalBottomSheet<DiscoveredServer>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return ServerPickerPage(
+          onOpenServer: (server) {
+            Navigator.of(sheetContext).pop(server);
+          },
+          onExitMode: () async {
+            Navigator.of(sheetContext).pop();
+          },
+        );
+      },
+    );
+    if (server == null) {
+      return;
+    }
+    await _openServer(server);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -149,19 +191,15 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
           themeMode: ThemeController.instance.themeMode,
           theme: AppTheme.light(ThemeController.instance.variant),
           darkTheme: AppTheme.dark(ThemeController.instance.variant),
-          home: _selectedServer == null
-              ? ServerPickerPage(
-                  onOpenServer: _openServer,
-                  onExitMode: widget.onExitMode,
-                )
-              : OperatorDashboardPage(
-                  server: _selectedServer!,
-                  onChangeServer: () {
-                    setState(() {
-                      _selectedServer = null;
-                    });
-                  },
-                ),
+          home: Builder(
+            builder: (context) {
+              return OperatorDashboardPage(
+                server: _selectedServer,
+                onExitMode: widget.onExitMode,
+                onChangeServer: () => _openServerPicker(context),
+              );
+            },
+          ),
         );
       },
     );
@@ -359,7 +397,7 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
             icon: const Icon(Icons.arrow_back_rounded),
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           ),
-          title: const Text('gscale-zebra'),
+          title: const Text('Tarozilar rejimi'),
           actions: [
             IconButton(
               onPressed: _openManualEntrySheet,
@@ -374,9 +412,13 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
             children: [
+              const _DeviceSelectionHeader(),
               if (_scanning && servers.isEmpty) const _ScanningState(),
               if (!_scanning && servers.isEmpty)
-                _EmptyServerState(onManualAdd: _openManualEntrySheet),
+                _EmptyServerState(
+                  onRetry: _scan,
+                  onManualAdd: _openManualEntrySheet,
+                ),
               if (servers.isNotEmpty)
                 _ServerList(
                   servers: servers,
@@ -393,12 +435,14 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
 class OperatorDashboardPage extends StatefulWidget {
   const OperatorDashboardPage({
     required this.server,
+    required this.onExitMode,
     required this.onChangeServer,
     super.key,
   });
 
-  final DiscoveredServer server;
-  final VoidCallback onChangeServer;
+  final DiscoveredServer? server;
+  final Future<void> Function() onExitMode;
+  final Future<void> Function() onChangeServer;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
@@ -451,13 +495,42 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
     _manualDuplicateController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
-    _snapshot = MonitorSnapshot.empty().copyWithLatency(
-      widget.server.latencyMs,
-    );
+    final server = widget.server;
+    if (server != null) {
+      _snapshot = MonitorSnapshot.empty().copyWithLatency(server.latencyMs);
+    }
     _loadControlDraftPreferences();
-    _startLiveStream();
-    _startPingLoop();
-    unawaited(_refreshRsBatchState());
+    if (server != null) {
+      _startLiveStream();
+      _startPingLoop();
+      unawaited(_refreshRsBatchState());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant OperatorDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previous = oldWidget.server?.endpoint.baseUrl;
+    final next = widget.server?.endpoint.baseUrl;
+    if (previous == next) {
+      return;
+    }
+    _stopLiveStream();
+    _pingTimer?.cancel();
+    final server = widget.server;
+    setState(() {
+      _snapshot = server == null
+          ? MonitorSnapshot.empty()
+          : MonitorSnapshot.empty().copyWithLatency(server.latencyMs);
+      _errorText = '';
+      _manualLoading = false;
+      _requestInFlight = false;
+    });
+    if (server != null) {
+      _startLiveStream();
+      _startPingLoop();
+      unawaited(_refreshRsBatchState());
+    }
   }
 
   @override
@@ -555,20 +628,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         if (draft.itemCode.trim().isNotEmpty) {
           _selectedItem = MobileItem(
             itemCode: draft.itemCode,
-            itemName: draft.itemName.isNotEmpty
-                ? draft.itemName
-                : draft.itemCode,
+            itemName:
+                draft.itemName.isNotEmpty ? draft.itemName : draft.itemCode,
           );
         }
         if (_selectedItem != null && draft.warehouse.trim().isNotEmpty) {
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
-        _batchPrintMode = draft.printMode.isNotEmpty
-            ? draft.printMode
-            : _batchPrintMode;
-        _batchPrinter = draft.printer.isNotEmpty
-            ? draft.printer
-            : _batchPrinter;
+        _batchPrintMode =
+            draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
+        _batchPrinter =
+            draft.printer.isNotEmpty ? draft.printer : _batchPrinter;
         if (_batchPrinter == 'godex') {
           _batchPrintMode = 'label';
         }
@@ -579,9 +649,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
         _babinaWeightController.text = draft.babinaText;
-        _warehouseMode = draft.warehouseMode == 'default'
-            ? 'default'
-            : 'manual';
+        _warehouseMode =
+            draft.warehouseMode == 'default' ? 'default' : 'manual';
         _defaultWarehouse = draft.defaultWarehouse;
         _defaultWarehouseController.text = draft.defaultWarehouse;
       });
@@ -618,6 +687,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     }
 
     final server = widget.server;
+    if (server == null) {
+      return;
+    }
     final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
@@ -659,15 +731,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   Future<void> _connectLiveStreamOnce(int generation) async {
+    final server = widget.server;
+    if (server == null) {
+      return;
+    }
     final request = http.Request(
       'GET',
-      Uri.parse('${widget.server.endpoint.baseUrl}/v1/mobile/monitor/stream'),
+      Uri.parse('${server.endpoint.baseUrl}/v1/mobile/monitor/stream'),
     );
     request.headers['Accept'] = 'text/event-stream';
 
-    final response = await _client
-        .send(request)
-        .timeout(const Duration(seconds: 4));
+    final response =
+        await _client.send(request).timeout(const Duration(seconds: 4));
     if (response.statusCode < 200 || response.statusCode > 299) {
       throw Exception('stream ${response.statusCode}');
     }
@@ -680,54 +755,63 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-          (line) {
-            if (!mounted || generation != _streamGeneration) {
-              return;
-            }
-            if (line.isEmpty) {
-              if (dataLines.isEmpty) {
-                return;
-              }
-              final payloadText = dataLines.join('\n');
-              dataLines.clear();
-              final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-              if (payload.containsKey('error') && payload['ok'] != true) {
-                setState(() {
-                  _errorText = payload['error'].toString();
-                });
-                return;
-              }
-              setState(() {
-                _applySnapshot(MonitorSnapshot.fromJson(payload));
-                _errorText = '';
-              });
-              return;
-            }
-            if (line.startsWith(':')) {
-              return;
-            }
-            if (line.startsWith('data:')) {
-              dataLines.add(line.substring(5).trimLeft());
-            }
-          },
-          onError: (error, _) {
-            if (!completer.isCompleted) {
-              completer.completeError(error);
-            }
-          },
-          onDone: () {
-            if (!completer.isCompleted) {
-              completer.complete();
-            }
-          },
-          cancelOnError: true,
-        );
+      (line) {
+        if (!mounted || generation != _streamGeneration) {
+          return;
+        }
+        if (line.isEmpty) {
+          if (dataLines.isEmpty) {
+            return;
+          }
+          final payloadText = dataLines.join('\n');
+          dataLines.clear();
+          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
+          if (payload.containsKey('error') && payload['ok'] != true) {
+            setState(() {
+              _errorText = payload['error'].toString();
+            });
+            return;
+          }
+          setState(() {
+            _applySnapshot(MonitorSnapshot.fromJson(payload));
+            _errorText = '';
+          });
+          return;
+        }
+        if (line.startsWith(':')) {
+          return;
+        }
+        if (line.startsWith('data:')) {
+          dataLines.add(line.substring(5).trimLeft());
+        }
+      },
+      onError: (error, _) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      cancelOnError: true,
+    );
 
     await completer.future;
   }
 
   Future<void> _refresh({bool manual = false}) async {
     if (_requestInFlight) {
+      return;
+    }
+    final server = widget.server;
+    if (server == null) {
+      if (mounted) {
+        setState(() {
+          _errorText = 'Avval printer yoki tarozini tanlang';
+        });
+      }
       return;
     }
 
@@ -741,7 +825,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
     try {
       final health = await _client
-          .get(Uri.parse('${widget.server.endpoint.baseUrl}/healthz'))
+          .get(Uri.parse('${server.endpoint.baseUrl}/healthz'))
           .timeout(const Duration(seconds: 4));
       if (health.statusCode < 200 || health.statusCode > 299) {
         throw Exception('healthz ${health.statusCode}');
@@ -750,7 +834,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       final monitor = await _client
           .get(
             Uri.parse(
-              '${widget.server.endpoint.baseUrl}/v1/mobile/monitor/state',
+              '${server.endpoint.baseUrl}/v1/mobile/monitor/state',
             ),
           )
           .timeout(const Duration(seconds: 4));
@@ -791,8 +875,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         return;
       }
       final response = await MobileApi.instance.gscaleRpsBatchState().timeout(
-        const Duration(seconds: 4),
-      );
+            const Duration(seconds: 4),
+          );
       if (!mounted) {
         return;
       }
@@ -821,8 +905,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     });
     try {
       final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
-        const Duration(seconds: 8),
-      );
+            const Duration(seconds: 8),
+          );
       if (!mounted) {
         return;
       }
@@ -849,8 +933,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     });
     try {
       final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
-        const Duration(seconds: 8),
-      );
+            const Duration(seconds: 8),
+          );
       if (!mounted) {
         return;
       }
@@ -962,6 +1046,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   Uri _apiUri(String path, [Map<String, String?> query = const {}]) {
+    final server = widget.server;
+    if (server == null) {
+      throw Exception('Avval printer yoki tarozini tanlang');
+    }
     final filtered = <String, String>{};
     for (final entry in query.entries) {
       final value = entry.value?.trim() ?? '';
@@ -970,7 +1058,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       }
     }
     return Uri.parse(
-      '${widget.server.endpoint.baseUrl}$path',
+      '${server.endpoint.baseUrl}$path',
     ).replace(queryParameters: filtered.isEmpty ? null : filtered);
   }
 
@@ -1154,12 +1242,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,
           onSelected: (item) => Navigator.of(context).pop(item),
-          emptyActionLabel: _canCreateCatalogItem
-              ? (query) => '$query ni qo‘shish'
-              : null,
-          onEmptyAction: _canCreateCatalogItem
-              ? _createCatalogItemFromSearch
-              : null,
+          emptyActionLabel:
+              _canCreateCatalogItem ? (query) => '$query ni qo‘shish' : null,
+          onEmptyAction:
+              _canCreateCatalogItem ? _createCatalogItemFromSearch : null,
         );
       },
     );
@@ -1191,14 +1277,51 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (confirmed != true || !mounted) {
       return null;
     }
+    final itemGroup = await _resolveCreateCatalogItemGroup();
+    if (itemGroup == null || !mounted) {
+      return null;
+    }
     final item = await MobileApi.instance.adminCreateItem(
       code: value,
       name: value,
       uom: 'Kg',
-      itemGroup: 'All Item Groups',
+      itemGroup: itemGroup,
     );
     M3AsyncPickerSheet.clearMemoryCache();
     return item;
+  }
+
+  Future<String?> _resolveCreateCatalogItemGroup() async {
+    final groups =
+        gscaleCreateItemGroupsForProfile(AppSession.instance.profile);
+    if (groups.isEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Mahsulot guruhi biriktirilmagan.')),
+      );
+      return null;
+    }
+    if (groups.length == 1) {
+      return groups.single;
+    }
+    return showGeneralDialog<String>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _GScaleItemGroupPickerSheet(itemGroups: groups);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(opacity: curved, child: child);
+      },
+    );
   }
 
   Future<List<SupplierItem>> _loadGScaleCatalogItems(
@@ -1272,6 +1395,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Future<GScaleRpsBatchResponse> _startRsBatchFromSelection({
     required double grossQtyKg,
   }) async {
+    final server = widget.server;
+    if (server == null) {
+      throw Exception('Avval printer yoki tarozini tanlang');
+    }
     final item = _selectedItem;
     if (item == null) {
       throw Exception('Mahsulot tanlang');
@@ -1280,9 +1407,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (warehouse == null || warehouse.trim().isEmpty) {
       throw Exception('Warehouse tanlang');
     }
-    final tareKg = _babinaEnabled
-        ? parsePositiveKg(_babinaWeightController.text)
-        : 0.0;
+    final tareKg =
+        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
     if (_babinaEnabled && tareKg == null) {
       throw Exception("Babina og'irligini kg da to'g'ri kiriting");
     }
@@ -1291,7 +1417,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         ? 'label'
         : (_batchPrintMode == 'label' ? 'label' : 'rfid');
     final api = MobileApi.instance;
-    final driverUrl = driverUrlForRs(widget.server);
+    final driverUrl = driverUrlForRs(server);
     final started = await api
         .gscaleRpsBatchStart(
           buildGScaleRpsBatchStartRequest(
@@ -1322,9 +1448,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     required double grossQtyKg,
     int printCount = 1,
   }) async {
-    final tareKg = _babinaEnabled
-        ? parsePositiveKg(_babinaWeightController.text)
-        : 0.0;
+    final server = widget.server;
+    if (server == null) {
+      throw Exception('Avval printer yoki tarozini tanlang');
+    }
+    final tareKg =
+        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
     if (_babinaEnabled && tareKg == null) {
       throw Exception("Babina og'irligini kg da to'g'ri kiriting");
     }
@@ -1333,7 +1462,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       throw Exception('Netto kg juda kichik');
     }
     final api = MobileApi.instance;
-    final driverUrl = driverUrlForRs(widget.server);
+    final driverUrl = driverUrlForRs(server);
     final response = await api
         .gscaleRpsBatchPrint(
           buildGScaleRpsBatchPrintRequest(
@@ -1439,12 +1568,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   void _showPrintSuccess(GScaleMaterialReceiptPrintResponse response) {
+    final server = widget.server;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         content: Text(
           buildPrintSuccessMessage(
             response,
-            serverLabel: printTargetLabel(widget.server),
+            serverLabel:
+                server == null ? 'Tanlanmagan' : printTargetLabel(server),
           ),
         ),
       ),
@@ -1522,7 +1653,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final rawSessions =
           (payload['archive'] as List?)?.cast<Map<String, dynamic>>() ??
-          const [];
+              const [];
       final sessions = rawSessions
           .map(MobileArchiveSession.fromJson)
           .toList(growable: false);
@@ -1639,9 +1770,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       if (!mounted) {
         return;
       }
-      final displayName = session.displayItemName.isEmpty
-          ? 'Partiya'
-          : session.displayItemName;
+      final displayName =
+          session.displayItemName.isEmpty ? 'Partiya' : session.displayItemName;
       setState(() {
         _archivePrintLoadingSessionId = '';
       });
@@ -1669,19 +1799,24 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          widget.onChangeServer();
+          unawaited(widget.onExitMode());
         }
       },
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: AppTheme.appBarHeight,
           leading: IconButton(
-            onPressed: widget.onChangeServer,
+            onPressed: () => unawaited(widget.onExitMode()),
             icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: 'Serverni o‘zgartirish',
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           ),
-          title: Text(server.handshake.serverName),
+          title: Text(server?.handshake.serverName ?? 'Tarozilar rejimi'),
           actions: [
+            IconButton(
+              onPressed: () => unawaited(widget.onChangeServer()),
+              icon: const Icon(Icons.add_link_rounded),
+              tooltip: 'Printer yoki tarozi tanlash',
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 18),
               child: Row(
@@ -1704,17 +1839,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           duration: const Duration(milliseconds: 220),
           child: switch (_selectedSection) {
             0 => _DashboardScrollView(
-              key: const ValueKey('control-section'),
-              child: _buildControlSection(context, theme, scheme, server),
-            ),
+                key: const ValueKey('control-section'),
+                child: _buildControlSection(context, theme, scheme, server),
+              ),
             1 => _DashboardScrollView(
-              key: const ValueKey('archive-section'),
-              child: _buildArchiveSection(context, theme, scheme, server),
-            ),
+                key: const ValueKey('archive-section'),
+                child: _buildArchiveSection(context, theme, scheme, server),
+              ),
             _ => _DashboardScrollView(
-              key: const ValueKey('server-section'),
-              child: _buildServerSection(context, theme, scheme, server),
-            ),
+                key: const ValueKey('server-section'),
+                child: _buildServerSection(context, theme, scheme, server),
+              ),
           },
         ),
         bottomNavigationBar: AppNavigationBar(
@@ -1754,20 +1889,25 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     BuildContext context,
     ThemeData theme,
     ColorScheme scheme,
-    DiscoveredServer server,
+    DiscoveredServer? server,
   ) {
     final defaultWarehouse = _currentDefaultWarehouse;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(label: Text(server.handshake.role.toUpperCase())),
-            Chip(label: Text(server.handshake.serverRef)),
-          ],
-        ),
+        if (server == null) ...[
+          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
+          const SizedBox(height: 24),
+        ] else ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(label: Text(server.handshake.role.toUpperCase())),
+              Chip(label: Text(server.handshake.serverRef)),
+            ],
+          ),
+        ],
         if (_errorText.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
@@ -1778,7 +1918,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         const SizedBox(height: 22),
         const _SectionLabel(title: 'RPS driver', subtitle: ''),
         const SizedBox(height: 12),
-        _MiniIconRow(icon: Icons.link_rounded, text: server.endpoint.baseUrl),
+        _MiniIconRow(
+          icon: Icons.link_rounded,
+          text: server?.endpoint.baseUrl ?? 'Printer yoki tarozi tanlanmagan',
+        ),
         const SizedBox(height: 12),
         _MiniIconRow(
           icon: Icons.scale_outlined,
@@ -1889,7 +2032,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: _manualLoading ? null : () => _refresh(manual: true),
+                onPressed: server == null || _manualLoading
+                    ? null
+                    : () => _refresh(manual: true),
                 child: const Icon(Icons.refresh_rounded),
               ),
             ),
@@ -1901,7 +2046,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: widget.onChangeServer,
+                onPressed: () => unawaited(widget.onChangeServer()),
                 child: const Icon(Icons.dns_rounded),
               ),
             ),
@@ -1915,13 +2060,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     BuildContext context,
     ThemeData theme,
     ColorScheme scheme,
-    DiscoveredServer server,
+    DiscoveredServer? server,
   ) {
     final sessions = _archiveSessions;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
+        if (server == null) ...[
+          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
+          const SizedBox(height: 20),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1938,7 +2087,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${sessions.length} ta batch • ${server.handshake.serverName}',
+                    [
+                      '${sessions.length} ta batch',
+                      if (server != null) server.handshake.serverName,
+                    ].join(' • '),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -1947,9 +2099,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               ),
             ),
             IconButton(
-              onPressed: _archiveLoading
-                  ? null
-                  : () => unawaited(_refreshArchive()),
+              onPressed:
+                  _archiveLoading ? null : () => unawaited(_refreshArchive()),
               icon: const Icon(Icons.refresh_rounded),
               tooltip: 'Arxivni yangilash',
             ),
@@ -2153,8 +2304,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     BuildContext context,
     ThemeData theme,
     ColorScheme scheme,
-    DiscoveredServer server,
+    DiscoveredServer? server,
   ) {
+    final hasDevice = server != null;
     final selectedProduct = _selectedItem;
     final selectedWarehouse = _selectedWarehouse;
     final defaultWarehouse = _currentDefaultWarehouse;
@@ -2174,24 +2326,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       babinaEnabled: _babinaEnabled,
       babinaText: _babinaWeightController.text,
     );
-    final manualQtyInvalid =
-        selectedQuantitySource == 'manual' &&
+    final manualQtyInvalid = selectedQuantitySource == 'manual' &&
         _manualQtyController.text.trim().isNotEmpty &&
         manualQtyKg == null;
-    final duplicateInvalid =
-        selectedQuantitySource == 'manual' &&
+    final duplicateInvalid = selectedQuantitySource == 'manual' &&
         _manualDuplicateController.text.trim().isNotEmpty &&
         duplicateCount == null;
-    final babinaKg = _babinaEnabled
-        ? parsePositiveKg(_babinaWeightController.text)
-        : null;
-    final babinaInvalid =
-        _babinaEnabled &&
+    final babinaKg =
+        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : null;
+    final babinaInvalid = _babinaEnabled &&
         _babinaWeightController.text.trim().isNotEmpty &&
         babinaKg == null;
     final scaleQtyKg = parseScaleDisplayKg(_snapshot.scaleValue);
-    final hasPrintSelection =
-        selectedProduct != null &&
+    final hasPrintSelection = selectedProduct != null &&
         (defaultMode ? defaultWarehouse.isNotEmpty : selectedWarehouse != null);
     final scalePrintReady = canTriggerGrossPrint(
       grossKg: scaleQtyKg,
@@ -2199,11 +2346,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       babinaText: _babinaWeightController.text,
     );
     final scaleBatchActionEnabled = canPressScaleBatchAction(
-      hasPrintSelection: hasPrintSelection,
-      batchActive: _snapshot.batchActive,
-      manualPrintLoading: _manualPrintLoading,
-      batchActionLoading: _batchActionLoading,
-    );
+          hasPrintSelection: hasPrintSelection,
+          batchActive: _snapshot.batchActive,
+          manualPrintLoading: _manualPrintLoading,
+          batchActionLoading: _batchActionLoading,
+        ) &&
+        hasDevice;
     final printerStatusText = _printerStatusOverride.isNotEmpty
         ? _printerStatusOverride
         : _snapshot.printerLabel;
@@ -2211,6 +2359,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
+        if (!hasDevice) ...[
+          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
+          const SizedBox(height: 18),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2241,7 +2393,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                     const SizedBox(height: 8),
                     _MiniIconRow(
                       icon: Icons.link_rounded,
-                      text: printTargetLabel(server),
+                      text: server == null
+                          ? 'Qurilma tanlanmagan'
+                          : printTargetLabel(server),
                     ),
                   ],
                 ),
@@ -2446,9 +2600,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                       labelText: 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
-                      errorText: manualQtyInvalid
-                          ? 'Masalan: 5 yoki 4.22'
-                          : null,
+                      errorText:
+                          manualQtyInvalid ? 'Masalan: 5 yoki 4.22' : null,
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -2463,8 +2616,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   width: 56,
                   child: IconButton.filled(
                     tooltip: 'Chop etish',
-                    onPressed:
-                        hasPrintSelection &&
+                    onPressed: hasPrintSelection &&
+                            hasDevice &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
@@ -2521,8 +2674,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             ),
             onPressed: scaleBatchActionEnabled
                 ? (_snapshot.batchActive
-                      ? () => unawaited(_stopRsBatch())
-                      : _startScaleBatch)
+                    ? () => unawaited(_stopRsBatch())
+                    : _startScaleBatch)
                 : null,
             icon: _batchActionLoading
                 ? const SizedBox(
@@ -2924,6 +3077,131 @@ class _WarehouseOptionTile extends StatelessWidget {
   }
 }
 
+class _GScaleItemGroupPickerSheet extends StatelessWidget {
+  const _GScaleItemGroupPickerSheet({required this.itemGroups});
+
+  final List<String> itemGroups;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final media = MediaQuery.of(context);
+    final view = View.of(context);
+    final viewHeight = view.physicalSize.height / view.devicePixelRatio;
+    final bottomOverflow =
+        media.size.height > viewHeight ? media.size.height - viewHeight : 0.0;
+    return Material(
+      type: MaterialType.transparency,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(
+          bottom: media.viewInsets.bottom + bottomOverflow,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {},
+              child: Material(
+                color: scheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: media.size.height * 0.66,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Mahsulot guruhini tanlang',
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: itemGroups.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final group = itemGroups[index];
+                                return Material(
+                                  color: scheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(16),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: InkWell(
+                                    onTap: () =>
+                                        Navigator.of(context).pop(group),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 16,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.category_outlined,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              group,
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.chevron_right_rounded,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WarehousePickerSheet extends StatefulWidget {
   const _WarehousePickerSheet({
     required this.title,
@@ -2937,7 +3215,7 @@ class _WarehousePickerSheet extends StatefulWidget {
   final String queryHint;
   final String emptyText;
   final Future<List<MobileWarehouse>> Function({required String query})
-  fetchWarehouses;
+      fetchWarehouses;
   final MobileWarehouse? initialWarehouse;
 
   @override
@@ -3076,53 +3354,59 @@ class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
                         child: _loading
                             ? const Center(child: CircularProgressIndicator())
                             : _error.isNotEmpty
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    _error,
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: scheme.error,
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Text(
+                                        _error,
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: scheme.error,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              )
-                            : _warehouses.isEmpty
-                            ? Center(
-                                child: Text(
-                                  widget.emptyText,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 12,
-                                ),
-                                itemCount: _warehouses.length,
-                                separatorBuilder: (context, index) => Divider(
-                                  height: 1,
-                                  color: scheme.outlineVariant.withValues(
-                                    alpha: 0.7,
-                                  ),
-                                ),
-                                itemBuilder: (context, index) {
-                                  final warehouse = _warehouses[index];
-                                  final selected =
-                                      widget.initialWarehouse?.warehouse ==
-                                      warehouse.warehouse;
-                                  return _WarehouseOptionTile(
-                                    warehouse: warehouse,
-                                    selected: selected,
-                                    onTap: () {
-                                      Navigator.of(context).pop(warehouse);
-                                    },
-                                  );
-                                },
-                              ),
+                                  )
+                                : _warehouses.isEmpty
+                                    ? Center(
+                                        child: Text(
+                                          widget.emptyText,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.separated(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 12,
+                                        ),
+                                        itemCount: _warehouses.length,
+                                        separatorBuilder: (context, index) =>
+                                            Divider(
+                                          height: 1,
+                                          color:
+                                              scheme.outlineVariant.withValues(
+                                            alpha: 0.7,
+                                          ),
+                                        ),
+                                        itemBuilder: (context, index) {
+                                          final warehouse = _warehouses[index];
+                                          final selected = widget
+                                                  .initialWarehouse
+                                                  ?.warehouse ==
+                                              warehouse.warehouse;
+                                          return _WarehouseOptionTile(
+                                            warehouse: warehouse,
+                                            selected: selected,
+                                            onTap: () {
+                                              Navigator.of(context)
+                                                  .pop(warehouse);
+                                            },
+                                          );
+                                        },
+                                      ),
                       ),
                     ),
                   ),
@@ -3130,6 +3414,85 @@ class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceSelectionHeader extends StatelessWidget {
+  const _DeviceSelectionHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Printer yoki tarozini tanlang',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Ishlayotgan RPS/GScale service ro‘yxatdan tanlanadi.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeviceRequiredPanel extends StatelessWidget {
+  const _DeviceRequiredPanel({required this.onSelectDevice});
+
+  final Future<void> Function() onSelectDevice;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Printer yoki tarozi tanlanmagan',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Dashboard ochiq. Chop etish va tarozi o‘qish uchun ishlayotgan qurilmani tanlang.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => unawaited(onSelectDevice()),
+              icon: const Icon(Icons.add_link_rounded),
+              label: const Text('Qurilma tanlash'),
+            ),
+          ],
         ),
       ),
     );
@@ -3154,7 +3517,7 @@ class _ScanningState extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Text(
-            'Qidirilmoqda...',
+            'Printer va tarozilar qidirilmoqda...',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -3166,36 +3529,54 @@ class _ScanningState extends StatelessWidget {
 }
 
 class _EmptyServerState extends StatelessWidget {
-  const _EmptyServerState({required this.onManualAdd});
+  const _EmptyServerState({
+    required this.onRetry,
+    required this.onManualAdd,
+  });
 
+  final VoidCallback onRetry;
   final VoidCallback onManualAdd;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    const copy = GScalePickerEmptyCopy.noDevices();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Server topilmadi',
+            copy.title,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Yangilash uchun pastga torting yoki manzil qo‘shing.',
+            copy.message,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
-          TextButton(
-            onPressed: onManualAdd,
-            child: const Text('Manzil qo‘shish'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(copy.primaryActionLabel),
+              ),
+              TextButton.icon(
+                onPressed: onManualAdd,
+                icon: const Icon(Icons.add_link_rounded),
+                label: Text(copy.secondaryActionLabel),
+              ),
+            ],
           ),
         ],
       ),
@@ -3567,9 +3948,8 @@ class MonitorSnapshot {
       serverLabel: _text(json['ok'], fallback: 'unknown') == 'true'
           ? 'API: onlayn'
           : 'API: oflayn',
-      monitorLabel: batchItem.isEmpty
-          ? 'Faol partiya yo‘q'
-          : 'Partiya: $batchItem',
+      monitorLabel:
+          batchItem.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $batchItem',
       printerLabel: printerConnected ? printerLabel : 'ulanmagan',
       printerKind: printerConnected ? printerKind : '',
       printerState: derivePrinterState(
@@ -3620,9 +4000,8 @@ class MonitorSnapshot {
       bridgeValue: bridgeValue,
       bridgeCaption: bridgeCaption,
       serverLabel: serverLabel,
-      monitorLabel: itemName.isEmpty
-          ? 'Faol partiya yo‘q'
-          : 'Partiya: $itemName',
+      monitorLabel:
+          itemName.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $itemName',
       printerLabel: printerLabel,
       printerKind: printerKind,
       printerState: printerState,
@@ -3638,9 +4017,8 @@ class MonitorSnapshot {
       batchPrinter: batch.active
           ? (batch.printer.isNotEmpty ? batch.printer : batchPrinter)
           : batchPrinter,
-      batchQuantitySource: batch.active
-          ? batch.quantitySource
-          : batchQuantitySource,
+      batchQuantitySource:
+          batch.active ? batch.quantitySource : batchQuantitySource,
       batchManualQtyKg: batch.active ? batch.manualQtyKg : batchManualQtyKg,
       batchTareEnabled: batch.active ? batch.tareEnabled : batchTareEnabled,
       batchTareKg: batch.active ? batch.tareKg : batchTareKg,
@@ -3952,9 +4330,8 @@ String buildPrintSuccessMessage(
   final status = response.status.trim().toLowerCase();
   final target = serverLabel.trim();
   final targetText = target.isEmpty ? '' : ' • $target';
-  final duplicateText = response.printCount > 1
-      ? ' • ${response.printCount} ta'
-      : '';
+  final duplicateText =
+      response.printCount > 1 ? ' • ${response.printCount} ta' : '';
   if (status == 'printed') {
     return 'Printerga yuborildi$targetText$duplicateText • netto $qty ${response.unit}';
   }
@@ -4057,9 +4434,8 @@ String buildPrinterEventMessage({
   );
   final epc = _text(latestPrinterEPC);
   final err = _text(latestPrinterError);
-  final printerName = normalizePrinterChoice(printerChoice) == 'godex'
-      ? 'godex'
-      : 'zebra';
+  final printerName =
+      normalizePrinterChoice(printerChoice) == 'godex' ? 'godex' : 'zebra';
   if (state == 'done') {
     return epc.isEmpty
         ? '$printerName: print qildi'
@@ -4396,8 +4772,8 @@ class ServerHandshake {
   });
 
   factory ServerHandshake.fromJson(Map<String, dynamic> json) {
-    final activityJson = (json['print_activity'] as Map?)
-        ?.cast<String, dynamic>();
+    final activityJson =
+        (json['print_activity'] as Map?)?.cast<String, dynamic>();
     final activity = activityJson == null
         ? PrinterServerActivity.fromBusyFlag(json['busy'])
         : PrinterServerActivity.fromJson(activityJson);
@@ -4431,13 +4807,13 @@ class PrinterServerActivity {
   });
 
   const PrinterServerActivity.idle()
-    : busy = false,
-      status = 'idle',
-      label = "Bo'sh",
-      detail = '',
-      itemCode = '',
-      itemName = '',
-      printer = '';
+      : busy = false,
+        status = 'idle',
+        label = "Bo'sh",
+        detail = '',
+        itemCode = '',
+        itemName = '',
+        printer = '';
 
   factory PrinterServerActivity.fromBusyFlag(Object? value) {
     final busy = _boolValue(value);
@@ -4724,7 +5100,7 @@ Future<List<String>> _loadSubnetCandidateHosts() async {
 }
 
 Future<List<network_candidates.DiscoveryAnnouncement>>
-_loadDiscoveryAnnouncements() async {
+    _loadDiscoveryAnnouncements() async {
   try {
     return await network_candidates.discoverAnnouncements(
       port: _discoveryPort,
@@ -4766,9 +5142,8 @@ Future<List<DiscoveredServer>> _probeServers(
 
   final results = <DiscoveredServer>[];
   var nextIndex = 0;
-  final workerCount = endpoints.length < concurrency
-      ? endpoints.length
-      : concurrency;
+  final workerCount =
+      endpoints.length < concurrency ? endpoints.length : concurrency;
 
   Future<void> worker() async {
     while (nextIndex < endpoints.length) {
@@ -4830,8 +5205,8 @@ Future<DiscoveredServer?> probeServer(
       return null;
     }
 
-    final activityJson = (health['print_activity'] as Map?)
-        ?.cast<String, dynamic>();
+    final activityJson =
+        (health['print_activity'] as Map?)?.cast<String, dynamic>();
     final activity = activityJson == null
         ? PrinterServerActivity.fromBusyFlag(health['busy'])
         : PrinterServerActivity.fromJson(activityJson);
@@ -4889,8 +5264,7 @@ Future<List<DiscoveredServer>> _loadBonjourDiscoveredServers() async {
             role: _text(json['role'], fallback: 'operator'),
             serverRef: _text(json['server_ref']),
           ),
-          latencyMs:
-              _intValue(json['latency_ms']) ??
+          latencyMs: _intValue(json['latency_ms']) ??
               _fallbackProbeTimeout.inMilliseconds,
         ),
       );
@@ -5012,8 +5386,8 @@ class OperatorControlDraft {
       babinaText: _text(json['babina_text']),
       warehouseMode:
           _text(json['warehouse_mode'], fallback: 'manual') == 'default'
-          ? 'default'
-          : 'manual',
+              ? 'default'
+              : 'manual',
       defaultWarehouse: _text(json['default_warehouse']),
     );
   }

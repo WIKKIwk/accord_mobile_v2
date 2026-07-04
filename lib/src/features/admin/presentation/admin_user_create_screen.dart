@@ -35,17 +35,31 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
   }
 
   Future<List<_AdminUserCreateChoice>> _loadRoleChoices() async {
-    final fallbackChoices = _AdminUserCreateKind.values
-        .map(_AdminUserCreateChoice.system)
-        .toList(growable: true);
     try {
       final roles = await MobileApi.instance.adminRoles();
+      final assignableRoles = roles.where(_isAssignableRole).toList();
+      final hasMaterialTaminotchi = assignableRoles.any(
+        _isMaterialTaminotchiRole,
+      );
+      final fallbackChoices = _fallbackRoleChoices(
+        includeMaterialTaminotchi: !hasMaterialTaminotchi,
+      );
       return [
-        ...roles.where(_isAssignableRole).map(_AdminUserCreateChoice.custom),
-        ...fallbackChoices,
+        ...assignableRoles
+            .where(_isMaterialTaminotchiRole)
+            .map(_AdminUserCreateChoice.custom),
+        ...fallbackChoices.where(
+          (choice) => choice.kind == _AdminUserCreateKind.materialTaminotchi,
+        ),
+        ...assignableRoles
+            .where((role) => !_isMaterialTaminotchiRole(role))
+            .map(_AdminUserCreateChoice.custom),
+        ...fallbackChoices.where(
+          (choice) => choice.kind != _AdminUserCreateKind.materialTaminotchi,
+        ),
       ];
     } catch (_) {
-      return fallbackChoices;
+      return _fallbackRoleChoices(includeMaterialTaminotchi: true);
     }
   }
 
@@ -126,6 +140,10 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
                   _AdminUserCreateKind.supplier => _SupplierCreateTab(
                       assignedRole: choice.customRole,
                     ),
+                  _AdminUserCreateKind.materialTaminotchi =>
+                    _CustomRoleCreateTab(
+                      assignedRole: choice.customRole!,
+                    ),
                   _AdminUserCreateKind.custom => _CustomRoleCreateTab(
                       assignedRole: choice.customRole!,
                     ),
@@ -175,6 +193,7 @@ enum _AdminUserCreateKind {
   werka,
   customer,
   supplier,
+  materialTaminotchi,
   custom;
 
   String get label {
@@ -182,6 +201,7 @@ enum _AdminUserCreateKind {
       _AdminUserCreateKind.werka => 'Omborchi',
       _AdminUserCreateKind.customer => 'Haridor',
       _AdminUserCreateKind.supplier => 'Ta’minotchi',
+      _AdminUserCreateKind.materialTaminotchi => 'Material ta’minotchisi',
       _AdminUserCreateKind.custom => 'Foydalanuvchi',
     };
   }
@@ -191,12 +211,44 @@ enum _AdminUserCreateKind {
       _AdminUserCreateKind.werka => 'Warehouse worker account',
       _AdminUserCreateKind.customer => 'Mahsulot qabul qiluvchi haridor',
       _AdminUserCreateKind.supplier => 'Mahsulot yuboruvchi ta’minotchi',
+      _AdminUserCreateKind.materialTaminotchi => 'Homashyo ta’minotchisi',
       _AdminUserCreateKind.custom => 'Role asosidagi foydalanuvchi',
     };
   }
 }
 
+List<_AdminUserCreateChoice> _fallbackRoleChoices({
+  required bool includeMaterialTaminotchi,
+}) {
+  return [
+    if (includeMaterialTaminotchi)
+      _AdminUserCreateChoice.custom(_materialTaminotchiRoleDefinition),
+    _AdminUserCreateChoice.system(_AdminUserCreateKind.werka),
+    _AdminUserCreateChoice.system(_AdminUserCreateKind.customer),
+    _AdminUserCreateChoice.system(_AdminUserCreateKind.supplier),
+    _AdminUserCreateChoice.system(_AdminUserCreateKind.custom),
+  ];
+}
+
+const AdminRoleDefinition _materialTaminotchiRoleDefinition =
+    AdminRoleDefinition(
+  id: 'material_taminotchi',
+  label: 'Material taminotchisi',
+  baseRole: UserRole.materialTaminotchi,
+  capabilityCodes: [
+    'gscale.catalog.read',
+    'gscale.print',
+    'rps.batch.manage',
+    'catalog.item.create',
+    'raw_material.assign',
+  ],
+  system: true,
+);
+
 _AdminUserCreateKind _kindForRole(AdminRoleDefinition role) {
+  if (_isMaterialTaminotchiRole(role)) {
+    return _AdminUserCreateKind.materialTaminotchi;
+  }
   final baseRole = role.baseRole;
   if (baseRole == UserRole.supplier) {
     return _AdminUserCreateKind.supplier;
@@ -221,6 +273,11 @@ bool _isAssignableRole(AdminRoleDefinition role) {
     return true;
   }
   return !{'admin', 'werka', 'supplier', 'customer'}.contains(role.id);
+}
+
+bool _isMaterialTaminotchiRole(AdminRoleDefinition role) {
+  return role.id == 'material_taminotchi' ||
+      role.baseRole == UserRole.materialTaminotchi;
 }
 
 const EdgeInsets _adminUserCreatePagePadding = EdgeInsets.fromLTRB(
@@ -478,17 +535,25 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   final TextEditingController phone = TextEditingController();
   bool saving = false;
   bool loadingApparatus = false;
+  bool loadingItemGroups = false;
   List<AdminWarehouse> apparatus = const [];
   final Set<String> selectedApparatus = <String>{};
+  List<String> itemGroups = const [];
+  final Set<String> selectedItemGroups = <String>{};
 
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
+  bool get _isMaterialTaminotchiAssignedRole =>
+      _isMaterialTaminotchiRole(widget.assignedRole);
 
   @override
   void initState() {
     super.initState();
     if (_isAparatchiRole) {
       unawaited(_loadApparatus());
+    }
+    if (_isMaterialTaminotchiAssignedRole) {
+      unawaited(_loadItemGroups());
     }
   }
 
@@ -513,6 +578,24 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     }
   }
 
+  Future<void> _loadItemGroups() async {
+    setState(() => loadingItemGroups = true);
+    try {
+      final groups = await MobileApi.instance.adminItemGroups();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        itemGroups = _normalizedItemGroups(groups);
+        loadingItemGroups = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => loadingItemGroups = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     name.dispose();
@@ -523,6 +606,10 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   Future<void> _create() async {
     if (_isAparatchiRole && selectedApparatus.isEmpty) {
       showAdminTopNotice(context, 'Kamida bitta aparat tanlang');
+      return;
+    }
+    if (_isMaterialTaminotchiAssignedRole && selectedItemGroups.isEmpty) {
+      showAdminTopNotice(context, 'Kamida bitta mahsulot guruhi tanlang');
       return;
     }
     setState(() => saving = true);
@@ -567,6 +654,9 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
             widget.assignedRole,
             principalRole,
             user.ref,
+            assignedItemGroups: _isMaterialTaminotchiAssignedRole
+                ? _sortedSelection(selectedItemGroups)
+                : const [],
           );
         }
       }
@@ -576,6 +666,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       name.clear();
       phone.clear();
       selectedApparatus.clear();
+      selectedItemGroups.clear();
       AdminSuppliersScreen.invalidateCache();
       showAdminTopNotice(context, 'Foydalanuvchi yaratildi');
     } catch (_) {
@@ -587,6 +678,48 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
         setState(() => saving = false);
       }
     }
+  }
+
+  Future<void> _openItemGroupPicker() async {
+    if (loadingItemGroups) {
+      return;
+    }
+    if (itemGroups.isEmpty) {
+      await _loadItemGroups();
+      if (!mounted || itemGroups.isEmpty) {
+        return;
+      }
+    }
+    final picked = await showGeneralDialog<Set<String>>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _MaterialItemGroupPickerSheet(
+          itemGroups: itemGroups,
+          selectedGroups: selectedItemGroups,
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(opacity: curved, child: child);
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      selectedItemGroups
+        ..clear()
+        ..addAll(_sortedSelection(picked));
+    });
   }
 
   @override
@@ -636,17 +769,233 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                     },
                   ),
               ],
+              if (_isMaterialTaminotchiAssignedRole) ...[
+                const SizedBox(height: 16),
+                _MaterialItemGroupScopeSelector(
+                  loading: loadingItemGroups,
+                  selectedGroups: _sortedSelection(selectedItemGroups),
+                  onTap: _openItemGroupPicker,
+                ),
+              ],
             ],
           ),
         ),
         Padding(
           padding: _adminUserCreatePagePadding,
           child: FilledButton(
-            onPressed: saving ? null : _create,
+            onPressed: saving ||
+                    (_isMaterialTaminotchiAssignedRole &&
+                        selectedItemGroups.isEmpty)
+                ? null
+                : _create,
             child: Text(saving ? 'Saqlanmoqda...' : 'Foydalanuvchi saqlash'),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MaterialItemGroupScopeSelector extends StatelessWidget {
+  const _MaterialItemGroupScopeSelector({
+    required this.loading,
+    required this.selectedGroups,
+    required this.onTap,
+  });
+
+  final bool loading;
+  final List<String> selectedGroups;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final value = selectedGroups.isEmpty
+        ? (loading ? 'Yuklanmoqda...' : 'Guruh tanlang')
+        : selectedGroups.join(', ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Mahsulot guruhlari',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Material(
+          color: scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: loading ? null : onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.category_outlined,
+                    color: scheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MaterialItemGroupPickerSheet extends StatefulWidget {
+  const _MaterialItemGroupPickerSheet({
+    required this.itemGroups,
+    required this.selectedGroups,
+  });
+
+  final List<String> itemGroups;
+  final Set<String> selectedGroups;
+
+  @override
+  State<_MaterialItemGroupPickerSheet> createState() =>
+      _MaterialItemGroupPickerSheetState();
+}
+
+class _MaterialItemGroupPickerSheetState
+    extends State<_MaterialItemGroupPickerSheet> {
+  late final Set<String> tempSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    tempSelected = widget.selectedGroups.toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final media = MediaQuery.of(context);
+    final view = View.of(context);
+    final viewHeight = view.physicalSize.height / view.devicePixelRatio;
+    final bottomOverflow =
+        media.size.height > viewHeight ? media.size.height - viewHeight : 0.0;
+    return Material(
+      type: MaterialType.transparency,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(
+          bottom: media.viewInsets.bottom + bottomOverflow,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {},
+              child: Material(
+                color: scheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: media.size.height * 0.66,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Mahsulot guruhlarini tanlang',
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: widget.itemGroups.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final group = widget.itemGroups[index];
+                                final checked = tempSelected.contains(group);
+                                return CheckboxListTile(
+                                  value: checked,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      if (value == true) {
+                                        tempSelected.add(group);
+                                      } else {
+                                        tempSelected.remove(group);
+                                      }
+                                    });
+                                  },
+                                  title: Text(group),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  tileColor: scheme.surfaceContainerHighest,
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: tempSelected.isEmpty
+                                ? null
+                                : () => Navigator.of(context).pop(tempSelected),
+                            child: const Text('Tanlash'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -844,8 +1193,9 @@ class _WerkaCreateTabState extends State<_WerkaCreateTab> {
 Future<void> _assignCustomRole(
   AdminRoleDefinition? role,
   UserRole principalRole,
-  String principalRef,
-) async {
+  String principalRef, {
+  List<String> assignedItemGroups = const [],
+}) async {
   if (role == null) {
     return;
   }
@@ -854,11 +1204,15 @@ Future<void> _assignCustomRole(
       principalRole: principalRole,
       principalRef: principalRef,
       roleId: role.id,
+      assignedItemGroups: assignedItemGroups,
     ),
   );
 }
 
 UserRole _principalRoleForAssignedRole(AdminRoleDefinition role) {
+  if (_isMaterialTaminotchiRole(role)) {
+    return UserRole.materialTaminotchi;
+  }
   if (role.id == 'aparatchi') {
     return UserRole.aparatchi;
   }
@@ -866,6 +1220,20 @@ UserRole _principalRoleForAssignedRole(AdminRoleDefinition role) {
     return UserRole.qolipchi;
   }
   return role.baseRole ?? UserRole.customer;
+}
+
+List<String> _normalizedItemGroups(List<String> groups) {
+  final normalized = groups
+      .map((group) => group.trim())
+      .where((group) => group.isNotEmpty)
+      .toSet()
+      .toList(growable: false)
+    ..sort();
+  return normalized;
+}
+
+List<String> _sortedSelection(Set<String> groups) {
+  return groups.toList(growable: false)..sort();
 }
 
 class _CreateUserForm extends StatelessWidget {

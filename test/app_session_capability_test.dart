@@ -21,6 +21,7 @@ void main() {
       'ref': 'werka',
       'capabilities': ['gscale.print', 'rps.batch.manage'],
       'assigned_apparatus': ['Godex aparat - DEMO'],
+      'assigned_item_groups': ['Kraska', 'Kley'],
     });
 
     expect(profile.hasCapability('gscale.print'), isTrue);
@@ -30,6 +31,21 @@ void main() {
       'rps.batch.manage',
     ]);
     expect(profile.assignedApparatus, ['Godex aparat - DEMO']);
+    expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
+    expect(profile.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);
+  });
+
+  test('admin role assignment stores material item group scope', () {
+    final assignment = AdminRoleAssignment.fromJson(const {
+      'principal_role': 'material_taminotchi',
+      'principal_ref': 'material-1',
+      'role_id': 'material_taminotchi',
+      'assigned_item_groups': ['Kraska', 'Kley'],
+    });
+
+    expect(assignment.principalRole, UserRole.materialTaminotchi);
+    expect(assignment.assignedItemGroups, ['Kraska', 'Kley']);
+    expect(assignment.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);
   });
 
   test('home route prefers capabilities over base role', () async {
@@ -150,6 +166,37 @@ void main() {
 
     expect(AppSession.instance.homeRoute, AppRoutes.qolipHome);
     expect(AppSession.instance.can('qolip.manage'), isTrue);
+  });
+
+  test('material taminotchi role opens tarozi mode and raw material assignment',
+      () async {
+    await AppSession.instance.setSession(
+      token: 'token',
+      profile: const SessionProfile(
+        role: UserRole.materialTaminotchi,
+        displayName: 'Material taminotchisi',
+        legalName: '',
+        ref: 'material_taminotchi',
+        phone: '',
+        avatarUrl: '',
+        capabilities: [
+          'gscale.catalog.read',
+          'gscale.print',
+          'rps.batch.manage',
+          'catalog.item.create',
+          'raw_material.assign',
+        ],
+      ),
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.gscaleMode);
+    expect(AppRouter.canOpenRoute(AppRoutes.gscaleMode), isTrue);
+    expect(
+        AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
+    expect(
+        userRoleFromJson('material_taminotchi'), UserRole.materialTaminotchi);
+    expect(userRoleToJson(UserRole.materialTaminotchi), 'material_taminotchi');
   });
 
   test('empty capability profile falls back to default role access', () {

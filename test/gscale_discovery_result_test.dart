@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
@@ -135,6 +136,32 @@ void main() {
     expect(handshake.isBusy, true);
     expect(handshake.printActivity.status, 'printing');
     expect(handshake.printActivity.itemCode, 'ITEM-1');
+  });
+
+  test('empty picker copy keeps user in printer and scale selection flow', () {
+    const copy = GScalePickerEmptyCopy.noDevices();
+
+    expect(copy.title, isNot('Server topilmadi'));
+    expect(copy.title, contains('Qurilma'));
+    expect(copy.message, contains('tarozi'));
+    expect(copy.message, contains('printer'));
+    expect(copy.primaryActionLabel, 'Qayta qidirish');
+    expect(copy.secondaryActionLabel, 'Manzil qo‘shish');
+  });
+
+  testWidgets('GScale mode opens dashboard shell before server is selected', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(GScaleMobileApp(onExitMode: () async {}));
+    await tester.pump();
+
+    expect(find.text('Boshqaruv'), findsOneWidget);
+    expect(find.text('Arxiv'), findsOneWidget);
+    expect(find.text('Server'), findsOneWidget);
+    expect(find.text('Printer yoki tarozi tanlanmagan'), findsOneWidget);
+    expect(find.text('Qurilma tanlash'), findsOneWidget);
   });
 }
 
