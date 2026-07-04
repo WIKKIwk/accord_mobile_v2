@@ -252,6 +252,10 @@ void main() {
 
       expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
       expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/customers/code/regenerate?ref=CUS-1'),
+      );
       expect(seenRequests, isNot(contains('POST /v1/mobile/admin/workers')));
       expect(
         seenRequests.any(
@@ -635,6 +639,16 @@ class _AdminUserCreateHttpClient implements HttpClient {
               'principal_ref': 'CUS-1',
               'role_id': 'item_creator',
             };
+      case 'POST /v1/mobile/admin/customers/code/regenerate?ref=CUS-1':
+        body = const {
+          'ref': 'CUS-1',
+          'name': 'Ali Market',
+          'phone': '+998900001111',
+          'code': '601234567890',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+          'assigned_items': [],
+        };
       default:
         statusCode = HttpStatus.notFound;
         body = {'error': 'Unhandled request: $key'};

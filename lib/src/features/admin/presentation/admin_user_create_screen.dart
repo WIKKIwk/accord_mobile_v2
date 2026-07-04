@@ -658,6 +658,9 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                 ? _sortedSelection(selectedItemGroups)
                 : const [],
           );
+          if (_isMaterialTaminotchiAssignedRole) {
+            await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
+          }
         }
       }
       if (!mounted) {
