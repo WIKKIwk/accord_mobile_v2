@@ -755,8 +755,17 @@ class _WarehouseDetailsTab extends StatefulWidget {
   State<_WarehouseDetailsTab> createState() => _WarehouseDetailsTabState();
 }
 
-class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
+class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _stockTabController;
   String? _expandedCardKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _stockTabController = TabController(length: 2, vsync: this);
+    _stockTabController.addListener(_handleStockTabChanged);
+  }
 
   @override
   void didUpdateWidget(covariant _WarehouseDetailsTab oldWidget) {
@@ -764,6 +773,22 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
     if (oldWidget.warehouse != widget.warehouse) {
       _expandedCardKey = null;
     }
+  }
+
+  @override
+  void dispose() {
+    _stockTabController.removeListener(_handleStockTabChanged);
+    _stockTabController.dispose();
+    super.dispose();
+  }
+
+  void _handleStockTabChanged() {
+    if (_stockTabController.indexIsChanging) {
+      return;
+    }
+    setState(() {
+      _expandedCardKey = null;
+    });
   }
 
   void _onExpandedChanged(String key, bool expanded) {
@@ -841,26 +866,64 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             Center(child: Text('Mahsulot topilmadi')),
           ]);
         }
-        return buildScaffold([
+        final availableRawStock = _availableRawStock(current.rawStock);
+        final reservedRawStock = _reservedRawStock(current.rawStock);
+        final availableCount = current.items.length + availableRawStock.length;
+        final reservedCount = _bandTabEntryCount(
+          reservedRawStock,
+          current.reservations,
+        );
+        final availableChildren = <Widget>[
           if (current.items.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: _WarehouseItemListModule(
-                items: current.items,
-                expandedKey: _expandedCardKey,
-                onExpandedChanged: _onExpandedChanged,
-              ),
+            _WarehouseItemListModule(
+              items: current.items,
+              expandedKey: _expandedCardKey,
+              onExpandedChanged: _onExpandedChanged,
             ),
-          if (current.rawStock.isNotEmpty || current.reservations.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: _WarehouseRawMaterialInventorySection(
-                rawStock: current.rawStock,
-                reservations: current.reservations,
-                expandedKey: _expandedCardKey,
-                onExpandedChanged: _onExpandedChanged,
-              ),
+          if (availableRawStock.isNotEmpty)
+            _WarehouseRawStockListModule(
+              stock: availableRawStock,
+              expandedKey: _expandedCardKey,
+              onExpandedChanged: _onExpandedChanged,
             ),
+        ];
+        final reservedChildren = <Widget>[
+          if (current.reservations.isNotEmpty)
+            _WarehouseReservationListModule(
+              reservations: current.reservations,
+              expandedKey: _expandedCardKey,
+              onExpandedChanged: _onExpandedChanged,
+            )
+          else if (reservedRawStock.isNotEmpty)
+            _WarehouseRawStockListModule(
+              stock: reservedRawStock,
+              expandedKey: _expandedCardKey,
+              onExpandedChanged: _onExpandedChanged,
+            ),
+        ];
+        final visibleChildren = _stockTabController.index == 0
+            ? availableChildren
+            : reservedChildren;
+        return buildScaffold([
+          AdminSurfaceTabBar(
+            controller: _stockTabController,
+            tabs: [
+              Tab(height: 38, text: 'Mavjud ($availableCount)'),
+              Tab(height: 38, text: 'Band qilingan ($reservedCount)'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (visibleChildren.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: Center(child: Text('Mahsulot topilmadi')),
+            )
+          else ...[
+            for (var index = 0; index < visibleChildren.length; index++) ...[
+              if (index > 0) const SizedBox(height: 16),
+              visibleChildren[index],
+            ],
+          ],
         ]);
       },
     );
@@ -906,135 +969,6 @@ class _WarehouseFilterBar extends StatelessWidget {
           ),
       ],
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-    );
-  }
-}
-
-class _WarehouseRawMaterialInventorySection extends StatefulWidget {
-  const _WarehouseRawMaterialInventorySection({
-    required this.rawStock,
-    required this.reservations,
-    required this.expandedKey,
-    required this.onExpandedChanged,
-  });
-
-  final List<AdminRawMaterialStockEntry> rawStock;
-  final List<AdminRawMaterialAssignment> reservations;
-  final String? expandedKey;
-  final void Function(String key, bool expanded) onExpandedChanged;
-
-  @override
-  State<_WarehouseRawMaterialInventorySection> createState() =>
-      _WarehouseRawMaterialInventorySectionState();
-}
-
-class _WarehouseRawMaterialInventorySectionState
-    extends State<_WarehouseRawMaterialInventorySection>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabChanged);
-  }
-
-  @override
-  void dispose() {
-    _tabController.removeListener(_handleTabChanged);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _handleTabChanged() {
-    if (_tabController.indexIsChanging) {
-      return;
-    }
-    widget.onExpandedChanged('', false);
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final available = _availableRawStock(widget.rawStock);
-    final reserved = _reservedRawStock(widget.rawStock);
-    final reservedCount = _bandTabEntryCount(reserved, widget.reservations);
-    final radius = BorderRadius.circular(M3SegmentedListGeometry.cornerLarge);
-
-    return Material(
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-            child: Text(
-              'Xomashyo',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-          ),
-          AdminSurfaceTabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(height: 38, text: 'Mavjud (${available.length})'),
-              Tab(height: 38, text: 'Band qilingan ($reservedCount)'),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
-            child: _tabController.index == 0
-                ? _buildAvailableTab(available)
-                : _buildReservedTab(reserved, widget.reservations),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvailableTab(List<AdminRawMaterialStockEntry> available) {
-    if (available.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(10, 8, 10, 8),
-        child: Center(child: Text('Mavjud homashyo topilmadi')),
-      );
-    }
-    return _WarehouseRawStockListModule(
-      stock: available,
-      expandedKey: widget.expandedKey,
-      onExpandedChanged: widget.onExpandedChanged,
-    );
-  }
-
-  Widget _buildReservedTab(
-    List<AdminRawMaterialStockEntry> reserved,
-    List<AdminRawMaterialAssignment> reservations,
-  ) {
-    if (reservations.isNotEmpty) {
-      return _WarehouseReservationListModule(
-        reservations: reservations,
-        expandedKey: widget.expandedKey,
-        onExpandedChanged: widget.onExpandedChanged,
-      );
-    }
-    if (reserved.isNotEmpty) {
-      return _WarehouseRawStockListModule(
-        stock: reserved,
-        expandedKey: widget.expandedKey,
-        onExpandedChanged: widget.onExpandedChanged,
-      );
-    }
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(10, 8, 10, 8),
-      child: Center(child: Text('Band qilingan homashyo topilmadi')),
     );
   }
 }
