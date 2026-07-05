@@ -3,6 +3,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -307,7 +308,7 @@ class _AdminRawMaterialAssignmentPanelState
         }
         final data = snapshot.data!;
         return ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: AppTheme.shellStart(context),
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               _rawMaterialAssignmentPanelGap,

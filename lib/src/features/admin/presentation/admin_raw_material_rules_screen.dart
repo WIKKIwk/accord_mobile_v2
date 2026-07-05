@@ -2,6 +2,7 @@ import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/forms/forms.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -299,8 +300,7 @@ class _AdminRawMaterialSettingsScreenState
                   controller: _tabController,
                   children: [
                     ColoredBox(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: AppTheme.shellStart(context),
                       child: ListView(
                         padding: EdgeInsets.fromLTRB(
                           _rawMaterialRulesPanelGap,
