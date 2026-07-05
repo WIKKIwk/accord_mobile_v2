@@ -327,9 +327,9 @@ class _RoleDefinitionTile extends StatelessWidget {
     );
     return Material(
       key: ValueKey('admin-role-card-${role.id}'),
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      color: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
@@ -515,9 +515,9 @@ class _RoleAssignmentTile extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     return Material(
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      color: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,

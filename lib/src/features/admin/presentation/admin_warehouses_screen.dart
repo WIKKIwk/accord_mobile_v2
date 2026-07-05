@@ -599,7 +599,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
       elevation: 6,
       shadowColor: scheme.shadow.withValues(alpha: 0.18),
       surfaceTintColor: Colors.transparent,
@@ -1343,7 +1343,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
     final radius = M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
 
     return Material(
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
       elevation: 4,
       shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
@@ -1353,8 +1353,10 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
         onTap: () => onExpandedChanged(!expanded),
         borderRadius: radius,
         child: Ink(
-          decoration:
-              BoxDecoration(color: scheme.surface, borderRadius: radius),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            borderRadius: radius,
+          ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
             child: Column(

@@ -108,7 +108,7 @@ class _TreeNodeCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: depth == 0
-            ? colorScheme.surface
+            ? colorScheme.surfaceContainerLowest
             : colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
@@ -155,8 +155,8 @@ class _TreeNodeCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                              fontWeight: FontWeight.w800,
+                            ),
                       ),
                     ),
                     TextButton(
@@ -206,11 +206,9 @@ class _TreeNodeCard extends StatelessWidget {
                           padding: const EdgeInsets.only(left: 10),
                           child: Column(
                             children: [
-                              for (
-                                int index = 0;
-                                index < node.children.length;
-                                index++
-                              ) ...[
+                              for (int index = 0;
+                                  index < node.children.length;
+                                  index++) ...[
                                 _TreeNodeCard(
                                   node: node.children[index],
                                   depth: depth + 1,
@@ -255,11 +253,11 @@ class _TreeBadge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: filled
-              ? colorScheme.onPrimaryContainer
-              : colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w800,
-        ),
+              color: filled
+                  ? colorScheme.onPrimaryContainer
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
       ),
     );
   }

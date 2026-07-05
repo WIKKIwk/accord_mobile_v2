@@ -726,7 +726,7 @@ class _ApparatusSelectRow extends StatelessWidget {
       elevation: 4,
       backgroundColor: selected
           ? scheme.primaryContainer.withValues(alpha: 0.34)
-          : scheme.surface,
+          : scheme.surfaceContainerLowest,
       leading: _apparatusLeading(context, title),
       trailing: Checkbox(
         value: selected,
@@ -786,7 +786,7 @@ class _ApparatusGroupListTile extends StatelessWidget {
     return Material(
       color: editing
           ? scheme.secondaryContainer.withValues(alpha: 0.45)
-          : scheme.surface,
+          : scheme.surfaceContainerLowest,
       elevation: expanded || editing ? 0 : 4,
       shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,

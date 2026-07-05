@@ -48,7 +48,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 Material(
-                  color: scheme.surface,
+                  color: scheme.surfaceContainerLowest,
                   elevation: 4,
                   shadowColor: scheme.shadow.withValues(alpha: 0.24),
                   surfaceTintColor: Colors.transparent,
