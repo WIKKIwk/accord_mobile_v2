@@ -179,9 +179,8 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   }
 
   Widget _buildWorkersTab() {
-    final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: AppRefreshIndicator(
         onRefresh: () async => _reload(),
         child: ListView(
@@ -534,9 +533,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: AppRefreshIndicator(
         onRefresh: _load,
         child: ListView(
