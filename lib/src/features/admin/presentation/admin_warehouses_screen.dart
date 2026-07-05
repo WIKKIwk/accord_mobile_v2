@@ -825,12 +825,16 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
       onToggle: widget.onFilterToggle,
       onChanged: widget.onWarehouseChanged,
     );
-    Widget buildScaffold(List<Widget> children) {
+    Widget buildScaffold(
+      List<Widget> children, {
+      List<Widget> leading = const [],
+    }) {
       return ColoredBox(
         color: AppTheme.shellStart(context),
         child: ListView(
           padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
           children: [
+            ...leading,
             filter,
             ...children,
           ],
@@ -939,10 +943,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
         final stockController = _stockControllerForLength(stockTabs.length);
         final visibleChildren = stockTabChildren[stockController.index];
         return buildScaffold([
-          AdminSurfaceTabBar(
-            controller: stockController,
-            tabs: stockTabs,
-          ),
           const SizedBox(height: 8),
           if (visibleChildren.isEmpty)
             const Padding(
@@ -955,6 +955,11 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               visibleChildren[index],
             ],
           ],
+        ], leading: [
+          AdminSurfaceTabBar(
+            controller: stockController,
+            tabs: stockTabs,
+          ),
         ]);
       },
     );
