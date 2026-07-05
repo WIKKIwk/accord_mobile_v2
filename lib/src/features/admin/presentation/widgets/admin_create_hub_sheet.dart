@@ -1446,36 +1446,48 @@ class _AdminMorphFabButton extends StatelessWidget {
           child: SizedBox(
             width: buttonSize,
             height: buttonSize,
-            child: Material(
-              color: containerColor,
-              elevation: 0,
-              surfaceTintColor: Colors.transparent,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                customBorder: shape,
-                onTap: onTap,
-                child: SizedBox.expand(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Opacity(
-                        opacity: 1 - iconT,
-                        child: Icon(
-                          closedIcon,
-                          size: iconSize,
-                          color: foregroundColor,
+            child: DecoratedBox(
+              decoration: ShapeDecoration(
+                shape: shape,
+                shadows: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.18),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: containerColor,
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: shape,
+                  onTap: onTap,
+                  child: SizedBox.expand(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Opacity(
+                          opacity: 1 - iconT,
+                          child: Icon(
+                            closedIcon,
+                            size: iconSize,
+                            color: foregroundColor,
+                          ),
                         ),
-                      ),
-                      Opacity(
-                        opacity: iconT,
-                        child: Icon(
-                          openIcon,
-                          size: iconSize,
-                          color: foregroundColor,
+                        Opacity(
+                          opacity: iconT,
+                          child: Icon(
+                            openIcon,
+                            size: iconSize,
+                            color: foregroundColor,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
