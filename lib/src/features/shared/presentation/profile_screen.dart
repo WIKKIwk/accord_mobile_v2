@@ -720,7 +720,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           },
           contentPadding: EdgeInsets.zero,
           child: ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            color: AppTheme.shellStart(context),
             child: AppRefreshIndicator(
               onRefresh: _refreshProfile,
               child: ListView(
