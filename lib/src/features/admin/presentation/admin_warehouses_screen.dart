@@ -31,10 +31,8 @@ class AdminWarehousesScreen extends StatefulWidget {
   State<AdminWarehousesScreen> createState() => _AdminWarehousesScreenState();
 }
 
-class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
-    with SingleTickerProviderStateMixin {
+class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
   late Future<_WarehouseSummaryData> _future;
-  late final TabController _tabController;
   StreamSubscription<Map<String, dynamic>>? _warehouseLiveSub;
   Timer? _warehouseLiveReconnectTimer;
   Future<_WarehouseInventorySection?>? _detailFuture;
@@ -46,7 +44,6 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _future = _load();
     _connectWarehouseLive();
   }
@@ -56,7 +53,6 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     _disposed = true;
     _warehouseLiveReconnectTimer?.cancel();
     _warehouseLiveSub?.cancel();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -173,7 +169,23 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       _warehouseFilterExpanded = false;
       _detailFuture = _loadDetail(normalized);
     });
-    _tabController.animateTo(0);
+  }
+
+  Future<void> _openWarehouseCreateDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _WarehouseCreateCard(
+            onSaved: _reload,
+            onClose: () => Navigator.of(dialogContext).pop(),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -194,7 +206,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           AdminFabMenuAction(
             title: 'Ombor yaratish',
             icon: Icons.warehouse_outlined,
-            onTap: () => _tabController.animateTo(1),
+            onTap: _openWarehouseCreateDialog,
           ),
         ],
       ),
@@ -211,40 +223,18 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           }
           final data = snapshot.data ?? _WarehouseSummaryData.empty;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
-          return Column(
-            children: [
-              AdminSurfaceTabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(height: 38, text: 'Ombor ma’lumotlari'),
-                  Tab(height: 38, text: 'Ombor yaratish'),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _WarehouseDetailsTab(
-                      summaries: data.sections,
-                      warehouse: _selectedWarehouse,
-                      detailFuture: _detailFuture,
-                      bottomPadding: bottomPadding,
-                      filterExpanded: _warehouseFilterExpanded,
-                      onFilterToggle: () {
-                        setState(() {
-                          _warehouseFilterExpanded = !_warehouseFilterExpanded;
-                        });
-                      },
-                      onWarehouseChanged: _openWarehouseDetailByName,
-                    ),
-                    _WarehouseCreateTab(
-                      bottomPadding: bottomPadding,
-                      onSaved: _reload,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          return _WarehouseDetailsTab(
+            summaries: data.sections,
+            warehouse: _selectedWarehouse,
+            detailFuture: _detailFuture,
+            bottomPadding: bottomPadding,
+            filterExpanded: _warehouseFilterExpanded,
+            onFilterToggle: () {
+              setState(() {
+                _warehouseFilterExpanded = !_warehouseFilterExpanded;
+              });
+            },
+            onWarehouseChanged: _openWarehouseDetailByName,
           );
         },
       ),
@@ -440,20 +430,20 @@ class _WarehouseInventorySection {
   int get productCount => items.length + rawStock.length;
 }
 
-class _WarehouseCreateTab extends StatefulWidget {
-  const _WarehouseCreateTab({
-    required this.bottomPadding,
+class _WarehouseCreateCard extends StatefulWidget {
+  const _WarehouseCreateCard({
     required this.onSaved,
+    required this.onClose,
   });
 
-  final double bottomPadding;
   final Future<void> Function() onSaved;
+  final VoidCallback onClose;
 
   @override
-  State<_WarehouseCreateTab> createState() => _WarehouseCreateTabState();
+  State<_WarehouseCreateCard> createState() => _WarehouseCreateCardState();
 }
 
-class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
+class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
   final TextEditingController _warehouseController = TextEditingController();
   Future<List<AdminUserListEntry>>? _usersFuture;
   AdminUserListEntry? _selectedUser;
@@ -535,6 +525,9 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
         setState(() => _selectedUser = null);
       }
       await widget.onSaved();
+      if (mounted) {
+        widget.onClose();
+      }
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -594,38 +587,72 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppTheme.shellStart(context),
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(4, 12, 4, widget.bottomPadding),
-        children: [
-          TextField(
-            controller: _warehouseController,
-            textInputAction: TextInputAction.done,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Ombor nomi',
-            ),
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ombor yaratish',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _saving ? null : widget.onClose,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Yopish',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _warehouseController,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _save(),
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Ombor nomi',
+                ),
+              ),
+              const SizedBox(height: 12),
+              _AssignUserPickerField(
+                user: _selectedUser,
+                loading: _loadingUsers,
+                onTap: _openUserPicker,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.link_rounded),
+                  label: const Text('Assign qilish'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          _AssignUserPickerField(
-            user: _selectedUser,
-            loading: _loadingUsers,
-            onTap: _openUserPicker,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.link_rounded),
-            label: const Text('Assign qilish'),
-          ),
-        ],
+        ),
       ),
     );
   }
