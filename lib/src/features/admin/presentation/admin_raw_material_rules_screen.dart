@@ -503,9 +503,9 @@ class _RuleEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      color: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       borderRadius: BorderRadius.circular(M3SegmentedListGeometry.cornerLarge),
       clipBehavior: Clip.antiAlias,
@@ -764,6 +764,9 @@ class _RawMaterialGroupOptionCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     return AppSegmentSurfaceCard(
       slot: slot,
+      backgroundColor: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       padding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -880,6 +883,9 @@ class _RuleTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return AppSegmentSurfaceCard(
       slot: slot,
+      backgroundColor: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       onTap: onTap,
       child: Row(
@@ -1009,11 +1015,14 @@ class _RequiredMaterialTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final groups = rule?.itemGroups.join(', ') ?? '';
     return Material(
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: scheme.outlineVariant),
       ),
+      surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       child: SwitchListTile(
         value: rule?.requiresMaterial ?? false,

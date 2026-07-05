@@ -9,6 +9,8 @@ class AppSegmentSurfaceCard extends StatelessWidget {
     this.slot,
     this.padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
     this.backgroundColor,
+    this.elevation = 2,
+    this.shadowColor,
     this.onTap,
   });
 
@@ -16,6 +18,8 @@ class AppSegmentSurfaceCard extends StatelessWidget {
   final M3SegmentVerticalSlot? slot;
   final EdgeInsetsGeometry padding;
   final Color? backgroundColor;
+  final double elevation;
+  final Color? shadowColor;
   final VoidCallback? onTap;
 
   @override
@@ -33,8 +37,8 @@ class AppSegmentSurfaceCard extends StatelessWidget {
 
     return Material(
       color: backgroundColor ?? scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      elevation: elevation,
+      shadowColor: shadowColor ?? scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
