@@ -69,6 +69,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   late TabController _tabController;
   int _workersVersion = 0;
   int _groupsVersion = 0;
+  String? _selectedWorkerId;
 
   @override
   void initState() {
@@ -115,6 +116,39 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         );
       }
     }
+  }
+
+  Future<void> _openWorkerLevelPicker(AdminWorker worker) async {
+    final currentLevel = adminWorkerLevels.contains(worker.level)
+        ? worker.level
+        : adminWorkerLevels.last;
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3PickerSheet<String>(
+          title: 'Daraja tanlash',
+          hintText: 'Daraja qidiring',
+          items: adminWorkerLevels,
+          itemTitle: (item) => item,
+          itemSubtitle: (_) => 'Ishchi darajasi',
+          matchesQuery: (item, query) =>
+              item.toLowerCase().contains(query.trim().toLowerCase()),
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || picked == currentLevel || !mounted) {
+      return;
+    }
+    await _updateLevel(worker, picked);
   }
 
   void _openDrawerRoute(String routeName) {
@@ -265,15 +299,22 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                   padding: EdgeInsets.zero,
                   children: [
                     for (var index = 0; index < workers.length; index++)
-                      _WorkerLevelTile(
+                      _WorkerSettingsCard(
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
                           index,
                           workers.length,
                         ),
                         worker: workers[index],
-                        onLevelChanged: (level) =>
-                            unawaited(_updateLevel(workers[index], level)),
+                        expanded: _selectedWorkerId == workers[index].id,
+                        onExpandedChanged: (expanded) {
+                          setState(() {
+                            _selectedWorkerId =
+                                expanded ? workers[index].id : null;
+                          });
+                        },
+                        onEditLevel: () =>
+                            unawaited(_openWorkerLevelPicker(workers[index])),
                       ),
                   ],
                 );
@@ -1444,93 +1485,150 @@ class _TimePickerField extends StatelessWidget {
   }
 }
 
-class _WorkerLevelTile extends StatelessWidget {
-  const _WorkerLevelTile({
+class _WorkerSettingsCard extends StatelessWidget {
+  const _WorkerSettingsCard({
     required this.slot,
     required this.worker,
-    required this.onLevelChanged,
+    required this.expanded,
+    required this.onExpandedChanged,
+    required this.onEditLevel,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminWorker worker;
-  final ValueChanged<String> onLevelChanged;
+  final bool expanded;
+  final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onEditLevel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AppSegmentSurfaceCard(
-      slot: slot,
-      backgroundColor: scheme.surfaceContainerLowest,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: Row(
+    final radius = M3SegmentedListGeometry.borderRadius(
+      slot,
+      M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+    );
+    final phone = worker.phone.trim();
+    final level = adminWorkerLevels.contains(worker.level)
+        ? worker.level
+        : adminWorkerLevels.last;
+    return Material(
+      key: ValueKey('worker-settings-card-${worker.id}'),
+      color: scheme.surfaceContainerLowest,
+      elevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox.square(
-            dimension: 30,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.badge_outlined,
-                size: 16,
-                color: scheme.onSecondaryContainer,
+          InkWell(
+            onTap: () => onExpandedChanged(!expanded),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
+                child: Row(
+                  children: [
+                    SizedBox.square(
+                      dimension: 30,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.engineering_rounded,
+                          size: 16,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            worker.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              level,
+                              if (phone.isNotEmpty) phone,
+                            ].join(' • '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 22,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              worker.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 150,
-            child: _WorkerLevelPicker(
-              value: adminWorkerLevels.contains(worker.level)
-                  ? worker.level
-                  : adminWorkerLevels.last,
-              onChanged: (value) {
-                if (value == null || value == worker.level) {
-                  return;
-                }
-                onLevelChanged(value);
-              },
-            ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 10),
+                        Text(
+                          '${worker.name} ma’lumoti',
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 10),
+                        _WorkerGroupInfoRow(label: 'Ism', value: worker.name),
+                        _WorkerGroupInfoRow(label: 'Daraja', value: level),
+                        _WorkerGroupInfoRow(
+                          label: 'Telefon',
+                          value: phone.isEmpty ? 'Kiritilmagan' : phone,
+                        ),
+                        _WorkerGroupInfoRow(label: 'ID', value: worker.id),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton.filledTonal(
+                            tooltip: 'Darajani o‘zgartirish',
+                            onPressed: onEditLevel,
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _WorkerLevelPicker extends StatelessWidget {
-  const _WorkerLevelPicker({
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String value;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: appSurfaceInputDecoration(context, labelText: 'Daraja'),
-      items: [
-        for (final level in adminWorkerLevels)
-          DropdownMenuItem(value: level, child: Text(level)),
-      ],
-      onChanged: onChanged,
     );
   }
 }
