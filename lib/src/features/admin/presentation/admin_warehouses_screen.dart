@@ -838,7 +838,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             current.reservations.isEmpty) {
           return buildScaffold(const [
             SizedBox(height: 24),
-            Center(child: Text('Bu omborda mahsulot topilmadi')),
+            Center(child: Text('Mahsulot topilmadi')),
           ]);
         }
         return buildScaffold([
