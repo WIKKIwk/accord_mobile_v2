@@ -976,17 +976,16 @@ class AppTheme {
     required TextTheme textTheme,
     required Color inputFillColor,
   }) {
-    // Qorong‘i: kontent pastki ton, chrome biroz yuqori (MD3 tonal zinapoyi).
-    // Yorug‘: barlar odatda surfaceContainer bilan ajraladi.
-    final Color appChromeBackground = brightness == Brightness.dark
+    final Color shellBackground = brightness == Brightness.dark
         ? colorScheme.surfaceContainerHigh
         : colorScheme.surfaceContainerLow;
+    final Color appChromeBackground = colorScheme.surfaceContainerHigh;
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.surfaceContainerHighest,
+      scaffoldBackgroundColor: shellBackground,
       cardColor: colorScheme.surface,
       dividerColor: colorScheme.outlineVariant,
       textTheme: textTheme,
@@ -1158,11 +1157,19 @@ class AppTheme {
   static bool isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
-  static Color shellStart(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
+  static Color shellStart(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHigh
+        : theme.colorScheme.surfaceContainerLow;
+  }
 
-  static Color shellEnd(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
+  static Color shellEnd(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHigh
+        : theme.colorScheme.surfaceContainerLow;
+  }
 
   static Color cardBackground(BuildContext context) =>
       Theme.of(context).colorScheme.surface;

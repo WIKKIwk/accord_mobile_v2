@@ -749,7 +749,7 @@ class _WarehouseSectionCard extends StatelessWidget {
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       elevation: 2,
       title: section.warehouse,
       value: '${section.productCount}',
@@ -1023,7 +1023,7 @@ class _WarehouseDetailSummaryCards extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.top,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: scheme.surface,
+          backgroundColor: scheme.surfaceContainerLowest,
           elevation: 2,
           title: 'Mahsulotlar',
           value: '${section.productCount}',
@@ -1032,7 +1032,7 @@ class _WarehouseDetailSummaryCards extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.middle,
           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-          backgroundColor: scheme.surface,
+          backgroundColor: scheme.surfaceContainerLowest,
           elevation: 2,
           title: 'Band qilingan',
           value: '${section.reservations.length}',
@@ -1041,7 +1041,7 @@ class _WarehouseDetailSummaryCards extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.bottom,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: scheme.surface,
+          backgroundColor: scheme.surfaceContainerLowest,
           elevation: 2,
           title: 'Assign',
           value: assignValue,

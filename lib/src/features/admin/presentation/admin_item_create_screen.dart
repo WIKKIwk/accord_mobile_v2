@@ -955,7 +955,7 @@ class _AdminItemRow extends StatelessWidget {
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',

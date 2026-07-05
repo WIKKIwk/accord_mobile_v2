@@ -48,7 +48,6 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final selected = widget.apparatus;
     final orders = widget.orders;
     final notifications = widget.completionRequests;
@@ -84,7 +83,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
 
     if (!widget.readOnly && selected != null && orders.isNotEmpty) {
       return ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -151,7 +150,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
     }
 
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _openedOrderPanelCardGap,

@@ -1309,7 +1309,7 @@ void _showCalculateImageDialog(BuildContext context, String imageUrl) {
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
       return Dialog.fullscreen(
-        backgroundColor: scheme.surface,
+        backgroundColor: scheme.surfaceContainerLowest,
         child: SafeArea(
           child: Stack(
             children: [

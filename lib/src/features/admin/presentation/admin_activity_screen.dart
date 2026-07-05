@@ -216,7 +216,7 @@ class _AdminActivityCard extends StatelessWidget {
       subtitle: _metricLine(),
       leading: _ActivityStatusBadge(status: item.status),
       showChevron: false,
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
     );
   }
 }

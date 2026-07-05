@@ -12,6 +12,7 @@ import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_supplier_list_module.dart';
 
 class AdminSuppliersScreen extends StatefulWidget {
@@ -584,136 +585,26 @@ class _AdminUserRolePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final selectedLabel = selectedKind == null
-        ? 'Tanlanmagan'
-        : _adminUserKindLabel(selectedKind!);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilterChip(
-              key: const ValueKey('admin-users-role-filter-chip'),
-              selected: selectedKind != null,
-              showCheckmark: false,
-              label: Text('Rol: $selectedLabel'),
-              labelStyle: theme.textTheme.labelLarge?.copyWith(
-                color: selectedKind == null
-                    ? scheme.onSurface
-                    : scheme.onSecondaryContainer,
-                fontWeight: FontWeight.w500,
-              ),
-              avatar: Icon(
-                Icons.person_outline_rounded,
-                size: 18,
-                color: selectedKind == null
-                    ? scheme.onSurfaceVariant
-                    : scheme.onSecondaryContainer,
-              ),
-              onSelected: (_) => onToggle(),
-              selectedColor: scheme.secondaryContainer,
-              backgroundColor: Colors.transparent,
-              elevation: 1,
-              pressElevation: 1,
-              shadowColor: scheme.shadow.withValues(alpha: 0.18),
-              side: BorderSide(
-                color: selectedKind == null
-                    ? scheme.outline.withValues(alpha: 0.72)
-                    : Colors.transparent,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: const VisualDensity(
-                horizontal: 0,
-                vertical: -1,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              deleteIcon: AnimatedRotation(
-                turns: expanded ? 0.5 : 0,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                child: Icon(
-                  Icons.expand_more_rounded,
-                  size: 18,
-                  color: selectedKind == null
-                      ? scheme.onSurfaceVariant
-                      : scheme.onSecondaryContainer,
-                ),
-              ),
-              onDeleted: onToggle,
-            ),
+    final selectedLabel =
+        selectedKind == null ? null : _adminUserKindLabel(selectedKind!);
+    return AdminExpandableFilterChip<AdminUserKind>(
+      chipKey: const ValueKey('admin-users-role-filter-chip'),
+      label: 'Rol',
+      emptyLabel: selectedLabel ?? 'Tanlanmagan',
+      icon: Icons.person_outline_rounded,
+      selectedValue: selectedKind,
+      expanded: expanded,
+      onToggle: onToggle,
+      onSelect: onSelect,
+      optionKeyPrefix: 'admin-users-role-option-chip',
+      options: [
+        for (final kind in _adminUserTabKinds)
+          AdminFilterChipOption(
+            value: kind,
+            label: _adminUserKindLabel(kind),
+            key: ValueKey('admin-users-role-option-chip-${kind.name}'),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topLeft,
-            child: expanded
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final kind in _adminUserTabKinds)
-                          _AdminUserRoleOptionChip(
-                            kind: kind,
-                            selected: kind == selectedKind,
-                            onSelect: () => onSelect(kind),
-                          ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminUserRoleOptionChip extends StatelessWidget {
-  const _AdminUserRoleOptionChip({
-    required this.kind,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final AdminUserKind kind;
-  final bool selected;
-  final VoidCallback onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return FilterChip(
-      key: ValueKey('admin-users-role-option-chip-${kind.name}'),
-      selected: selected,
-      showCheckmark: selected,
-      checkmarkColor: scheme.onSecondaryContainer,
-      label: Text(_adminUserKindLabel(kind)),
-      labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
-        fontWeight: FontWeight.w500,
-      ),
-      onSelected: (_) => onSelect(),
-      selectedColor: scheme.secondaryContainer,
-      backgroundColor: Colors.transparent,
-      side: BorderSide(
-        color: selected
-            ? Colors.transparent
-            : scheme.outline.withValues(alpha: 0.72),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      ],
     );
   }
 }

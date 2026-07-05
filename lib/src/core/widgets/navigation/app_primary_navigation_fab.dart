@@ -118,12 +118,10 @@ class AppPrimaryNavigationFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final Color background = selected
-        ? scheme.primary
-        : scheme.primaryContainer;
-    final Color foreground = selected
-        ? scheme.onPrimary
-        : scheme.onPrimaryContainer;
+    final Color background =
+        selected ? scheme.primary : scheme.primaryContainer;
+    final Color foreground =
+        selected ? scheme.onPrimary : scheme.onPrimaryContainer;
     final Widget icon = destination.selectedIcon ?? destination.icon;
     final double side = driveReferencePrimaryFabSize(context);
     final double radius = driveReferencePrimaryFabBorderRadius(context);
@@ -135,7 +133,8 @@ class AppPrimaryNavigationFab extends StatelessWidget {
       label: destination.label,
       child: Material(
         color: background,
-        elevation: 0,
+        elevation: 1,
+        shadowColor: scheme.shadow.withValues(alpha: 0.18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
         ),

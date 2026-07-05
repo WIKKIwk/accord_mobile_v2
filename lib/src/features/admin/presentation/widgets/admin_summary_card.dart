@@ -56,10 +56,9 @@ class AdminSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final BorderRadius radius =
-        borderRadiusOverride ??
+    final BorderRadius radius = borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg = backgroundColor ?? scheme.surface;
+    final Color bg = backgroundColor ?? scheme.surfaceContainerLowest;
     final bool showValue = value.trim().isNotEmpty;
 
     final Widget ink = Ink(
@@ -82,13 +81,12 @@ class AdminSummaryCard extends StatelessWidget {
                         title,
                         maxLines: titleMaxLines,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            titleStyle ??
+                        style: titleStyle ??
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 18.5,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
+                                  fontSize: 18.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.onSurface,
+                                ),
                       ),
                       if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -96,12 +94,11 @@ class AdminSummaryCard extends StatelessWidget {
                           subtitle!,
                           maxLines: subtitleMaxLines,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              subtitleStyle ??
+                          style: subtitleStyle ??
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                height: 1.25,
-                              ),
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.25,
+                                  ),
                         ),
                       ],
                     ],
@@ -113,13 +110,12 @@ class AdminSummaryCard extends StatelessWidget {
                     value,
                     maxLines: valueMaxLines,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        valueStyle ??
+                    style: valueStyle ??
                         Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontSize: 18.5,
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
-                        ),
+                              fontSize: 18.5,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
                   ),
                 ],
                 if (trailing != null) ...[trailing!],
@@ -141,8 +137,7 @@ class AdminSummaryCard extends StatelessWidget {
     return Material(
       color: bg,
       elevation: elevation,
-      shadowColor:
-          shadowColor ??
+      shadowColor: shadowColor ??
           (elevation > 0
               ? scheme.shadow.withValues(alpha: 0.16)
               : Colors.transparent),

@@ -390,7 +390,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _openedOrderPanelCardGap,
@@ -462,7 +462,7 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _openedOrderPanelCardGap,

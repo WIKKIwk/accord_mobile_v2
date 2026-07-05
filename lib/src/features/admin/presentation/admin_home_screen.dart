@@ -2,6 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/session/session.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
@@ -87,7 +88,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AdminShell(
       title: context.l10n.adminRoleName,
@@ -95,7 +95,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
       child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: AnimatedBuilder(
           animation: AdminStore.instance,
           builder: (context, _) {
@@ -195,7 +195,7 @@ class _AdminActionCard extends StatelessWidget {
       cornerRadius: slot == M3SegmentVerticalSlot.middle
           ? M3SegmentedListGeometry.cornerMiddle
           : M3SegmentedListGeometry.cornerLarge,
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -360,7 +360,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.top,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
           title: context.l10n.adminTotalUsersTitle,
           value: summary.totalSuppliers.toString(),
           onTap: onTapTotal,
@@ -369,7 +369,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.middle,
           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
           title: context.l10n.adminActiveUsersTitle,
           value: summary.activeSuppliers.toString(),
           onTap: onTapActive,
@@ -378,7 +378,7 @@ class _AdminSummaryList extends StatelessWidget {
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.bottom,
           cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
           title: context.l10n.adminBlockedUsersTitle,
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
@@ -413,7 +413,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
           M3SegmentFilledSurface(
             slot: M3SegmentVerticalSlot.top,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: scheme.surface,
+            backgroundColor: scheme.surfaceContainerLowest,
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
@@ -438,7 +438,7 @@ class _AdminBlockedSuppliersSection extends StatelessWidget {
           M3SegmentFilledSurface(
             slot: M3SegmentVerticalSlot.bottom,
             cornerRadius: M3SegmentedListGeometry.cornerLarge,
-            backgroundColor: scheme.surface,
+            backgroundColor: scheme.surfaceContainerLowest,
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),

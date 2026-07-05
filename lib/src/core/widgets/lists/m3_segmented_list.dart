@@ -111,8 +111,8 @@ abstract final class M3SegmentedListGeometry {
 
 /// MD3 contained list elementi: faqat **to‘ldirilgan fon** (chegara chizig‘i yo‘q), ixtiyoriy bosilish.
 ///
-/// Page background odatda [ColorScheme.surfaceContainerHighest], kartalar esa
-/// [ColorScheme.surface] bo‘ladi.
+/// Page background shell tokenlarida, kartalar esa undan ajralgan
+/// [ColorScheme.surfaceContainerLowest] bo‘ladi.
 class M3SegmentFilledSurface extends StatelessWidget {
   const M3SegmentFilledSurface({
     super.key,
@@ -129,17 +129,16 @@ class M3SegmentFilledSurface extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
 
-  /// `null` — standart [ColorScheme.surface].
+  /// `null` — standart [ColorScheme.surfaceContainerLowest].
   final Color? backgroundColor;
   final BorderRadius? borderRadiusOverride;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final BorderRadius radius =
-        borderRadiusOverride ??
+    final BorderRadius radius = borderRadiusOverride ??
         M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-    final Color bg = backgroundColor ?? scheme.surface;
+    final Color bg = backgroundColor ?? scheme.surfaceContainerLowest;
 
     final Widget ink = Ink(
       decoration: BoxDecoration(color: bg, borderRadius: radius),

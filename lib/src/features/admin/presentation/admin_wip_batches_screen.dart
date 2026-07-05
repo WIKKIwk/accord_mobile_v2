@@ -1,12 +1,14 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_shell.dart';
 import 'package:flutter/material.dart';
 
@@ -52,6 +54,7 @@ class AdminWipBatchesScreen extends StatefulWidget {
 class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
   late Future<_WipBatchesData> _future;
   String _locationFilter = '';
+  bool _locationMenuOpen = false;
 
   @override
   void initState() {
@@ -97,18 +100,19 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
   void _setLocationFilter(String location) {
     final next = location.trim();
     if (_locationFilter == next) {
+      setState(() => _locationMenuOpen = false);
       return;
     }
     final nextFuture = _load(next);
     setState(() {
       _locationFilter = next;
+      _locationMenuOpen = false;
       _future = nextFuture;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AdminShell(
       title: 'Oraliq mahsulotlar',
@@ -116,7 +120,7 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
       activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
       child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: FutureBuilder<_WipBatchesData>(
           future: _future,
           builder: (context, snapshot) {
@@ -133,6 +137,10 @@ class _AdminWipBatchesScreenState extends State<AdminWipBatchesScreen> {
                 _WipLocationFilterBar(
                   selectedLocation: _locationFilter,
                   locations: data.availableLocations,
+                  expanded: _locationMenuOpen,
+                  onToggle: () {
+                    setState(() => _locationMenuOpen = !_locationMenuOpen);
+                  },
                   onChanged: _setLocationFilter,
                 ),
                 Expanded(
@@ -176,49 +184,44 @@ class _WipLocationFilterBar extends StatelessWidget {
   const _WipLocationFilterBar({
     required this.selectedLocation,
     required this.locations,
+    required this.expanded,
+    required this.onToggle,
     required this.onChanged,
   });
 
   final String selectedLocation;
   final List<String> locations;
+  final bool expanded;
+  final VoidCallback onToggle;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final selected = selectedLocation.trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        border: Border(
-          bottom:
-              BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+    return AdminExpandableFilterChip<String>(
+      chipKey: const ValueKey('admin-wip-location-filter-chip'),
+      label: 'Joy',
+      emptyLabel: 'Barchasi',
+      icon: Icons.place_outlined,
+      selectedValue: selected,
+      expanded: expanded,
+      onToggle: onToggle,
+      onSelect: onChanged,
+      optionKeyPrefix: 'admin-wip-location-option-chip',
+      options: [
+        const AdminFilterChipOption(
+          value: '',
+          label: 'Barchasi',
+          key: ValueKey('admin-wip-location-option-chip-all'),
         ),
-      ),
-      child: SizedBox(
-        height: 48,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          scrollDirection: Axis.horizontal,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return FilterChip(
-                label: const Text('Barchasi'),
-                selected: selected.isEmpty,
-                onSelected: (_) => onChanged(''),
-              );
-            }
-            final location = locations[index - 1];
-            return FilterChip(
-              label: Text(location),
-              selected: selected == location,
-              onSelected: (_) => onChanged(location),
-            );
-          },
-          separatorBuilder: (context, index) => const SizedBox(width: 8),
-          itemCount: locations.length + 1,
-        ),
-      ),
+        for (final location in locations)
+          AdminFilterChipOption(
+            value: location,
+            label: location,
+            key: ValueKey('admin-wip-location-option-chip-$location'),
+          ),
+      ],
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
     );
   }
 }
@@ -307,7 +310,7 @@ class _WipEmptyCard extends StatelessWidget {
     return M3SegmentFilledSurface(
       slot: M3SegmentVerticalSlot.top,
       cornerRadius: M3SegmentedListGeometry.cornerLarge,
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Text(
@@ -365,7 +368,7 @@ class _WipBatchTile extends StatelessWidget {
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
         child: Column(
