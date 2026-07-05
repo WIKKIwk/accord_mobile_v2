@@ -35,6 +35,7 @@ import 'raw_material_scan_dialog.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_top_notice.dart';
 import 'dart:ui' show ImageFilter;
 
@@ -337,26 +338,6 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  Future<void> _pickSequenceApparatus() async {
-    if (_apparatus.isEmpty) {
-      return;
-    }
-    final picked = await showModalBottomSheet<AdminWarehouse>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _ApparatusPickerSheet(
-        apparatus: _apparatus,
-        selected: _selectedApparatus,
-        orderCountFor: (apparatus) => _ordersForApparatus(apparatus).length,
-      ),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() => _selectedApparatus = picked);
-  }
-
   void _syncModuleFromTab() {
     final module = _modules[_tabController.index];
     if (_module != module) {
@@ -454,6 +435,7 @@ class _AdminProductionMapOrdersScreenState
                       bottomPadding: bottomPadding,
                       orders: _orders,
                       searchQuery: _searchQuery,
+                      apparatus: _apparatus,
                       baseMetrajByMapId: _baseMetrajByMapId,
                       orderKgByMapId: _orderKgByMapId,
                       selectedApparatus: _selectedApparatus,
@@ -469,7 +451,9 @@ class _AdminProductionMapOrdersScreenState
                       ordersForApparatus: _ordersForApparatus,
                       moveOrdersForApparatus: _moveOrdersForApparatus,
                       canMoveTo: _canMoveOrderToApparatus,
-                      onPickSequenceApparatus: _pickSequenceApparatus,
+                      onSelectSequenceApparatus: (apparatus) {
+                        setState(() => _selectedApparatus = apparatus);
+                      },
                       onReorder: (oldIndex, newIndex) {
                         unawaited(
                           _reorderSelectedApparatusOrders(oldIndex, newIndex),

@@ -63,6 +63,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.bottomPadding,
     required this.orders,
     required this.searchQuery,
+    required this.apparatus,
     required this.baseMetrajByMapId,
     required this.orderKgByMapId,
     required this.selectedApparatus,
@@ -78,7 +79,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.ordersForApparatus,
     required this.moveOrdersForApparatus,
     required this.canMoveTo,
-    required this.onPickSequenceApparatus,
+    required this.onSelectSequenceApparatus,
     required this.onReorder,
     required this.onPickMoveTop,
     required this.onPickMoveBottom,
@@ -95,6 +96,7 @@ class _AdminModulesBody extends StatelessWidget {
   final double bottomPadding;
   final List<ProductionMapSaved> orders;
   final String searchQuery;
+  final List<AdminWarehouse> apparatus;
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
   final AdminWarehouse? selectedApparatus;
@@ -118,7 +120,7 @@ class _AdminModulesBody extends StatelessWidget {
     AdminWarehouse target, {
     required AdminWarehouse source,
   }) canMoveTo;
-  final VoidCallback onPickSequenceApparatus;
+  final ValueChanged<AdminWarehouse> onSelectSequenceApparatus;
   final ReorderCallback onReorder;
   final VoidCallback onPickMoveTop;
   final VoidCallback onPickMoveBottom;
@@ -179,6 +181,7 @@ class _AdminModulesBody extends StatelessWidget {
                     ),
                   _OpenedOrderModule.sequence => _SequenceModulePage(
                       bottomPadding: bottomPadding,
+                      availableApparatus: apparatus,
                       apparatus: selectedApparatus,
                       completionRequests: completionRequests,
                       orders: selectedApparatus == null
@@ -187,7 +190,7 @@ class _AdminModulesBody extends StatelessWidget {
                       readOnly: readOnly,
                       baseMetrajByMapId: baseMetrajByMapId,
                       orderKgByMapId: orderKgByMapId,
-                      onPickApparatus: onPickSequenceApparatus,
+                      onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(

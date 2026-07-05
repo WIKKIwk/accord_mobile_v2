@@ -3,24 +3,26 @@ part of 'admin_production_map_orders_screen.dart';
 class _SequenceModulePage extends StatefulWidget {
   const _SequenceModulePage({
     required this.bottomPadding,
+    required this.availableApparatus,
     required this.apparatus,
     required this.completionRequests,
     required this.orders,
     required this.readOnly,
     required this.baseMetrajByMapId,
     required this.orderKgByMapId,
-    required this.onPickApparatus,
+    required this.onSelectApparatus,
     required this.onReorder,
   });
 
   final double bottomPadding;
+  final List<AdminWarehouse> availableApparatus;
   final AdminWarehouse? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
-  final VoidCallback onPickApparatus;
+  final ValueChanged<AdminWarehouse> onSelectApparatus;
   final ReorderCallback onReorder;
 
   @override
@@ -30,6 +32,7 @@ class _SequenceModulePage extends StatefulWidget {
 class _SequenceModulePageState extends State<_SequenceModulePage> {
   String? _expandedOrderId;
   String? _expandedCompletionRequestId;
+  bool _apparatusFilterExpanded = false;
 
   void _onExpandedChanged(ProductionMapSaved order, bool expanded) {
     setState(() {
@@ -100,9 +103,21 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   notificationSection,
                   if (notifications.isNotEmpty) const SizedBox(height: 12),
                   _SequenceHeaderSelectors(
+                    availableApparatus: widget.availableApparatus,
                     apparatus: selected,
                     orderCount: orders.length,
-                    onPickApparatus: widget.onPickApparatus,
+                    expanded: _apparatusFilterExpanded,
+                    onToggleExpanded: () {
+                      setState(() {
+                        _apparatusFilterExpanded = !_apparatusFilterExpanded;
+                      });
+                    },
+                    onSelectApparatus: (apparatus) {
+                      setState(() {
+                        _apparatusFilterExpanded = false;
+                      });
+                      widget.onSelectApparatus(apparatus);
+                    },
                   ),
                 ],
               ),
@@ -162,9 +177,21 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           notificationSection,
           if (notifications.isNotEmpty) const SizedBox(height: 12),
           _SequenceHeaderSelectors(
+            availableApparatus: widget.availableApparatus,
             apparatus: selected,
             orderCount: orders.length,
-            onPickApparatus: widget.onPickApparatus,
+            expanded: _apparatusFilterExpanded,
+            onToggleExpanded: () {
+              setState(() {
+                _apparatusFilterExpanded = !_apparatusFilterExpanded;
+              });
+            },
+            onSelectApparatus: (apparatus) {
+              setState(() {
+                _apparatusFilterExpanded = false;
+              });
+              widget.onSelectApparatus(apparatus);
+            },
           ),
           if (selected == null)
             const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
@@ -195,88 +222,64 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
 
 class _SequenceHeaderSelectors extends StatelessWidget {
   const _SequenceHeaderSelectors({
+    required this.availableApparatus,
     required this.apparatus,
     required this.orderCount,
-    required this.onPickApparatus,
+    required this.expanded,
+    required this.onToggleExpanded,
+    required this.onSelectApparatus,
   });
 
+  final List<AdminWarehouse> availableApparatus;
   final AdminWarehouse? apparatus;
   final int orderCount;
-  final VoidCallback onPickApparatus;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
+  final ValueChanged<AdminWarehouse> onSelectApparatus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final label = apparatus?.warehouse.trim().isNotEmpty == true
-        ? apparatus!.warehouse.trim()
-        : 'Aparat tanlang';
+    final selectedValue = apparatus?.warehouse.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: scheme.surface,
-          elevation: 2,
-          shadowColor: scheme.shadow.withValues(alpha: 0.16),
-          surfaceTintColor: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPickApparatus,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-              child: Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 30,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: scheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.precision_manufacturing_rounded,
-                        size: 16,
-                        color: scheme.onSecondaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (orderCount > 0) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            '$orderCount ta zakaz',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                      height: 1.05,
-                                    ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.expand_more_rounded,
+        AdminExpandableFilterChip<String>(
+          label: 'Aparat',
+          emptyLabel: 'Tanlanmagan',
+          icon: Icons.precision_manufacturing_rounded,
+          selectedValue: selectedValue?.isEmpty == true ? null : selectedValue,
+          options: [
+            for (final item in availableApparatus)
+              if (item.warehouse.trim().isNotEmpty)
+                AdminFilterChipOption(
+                  value: item.warehouse.trim(),
+                  label: item.warehouse.trim(),
+                ),
+          ],
+          expanded: expanded,
+          onToggle: onToggleExpanded,
+          onSelect: (value) {
+            for (final item in availableApparatus) {
+              if (item.warehouse.trim() == value) {
+                onSelectApparatus(item);
+                return;
+              }
+            }
+          },
+          padding: EdgeInsets.zero,
+        ),
+        if (orderCount > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: Text(
+              '$orderCount ta zakaz',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
+                    height: 1.05,
                   ),
-                ],
-              ),
             ),
           ),
-        ),
         if (orderCount > 0) ...[
           const SizedBox(height: 8),
           Padding(
