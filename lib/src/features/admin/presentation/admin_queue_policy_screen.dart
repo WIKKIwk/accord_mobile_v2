@@ -10,6 +10,7 @@ import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_top_notice.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 const double _queuePolicyPanelGap = 4;
@@ -54,26 +55,74 @@ class AdminQueuePolicyPanel extends StatefulWidget {
   State<AdminQueuePolicyPanel> createState() => _AdminQueuePolicyPanelState();
 }
 
-class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel> {
-  late Future<_QueuePolicyData> _future;
+class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
+    with AutomaticKeepAliveClientMixin {
+  static _QueuePolicyData? _cache;
+
   final Set<String> _saving = {};
   Map<String, AdminApparatusQueuePolicy> _policies = const {};
+  _QueuePolicyData? _data;
+  bool _loading = true;
+  Object? _loadError;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    final cache = _cache;
+    if (cache == null) {
+      unawaited(_load());
+    } else {
+      _data = cache;
+      _policies = cache.policies;
+      _loading = false;
+      unawaited(_load(showLoading: false));
+    }
   }
 
-  Future<_QueuePolicyData> _load() async {
-    final results = await Future.wait<Object>([
-      MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 300),
-      MobileApi.instance.adminApparatusQueuePolicies(),
-    ]);
-    final apparatus = results[0] as List<AdminWarehouse>;
-    final policies = results[1] as Map<String, AdminApparatusQueuePolicy>;
-    _policies = policies;
-    return _QueuePolicyData(apparatus: apparatus, policies: policies);
+  Future<void> _load({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final results = await Future.wait<Object>([
+        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 300),
+        MobileApi.instance.adminApparatusQueuePolicies(),
+      ]);
+      if (!mounted) {
+        return;
+      }
+      final data = _QueuePolicyData(
+        apparatus: results[0] as List<AdminWarehouse>,
+        policies: results[1] as Map<String, AdminApparatusQueuePolicy>,
+      );
+      setState(() {
+        _data = data;
+        _policies = data.policies;
+        _loading = false;
+        _loadError = null;
+      });
+      _cache = data;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (_data != null) {
+        setState(() {
+          _loading = false;
+        });
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _loadError = error;
+      });
+    }
   }
 
   Future<void> _updatePolicy(
@@ -95,6 +144,14 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel> {
       }
       setState(() {
         _policies = {..._policies, saved.apparatus: saved};
+        final data = _data;
+        if (data != null) {
+          _data = _QueuePolicyData(
+            apparatus: data.apparatus,
+            policies: _policies,
+          );
+          _cache = _data;
+        }
       });
     } catch (error) {
       if (!mounted) {
@@ -141,70 +198,64 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_QueuePolicyData>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: AppLoadingIndicator());
-        }
-        if (snapshot.hasError) {
-          return AppRetryState(
-            onRetry: () async {
-              setState(() {
-                _future = _load();
-              });
-            },
-          );
-        }
-        final apparatus = snapshot.data!.apparatus;
-        if (apparatus.isEmpty) {
-          return ListView(
-            padding: EdgeInsets.fromLTRB(
-              _queuePolicyPanelGap,
-              _queuePolicyPanelTopGap,
-              _queuePolicyPanelGap,
-              widget.bottomPadding,
-            ),
-            children: const [
-              _QueuePolicyIntro(),
-              SizedBox(height: 24),
-              Center(child: Text('Aparatlar topilmadi')),
-            ],
-          );
-        }
-        return ListView(
-          padding: EdgeInsets.fromLTRB(
-            _queuePolicyPanelGap,
-            _queuePolicyPanelTopGap,
-            _queuePolicyPanelGap,
-            widget.bottomPadding,
-          ),
+    super.build(context);
+    final data = _data;
+    if (_loading && data == null) {
+      return const Center(child: AppLoadingIndicator());
+    }
+    if (_loadError != null && data == null) {
+      return AppRetryState(onRetry: _load);
+    }
+    if (data == null) {
+      return const SizedBox.shrink();
+    }
+    final apparatus = data.apparatus;
+    if (apparatus.isEmpty) {
+      return ListView(
+        padding: EdgeInsets.fromLTRB(
+          _queuePolicyPanelGap,
+          _queuePolicyPanelTopGap,
+          _queuePolicyPanelGap,
+          widget.bottomPadding,
+        ),
+        children: const [
+          _QueuePolicyIntro(),
+          SizedBox(height: 24),
+          Center(child: Text('Aparatlar topilmadi')),
+        ],
+      );
+    }
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        _queuePolicyPanelGap,
+        _queuePolicyPanelTopGap,
+        _queuePolicyPanelGap,
+        widget.bottomPadding,
+      ),
+      children: [
+        const _QueuePolicyIntro(),
+        const SizedBox(height: 10),
+        M3SegmentSpacedColumn(
+          padding: EdgeInsets.zero,
           children: [
-            const _QueuePolicyIntro(),
-            const SizedBox(height: 10),
-            M3SegmentSpacedColumn(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var index = 0; index < apparatus.length; index++)
-                  _QueuePolicyTile(
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index,
-                      apparatus.length,
-                    ),
-                    title: apparatus[index].warehouse.trim(),
-                    policy: _effectivePolicy(apparatus[index]),
-                    saving: _saving.contains(
-                      apparatus[index].warehouse.trim(),
-                    ),
-                    onChanged: _effectivePolicy(apparatus[index]).locked
-                        ? null
-                        : (value) => _updatePolicy(apparatus[index], value),
-                  ),
-              ],
-            ),
+            for (var index = 0; index < apparatus.length; index++)
+              _QueuePolicyTile(
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index,
+                  apparatus.length,
+                ),
+                title: apparatus[index].warehouse.trim(),
+                policy: _effectivePolicy(apparatus[index]),
+                saving: _saving.contains(
+                  apparatus[index].warehouse.trim(),
+                ),
+                onChanged: _effectivePolicy(apparatus[index]).locked
+                    ? null
+                    : (value) => _updatePolicy(apparatus[index], value),
+              ),
           ],
-        );
-      },
+        ),
+      ],
     );
   }
 }
