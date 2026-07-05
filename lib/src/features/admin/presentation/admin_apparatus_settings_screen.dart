@@ -49,6 +49,8 @@ class AdminApparatusSettingsScreen extends StatefulWidget {
 class _AdminApparatusSettingsScreenState
     extends State<AdminApparatusSettingsScreen>
     with SingleTickerProviderStateMixin {
+  static _AdminApparatusSettingsCache? _cache;
+
   final TextEditingController _name = TextEditingController();
   final TextEditingController _apparatusName = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
@@ -74,7 +76,11 @@ class _AdminApparatusSettingsScreenState
       initialIndex: _apparatusSettingsTabIndex(widget.initialTab),
       vsync: this,
     );
-    _load();
+    if (!_restoreCache()) {
+      _load();
+    } else {
+      unawaited(_load(showLoading: false));
+    }
     if (widget.focusApparatusName) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -96,7 +102,32 @@ class _AdminApparatusSettingsScreenState
     super.dispose();
   }
 
-  Future<void> _load() async {
+  bool _restoreCache() {
+    final cache = _cache;
+    if (cache == null) {
+      return false;
+    }
+    _groups = cache.groups;
+    _apparatus = cache.apparatus;
+    _loading = false;
+    _loadError = null;
+    return true;
+  }
+
+  void _saveCache() {
+    _cache = _AdminApparatusSettingsCache(
+      groups: _groups,
+      apparatus: _apparatus,
+    );
+  }
+
+  Future<void> _load({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
     try {
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatusGroups(),
@@ -111,8 +142,15 @@ class _AdminApparatusSettingsScreenState
         _loading = false;
         _loadError = null;
       });
+      _saveCache();
     } catch (_) {
       if (!mounted) {
+        return;
+      }
+      if (_cache != null) {
+        setState(() {
+          _loading = false;
+        });
         return;
       }
       setState(() {
@@ -235,6 +273,7 @@ class _AdminApparatusSettingsScreenState
         _clearEditor();
         _expandedGroupName = saved.name;
       });
+      _saveCache();
       showAdminTopNotice(context, 'Aparat guruhi saqlandi');
     } catch (_) {
       if (mounted) {
@@ -274,6 +313,7 @@ class _AdminApparatusSettingsScreenState
         _selected.add(created.warehouse);
         _apparatusName.clear();
       });
+      _saveCache();
       showAdminTopNotice(context, 'Aparat qo\'shildi');
     } catch (_) {
       if (mounted) {
@@ -706,6 +746,16 @@ class _ApparatusSelectRow extends StatelessWidget {
           ),
     );
   }
+}
+
+class _AdminApparatusSettingsCache {
+  const _AdminApparatusSettingsCache({
+    required this.groups,
+    required this.apparatus,
+  });
+
+  final List<AdminApparatusGroup> groups;
+  final List<AdminWarehouse> apparatus;
 }
 
 class _ApparatusGroupListTile extends StatelessWidget {
