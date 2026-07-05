@@ -291,9 +291,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 }
                 final workers = snapshot.data ?? const <AdminWorker>[];
                 if (workers.isEmpty) {
-                  return const AppSegmentSurfaceCard(
-                    child: Center(child: Text('Ishchi topilmadi')),
-                  );
+                  return const Center(child: Text('Ishchi topilmadi'));
                 }
                 return M3SegmentSpacedColumn(
                   padding: EdgeInsets.zero,
@@ -876,9 +874,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
               const SizedBox(height: 10),
             ],
             if (_groupsByCode.isEmpty)
-              const AppSegmentSurfaceCard(
-                child: Center(child: Text('Guruh topilmadi')),
-              )
+              const Center(child: Text('Guruh topilmadi'))
             else
               M3SegmentSpacedColumn(
                 padding: EdgeInsets.zero,
