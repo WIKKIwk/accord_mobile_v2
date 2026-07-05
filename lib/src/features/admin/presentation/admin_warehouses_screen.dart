@@ -15,6 +15,7 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'dart:async';
@@ -37,13 +38,14 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   Timer? _warehouseLiveReconnectTimer;
   Future<_WarehouseInventorySection?>? _detailFuture;
   String? _selectedWarehouse;
+  bool _warehouseFilterExpanded = false;
   bool _refreshing = false;
   bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _future = _load();
     _connectWarehouseLive();
   }
@@ -163,17 +165,14 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
-  void _openWarehouseSummaryDetail(_WarehouseSummarySection section) {
-    _openWarehouseDetailByName(section.warehouse);
-  }
-
   void _openWarehouseDetailByName(String warehouse) {
     final normalized = warehouse.trim();
     setState(() {
       _selectedWarehouse = normalized;
+      _warehouseFilterExpanded = false;
       _detailFuture = _loadDetail(normalized);
     });
-    _tabController.animateTo(1);
+    _tabController.animateTo(0);
   }
 
   @override
@@ -207,8 +206,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               AdminSurfaceTabBar(
                 controller: _tabController,
                 tabs: const [
-                  Tab(height: 38, text: 'Omborlar'),
-                  Tab(height: 38, text: 'Ombor ma’lumoti'),
+                  Tab(height: 38, text: 'Ombor ma’lumotlari'),
                   Tab(height: 38, text: 'Ombor yaratish'),
                 ],
               ),
@@ -216,16 +214,18 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _WarehouseListTab(
-                      data: data,
-                      bottomPadding: bottomPadding,
-                      onRefresh: _reload,
-                      onOpenDetail: _openWarehouseSummaryDetail,
-                    ),
                     _WarehouseDetailsTab(
+                      summaries: data.sections,
                       warehouse: _selectedWarehouse,
                       detailFuture: _detailFuture,
                       bottomPadding: bottomPadding,
+                      filterExpanded: _warehouseFilterExpanded,
+                      onFilterToggle: () {
+                        setState(() {
+                          _warehouseFilterExpanded = !_warehouseFilterExpanded;
+                        });
+                      },
+                      onWarehouseChanged: _openWarehouseDetailByName,
                     ),
                     _WarehouseCreateTab(
                       bottomPadding: bottomPadding,
@@ -428,50 +428,6 @@ class _WarehouseInventorySection {
   final List<AdminRawMaterialAssignment> reservations;
 
   int get productCount => items.length + rawStock.length;
-}
-
-class _WarehouseListTab extends StatelessWidget {
-  const _WarehouseListTab({
-    required this.data,
-    required this.bottomPadding,
-    required this.onRefresh,
-    required this.onOpenDetail,
-  });
-
-  final _WarehouseSummaryData data;
-  final double bottomPadding;
-  final Future<void> Function() onRefresh;
-  final ValueChanged<_WarehouseSummarySection> onOpenDetail;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (data.sections.isEmpty) {
-      return const Center(child: Text('Ombor topilmadi'));
-    }
-    return ColoredBox(
-      color: scheme.surfaceContainerHighest,
-      child: AppRefreshIndicator(
-        onRefresh: onRefresh,
-        child: ListView.separated(
-          padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
-          itemCount: data.sections.length,
-          separatorBuilder: (context, index) =>
-              const SizedBox(height: M3SegmentedListGeometry.gap),
-          itemBuilder: (context, index) {
-            return _WarehouseSectionCard(
-              slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                index,
-                data.sections.length,
-              ),
-              section: data.sections[index],
-              onOpenDetail: onOpenDetail,
-            );
-          },
-        ),
-      ),
-    );
-  }
 }
 
 class _WarehouseCreateTab extends StatefulWidget {
@@ -730,60 +686,24 @@ class _AssignUserPickerField extends StatelessWidget {
   }
 }
 
-class _WarehouseSectionCard extends StatelessWidget {
-  const _WarehouseSectionCard({
-    required this.slot,
-    required this.section,
-    required this.onOpenDetail,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final _WarehouseSummarySection section;
-  final ValueChanged<_WarehouseSummarySection> onOpenDetail;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final assignValue =
-        section.assignmentCount == 0 ? 'yo‘q' : '${section.assignmentCount}';
-    return AdminSummaryCard(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surfaceContainerLowest,
-      elevation: 2,
-      title: section.warehouse,
-      value: '${section.productCount}',
-      subtitle:
-          'Mahsulot ${section.productCount} • Band ${section.reservedCount} • Assign $assignValue',
-      leading: SizedBox.square(
-        dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.warehouse_rounded,
-            size: 16,
-            color: scheme.onSecondaryContainer,
-          ),
-        ),
-      ),
-      onTap: () => onOpenDetail(section),
-    );
-  }
-}
-
 class _WarehouseDetailsTab extends StatefulWidget {
   const _WarehouseDetailsTab({
+    required this.summaries,
     required this.warehouse,
     required this.detailFuture,
     required this.bottomPadding,
+    required this.filterExpanded,
+    required this.onFilterToggle,
+    required this.onWarehouseChanged,
   });
 
+  final List<_WarehouseSummarySection> summaries;
   final String? warehouse;
   final Future<_WarehouseInventorySection?>? detailFuture;
   final double bottomPadding;
+  final bool filterExpanded;
+  final VoidCallback onFilterToggle;
+  final ValueChanged<String> onWarehouseChanged;
 
   @override
   State<_WarehouseDetailsTab> createState() => _WarehouseDetailsTabState();
@@ -809,64 +729,139 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   @override
   Widget build(BuildContext context) {
     final future = widget.detailFuture;
+    final selectedWarehouse = widget.warehouse?.trim() ?? '';
+    final filter = _WarehouseFilterBar(
+      selectedWarehouse: selectedWarehouse,
+      warehouses: widget.summaries,
+      expanded: widget.filterExpanded,
+      onToggle: widget.onFilterToggle,
+      onChanged: widget.onWarehouseChanged,
+    );
+    Widget buildScaffold(List<Widget> children) {
+      return ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
+          children: [
+            filter,
+            ...children,
+          ],
+        ),
+      );
+    }
+
+    if (widget.summaries.isEmpty) {
+      return buildScaffold(const [
+        SizedBox(height: 24),
+        Center(child: Text('Ombor topilmadi')),
+      ]);
+    }
     if (widget.warehouse == null ||
         widget.warehouse!.trim().isEmpty ||
         future == null) {
-      return const Center(child: Text('Ombor tanlanmagan'));
+      return buildScaffold(const [
+        SizedBox(height: 24),
+        Center(child: Text('Ombor tanlanmagan')),
+      ]);
     }
     return FutureBuilder<_WarehouseInventorySection?>(
       future: future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done &&
             !snapshot.hasData) {
-          return const Center(child: AppLoadingIndicator());
+          return buildScaffold(const [
+            SizedBox(height: 24),
+            Center(child: AppLoadingIndicator()),
+          ]);
         }
         if (snapshot.hasError) {
-          return const Center(child: Text('Ombor ma’lumoti yuklanmadi'));
+          return buildScaffold(const [
+            SizedBox(height: 24),
+            Center(child: Text('Ombor ma’lumoti yuklanmadi')),
+          ]);
         }
         final current = snapshot.data;
         if (current == null) {
-          return const Center(child: Text('Ombor topilmadi'));
+          return buildScaffold(const [
+            SizedBox(height: 24),
+            Center(child: Text('Ombor topilmadi')),
+          ]);
         }
-        return ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(4, 12, 4, widget.bottomPadding),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                child: Text(
-                  current.warehouse,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-              ),
-              _WarehouseDetailSummaryCards(section: current),
-              if (current.items.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: _WarehouseItemListModule(
-                    items: current.items,
-                    expandedKey: _expandedCardKey,
-                    onExpandedChanged: _onExpandedChanged,
+        return buildScaffold([
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+            child: Text(
+              current.warehouse,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
-                ),
-              if (current.rawStock.isNotEmpty ||
-                  current.reservations.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: _WarehouseRawMaterialInventorySection(
-                    rawStock: current.rawStock,
-                    reservations: current.reservations,
-                    expandedKey: _expandedCardKey,
-                    onExpandedChanged: _onExpandedChanged,
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
+          _WarehouseDetailSummaryCards(section: current),
+          if (current.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _WarehouseItemListModule(
+                items: current.items,
+                expandedKey: _expandedCardKey,
+                onExpandedChanged: _onExpandedChanged,
+              ),
+            ),
+          if (current.rawStock.isNotEmpty || current.reservations.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _WarehouseRawMaterialInventorySection(
+                rawStock: current.rawStock,
+                reservations: current.reservations,
+                expandedKey: _expandedCardKey,
+                onExpandedChanged: _onExpandedChanged,
+              ),
+            ),
+        ]);
       },
+    );
+  }
+}
+
+class _WarehouseFilterBar extends StatelessWidget {
+  const _WarehouseFilterBar({
+    required this.selectedWarehouse,
+    required this.warehouses,
+    required this.expanded,
+    required this.onToggle,
+    required this.onChanged,
+  });
+
+  final String selectedWarehouse;
+  final List<_WarehouseSummarySection> warehouses;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = selectedWarehouse.trim();
+    return AdminExpandableFilterChip<String>(
+      chipKey: const ValueKey('admin-warehouse-filter-chip'),
+      label: 'Ombor',
+      emptyLabel: 'Tanlanmagan',
+      icon: Icons.warehouse_outlined,
+      selectedValue: selected.isEmpty ? null : selected,
+      expanded: expanded,
+      onToggle: onToggle,
+      onSelect: onChanged,
+      optionKeyPrefix: 'admin-warehouse-option-chip',
+      options: [
+        for (final warehouse in warehouses)
+          AdminFilterChipOption(
+            value: warehouse.warehouse,
+            label: warehouse.warehouse,
+            key: ValueKey(
+              'admin-warehouse-option-chip-${warehouse.warehouse}',
+            ),
+          ),
+      ],
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
     );
   }
 }
