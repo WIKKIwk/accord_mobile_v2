@@ -289,7 +289,7 @@ class _AdminApparatusSettingsScreenState
   Widget _buildCreateTab(BuildContext context, double bottomPadding) {
     final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         controller: _createScrollController,
         padding: EdgeInsets.fromLTRB(
@@ -360,7 +360,7 @@ class _AdminApparatusSettingsScreenState
     final scheme = Theme.of(context).colorScheme;
     final selectableApparatus = _selectableApparatusForEditor();
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         controller: _groupsScrollController,
         padding: EdgeInsets.fromLTRB(
@@ -565,9 +565,7 @@ class _AdminApparatusSettingsScreenState
                           _buildCreateTab(context, bottomPadding),
                           _buildGroupsTab(context, bottomPadding),
                           ColoredBox(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
+                            color: AppTheme.shellStart(context),
                             child: AdminQueuePolicyPanel(
                               bottomPadding: bottomPadding,
                             ),
