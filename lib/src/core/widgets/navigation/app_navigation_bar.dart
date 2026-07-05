@@ -399,37 +399,51 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
       key: const ValueKey('app-primary-navigation-button'),
       button: true,
       label: destination.label,
-      child: Material(
-        color: background,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(
             appNavigationBarPrimaryButtonBorderRadius,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.18),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(
-            appNavigationBarPrimaryButtonBorderRadius,
+        child: Material(
+          color: background,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(
+              appNavigationBarPrimaryButtonBorderRadius,
+            ),
           ),
-          onTap: onTap,
-          onLongPress: destination.onLongPress,
-          child: SizedBox(
-            width: appNavigationBarPrimaryButtonSize,
-            height: appNavigationBarPrimaryButtonSize,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  appNavigationBarPrimaryButtonBorderRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(
+              appNavigationBarPrimaryButtonBorderRadius,
+            ),
+            onTap: onTap,
+            onLongPress: destination.onLongPress,
+            child: SizedBox(
+              width: appNavigationBarPrimaryButtonSize,
+              height: appNavigationBarPrimaryButtonSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(
+                    appNavigationBarPrimaryButtonBorderRadius,
+                  ),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.25),
+                  ),
                 ),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.25),
-                ),
-              ),
-              child: IconTheme(
-                data: IconThemeData(color: foreground, size: 24),
-                child: Center(
-                  child: SizedBox(width: 24, height: 24, child: icon),
+                child: IconTheme(
+                  data: IconThemeData(color: foreground, size: 24),
+                  child: Center(
+                    child: SizedBox(width: 24, height: 24, child: icon),
+                  ),
                 ),
               ),
             ),
