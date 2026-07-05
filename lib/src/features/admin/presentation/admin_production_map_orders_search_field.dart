@@ -18,8 +18,8 @@ class _OpenedOrderSearchField extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final searchFill = Color.alphaBlend(
-      scheme.outlineVariant.withValues(alpha: 0.22),
-      scheme.surfaceContainerHighest,
+      scheme.outlineVariant.withValues(alpha: 0.08),
+      scheme.surfaceContainerLow,
     );
     return ListenableBuilder(
       listenable: Listenable.merge([controller, focusNode]),
@@ -57,8 +57,7 @@ class _OpenedOrderSearchField extends StatelessWidget {
                               textInputAction: TextInputAction.search,
                               maxLines: 1,
                               cursorColor: scheme.primary,
-                              backgroundCursorColor:
-                                  scheme.surfaceContainerHighest,
+                              backgroundCursorColor: scheme.surfaceContainerLow,
                               style: theme.textTheme.bodyMedium!.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w400,
