@@ -10,6 +10,8 @@ import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
@@ -37,6 +39,22 @@ const Map<String, String> adminWorkerStartDayLabels = {
 const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
 
+String _workerGroupCodeKey(String code) =>
+    code.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
+
+AdminWorkerGroup _newWorkerGroup(String code) {
+  return AdminWorkerGroup(
+    apparatus: _workerGroupsScope,
+    groupCode: _workerGroupCodeKey(code),
+    shift: 'kunduz',
+    startTime: '08:00',
+    endTime: '20:00',
+    workDaysPerWeek: 6,
+    startDay: 'monday',
+    accountingEnabled: false,
+  );
+}
+
 class AdminWorkerSettingsScreen extends StatefulWidget {
   const AdminWorkerSettingsScreen({super.key});
 
@@ -47,12 +65,10 @@ class AdminWorkerSettingsScreen extends StatefulWidget {
 
 class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _nameController = TextEditingController();
-  String _selectedLevel = adminWorkerLevels.first;
   late Future<List<AdminWorker>> _future;
   late TabController _tabController;
-  bool _saving = false;
   int _workersVersion = 0;
+  int _groupsVersion = 0;
 
   @override
   void initState() {
@@ -64,7 +80,6 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -76,37 +91,6 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     setState(() {
       _future = _load();
     });
-  }
-
-  Future<void> _createWorker() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty || _saving) {
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await MobileApi.instance.adminCreateWorker(
-        name: name,
-        level: _selectedLevel,
-      );
-      _nameController.clear();
-      if (mounted) {
-        setState(() {
-          _selectedLevel = adminWorkerLevels.first;
-          _future = _load();
-          _workersVersion++;
-        });
-        showAdminTopNotice(context, 'Ishchi saqlandi');
-      }
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(context, 'Ishchi qo‘shilmadi', icon: Icons.error);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
   }
 
   Future<void> _updateLevel(AdminWorker worker, String level) async {
@@ -141,6 +125,55 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
+  Future<void> _openWorkerCreateDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _WorkerCreateDialogCard(
+            onSaved: () async {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _future = _load();
+                _workersVersion++;
+              });
+              showAdminTopNotice(context, 'Ishchi saqlandi');
+            },
+            onClose: () => Navigator.of(dialogContext).pop(),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openWorkerGroupCreateDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _WorkerGroupCreateDialogCard(
+            onSaved: () async {
+              if (!mounted) {
+                return;
+              }
+              setState(() => _groupsVersion++);
+              showAdminTopNotice(context, 'Guruh yaratildi');
+            },
+            onClose: () => Navigator.of(dialogContext).pop(),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -153,7 +186,21 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: null),
+      bottom: AdminDock(
+        activeTab: null,
+        primaryFabActions: [
+          AdminFabMenuAction(
+            title: 'Ishchi qo‘shish',
+            icon: Icons.person_add_alt_1_rounded,
+            onTap: _openWorkerCreateDialog,
+          ),
+          AdminFabMenuAction(
+            title: 'Guruh qo‘shish',
+            icon: Icons.groups_2_outlined,
+            onTap: _openWorkerGroupCreateDialog,
+          ),
+        ],
+      ),
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -169,7 +216,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
               controller: _tabController,
               children: [
                 _buildWorkersTab(),
-                _WorkerGroupsTab(workersVersion: _workersVersion),
+                _WorkerGroupsTab(
+                  workersVersion: _workersVersion,
+                  groupsVersion: _groupsVersion,
+                ),
               ],
             ),
           ),
@@ -191,44 +241,6 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
             116,
           ),
           children: [
-            AppSegmentSurfaceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    textInputAction: TextInputAction.done,
-                    decoration: appSurfaceInputDecoration(
-                      context,
-                      labelText: 'Ishchi nomi',
-                    ),
-                    onSubmitted: (_) => unawaited(_createWorker()),
-                  ),
-                  const SizedBox(height: 12),
-                  _WorkerLevelPicker(
-                    value: _selectedLevel,
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() => _selectedLevel = value);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _createWorker,
-                    icon: _saving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.person_add_alt_1_rounded),
-                    label: const Text('Ishchi qo‘shish'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
             FutureBuilder<List<AdminWorker>>(
               future: _future,
               builder: (context, snapshot) {
@@ -274,10 +286,324 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   }
 }
 
+class _WorkerCreateDialogCard extends StatefulWidget {
+  const _WorkerCreateDialogCard({
+    required this.onSaved,
+    required this.onClose,
+  });
+
+  final Future<void> Function() onSaved;
+  final VoidCallback onClose;
+
+  @override
+  State<_WorkerCreateDialogCard> createState() =>
+      _WorkerCreateDialogCardState();
+}
+
+class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
+  final TextEditingController _nameController = TextEditingController();
+  String _selectedLevel = adminWorkerLevels.first;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty || _saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await MobileApi.instance.adminCreateWorker(
+        name: name,
+        level: _selectedLevel,
+      );
+      await widget.onSaved();
+      if (mounted) {
+        widget.onClose();
+      }
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Ishchi qo‘shilmadi', icon: Icons.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _pickLevel() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3PickerSheet<String>(
+          title: 'Unvon tanlash',
+          hintText: 'Unvon qidiring',
+          items: adminWorkerLevels,
+          itemTitle: (item) => item,
+          itemSubtitle: (_) => 'Ishchi unvoni',
+          matchesQuery: (item, query) =>
+              item.toLowerCase().contains(query.trim().toLowerCase()),
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _selectedLevel = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ishchi qo‘shish',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _saving ? null : widget.onClose,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Yopish',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameController,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _save(),
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Ishchi nomi',
+                ),
+              ),
+              const SizedBox(height: 12),
+              _WorkerLevelPickerField(
+                value: _selectedLevel,
+                onTap: _pickLevel,
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.person_add_alt_1_rounded),
+                label: const Text('Ishchi qo‘shish'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerGroupCreateDialogCard extends StatefulWidget {
+  const _WorkerGroupCreateDialogCard({
+    required this.onSaved,
+    required this.onClose,
+  });
+
+  final Future<void> Function() onSaved;
+  final VoidCallback onClose;
+
+  @override
+  State<_WorkerGroupCreateDialogCard> createState() =>
+      _WorkerGroupCreateDialogCardState();
+}
+
+class _WorkerGroupCreateDialogCardState
+    extends State<_WorkerGroupCreateDialogCard> {
+  final TextEditingController _groupCodeController = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _groupCodeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final code = _workerGroupCodeKey(_groupCodeController.text);
+    if (code.isEmpty || _saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final groups = await MobileApi.instance.adminWorkerGroups();
+      final exists = groups.any(
+        (group) => _workerGroupCodeKey(group.groupCode) == code,
+      );
+      if (exists) {
+        if (mounted) {
+          showAdminTopNotice(context, '$code guruh allaqachon bor');
+        }
+        return;
+      }
+      await MobileApi.instance.adminSaveWorkerGroup(_newWorkerGroup(code));
+      await widget.onSaved();
+      if (mounted) {
+        widget.onClose();
+      }
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, '$code guruh yaratilmadi',
+            icon: Icons.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Guruh qo‘shish',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _saving ? null : widget.onClose,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Yopish',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('worker-group-code-dialog-input'),
+                controller: _groupCodeController,
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _save(),
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Guruh nomi',
+                ).copyWith(hintText: 'AB, BA, DD'),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
+                label: const Text('Saqlash'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerLevelPickerField extends StatelessWidget {
+  const _WorkerLevelPickerField({
+    required this.value,
+    required this.onTap,
+  });
+
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: 'Unvoni',
+          prefixIcon: const Icon(Icons.badge_outlined),
+          suffixIcon: const Icon(Icons.expand_more_rounded),
+        ),
+        child: Text(
+          value,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WorkerGroupsTab extends StatefulWidget {
-  const _WorkerGroupsTab({required this.workersVersion});
+  const _WorkerGroupsTab({
+    required this.workersVersion,
+    required this.groupsVersion,
+  });
 
   final int workersVersion;
+  final int groupsVersion;
 
   @override
   State<_WorkerGroupsTab> createState() => _WorkerGroupsTabState();
@@ -285,16 +611,15 @@ class _WorkerGroupsTab extends StatefulWidget {
 
 class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     with AutomaticKeepAliveClientMixin<_WorkerGroupsTab> {
-  final TextEditingController _groupCodeController = TextEditingController();
   List<AdminWarehouse> _apparatus = const [];
   List<AdminWorker> _workers = const [];
   Map<String, AdminWorkerGroup> _groupsByCode = const {};
   bool _loading = true;
-  bool _creatingGroup = false;
   final Set<String> _savingCodes = <String>{};
   String? _selectedGroupCode;
   String? _editingGroupCode;
   int _loadedWorkersVersion = -1;
+  int _loadedGroupsVersion = -1;
 
   @override
   void initState() {
@@ -309,12 +634,10 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         _loadedWorkersVersion != widget.workersVersion) {
       unawaited(_reloadWorkers());
     }
-  }
-
-  @override
-  void dispose() {
-    _groupCodeController.dispose();
-    super.dispose();
+    if (oldWidget.groupsVersion != widget.groupsVersion &&
+        _loadedGroupsVersion != widget.groupsVersion) {
+      unawaited(_loadGroups());
+    }
   }
 
   @override
@@ -338,6 +661,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         _apparatus = apparatus;
         _workers = workers;
         _loadedWorkersVersion = widget.workersVersion;
+        _loadedGroupsVersion = widget.groupsVersion;
         _groupsByCode = {
           for (final group in groups) _groupKey(group.groupCode): group,
         };
@@ -392,6 +716,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         _groupsByCode = {
           for (final group in groups) _groupKey(group.groupCode): group,
         };
+        _loadedGroupsVersion = widget.groupsVersion;
         if (_selectedGroupCode != null &&
             !_groupsByCode.containsKey(_selectedGroupCode)) {
           _selectedGroupCode = null;
@@ -408,21 +733,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     }
   }
 
-  String _groupKey(String code) =>
-      code.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
-
-  AdminWorkerGroup _newGroup(String code) {
-    return AdminWorkerGroup(
-      apparatus: _workerGroupsScope,
-      groupCode: _groupKey(code),
-      shift: 'kunduz',
-      startTime: '08:00',
-      endTime: '20:00',
-      workDaysPerWeek: 6,
-      startDay: 'monday',
-      accountingEnabled: false,
-    );
-  }
+  String _groupKey(String code) => _workerGroupCodeKey(code);
 
   void _setGroup(AdminWorkerGroup group) {
     final code = _groupKey(group.groupCode);
@@ -432,41 +743,6 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         code: group.copyWith(groupCode: code),
       };
     });
-  }
-
-  Future<void> _createGroup() async {
-    final code = _groupKey(_groupCodeController.text);
-    if (code.isEmpty || _groupsByCode.containsKey(code) || _creatingGroup) {
-      return;
-    }
-    setState(() => _creatingGroup = true);
-    try {
-      final saved = await MobileApi.instance.adminSaveWorkerGroup(
-        _newGroup(code),
-      );
-      if (!mounted) {
-        return;
-      }
-      _groupCodeController.clear();
-      setState(() {
-        _selectedGroupCode = _groupKey(saved.groupCode);
-        _groupsByCode = {
-          ..._groupsByCode,
-          _groupKey(saved.groupCode): saved,
-        };
-      });
-      showAdminTopNotice(context, '${saved.groupCode} guruh yaratildi');
-      await _loadGroups();
-    } catch (_) {
-      if (mounted) {
-        showAdminTopNotice(context, '$code guruh yaratilmadi',
-            icon: Icons.error);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _creatingGroup = false);
-      }
-    }
   }
 
   Future<void> _saveGroup(AdminWorkerGroup group) async {
@@ -558,12 +834,6 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
               ),
               const SizedBox(height: 10),
             ],
-            _WorkerGroupCreateCard(
-              controller: _groupCodeController,
-              saving: _creatingGroup,
-              onSave: () => unawaited(_createGroup()),
-            ),
-            const SizedBox(height: 10),
             if (_groupsByCode.isEmpty)
               const AppSegmentSurfaceCard(
                 child: Center(child: Text('Guruh topilmadi')),
@@ -617,53 +887,6 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _WorkerGroupCreateCard extends StatelessWidget {
-  const _WorkerGroupCreateCard({
-    required this.controller,
-    required this.saving,
-    required this.onSave,
-  });
-
-  final TextEditingController controller;
-  final bool saving;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSegmentSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Guruh yaratish', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 10),
-          TextField(
-            key: const Key('worker-group-code-input'),
-            controller: controller,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.done,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Guruh kodi',
-            ).copyWith(hintText: 'AB, BA, DD'),
-            onSubmitted: (_) => onSave(),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: saving ? null : onSave,
-            icon: saving
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_rounded),
-            label: const Text('Saqlash'),
-          ),
-        ],
       ),
     );
   }
