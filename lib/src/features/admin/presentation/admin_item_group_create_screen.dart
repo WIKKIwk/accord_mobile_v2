@@ -377,7 +377,7 @@ class _ItemGroupCreateDialogCardState
                 },
               ),
               const SizedBox(height: 12),
-              SwitchListTile.adaptive(
+              SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _isGroup,
                 onChanged: _saving
