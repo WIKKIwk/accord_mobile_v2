@@ -75,9 +75,9 @@ class AdminExpandableFilterChip<T> extends StatelessWidget {
               onSelected: (_) => onToggle(),
               selectedColor: scheme.secondaryContainer,
               backgroundColor: scheme.surfaceContainerLowest,
-              elevation: 4,
-              pressElevation: 4,
-              shadowColor: scheme.shadow.withValues(alpha: 0.24),
+              elevation: 2,
+              pressElevation: 2,
+              shadowColor: scheme.shadow.withValues(alpha: 0.18),
               side: BorderSide(
                 color: hasSelection
                     ? Colors.transparent
@@ -171,9 +171,9 @@ class _AdminExpandableFilterOptionChip<T> extends StatelessWidget {
       onSelected: (_) => onSelect(),
       selectedColor: scheme.secondaryContainer,
       backgroundColor: scheme.surfaceContainerLowest,
-      elevation: 4,
-      pressElevation: 4,
-      shadowColor: scheme.shadow.withValues(alpha: 0.24),
+      elevation: 2,
+      pressElevation: 2,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
       side: BorderSide(
         color: selected
             ? Colors.transparent
