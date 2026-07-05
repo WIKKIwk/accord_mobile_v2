@@ -179,11 +179,11 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
         _refreshParentGroups();
       });
       name.clear();
-      showAdminTopNotice(context, 'Item Group yaratildi: ${group.name}');
+      showAdminTopNotice(context, 'Item Group qo‘shildi: ${group.name}');
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Item Group yaratilmadi: $error')),
+          SnackBar(content: Text('Item Group qo‘shilmadi: $error')),
         );
       }
     } finally {
@@ -196,7 +196,7 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Item Group yaratish',
+      title: 'Item Group qo‘shish',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -209,7 +209,7 @@ class _AdminItemGroupCreateScreenState extends State<AdminItemGroupCreateScreen>
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: const [
-              Tab(height: 38, text: 'Group yaratish'),
+              Tab(height: 38, text: 'Group qo‘shish'),
               Tab(height: 38, text: 'Parent ko‘chirish'),
               Tab(height: 38, text: 'Tree'),
               Tab(height: 38, text: 'Items'),
@@ -287,10 +287,9 @@ class _CreateGroupTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 116;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           _itemGroupPanelGap,
@@ -351,7 +350,7 @@ class _CreateGroupTab extends StatelessWidget {
                 FilledButton(
                   onPressed: onSave,
                   child: Text(
-                    saving ? 'Yaratilmoqda...' : 'Item Group yaratish',
+                    saving ? 'Qo‘shilmoqda...' : 'Item Group qo‘shish',
                   ),
                 ),
               ],

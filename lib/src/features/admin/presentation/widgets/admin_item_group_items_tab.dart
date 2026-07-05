@@ -1,9 +1,10 @@
+import '../../../../core/theme/app_theme.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_item_group_selected_items.dart';
 import 'package:flutter/material.dart';
 
-typedef ItemGroupItemsLoader =
-    Future<List<SupplierItem>> Function(String group, int limit, int offset);
+typedef ItemGroupItemsLoader = Future<List<SupplierItem>> Function(
+    String group, int limit, int offset);
 
 class AdminItemGroupItemsTab extends StatefulWidget {
   const AdminItemGroupItemsTab({
@@ -158,68 +159,71 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
   Widget build(BuildContext context) {
     final selected = widget.selectedGroup?.trim();
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
-    return RefreshIndicator(
-      onRefresh: _refreshItems,
-      child: ListView(
-        controller: _scrollController,
-        padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Group itemlari',
-                  style: Theme.of(context).textTheme.titleLarge,
+    return ColoredBox(
+      color: AppTheme.shellStart(context),
+      child: RefreshIndicator(
+        onRefresh: _refreshItems,
+        child: ListView(
+          controller: _scrollController,
+          padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Group itemlari',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
-              ),
-              IconButton.filledTonal(
-                onPressed: selected == null || selected.isEmpty
-                    ? null
-                    : _refreshItems,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Group tanlanganda mahsulotlar lazy load bilan yuklanadi.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 14),
-          FutureBuilder<List<String>>(
-            future: widget.itemGroupsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const LinearProgressIndicator();
-              }
-              if (snapshot.hasError) {
-                return const _NoticeCard(text: 'Grouplar yuklanmadi');
-              }
-              return _GroupSelector(
-                groups: _displayGroups(
-                  snapshot.data ?? const <String>[],
-                  selected,
+                IconButton.filledTonal(
+                  onPressed: selected == null || selected.isEmpty
+                      ? null
+                      : _refreshItems,
+                  icon: const Icon(Icons.refresh_rounded),
                 ),
-                selectedGroup: selected,
-                onSelectGroup: widget.onSelectGroup,
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          _ItemsBody(
-            selectedGroup: selected,
-            loadedGroup: _loadedGroup,
-            items: _items,
-            initialLoading: _initialLoading,
-            loadingMore: _loadingMore,
-            hasMore: _hasMore,
-            error: _error,
-            onRetry: selected == null || selected.isEmpty
-                ? null
-                : () => _loadFirstPage(selected),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Group tanlanganda mahsulotlar lazy load bilan yuklanadi.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            FutureBuilder<List<String>>(
+              future: widget.itemGroupsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const LinearProgressIndicator();
+                }
+                if (snapshot.hasError) {
+                  return const _NoticeCard(text: 'Grouplar yuklanmadi');
+                }
+                return _GroupSelector(
+                  groups: _displayGroups(
+                    snapshot.data ?? const <String>[],
+                    selected,
+                  ),
+                  selectedGroup: selected,
+                  onSelectGroup: widget.onSelectGroup,
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            _ItemsBody(
+              selectedGroup: selected,
+              loadedGroup: _loadedGroup,
+              items: _items,
+              initialLoading: _initialLoading,
+              loadingMore: _loadingMore,
+              hasMore: _hasMore,
+              error: _error,
+              onRetry: selected == null || selected.isEmpty
+                  ? null
+                  : () => _loadFirstPage(selected),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -297,9 +301,8 @@ class _GroupTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground = selected
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
+    final foreground =
+        selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -319,11 +322,10 @@ class _GroupTabButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: foreground,
-                        fontWeight: selected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
+                            color: foreground,
+                            fontWeight:
+                                selected ? FontWeight.w800 : FontWeight.w600,
+                          ),
                     ),
                   ),
                 ),

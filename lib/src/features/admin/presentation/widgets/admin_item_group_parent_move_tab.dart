@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_item_group_parent_move_panel.dart';
@@ -15,10 +16,9 @@ class AdminItemGroupParentMoveTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 116;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: FutureBuilder<List<String>>(
         future: itemGroupsFuture,
         builder: (context, snapshot) {

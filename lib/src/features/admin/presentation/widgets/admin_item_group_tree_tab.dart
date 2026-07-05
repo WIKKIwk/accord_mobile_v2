@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_theme.dart';
 import '../../models/admin_item_group_tree_entry.dart';
 import 'admin_item_group_tree_panel.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class AdminItemGroupTreeTab extends StatelessWidget {
         final bottomPadding = MediaQuery.paddingOf(context).bottom + 116;
         final scheme = Theme.of(context).colorScheme;
         return ColoredBox(
-          color: scheme.surfaceContainerHighest,
+          color: AppTheme.shellStart(context),
           child: RefreshIndicator(
             onRefresh: onRefresh,
             child: ListView(
@@ -65,7 +66,9 @@ class AdminItemGroupTreeTab extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 'Item Group tree',
-                                style: Theme.of(context).textTheme.titleMedium
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
                                     ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                             ),
