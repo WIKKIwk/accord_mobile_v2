@@ -78,11 +78,7 @@ class AdminExpandableFilterChip<T> extends StatelessWidget {
               elevation: 2,
               pressElevation: 2,
               shadowColor: scheme.shadow.withValues(alpha: 0.18),
-              side: BorderSide(
-                color: hasSelection
-                    ? Colors.transparent
-                    : scheme.outline.withValues(alpha: 0.72),
-              ),
+              side: const BorderSide(color: Colors.transparent),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -174,11 +170,7 @@ class _AdminExpandableFilterOptionChip<T> extends StatelessWidget {
       elevation: 2,
       pressElevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.18),
-      side: BorderSide(
-        color: selected
-            ? Colors.transparent
-            : scheme.outline.withValues(alpha: 0.72),
-      ),
+      side: const BorderSide(color: Colors.transparent),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
