@@ -757,13 +757,13 @@ class _WarehouseDetailsTab extends StatefulWidget {
 
 class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     with SingleTickerProviderStateMixin {
-  late final TabController _stockTabController;
+  late TabController _stockTabController;
   String? _expandedCardKey;
 
   @override
   void initState() {
     super.initState();
-    _stockTabController = TabController(length: 2, vsync: this);
+    _stockTabController = TabController(length: 1, vsync: this);
     _stockTabController.addListener(_handleStockTabChanged);
   }
 
@@ -789,6 +789,23 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     setState(() {
       _expandedCardKey = null;
     });
+  }
+
+  TabController _stockControllerForLength(int length) {
+    if (_stockTabController.length == length) {
+      return _stockTabController;
+    }
+    final currentIndex = _stockTabController.index;
+    _stockTabController.removeListener(_handleStockTabChanged);
+    _stockTabController.dispose();
+    _stockTabController = TabController(
+      length: length,
+      initialIndex: currentIndex < length ? currentIndex : length - 1,
+      vsync: this,
+    );
+    _stockTabController.addListener(_handleStockTabChanged);
+    _expandedCardKey = null;
+    return _stockTabController;
   }
 
   void _onExpandedChanged(String key, bool expanded) {
@@ -901,16 +918,30 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               onExpandedChanged: _onExpandedChanged,
             ),
         ];
-        final visibleChildren = _stockTabController.index == 0
-            ? availableChildren
-            : reservedChildren;
+        final hasAvailable = availableChildren.isNotEmpty;
+        final hasReserved = reservedChildren.isNotEmpty;
+        final stockTabs = <Tab>[];
+        final stockTabChildren = <List<Widget>>[];
+        if (hasAvailable && hasReserved) {
+          stockTabs.add(Tab(height: 38, text: 'Mavjud ($availableCount)'));
+          stockTabChildren.add(availableChildren);
+          stockTabs
+              .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
+          stockTabChildren.add(reservedChildren);
+        } else if (hasAvailable) {
+          stockTabs.add(Tab(height: 38, text: 'Mahsulotlar ($availableCount)'));
+          stockTabChildren.add(availableChildren);
+        } else if (hasReserved) {
+          stockTabs
+              .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
+          stockTabChildren.add(reservedChildren);
+        }
+        final stockController = _stockControllerForLength(stockTabs.length);
+        final visibleChildren = stockTabChildren[stockController.index];
         return buildScaffold([
           AdminSurfaceTabBar(
-            controller: _stockTabController,
-            tabs: [
-              Tab(height: 38, text: 'Mavjud ($availableCount)'),
-              Tab(height: 38, text: 'Band qilingan ($reservedCount)'),
-            ],
+            controller: stockController,
+            tabs: stockTabs,
           ),
           const SizedBox(height: 8),
           if (visibleChildren.isEmpty)
