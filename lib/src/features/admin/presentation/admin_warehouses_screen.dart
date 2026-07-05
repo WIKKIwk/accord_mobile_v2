@@ -545,7 +545,11 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
       users = await _loadUsers();
     } catch (_) {
       if (mounted) {
+        _usersFuture = null;
         setState(() => _loadingUsers = false);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('Foydalanuvchilar yuklanmadi')),
+        );
       }
       return;
     }
@@ -553,12 +557,19 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
       return;
     }
     setState(() => _loadingUsers = false);
+    if (users.isEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Foydalanuvchilar topilmadi')),
+      );
+      return;
+    }
     final picked = await showModalBottomSheet<AdminUserListEntry>(
       context: context,
       isDismissible: true,
       enableDrag: true,
       isScrollControlled: true,
       useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
