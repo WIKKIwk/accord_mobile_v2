@@ -8,12 +8,14 @@ class AppSegmentSurfaceCard extends StatelessWidget {
     required this.child,
     this.slot,
     this.padding = const EdgeInsets.fromLTRB(14, 14, 14, 14),
+    this.backgroundColor,
     this.onTap,
   });
 
   final Widget child;
   final M3SegmentVerticalSlot? slot;
   final EdgeInsetsGeometry padding;
+  final Color? backgroundColor;
   final VoidCallback? onTap;
 
   @override
@@ -30,7 +32,7 @@ class AppSegmentSurfaceCard extends StatelessWidget {
     final paddedChild = Padding(padding: padding, child: child);
 
     return Material(
-      color: scheme.surface,
+      color: backgroundColor ?? scheme.surface,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,

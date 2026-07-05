@@ -934,7 +934,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
 
     return Material(
       key: ValueKey('worker-group-card-${group.groupCode}'),
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
@@ -1461,6 +1461,7 @@ class _WorkerLevelTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return AppSegmentSurfaceCard(
       slot: slot,
+      backgroundColor: scheme.surfaceContainerLowest,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Row(
         children: [
