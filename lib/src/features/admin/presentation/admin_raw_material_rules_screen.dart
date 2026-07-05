@@ -23,16 +23,16 @@ enum AdminRawMaterialSettingsTab { rules, requiredMaterial, assignments }
 
 int _rawMaterialSettingsTabIndex(AdminRawMaterialSettingsTab tab) {
   return switch (tab) {
-    AdminRawMaterialSettingsTab.rules => 0,
-    AdminRawMaterialSettingsTab.requiredMaterial => 1,
-    AdminRawMaterialSettingsTab.assignments => 2,
+    AdminRawMaterialSettingsTab.assignments => 0,
+    AdminRawMaterialSettingsTab.rules => 1,
+    AdminRawMaterialSettingsTab.requiredMaterial => 2,
   };
 }
 
 class AdminRawMaterialSettingsScreen extends StatefulWidget {
   const AdminRawMaterialSettingsScreen({
     super.key,
-    this.initialTab = AdminRawMaterialSettingsTab.rules,
+    this.initialTab = AdminRawMaterialSettingsTab.assignments,
   });
 
   final AdminRawMaterialSettingsTab initialTab;
@@ -290,15 +290,18 @@ class _AdminRawMaterialSettingsScreenState
               AdminSurfaceTabBar(
                 controller: _tabController,
                 tabs: const [
+                  Tab(height: 38, text: 'Homashyoni ulash'),
                   Tab(height: 38, text: 'Qoidalar'),
                   Tab(height: 38, text: 'Majburiylik'),
-                  Tab(height: 38, text: 'Homashyoni ulash'),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    AdminRawMaterialAssignmentPanel(
+                      bottomPadding: bottomPadding,
+                    ),
                     ColoredBox(
                       color: AppTheme.shellStart(context),
                       child: ListView(
@@ -346,7 +349,11 @@ class _AdminRawMaterialSettingsScreenState
                                             _rules[index].apparatus;
                                         _fillGroupsFor(_rules[index].apparatus);
                                       });
-                                      _tabController.animateTo(0);
+                                      _tabController.animateTo(
+                                        _rawMaterialSettingsTabIndex(
+                                          AdminRawMaterialSettingsTab.rules,
+                                        ),
+                                      );
                                     },
                                   ),
                               ],
@@ -361,9 +368,6 @@ class _AdminRawMaterialSettingsScreenState
                       saving: _saving,
                       bottomPadding: bottomPadding,
                       onChanged: _setRequiresMaterial,
-                    ),
-                    AdminRawMaterialAssignmentPanel(
-                      bottomPadding: bottomPadding,
                     ),
                   ],
                 ),
