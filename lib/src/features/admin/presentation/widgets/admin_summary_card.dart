@@ -139,7 +139,7 @@ class AdminSummaryCard extends StatelessWidget {
       elevation: elevation,
       shadowColor: shadowColor ??
           (elevation > 0
-              ? scheme.shadow.withValues(alpha: 0.16)
+              ? scheme.shadow.withValues(alpha: 0.24)
               : Colors.transparent),
       surfaceTintColor: surfaceTintColor ?? Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),

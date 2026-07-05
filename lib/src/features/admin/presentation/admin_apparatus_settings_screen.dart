@@ -683,7 +683,7 @@ class _ApparatusListRow extends StatelessWidget {
       showChevron: false,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      elevation: 2,
+      elevation: 4,
       leading: _apparatusLeading(context, title),
       titleMaxLines: 1,
       subtitleMaxLines: 1,
@@ -723,7 +723,7 @@ class _ApparatusSelectRow extends StatelessWidget {
       showChevron: false,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
-      elevation: 2,
+      elevation: 4,
       backgroundColor: selected
           ? scheme.primaryContainer.withValues(alpha: 0.34)
           : scheme.surface,
@@ -787,8 +787,8 @@ class _ApparatusGroupListTile extends StatelessWidget {
       color: editing
           ? scheme.secondaryContainer.withValues(alpha: 0.45)
           : scheme.surface,
-      elevation: expanded || editing ? 0 : 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      elevation: expanded || editing ? 0 : 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,

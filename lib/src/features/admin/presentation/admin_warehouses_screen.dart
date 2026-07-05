@@ -1344,8 +1344,8 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
 
     return Material(
       color: scheme.surface,
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,

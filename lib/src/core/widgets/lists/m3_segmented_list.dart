@@ -146,9 +146,9 @@ class M3SegmentFilledSurface extends StatelessWidget {
     );
 
     return Material(
-      color: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
+      color: bg,
+      elevation: 4,
+      shadowColor: scheme.shadow.withValues(alpha: 0.24),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,

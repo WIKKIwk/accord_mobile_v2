@@ -364,7 +364,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: context.l10n.adminTotalUsersTitle,
           value: summary.totalSuppliers.toString(),
           onTap: onTapTotal,
-          elevation: 2,
+          elevation: 4,
         ),
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.middle,
@@ -373,7 +373,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: context.l10n.adminActiveUsersTitle,
           value: summary.activeSuppliers.toString(),
           onTap: onTapActive,
-          elevation: 2,
+          elevation: 4,
         ),
         AdminSummaryCard(
           slot: M3SegmentVerticalSlot.bottom,
@@ -382,7 +382,7 @@ class _AdminSummaryList extends StatelessWidget {
           title: context.l10n.adminBlockedUsersTitle,
           value: summary.blockedSuppliers.toString(),
           onTap: onTapBlocked,
-          elevation: 2,
+          elevation: 4,
         ),
       ],
     );

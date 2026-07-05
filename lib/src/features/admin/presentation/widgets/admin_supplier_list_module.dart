@@ -70,6 +70,7 @@ class AdminSupplierListRow extends StatelessWidget {
       onTap: onTap,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      elevation: 4,
       value: '',
       showChevron: true,
       leading: SizedBox.square(
