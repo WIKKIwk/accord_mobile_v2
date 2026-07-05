@@ -135,12 +135,9 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
 
           if (items.isEmpty) {
             return Center(
-              child: Card.filled(
-                margin: EdgeInsets.zero,
-                child: Text(
-                  context.l10n.adminNoActivity,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+              child: Text(
+                context.l10n.adminNoActivity,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             );
           }

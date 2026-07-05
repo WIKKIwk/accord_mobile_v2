@@ -331,10 +331,8 @@ class _AdminRawMaterialAssignmentPanelState
               ),
               if (_assignments.isEmpty) ...[
                 const SizedBox(height: 10),
-                const AppSegmentSurfaceCard(
-                  child: Center(
-                    child: Text('Ulangan homashyo topilmadi'),
-                  ),
+                const Center(
+                  child: Text('Ulangan homashyo topilmadi'),
                 ),
               ] else ...[
                 const SizedBox(height: 10),
