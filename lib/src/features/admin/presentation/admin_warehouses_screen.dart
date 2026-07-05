@@ -584,9 +584,8 @@ class _WarehouseCreateTabState extends State<_WarehouseCreateTab> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: ListView(
         padding: EdgeInsets.fromLTRB(4, 12, 4, widget.bottomPadding),
         children: [
@@ -739,7 +738,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
     );
     Widget buildScaffold(List<Widget> children) {
       return ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: ListView(
           padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
           children: [
