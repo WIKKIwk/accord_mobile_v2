@@ -1,5 +1,6 @@
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/models/app_models.dart';
+import 'admin_expandable_filter_chip.dart';
 import 'admin_item_group_selected_items.dart';
 import 'package:flutter/material.dart';
 
@@ -34,6 +35,7 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
   bool _initialLoading = false;
   bool _loadingMore = false;
   bool _hasMore = false;
+  bool _groupFilterExpanded = false;
   Object? _error;
 
   @override
@@ -205,7 +207,15 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
                     selected,
                   ),
                   selectedGroup: selected,
-                  onSelectGroup: widget.onSelectGroup,
+                  expanded: _groupFilterExpanded,
+                  onToggle: () {
+                    setState(
+                        () => _groupFilterExpanded = !_groupFilterExpanded);
+                  },
+                  onSelectGroup: (group) {
+                    setState(() => _groupFilterExpanded = false);
+                    widget.onSelectGroup(group);
+                  },
                 );
               },
             ),
@@ -250,11 +260,15 @@ class _GroupSelector extends StatelessWidget {
   const _GroupSelector({
     required this.groups,
     required this.selectedGroup,
+    required this.expanded,
+    required this.onToggle,
     required this.onSelectGroup,
   });
 
   final List<String> groups;
   final String? selectedGroup;
+  final bool expanded;
+  final VoidCallback onToggle;
   final ValueChanged<String> onSelectGroup;
 
   @override
@@ -262,90 +276,28 @@ class _GroupSelector extends StatelessWidget {
     if (groups.isEmpty) {
       return const _NoticeCard(text: 'Group topilmadi');
     }
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        itemBuilder: (context, index) {
-          final group = groups[index];
-          return _GroupTabButton(
-            group: group,
-            selected: group == selectedGroup,
-            onTap: () => onSelectGroup(group),
-          );
-        },
-        separatorBuilder: (_, index) => const SizedBox(width: 4),
-        itemCount: groups.length,
-      ),
-    );
-  }
-}
-
-class _GroupTabButton extends StatelessWidget {
-  const _GroupTabButton({
-    required this.group,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String group;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground =
-        selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 88),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      group,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: foreground,
-                            fontWeight:
-                                selected ? FontWeight.w800 : FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  width: selected ? 48 : 0,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
+    final selected = selectedGroup?.trim();
+    return AdminExpandableFilterChip<String>(
+      chipKey: const ValueKey('admin-item-group-items-filter-chip'),
+      label: 'Group',
+      emptyLabel: 'Tanlanmagan',
+      icon: Icons.inventory_2_outlined,
+      selectedValue: selected == null || selected.isEmpty ? null : selected,
+      expanded: expanded,
+      onToggle: onToggle,
+      onSelect: onSelectGroup,
+      optionKeyPrefix: 'admin-item-group-items-option-chip',
+      options: [
+        for (final group in groups)
+          AdminFilterChipOption(
+            value: group,
+            label: group,
+            key: ValueKey(
+              'admin-item-group-items-option-chip-$group',
             ),
           ),
-        ),
-      ),
+      ],
+      padding: EdgeInsets.zero,
     );
   }
 }
