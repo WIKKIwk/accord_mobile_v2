@@ -10,10 +10,16 @@ class AdminItemGroupParentMovePanel extends StatefulWidget {
     super.key,
     required this.groups,
     required this.onMoved,
+    this.showHeader = true,
+    this.elevation = 2,
+    this.backgroundColor,
   });
 
   final List<String> groups;
   final ValueChanged<AdminItemGroup> onMoved;
+  final bool showHeader;
+  final double elevation;
+  final Color? backgroundColor;
 
   @override
   State<AdminItemGroupParentMovePanel> createState() =>
@@ -169,8 +175,8 @@ class _AdminItemGroupParentMovePanelState
         (parentName?.isNotEmpty ?? false);
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surface,
-      elevation: 2,
+      color: widget.backgroundColor ?? scheme.surface,
+      elevation: widget.elevation,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -180,18 +186,20 @@ class _AdminItemGroupParentMovePanelState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Parentni ko‘chirish',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Mavjud groupni boshqa parent ostiga o‘tkazish uchun ishlatiladi.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 14),
+            if (widget.showHeader) ...[
+              Text(
+                'Parentni ko‘chirish',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Mavjud groupni boshqa parent ostiga o‘tkazish uchun ishlatiladi.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 14),
+            ],
             AdminPickerField(
               label: 'Ko‘chiriladigan group',
               value: groupName,
