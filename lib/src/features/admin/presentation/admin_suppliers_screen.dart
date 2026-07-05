@@ -45,10 +45,6 @@ String _adminUserKindLabel(AdminUserKind kind) {
   };
 }
 
-String _adminUserKindSelectionLabel(AdminUserKind? kind) {
-  return kind == null ? 'Tanlanmagan' : _adminUserKindLabel(kind);
-}
-
 String _adminUserKindRoleQuery(AdminUserKind kind) {
   return switch (kind) {
     AdminUserKind.werka => 'werka',
@@ -590,117 +586,90 @@ class _AdminUserRolePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final selectedLabel = selectedKind == null
+        ? 'Tanlanmagan'
+        : _adminUserKindLabel(selectedKind!);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Material(
-            color: scheme.surface,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: scheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  key: const ValueKey('admin-users-role-picker'),
-                  onTap: onToggle,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 42),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Rollar',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: scheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _adminUserKindSelectionLabel(selectedKind),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          AnimatedRotation(
-                            turns: expanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOutCubic,
-                            child: Icon(
-                              Icons.expand_more_rounded,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              key: const ValueKey('admin-users-role-filter-chip'),
+              selected: selectedKind != null,
+              showCheckmark: false,
+              label: Text('Rol: $selectedLabel'),
+              labelStyle: theme.textTheme.labelLarge?.copyWith(
+                color: selectedKind == null
+                    ? scheme.onSurface
+                    : scheme.onSecondaryContainer,
+                fontWeight: FontWeight.w500,
+              ),
+              avatar: Icon(
+                Icons.person_outline_rounded,
+                size: 18,
+                color: selectedKind == null
+                    ? scheme.onSurfaceVariant
+                    : scheme.onSecondaryContainer,
+              ),
+              onSelected: (_) => onToggle(),
+              selectedColor: scheme.secondaryContainer,
+              backgroundColor: Colors.transparent,
+              elevation: 1,
+              pressElevation: 1,
+              shadowColor: scheme.shadow.withValues(alpha: 0.18),
+              side: BorderSide(
+                color: selectedKind == null
+                    ? scheme.outline.withValues(alpha: 0.72)
+                    : Colors.transparent,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: const VisualDensity(
+                horizontal: 0,
+                vertical: -1,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              deleteIcon: AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: selectedKind == null
+                      ? scheme.onSurfaceVariant
+                      : scheme.onSecondaryContainer,
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: expanded
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: scheme.outlineVariant.withValues(
-                                alpha: 0.75,
-                              ),
-                            ),
-                            for (int index = 0;
-                                index < _adminUserTabKinds.length;
-                                index++) ...[
-                              if (index > 0)
-                                Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: scheme.outlineVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
-                                ),
-                              _AdminUserRoleOption(
-                                kind: _adminUserTabKinds[index],
-                                selected:
-                                    _adminUserTabKinds[index] == selectedKind,
-                                onTap: () =>
-                                    onSelect(_adminUserTabKinds[index]),
-                              ),
-                            ],
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
+              ),
+              onDeleted: onToggle,
             ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final kind in _adminUserTabKinds)
+                          _AdminUserRoleOptionChip(
+                            kind: kind,
+                            selected: kind == selectedKind,
+                            onSelect: () => onSelect(kind),
+                          ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -708,48 +677,43 @@ class _AdminUserRolePicker extends StatelessWidget {
   }
 }
 
-class _AdminUserRoleOption extends StatelessWidget {
-  const _AdminUserRoleOption({
+class _AdminUserRoleOptionChip extends StatelessWidget {
+  const _AdminUserRoleOptionChip({
     required this.kind,
     required this.selected,
-    required this.onTap,
+    required this.onSelect,
   });
 
   final AdminUserKind kind;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected
-          ? scheme.primaryContainer.withValues(alpha: 0.55)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _adminUserKindLabel(kind),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: scheme.onSurface,
-                  ),
-                ),
-              ),
-              if (selected)
-                Icon(Icons.check_rounded, size: 18, color: scheme.onSurface),
-            ],
-          ),
-        ),
+    final scheme = theme.colorScheme;
+    return FilterChip(
+      key: ValueKey('admin-users-role-option-chip-${kind.name}'),
+      selected: selected,
+      showCheckmark: selected,
+      checkmarkColor: scheme.onSecondaryContainer,
+      label: Text(_adminUserKindLabel(kind)),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
+        color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+        fontWeight: FontWeight.w500,
       ),
+      onSelected: (_) => onSelect(),
+      selectedColor: scheme.secondaryContainer,
+      backgroundColor: Colors.transparent,
+      side: BorderSide(
+        color: selected
+            ? Colors.transparent
+            : scheme.outline.withValues(alpha: 0.72),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
     );
   }
 }
