@@ -15,12 +15,14 @@ class AdminDock extends StatelessWidget {
     this.compact = true,
     this.tightToEdges = true,
     this.showPrimaryFab = true,
+    this.primaryFabActions,
   });
 
   final AdminDockTab? activeTab;
   final bool compact;
   final bool tightToEdges;
   final bool showPrimaryFab;
+  final List<AdminFabMenuAction>? primaryFabActions;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +61,10 @@ class AdminDock extends StatelessWidget {
               }
               final destination = destinations[index];
               if (destination.primary) {
-                showAdminCreateHubSheet(context);
+                showAdminCreateHubSheet(
+                  context,
+                  actions: primaryFabActions,
+                );
                 return;
               }
               final currentRoute = ModalRoute.of(context)?.settings.name;

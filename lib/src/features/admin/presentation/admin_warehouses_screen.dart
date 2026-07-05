@@ -13,6 +13,7 @@ import '../models/admin_item_group_tree_entry.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
@@ -187,7 +188,16 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      bottom: AdminDock(
+        activeTab: AdminDockTab.settings,
+        primaryFabActions: [
+          AdminFabMenuAction(
+            title: 'Ombor yaratish',
+            icon: Icons.warehouse_outlined,
+            onTap: () => _tabController.animateTo(1),
+          ),
+        ],
+      ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<_WarehouseSummaryData>(
         future: _future,

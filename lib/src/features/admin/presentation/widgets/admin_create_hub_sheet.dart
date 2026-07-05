@@ -19,7 +19,10 @@ OverlayEntry? _adminCreateHubOverlayEntry;
 final GlobalKey<_AdminCreateHubOverlayState> _adminCreateHubOverlayKey =
     GlobalKey<_AdminCreateHubOverlayState>();
 
-void showAdminCreateHubSheet(BuildContext context) {
+void showAdminCreateHubSheet(
+  BuildContext context, {
+  List<AdminFabMenuAction>? actions,
+}) {
   if (_adminCreateHubOverlayEntry != null) {
     _adminCreateHubOverlayKey.currentState?.setOpen(true);
     return;
@@ -59,6 +62,7 @@ void showAdminCreateHubSheet(BuildContext context) {
     builder: (overlayContext) {
       return _AdminCreateHubOverlay(
         key: _adminCreateHubOverlayKey,
+        actions: actions,
         onClose: closeMenuNow,
         onOpenRoute: openRoute,
       );
@@ -73,10 +77,12 @@ void showAdminCreateHubSheet(BuildContext context) {
 class _AdminCreateHubOverlay extends StatefulWidget {
   const _AdminCreateHubOverlay({
     super.key,
+    required this.actions,
     required this.onClose,
     required this.onOpenRoute,
   });
 
+  final List<AdminFabMenuAction>? actions;
   final VoidCallback onClose;
   final ValueChanged<String> onOpenRoute;
 
@@ -262,6 +268,23 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
   }
 
   List<_AdminHubAction> _actions(BuildContext context) {
+    final customActions = widget.actions;
+    if (customActions != null) {
+      final n = customActions.length;
+      return [
+        for (var i = 0; i < customActions.length; i++)
+          _AdminHubAction(
+            key: ValueKey('admin-hub-custom-${customActions[i].title}'),
+            title: customActions[i].title,
+            icon: customActions[i].icon,
+            routeName: '',
+            row: i,
+            staggerOrder: n - 1 - i,
+            enabled: customActions[i].enabled,
+            onTap: customActions[i].onTap,
+          ),
+      ];
+    }
     final l10n = context.l10n;
     final candidates = [
       _AdminHubActionCandidate(
@@ -377,7 +400,15 @@ class _AdminCreateHubOverlayState extends State<_AdminCreateHubOverlay>
                     motionKey: ValueKey(
                       'admin-hub-reveal-${actions[index].row}',
                     ),
-                    onTap: () => widget.onOpenRoute(actions[index].routeName),
+                    onTap: () {
+                      final customTap = actions[index].onTap;
+                      if (customTap != null) {
+                        _setOpen(false);
+                        customTap();
+                        return;
+                      }
+                      widget.onOpenRoute(actions[index].routeName);
+                    },
                   ),
                   if (index != actions.length - 1)
                     const SizedBox(height: _menuItemGap),
@@ -445,6 +476,7 @@ class _AdminHubAction {
     required this.row,
     required this.staggerOrder,
     this.enabled = true,
+    this.onTap,
   });
 
   final Key key;
@@ -454,6 +486,7 @@ class _AdminHubAction {
   final int row;
   final int staggerOrder;
   final bool enabled;
+  final VoidCallback? onTap;
 }
 
 class _AdminHubActionCandidate {
