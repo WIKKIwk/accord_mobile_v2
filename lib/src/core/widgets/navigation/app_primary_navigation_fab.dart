@@ -136,9 +136,10 @@ class AppPrimaryNavigationFab extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
-              color: scheme.shadow.withValues(alpha: 0.18),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: scheme.shadow.withValues(alpha: 0.28),
+              blurRadius: 14,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
