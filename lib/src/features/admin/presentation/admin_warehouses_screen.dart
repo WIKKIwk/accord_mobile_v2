@@ -17,7 +17,6 @@ import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
-import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -834,20 +833,18 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             Center(child: Text('Ombor topilmadi')),
           ]);
         }
+        if (current.items.isEmpty &&
+            current.rawStock.isEmpty &&
+            current.reservations.isEmpty) {
+          return buildScaffold(const [
+            SizedBox(height: 24),
+            Center(child: Text('Bu omborda mahsulot topilmadi')),
+          ]);
+        }
         return buildScaffold([
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-            child: Text(
-              current.warehouse,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-          ),
-          _WarehouseDetailSummaryCards(section: current),
           if (current.items.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 16),
+              padding: const EdgeInsets.only(top: 4),
               child: _WarehouseItemListModule(
                 items: current.items,
                 expandedKey: _expandedCardKey,
@@ -1038,59 +1035,6 @@ class _WarehouseRawMaterialInventorySectionState
     return const Padding(
       padding: EdgeInsets.fromLTRB(10, 8, 10, 8),
       child: Center(child: Text('Band qilingan homashyo topilmadi')),
-    );
-  }
-}
-
-class _WarehouseDetailSummaryCards extends StatelessWidget {
-  const _WarehouseDetailSummaryCards({required this.section});
-
-  final _WarehouseInventorySection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final assignValue = section.assignments.isEmpty
-        ? 'yo‘q'
-        : section.assignments
-            .map(
-              (item) => item.displayName.trim().isEmpty
-                  ? item.principalRef
-                  : item.displayName,
-            )
-            .join(', ');
-    return M3SegmentSpacedColumn(
-      padding: EdgeInsets.zero,
-      children: [
-        AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.top,
-          cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: scheme.surfaceContainerLowest,
-          elevation: 2,
-          title: 'Mahsulotlar',
-          value: '${section.productCount}',
-          showChevron: false,
-        ),
-        AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.middle,
-          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-          backgroundColor: scheme.surfaceContainerLowest,
-          elevation: 2,
-          title: 'Band qilingan',
-          value: '${section.reservations.length}',
-          showChevron: false,
-        ),
-        AdminSummaryCard(
-          slot: M3SegmentVerticalSlot.bottom,
-          cornerRadius: M3SegmentedListGeometry.cornerLarge,
-          backgroundColor: scheme.surfaceContainerLowest,
-          elevation: 2,
-          title: 'Assign',
-          value: assignValue,
-          showChevron: false,
-          valueMaxLines: 2,
-        ),
-      ],
     );
   }
 }
