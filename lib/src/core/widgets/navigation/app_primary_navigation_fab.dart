@@ -131,35 +131,46 @@ class AppPrimaryNavigationFab extends StatelessWidget {
       key: const ValueKey('app-primary-navigation-button'),
       button: true,
       label: destination.label,
-      child: Material(
-        color: background,
-        elevation: 1,
-        shadowColor: scheme.shadow.withValues(alpha: 0.18),
-        shape: RoundedRectangleBorder(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.18),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(radius),
-          onTap: onTap,
-          onLongPress: destination.onLongPress,
-          child: SizedBox(
-            width: side,
-            height: side,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.25),
+        child: Material(
+          color: background,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(radius),
+            onTap: onTap,
+            onLongPress: destination.onLongPress,
+            child: SizedBox(
+              width: side,
+              height: side,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.25),
+                  ),
                 ),
-              ),
-              child: IconTheme(
-                data: IconThemeData(color: foreground, size: iconSize),
-                child: Center(
-                  child: SizedBox(
-                    width: iconSize,
-                    height: iconSize,
-                    child: icon,
+                child: IconTheme(
+                  data: IconThemeData(color: foreground, size: iconSize),
+                  child: Center(
+                    child: SizedBox(
+                      width: iconSize,
+                      height: iconSize,
+                      child: icon,
+                    ),
                   ),
                 ),
               ),
