@@ -871,8 +871,12 @@ class _AdminFabActionOverlayState extends State<_AdminFabActionOverlay>
                               'admin-fab-menu-reveal-${actions[rowStart + offset].row}',
                             ),
                             onTap: () {
-                              _setOpen(false);
-                              widget.actions[rowStart + offset].onTap();
+                              final action =
+                                  widget.actions[rowStart + offset].onTap;
+                              widget.onClose();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                action();
+                              });
                             },
                           ),
                           if (offset != columns - 1 &&

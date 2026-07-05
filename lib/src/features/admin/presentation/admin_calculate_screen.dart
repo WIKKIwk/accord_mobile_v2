@@ -990,7 +990,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final children =
         _editingAllFields ? _fullEditChildren() : _compactTemplateChildren();
@@ -1024,7 +1023,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

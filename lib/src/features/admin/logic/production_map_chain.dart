@@ -40,6 +40,9 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
     if (node.kind == 'end') {
       break;
     }
+    if (_isUnassignedAlternativeApparatus(node)) {
+      break;
+    }
     if (_isWorkStage(node, seenApparatus)) {
       final title = _stageTitle(node);
       if (title.isNotEmpty) {
@@ -111,6 +114,9 @@ bool productionMapNodeMatchesStation({
   required ProductionMapNode node,
   required String station,
 }) {
+  if (_isUnassignedAlternativeApparatus(node)) {
+    return false;
+  }
   if (!_isWorkStage(node, true)) {
     return false;
   }
@@ -200,6 +206,12 @@ bool _isWorkStage(ProductionMapNode node, bool seenApparatus) {
     return seenApparatus;
   }
   return false;
+}
+
+bool _isUnassignedAlternativeApparatus(ProductionMapNode node) {
+  return node.kind == 'apparatus' &&
+      node.alternativeGroupId.trim().isNotEmpty &&
+      node.alternativeAssignedTitle.trim().isEmpty;
 }
 
 String _stageTitle(ProductionMapNode node) {

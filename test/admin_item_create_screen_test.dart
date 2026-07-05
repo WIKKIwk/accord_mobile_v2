@@ -32,11 +32,14 @@ Future<void> _pumpAdminItemCreateScreen(
 }
 
 Future<void> _openCreateItemTab(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(Tab, 'Item yaratish'));
-  await tester.pump();
+  await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Item qo‘shish').last);
+  await tester.pumpAndSettle();
   for (var i = 0; i < 30; i++) {
     await tester.pump(const Duration(milliseconds: 100));
     if (find.text('All Item Groups').evaluate().isNotEmpty) {
+      await tester.pumpAndSettle();
       return;
     }
   }
@@ -180,8 +183,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('admin-item-create-group-picker')).first,
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
 
       expect(find.text('Item group tanlang'), findsOneWidget);
       expect(find.text('Item group qidiring'), findsOneWidget);
@@ -224,8 +226,8 @@ void main() {
 
       await _pumpAdminItemCreateScreen(tester, waitForItems: true);
 
-      expect(find.widgetWithText(Tab, 'Item yaratish'), findsOneWidget);
-      expect(find.text('Itemlar'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Itemlar'), findsOneWidget);
+      expect(find.widgetWithText(Tab, "Group ko'chirish"), findsOneWidget);
       expect(find.text('Mahsulot qidirish'), findsOneWidget);
       expect(
         tester.widget<EditableText>(_appBarSearchEditable()).textAlign,
@@ -239,16 +241,16 @@ void main() {
 
       expect(find.byKey(const ValueKey('admin-item-search-close')),
           findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Item yaratish'), findsNothing);
+      expect(find.widgetWithText(Tab, 'Itemlar'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('admin-item-search-close')));
       await tester.pumpAndSettle();
 
       expect(
           find.byKey(const ValueKey('admin-item-search-close')), findsNothing);
-      expect(find.widgetWithText(Tab, 'Item yaratish'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Itemlar'), findsOneWidget);
       expect(
-          find.byKey(const ValueKey('admin-item-create-code')), findsOneWidget);
+          find.byKey(const ValueKey('admin-item-create-code')), findsNothing);
 
       await _openItemsTab(tester);
 
@@ -425,8 +427,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('admin-item-create-group-picker')).first,
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Homashyo'),
         240,

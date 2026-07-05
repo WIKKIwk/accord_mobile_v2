@@ -170,6 +170,123 @@ void main() {
     ]);
   });
 
+  test('unassigned bosma alternative group is not a work stage', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-unassigned-bosma',
+      productCode: 'ALT',
+      title: 'Unassigned bosma',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(id: 'order', kind: 'task', title: 'Zakaz'),
+        ProductionMapNode(
+          id: 'pechat_7',
+          kind: 'apparatus',
+          title: '7 ta rangli bosma aparat',
+          alternativeGroupId: 'alt_bosma',
+          alternativeGroupLabel: 'Bosma aparat',
+        ),
+        ProductionMapNode(
+          id: 'pechat_8',
+          kind: 'apparatus',
+          title: '8 ta rangli bosma aparat',
+          alternativeGroupId: 'alt_bosma',
+          alternativeGroupLabel: 'Bosma aparat',
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'order'),
+        ProductionMapEdge(from: 'order', to: 'pechat_7'),
+        ProductionMapEdge(from: 'order', to: 'pechat_8'),
+        ProductionMapEdge(from: 'pechat_7', to: 'end'),
+        ProductionMapEdge(from: 'pechat_8', to: 'end'),
+      ],
+    );
+
+    expect(productionMapLinearWorkStages(map), isEmpty);
+    expect(
+      productionMapMapHasWorkStageForStation(
+        map: map,
+        station: '7 ta rangli bosma aparat',
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapMapHasWorkStageForStation(
+        map: map,
+        station: '8 ta rangli bosma aparat',
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapNodeMatchesStation(
+        node: map.nodes[2],
+        station: '7 ta rangli bosma aparat',
+      ),
+      isFalse,
+    );
+  });
+
+  test('unassigned laminatsiya alternative group stops after previous stage',
+      () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-unassigned-laminatsiya',
+      productCode: 'ALT',
+      title: 'Unassigned laminatsiya',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'pechat',
+          kind: 'apparatus',
+          title: '7 ta rangli bosma aparat',
+        ),
+        ProductionMapNode(
+          id: 'lamin_1',
+          kind: 'apparatus',
+          title: 'Laminatsiya 1',
+          alternativeGroupId: 'alt_laminatsiya',
+          alternativeGroupLabel: 'Laminatsiya',
+        ),
+        ProductionMapNode(
+          id: 'lamin_2',
+          kind: 'apparatus',
+          title: 'Laminatsiya 2',
+          alternativeGroupId: 'alt_laminatsiya',
+          alternativeGroupLabel: 'Laminatsiya',
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'pechat'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin_1'),
+        ProductionMapEdge(from: 'pechat', to: 'lamin_2'),
+        ProductionMapEdge(from: 'lamin_1', to: 'end'),
+        ProductionMapEdge(from: 'lamin_2', to: 'end'),
+      ],
+    );
+
+    expect(
+      productionMapLinearWorkStages(map)
+          .map((stage) => stage.stationTitle)
+          .toList(),
+      ['7 ta rangli bosma aparat'],
+    );
+    expect(
+      productionMapMapHasWorkStageForStation(
+        map: map,
+        station: 'Laminatsiya 1',
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPreviousWorkStageStation(
+        map: map,
+        station: 'Laminatsiya 1',
+      ),
+      isNull,
+    );
+  });
+
   test('laminatsiya tab sees orders only when map includes that stage', () {
     expect(
       productionMapMapHasWorkStageForStation(

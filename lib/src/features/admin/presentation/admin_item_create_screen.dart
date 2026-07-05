@@ -9,6 +9,7 @@ import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'admin_item_group_bulk_move_screen.dart';
 import 'widgets/admin_catalog_search_field.dart';
+import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_summary_card.dart';
@@ -16,7 +17,6 @@ import 'widgets/admin_top_notice.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-const double _itemCreatePanelGap = 4;
 const double _itemCreateCardRadius = 18;
 const double _itemCreateFieldRadius = 18;
 
@@ -31,7 +31,7 @@ class AdminItemCreateScreen extends StatefulWidget {
 
 class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     with SingleTickerProviderStateMixin {
-  static const int _tabCount = 3;
+  static const int _tabCount = 2;
 
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
@@ -49,7 +49,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   @override
   void initState() {
     super.initState();
-    final initialIndex = widget.initialTabIndex.clamp(0, _tabCount - 1);
+    final initialIndex = _resolveInitialTabIndex(widget.initialTabIndex);
     _tabController = TabController(
       length: _tabCount,
       vsync: this,
@@ -58,6 +58,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     _itemsSearchFocusNode.addListener(_handleItemsSearchFocus);
     itemGroupsFuture = _loadItemGroups();
     _hydrateDefaultUom();
+  }
+
+  int _resolveInitialTabIndex(int requestedIndex) {
+    if (requestedIndex >= 2) {
+      return 1;
+    }
+    return 0;
   }
 
   @override
@@ -117,11 +124,11 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
   }
 
-  Future<void> _save() async {
+  Future<bool> _save() async {
     final group = itemGroup.text.trim();
     if (_isFinishedGoodsGroup(group) && selectedCustomer == null) {
       showAdminTopNotice(context, 'Tayyor mahsulot uchun customer tanlang');
-      return;
+      return false;
     }
     setState(() => saving = true);
     try {
@@ -129,7 +136,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         if (mounted) {
           showAdminTopNotice(context, 'Item allaqachon yaratilgan');
         }
-        return;
+        return false;
       }
       final item = await MobileApi.instance.adminCreateItem(
         code: code.text.trim(),
@@ -141,19 +148,23 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
             : '',
       );
       if (!mounted) {
-        return;
+        return false;
       }
       code.clear();
       name.clear();
       selectedCustomer = null;
+      AdminItemsListTab.clearMemoryCache();
+      await _itemsListTabKey.currentState?._loadFirstPage(forceRefresh: true);
       if (!mounted) {
-        return;
+        return true;
       }
       showAdminTopNotice(context, 'Item yaratildi: ${item.code}');
+      return true;
     } catch (error) {
       if (mounted) {
         showAdminTopNotice(context, 'Item yaratilmadi');
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() => saving = false);
@@ -189,6 +200,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       isDismissible: true,
       enableDrag: true,
       isScrollControlled: true,
+      useRootNavigator: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
@@ -230,6 +242,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       isDismissible: true,
       enableDrag: true,
       isScrollControlled: true,
+      useRootNavigator: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
@@ -259,6 +272,63 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     setState(() => selectedCustomer = picked);
   }
 
+  Future<void> _openItemCreateDialog() async {
+    code.clear();
+    name.clear();
+    selectedCustomer = null;
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _ItemCreateDialogCard(
+                code: code,
+                name: name,
+                itemGroup: itemGroup,
+                uom: uom,
+                selectedCustomer: selectedCustomer,
+                itemGroupsFuture: itemGroupsFuture,
+                saving: saving,
+                onSyncItemGroup: _syncItemGroupSelection,
+                onOpenItemGroupPicker: (groups) async {
+                  await _openItemGroupPicker(groups);
+                  if (context.mounted) {
+                    setDialogState(() {});
+                  }
+                },
+                onOpenCustomerPicker: () async {
+                  await _openCustomerPicker();
+                  if (context.mounted) {
+                    setDialogState(() {});
+                  }
+                },
+                onClearCustomer: () {
+                  setState(() => selectedCustomer = null);
+                  setDialogState(() {});
+                },
+                onSave: saving
+                    ? null
+                    : () async {
+                        final saved = await _save();
+                        if (saved && dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        } else if (context.mounted) {
+                          setDialogState(() {});
+                        }
+                      },
+                onClose: () => Navigator.of(dialogContext).pop(),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchActive = _itemsSearchFocusNode.hasFocus;
@@ -282,7 +352,16 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         },
         searchCloseKey: const ValueKey('admin-item-search-close'),
       ),
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      bottom: AdminDock(
+        activeTab: AdminDockTab.settings,
+        primaryFabActions: [
+          AdminFabMenuAction(
+            title: 'Item qo‘shish',
+            icon: Icons.inventory_2_outlined,
+            onTap: _openItemCreateDialog,
+          ),
+        ],
+      ),
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -296,7 +375,6 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                   : AdminSurfaceTabBar(
                       controller: _tabController,
                       tabs: const [
-                        Tab(height: 38, text: 'Item yaratish'),
                         Tab(height: 38, text: 'Itemlar'),
                         Tab(height: 38, text: "Group ko'chirish"),
                       ],
@@ -304,44 +382,32 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
             ),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _CreateItemTab(
-                  code: code,
-                  name: name,
-                  itemGroup: itemGroup,
-                  uom: uom,
-                  selectedCustomer: selectedCustomer,
-                  itemGroupsFuture: itemGroupsFuture,
-                  saving: saving,
-                  onSyncItemGroup: _syncItemGroupSelection,
-                  onOpenItemGroupPicker: _openItemGroupPicker,
-                  onOpenCustomerPicker: _openCustomerPicker,
-                  onClearCustomer: () =>
-                      setState(() => selectedCustomer = null),
-                  onSave: saving ? null : _save,
-                ),
-                AdminItemsListTab(
-                  key: _itemsListTabKey,
-                  searchController: _itemsSearchController,
-                  embeddedSearchInAppBar: true,
-                  loadItemsPage: ({
-                    required query,
-                    required limit,
-                    required offset,
-                  }) =>
-                      MobileApi.instance.adminItemsPage(
-                    query: query,
-                    limit: limit,
-                    offset: offset,
+            child: ColoredBox(
+              color: AppTheme.shellStart(context),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  AdminItemsListTab(
+                    key: _itemsListTabKey,
+                    searchController: _itemsSearchController,
+                    embeddedSearchInAppBar: true,
+                    loadItemsPage: ({
+                      required query,
+                      required limit,
+                      required offset,
+                    }) =>
+                        MobileApi.instance.adminItemsPage(
+                      query: query,
+                      limit: limit,
+                      offset: offset,
+                    ),
                   ),
-                ),
-                AdminItemGroupBulkMoveTab(
-                  embedded: true,
-                  searchController: _itemsSearchController,
-                ),
-              ],
+                  AdminItemGroupBulkMoveTab(
+                    embedded: true,
+                    searchController: _itemsSearchController,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -350,8 +416,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   }
 }
 
-class _CreateItemTab extends StatelessWidget {
-  const _CreateItemTab({
+class _ItemCreateDialogCard extends StatelessWidget {
+  const _ItemCreateDialogCard({
     required this.code,
     required this.name,
     required this.itemGroup,
@@ -364,6 +430,7 @@ class _CreateItemTab extends StatelessWidget {
     required this.onOpenCustomerPicker,
     required this.onClearCustomer,
     required this.onSave,
+    required this.onClose,
   });
 
   final TextEditingController code;
@@ -378,6 +445,7 @@ class _CreateItemTab extends StatelessWidget {
   final VoidCallback onOpenCustomerPicker;
   final VoidCallback onClearCustomer;
   final VoidCallback? onSave;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -386,119 +454,62 @@ class _CreateItemTab extends StatelessWidget {
     final fieldSurface = theme.brightness == Brightness.light
         ? scheme.surfaceBright
         : scheme.surface;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        _itemCreatePanelGap,
-        _itemCreatePanelGap,
-        _itemCreatePanelGap,
-        0,
-      ),
-      children: [
-        Card.filled(
-          margin: EdgeInsets.zero,
-          color: scheme.surfaceContainerLow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_itemCreateCardRadius),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  key: const ValueKey('admin-item-create-code'),
-                  controller: code,
-                  decoration: appSoftInputDecoration(
-                    context,
-                    labelText: 'Mahsulot kodi',
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      elevation: 6,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(_itemCreateCardRadius),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 440,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        ),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(12, 48, 12, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const ValueKey('admin-item-create-code'),
+                    controller: code,
+                    decoration: appSoftInputDecoration(
+                      context,
+                      labelText: 'Mahsulot kodi',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const ValueKey('admin-item-create-name'),
-                  controller: name,
-                  decoration: appSoftInputDecoration(
-                    context,
-                    labelText: 'Mahsulot nomi',
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('admin-item-create-name'),
+                    controller: name,
+                    decoration: appSoftInputDecoration(
+                      context,
+                      labelText: 'Mahsulot nomi',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                FutureBuilder<List<String>>(
-                  future: itemGroupsFuture,
-                  builder: (context, snapshot) {
-                    final groups = snapshot.data ?? const <String>[];
-                    if (snapshot.connectionState == ConnectionState.done &&
-                        !snapshot.hasError) {
-                      onSyncItemGroup(groups);
-                    }
-                    final selectedGroup = itemGroup.text.trim().isEmpty
-                        ? null
-                        : itemGroup.text.trim();
-                    final requiresCustomer = _isFinishedGoodsGroup(
-                      selectedGroup ?? '',
-                    );
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Mahsulot guruhi',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        _TapBox(
-                          key: const ValueKey('admin-item-create-group-picker'),
-                          onTap: snapshot.connectionState ==
-                                      ConnectionState.done &&
-                                  !snapshot.hasError &&
-                                  !saving
-                              ? () => onOpenItemGroupPicker(groups)
-                              : null,
-                          borderRadius: _itemCreateFieldRadius,
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 58),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: fieldSurface,
-                              borderRadius: BorderRadius.circular(
-                                _itemCreateFieldRadius,
-                              ),
-                              border: Border.all(color: scheme.outlineVariant),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    selectedGroup ?? 'Guruh tanlang',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: selectedGroup == null
-                                          ? scheme.onSurfaceVariant
-                                          : scheme.onSurface,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  Icons.expand_more_rounded,
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (requiresCustomer) ...[
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<String>>(
+                    future: itemGroupsFuture,
+                    builder: (context, snapshot) {
+                      final groups = snapshot.data ?? const <String>[];
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          !snapshot.hasError) {
+                        onSyncItemGroup(groups);
+                      }
+                      final selectedGroup = itemGroup.text.trim().isEmpty
+                          ? null
+                          : itemGroup.text.trim();
+                      final requiresCustomer = _isFinishedGoodsGroup(
+                        selectedGroup ?? '',
+                      );
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           Text(
-                            'Haridor',
+                            'Mahsulot guruhi',
                             style: theme.textTheme.labelMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: scheme.onSurfaceVariant,
@@ -507,9 +518,14 @@ class _CreateItemTab extends StatelessWidget {
                           const SizedBox(height: 6),
                           _TapBox(
                             key: const ValueKey(
-                              'admin-item-create-customer-picker',
+                              'admin-item-create-group-picker',
                             ),
-                            onTap: saving ? null : onOpenCustomerPicker,
+                            onTap: snapshot.connectionState ==
+                                        ConnectionState.done &&
+                                    !snapshot.hasError &&
+                                    !saving
+                                ? () => onOpenItemGroupPicker(groups)
+                                : null,
                             borderRadius: _itemCreateFieldRadius,
                             child: Container(
                               constraints: const BoxConstraints(minHeight: 58),
@@ -530,68 +546,135 @@ class _CreateItemTab extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      selectedCustomer == null
-                                          ? 'Haridor tanlang'
-                                          : selectedCustomer!.name,
+                                      selectedGroup ?? 'Guruh tanlang',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style:
                                           theme.textTheme.bodyLarge?.copyWith(
-                                        color: selectedCustomer == null
+                                        color: selectedGroup == null
                                             ? scheme.onSurfaceVariant
                                             : scheme.onSurface,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
-                                  if (selectedCustomer != null) ...[
-                                    const SizedBox(width: 10),
-                                    IconButton(
-                                      tooltip: 'Tozalash',
-                                      onPressed:
-                                          saving ? null : onClearCustomer,
-                                      icon: const Icon(Icons.close_rounded),
-                                    ),
-                                  ] else ...[
-                                    const SizedBox(width: 10),
-                                    Icon(
-                                      Icons.expand_more_rounded,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                  ],
+                                  const SizedBox(width: 10),
+                                  Icon(
+                                    Icons.expand_more_rounded,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           const SizedBox(height: 12),
+                          if (requiresCustomer) ...[
+                            Text(
+                              'Haridor',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _TapBox(
+                              key: const ValueKey(
+                                'admin-item-create-customer-picker',
+                              ),
+                              onTap: saving ? null : onOpenCustomerPicker,
+                              borderRadius: _itemCreateFieldRadius,
+                              child: Container(
+                                constraints:
+                                    const BoxConstraints(minHeight: 58),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: fieldSurface,
+                                  borderRadius: BorderRadius.circular(
+                                    _itemCreateFieldRadius,
+                                  ),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        selectedCustomer == null
+                                            ? 'Haridor tanlang'
+                                            : selectedCustomer!.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style:
+                                            theme.textTheme.bodyLarge?.copyWith(
+                                          color: selectedCustomer == null
+                                              ? scheme.onSurfaceVariant
+                                              : scheme.onSurface,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    if (selectedCustomer != null) ...[
+                                      const SizedBox(width: 10),
+                                      IconButton(
+                                        tooltip: 'Tozalash',
+                                        onPressed:
+                                            saving ? null : onClearCustomer,
+                                        icon: const Icon(Icons.close_rounded),
+                                      ),
+                                    ] else ...[
+                                      const SizedBox(width: 10),
+                                      Icon(
+                                        Icons.expand_more_rounded,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                         ],
-                      ],
-                    );
-                  },
-                ),
-                TextField(
-                  controller: uom,
-                  decoration: appSoftInputDecoration(
-                    context,
-                    labelText: 'O‘lchov birligi',
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const ValueKey('admin-item-create-submit'),
-                    onPressed: onSave,
-                    child: Text(
-                      saving ? 'Yaratilmoqda...' : 'Mahsulot yaratish',
+                  TextField(
+                    controller: uom,
+                    decoration: appSoftInputDecoration(
+                      context,
+                      labelText: 'O‘lchov birligi',
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const ValueKey('admin-item-create-submit'),
+                      onPressed: onSave,
+                      child: Text(
+                        saving ? 'Yaratilmoqda...' : 'Item qo‘shish',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            PositionedDirectional(
+              top: 4,
+              end: 4,
+              child: IconButton(
+                onPressed: saving ? null : onClose,
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'Yopish',
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -776,7 +859,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
     final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerHighest,
+      color: AppTheme.shellStart(context),
       child: RefreshIndicator.noSpinner(
         onRefresh: () => _loadFirstPage(forceRefresh: true),
         child: ListView(
