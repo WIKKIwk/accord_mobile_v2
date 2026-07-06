@@ -2,6 +2,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
@@ -33,6 +34,7 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+    setMobileApiTestModeForceProductionMapMenuLoadFailure(false);
   });
 
   test('admin apparatus groups normalize default bosma names', () async {
@@ -1566,6 +1568,33 @@ void main() {
     );
   });
 
+  testWidgets('opened production map orders load error is text only', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    setMobileApiTestModeForceProductionMapMenuLoadFailure(true);
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reja menu yuklanmadi'), findsOneWidget);
+    expect(find.byIcon(Icons.refresh_rounded), findsNothing);
+    expect(find.byType(AppRefreshIndicator), findsOneWidget);
+  });
+
   testWidgets(
     'opened production map orders page rounds metraj and uses val label',
     (tester) async {
@@ -1750,6 +1779,17 @@ void main() {
         widthMm: 700,
       ),
     );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-move-target',
+        title: 'Move target order',
+        productCode: 'MOVE-TARGET',
+        apparatus: '7 ta rangli bosma aparat',
+        product: 'move target product',
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -1787,20 +1827,19 @@ void main() {
     await _dragOrderTitleToTopZone(
       tester,
       orderTitle: 'Move ok order',
-      targetText: '7 ta rangli bosma aparat uchun zakaz yo‘q',
+      targetText: 'Move target order',
     );
     var maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '8 ta rangli bosma aparat');
-    expect(
-        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'), findsOneWidget);
+    expect(find.textContaining('Move target order'), findsOneWidget);
 
-    await _dragOrderHandleToTopZone(
+    await _dragOrderHandleForKeyToTopZone(
       tester,
-      orderTitle: 'Move ok order',
-      targetText: '7 ta rangli bosma aparat uchun zakaz yo‘q',
+      key: const ValueKey(
+        'move-order-8 ta rangli bosma aparat-zakaz-move-ok',
+      ),
+      targetText: 'Move target order',
     );
-    expect(
-        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'), findsNothing);
     expect(find.textContaining('Move ok order'), findsOneWidget);
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-ok'), '7 ta rangli bosma aparat');
@@ -2008,19 +2047,12 @@ void main() {
       await tester.tap(find.text('Tanlanmagan'));
       await tester.pumpAndSettle();
       expect(find.text('Tanlanmagan zakaz yo‘q'), findsOneWidget);
-
-      await _dragOrderHandleToBottomZone(
-        tester,
-        orderTitle: 'Direct pechat order',
-        targetText: 'Tanlanmagan zakaz yo‘q',
-      );
-
       expect(
         find.byKey(
           const ValueKey(
               'move-order-7 ta rangli bosma aparat-zakaz-direct-pechat'),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(
@@ -2256,11 +2288,18 @@ void main() {
         ),
         findsNothing,
       );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'move-order-disabled-7 ta rangli bosma aparat-zakaz-skip-7-8',
+          ),
+        ),
+        findsOneWidget,
+      );
 
-      await _dragOrderHandleToTopZone(
+      await _dragOrderHandleForKeyToTopDropZone(
         tester,
-        orderTitle: 'Skipped pechat order',
-        targetText: 'Skip target seven order',
+        key: const ValueKey('move-order-Tanlanmagan-zakaz-skip-7-8'),
       );
 
       expect(
@@ -2273,6 +2312,14 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'move-order-disabled-7 ta rangli bosma aparat-zakaz-skip-7-8',
+          ),
+        ),
+        findsNothing,
+      );
       final maps = await MobileApi.instance.adminProductionMaps();
       expect(_apparatusTitles(maps, 'zakaz-skip-7-8'), [
         '7 ta rangli bosma aparat',
@@ -2284,14 +2331,24 @@ void main() {
         '7 ta rangli bosma aparat',
       ]);
 
-      await _dragOrderHandleToBottomZone(
+      await _dragOrderHandleForKeyToZone(
         tester,
-        orderTitle: 'Skipped pechat order',
+        key: const ValueKey(
+          'move-order-7 ta rangli bosma aparat-zakaz-skip-7-8',
+        ),
         targetText: 'Tanlanmagan zakaz yo‘q',
       );
 
       expect(
         find.byKey(const ValueKey('move-order-Tanlanmagan-zakaz-skip-7-8')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'move-order-disabled-7 ta rangli bosma aparat-zakaz-skip-7-8',
+          ),
+        ),
         findsOneWidget,
       );
       final returnedMaps = await MobileApi.instance.adminProductionMaps();
@@ -2315,10 +2372,9 @@ void main() {
       await tester.tap(find.text('8 ta rangli bosma aparat').first);
       await tester.pumpAndSettle();
 
-      await _dragOrderHandleToTopZone(
+      await _dragOrderHandleForKeyToTopDropZone(
         tester,
-        orderTitle: 'Skipped pechat order',
-        targetText: 'Skip target eight order',
+        key: const ValueKey('move-order-Tanlanmagan-zakaz-skip-7-8'),
       );
 
       expect(
@@ -2336,6 +2392,36 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     },
   );
+
+  test('test mode queue snapshot exposes skipped alternative candidates',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _alternativeProductionOrderMap(
+        id: 'zakaz-visible-skip',
+        title: 'Visible skipped order',
+        productCode: 'VISIBLE-SKIP',
+        product: 'visible skipped product',
+        apparatus: const [
+          '7 ta rangli bosma aparat',
+          '8 ta rangli bosma aparat',
+        ],
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
+
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+
+    expect(
+      snapshot.visibleOrderIds['7 ta rangli bosma aparat'],
+      contains('zakaz-visible-skip'),
+    );
+    expect(
+      snapshot.visibleOrderIds['8 ta rangli bosma aparat'],
+      contains('zakaz-visible-skip'),
+    );
+  });
 
   testWidgets('opened orders move module keeps laminatsiya skips unassigned', (
     tester,
@@ -3574,7 +3660,8 @@ Future<void> _dragOrderTitleToTopZone(
   await tester.pumpAndSettle();
   final gesture = await tester.startGesture(tester.getCenter(order));
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.textContaining(targetText).first));
+  final target = tester.getCenter(find.textContaining(targetText).first);
+  await gesture.moveTo(target);
   await tester.pump();
   await gesture.up();
   await tester.pumpAndSettle();
@@ -3593,38 +3680,16 @@ Future<void> _tapMoveOrderBadge(
   await tester.pumpAndSettle();
 }
 
-Future<void> _dragOrderHandleToTopZone(
+Future<void> _dragOrderHandleForKeyToTopZone(
   WidgetTester tester, {
-  required String orderTitle,
+  required ValueKey<String> key,
   required String targetText,
 }) async {
-  final order = find.textContaining(orderTitle);
-  await tester.ensureVisible(order);
-  await tester.pumpAndSettle();
-  final orderCenter = tester.getCenter(order);
-  final handles = tester
-      .widgetList<Icon>(find.byIcon(Icons.drag_handle_rounded))
-      .toList(growable: false);
-  final handleFinders = [
-    for (var index = 0; index < handles.length; index++)
-      find.byIcon(Icons.drag_handle_rounded).at(index),
-  ];
-  Finder? matchingHandle;
-  var minDistance = double.infinity;
-  for (final handle in handleFinders) {
-    final center = tester.getCenter(handle);
-    final distance = (center.dy - orderCenter.dy).abs();
-    if (distance < minDistance) {
-      minDistance = distance;
-      matchingHandle = handle;
-    }
-  }
-  final gesture = await tester.startGesture(tester.getCenter(matchingHandle!));
-  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.textContaining(targetText).first));
-  await tester.pump();
-  await gesture.up();
-  await tester.pumpAndSettle();
+  await _dragOrderHandleForKeyToZone(
+    tester,
+    key: key,
+    targetText: targetText,
+  );
 }
 
 Future<void> _dragOrderHandleToBottomZone(
@@ -3665,10 +3730,66 @@ Future<void> _dragOrderHandleToZone(
       matchingHandle = handle;
     }
   }
-  final gesture = await tester.startGesture(tester.getCenter(matchingHandle!));
-  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 120));
-  await gesture.moveTo(tester.getCenter(find.textContaining(targetText).first));
+  final start = tester.getCenter(matchingHandle!);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 260));
+  final target = tester.getCenter(find.textContaining(targetText).first);
+  await gesture.moveBy(const Offset(0, -24));
   await tester.pump();
+  await gesture.moveTo(target);
+  await tester.pump(const Duration(milliseconds: 240));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dragOrderHandleForKeyToZone(
+  WidgetTester tester, {
+  required ValueKey<String> key,
+  required String targetText,
+}) async {
+  final order = find.byKey(key);
+  await tester.ensureVisible(order);
+  await tester.pumpAndSettle();
+  final handle = find.descendant(
+    of: order,
+    matching: find.byIcon(Icons.drag_handle_rounded),
+  );
+  final start = tester.getCenter(handle);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 260));
+  final target = tester.getCenter(find.textContaining(targetText).first);
+  await gesture.moveBy(const Offset(0, -24));
+  await tester.pump();
+  await gesture.moveTo(target);
+  await tester.pump(const Duration(milliseconds: 240));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dragOrderHandleForKeyToTopDropZone(
+  WidgetTester tester, {
+  required ValueKey<String> key,
+}) async {
+  final order = find.byKey(key);
+  await tester.ensureVisible(order);
+  await tester.pumpAndSettle();
+  final topHeader = find.byKey(const ValueKey('move-top-apparatus-picker'));
+  final boundary = find.byKey(const ValueKey('move-boundary-apparatus-picker'));
+  final headerCenter = tester.getCenter(topHeader);
+  final headerBottom = tester.getBottomLeft(topHeader).dy;
+  final boundaryTop = tester.getTopLeft(boundary).dy;
+  final target = Offset(headerCenter.dx, (headerBottom + boundaryTop) / 2);
+  final handle = find.descendant(
+    of: order,
+    matching: find.byIcon(Icons.drag_handle_rounded),
+  );
+  final start = tester.getCenter(handle);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 260));
+  await gesture.moveBy(const Offset(0, -24));
+  await tester.pump();
+  await gesture.moveTo(target);
+  await tester.pump(const Duration(milliseconds: 240));
   await gesture.up();
   await tester.pumpAndSettle();
 }

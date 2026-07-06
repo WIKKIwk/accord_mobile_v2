@@ -632,6 +632,12 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
           worker.id,
         );
         await MobileApi.instance.adminRegenerateWorkerCode(worker.id);
+      } else if (_isMaterialTaminotchiAssignedRole) {
+        await MobileApi.instance.adminCreateMaterialTaminotchi(
+          name: name.text.trim(),
+          phone: phone.text.trim(),
+          assignedItemGroups: _sortedSelection(selectedItemGroups),
+        );
       } else {
         final user = await MobileApi.instance.adminCreateCustomer(
           name: name.text.trim(),
@@ -654,13 +660,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
             widget.assignedRole,
             principalRole,
             user.ref,
-            assignedItemGroups: _isMaterialTaminotchiAssignedRole
-                ? _sortedSelection(selectedItemGroups)
-                : const [],
           );
-          if (_isMaterialTaminotchiAssignedRole) {
-            await MobileApi.instance.adminRegenerateCustomerCode(user.ref);
-          }
         }
       }
       if (!mounted) {

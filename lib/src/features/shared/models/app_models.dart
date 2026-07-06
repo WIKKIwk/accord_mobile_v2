@@ -1253,11 +1253,13 @@ class SessionProfile {
 
   bool get hasWorkspaceAccess {
     return hasAnyCapability(const [
-      'admin.access',
-      'werka.access',
-      'supplier.access',
-      'customer.access',
-    ]);
+          'admin.access',
+          'werka.access',
+          'supplier.access',
+          'customer.access',
+        ]) ||
+        (role == UserRole.materialTaminotchi &&
+            hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
   }
 
   bool get isCapabilityOnlyProfile {
@@ -1279,6 +1281,10 @@ class SessionProfile {
     }
     if (hasCapability('customer.access')) {
       return UserRole.customer;
+    }
+    if (role == UserRole.materialTaminotchi &&
+        hasAnyCapability(materialTaminotchiWorkspaceCapabilities)) {
+      return UserRole.materialTaminotchi;
     }
     return null;
   }
@@ -1370,6 +1376,14 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
       ];
   }
 }
+
+const List<String> materialTaminotchiWorkspaceCapabilities = [
+  'gscale.catalog.read',
+  'gscale.print',
+  'rps.batch.manage',
+  'catalog.item.create',
+  'raw_material.assign',
+];
 
 class AdminCapability {
   const AdminCapability({

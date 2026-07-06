@@ -23,6 +23,7 @@ final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 final Map<String, String> _testModeWorkerCodes = {};
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
+bool _testModeForceProductionMapMenuLoadFailure = false;
 
 const _defaultBosmaApparatusGroupName = 'Bosma aparat';
 
@@ -80,6 +81,10 @@ void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
   _testModeForceCalculateTemplateSaveFailure = value;
 }
 
+void setMobileApiTestModeForceProductionMapMenuLoadFailure(bool value) {
+  _testModeForceProductionMapMenuLoadFailure = value;
+}
+
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
   _testModeApparatusGroups
@@ -100,12 +105,56 @@ void resetMobileApiTestModeData() {
   resetMobileApiTestModeWorkerSettingsData();
   _testModeForceSequenceSaveFailure = false;
   _testModeForceCalculateTemplateSaveFailure = false;
+  _testModeForceProductionMapMenuLoadFailure = false;
 }
 
 void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
   _testModeWorkerCodes.clear();
+}
+
+Map<String, List<String>> _testModeVisibleOrderIdsByApparatus() {
+  final visible = <String, List<String>>{};
+  for (final saved in _testModeProductionMaps) {
+    final map = saved.map;
+    final orderId = map.id.trim();
+    if (!_testModeProductionMapIsVisibleQueueOrder(map)) {
+      continue;
+    }
+    final seenTitles = <String>{};
+    for (final stage in productionMapLinearWorkStages(map)) {
+      final title = stage.stationTitle.trim();
+      if (title.isEmpty ||
+          _testModeFlexoOrderBlockedForColorPechat(map, title) ||
+          !seenTitles.add(title.toLowerCase())) {
+        continue;
+      }
+      visible.putIfAbsent(title, () => <String>[]).add(orderId);
+    }
+  }
+  return {
+    for (final entry in visible.entries)
+      entry.key: List<String>.unmodifiable(entry.value),
+  };
+}
+
+bool _testModeProductionMapIsVisibleQueueOrder(ProductionMapDefinition map) {
+  final orderId = map.id.trim();
+  if (orderId.isEmpty || orderId.startsWith('template-')) {
+    return false;
+  }
+  return map.code.trim().isNotEmpty ||
+      map.orderNumber.trim().isNotEmpty ||
+      orderId.startsWith('zakaz-');
+}
+
+bool _testModeFlexoOrderBlockedForColorPechat(
+  ProductionMapDefinition map,
+  String apparatus,
+) {
+  return productionMapIsFlexoOrder(map) &&
+      productionMapPechatColorCount(apparatus) != null;
 }
 
 String _adminWarehouseRoleToJson(UserRole role) {
@@ -1803,6 +1852,9 @@ extension MobileApiAdmin on MobileApi {
 
   Future<List<ProductionMapSaved>> adminProductionMaps() async {
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeForceProductionMapMenuLoadFailure) {
+        throw Exception('Admin production maps failed');
+      }
       return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
     }
     final response = await _sendAuthorized(
@@ -2173,7 +2225,7 @@ extension MobileApiAdmin on MobileApi {
           for (final entry in _testModeApparatusSequences.entries)
             entry.key: List<String>.unmodifiable(entry.value),
         },
-        visibleOrderIds: const {},
+        visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
         queueStates: {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),
@@ -3947,6 +3999,67 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminCustomerDetail> adminMaterialTaminotchiDetail(String ref) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.customerDetail(ref);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/material-taminotchilar/detail',
+        ).replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin material taminotchi detail failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminUpdateMaterialTaminotchiPhone({
+    required String ref,
+    required String phone,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/material-taminotchilar/phone',
+        ).replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'phone': phone}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin material taminotchi phone update failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminRegenerateMaterialTaminotchiCode(
+    String ref,
+  ) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/material-taminotchilar/code/regenerate',
+        ).replace(queryParameters: {'ref': ref}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin material taminotchi code regenerate failed');
+    }
+    return AdminCustomerDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminCustomerDetail> adminUpdateCustomerPhone({
     required String ref,
     required String phone,
@@ -4040,6 +4153,35 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     return CustomerDirectoryEntry.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminCreateMaterialTaminotchi({
+    required String name,
+    required String phone,
+    required List<String> assignedItemGroups,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/material-taminotchilar'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'name': name,
+          'phone': phone,
+          'assigned_item_groups': assignedItemGroups,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_material_taminotchi_create_failed',
+        fallbackMessage: 'Foydalanuvchi yaratilmadi',
+      );
+    }
+    return AdminCustomerDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

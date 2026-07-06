@@ -23,7 +23,16 @@ extension _AdminProductionMapOrdersMoveState
       return _alternativeOrdersForApparatus(target);
     }
     if (_isMoveUnassignedApparatus(target)) {
-      return _ordersForApparatus(source);
+      return _ordersForApparatus(source)
+          .where(
+            (order) =>
+                _canMoveOrderToApparatus(order, target, source: source) ||
+                _isUnassignedAlternativeCandidateForApparatus(
+                  order: order,
+                  apparatus: source,
+                ),
+          )
+          .toList(growable: false);
     }
     return _ordersForApparatus(source)
         .where(

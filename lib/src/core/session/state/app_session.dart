@@ -35,12 +35,8 @@ class AppSession {
       return '/customer-home';
     }
     if (profile.role == UserRole.materialTaminotchi &&
-        profile.hasAnyCapability(const [
-          'gscale.print',
-          'gscale.catalog.read',
-          'rps.batch.manage',
-        ])) {
-      return '/gscale-mode';
+        profile.hasAnyCapability(materialTaminotchiWorkspaceCapabilities)) {
+      return '/material-home';
     }
     if (profile.hasAnyCapability(const [
       'admin.access',
@@ -97,7 +93,7 @@ class AppSession {
       case UserRole.qolipchi:
         return '/qolip';
       case UserRole.materialTaminotchi:
-        return '/gscale-mode';
+        return '/material-home';
       case UserRole.admin:
         return '/admin-home';
     }

@@ -299,7 +299,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         item.kind == AdminUserKind.materialTaminotchi) {
       final result = await Navigator.of(
         context,
-      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item.id);
+      ).pushNamed(AppRoutes.adminCustomerDetail, arguments: item);
       changed = result == true;
     } else {
       final result = await Navigator.of(

@@ -39,8 +39,8 @@ import '../features/admin/presentation/admin_worker_profile_detail_screen.dart';
 import '../features/admin/presentation/admin_worker_settings_screen.dart';
 import '../features/admin/presentation/admin_warehouses_screen.dart';
 import '../features/admin/models/production_map_models.dart';
-import '../features/admin/state/calculate_order_store.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
+import '../features/material_taminotchi/presentation/material_taminotchi_home_screen.dart';
 import '../features/qolip/presentation/qolip_home_screen.dart';
 import '../features/qolip/presentation/qolip_checkouts_screen.dart';
 import '../features/qolip/presentation/qolip_products_screen.dart';
@@ -82,6 +82,7 @@ import '../features/werka/presentation/werka_unannounced_supplier_screen.dart';
 import '../features/werka/presentation/werka_status_detail_screen.dart';
 import '../features/werka/presentation/werka_status_breakdown_screen.dart';
 import '../features/werka/presentation/werka_success_screen.dart';
+import '../core/api/mobile_api.dart';
 import '../core/localization/app_localizations.dart';
 import '../core/session/state/app_session.dart';
 import '../core/theme/app_motion.dart';
@@ -177,6 +178,7 @@ class AppRoutes {
   static const String adminSupplierItemsView = '/admin-supplier-items-view';
   static const String adminSupplierItemsAdd = '/admin-supplier-items-add';
   static const String adminWerka = '/admin-werka';
+  static const String materialHome = '/material-home';
   static const String gscaleMode = '/gscale-mode';
   static const String qolipHome = '/qolip';
   static const String qolipProducts = '/qolip-products';
@@ -223,6 +225,7 @@ class AppRouter {
     AppRoutes.profile,
     AppRoutes.customerHome,
     AppRoutes.customerNotifications,
+    AppRoutes.materialHome,
     AppRoutes.qolipHome,
     AppRoutes.qolipProducts,
     AppRoutes.qolipCheckouts,
@@ -401,6 +404,8 @@ class AppRouter {
           settings,
           CustomerDeliveryDetailScreen(deliveryNoteID: deliveryNoteID),
         );
+      case AppRoutes.materialHome:
+        return _buildRoute(settings, const MaterialTaminotchiHomeScreen());
       case AppRoutes.pinSetupEntry:
         return _buildRoute(settings, const PinSetupEntryScreen());
       case AppRoutes.pinSetupConfirm:
@@ -527,11 +532,35 @@ class AppRouter {
         if (customerRef.isEmpty) {
           return _buildRoute(settings, const AdminSuppliersScreen());
         }
+        final isMaterialTaminotchi =
+            entry?.kind == AdminUserKind.materialTaminotchi ||
+                entry?.principalRole == UserRole.materialTaminotchi;
         return _buildRoute(
           settings,
           AdminCustomerDetailScreen(
             customerRef: customerRef,
-            title: entry?.roleLabel ?? 'Customer',
+            detailLoader: isMaterialTaminotchi
+                ? MobileApi.instance.adminMaterialTaminotchiDetail
+                : null,
+            title: entry?.roleLabel ??
+                (isMaterialTaminotchi ? 'Material taminotchisi' : 'Customer'),
+            profileSubtitle: isMaterialTaminotchi
+                ? 'Material ta’minotchisi profili'
+                : 'Haridor profili',
+            emptyName:
+                isMaterialTaminotchi ? 'Material taminotchisi' : 'Customer',
+            namelessLabel: isMaterialTaminotchi
+                ? 'Nomsiz material ta’minotchisi'
+                : 'Nomsiz haridor',
+            customerManagementEnabled: true,
+            itemManagementEnabled: !isMaterialTaminotchi,
+            removeEnabled: !isMaterialTaminotchi,
+            phoneUpdater: isMaterialTaminotchi
+                ? MobileApi.instance.adminUpdateMaterialTaminotchiPhone
+                : null,
+            codeRegenerator: isMaterialTaminotchi
+                ? MobileApi.instance.adminRegenerateMaterialTaminotchiCode
+                : null,
           ),
         );
       case AppRoutes.adminWorkerDetail:
@@ -668,6 +697,13 @@ class AppRouter {
       'gscale.catalog.read',
       'gscale.print',
       'rps.batch.manage',
+    },
+    AppRoutes.materialHome: {
+      'gscale.catalog.read',
+      'gscale.print',
+      'rps.batch.manage',
+      'catalog.item.create',
+      'raw_material.assign',
     },
     AppRoutes.qolipHome: {'qolip.manage'},
     AppRoutes.qolipProducts: {'qolip.manage'},

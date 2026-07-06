@@ -152,7 +152,7 @@ bool _progressBatchCanFeedStation({
 }) {
   final nextApparatus = batch.nextApparatus.trim();
   return nextApparatus.isEmpty ||
-      productionMapWarehouseTitlesMatch(nextApparatus, station);
+      productionMapNextStageTitleMatchesApparatus(nextApparatus, station);
 }
 
 bool _progressBatchCanBeScanned(AdminProgressBatch batch) {

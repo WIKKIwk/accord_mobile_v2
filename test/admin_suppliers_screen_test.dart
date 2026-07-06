@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _selectUserRole(WidgetTester tester, String role) async {
-  await tester.tap(find.byKey(const ValueKey('admin-users-role-picker')));
+  await tester.tap(find.byKey(const ValueKey('admin-users-role-filter-chip')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(role).last);
   await tester.pumpAndSettle();
@@ -334,14 +334,15 @@ void main() {
       for (var i = 0;
           i < 20 &&
               find
-                  .byKey(const ValueKey('admin-users-role-picker'))
+                  .byKey(const ValueKey('admin-users-role-filter-chip'))
                   .evaluate()
                   .isEmpty;
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      await tester.tap(find.byKey(const ValueKey('admin-users-role-picker')));
+      await tester
+          .tap(find.byKey(const ValueKey('admin-users-role-filter-chip')));
       await tester.pumpAndSettle();
       expect(find.text('Material taminotchisi'), findsOneWidget);
 
@@ -364,6 +365,80 @@ void main() {
       );
       expect(find.text('Customer One'), findsOneWidget);
       expect(find.text('Materialchi One'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('material taminotchi row opens detail with material entry', (
+    tester,
+  ) async {
+    Object? detailArguments;
+    final client = _AdminUsersHttpClient(
+      users: const [
+        {
+          'id': 'material_taminotchi:MAT-NEW',
+          'source': 'material_taminotchi',
+          'entity_ref': 'MAT-NEW',
+          'name': 'Materialchi One',
+          'phone': '998900003',
+          'principal_role': 'material_taminotchi',
+          'role_label': 'Material taminotchisi',
+          'blocked': false,
+        },
+      ],
+      roleAssignments: const [
+        {
+          'principal_role': 'material_taminotchi',
+          'principal_ref': 'MAT-NEW',
+          'role_id': 'material_taminotchi',
+          'assigned_item_groups': ['rulon'],
+        },
+      ],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            AppRoutes.adminCustomerDetail: (context) {
+              detailArguments = ModalRoute.of(context)!.settings.arguments;
+              return const Scaffold(body: Text('detail'));
+            },
+          },
+          home: const AdminSuppliersScreen(),
+        ),
+      );
+
+      for (var i = 0;
+          i < 20 &&
+              find
+                  .byKey(const ValueKey('admin-users-role-filter-chip'))
+                  .evaluate()
+                  .isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      await _selectUserRole(tester, 'Material taminotchisi');
+      await tester.tap(find.text('Materialchi One'));
+      await tester.pumpAndSettle();
+
+      expect(detailArguments, isA<AdminUserListEntry>());
+      final entry = detailArguments! as AdminUserListEntry;
+      expect(entry.id, 'MAT-NEW');
+      expect(entry.kind, AdminUserKind.materialTaminotchi);
+      expect(entry.principalRole, UserRole.materialTaminotchi);
+      expect(entry.roleLabel, 'Material taminotchisi');
 
       await tester.pumpWidget(const SizedBox.shrink());
     }, createHttpClient: (_) => client);
@@ -421,13 +496,13 @@ void main() {
       for (var i = 0;
           i < 20 &&
               find
-                  .byKey(const ValueKey('admin-users-role-picker'))
+                  .byKey(const ValueKey('admin-users-role-filter-chip'))
                   .evaluate()
                   .isEmpty;
           i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
-      expect(find.byKey(const ValueKey('admin-users-role-picker')),
+      expect(find.byKey(const ValueKey('admin-users-role-filter-chip')),
           findsOneWidget);
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Jasur worker'), findsNothing);

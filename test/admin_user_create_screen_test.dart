@@ -250,25 +250,34 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
-      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
       expect(
         seenRequests,
-        contains('POST /v1/mobile/admin/customers/code/regenerate?ref=CUS-1'),
+        contains('POST /v1/mobile/admin/material-taminotchilar'),
       );
+      expect(
+        seenRequests,
+        isNot(contains('PUT /v1/mobile/admin/role-assignments')),
+      );
+      expect(
+        seenRequests,
+        isNot(
+          contains('POST /v1/mobile/admin/customers/code/regenerate?ref=CUS-1'),
+        ),
+      );
+      expect(seenRequests, isNot(contains('POST /v1/mobile/admin/customers')));
       expect(seenRequests, isNot(contains('POST /v1/mobile/admin/workers')));
       expect(
         seenRequests.any(
           (request) => request.contains('"role_id":"material_taminotchi"'),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         seenRequests.any(
           (request) =>
               request.contains('"principal_role":"material_taminotchi"'),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         seenRequests.any(
@@ -395,8 +404,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
-      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/material-taminotchilar'),
+      );
+      expect(
+        seenRequests,
+        isNot(contains('PUT /v1/mobile/admin/role-assignments')),
+      );
       expect(find.text('forbidden'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(milliseconds: 2200));
@@ -445,20 +460,26 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      expect(seenRequests, contains('POST /v1/mobile/admin/customers'));
-      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/material-taminotchilar'),
+      );
+      expect(
+        seenRequests,
+        isNot(contains('PUT /v1/mobile/admin/role-assignments')),
+      );
       expect(
         seenRequests.any(
           (request) => request.contains('"role_id":"material_taminotchi"'),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         seenRequests.any(
           (request) =>
               request.contains('"principal_role":"material_taminotchi"'),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         seenRequests.any(
@@ -631,6 +652,18 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'name': 'Ali Market',
           'phone': '+998900001111',
         };
+      case 'POST /v1/mobile/admin/material-taminotchilar':
+        statusCode = roleAssignmentStatusCode;
+        body = roleAssignmentBody ??
+            const {
+              'ref': 'MAT-1',
+              'name': 'Materialchi',
+              'phone': '+998110000070',
+              'code': '701234567890',
+              'code_locked': false,
+              'code_retry_after_sec': 0,
+              'assigned_items': [],
+            };
       case 'PUT /v1/mobile/admin/role-assignments':
         statusCode = roleAssignmentStatusCode;
         body = roleAssignmentBody ??

@@ -24,6 +24,8 @@ import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../supplier/presentation/widgets/supplier_navigation_drawer.dart';
 import '../../customer/presentation/widgets/customer_dock.dart';
 import '../../customer/presentation/widgets/customer_navigation_drawer.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
 import '../../qolip/presentation/widgets/qolip_dock.dart';
@@ -651,7 +653,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ? l10n.werkaAccount
                     : current.accessRole == UserRole.customer
                         ? l10n.customerAccount
-                        : l10n.adminAccount;
+                        : current.accessRole == UserRole.materialTaminotchi
+                            ? 'Material ta’minotchisi profili'
+                            : l10n.adminAccount;
         final bool savingProfileChanges = savingNickname || savingAvatar;
         final displayName = _normalizedDisplayName(current);
         final legalName = _normalizedLegalName(current);
@@ -686,6 +690,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                 selectedIndex: 2,
                 onNavigate: _openCustomerDrawerRoute,
               ),
+            _ProfileShellKind.materialTaminotchi =>
+              MaterialTaminotchiNavigationDrawer(
+                selectedRouteName: AppRoutes.profile,
+                onNavigate: _openMaterialTaminotchiDrawerRoute,
+              ),
             _ProfileShellKind.aparatchi => AparatchiNavigationDrawer(
                 selectedIndex: 1,
                 onNavigate: _openAparatchiDrawerRoute,
@@ -706,6 +715,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 showPrimaryFab: false,
               ),
             _ProfileShellKind.customer => const CustomerDock(activeTab: null),
+            _ProfileShellKind.materialTaminotchi =>
+              const MaterialTaminotchiDock(
+                activeTab: MaterialTaminotchiDockTab.profile,
+              ),
             _ProfileShellKind.aparatchi => const AparatchiDock(
                 activeTab: AparatchiDockTab.profile,
               ),
@@ -793,6 +806,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     Navigator.of(context).pushReplacementNamed(route);
   }
 
+  void _openMaterialTaminotchiDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
   void _openAparatchiDrawerRoute(String route) {
     final current = ModalRoute.of(context)?.settings.name;
     if (current == route) {
@@ -814,6 +835,7 @@ enum _ProfileShellKind {
   supplier,
   werka,
   customer,
+  materialTaminotchi,
   aparatchi,
   qolip,
   admin,
@@ -825,6 +847,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.supplierHome => _ProfileShellKind.supplier,
     AppRoutes.werkaHome => _ProfileShellKind.werka,
     AppRoutes.customerHome => _ProfileShellKind.customer,
+    AppRoutes.materialHome => _ProfileShellKind.materialTaminotchi,
     AppRoutes.apparatusQueue => _ProfileShellKind.aparatchi,
     AppRoutes.qolipHome => _ProfileShellKind.qolip,
     AppRoutes.adminHome => _ProfileShellKind.admin,

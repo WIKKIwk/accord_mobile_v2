@@ -204,6 +204,7 @@ class _OpenedOrderCardRow extends StatelessWidget {
     required this.trailing,
     this.onTap,
     this.borderRadiusOverride,
+    this.disabled = false,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -212,6 +213,7 @@ class _OpenedOrderCardRow extends StatelessWidget {
   final Widget trailing;
   final VoidCallback? onTap;
   final BorderRadius? borderRadiusOverride;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
@@ -224,35 +226,43 @@ class _OpenedOrderCardRow extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       borderRadiusOverride: borderRadiusOverride,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-        child: Row(
-          children: [
-            leading,
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _OpenedOrderTitleLine(map: map, theme: theme, scheme: scheme),
-                  if (subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.05,
-                      ),
+      backgroundColor: disabled ? scheme.surfaceContainerHighest : null,
+      onTap: disabled ? null : onTap,
+      child: Opacity(
+        opacity: disabled ? 0.48 : 1,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _OpenedOrderTitleLine(
+                      map: map,
+                      theme: theme,
+                      scheme: scheme,
                     ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            trailing,
-          ],
+              trailing,
+            ],
+          ),
         ),
       ),
     );

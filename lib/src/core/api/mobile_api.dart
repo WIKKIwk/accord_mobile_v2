@@ -1,4 +1,5 @@
 import '../../features/admin/logic/apparatus_queue_state.dart';
+import '../../features/admin/logic/production_map_chain.dart';
 import '../../features/admin/logic/production_map_pechat_rules.dart';
 import '../../features/shared/models/app_models.dart';
 import '../../features/admin/models/admin_item_group_tree_entry.dart';

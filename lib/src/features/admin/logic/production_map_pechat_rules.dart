@@ -239,6 +239,38 @@ bool productionMapWarehouseTitlesMatch(String left, String right) {
       productionMapWarehouseBaseTitle(normalizedRight).toLowerCase();
 }
 
+bool productionMapNextStageTitleMatchesApparatus(
+  String nextStage,
+  String apparatus,
+) {
+  if (productionMapWarehouseTitlesMatch(nextStage, apparatus)) {
+    return true;
+  }
+  final nextStageKey = _productionMapNormalizedWarehouseKey(nextStage);
+  final apparatusKey = _productionMapNormalizedWarehouseKey(apparatus);
+  if (nextStageKey.isEmpty ||
+      apparatusKey.isEmpty ||
+      nextStageKey == apparatusKey) {
+    return false;
+  }
+  final suffix = apparatusKey.startsWith(nextStageKey)
+      ? apparatusKey.substring(nextStageKey.length).trim()
+      : '';
+  return suffix.isNotEmpty &&
+      suffix.codeUnits.every((unit) => unit >= 48 && unit <= 57);
+}
+
+String _productionMapNormalizedWarehouseKey(String title) {
+  return productionMapWarehouseBaseTitle(
+    title,
+  )
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .join(' ')
+      .toLowerCase();
+}
+
 bool productionMapAlternativeAssignedGroupContainsTarget({
   required List<ProductionMapNode> nodes,
   required String fromApparatus,

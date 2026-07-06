@@ -12,6 +12,7 @@ import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
+import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
@@ -398,18 +399,10 @@ class _AdminProductionMapOrdersScreenState
       child: _loading
           ? const Center(child: AppLoadingIndicator())
           : _loadError != null
-              ? Center(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _loading = true;
-                        _loadError = null;
-                      });
-                      unawaited(_load());
-                    },
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(_loadError!),
-                  ),
+              ? _OpenedOrdersLoadErrorBody(
+                  message: _loadError!,
+                  bottomPadding: bottomPadding,
+                  onRefresh: _load,
                 )
               : widget.workerMode
                   ? _WorkerWatchBody(
@@ -477,6 +470,46 @@ class _AdminProductionMapOrdersScreenState
                       },
                       onMove: _moveOrdersBetweenApparatus,
                     ),
+    );
+  }
+}
+
+class _OpenedOrdersLoadErrorBody extends StatelessWidget {
+  const _OpenedOrdersLoadErrorBody({
+    required this.message,
+    required this.bottomPadding,
+    required this.onRefresh,
+  });
+
+  final String message;
+  final double bottomPadding;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppRefreshIndicator(
+      onRefresh: onRefresh,
+      allowRefreshOnShortContent: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return ListView(
+            physics: const TopRefreshScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(24, 0, 24, bottomPadding),
+            children: [
+              SizedBox(height: constraints.maxHeight * 0.42),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

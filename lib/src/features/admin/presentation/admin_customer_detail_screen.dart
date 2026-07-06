@@ -27,11 +27,30 @@ class AdminCustomerDetailScreen extends StatefulWidget {
     required this.customerRef,
     this.detailLoader,
     this.title = 'Profil',
+    this.profileSubtitle = 'Haridor profili',
+    this.emptyName = 'Customer',
+    this.namelessLabel = 'Nomsiz haridor',
+    this.customerManagementEnabled = true,
+    this.itemManagementEnabled = true,
+    this.removeEnabled = true,
+    this.phoneUpdater,
+    this.codeRegenerator,
   });
 
   final String customerRef;
   final Future<AdminCustomerDetail> Function(String ref)? detailLoader;
   final String title;
+  final String profileSubtitle;
+  final String emptyName;
+  final String namelessLabel;
+  final bool customerManagementEnabled;
+  final bool itemManagementEnabled;
+  final bool removeEnabled;
+  final Future<AdminCustomerDetail> Function({
+    required String ref,
+    required String phone,
+  })? phoneUpdater;
+  final Future<AdminCustomerDetail> Function(String ref)? codeRegenerator;
 
   @override
   State<AdminCustomerDetailScreen> createState() =>
@@ -119,7 +138,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
 
     setState(() => _savingPhone = true);
     try {
-      final updated = await MobileApi.instance.adminUpdateCustomerPhone(
+      final updatePhone =
+          widget.phoneUpdater ?? MobileApi.instance.adminUpdateCustomerPhone;
+      final updated = await updatePhone(
         ref: detail.ref,
         phone: trimmedPhone,
       );
@@ -146,7 +167,9 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   Future<void> _regenerateCode() async {
     setState(() => _regeneratingCode = true);
     try {
-      final updated = await MobileApi.instance.adminRegenerateCustomerCode(
+      final regenerateCode = widget.codeRegenerator ??
+          MobileApi.instance.adminRegenerateCustomerCode;
+      final updated = await regenerateCode(
         widget.customerRef,
       );
       _changed = true;
@@ -314,7 +337,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     final AdminCustomerDetail detail = _detail ??
         AdminCustomerDetail(
           ref: widget.customerRef,
-          name: _loading ? 'Yuklanmoqda...' : 'Customer',
+          name: _loading ? 'Yuklanmoqda...' : widget.emptyName,
           phone: _loading ? 'Yuklanmoqda...' : 'Kiritilmagan',
           avatarUrl: '',
           code: _loading ? 'Yuklanmoqda...' : 'Hali generatsiya qilinmagan',
@@ -357,7 +380,13 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                         : _detail == null
                             ? 'Bo‘sh'
                             : 'Tayyor',
-                expanded: _adminPanelExpanded,
+                profileSubtitle: widget.profileSubtitle,
+                namelessLabel: widget.namelessLabel,
+                customerManagementEnabled: widget.customerManagementEnabled,
+                itemManagementEnabled: widget.itemManagementEnabled,
+                removeEnabled: widget.removeEnabled,
+                expanded:
+                    widget.customerManagementEnabled && _adminPanelExpanded,
                 savingPhone: _savingPhone,
                 regeneratingCode: _regeneratingCode,
                 removing: _removing,
@@ -374,11 +403,13 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 onRemove: _removeCustomer,
               ),
             ),
-            const SizedBox(height: 12),
-            AdminAparatchiApparatusCard(
-              customerRef: widget.customerRef,
-              onChanged: () => _changed = true,
-            ),
+            if (widget.customerManagementEnabled) ...[
+              const SizedBox(height: 12),
+              AdminAparatchiApparatusCard(
+                customerRef: widget.customerRef,
+                onChanged: () => _changed = true,
+              ),
+            ],
             if (_loadError != null) ...[
               const SizedBox(height: 12),
               AppRetryState(onRetry: _reload, padding: EdgeInsets.zero),
@@ -523,6 +554,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
   const _AdminCustomerDetailCard({
     required this.detail,
     required this.statusLabel,
+    required this.profileSubtitle,
+    required this.namelessLabel,
+    required this.customerManagementEnabled,
+    required this.itemManagementEnabled,
+    required this.removeEnabled,
     required this.expanded,
     required this.savingPhone,
     required this.regeneratingCode,
@@ -540,6 +576,11 @@ class _AdminCustomerDetailCard extends StatelessWidget {
 
   final AdminCustomerDetail detail;
   final String statusLabel;
+  final String profileSubtitle;
+  final String namelessLabel;
+  final bool customerManagementEnabled;
+  final bool itemManagementEnabled;
+  final bool removeEnabled;
   final bool expanded;
   final bool savingPhone;
   final bool regeneratingCode;
@@ -613,9 +654,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      detail.name.trim().isEmpty
-                          ? 'Nomsiz haridor'
-                          : detail.name,
+                      detail.name.trim().isEmpty ? namelessLabel : detail.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -625,7 +664,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Haridor profili',
+                      profileSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -659,21 +698,24 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                key: const ValueKey('admin-customer-detail-admin-toggle'),
-                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
-                onPressed: () => onExpandedChanged(!expanded),
-                icon: AnimatedRotation(
-                  turns: expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: scheme.onSurfaceVariant,
+              if (customerManagementEnabled) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const ValueKey('admin-customer-detail-admin-toggle'),
+                  tooltip:
+                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  onPressed: () => onExpandedChanged(!expanded),
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -686,6 +728,8 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: _AdminCustomerPanel(
                     detail: detail,
+                    itemManagementEnabled: itemManagementEnabled,
+                    removeEnabled: removeEnabled,
                     savingPhone: savingPhone,
                     regeneratingCode: regeneratingCode,
                     removing: removing,
@@ -709,6 +753,8 @@ class _AdminCustomerDetailCard extends StatelessWidget {
 class _AdminCustomerPanel extends StatelessWidget {
   const _AdminCustomerPanel({
     required this.detail,
+    required this.itemManagementEnabled,
+    required this.removeEnabled,
     required this.savingPhone,
     required this.regeneratingCode,
     required this.removing,
@@ -723,6 +769,8 @@ class _AdminCustomerPanel extends StatelessWidget {
   });
 
   final AdminCustomerDetail detail;
+  final bool itemManagementEnabled;
+  final bool removeEnabled;
   final bool savingPhone;
   final bool regeneratingCode;
   final bool removing;
@@ -782,6 +830,7 @@ class _AdminCustomerPanel extends StatelessWidget {
                   icon: const Icon(Icons.content_copy_outlined),
                 ),
               IconButton(
+                key: const ValueKey('admin-customer-detail-code-regenerate'),
                 onPressed: regeneratingCode || detail.codeLocked
                     ? null
                     : onRegenerateCode,
@@ -805,64 +854,68 @@ class _AdminCustomerPanel extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 18),
-        Text(
-          'Biriktirilgan mahsulotlar',
-          style: theme.textTheme.titleLarge,
-        ),
-        const SizedBox(height: 10),
-        Text(
-          detail.assignedItems.isEmpty
-              ? 'Hozircha mahsulot biriktirilmagan.'
-              : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
+        if (itemManagementEnabled) ...[
+          const SizedBox(height: 18),
+          Text(
+            'Biriktirilgan mahsulotlar',
+            style: theme.textTheme.titleLarge,
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: appOutlinedActionButtonStyle(
-                  borderRadius: _customerDetailButtonRadius,
-                ),
-                onPressed: detail.assignedItems.isEmpty
-                    ? null
-                    : () => _showAssignedItemsSheet(
-                          context,
-                          detail,
-                          onRemoveItem: onRemoveItem,
-                          removingItemCode: removingItemCode,
-                        ),
-                child: const Text('Ko‘rish'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton(
-                style: appOutlinedActionButtonStyle(
-                  borderRadius: _customerDetailButtonRadius,
-                ),
-                onPressed: addingItem ? null : onAddItem,
-                child: Text(addingItem ? 'Qo‘shilmoqda...' : 'Qo‘shish'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            style: appOutlinedActionButtonStyle(
-              borderRadius: _customerDetailButtonRadius,
-            ),
-            onPressed: removing ? null : onRemove,
-            child: Text(
-              removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+          const SizedBox(height: 10),
+          Text(
+            detail.assignedItems.isEmpty
+                ? 'Hozircha mahsulot biriktirilmagan.'
+                : '${detail.assignedItems.length} ta mahsulot biriktirilgan.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: appOutlinedActionButtonStyle(
+                    borderRadius: _customerDetailButtonRadius,
+                  ),
+                  onPressed: detail.assignedItems.isEmpty
+                      ? null
+                      : () => _showAssignedItemsSheet(
+                            context,
+                            detail,
+                            onRemoveItem: onRemoveItem,
+                            removingItemCode: removingItemCode,
+                          ),
+                  child: const Text('Ko‘rish'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  style: appOutlinedActionButtonStyle(
+                    borderRadius: _customerDetailButtonRadius,
+                  ),
+                  onPressed: addingItem ? null : onAddItem,
+                  child: Text(addingItem ? 'Qo‘shilmoqda...' : 'Qo‘shish'),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (removeEnabled) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: appOutlinedActionButtonStyle(
+                borderRadius: _customerDetailButtonRadius,
+              ),
+              onPressed: removing ? null : onRemove,
+              child: Text(
+                removing ? 'Chiqarilmoqda...' : 'Tizimdan chiqarish',
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

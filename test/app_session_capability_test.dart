@@ -168,7 +168,7 @@ void main() {
     expect(AppSession.instance.can('qolip.manage'), isTrue);
   });
 
-  test('material taminotchi role opens tarozi mode and raw material assignment',
+  test('material taminotchi role opens material home and tarozi access',
       () async {
     await AppSession.instance.setSession(
       token: 'token',
@@ -189,7 +189,11 @@ void main() {
       ),
     );
 
-    expect(AppSession.instance.homeRoute, AppRoutes.gscaleMode);
+    expect(AppSession.instance.homeRoute, AppRoutes.materialHome);
+    expect(
+        AppSession.instance.profile?.accessRole, UserRole.materialTaminotchi);
+    expect(AppSession.instance.profile?.isCapabilityOnlyProfile, isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.materialHome), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.gscaleMode), isTrue);
     expect(
         AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments), isTrue);

@@ -30,6 +30,7 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
   }
   final stages = <ProductionMapChainStage>[];
   final seen = <String>{};
+  final seenStageTitles = <String>{};
   var seenApparatus = false;
   var current = start;
   while (seen.add(current)) {
@@ -40,17 +41,17 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
     if (node.kind == 'end') {
       break;
     }
-    if (_isUnassignedAlternativeApparatus(node)) {
-      break;
-    }
     if (_isWorkStage(node, seenApparatus)) {
-      final title = _stageTitle(node);
-      if (title.isNotEmpty) {
+      for (final stage in _stageTitlesForNode(map, node)) {
         if (node.kind == 'apparatus') {
           seenApparatus = true;
         }
+        if (stage.stationTitle.isEmpty ||
+            !seenStageTitles.add(stage.stationTitle.toLowerCase())) {
+          continue;
+        }
         stages.add(
-          ProductionMapChainStage(nodeId: node.id, stationTitle: title),
+          stage,
         );
       }
     } else if (node.kind == 'apparatus') {
@@ -115,7 +116,7 @@ bool productionMapNodeMatchesStation({
   required String station,
 }) {
   if (_isUnassignedAlternativeApparatus(node)) {
-    return false;
+    return productionMapStationTitlesMatch(node.title, station);
   }
   if (!_isWorkStage(node, true)) {
     return false;
@@ -212,6 +213,30 @@ bool _isUnassignedAlternativeApparatus(ProductionMapNode node) {
   return node.kind == 'apparatus' &&
       node.alternativeGroupId.trim().isNotEmpty &&
       node.alternativeAssignedTitle.trim().isEmpty;
+}
+
+List<ProductionMapChainStage> _stageTitlesForNode(
+  ProductionMapDefinition map,
+  ProductionMapNode node,
+) {
+  if (!_isUnassignedAlternativeApparatus(node)) {
+    final title = _stageTitle(node);
+    return title.isEmpty
+        ? const []
+        : [ProductionMapChainStage(nodeId: node.id, stationTitle: title)];
+  }
+  final groupId = node.alternativeGroupId.trim();
+  return [
+    for (final candidate in map.nodes)
+      if (candidate.kind == 'apparatus' &&
+          candidate.alternativeGroupId.trim() == groupId &&
+          candidate.alternativeAssignedTitle.trim().isEmpty &&
+          candidate.title.trim().isNotEmpty)
+        ProductionMapChainStage(
+          nodeId: candidate.id,
+          stationTitle: candidate.title.trim(),
+        ),
+  ];
 }
 
 String _stageTitle(ProductionMapNode node) {

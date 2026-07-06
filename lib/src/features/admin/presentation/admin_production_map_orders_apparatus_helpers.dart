@@ -38,6 +38,16 @@ bool _hasUnassignedAlternativeGroupForApparatus(
   return matchingGroups.any((groupId) => !assignedGroups.contains(groupId));
 }
 
+bool _isUnassignedAlternativeCandidateForApparatus({
+  required ProductionMapSaved order,
+  required AdminWarehouse apparatus,
+}) {
+  if (_isMoveUnassignedApparatus(apparatus)) {
+    return false;
+  }
+  return _hasUnassignedAlternativeGroupForApparatus(order.map, apparatus);
+}
+
 bool _isFlexoOrderBlockedForColorPechat(
   ProductionMapDefinition map,
   AdminWarehouse apparatus,

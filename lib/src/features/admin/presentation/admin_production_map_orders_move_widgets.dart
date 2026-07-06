@@ -13,6 +13,7 @@ class _MoveOrderCard extends StatelessWidget {
     required this.index,
     required this.slot,
     this.selected = false,
+    this.disabled = false,
     this.onToggleSelect,
     this.trailing,
     this.borderRadiusOverride,
@@ -22,6 +23,7 @@ class _MoveOrderCard extends StatelessWidget {
   final int index;
   final M3SegmentVerticalSlot slot;
   final bool selected;
+  final bool disabled;
   final VoidCallback? onToggleSelect;
   final Widget? trailing;
   final BorderRadius? borderRadiusOverride;
@@ -32,12 +34,13 @@ class _MoveOrderCard extends StatelessWidget {
     return _OpenedOrderCardRow(
       slot: slot,
       order: order,
-      onTap: onToggleSelect,
+      onTap: disabled ? null : onToggleSelect,
       borderRadiusOverride: borderRadiusOverride,
+      disabled: disabled,
       leading: _OpenedOrderIndexBadge(
         index: index,
         selected: selected,
-        onTap: onToggleSelect,
+        onTap: disabled ? null : onToggleSelect,
       ),
       trailing: trailing ?? _MoveDragHandle(color: scheme.onSurfaceVariant),
     );
@@ -132,6 +135,7 @@ class _MoveDropZone extends StatelessWidget {
         draggingOrders.isNotEmpty &&
         draggingOrders.any((order) => !canMoveTo(order, apparatus, dragSource));
     return DragTarget<_MoveDragPayload>(
+      hitTestBehavior: HitTestBehavior.translucent,
       onWillAcceptWithDetails: (details) {
         if (details.data.source.warehouse.trim() ==
             apparatus.warehouse.trim()) {
@@ -178,9 +182,15 @@ class _MoveDropZone extends StatelessWidget {
                     source: apparatus,
                     zoneOrders: orders,
                   );
+                  final disabled =
+                      _isUnassignedAlternativeCandidateForApparatus(
+                    order: order,
+                    apparatus: apparatus,
+                  );
                   return Padding(
                     key: ValueKey(
-                      'move-order-${apparatus.warehouse}-${order.map.id}',
+                      '${disabled ? 'move-order-disabled' : 'move-order'}-'
+                      '${apparatus.warehouse}-${order.map.id}',
                     ),
                     padding: EdgeInsets.only(
                       bottom: index < orders.length - 1
@@ -193,6 +203,7 @@ class _MoveDropZone extends StatelessWidget {
                       index: index,
                       slot: slot,
                       selected: selectedOrderIds.contains(orderId),
+                      disabled: disabled,
                       payload: payload,
                       onToggleSelect: () => onToggleSelect(orderId),
                       onDragStarted: () => onDragStarted(payload),
@@ -312,11 +323,13 @@ class _MoveBoundary extends StatelessWidget {
         child: Row(
           children: [
             Expanded(child: Divider(color: scheme.outlineVariant)),
-            IgnorePointer(
-              child: _MoveApparatusHeader(
-                apparatus: apparatus,
-                alignment: Alignment.center,
-                onTap: onTap,
+            Flexible(
+              child: IgnorePointer(
+                child: _MoveApparatusHeader(
+                  apparatus: apparatus,
+                  alignment: Alignment.center,
+                  onTap: onTap,
+                ),
               ),
             ),
             Expanded(child: Divider(color: scheme.outlineVariant)),
@@ -334,6 +347,7 @@ class _MoveOrderTile extends StatelessWidget {
     required this.index,
     required this.slot,
     required this.selected,
+    required this.disabled,
     required this.payload,
     required this.onToggleSelect,
     required this.onDragStarted,
@@ -345,6 +359,7 @@ class _MoveOrderTile extends StatelessWidget {
   final int index;
   final M3SegmentVerticalSlot slot;
   final bool selected;
+  final bool disabled;
   final _MoveDragPayload payload;
   final VoidCallback onToggleSelect;
   final VoidCallback onDragStarted;
@@ -365,55 +380,62 @@ class _MoveOrderTile extends StatelessWidget {
           index: index,
           slot: slot,
           selected: selected,
-          onToggleSelect: onToggleSelect,
-          trailing: LongPressDraggable<_MoveDragPayload>(
-            data: payload,
-            axis: Axis.vertical,
-            childWhenDragging: const SizedBox.shrink(),
-            dragAnchorStrategy: (_, handleContext, position) {
-              final box = handleContext.findRenderObject()! as RenderBox;
-              final local = box.globalToLocal(position);
-              return Offset(cardWidth - 28, local.dy);
-            },
-            feedback: Material(
-              color: Colors.transparent,
-              child: SizedBox(
-                width: cardWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _MoveOrderCard(
-                      order: order,
-                      index: index,
-                      slot: M3SegmentVerticalSlot.top,
-                      selected: selected,
-                      borderRadiusOverride: feedbackRadius,
-                    ),
-                    if (batchCount > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          '$batchCount ta zakaz',
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: scheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
+          disabled: disabled,
+          onToggleSelect: disabled ? null : onToggleSelect,
+          trailing: disabled
+              ? _MoveDragHandle(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.42),
+                )
+              : LongPressDraggable<_MoveDragPayload>(
+                  data: payload,
+                  axis: Axis.vertical,
+                  childWhenDragging: const SizedBox.shrink(),
+                  dragAnchorStrategy: (_, handleContext, position) {
+                    final box = handleContext.findRenderObject()! as RenderBox;
+                    final local = box.globalToLocal(position);
+                    return Offset(cardWidth - 28, local.dy);
+                  },
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _MoveOrderCard(
+                            order: order,
+                            index: index,
+                            slot: M3SegmentVerticalSlot.top,
+                            selected: selected,
+                            borderRadiusOverride: feedbackRadius,
+                          ),
+                          if (batchCount > 1)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                '$batchCount ta zakaz',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      color: scheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
+                    ),
+                  ),
+                  onDragStarted: onDragStarted,
+                  onDragEnd: (_) => onDragEnded(),
+                  onDraggableCanceled: (_, __) => onDragEnded(),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onToggleSelect,
+                    child: _MoveDragHandle(color: scheme.onSurfaceVariant),
+                  ),
                 ),
-              ),
-            ),
-            onDragStarted: onDragStarted,
-            onDragEnd: (_) => onDragEnded(),
-            onDraggableCanceled: (_, __) => onDragEnded(),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onToggleSelect,
-              child: _MoveDragHandle(color: scheme.onSurfaceVariant),
-            ),
-          ),
         );
       },
     );
