@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_raw_material_assignment_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_raw_material_rules_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -242,6 +243,46 @@ void main() {
       expect(find.text('30AA'), findsNothing);
       await tester.pump(const Duration(seconds: 2));
     }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('material assignment route does not load admin settings APIs', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+      assignedItemGroups: [],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.earthy),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialSettingsScreen(
+            initialTab: AdminRawMaterialSettingsTab.assignments,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Homashyo biriktirish'), findsOneWidget);
+      expect(find.text('Mahsulot guruhi biriktirilmagan'), findsOneWidget);
+      expect(seenRequests, isEmpty);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 }
 

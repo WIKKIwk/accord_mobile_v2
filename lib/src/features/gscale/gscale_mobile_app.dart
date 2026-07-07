@@ -105,9 +105,14 @@ void main() {
 }
 
 class GScaleMobileApp extends StatefulWidget {
-  const GScaleMobileApp({super.key, this.onExitMode = SystemNavigator.pop});
+  const GScaleMobileApp({
+    super.key,
+    this.onExitMode = SystemNavigator.pop,
+    this.embedded = false,
+  });
 
   final Future<void> Function() onExitMode;
+  final bool embedded;
 
   @override
   State<GScaleMobileApp> createState() => _GScaleMobileAppState();
@@ -174,6 +179,13 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
         LocaleController.instance,
       ]),
       builder: (context, _) {
+        if (widget.embedded) {
+          return OperatorDashboardPage(
+            server: _selectedServer,
+            onExitMode: widget.onExitMode,
+            onChangeServer: () => _openServerPicker(context),
+          );
+        }
         return MaterialApp(
           title: 'GScale Mobile',
           debugShowCheckedModeBanner: false,
@@ -1237,7 +1249,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           hintText: 'Mahsulot qidiring',
           showScanIcon: true,
           pageSize: _catalogPickerPageSize,
-          cacheKey: 'gscale:items',
           loadPage: _loadGScaleCatalogItems,
           itemTitle: (item) => item.name,
           itemSubtitle: (item) => item.code,

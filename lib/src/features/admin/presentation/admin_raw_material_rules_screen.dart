@@ -1,6 +1,7 @@
 import 'admin_raw_material_assignment_screen.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
@@ -8,6 +9,8 @@ import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
 import '../models/admin_item_group_tree_entry.dart';
 import 'widgets/admin_dock.dart';
@@ -50,6 +53,7 @@ class _AdminRawMaterialSettingsScreenState
   final _groupsController = TextEditingController();
   late Future<_RawMaterialRulesData> _future;
   late TabController _tabController;
+  late final bool _materialAssignmentMode;
   List<AdminRawMaterialRule> _rules = const [];
   List<AdminRawMaterialRequirementGroup> _selectedRequirementGroups = const [];
   String _selectedApparatus = '';
@@ -59,12 +63,17 @@ class _AdminRawMaterialSettingsScreenState
   @override
   void initState() {
     super.initState();
+    _materialAssignmentMode = _isMaterialAssignmentMode;
     _tabController = TabController(
-      length: 3,
-      initialIndex: _rawMaterialSettingsTabIndex(widget.initialTab),
+      length: _materialAssignmentMode ? 1 : 3,
+      initialIndex: _materialAssignmentMode
+          ? 0
+          : _rawMaterialSettingsTabIndex(widget.initialTab),
       vsync: this,
     );
-    _future = _load();
+    _future = _materialAssignmentMode
+        ? Future.value(const _RawMaterialRulesData.empty())
+        : _load();
   }
 
   @override
@@ -96,12 +105,26 @@ class _AdminRawMaterialSettingsScreenState
     );
   }
 
+  bool get _isMaterialAssignmentMode {
+    final profile = AppSession.instance.profile;
+    return widget.initialTab == AdminRawMaterialSettingsTab.assignments &&
+        profile?.role == UserRole.materialTaminotchi;
+  }
+
   void _openDrawerRoute(String routeName) {
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
       return;
     }
     AdminDrawerNavigation.openRoute(context, routeName);
+  }
+
+  void _openMaterialDrawerRoute(String routeName) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == routeName) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(routeName);
   }
 
   void _fillGroupsFor(String apparatus) {
@@ -259,6 +282,29 @@ class _AdminRawMaterialSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_materialAssignmentMode) {
+      final profile = AppSession.instance.profile;
+      final hasMaterialGroupScope =
+          (profile?.assignedItemGroups ?? const <String>[]).isNotEmpty;
+      final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
+      return AppShell(
+        drawer: MaterialTaminotchiNavigationDrawer(
+          selectedRouteName: AppRoutes.adminRawMaterialAssignments,
+          onNavigate: _openMaterialDrawerRoute,
+        ),
+        title: 'Homashyo biriktirish',
+        subtitle: '',
+        nativeTopBar: true,
+        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+        preferNativeTitle: true,
+        bottom: const MaterialTaminotchiDock(),
+        contentPadding: EdgeInsets.zero,
+        child: AdminRawMaterialAssignmentPanel(
+          bottomPadding: bottomPadding,
+          groupScopeReady: hasMaterialGroupScope,
+        ),
+      );
+    }
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 0,
@@ -386,6 +432,11 @@ class _RawMaterialRulesData {
     required this.rules,
     required this.rawMaterialGroups,
   });
+
+  const _RawMaterialRulesData.empty()
+      : apparatus = const [],
+        rules = const [],
+        rawMaterialGroups = const [];
 
   final List<AdminWarehouse> apparatus;
   final List<AdminRawMaterialRule> rules;

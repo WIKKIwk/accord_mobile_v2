@@ -3,12 +3,16 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
 import 'raw_material_scan_dialog.dart';
@@ -25,20 +29,46 @@ class AdminRawMaterialAssignmentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profile = AppSession.instance.profile;
+    final isMaterialTaminotchi = profile?.role == UserRole.materialTaminotchi;
+    final hasMaterialGroupScope = !isMaterialTaminotchi ||
+        (profile?.assignedItemGroups ?? const <String>[]).isNotEmpty;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
     return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminRawMaterialSettings,
-        onNavigate: (routeName) =>
-            AdminDrawerNavigation.openRoute(context, routeName),
-      ),
-      title: 'Homashyo sozlamalari',
+      drawer: isMaterialTaminotchi
+          ? MaterialTaminotchiNavigationDrawer(
+              selectedRouteName: AppRoutes.adminRawMaterialAssignments,
+              onNavigate: (routeName) {
+                final current = ModalRoute.of(context)?.settings.name;
+                if (current == routeName) {
+                  return;
+                }
+                Navigator.of(context).pushReplacementNamed(routeName);
+              },
+            )
+          : AdminNavigationDrawer(
+              selectedIndex: 0,
+              selectedRouteName: AppRoutes.adminRawMaterialSettings,
+              onNavigate: (routeName) =>
+                  AdminDrawerNavigation.openRoute(context, routeName),
+            ),
+      title: isMaterialTaminotchi
+          ? 'Homashyo biriktirish'
+          : 'Homashyo sozlamalari',
       subtitle: '',
       nativeTopBar: true,
-      bottom: const AdminDock(activeTab: AdminDockTab.settings),
+      nativeTitleTextStyle: isMaterialTaminotchi
+          ? AppTheme.werkaNativeAppBarTitleStyle(context)
+          : null,
+      preferNativeTitle: isMaterialTaminotchi,
+      bottom: isMaterialTaminotchi
+          ? const MaterialTaminotchiDock()
+          : const AdminDock(activeTab: AdminDockTab.settings),
       contentPadding: EdgeInsets.zero,
-      child: AdminRawMaterialAssignmentPanel(bottomPadding: bottomPadding),
+      child: AdminRawMaterialAssignmentPanel(
+        bottomPadding: bottomPadding,
+        groupScopeReady: hasMaterialGroupScope,
+      ),
     );
   }
 }
@@ -47,9 +77,11 @@ class AdminRawMaterialAssignmentPanel extends StatefulWidget {
   const AdminRawMaterialAssignmentPanel({
     super.key,
     required this.bottomPadding,
+    this.groupScopeReady = true,
   });
 
   final double bottomPadding;
+  final bool groupScopeReady;
 
   @override
   State<AdminRawMaterialAssignmentPanel> createState() =>
@@ -72,7 +104,17 @@ class _AdminRawMaterialAssignmentPanelState
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = widget.groupScopeReady
+        ? _load()
+        : Future.value(const _RawMaterialAssignmentData.empty());
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminRawMaterialAssignmentPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.groupScopeReady && widget.groupScopeReady) {
+      _future = _load();
+    }
   }
 
   Future<_RawMaterialAssignmentData> _load() async {
@@ -293,6 +335,11 @@ class _AdminRawMaterialAssignmentPanelState
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.groupScopeReady) {
+      return _MaterialGroupScopeMissingState(
+        bottomPadding: widget.bottomPadding,
+      );
+    }
     return FutureBuilder<_RawMaterialAssignmentData>(
       future: _future,
       builder: (context, snapshot) {
@@ -377,8 +424,70 @@ class _RawMaterialAssignmentData {
     required this.assignments,
   });
 
+  const _RawMaterialAssignmentData.empty()
+      : orders = const [],
+        assignments = const [];
+
   final List<ProductionMapSaved> orders;
   final List<AdminRawMaterialAssignment> assignments;
+}
+
+class _MaterialGroupScopeMissingState extends StatelessWidget {
+  const _MaterialGroupScopeMissingState({required this.bottomPadding});
+
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ColoredBox(
+      color: AppTheme.shellStart(context),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          _rawMaterialAssignmentPanelGap,
+          10,
+          _rawMaterialAssignmentPanelGap,
+          bottomPadding,
+        ),
+        children: [
+          AppSegmentSurfaceCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mahsulot guruhi biriktirilmagan',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Homashyo qabul qilish va zakazga ulash uchun admin avval material guruhini biriktirishi kerak.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AssignmentEditor extends StatelessWidget {

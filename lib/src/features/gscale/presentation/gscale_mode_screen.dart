@@ -8,6 +8,7 @@ class GScaleModeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GScaleMobileApp(
+      embedded: true,
       onExitMode: () async {
         final navigator = Navigator.of(context);
         if (navigator.canPop()) {

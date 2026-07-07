@@ -1,7 +1,11 @@
 HOST_OS := $(shell uname -s)
 API_URL ?= https://mini-rs-erp-dev.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:18081
-FLUTTER_BIN ?= $(shell if command -v flutter >/dev/null 2>&1; then command -v flutter; elif [ -x "$$HOME/.local/flutter/bin/flutter" ]; then printf '%s\n' "$$HOME/.local/flutter/bin/flutter"; fi)
+WORKSPACE_ROOT := $(abspath ..)
+LOCAL_TOOLS_ROOT ?= $(WORKSPACE_ROOT)/.tools
+LOCAL_FLUTTER_HOME ?= $(LOCAL_TOOLS_ROOT)/flutter-sdk/flutter
+FLUTTER_BIN ?= $(shell if command -v flutter >/dev/null 2>&1; then command -v flutter; elif [ -x "$(LOCAL_FLUTTER_HOME)/bin/flutter" ]; then printf '%s\n' "$(LOCAL_FLUTTER_HOME)/bin/flutter"; elif [ -x "$$HOME/.local/flutter/bin/flutter" ]; then printf '%s\n' "$$HOME/.local/flutter/bin/flutter"; fi)
+export PUB_CACHE ?= $(LOCAL_TOOLS_ROOT)/pub-cache
 CHROME_EXECUTABLE ?= $(shell if command -v chromium-browser >/dev/null 2>&1; then command -v chromium-browser; elif command -v chromium >/dev/null 2>&1; then command -v chromium; elif command -v google-chrome >/dev/null 2>&1; then command -v google-chrome; fi)
 ifeq ($(HOST_OS),Darwin)
 JDK_HOME ?= /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home

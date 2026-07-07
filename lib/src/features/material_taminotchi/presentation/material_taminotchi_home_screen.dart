@@ -53,6 +53,7 @@ class _MaterialTaminotchiHomeScreenState
   Widget build(BuildContext context) {
     final profile = AppSession.instance.profile;
     final groups = profile?.assignedItemGroups ?? const <String>[];
+    final hasMaterialGroupScope = groups.isNotEmpty;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
 
     return AppShell(
@@ -80,10 +81,20 @@ class _MaterialTaminotchiHomeScreenState
               delay: const Duration(milliseconds: 20),
               child: _MaterialProfilePanel(profile: profile, groups: groups),
             ),
+            if (!hasMaterialGroupScope) ...[
+              const SizedBox(height: 14),
+              const SmoothAppear(
+                delay: Duration(milliseconds: 40),
+                child: _MaterialScopeNotice(),
+              ),
+            ],
             const SizedBox(height: 14),
             SmoothAppear(
               delay: const Duration(milliseconds: 60),
-              child: _MaterialActionPanel(onOpenRoute: _openRoute),
+              child: _MaterialActionPanel(
+                hasMaterialGroupScope: hasMaterialGroupScope,
+                onOpenRoute: _openRoute,
+              ),
             ),
           ],
         ),
@@ -201,8 +212,12 @@ class _MaterialProfilePanel extends StatelessWidget {
 }
 
 class _MaterialActionPanel extends StatelessWidget {
-  const _MaterialActionPanel({required this.onOpenRoute});
+  const _MaterialActionPanel({
+    required this.hasMaterialGroupScope,
+    required this.onOpenRoute,
+  });
 
+  final bool hasMaterialGroupScope;
   final ValueChanged<String> onOpenRoute;
 
   @override
@@ -229,7 +244,19 @@ class _MaterialActionPanel extends StatelessWidget {
                 icon: Icons.inventory_2_outlined,
                 title: 'Homashyo biriktirish',
                 subtitle: 'Zakazga kerakli rulon va materiallarni bog‘lash',
-                onTap: () => onOpenRoute(AppRoutes.adminRawMaterialAssignments),
+                onTap: () {
+                  if (!hasMaterialGroupScope) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Avval material guruhlari biriktirilishi kerak',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  onOpenRoute(AppRoutes.adminRawMaterialAssignments);
+                },
               ),
             _ActionRow(
               icon: Icons.person_outline_rounded,
@@ -237,6 +264,56 @@ class _MaterialActionPanel extends StatelessWidget {
               subtitle: 'Avatar, ism, xavfsizlik va chiqish sozlamalari',
               onTap: () => onOpenRoute(AppRoutes.profile),
               isLast: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialScopeNotice extends StatelessWidget {
+  const _MaterialScopeNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card.filled(
+      margin: EdgeInsets.zero,
+      color: scheme.tertiaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              color: scheme.onTertiaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Mahsulot guruhi biriktirilmagan',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: scheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Homashyo qabul qilish va zakazga ulash uchun admin avval material guruhini biriktirishi kerak.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onTertiaryContainer,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

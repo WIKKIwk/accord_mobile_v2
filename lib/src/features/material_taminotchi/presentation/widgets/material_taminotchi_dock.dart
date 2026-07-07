@@ -9,12 +9,12 @@ enum MaterialTaminotchiDockTab { home, scale, profile }
 class MaterialTaminotchiDock extends StatelessWidget {
   const MaterialTaminotchiDock({
     super.key,
-    required this.activeTab,
+    this.activeTab,
     this.compact = true,
     this.tightToEdges = true,
   });
 
-  final MaterialTaminotchiDockTab activeTab;
+  final MaterialTaminotchiDockTab? activeTab;
   final bool compact;
   final bool tightToEdges;
 
@@ -28,6 +28,7 @@ class MaterialTaminotchiDock extends StatelessWidget {
           MaterialTaminotchiDockTab.home => 0,
           MaterialTaminotchiDockTab.scale => 1,
           MaterialTaminotchiDockTab.profile => 2,
+          null => 0,
         };
 
         void handleSelection(int index) {
@@ -53,7 +54,7 @@ class MaterialTaminotchiDock extends StatelessWidget {
         return RoleDock(
           compact: compact,
           tightToEdges: tightToEdges,
-          selectionVisible: true,
+          selectionVisible: activeTab != null,
           selectedIndex: selectedIndex,
           destinations: [
             RoleDockDestination(

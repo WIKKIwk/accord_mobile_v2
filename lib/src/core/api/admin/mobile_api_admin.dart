@@ -1553,6 +1553,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_roll_size_mismatch' =>
         'Bu rulon bu buyurtma uchun mos emas',
       'raw_material_invalid_input' => 'Homashyo QR noto‘g‘ri',
+      'item group is not assigned to material taminotchi' =>
+        'Bu homashyo sizga biriktirilgan guruhlarga kirmaydi',
       'progress_input_invalid' => 'Chiqarilgan miqdorni kiriting',
       'progress_qr_required' => 'Oldingi bosqich QR sini scan qiling',
       'progress_batch_not_found' => 'Progress QR topilmadi',

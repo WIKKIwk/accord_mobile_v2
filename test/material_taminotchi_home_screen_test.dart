@@ -56,4 +56,52 @@ void main() {
     expect(find.text('Rulon'), findsOneWidget);
     expect(find.text('Kley'), findsOneWidget);
   });
+
+  testWidgets('material taminotchi home explains missing item group scope', (
+    tester,
+  ) async {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-002',
+      phone: '+998901112244',
+      avatarUrl: '',
+      capabilities: [
+        'gscale.catalog.read',
+        'gscale.print',
+        'rps.batch.manage',
+        'catalog.item.create',
+        'raw_material.assign',
+      ],
+      assignedItemGroups: [],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        initialRoute: AppRoutes.materialHome,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mahsulot guruhi biriktirilmagan'), findsOneWidget);
+
+    await tester.tap(find.text('Homashyo biriktirish'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Avval material guruhlari biriktirilishi kerak'),
+      findsOneWidget,
+    );
+    expect(find.text('Material ta’minotchisi'), findsWidgets);
+  });
 }
