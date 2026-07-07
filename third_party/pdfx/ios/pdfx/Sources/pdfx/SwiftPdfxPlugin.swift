@@ -6,7 +6,9 @@ import Cocoa
 import FlutterMacOS
 #endif
 import CoreGraphics
+import pdfx_messages
 
+@objc(PdfxPlugin)
 public class SwiftPdfxPlugin: NSObject, FlutterPlugin, PdfxApi {
     let registrar: FlutterPluginRegistrar
     static let invalid = NSNumber(value: -1)

@@ -1,3 +1,7 @@
+import CoreGraphics
+import Foundation
+import UIKit
+
 class Document {
     let id: String
     let renderer: CGPDFDocument

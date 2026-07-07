@@ -1,3 +1,7 @@
+import CoreGraphics
+import Foundation
+import UIKit
+
 #if os(iOS)
 
 extension UIColor {

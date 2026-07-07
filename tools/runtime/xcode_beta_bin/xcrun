@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec env DEVELOPER_DIR=/Users/wikki/Downloads/Xcode-beta.app/Contents/Developer /usr/bin/xcrun "$@"
