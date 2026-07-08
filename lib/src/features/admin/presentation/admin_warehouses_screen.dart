@@ -2,6 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/session/session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -10,6 +11,8 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/admin_item_group_tree_entry.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/admin_dock.dart';
@@ -40,6 +43,44 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
   bool _refreshing = false;
   bool _disposed = false;
 
+  bool get _materialScoped =>
+      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+
+  Future<List<String>> _loadMaterialAssignedWarehouses() async {
+    final profile = AppSession.instance.profile;
+    final profileWarehouses = profile?.assignedWarehouses ?? const <String>[];
+    if (profileWarehouses.isNotEmpty) {
+      return _uniqueWarehouseNames(profileWarehouses);
+    }
+    final assignments = await MobileApi.instance.adminWarehouseAssignments();
+    final profileRef = profile?.ref.trim().toLowerCase() ?? '';
+    final displayName = profile?.displayName.trim().toLowerCase() ?? '';
+    return _uniqueWarehouseNames(
+      assignments
+          .where((assignment) =>
+              assignment.principalRole == UserRole.materialTaminotchi)
+          .where((assignment) {
+        final ref = assignment.principalRef.trim().toLowerCase();
+        final name = assignment.displayName.trim().toLowerCase();
+        return (profileRef.isNotEmpty && ref == profileRef) ||
+            (displayName.isNotEmpty && name == displayName);
+      }).map((assignment) => assignment.warehouse),
+    );
+  }
+
+  bool _warehouseAllowed(String warehouse, List<String>? allowedWarehouses) {
+    if (allowedWarehouses == null) {
+      return true;
+    }
+    final normalized = warehouse.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return allowedWarehouses.any(
+      (item) => item.trim().toLowerCase() == normalized,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,8 +100,11 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
     final summaries = await MobileApi.instance.adminWarehouseSummaries(
       limit: 500,
     );
+    final allowedWarehouses =
+        _materialScoped ? await _loadMaterialAssignedWarehouses() : null;
     return _WarehouseSummaryData(
       sections: summaries
+          .where((item) => _warehouseAllowed(item.warehouse, allowedWarehouses))
           .map(
             (item) => _WarehouseSummarySection(
               warehouse: item.warehouse,
@@ -75,6 +119,11 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
   }
 
   Future<_WarehouseInventorySection?> _loadDetail(String warehouse) async {
+    final allowedWarehouses =
+        _materialScoped ? await _loadMaterialAssignedWarehouses() : null;
+    if (!_warehouseAllowed(warehouse, allowedWarehouses)) {
+      return null;
+    }
     final results = await Future.wait([
       MobileApi.instance.adminWarehouses(limit: 500),
       MobileApi.instance.adminItems(),
@@ -127,6 +176,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
 
   Future<void> _connectWarehouseLive() async {
     if (_disposed ||
+        _materialScoped ||
         await TestModeController.instance.isEnabled() ||
         !mounted) {
       return;
@@ -156,6 +206,10 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
   void _openDrawerRoute(String routeName) {
     if (routeName == AppRoutes.adminWarehouses) {
       Navigator.of(context).pop();
+      return;
+    }
+    if (_materialScoped) {
+      Navigator.of(context).pushReplacementNamed(routeName);
       return;
     }
     AdminDrawerNavigation.openRoute(context, routeName);
@@ -189,26 +243,34 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final materialScoped = _materialScoped;
     return AppShell(
-      drawer: AdminNavigationDrawer(
-        selectedIndex: 0,
-        selectedRouteName: AppRoutes.adminWarehouses,
-        onNavigate: _openDrawerRoute,
-      ),
-      title: 'Ombor',
+      drawer: materialScoped
+          ? MaterialTaminotchiNavigationDrawer(
+              selectedRouteName: AppRoutes.adminWarehouses,
+              onNavigate: _openDrawerRoute,
+            )
+          : AdminNavigationDrawer(
+              selectedIndex: 0,
+              selectedRouteName: AppRoutes.adminWarehouses,
+              onNavigate: _openDrawerRoute,
+            ),
+      title: materialScoped ? 'Omborlarim' : 'Ombor',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: AdminDock(
-        activeTab: AdminDockTab.settings,
-        primaryFabActions: [
-          AdminFabMenuAction(
-            title: 'Ombor yaratish',
-            icon: Icons.warehouse_outlined,
-            onTap: _openWarehouseCreateDialog,
-          ),
-        ],
-      ),
+      bottom: materialScoped
+          ? const MaterialTaminotchiDock()
+          : AdminDock(
+              activeTab: AdminDockTab.settings,
+              primaryFabActions: [
+                AdminFabMenuAction(
+                  title: 'Ombor yaratish',
+                  icon: Icons.warehouse_outlined,
+                  onTap: _openWarehouseCreateDialog,
+                ),
+              ],
+            ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<_WarehouseSummaryData>(
         future: _future,
@@ -1499,6 +1561,19 @@ UserRole _roleForUser(AdminUserListEntry user) {
     case AdminUserKind.worker:
       return UserRole.aparatchi;
   }
+}
+
+List<String> _uniqueWarehouseNames(Iterable<String> warehouses) {
+  final seen = <String>{};
+  final out = <String>[];
+  for (final raw in warehouses) {
+    final warehouse = raw.trim();
+    if (warehouse.isEmpty || !seen.add(warehouse.toLowerCase())) {
+      continue;
+    }
+    out.add(warehouse);
+  }
+  return out;
 }
 
 bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {

@@ -35,6 +35,12 @@ extension MobileApiAuthProfile on MobileApi {
         json['assigned_apparatus'] as List<dynamic>? ?? [];
     profileJson['assigned_item_groups'] =
         json['assigned_item_groups'] as List<dynamic>? ?? [];
+    final rawAssignedWarehouses = json['assigned_warehouses'];
+    if (rawAssignedWarehouses is List<dynamic>) {
+      profileJson['assigned_warehouses'] = rawAssignedWarehouses;
+    } else {
+      profileJson['assigned_warehouses'] ??= [];
+    }
     final SessionProfile profile = SessionProfile.fromJson(profileJson);
     final WerkaHomeData? werkaHome = profile.role == UserRole.werka &&
             json['werka_home'] is Map<String, dynamic>
@@ -188,6 +194,11 @@ extension MobileApiAuthProfile on MobileApi {
       json = Map<String, dynamic>.from(json);
       json['assigned_item_groups'] =
           AppSession.instance.profile?.assignedItemGroups ?? [];
+    }
+    if (!json.containsKey('assigned_warehouses')) {
+      json = Map<String, dynamic>.from(json);
+      json['assigned_warehouses'] =
+          AppSession.instance.profile?.assignedWarehouses ?? [];
     }
     return SessionProfile.fromJson(json);
   }

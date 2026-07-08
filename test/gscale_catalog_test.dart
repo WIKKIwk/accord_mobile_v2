@@ -87,6 +87,37 @@ void main() {
     expect(gscaleCreateItemGroupsForProfile(profile), ['Kley', 'Kraska']);
   });
 
+  test('material receipt uses scoped admin warehouses', () {
+    const profile = SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['gscale.catalog.read', 'raw_material.assign'],
+      assignedWarehouses: ['Sklad U'],
+    );
+
+    expect(gscaleUsesScopedAdminWarehousesForProfile(profile), isTrue);
+    expect(gscaleMergesDefaultWarehousesForProfile(profile), isTrue);
+  });
+
+  test('werka receipt keeps item warehouses only when they exist', () {
+    const profile = SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'WERKA-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['gscale.catalog.read'],
+    );
+
+    expect(gscaleUsesScopedAdminWarehousesForProfile(profile), isFalse);
+    expect(gscaleMergesDefaultWarehousesForProfile(profile), isFalse);
+  });
+
   test('non material create item group keeps default catalog group', () {
     const profile = SessionProfile(
       role: UserRole.admin,

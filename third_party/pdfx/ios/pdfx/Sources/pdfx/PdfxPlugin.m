@@ -1,4 +1,9 @@
 #import "PdfxPlugin.h"
+#if __has_include(<pdfx_messages/messages.h>)
+#import <pdfx_messages/messages.h>
+#else
+#import "messages.h"
+#endif
 #if __has_include(<pdfx/pdfx-Swift.h>)
 #import <pdfx/pdfx-Swift.h>
 #else

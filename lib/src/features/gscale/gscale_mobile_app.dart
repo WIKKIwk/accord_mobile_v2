@@ -38,7 +38,6 @@ const _cachedServersKey = 'cached_servers_v1';
 const _controlDraftKey = 'operator_control_draft_v1';
 const _defaultWifiServerAddress = 'http://gscale.local:39117';
 const _bonjourDiscoveryTimeout = Duration(milliseconds: 900);
-const _emptyDiscoveryScansBeforeClear = 3;
 const _bonjourDiscoveryChannel = MethodChannel('gscale/bonjour');
 const _minManualPrintKg = 0.100;
 const _catalogPickerPageSize = 200;
@@ -139,8 +138,6 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
   }
 
   Future<void> _openServer(DiscoveredServer server) async {
-    await saveLastUsedServer(server.endpoint);
-    await saveCachedDiscoveredServers([server]);
     if (!mounted) {
       return;
     }
@@ -171,6 +168,15 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
     await _openServer(server);
   }
 
+  void _clearSelectedServer() {
+    if (!mounted || _selectedServer == null) {
+      return;
+    }
+    setState(() {
+      _selectedServer = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -184,6 +190,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
             server: _selectedServer,
             onExitMode: widget.onExitMode,
             onChangeServer: () => _openServerPicker(context),
+            onServerUnavailable: _clearSelectedServer,
           );
         }
         return MaterialApp(
@@ -209,6 +216,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
                 server: _selectedServer,
                 onExitMode: widget.onExitMode,
                 onChangeServer: () => _openServerPicker(context),
+                onServerUnavailable: _clearSelectedServer,
               );
             },
           ),
@@ -237,37 +245,17 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
 
   bool _scanning = false;
   DiscoveryResult? _result;
-  Timer? _refreshTimer;
-  int _emptyBackgroundScanCount = 0;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_seedCachedServers());
     unawaited(_scan());
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      unawaited(_scan());
-    });
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
     _client.close();
     super.dispose();
-  }
-
-  Future<void> _seedCachedServers() async {
-    final cachedServers = await loadCachedDiscoveredServers();
-    if (!mounted || cachedServers.isEmpty) {
-      return;
-    }
-    setState(() {
-      _result = DiscoveryResult(
-        servers: cachedServers,
-        candidateCount: cachedServers.length,
-      );
-    });
   }
 
   Future<void> _scan() async {
@@ -280,75 +268,29 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
     });
 
     try {
-      final preferredEndpoint = await loadLastUsedServer();
-      final fastResultFuture = discoverServersFast(
+      final result = await discoverServers(
         _client,
-        preferredEndpoint: preferredEndpoint,
+        preferredEndpoint: null,
       );
-      final fastResult = await fastResultFuture;
       if (!mounted) {
         return;
       }
       setState(() {
-        _result = mergeDiscoveryResults(
-          current: _result,
-          next: fastResult,
-          keepCurrentWhenNextEmpty: true,
-        );
+        _result = result;
         _scanning = false;
       });
-      if (fastResult.servers.isNotEmpty) {
-        _emptyBackgroundScanCount = 0;
-        unawaited(saveCachedDiscoveredServers(fastResult.servers));
-      }
-      unawaited(_finishBackgroundScan(preferredEndpoint));
     } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _result = mergeDiscoveryResults(
-          current: _result,
-          next: const DiscoveryResult(
-            servers: <DiscoveredServer>[],
-            candidateCount: 0,
-          ),
-          keepCurrentWhenNextEmpty: true,
+        _result ??= const DiscoveryResult(
+          servers: <DiscoveredServer>[],
+          candidateCount: 0,
         );
         _scanning = false;
       });
     }
-  }
-
-  Future<void> _finishBackgroundScan(ServerEndpoint? preferredEndpoint) async {
-    try {
-      final result = await discoverServers(
-        _client,
-        preferredEndpoint: preferredEndpoint,
-      );
-      if (!mounted) {
-        return;
-      }
-      if (result.servers.isNotEmpty) {
-        _emptyBackgroundScanCount = 0;
-        setState(() {
-          _result = mergeDiscoveryResults(
-            current: _result,
-            next: result,
-            keepCurrentWhenNextEmpty: false,
-          );
-        });
-        await saveCachedDiscoveredServers(result.servers);
-      } else {
-        _emptyBackgroundScanCount += 1;
-        if (_emptyBackgroundScanCount >= _emptyDiscoveryScansBeforeClear) {
-          setState(() {
-            _result = result;
-          });
-          await clearCachedDiscoveredServers();
-        }
-      }
-    } catch (_) {}
   }
 
   Future<void> _openManualEntrySheet() async {
@@ -449,12 +391,16 @@ class OperatorDashboardPage extends StatefulWidget {
     required this.server,
     required this.onExitMode,
     required this.onChangeServer,
+    this.controlOnly = false,
+    this.onServerUnavailable,
     super.key,
   });
 
   final DiscoveredServer? server;
   final Future<void> Function() onExitMode;
   final Future<void> Function() onChangeServer;
+  final bool controlOnly;
+  final VoidCallback? onServerUnavailable;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
@@ -496,6 +442,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Timer? _pingTimer;
   Timer? _printerStatusTimer;
   Timer? _controlPrefsDebounce;
+  int _latencyFailureCount = 0;
   String _printerStatusOverride = '';
   String _lastAutoBatchPrintKey = '';
   String _lastRsBatchErrorKey = '';
@@ -515,6 +462,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (server != null) {
       _startLiveStream();
       _startPingLoop();
+      unawaited(_refresh());
       unawaited(_refreshRsBatchState());
     }
   }
@@ -537,10 +485,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       _errorText = '';
       _manualLoading = false;
       _requestInFlight = false;
+      _latencyFailureCount = 0;
     });
     if (server != null) {
       _startLiveStream();
       _startPingLoop();
+      unawaited(_refresh());
       unawaited(_refreshRsBatchState());
     }
   }
@@ -708,18 +658,35 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           .get(Uri.parse('${server.endpoint.baseUrl}/healthz'))
           .timeout(const Duration(seconds: 2));
       if (response.statusCode < 200 || response.statusCode > 299) {
-        return;
+        throw Exception('healthz ${response.statusCode}');
       }
       stopwatch.stop();
       if (!mounted) {
         return;
       }
       setState(() {
+        _latencyFailureCount = 0;
         _snapshot = _snapshot.copyWithLatency(stopwatch.elapsedMilliseconds);
       });
-    } catch (_) {
-      return;
+    } catch (error) {
+      _latencyFailureCount += 1;
+      if (_latencyFailureCount >= 2) {
+        _markServerUnavailable(error);
+      }
     }
+  }
+
+  void _markServerUnavailable(Object error) {
+    _pingTimer?.cancel();
+    _stopLiveStream();
+    if (mounted) {
+      setState(() {
+        _snapshot = MonitorSnapshot.empty();
+        _errorText = error.toString();
+        _latencyFailureCount = 0;
+      });
+    }
+    widget.onServerUnavailable?.call();
   }
 
   Future<void> _runLiveStream(int generation) async {
@@ -868,6 +835,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           _errorText = error.toString();
         });
       }
+      widget.onServerUnavailable?.call();
     } finally {
       _requestInFlight = false;
       if (manual && mounted) {
@@ -1083,7 +1051,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       query: query,
       limit: 12,
     ).timeout(const Duration(seconds: 3));
-    return warehouses
+    final mapped = warehouses
         .map(
           (warehouse) => MobileWarehouse(
             warehouse: warehouse.warehouse,
@@ -1092,6 +1060,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ),
         )
         .toList(growable: false);
+    return _filterMaterialWarehouses(mapped);
   }
 
   Future<List<MobileWarehouse>> _fetchAllWarehouses({String query = ''}) async {
@@ -1099,7 +1068,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       query: query,
       limit: 30,
     ).timeout(const Duration(seconds: 3));
-    return warehouses
+    final mapped = warehouses
         .map(
           (warehouse) => MobileWarehouse(
             warehouse: warehouse.warehouse,
@@ -1108,6 +1077,51 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           ),
         )
         .toList(growable: false);
+    return _filterMaterialWarehouses(mapped);
+  }
+
+  Future<List<MobileWarehouse>> _filterMaterialWarehouses(
+    List<MobileWarehouse> warehouses,
+  ) async {
+    if (AppSession.instance.profile?.role != UserRole.materialTaminotchi) {
+      return warehouses;
+    }
+    final allowed = await _materialAssignedWarehouseNames();
+    if (allowed.isEmpty) {
+      return const [];
+    }
+    return warehouses
+        .where(
+          (warehouse) =>
+              allowed.contains(warehouse.warehouse.trim().toLowerCase()),
+        )
+        .toList(growable: false);
+  }
+
+  Future<Set<String>> _materialAssignedWarehouseNames() async {
+    final profile = AppSession.instance.profile;
+    final fromProfile = profile?.assignedWarehouses ?? const <String>[];
+    if (fromProfile.isNotEmpty) {
+      return fromProfile
+          .map((warehouse) => warehouse.trim().toLowerCase())
+          .where((warehouse) => warehouse.isNotEmpty)
+          .toSet();
+    }
+    final assignments = await MobileApi.instance.adminWarehouseAssignments();
+    final profileRef = profile?.ref.trim().toLowerCase() ?? '';
+    final displayName = profile?.displayName.trim().toLowerCase() ?? '';
+    return assignments
+        .where((assignment) =>
+            assignment.principalRole == UserRole.materialTaminotchi)
+        .where((assignment) {
+          final ref = assignment.principalRef.trim().toLowerCase();
+          final name = assignment.displayName.trim().toLowerCase();
+          return (profileRef.isNotEmpty && ref == profileRef) ||
+              (displayName.isNotEmpty && name == displayName);
+        })
+        .map((assignment) => assignment.warehouse.trim().toLowerCase())
+        .where((warehouse) => warehouse.isNotEmpty)
+        .toSet();
   }
 
   Future<void> _validateSelectedWarehouse({required String itemCode}) async {
@@ -1418,6 +1432,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (warehouse == null || warehouse.trim().isEmpty) {
       throw Exception('Warehouse tanlang');
     }
+    if (!await _materialWarehouseAllowed(warehouse)) {
+      throw Exception('Bu ombor sizga biriktirilmagan');
+    }
     final tareKg =
         _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
     if (_babinaEnabled && tareKg == null) {
@@ -1453,6 +1470,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       });
     }
     return started;
+  }
+
+  Future<bool> _materialWarehouseAllowed(String warehouse) async {
+    if (AppSession.instance.profile?.role != UserRole.materialTaminotchi) {
+      return true;
+    }
+    final allowed = await _materialAssignedWarehouseNames();
+    return allowed.contains(warehouse.trim().toLowerCase());
   }
 
   Future<GScaleMaterialReceiptPrintResponse> _printActiveRsBatch({
@@ -1805,6 +1830,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final server = widget.server;
+
+    if (widget.controlOnly) {
+      return Material(
+        type: MaterialType.transparency,
+        child: _DashboardScrollView(
+          key: const ValueKey('control-section'),
+          horizontalPadding: 8,
+          child: _buildControlSection(context, theme, scheme, server),
+        ),
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -2365,7 +2401,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         hasDevice;
     final printerStatusText = _printerStatusOverride.isNotEmpty
         ? _printerStatusOverride
-        : _snapshot.printerLabel;
+        : !_snapshot.hasPrinterState
+            ? _errorText.isEmpty
+                ? 'Printer holati olinmoqda'
+                : 'Printer holati olinmadi'
+            : _snapshot.printerLabel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2374,47 +2414,55 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
           const SizedBox(height: 18),
         ],
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _MetricSummary(
-                title: 'Joriy kg',
-                value: _snapshot.scaleValue,
-                caption: _snapshot.scaleCaption,
-                icon: Icons.scale_outlined,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MiniIconRow(
-                      icon: Icons.print_outlined,
-                      text: printerStatusText,
-                    ),
-                    const SizedBox(height: 8),
-                    _MiniIconRow(
-                      icon: Icons.scale_outlined,
-                      text: _snapshot.scaleConnectionLabel,
-                    ),
-                    const SizedBox(height: 8),
-                    _MiniIconRow(
-                      icon: Icons.link_rounded,
-                      text: server == null
-                          ? 'Qurilma tanlanmagan'
-                          : printTargetLabel(server),
-                    ),
-                  ],
+        if (hasDevice) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _MetricSummary(
+                  title: 'Joriy kg',
+                  value: _snapshot.scaleValue,
+                  caption: _snapshot.scaleCaption,
+                  icon: Icons.scale_outlined,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _MiniIconRow(
+                        icon: Icons.print_outlined,
+                        text: printerStatusText,
+                      ),
+                      const SizedBox(height: 8),
+                      _MiniIconRow(
+                        icon: Icons.scale_outlined,
+                        text: _snapshot.scaleConnectionLabel,
+                      ),
+                      const SizedBox(height: 8),
+                      _MiniIconRow(
+                        icon: Icons.link_rounded,
+                        text:
+                            '${printTargetLabel(server)} • ${server.endpoint.label}',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (_errorText.isNotEmpty) ...[
+          Text(
+            _errorText,
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_snapshot.batchActive) ...[
           Row(
             children: [
@@ -2716,7 +2764,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 color: scheme.onSurfaceVariant,
               ),
             ),
-          ] else if (scaleQtyKg == null) ...[
+          ] else if (hasDevice && scaleQtyKg == null) ...[
             const SizedBox(height: 6),
             Text(
               'Scale ulangan va kg kelganda tugma aktiv bo‘ladi.',
@@ -2834,15 +2882,25 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 }
 
 class _DashboardScrollView extends StatelessWidget {
-  const _DashboardScrollView({required this.child, super.key});
+  const _DashboardScrollView({
+    required this.child,
+    this.horizontalPadding = 18,
+    super.key,
+  });
 
   final Widget child;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return ListView(
-      padding: EdgeInsets.fromLTRB(18, 8, 18, 24 + bottomInset + 96),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        8,
+        horizontalPadding,
+        24 + bottomInset + 96,
+      ),
       children: [child],
     );
   }
@@ -3849,6 +3907,7 @@ class MonitorSnapshot {
     required this.printerState,
     required this.printerEventKey,
     required this.printerEventMessage,
+    required this.hasPrinterState,
     required this.batchActive,
     required this.batchItemCode,
     required this.batchItemName,
@@ -3883,6 +3942,7 @@ class MonitorSnapshot {
       printerState: 'idle',
       printerEventKey: '',
       printerEventMessage: '',
+      hasPrinterState: false,
       batchActive: false,
       batchItemCode: '',
       batchItemName: '',
@@ -3934,14 +3994,23 @@ class MonitorSnapshot {
     final batchTareKg = (batch['tare_kg'] as num?)?.toDouble() ?? 0;
 
     final printStatus = _text(printRequest['status'], fallback: 'idle');
-    final printerStateJson =
+    final nestedPrinterState =
         (state['printer'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final printerConnected = printerStateJson['connected'] == true;
-    final printerLabel = _text(
-      printerStateJson['label'],
-      fallback: 'ulanmagan',
+    final topLevelPrinterState =
+        (json['printer'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final printerStateJson = nestedPrinterState.isNotEmpty
+        ? nestedPrinterState
+        : topLevelPrinterState;
+    final hasPrinterState = printerStateJson.isNotEmpty;
+    final printerConnected = _boolValue(
+      printerStateJson['connected'] ?? printerStateJson['ok'],
     );
+    final rawPrinterLabel = _text(printerStateJson['label']);
     final printerKind = _text(printerStateJson['kind']);
+    final printerLabel = buildPrinterConnectionLabel(
+      connected: printerConnected,
+      label: rawPrinterLabel,
+    );
     final printRequestEpc = _text(printRequest['epc']);
     final printRequestError = _text(printRequest['error']);
 
@@ -3961,7 +4030,7 @@ class MonitorSnapshot {
           : 'API: oflayn',
       monitorLabel:
           batchItem.isEmpty ? 'Faol partiya yo‘q' : 'Partiya: $batchItem',
-      printerLabel: printerConnected ? printerLabel : 'ulanmagan',
+      printerLabel: printerLabel,
       printerKind: printerConnected ? printerKind : '',
       printerState: derivePrinterState(
         printStatus: printStatus,
@@ -3981,6 +4050,7 @@ class MonitorSnapshot {
         latestPrinterError: printRequestError,
         printerChoice: batchPrinter,
       ),
+      hasPrinterState: hasPrinterState,
       batchActive: batchActive,
       batchItemCode: batchItemCode,
       batchItemName: batchItem,
@@ -4018,6 +4088,7 @@ class MonitorSnapshot {
       printerState: printerState,
       printerEventKey: printerEventKey,
       printerEventMessage: printerEventMessage,
+      hasPrinterState: hasPrinterState,
       batchActive: batch.active,
       batchItemCode: batch.itemCode,
       batchItemName: itemName,
@@ -4056,6 +4127,7 @@ class MonitorSnapshot {
   final String printerState;
   final String printerEventKey;
   final String printerEventMessage;
+  final bool hasPrinterState;
   final bool batchActive;
   final String batchItemCode;
   final String batchItemName;
@@ -4089,6 +4161,43 @@ class MonitorSnapshot {
       printerState: printerState,
       printerEventKey: printerEventKey,
       printerEventMessage: printerEventMessage,
+      hasPrinterState: hasPrinterState,
+      batchActive: batchActive,
+      batchItemCode: batchItemCode,
+      batchItemName: batchItemName,
+      batchWarehouse: batchWarehouse,
+      batchPrintMode: batchPrintMode,
+      batchPrinter: batchPrinter,
+      batchQuantitySource: batchQuantitySource,
+      batchManualQtyKg: batchManualQtyKg,
+      batchTareEnabled: batchTareEnabled,
+      batchTareKg: batchTareKg,
+      batchLastError: batchLastError,
+      batchLastErrorAt: batchLastErrorAt,
+      latencyMs: latencyMs,
+    );
+  }
+
+  MonitorSnapshot copyWithPrinterStatusFrom(MonitorSnapshot other) {
+    return MonitorSnapshot(
+      scaleValue: scaleValue,
+      scaleCaption: scaleCaption,
+      scaleStable: scaleStable,
+      scaleConnectionLabel: scaleConnectionLabel,
+      zebraValue: zebraValue,
+      zebraCaption: zebraCaption,
+      batchValue: batchValue,
+      batchCaption: batchCaption,
+      bridgeValue: bridgeValue,
+      bridgeCaption: bridgeCaption,
+      serverLabel: serverLabel,
+      monitorLabel: monitorLabel,
+      printerLabel: other.printerLabel,
+      printerKind: other.printerKind,
+      printerState: other.printerState,
+      printerEventKey: other.printerEventKey,
+      printerEventMessage: other.printerEventMessage,
+      hasPrinterState: other.hasPrinterState,
       batchActive: batchActive,
       batchItemCode: batchItemCode,
       batchItemName: batchItemName,
@@ -4125,10 +4234,13 @@ MonitorSnapshot mergeLiveMonitorWithRsBatch(
   MonitorSnapshot live,
   MonitorSnapshot previous,
 ) {
-  if (!previous.batchActive || live.batchActive) {
-    return live;
+  final monitor = live.hasPrinterState || !previous.hasPrinterState
+      ? live
+      : live.copyWithPrinterStatusFrom(previous);
+  if (!previous.batchActive || monitor.batchActive) {
+    return monitor;
   }
-  return live.copyWithBatch(
+  return monitor.copyWithBatch(
     MobileBatchState(
       active: true,
       itemCode: previous.batchItemCode,
@@ -4386,6 +4498,20 @@ String buildScaleConnectionLabel({
     return 'Scale: ulangan';
   }
   return 'Scale: ulanmagan';
+}
+
+String buildPrinterConnectionLabel({
+  required bool connected,
+  required String label,
+}) {
+  if (!connected) {
+    return 'ulanmagan';
+  }
+  final text = label.trim();
+  if (text.isEmpty || text.toLowerCase() == 'ulanmagan') {
+    return 'ulangan';
+  }
+  return text;
 }
 
 String derivePrinterState({
@@ -4973,7 +5099,7 @@ Future<DiscoveryResult> discoverServers(
   final directScanned = await _probeServers(
     client,
     probeTargets,
-    timeout: _fastProbeTimeout,
+    timeout: _manualProbeTimeout,
   );
   _mergeDiscoveredServers(resultsByKey, directScanned);
 

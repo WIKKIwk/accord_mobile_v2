@@ -1,9 +1,11 @@
 import Flutter
+import Foundation
 import UIKit
 
 class SceneDelegate: FlutterSceneDelegate {
   private var deviceInfoBridge: DeviceInfoChannelBridge?
   private var irohTransportBridge: IrohTransportChannelBridge?
+  private var gscaleBonjourBridge: GScaleBonjourDiscoveryBridge?
 
   override func scene(
     _ scene: UIScene,
@@ -15,6 +17,9 @@ class SceneDelegate: FlutterSceneDelegate {
     if let window, let flutterViewController = window.rootViewController as? FlutterViewController {
       deviceInfoBridge = DeviceInfoChannelBridge(messenger: flutterViewController.binaryMessenger)
       irohTransportBridge = IrohTransportChannelBridge(messenger: flutterViewController.binaryMessenger)
+      gscaleBonjourBridge = GScaleBonjourDiscoveryBridge(
+        messenger: flutterViewController.binaryMessenger
+      )
     }
   }
 }
@@ -25,6 +30,9 @@ final class NativeBackNavigationController: UINavigationController {
   private var navigationBarVisible = false
   private var backGestureActive = false
   private lazy var deviceInfoBridge = DeviceInfoChannelBridge(
+    messenger: flutterBinaryMessenger
+  )
+  private lazy var gscaleBonjourBridge = GScaleBonjourDiscoveryBridge(
     messenger: flutterBinaryMessenger
   )
   private lazy var dockController = NativeTabBarController(
@@ -67,6 +75,7 @@ final class NativeBackNavigationController: UINavigationController {
     super.viewDidLoad()
     _ = backBridge
     _ = deviceInfoBridge
+    _ = gscaleBonjourBridge
     navigationBar.prefersLargeTitles = false
     applyNavigationAppearance(isDark: true)
     topViewController?.navigationItem.leftBarButtonItem = makeBackBarButtonItem()
@@ -569,5 +578,181 @@ private final class DeviceInfoChannelBridge: NSObject {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+}
+
+private final class GScaleBonjourDiscoveryBridge: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
+  private let channel: FlutterMethodChannel
+  private var browser: NetServiceBrowser?
+  private var pendingResult: FlutterResult?
+  private var timeoutTimer: Timer?
+  private var startedAt = Date()
+  private var services: [NetService] = []
+  private var resolvedServices: [[String: Any]] = []
+
+  init(messenger: FlutterBinaryMessenger) {
+    self.channel = FlutterMethodChannel(
+      name: "gscale/bonjour",
+      binaryMessenger: messenger
+    )
+    super.init()
+    channel.setMethodCallHandler(handleMethodCall)
+  }
+
+  private func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "discoverBonjourServices":
+      discover(call: call, result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func discover(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    finishDiscovery()
+    pendingResult = result
+    startedAt = Date()
+    services = []
+    resolvedServices = []
+
+    let args = call.arguments as? [String: Any]
+    let timeoutMs = max(300, args?["timeout_ms"] as? Int ?? 900)
+    let browser = NetServiceBrowser()
+    browser.delegate = self
+    self.browser = browser
+    browser.searchForServices(ofType: "_gscale-mobileapi._tcp.", inDomain: "local.")
+
+    timeoutTimer = Timer.scheduledTimer(withTimeInterval: Double(timeoutMs) / 1000.0, repeats: false) { [weak self] _ in
+      self?.finishDiscovery()
+    }
+  }
+
+  private func finishDiscovery(error: FlutterError? = nil) {
+    timeoutTimer?.invalidate()
+    timeoutTimer = nil
+    browser?.stop()
+    browser?.delegate = nil
+    browser = nil
+    services.forEach { $0.delegate = nil }
+    services = []
+
+    guard let result = pendingResult else {
+      return
+    }
+    pendingResult = nil
+    if let error {
+      result(error)
+      return
+    }
+    result(resolvedServices)
+  }
+
+  func netServiceBrowser(
+    _ browser: NetServiceBrowser,
+    didFind service: NetService,
+    moreComing: Bool
+  ) {
+    service.delegate = self
+    services.append(service)
+    service.resolve(withTimeout: 1.2)
+  }
+
+  func netServiceBrowser(
+    _ browser: NetServiceBrowser,
+    didNotSearch errorDict: [String: NSNumber]
+  ) {
+    finishDiscovery(
+      error: FlutterError(
+        code: "bonjour_search_failed",
+        message: "Bonjour search failed",
+        details: errorDict
+      )
+    )
+  }
+
+  func netServiceDidResolveAddress(_ sender: NetService) {
+    guard let item = discoveryItem(from: sender) else {
+      return
+    }
+    resolvedServices.append(item)
+  }
+
+  private func discoveryItem(from service: NetService) -> [String: Any]? {
+    guard service.port > 0 else {
+      return nil
+    }
+    guard let host = firstIPAddress(from: service.addresses) else {
+      return nil
+    }
+
+    let txt = decodeTXTRecord(service.txtRecordData())
+    let httpPort = Int(txt["http_port"] ?? "") ?? service.port
+    return [
+      "host": host,
+      "http_port": httpPort,
+      "server_name": nonEmpty(txt["server_name"], fallback: service.name),
+      "server_ref": nonEmpty(txt["server_ref"], fallback: ""),
+      "display_name": nonEmpty(txt["display_name"], fallback: "Operator"),
+      "role": nonEmpty(txt["role"], fallback: "operator"),
+      "latency_ms": max(1, Int(Date().timeIntervalSince(startedAt) * 1000)),
+    ]
+  }
+
+  private func firstIPAddress(from addresses: [Data]?) -> String? {
+    guard let addresses else {
+      return nil
+    }
+
+    for family in [AF_INET, AF_INET6] {
+      for address in addresses {
+        let host = address.withUnsafeBytes { buffer -> String? in
+          guard let sockaddr = buffer.baseAddress?.assumingMemoryBound(to: sockaddr.self) else {
+            return nil
+          }
+          guard Int32(sockaddr.pointee.sa_family) == family else {
+            return nil
+          }
+
+          var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+          let status = getnameinfo(
+            sockaddr,
+            socklen_t(sockaddr.pointee.sa_len),
+            &hostBuffer,
+            socklen_t(hostBuffer.count),
+            nil,
+            0,
+            NI_NUMERICHOST
+          )
+          guard status == 0 else {
+            return nil
+          }
+          return String(cString: hostBuffer)
+        }
+        if let host, !host.isEmpty {
+          return host
+        }
+      }
+    }
+
+    return nil
+  }
+
+  private func decodeTXTRecord(_ data: Data?) -> [String: String] {
+    guard let data else {
+      return [:]
+    }
+    let raw = NetService.dictionary(fromTXTRecord: data)
+    var out: [String: String] = [:]
+    for (key, value) in raw {
+      out[key] = String(data: value, encoding: .utf8) ?? ""
+    }
+    return out
+  }
+
+  private func nonEmpty(_ value: String?, fallback: String) -> String {
+    guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return fallback
+    }
+    return value
   }
 }

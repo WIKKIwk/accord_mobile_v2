@@ -6,10 +6,10 @@ import Cocoa
 import FlutterMacOS
 #endif
 import CoreGraphics
-import pdfx_messages
+@_exported import pdfx_messages
 
 @objc(PdfxPlugin)
-public class SwiftPdfxPlugin: NSObject, FlutterPlugin, PdfxApi {
+public class SwiftPdfxPlugin: NSObject, FlutterPlugin {
     let registrar: FlutterPluginRegistrar
     static let invalid = NSNumber(value: -1)
     let dispQueue = DispatchQueue(label: "io.scer.pdf_renderer")
@@ -28,7 +28,8 @@ public class SwiftPdfxPlugin: NSObject, FlutterPlugin, PdfxApi {
         #elseif os(macOS)
             let messenger: FlutterBinaryMessenger = registrar.messenger
         #endif
-        let api: PdfxApi & NSObjectProtocol = SwiftPdfxPlugin.init(registrar: registrar)
+        let plugin = SwiftPdfxPlugin.init(registrar: registrar)
+        let api: PdfxApi & NSObjectProtocol = PdfxApiDelegate(plugin: plugin)
         PdfxApiSetup(messenger, api);
     }
 
@@ -388,6 +389,58 @@ class PdfPageTexture : NSObject {
     #elseif os(macOS)
       registrar?.textures.textureFrameAvailable(texId)
     #endif
+  }
+}
+
+final class PdfxApiDelegate: NSObject, PdfxApi {
+  private let plugin: SwiftPdfxPlugin
+
+  init(plugin: SwiftPdfxPlugin) {
+    self.plugin = plugin
+  }
+
+  func openDocumentDataMessage(_ message: OpenDataMessage, completion: @escaping (OpenReply?, FlutterError?) -> Void) {
+    plugin.openDocumentDataMessage(message, completion: completion)
+  }
+
+  func openDocumentFileMessage(_ message: OpenPathMessage, completion: @escaping (OpenReply?, FlutterError?) -> Void) {
+    plugin.openDocumentFileMessage(message, completion: completion)
+  }
+
+  func openDocumentAssetMessage(_ message: OpenPathMessage, completion: @escaping (OpenReply?, FlutterError?) -> Void) {
+    plugin.openDocumentAssetMessage(message, completion: completion)
+  }
+
+  func closeDocumentMessage(_ message: IdMessage, error: AutoreleasingUnsafeMutablePointer<FlutterError?>) {
+    plugin.closeDocumentMessage(message, error: error)
+  }
+
+  func getPageMessage(_ message: GetPageMessage, completion: @escaping (GetPageReply?, FlutterError?) -> Void) {
+    plugin.getPageMessage(message, completion: completion)
+  }
+
+  func renderPageMessage(_ message: RenderPageMessage, completion: @escaping (RenderPageReply?, FlutterError?) -> Void) {
+    plugin.renderPageMessage(message, completion: completion)
+  }
+
+  func closePageMessage(_ message: IdMessage, error: AutoreleasingUnsafeMutablePointer<FlutterError?>) {
+    plugin.closePageMessage(message, error: error)
+  }
+
+  func registerTextureWithError(_ error: AutoreleasingUnsafeMutablePointer<FlutterError?>) -> RegisterTextureReply? {
+    plugin.registerTextureWithError(error)
+  }
+
+  func unregisterTextureMessage(_ message: UnregisterTextureMessage, error: AutoreleasingUnsafeMutablePointer<FlutterError?>) {
+    plugin.unregisterTextureMessage(message, error: error)
+  }
+
+  func resizeTextureMessage(_ message: ResizeTextureMessage, completion: @escaping (FlutterError?) -> Void) {
+    plugin.resizeTextureMessage(message, completion: completion)
+  }
+
+  func updateTextureMessage(_ message: UpdateTextureMessage, completion: @escaping (FlutterError?) -> Void) {
+    plugin.updateTextureMessage(message, completion: completion)
   }
 }
 

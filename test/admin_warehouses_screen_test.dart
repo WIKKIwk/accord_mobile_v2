@@ -56,32 +56,33 @@ void main() {
 
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      if (find.text('Tayyor mahsulot ombori - DEMO').evaluate().isNotEmpty) {
+      if (find.byKey(_warehouseFilterKey).evaluate().isNotEmpty) {
         break;
       }
     }
 
     expect(find.text('Ombor'), findsOneWidget);
+    expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
+
+    await _openWarehouseFilter(tester);
     expect(find.text('Tayyor mahsulot ombori - DEMO'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
 
     await tester.tap(find.text('Tayyor mahsulot ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ombor ma’lumoti'), findsOneWidget);
     expect(find.text('Hotlunch'), findsOneWidget);
     expect(find.text('DEMO-HOTLUNCH'), findsNothing);
     expect(find.textContaining('DEMO-HOTLUNCH'), findsWidgets);
     expect(find.text('Demo ichimlik'), findsOneWidget);
     expect(find.textContaining('Dona'), findsWidgets);
 
-    await tester.tap(find.text('Omborlar'));
-    await tester.pumpAndSettle();
+    await _openWarehouseFilter(tester);
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mahsulotlar'), findsOneWidget);
-    expect(find.text('3'), findsWidgets);
+    expect(find.textContaining('Mahsulotlar'), findsOneWidget);
+    expect(find.textContaining('(3)'), findsOneWidget);
     expect(find.text('Demo kraska'), findsOneWidget);
     expect(find.textContaining('DEMO-RAW-001'), findsWidgets);
     expect(find.textContaining('30AA'), findsWidgets);
@@ -107,38 +108,88 @@ void main() {
 
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      if (find.text('Omborlar').evaluate().isNotEmpty) {
+      if (find.byKey(_warehouseFilterKey).evaluate().isNotEmpty) {
         break;
       }
     }
 
-    expect(find.text('Omborlar'), findsOneWidget);
-    expect(find.text('Ombor ma’lumoti'), findsOneWidget);
-    expect(find.text('Ombor yaratish'), findsOneWidget);
+    expect(find.text('Ombor'), findsOneWidget);
+    expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
+    expect(find.byKey(_primaryNavigationButtonKey), findsOneWidget);
 
+    await _openWarehouseFilter(tester);
     await tester.tap(find.text('Tayyor mahsulot ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mahsulotlar'), findsOneWidget);
-    expect(find.text('Band qilingan'), findsOneWidget);
-    expect(find.text('Assign'), findsOneWidget);
-    expect(find.text('yo‘q'), findsOneWidget);
+    expect(find.textContaining('Mahsulotlar'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsOneWidget);
 
+    await tester.tap(find.byKey(_primaryNavigationButtonKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Ombor yaratish'));
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Tanlash uchun bosing'), findsOneWidget);
-    expect(find.text('Demo ta’minotchi'), findsNothing);
-
-    await tester.tap(find.text('Tanlash uchun bosing'));
-    await tester.pumpAndSettle();
-    expect(find.text('Demo ta’minotchi'), findsOneWidget);
-
-    await tester.tap(find.text('Demo ta’minotchi'));
-    await tester.pumpAndSettle();
-    expect(find.text('Demo ta’minotchi'), findsOneWidget);
     expect(find.text('Assign qilish'), findsOneWidget);
+  });
+
+  testWidgets('material scoped warehouses page shows only assigned warehouses',
+      (
+    tester,
+  ) async {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: [
+        'gscale.catalog.read',
+        'gscale.print',
+        'rps.batch.manage',
+        'raw_material.assign',
+      ],
+      assignedItemGroups: ['Kraska'],
+      assignedWarehouses: ['Xomashyo ombori - DEMO'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWarehousesScreen(),
+      ),
+    );
+
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.byKey(_warehouseFilterKey).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.text('Omborlarim'), findsOneWidget);
+    expect(find.text('Ombor yaratish'), findsNothing);
+
+    await _openWarehouseFilter(tester);
+
+    expect(find.text('Xomashyo ombori - DEMO'), findsOneWidget);
+    expect(find.text('Tayyor mahsulot ombori - DEMO'), findsNothing);
+
+    await tester.tap(find.text('Xomashyo ombori - DEMO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Demo kraska'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsNothing);
   });
 
   test('admin warehouse live url uses websocket scheme and session token', () {
@@ -148,4 +199,12 @@ void main() {
     expect(uri.path, '/v1/mobile/admin/warehouses/live');
     expect(uri.queryParameters['token'], 'token');
   });
+}
+
+const _warehouseFilterKey = ValueKey('admin-warehouse-filter-chip');
+const _primaryNavigationButtonKey = ValueKey('app-primary-navigation-button');
+
+Future<void> _openWarehouseFilter(WidgetTester tester) async {
+  await tester.tap(find.byKey(_warehouseFilterKey));
+  await tester.pumpAndSettle();
 }

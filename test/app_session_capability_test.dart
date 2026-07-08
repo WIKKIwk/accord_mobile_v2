@@ -22,6 +22,7 @@ void main() {
       'capabilities': ['gscale.print', 'rps.batch.manage'],
       'assigned_apparatus': ['Godex aparat - DEMO'],
       'assigned_item_groups': ['Kraska', 'Kley'],
+      'assigned_warehouses': ['Xomashyo ombori - DEMO'],
     });
 
     expect(profile.hasCapability('gscale.print'), isTrue);
@@ -32,7 +33,9 @@ void main() {
     ]);
     expect(profile.assignedApparatus, ['Godex aparat - DEMO']);
     expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
+    expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
     expect(profile.toJson()['assigned_item_groups'], ['Kraska', 'Kley']);
+    expect(profile.toJson()['assigned_warehouses'], ['Xomashyo ombori - DEMO']);
   });
 
   test('admin role assignment stores material item group scope', () {
@@ -215,5 +218,32 @@ void main() {
 
     expect(profile.hasCapability('werka.access'), isTrue);
     expect(profile.hasCapability('gscale.print'), isTrue);
+  });
+
+  test('legacy profile with null assigned warehouses is safe', () {
+    const profile = SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material-1',
+      phone: '',
+      avatarUrl: '',
+      assignedWarehouses: null,
+    );
+
+    expect(profile.assignedWarehouses, isEmpty);
+    expect(profile.toJson()['assigned_warehouses'], isEmpty);
+  });
+
+  test('stored profile with null assigned warehouses is safe', () {
+    final profile = SessionProfile.fromJson(const {
+      'role': 'material_taminotchi',
+      'display_name': 'Materialchi',
+      'ref': 'material-1',
+      'assigned_warehouses': null,
+    });
+
+    expect(profile.assignedWarehouses, isEmpty);
+    expect(profile.toJson()['assigned_warehouses'], isEmpty);
   });
 }

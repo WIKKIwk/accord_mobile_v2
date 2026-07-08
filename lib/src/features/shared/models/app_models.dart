@@ -1186,7 +1186,8 @@ class SessionProfile {
     this.capabilities = const [],
     this.assignedApparatus = const [],
     this.assignedItemGroups = const [],
-  });
+    List<String>? assignedWarehouses = const [],
+  }) : _assignedWarehouses = assignedWarehouses;
 
   final UserRole role;
   final String displayName;
@@ -1197,6 +1198,9 @@ class SessionProfile {
   final List<String> capabilities;
   final List<String> assignedApparatus;
   final List<String> assignedItemGroups;
+  final List<String>? _assignedWarehouses;
+
+  List<String> get assignedWarehouses => _assignedWarehouses ?? const [];
 
   factory SessionProfile.fromJson(Map<String, dynamic> json) {
     return SessionProfile(
@@ -1217,6 +1221,11 @@ class SessionProfile {
           (json['assigned_item_groups'] as List<dynamic>? ?? const [])
               .map((item) => item as String)
               .toList(growable: false),
+      assignedWarehouses:
+          (json['assigned_warehouses'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false),
     );
   }
 
@@ -1231,6 +1240,7 @@ class SessionProfile {
       'capabilities': capabilities,
       'assigned_apparatus': assignedApparatus,
       'assigned_item_groups': assignedItemGroups,
+      'assigned_warehouses': assignedWarehouses,
     };
   }
 
@@ -1299,6 +1309,7 @@ class SessionProfile {
     List<String>? capabilities,
     List<String>? assignedApparatus,
     List<String>? assignedItemGroups,
+    List<String>? assignedWarehouses,
   }) {
     return SessionProfile(
       role: role ?? this.role,
@@ -1310,6 +1321,7 @@ class SessionProfile {
       capabilities: capabilities ?? this.capabilities,
       assignedApparatus: assignedApparatus ?? this.assignedApparatus,
       assignedItemGroups: assignedItemGroups ?? this.assignedItemGroups,
+      assignedWarehouses: assignedWarehouses ?? this.assignedWarehouses,
     );
   }
 }

@@ -41,6 +41,33 @@ List<String> gscaleCreateItemGroupsForProfile(SessionProfile? profile) {
   return normalized;
 }
 
+bool gscaleUsesScopedAdminWarehousesForProfile(
+  SessionProfile? profile, {
+  UserRole? role,
+}) {
+  if (role == UserRole.admin || role == UserRole.materialTaminotchi) {
+    return true;
+  }
+  if (role != null) {
+    return false;
+  }
+  return profile?.hasCapability('admin.access') == true ||
+      profile?.hasCapability('production.map.manage') == true ||
+      profile?.hasCapability('catalog.item.read') == true ||
+      (profile?.role == UserRole.materialTaminotchi &&
+          profile?.hasCapability('raw_material.assign') == true);
+}
+
+bool gscaleMergesDefaultWarehousesForProfile(
+  SessionProfile? profile, {
+  UserRole? role,
+}) {
+  if (role != null) {
+    return role == UserRole.materialTaminotchi;
+  }
+  return profile?.role == UserRole.materialTaminotchi;
+}
+
 Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
   required String itemCode,
   String query = '',
@@ -84,15 +111,19 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
       itemCode: itemCode,
       query: query,
     );
-    if (warehouses.isNotEmpty) {
+    if (warehouses.isNotEmpty &&
+        !gscaleMergesDefaultWarehousesForProfile(profile, role: role)) {
       return warehouses.take(limit).toList();
     }
-    return fetchGScaleDefaultWarehouses(
+    final defaults = await fetchGScaleDefaultWarehouses(
       query: query,
       limit: limit,
       api: client,
       role: role,
     );
+    return mergeGScaleCatalogWarehouses(warehouses, defaults)
+        .take(limit)
+        .toList();
   }
   throw Exception('GScale omborlari faqat admin yoki werka uchun mavjud');
 }
@@ -121,11 +152,10 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
 }) async {
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
-  final canReadAdminWarehouses = role == UserRole.admin ||
-      (role == null &&
-          (profile?.hasCapability('admin.access') == true ||
-              profile?.hasCapability('production.map.manage') == true ||
-              profile?.hasCapability('catalog.item.read') == true));
+  final canReadAdminWarehouses = gscaleUsesScopedAdminWarehousesForProfile(
+    profile,
+    role: role,
+  );
   final canReadGScaleCatalog = role == UserRole.werka ||
       (role == null && profile?.hasCapability('gscale.catalog.read') == true);
   if (canReadAdminWarehouses) {

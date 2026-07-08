@@ -115,6 +115,54 @@ void main() {
     expect(printTargetLabel(server), 'rp-scale-godex-2 @ 39117');
   });
 
+  test('MonitorSnapshot shows connected printer label from RPS state', () {
+    final snapshot = MonitorSnapshot.fromJson(const {
+      'ok': true,
+      'state': {
+        'scale': {'unit': 'kg'},
+        'printer': {
+          'connected': true,
+          'kind': 'godex',
+          'label': 'ulangan',
+        },
+      },
+    });
+
+    expect(snapshot.printerLabel, 'ulangan');
+    expect(snapshot.printerKind, 'godex');
+  });
+
+  test('MonitorSnapshot keeps connected status when printer label is empty', () {
+    final snapshot = MonitorSnapshot.fromJson(const {
+      'ok': true,
+      'state': {
+        'printer': {
+          'connected': true,
+          'kind': 'godex',
+          'label': '',
+        },
+      },
+    });
+
+    expect(snapshot.printerLabel, 'ulangan');
+    expect(snapshot.printerKind, 'godex');
+  });
+
+  test('MonitorSnapshot reads top-level printer status fallback', () {
+    final snapshot = MonitorSnapshot.fromJson(const {
+      'ok': true,
+      'state': {},
+      'printer': {
+        'connected': 'true',
+        'kind': 'godex',
+        'label': 'ulanmagan',
+      },
+    });
+
+    expect(snapshot.printerLabel, 'ulangan');
+    expect(snapshot.printerKind, 'godex');
+  });
+
   test('ServerHandshake keeps printer busy activity from driver', () {
     final handshake = ServerHandshake.fromJson(const {
       'server_name': 'rp-scale',
@@ -162,6 +210,14 @@ void main() {
     expect(find.text('Server'), findsOneWidget);
     expect(find.text('Printer yoki tarozi tanlanmagan'), findsOneWidget);
     expect(find.text('Qurilma tanlash'), findsOneWidget);
+    expect(find.text('Mahsulot tanlang'), findsOneWidget);
+    expect(find.text('Babina'), findsOneWidget);
+    expect(find.text('Joriy kg'), findsNothing);
+    expect(find.text('Scale: ulanmagan'), findsNothing);
+    expect(
+      find.text('Scale ulangan va kg kelganda tugma aktiv bo‘ladi.'),
+      findsNothing,
+    );
   });
 }
 

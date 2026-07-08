@@ -793,7 +793,11 @@ class AppRouter {
     },
     AppRoutes.adminSuppliers: {'party.supplier.read', 'party.customer.read'},
     AppRoutes.adminWorkerSettings: {'admin.access'},
-    AppRoutes.adminWarehouses: {'catalog.item.read', 'catalog.item_group.read'},
+    AppRoutes.adminWarehouses: {
+      'catalog.item.read',
+      'catalog.item_group.read',
+      'raw_material.assign',
+    },
     AppRoutes.adminUserCreate: {
       'party.supplier.manage',
       'party.customer.manage',

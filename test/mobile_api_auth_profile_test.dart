@@ -32,9 +32,13 @@ void main() {
 
       expect(profile.role, UserRole.materialTaminotchi);
       expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
+      expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
       expect(AppSession.instance.profile?.assignedItemGroups, [
         'Kraska',
         'Kley',
+      ]);
+      expect(AppSession.instance.profile?.assignedWarehouses, [
+        'Xomashyo ombori - DEMO',
       ]);
       expect(AppSession.instance.can('gscale.print'), isTrue);
     }, createHttpClient: (_) => _AuthProfileHttpClient(seenRequests));
@@ -68,9 +72,13 @@ void main() {
       final profile = await MobileApi.instance.profile();
 
       expect(profile.assignedItemGroups, ['Kraska', 'Kley']);
+      expect(profile.assignedWarehouses, ['Xomashyo ombori - DEMO']);
       expect(AppSession.instance.profile?.assignedItemGroups, [
         'Kraska',
         'Kley',
+      ]);
+      expect(AppSession.instance.profile?.assignedWarehouses, [
+        'Xomashyo ombori - DEMO',
       ]);
     }, createHttpClient: (_) => _AuthProfileHttpClient(seenRequests));
 
@@ -106,6 +114,7 @@ class _AuthProfileHttpClient implements HttpClient {
             'raw_material.assign',
           ],
           'assigned_item_groups': ['Kraska', 'Kley'],
+          'assigned_warehouses': ['Xomashyo ombori - DEMO'],
         },
       'GET /v1/mobile/profile' => const {
           'role': 'material_taminotchi',
@@ -120,6 +129,7 @@ class _AuthProfileHttpClient implements HttpClient {
             'raw_material.assign',
           ],
           'assigned_item_groups': ['Kraska', 'Kley'],
+          'assigned_warehouses': ['Xomashyo ombori - DEMO'],
         },
       _ => {'error': 'Unhandled request: $key'},
     };

@@ -288,7 +288,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"/Users/wikki/Desktop/Accord_project/accord_mobile_v2/tools/runtime/xcode_beta_bin:$PATH\"\nexport DEVELOPER_DIR=\"/Users/wikki/Downloads/Xcode-beta.app/Contents/Developer\"\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "export PATH=\"/Users/wikki/Desktop/Accord_project/accord_mobile_v2/tools/runtime/xcode_beta_bin:$PATH\"\nexport DEVELOPER_DIR=\"/Applications/Xcode-beta.app/Contents/Developer\"\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build\n/bin/sh \"${SRCROOT}/../tools/runtime/patch_ios_generated_registrant.sh\"";
 		};
 		A1B2C3D4E5F60718293A4B5C /* Re-sign Native Assets */ = {
 			isa = PBXShellScriptBuildPhase;

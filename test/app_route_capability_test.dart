@@ -105,6 +105,7 @@ void main() {
       AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments),
       isTrue,
     );
+    expect(AppRouter.canOpenRoute(AppRoutes.adminWarehouses), isTrue);
   });
 
   test('production map route stays open for admin access', () {
