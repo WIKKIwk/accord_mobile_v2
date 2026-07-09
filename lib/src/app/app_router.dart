@@ -179,6 +179,7 @@ class AppRoutes {
   static const String adminSupplierItemsAdd = '/admin-supplier-items-add';
   static const String adminWerka = '/admin-werka';
   static const String materialHome = '/material-home';
+  static const String materialHistory = '/material-history';
   static const String gscaleMode = '/gscale-mode';
   static const String qolipHome = '/qolip';
   static const String qolipProducts = '/qolip-products';
@@ -226,6 +227,7 @@ class AppRouter {
     AppRoutes.customerHome,
     AppRoutes.customerNotifications,
     AppRoutes.materialHome,
+    AppRoutes.materialHistory,
     AppRoutes.qolipHome,
     AppRoutes.qolipProducts,
     AppRoutes.qolipCheckouts,
@@ -406,6 +408,8 @@ class AppRouter {
         );
       case AppRoutes.materialHome:
         return _buildRoute(settings, const MaterialTaminotchiHomeScreen());
+      case AppRoutes.materialHistory:
+        return _buildRoute(settings, const MaterialTaminotchiHistoryScreen());
       case AppRoutes.pinSetupEntry:
         return _buildRoute(settings, const PinSetupEntryScreen());
       case AppRoutes.pinSetupConfirm:
@@ -699,6 +703,13 @@ class AppRouter {
       'rps.batch.manage',
     },
     AppRoutes.materialHome: {
+      'gscale.catalog.read',
+      'gscale.print',
+      'rps.batch.manage',
+      'catalog.item.create',
+      'raw_material.assign',
+    },
+    AppRoutes.materialHistory: {
       'gscale.catalog.read',
       'gscale.print',
       'rps.batch.manage',

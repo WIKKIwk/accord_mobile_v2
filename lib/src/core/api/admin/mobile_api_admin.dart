@@ -1369,6 +1369,83 @@ class AdminRawMaterialAssignment {
   }
 }
 
+class AdminRawMaterialEvent {
+  const AdminRawMaterialEvent({
+    required this.eventId,
+    required this.eventType,
+    required this.warehouse,
+    required this.barcode,
+    required this.itemCode,
+    required this.itemName,
+    required this.qtyDelta,
+    required this.uom,
+    required this.stockStatusBefore,
+    required this.stockStatusAfter,
+    required this.orderId,
+    required this.apparatus,
+    required this.actorRole,
+    required this.actorRef,
+    required this.actorDisplayName,
+    required this.ownerRole,
+    required this.ownerRef,
+    required this.ownerDisplayName,
+    required this.sourceType,
+    required this.sourceId,
+    required this.occurredAtUnix,
+    required this.recordedAtUnix,
+  });
+
+  final String eventId;
+  final String eventType;
+  final String warehouse;
+  final String barcode;
+  final String itemCode;
+  final String itemName;
+  final double qtyDelta;
+  final String uom;
+  final String stockStatusBefore;
+  final String stockStatusAfter;
+  final String orderId;
+  final String apparatus;
+  final String actorRole;
+  final String actorRef;
+  final String actorDisplayName;
+  final String ownerRole;
+  final String ownerRef;
+  final String ownerDisplayName;
+  final String sourceType;
+  final String sourceId;
+  final int occurredAtUnix;
+  final int recordedAtUnix;
+
+  factory AdminRawMaterialEvent.fromJson(Map<String, dynamic> json) {
+    return AdminRawMaterialEvent(
+      eventId: json['event_id']?.toString() ?? '',
+      eventType: json['event_type']?.toString() ?? '',
+      warehouse: json['warehouse']?.toString() ?? '',
+      barcode: json['barcode']?.toString() ?? '',
+      itemCode: json['item_code']?.toString() ?? '',
+      itemName: json['item_name']?.toString() ?? '',
+      qtyDelta: (json['qty_delta'] as num?)?.toDouble() ?? 0,
+      uom: json['uom']?.toString() ?? '',
+      stockStatusBefore: json['stock_status_before']?.toString() ?? '',
+      stockStatusAfter: json['stock_status_after']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      actorRole: json['actor_role']?.toString() ?? '',
+      actorRef: json['actor_ref']?.toString() ?? '',
+      actorDisplayName: json['actor_display_name']?.toString() ?? '',
+      ownerRole: json['owner_role']?.toString() ?? '',
+      ownerRef: json['owner_ref']?.toString() ?? '',
+      ownerDisplayName: json['owner_display_name']?.toString() ?? '',
+      sourceType: json['source_type']?.toString() ?? '',
+      sourceId: json['source_id']?.toString() ?? '',
+      occurredAtUnix: (json['occurred_at_unix'] as num?)?.toInt() ?? 0,
+      recordedAtUnix: (json['recorded_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AdminRawMaterialLookup {
   const AdminRawMaterialLookup({
     required this.barcode,
@@ -2697,6 +2774,45 @@ extension MobileApiAdmin on MobileApi {
           (item) => AdminRawMaterialAssignment.fromJson(
             item as Map<String, dynamic>,
           ),
+        )
+        .toList();
+  }
+
+  Future<List<AdminRawMaterialEvent>> adminRawMaterialHistory({
+    String warehouse = '',
+    String eventType = '',
+    int limit = 50,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return const [];
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-history').replace(
+          queryParameters: {
+            if (warehouse.trim().isNotEmpty) 'warehouse': warehouse.trim(),
+            if (eventType.trim().isNotEmpty) 'event_type': eventType.trim(),
+            if (limit > 0) 'limit': '$limit',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      if (response.statusCode == 404) {
+        throw const MobileApiException(
+          code: 'raw_material_history_not_found',
+          message: 'Serverda tarix endpointi yo‘q',
+          statusCode: 404,
+        );
+      }
+      throw _adminProductionMapException(response, 'raw_material_history');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map(
+          (item) =>
+              AdminRawMaterialEvent.fromJson(item as Map<String, dynamic>),
         )
         .toList();
   }

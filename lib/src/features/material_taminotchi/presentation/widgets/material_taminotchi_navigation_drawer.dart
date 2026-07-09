@@ -35,6 +35,13 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.gscaleMode,
           push: true,
         ),
+        const RoleNavigationDrawerDestination(
+          icon: Icons.history_outlined,
+          selectedIcon: Icons.history_rounded,
+          label: 'Harakatlar tarixi',
+          routeName: AppRoutes.materialHistory,
+          push: true,
+        ),
         if (AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments))
           const RoleNavigationDrawerDestination(
             icon: Icons.inventory_2_outlined,

@@ -37,8 +37,14 @@ const _lastServerKey = 'last_server_base_url';
 const _cachedServersKey = 'cached_servers_v1';
 const _controlDraftKey = 'operator_control_draft_v1';
 const _defaultWifiServerAddress = 'http://gscale.local:39117';
-const _bonjourDiscoveryTimeout = Duration(milliseconds: 900);
+const _platformDiscoveryTimeout = Duration(milliseconds: 900);
 const _bonjourDiscoveryChannel = MethodChannel('gscale/bonjour');
+const _nsdDiscoveryChannel = MethodChannel('gscale/nsd');
+const _udpDiscoveryChannel = MethodChannel('gscale/udp_discovery');
+const _platformDiscoveryServiceTypes = <String>[
+  '_gscale-mobileapi._tcp.',
+  '_rp-scale._tcp.',
+];
 const _minManualPrintKg = 0.100;
 const _catalogPickerPageSize = 200;
 const _configuredApiBaseUrl = String.fromEnvironment(
@@ -5084,7 +5090,7 @@ Future<DiscoveryResult> discoverServers(
   ServerEndpoint? preferredEndpoint,
 }) async {
   final announcementsFuture = _loadDiscoveryAnnouncements();
-  final bonjourServersFuture = _loadBonjourDiscoveredServers();
+  final platformServersFuture = _loadPlatformDiscoveredServers(client);
   final candidates = await _loadCandidateHosts();
   final configuredEndpoint = parseServerEndpoint(_configuredApiBaseUrl);
   final resultsByKey = <String, DiscoveredServer>{};
@@ -5122,8 +5128,8 @@ Future<DiscoveryResult> discoverServers(
     _mergeDiscoveredServer(resultsByKey, server);
   }
 
-  final bonjourServers = await bonjourServersFuture;
-  _mergeDiscoveredServers(resultsByKey, bonjourServers);
+  final platformServers = await platformServersFuture;
+  _mergeDiscoveredServers(resultsByKey, platformServers);
 
   if (_enableAutomaticSubnetSweep && resultsByKey.isEmpty) {
     final subnetHosts = await _loadSubnetCandidateHosts();
@@ -5238,11 +5244,70 @@ Future<List<String>> _loadSubnetCandidateHosts() async {
 
 Future<List<network_candidates.DiscoveryAnnouncement>>
     _loadDiscoveryAnnouncements() async {
+  final out = <String, network_candidates.DiscoveryAnnouncement>{};
+  void add(network_candidates.DiscoveryAnnouncement announcement) {
+    final key =
+        '${announcement.serverRef}|${announcement.serverName}|${announcement.host}';
+    out[key] = announcement;
+  }
+
+  for (final announcement in await _loadNativeDiscoveryAnnouncements()) {
+    add(announcement);
+  }
+
   try {
-    return await network_candidates.discoverAnnouncements(
+    final announcements = await network_candidates.discoverAnnouncements(
       port: _discoveryPort,
       timeout: _udpDiscoveryTimeout,
     );
+    for (final announcement in announcements) {
+      add(announcement);
+    }
+  } catch (_) {
+    // Native discovery above is the primary path on iOS; keep Dart UDP as a best-effort fallback.
+  }
+  return out.values.toList();
+}
+
+Future<List<network_candidates.DiscoveryAnnouncement>>
+    _loadNativeDiscoveryAnnouncements() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+    return const <network_candidates.DiscoveryAnnouncement>[];
+  }
+  try {
+    final raw = await _udpDiscoveryChannel.invokeMethod<List<Object?>>(
+      'discoverAnnouncements',
+      {
+        'port': _discoveryPort,
+        'timeout_ms': _udpDiscoveryTimeout.inMilliseconds,
+      },
+    );
+    if (raw == null || raw.isEmpty) {
+      return const <network_candidates.DiscoveryAnnouncement>[];
+    }
+    final out = <network_candidates.DiscoveryAnnouncement>[];
+    for (final item in raw) {
+      final json = (item as Map?)?.cast<Object?, Object?>();
+      if (json == null) {
+        continue;
+      }
+      final host = _text(json['host']);
+      if (host.isEmpty || _shouldSkipDiscoveryHost(host)) {
+        continue;
+      }
+      out.add(
+        network_candidates.DiscoveryAnnouncement(
+          host: host,
+          httpPort: _intValue(json['http_port']) ?? _defaultApiPort,
+          serverName: _text(json['server_name'], fallback: host),
+          serverRef: _text(json['server_ref']),
+          displayName: _text(json['display_name'], fallback: 'Operator'),
+          role: _text(json['role'], fallback: 'operator'),
+          latencyMs: _intValue(json['latency_ms']) ?? 1,
+        ),
+      );
+    }
+    return out;
   } catch (_) {
     return const <network_candidates.DiscoveryAnnouncement>[];
   }
@@ -5364,47 +5429,77 @@ Future<DiscoveredServer?> probeServer(
   }
 }
 
-Future<List<DiscoveredServer>> _loadBonjourDiscoveredServers() async {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+Future<List<DiscoveredServer>> _loadPlatformDiscoveredServers(
+  http.Client client,
+) async {
+  if (kIsWeb) {
     return const [];
   }
+  final raw = await _loadPlatformDiscoveryRecords();
+  if (raw.isEmpty) {
+    return const [];
+  }
+
+  final endpoints = <ServerEndpoint>[];
+  final seen = <String>{};
+  for (final json in raw) {
+    final host = _text(json['host']);
+    if (host.isEmpty || _shouldSkipDiscoveryHost(host)) {
+      continue;
+    }
+    final port = _intValue(json['http_port']) ?? _defaultApiPort;
+    final endpoint = ServerEndpoint(
+      host: host,
+      port: port,
+      baseUrl: 'http://$host:$port',
+    );
+    if (seen.add(endpoint.baseUrl)) {
+      endpoints.add(endpoint);
+    }
+  }
+
+  return _probeServers(
+    client,
+    endpoints,
+    timeout: _manualProbeTimeout,
+    concurrency: 8,
+  );
+}
+
+Future<List<Map<Object?, Object?>>> _loadPlatformDiscoveryRecords() async {
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return _invokeDiscoveryChannel(_nsdDiscoveryChannel);
+  }
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    return _invokeDiscoveryChannel(_bonjourDiscoveryChannel);
+  }
+  return const [];
+}
+
+Future<List<Map<Object?, Object?>>> _invokeDiscoveryChannel(
+  MethodChannel channel,
+) async {
   try {
-    final raw = await _bonjourDiscoveryChannel.invokeMethod<List<Object?>>(
-      'discoverBonjourServices',
-      {'timeout_ms': _bonjourDiscoveryTimeout.inMilliseconds},
+    final raw = await channel.invokeMethod<List<Object?>>(
+      channel == _nsdDiscoveryChannel
+          ? 'discoverServices'
+          : 'discoverBonjourServices',
+      {
+        'timeout_ms': _platformDiscoveryTimeout.inMilliseconds,
+        'service_types': _platformDiscoveryServiceTypes,
+      },
     );
     if (raw == null || raw.isEmpty) {
       return const [];
     }
 
-    final out = <DiscoveredServer>[];
+    final out = <Map<Object?, Object?>>[];
     for (final item in raw) {
       final json = (item as Map?)?.cast<Object?, Object?>();
       if (json == null) {
         continue;
       }
-      final host = _text(json['host']);
-      if (host.isEmpty || _shouldSkipDiscoveryHost(host)) {
-        continue;
-      }
-      final port = _intValue(json['http_port']) ?? _defaultApiPort;
-      out.add(
-        DiscoveredServer(
-          endpoint: ServerEndpoint(
-            host: host,
-            port: port,
-            baseUrl: 'http://$host:$port',
-          ),
-          handshake: ServerHandshake(
-            serverName: _text(json['server_name'], fallback: host),
-            displayName: _text(json['display_name'], fallback: 'Operator'),
-            role: _text(json['role'], fallback: 'operator'),
-            serverRef: _text(json['server_ref']),
-          ),
-          latencyMs: _intValue(json['latency_ms']) ??
-              _fallbackProbeTimeout.inMilliseconds,
-        ),
-      );
+      out.add(json);
     }
     return out;
   } catch (_) {

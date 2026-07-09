@@ -9,8 +9,12 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
@@ -31,6 +35,8 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
+private const val G_SCALE_NSD_TAG = "GScaleNsdDiscovery"
+
 class MainActivity : FlutterFragmentActivity() {
     private companion object {
         const val TAG = "AccordMainActivity"
@@ -41,6 +47,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var systemNavigationModeChannel: SystemNavigationModeChannel? = null
     private var usbPrinterChannel: UsbPrinterChannel? = null
     private var irohTransportChannel: IrohTransportChannel? = null
+    private var gscaleNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +100,10 @@ class MainActivity : FlutterFragmentActivity() {
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+        gscaleNsdDiscoveryBridge = GScaleNsdDiscoveryBridge(
+            context = applicationContext,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
         irohTransportChannel = try {
             IrohTransportChannel(
                 activity = this,
@@ -109,6 +120,160 @@ class MainActivity : FlutterFragmentActivity() {
         val content = findViewById<ViewGroup>(android.R.id.content) ?: return
         nativeDockHost = NativeDockHostView(this)
         content.addView(nativeDockHost)
+    }
+}
+
+private class GScaleNsdDiscoveryBridge(
+    context: Context,
+    messenger: BinaryMessenger,
+) {
+    private val channel = MethodChannel(messenger, "gscale/nsd")
+    private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var activeSession: DiscoverySession? = null
+
+    init {
+        channel.setMethodCallHandler(::handleMethodCall)
+    }
+
+    private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "discoverServices" -> discover(call, result)
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun discover(call: MethodCall, result: MethodChannel.Result) {
+        activeSession?.finish()
+        val arguments = call.arguments as? Map<*, *> ?: emptyMap<String, Any?>()
+        val timeoutMs = ((arguments["timeout_ms"] as? Number)?.toLong() ?: 900L)
+            .coerceIn(300L, 5000L)
+        val rawServiceTypes = arguments["service_types"] as? List<*>
+        val serviceTypes = rawServiceTypes
+            ?.mapNotNull { it?.toString()?.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.distinct()
+            ?: listOf("_gscale-mobileapi._tcp.")
+        val session = DiscoverySession(result)
+        activeSession = session
+
+        for (serviceType in serviceTypes) {
+            val listener = makeDiscoveryListener(session)
+            session.listeners += listener
+            try {
+                nsdManager.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, listener)
+            } catch (error: RuntimeException) {
+                Log.w(G_SCALE_NSD_TAG, "NSD discovery start failed for $serviceType: ${error.message}")
+            }
+        }
+
+        mainHandler.postDelayed({
+            if (activeSession === session) {
+                activeSession = null
+            }
+            session.finish()
+        }, timeoutMs)
+    }
+
+    private fun makeDiscoveryListener(session: DiscoverySession): NsdManager.DiscoveryListener {
+        return object : NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(serviceType: String) = Unit
+
+            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
+                resolveService(session, serviceInfo)
+            }
+
+            override fun onServiceLost(serviceInfo: NsdServiceInfo) = Unit
+
+            override fun onDiscoveryStopped(serviceType: String) = Unit
+
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.w(G_SCALE_NSD_TAG, "NSD discovery failed for $serviceType: $errorCode")
+                stopDiscovery(this)
+            }
+
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.w(G_SCALE_NSD_TAG, "NSD stop failed for $serviceType: $errorCode")
+            }
+        }
+    }
+
+    private fun resolveService(session: DiscoverySession, serviceInfo: NsdServiceInfo) {
+        try {
+            nsdManager.resolveService(
+                serviceInfo,
+                object : NsdManager.ResolveListener {
+                    override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                        Log.w(G_SCALE_NSD_TAG, "NSD resolve failed for ${serviceInfo.serviceName}: $errorCode")
+                    }
+
+                    override fun onServiceResolved(resolved: NsdServiceInfo) {
+                        session.add(resolved)
+                    }
+                },
+            )
+        } catch (error: RuntimeException) {
+            Log.w(G_SCALE_NSD_TAG, "NSD resolve start failed for ${serviceInfo.serviceName}: ${error.message}")
+        }
+    }
+
+    private fun stopDiscovery(listener: NsdManager.DiscoveryListener) {
+        try {
+            nsdManager.stopServiceDiscovery(listener)
+        } catch (_: RuntimeException) {
+        }
+    }
+
+    private inner class DiscoverySession(
+        private val result: MethodChannel.Result,
+    ) {
+        val listeners = mutableListOf<NsdManager.DiscoveryListener>()
+        private val startedAt = System.currentTimeMillis()
+        private val services = linkedMapOf<String, Map<String, Any>>()
+        private var finished = false
+
+        @Synchronized
+        fun add(serviceInfo: NsdServiceInfo) {
+            if (finished) return
+            val host = serviceInfo.host?.hostAddress?.trim().orEmpty()
+            val port = serviceInfo.port
+            if (host.isEmpty() || port <= 0) return
+            val txt = txtAttributes(serviceInfo)
+            val key = "${txt["server_ref"].orEmpty()}|${serviceInfo.serviceName}|$host|$port"
+            services[key] = mapOf(
+                "host" to host,
+                "http_port" to port,
+                "server_name" to txtValue(txt, "server_name", serviceInfo.serviceName),
+                "server_ref" to txtValue(txt, "server_ref", ""),
+                "display_name" to txtValue(txt, "display_name", "Operator"),
+                "role" to txtValue(txt, "role", "operator"),
+                "latency_ms" to maxOf(1L, System.currentTimeMillis() - startedAt),
+                "service_type" to serviceInfo.serviceType.orEmpty(),
+            )
+        }
+
+        @Synchronized
+        fun finish() {
+            if (finished) return
+            finished = true
+            for (listener in listeners) {
+                stopDiscovery(listener)
+            }
+            result.success(services.values.toList())
+        }
+    }
+
+    private fun txtAttributes(serviceInfo: NsdServiceInfo): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        for ((key, value) in serviceInfo.attributes) {
+            out[key] = value?.toString(Charsets.UTF_8).orEmpty()
+        }
+        return out
+    }
+
+    private fun txtValue(values: Map<String, String>, key: String, fallback: String): String {
+        val value = values[key]?.trim().orEmpty()
+        return value.ifEmpty { fallback }
     }
 }
 

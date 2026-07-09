@@ -10,6 +10,97 @@ import 'widgets/material_taminotchi_dock.dart';
 import 'widgets/material_taminotchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
+class MaterialTaminotchiHistoryScreen extends StatefulWidget {
+  const MaterialTaminotchiHistoryScreen({super.key});
+
+  @override
+  State<MaterialTaminotchiHistoryScreen> createState() =>
+      _MaterialTaminotchiHistoryScreenState();
+}
+
+class _MaterialTaminotchiHistoryScreenState
+    extends State<MaterialTaminotchiHistoryScreen> {
+  late Future<List<AdminRawMaterialEvent>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture = _loadHistory();
+  }
+
+  Future<List<AdminRawMaterialEvent>> _loadHistory() {
+    return MobileApi.instance.adminRawMaterialHistory(limit: 100);
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadHistory();
+    setState(() {
+      _historyFuture = future;
+    });
+    await future;
+  }
+
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
+
+  void _goBack() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    nav.pushReplacementNamed(AppRoutes.materialHome);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    return AppShell(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
+        onPressed: _goBack,
+      ),
+      title: 'Harakatlar tarixi',
+      subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: MaterialTaminotchiNavigationDrawer(
+        selectedRouteName: AppRoutes.materialHistory,
+        onNavigate: _openDrawerRoute,
+      ),
+      preferNativeTitle: true,
+      contentPadding: EdgeInsets.zero,
+      bottom: const MaterialTaminotchiDock(
+        activeTab: MaterialTaminotchiDockTab.home,
+      ),
+      child: AppRefreshIndicator(
+        onRefresh: _refresh,
+        allowRefreshOnShortContent: true,
+        child: ListView(
+          physics: const TopRefreshScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
+          children: [
+            _MaterialHistoryPanel(
+              future: _historyFuture,
+              maxItems: 100,
+              onRetry: () {
+                setState(() {
+                  _historyFuture = _loadHistory();
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MaterialTaminotchiHomeScreen extends StatefulWidget {
   const MaterialTaminotchiHomeScreen({super.key});
 
@@ -89,6 +180,230 @@ class _MaterialTaminotchiHomeScreenState
               child: _MaterialActionPanel(
                 hasMaterialGroupScope: hasMaterialGroupScope,
                 onOpenRoute: _openRoute,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryPanel extends StatelessWidget {
+  const _MaterialHistoryPanel({
+    required this.future,
+    required this.onRetry,
+    this.maxItems = 6,
+  });
+
+  final Future<List<AdminRawMaterialEvent>> future;
+  final VoidCallback onRetry;
+  final int maxItems;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text('Harakatlar tarixi', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Yangilash',
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+          ),
+          FutureBuilder<List<AdminRawMaterialEvent>>(
+            future: future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const _MaterialHistoryLoading();
+              }
+              if (snapshot.hasError) {
+                final message = _materialHistoryErrorMessage(snapshot.error);
+                return _MaterialHistoryMessage(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Tarix yuklanmadi',
+                  subtitle: message,
+                  onTap: onRetry,
+                );
+              }
+              final events = snapshot.data ?? const <AdminRawMaterialEvent>[];
+              if (events.isEmpty) {
+                return const _MaterialHistoryMessage(
+                  icon: Icons.history_toggle_off_rounded,
+                  title: 'Harakatlar hali yo‘q',
+                );
+              }
+              final visible = events.take(maxItems).toList(growable: false);
+              return M3SegmentSpacedColumn(
+                padding: EdgeInsets.zero,
+                children: [
+                  for (var i = 0; i < visible.length; i++)
+                    _MaterialHistoryCard(
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        i,
+                        visible.length,
+                      ),
+                      event: visible[i],
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryLoading extends StatelessWidget {
+  const _MaterialHistoryLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18),
+      child: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryMessage extends StatelessWidget {
+  const _MaterialHistoryMessage({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return M3SegmentFilledSurface(
+      slot: M3SegmentVerticalSlot.top,
+      cornerRadius: M3SegmentedListGeometry.cornerLarge,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.actionSurface(context)
+          : scheme.surfaceContainerLowest,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title),
+                  if (subtitle?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle!.trim(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryCard extends StatelessWidget {
+  const _MaterialHistoryCard({required this.slot, required this.event});
+
+  final M3SegmentVerticalSlot slot;
+  final AdminRawMaterialEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final backgroundColor = theme.brightness == Brightness.dark
+        ? AppTheme.actionSurface(context)
+        : scheme.surfaceContainerLowest;
+    return M3SegmentFilledSurface(
+      slot: slot,
+      cornerRadius: slot == M3SegmentVerticalSlot.middle
+          ? M3SegmentedListGeometry.cornerMiddle
+          : M3SegmentedListGeometry.cornerLarge,
+      backgroundColor: backgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              _materialHistoryIcon(event.eventType),
+              size: 22,
+              color: scheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _materialHistoryTitle(event),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _materialHistorySubtitle(event),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _materialHistoryTime(event.occurredAtUnix),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -276,4 +591,79 @@ class _MaterialScopeNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData _materialHistoryIcon(String type) {
+  return switch (type) {
+    'receipt_posted' => Icons.add_business_outlined,
+    'order_reserved' => Icons.outbox_outlined,
+    'order_unreserved' => Icons.undo_rounded,
+    'usage_started' => Icons.play_circle_outline_rounded,
+    'consumption_posted' => Icons.done_all_rounded,
+    'adjustment_increase' => Icons.add_circle_outline_rounded,
+    'adjustment_decrease' => Icons.remove_circle_outline_rounded,
+    'transfer_in' => Icons.call_received_rounded,
+    'transfer_out' => Icons.call_made_rounded,
+    _ => Icons.history_rounded,
+  };
+}
+
+String _materialHistoryTitle(AdminRawMaterialEvent event) {
+  final item = event.itemName.trim().isNotEmpty
+      ? event.itemName.trim()
+      : event.itemCode.trim();
+  final qty = event.qtyDelta == 0
+      ? ''
+      : ' ${event.qtyDelta.abs().toStringAsFixed(3)} ${event.uom}';
+  return switch (event.eventType) {
+    'receipt_posted' => '$item kirim$qty',
+    'order_reserved' => '$item berildi',
+    'order_unreserved' => '$item yechildi',
+    'usage_started' => '$item ishlatishga o‘tdi',
+    'consumption_posted' => '$item sarflandi$qty',
+    'adjustment_increase' => '$item tuzatildi$qty',
+    'adjustment_decrease' => '$item kamaytirildi$qty',
+    'transfer_in' => '$item transfer kirim$qty',
+    'transfer_out' => '$item transfer chiqim$qty',
+    _ => item,
+  };
+}
+
+String _materialHistorySubtitle(AdminRawMaterialEvent event) {
+  final parts = <String>[
+    if (event.warehouse.trim().isNotEmpty) event.warehouse.trim(),
+    if (event.orderId.trim().isNotEmpty) 'Zakaz ${event.orderId.trim()}',
+    if (event.apparatus.trim().isNotEmpty) event.apparatus.trim(),
+    if (event.barcode.trim().isNotEmpty) event.barcode.trim(),
+  ];
+  return parts.join(' • ');
+}
+
+String _materialHistoryTime(int unix) {
+  if (unix <= 0) {
+    return '';
+  }
+  final time = DateTime.fromMillisecondsSinceEpoch(
+    unix * 1000,
+    isUtc: true,
+  ).toLocal();
+  final now = DateTime.now();
+  final clock = '${_two(time.hour)}:${_two(time.minute)}';
+  if (time.year == now.year && time.month == now.month && time.day == now.day) {
+    return clock;
+  }
+  return '${_two(time.day)}.${_two(time.month)} $clock';
+}
+
+String _two(int value) => value.toString().padLeft(2, '0');
+
+String _materialHistoryErrorMessage(Object? error) {
+  if (error is MobileApiException) {
+    final status = error.statusCode == null ? '' : ' (${error.statusCode})';
+    if (error.code == 'raw_material_history_not_found') {
+      return 'Backend hali yangi history endpoint bilan ko‘tarilmagan$status';
+    }
+    return '${error.message}$status';
+  }
+  return 'Serverdan ma’lumot olinmadi';
 }
