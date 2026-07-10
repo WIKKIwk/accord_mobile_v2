@@ -122,18 +122,26 @@ class _OpenedOrderSearchField extends StatelessWidget {
         );
         return SizedBox(
           height: AppTheme.appBarHeight,
-          child: Align(
-            alignment: Alignment.center,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, -1),
-                    child: field,
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 48,
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(
+                    Icons.arrow_back_rounded,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: Transform.translate(
+                  offset: const Offset(0, -1),
+                  child: field,
+                ),
+              ),
+            ],
           ),
         );
       },
