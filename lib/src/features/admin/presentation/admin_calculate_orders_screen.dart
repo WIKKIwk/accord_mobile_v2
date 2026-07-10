@@ -160,7 +160,7 @@ class _AdminCalculateOrdersScreenState
                       CalculateOrderTemplateStore.instance.templates;
                   final visibleTemplates = _visibleTemplates(templates);
                   return ListView(
-                    padding: EdgeInsets.fromLTRB(4, 12, 4, bottomPadding),
+                    padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
                     children: [
                       if (visibleTemplates.isEmpty &&
                           _searchQuery.trim().isEmpty)
