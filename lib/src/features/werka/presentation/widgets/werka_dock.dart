@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
@@ -54,17 +55,17 @@ class WerkaDock extends StatelessWidget {
             void handleSelection(int index) {
               if (index == 0) {
                 if (activeTab == WerkaDockTab.home) return;
-                Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRootNavigation.replaceRootRoute(
+                  context,
                   AppRoutes.werkaHome,
-                  (route) => false,
                 );
                 return;
               }
               if (index == 1) {
                 if (activeTab == WerkaDockTab.notifications) return;
-                Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRootNavigation.replaceRootRoute(
+                  context,
                   AppRoutes.werkaNotifications,
-                  (route) => false,
                 );
                 return;
               }
@@ -74,9 +75,9 @@ class WerkaDock extends StatelessWidget {
               }
               if (index == 3) {
                 if (activeTab == WerkaDockTab.archive) return;
-                Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRootNavigation.replaceRootRoute(
+                  context,
                   AppRoutes.werkaArchive,
-                  (route) => false,
                 );
                 return;
               }

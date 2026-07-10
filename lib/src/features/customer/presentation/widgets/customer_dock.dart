@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
 import '../../../../core/session/session.dart';
@@ -48,9 +49,9 @@ class CustomerDock extends StatelessWidget {
             if (onTabSelected != null) {
               onTabSelected!(CustomerDockTab.home);
             } else {
-              Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRootNavigation.replaceRootRoute(
+                context,
                 AppRoutes.customerHome,
-                (route) => false,
               );
             }
             return;
@@ -60,9 +61,9 @@ class CustomerDock extends StatelessWidget {
             if (onTabSelected != null) {
               onTabSelected!(CustomerDockTab.notifications);
             } else {
-              Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRootNavigation.replaceRootRoute(
+                context,
                 AppRoutes.customerNotifications,
-                (route) => false,
               );
             }
             return;

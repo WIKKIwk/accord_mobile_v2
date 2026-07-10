@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
 import 'package:flutter/material.dart';
@@ -34,20 +35,20 @@ class MaterialTaminotchiDock extends StatelessWidget {
         void handleSelection(int index) {
           if (index == 0) {
             if (activeTab == MaterialTaminotchiDockTab.home) return;
-            Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRootNavigation.replaceRootRoute(
+              context,
               AppRoutes.materialHome,
-              (route) => false,
             );
             return;
           }
           if (index == 1) {
             if (activeTab == MaterialTaminotchiDockTab.scale) return;
-            Navigator.of(context).pushNamed(AppRoutes.gscaleMode);
+            AppRootNavigation.replaceRootRoute(context, AppRoutes.gscaleMode);
             return;
           }
           if (index == 2) {
             if (activeTab == MaterialTaminotchiDockTab.profile) return;
-            Navigator.of(context).pushNamed(AppRoutes.profile);
+            AppRootNavigation.replaceRootRoute(context, AppRoutes.profile);
           }
         }
 

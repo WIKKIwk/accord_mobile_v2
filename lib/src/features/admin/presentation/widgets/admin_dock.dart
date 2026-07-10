@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
@@ -73,9 +74,9 @@ class AdminDock extends StatelessWidget {
                       currentRoute != AppRoutes.adminHome)) {
                 return;
               }
-              Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRootNavigation.replaceRootRoute(
+                context,
                 destination.routeName,
-                (route) => false,
               );
             }
 

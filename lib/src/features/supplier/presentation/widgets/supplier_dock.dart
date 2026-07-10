@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/notifications/store/notification_unread_store.dart';
@@ -54,16 +55,17 @@ class SupplierDock extends StatelessWidget {
             if (activeTab == SupplierDockTab.home && !centerActive) {
               return;
             }
-            Navigator.of(
+            AppRootNavigation.replaceRootRoute(
               context,
-            ).pushNamedAndRemoveUntil(AppRoutes.supplierHome, (route) => false);
+              AppRoutes.supplierHome,
+            );
             return;
           }
           if (index == 1) {
             if (activeTab == SupplierDockTab.notifications) return;
-            Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRootNavigation.replaceRootRoute(
+              context,
               AppRoutes.supplierNotifications,
-              (route) => false,
             );
             return;
           }
@@ -74,9 +76,9 @@ class SupplierDock extends StatelessWidget {
           }
           if (index == 3) {
             if (activeTab == SupplierDockTab.recent) return;
-            Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRootNavigation.replaceRootRoute(
+              context,
               AppRoutes.supplierRecent,
-              (route) => false,
             );
             return;
           }

@@ -28,7 +28,18 @@ abstract final class AppRootNavigation {
       if (now == target) {
         return;
       }
-      Navigator.of(context).pushNamedAndRemoveUntil(target, (route) => false);
+      final navigator = Navigator.of(context);
+      var targetFound = false;
+      navigator.popUntil((route) {
+        if (route.settings.name == target) {
+          targetFound = true;
+          return true;
+        }
+        return route.isFirst;
+      });
+      if (!targetFound && context.mounted) {
+        navigator.pushNamedAndRemoveUntil(target, (route) => false);
+      }
     });
   }
 }
