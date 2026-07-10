@@ -26,7 +26,7 @@ class ThemeController extends ChangeNotifier {
   static const String variantPrefsKey = 'app_theme_variant';
 
   ThemeMode _themeMode = ThemeMode.dark;
-  AppThemeVariant _variant = AppThemeVariant.earthy;
+  AppThemeVariant _variant = AppThemeVariant.kalmar;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
@@ -79,7 +79,7 @@ class ThemeController extends ChangeNotifier {
       'fleuriste' => AppThemeVariant.fleuriste,
       'pale_nimbus' => AppThemeVariant.paleNimbus,
       'black_edition' => AppThemeVariant.blackEdition,
-      _ => AppThemeVariant.earthy,
+      _ => AppThemeVariant.kalmar,
     };
   }
 

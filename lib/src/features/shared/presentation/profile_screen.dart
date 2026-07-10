@@ -2376,6 +2376,20 @@ class _ThemePreferenceRow extends StatelessWidget {
                     _ThemeSelectionOption(
                       index: 0,
                       itemCount: 14,
+                      title: l10n.themeKalmarLabel,
+                      active: variant == AppThemeVariant.kalmar,
+                      swatches: const [
+                        Color(0xFF7A4A2E),
+                        Color(0xFFE8DED3),
+                        Color(0xFFE1A77F),
+                        Color(0xFFFFF8F3),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.kalmar),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 1,
+                      itemCount: 14,
                       title: l10n.themeClassicLabel,
                       active: variant == AppThemeVariant.classic,
                       swatches: const [
@@ -2387,7 +2401,7 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.classic),
                     ),
                     _ThemeSelectionOption(
-                      index: 1,
+                      index: 2,
                       itemCount: 14,
                       title: l10n.themeEarthLabel,
                       active: variant == AppThemeVariant.earthy,
@@ -2398,20 +2412,6 @@ class _ThemePreferenceRow extends StatelessWidget {
                       ],
                       onTap: () =>
                           Navigator.of(context).pop(AppThemeVariant.earthy),
-                    ),
-                    _ThemeSelectionOption(
-                      index: 2,
-                      itemCount: 14,
-                      title: l10n.themeKalmarLabel,
-                      active: variant == AppThemeVariant.kalmar,
-                      swatches: const [
-                        Color(0xFF7A4A2E),
-                        Color(0xFFE8DED3),
-                        Color(0xFFE1A77F),
-                        Color(0xFFFFF8F3),
-                      ],
-                      onTap: () =>
-                          Navigator.of(context).pop(AppThemeVariant.kalmar),
                     ),
                     _ThemeSelectionOption(
                       index: 3,

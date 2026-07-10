@@ -456,6 +456,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               _ThemeSelectionOption(
+                title: l10n.themeKalmarLabel,
+                swatches: _themeSwatches(AppThemeVariant.kalmar),
+                active: currentVariant == AppThemeVariant.kalmar,
+                onTap: () => Navigator.of(context).pop(AppThemeVariant.kalmar),
+              ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
                 title: l10n.themeClassicLabel,
                 swatches: _themeSwatches(AppThemeVariant.classic),
                 active: currentVariant == AppThemeVariant.classic,
@@ -467,13 +474,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 swatches: _themeSwatches(AppThemeVariant.earthy),
                 active: currentVariant == AppThemeVariant.earthy,
                 onTap: () => Navigator.of(context).pop(AppThemeVariant.earthy),
-              ),
-              const SizedBox(height: 10),
-              _ThemeSelectionOption(
-                title: l10n.themeKalmarLabel,
-                swatches: _themeSwatches(AppThemeVariant.kalmar),
-                active: currentVariant == AppThemeVariant.kalmar,
-                onTap: () => Navigator.of(context).pop(AppThemeVariant.kalmar),
               ),
               const SizedBox(height: 10),
               _ThemeSelectionOption(
