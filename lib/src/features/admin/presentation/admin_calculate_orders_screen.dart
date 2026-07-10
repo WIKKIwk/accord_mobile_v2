@@ -150,7 +150,7 @@ class _AdminCalculateOrdersScreenState
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: scheme.surfaceContainerLowest,
         child: _loading
             ? const Center(child: AppLoadingIndicator())
             : AnimatedBuilder(
