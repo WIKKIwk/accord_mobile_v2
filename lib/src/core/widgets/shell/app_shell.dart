@@ -221,7 +221,7 @@ class _AppShellState extends State<AppShell>
     if (widget.leading != null) {
       return widget.leading;
     }
-    if (widget.drawer != null && widget.titleWidget == null) {
+    if (widget.drawer != null) {
       final route = ModalRoute.of(context);
       final canNavigateBack =
           (route?.canPop ?? false) && !(route?.isFirst ?? true);
