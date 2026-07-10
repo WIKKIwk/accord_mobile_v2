@@ -38,6 +38,18 @@ void main() {
       isNot(theme.navigationBarTheme.backgroundColor),
     );
   });
+
+  test('kalmar theme follows the app icon palette', () async {
+    final theme = await _buildThemeIgnoringGoogleFontLoadErrors(
+      () => AppTheme.light(AppThemeVariant.kalmar),
+    );
+    final scheme = theme.colorScheme;
+
+    expect(scheme.primary, const Color(0xFF7A4A2E));
+    expect(scheme.secondaryContainer, const Color(0xFFE8DED3));
+    expect(scheme.surface, const Color(0xFFFFF8F3));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFF8EFE8));
+  });
 }
 
 Future<ThemeData> _buildThemeIgnoringGoogleFontLoadErrors(

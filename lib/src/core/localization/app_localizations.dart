@@ -181,6 +181,7 @@ class AppLocalizations {
       );
   String get themeClassicLabel => _t('Klassik', 'Classic', 'Классика');
   String get themeEarthLabel => _t('Qumli', 'Earthy', 'Песочная');
+  String get themeKalmarLabel => _t('Kalmar', 'Kalmar', 'Калмар');
   String get themeBlushLabel => _t('Atirgul', 'Blush', 'Розовая');
   String get themeMossLabel => _t('Yaproq', 'Moss', 'Листва');
   String get themeLavenderLabel => _t('Lavanda', 'Lavender', 'Лаванда');

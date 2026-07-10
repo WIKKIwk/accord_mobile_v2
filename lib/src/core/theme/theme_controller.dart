@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum AppThemeVariant {
   classic,
   earthy,
+  kalmar,
   blush,
   moss,
   lavender,
@@ -66,6 +67,7 @@ class ThemeController extends ChangeNotifier {
   static AppThemeVariant _variantFromPrefs(String? value) {
     return switch (value) {
       'classic' => AppThemeVariant.classic,
+      'kalmar' => AppThemeVariant.kalmar,
       'blush' => AppThemeVariant.blush,
       'moss' => AppThemeVariant.moss,
       'lavender' => AppThemeVariant.lavender,
@@ -84,6 +86,7 @@ class ThemeController extends ChangeNotifier {
   static String _variantToPrefs(AppThemeVariant variant) {
     return switch (variant) {
       AppThemeVariant.classic => 'classic',
+      AppThemeVariant.kalmar => 'kalmar',
       AppThemeVariant.earthy => 'earthy',
       AppThemeVariant.blush => 'blush',
       AppThemeVariant.moss => 'moss',

@@ -2332,6 +2332,7 @@ class _ThemePreferenceRow extends StatelessWidget {
     return switch (variant) {
       AppThemeVariant.classic => l10n.themeClassicLabel,
       AppThemeVariant.blush => l10n.themeBlushLabel,
+      AppThemeVariant.kalmar => l10n.themeKalmarLabel,
       AppThemeVariant.moss => l10n.themeMossLabel,
       AppThemeVariant.lavender => l10n.themeLavenderLabel,
       AppThemeVariant.slate => l10n.themeSlateLabel,
@@ -2374,7 +2375,7 @@ class _ThemePreferenceRow extends StatelessWidget {
                   children: [
                     _ThemeSelectionOption(
                       index: 0,
-                      itemCount: 13,
+                      itemCount: 14,
                       title: l10n.themeClassicLabel,
                       active: variant == AppThemeVariant.classic,
                       swatches: const [
@@ -2387,7 +2388,7 @@ class _ThemePreferenceRow extends StatelessWidget {
                     ),
                     _ThemeSelectionOption(
                       index: 1,
-                      itemCount: 13,
+                      itemCount: 14,
                       title: l10n.themeEarthLabel,
                       active: variant == AppThemeVariant.earthy,
                       swatches: const [
@@ -2400,7 +2401,21 @@ class _ThemePreferenceRow extends StatelessWidget {
                     ),
                     _ThemeSelectionOption(
                       index: 2,
-                      itemCount: 13,
+                      itemCount: 14,
+                      title: l10n.themeKalmarLabel,
+                      active: variant == AppThemeVariant.kalmar,
+                      swatches: const [
+                        Color(0xFF7A4A2E),
+                        Color(0xFFE8DED3),
+                        Color(0xFFE1A77F),
+                        Color(0xFFFFF8F3),
+                      ],
+                      onTap: () =>
+                          Navigator.of(context).pop(AppThemeVariant.kalmar),
+                    ),
+                    _ThemeSelectionOption(
+                      index: 3,
+                      itemCount: 14,
                       title: l10n.themeBlushLabel,
                       active: variant == AppThemeVariant.blush,
                       swatches: const [
@@ -2412,8 +2427,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.blush),
                     ),
                     _ThemeSelectionOption(
-                      index: 3,
-                      itemCount: 13,
+                      index: 4,
+                      itemCount: 14,
                       title: l10n.themeMossLabel,
                       active: variant == AppThemeVariant.moss,
                       swatches: const [
@@ -2425,8 +2440,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.moss),
                     ),
                     _ThemeSelectionOption(
-                      index: 4,
-                      itemCount: 13,
+                      index: 5,
+                      itemCount: 14,
                       title: l10n.themeLavenderLabel,
                       active: variant == AppThemeVariant.lavender,
                       swatches: const [
@@ -2438,8 +2453,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.lavender),
                     ),
                     _ThemeSelectionOption(
-                      index: 5,
-                      itemCount: 13,
+                      index: 6,
+                      itemCount: 14,
                       title: l10n.themeSlateLabel,
                       active: variant == AppThemeVariant.slate,
                       swatches: const [
@@ -2451,8 +2466,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.slate),
                     ),
                     _ThemeSelectionOption(
-                      index: 6,
-                      itemCount: 13,
+                      index: 7,
+                      itemCount: 14,
                       title: l10n.themeBlackEditionLabel,
                       active: variant == AppThemeVariant.blackEdition,
                       swatches: const [
@@ -2466,8 +2481,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                       ).pop(AppThemeVariant.blackEdition),
                     ),
                     _ThemeSelectionOption(
-                      index: 7,
-                      itemCount: 13,
+                      index: 8,
+                      itemCount: 14,
                       title: l10n.themeOceanLabel,
                       active: variant == AppThemeVariant.ocean,
                       swatches: const [
@@ -2479,8 +2494,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.ocean),
                     ),
                     _ThemeSelectionOption(
-                      index: 8,
-                      itemCount: 13,
+                      index: 9,
+                      itemCount: 14,
                       title: l10n.themeBingsuLabel,
                       active: variant == AppThemeVariant.bingsu,
                       swatches: const [
@@ -2493,8 +2508,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.bingsu),
                     ),
                     _ThemeSelectionOption(
-                      index: 9,
-                      itemCount: 13,
+                      index: 10,
+                      itemCount: 14,
                       title: l10n.themeBlissLabel,
                       active: variant == AppThemeVariant.bliss,
                       swatches: const [
@@ -2507,8 +2522,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.bliss),
                     ),
                     _ThemeSelectionOption(
-                      index: 10,
-                      itemCount: 13,
+                      index: 11,
+                      itemCount: 14,
                       title: l10n.themeDollarLabel,
                       active: variant == AppThemeVariant.dollar,
                       swatches: const [
@@ -2521,8 +2536,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                           Navigator.of(context).pop(AppThemeVariant.dollar),
                     ),
                     _ThemeSelectionOption(
-                      index: 11,
-                      itemCount: 13,
+                      index: 12,
+                      itemCount: 14,
                       title: l10n.themeFleuristeLabel,
                       active: variant == AppThemeVariant.fleuriste,
                       swatches: const [
@@ -2536,8 +2551,8 @@ class _ThemePreferenceRow extends StatelessWidget {
                       ).pop(AppThemeVariant.fleuriste),
                     ),
                     _ThemeSelectionOption(
-                      index: 12,
-                      itemCount: 13,
+                      index: 13,
+                      itemCount: 14,
                       title: l10n.themePaleNimbusLabel,
                       active: variant == AppThemeVariant.paleNimbus,
                       swatches: const [
