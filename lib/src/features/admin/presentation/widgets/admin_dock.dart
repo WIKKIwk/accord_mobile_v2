@@ -121,7 +121,7 @@ class _AdminDockDestination {
   });
 
   final String id;
-  final AdminDockTab tab;
+  final AdminDockTab? tab;
   final String label;
   final IconData icon;
   final IconData selectedIcon;
@@ -154,7 +154,8 @@ List<_AdminDockDestination> _visibleDestinations({
     ),
     _AdminDockDestination(
       id: 'admin-create',
-      tab: AdminDockTab.settings,
+      // The plus button is an action, not a selected navigation tab.
+      tab: null,
       label: createLabel,
       icon: Icons.add_rounded,
       selectedIcon: Icons.add_rounded,
