@@ -834,6 +834,55 @@ class AppRouter {
   };
 
   static PageRoute<dynamic> _buildRoute(RouteSettings settings, Widget child) {
+    if (_usesBunpodPageTransition(settings.name)) {
+      return PageRouteBuilder<dynamic>(
+        settings: settings,
+        transitionDuration: const Duration(milliseconds: 450),
+        reverseTransitionDuration: const Duration(milliseconds: 450),
+        pageBuilder: (context, animation, secondaryAnimation) => child,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final enter = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubicEmphasized,
+            reverseCurve: Curves.easeInOutCubicEmphasized,
+          );
+          final fadeIn = CurvedAnimation(
+            parent: animation,
+            curve: const Interval(0.0, 0.75),
+            reverseCurve: const Interval(0.0, 0.75),
+          );
+          final exit = CurvedAnimation(
+            parent: secondaryAnimation,
+            curve: Curves.easeInOutCubicEmphasized,
+          );
+          final fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+            CurvedAnimation(
+              parent: secondaryAnimation,
+              curve: const Interval(0.0, 0.25),
+            ),
+          );
+          return FadeTransition(
+            opacity: fadeOut,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset.zero,
+                end: const Offset(-0.25, 0),
+              ).animate(exit),
+              child: FadeTransition(
+                opacity: fadeIn,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.25, 0),
+                    end: Offset.zero,
+                  ).animate(enter),
+                  child: child,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
     if (_usesAdminPageTransition(settings.name)) {
       return PageRouteBuilder<dynamic>(
         settings: settings,
@@ -892,6 +941,10 @@ class AppRouter {
 
   static bool _usesAdminPageTransition(String? routeName) {
     return false;
+  }
+
+  static bool _usesBunpodPageTransition(String? routeName) {
+    return routeName == AppRoutes.adminCalculateOrders;
   }
 }
 
