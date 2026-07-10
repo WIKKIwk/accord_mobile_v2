@@ -38,7 +38,7 @@ abstract final class AppRootNavigation {
         return route.isFirst;
       });
       if (!targetFound && context.mounted) {
-        navigator.pushNamedAndRemoveUntil(target, (route) => false);
+        navigator.pushNamed(target);
       }
     });
   }
