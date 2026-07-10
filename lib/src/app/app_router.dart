@@ -906,8 +906,8 @@ class _BunpodPageRoute<T> extends MaterialPageRoute<T> {
   _BunpodPageRoute({required RouteSettings settings, required Widget child})
       : super(settings: settings, builder: (context) => child);
 
-  static const _SoftBackFadeForwardsPageTransitionsBuilder _transitionBuilder =
-      _SoftBackFadeForwardsPageTransitionsBuilder();
+  static const FadeForwardsPageTransitionsBuilder _transitionBuilder =
+      FadeForwardsPageTransitionsBuilder();
 
   @override
   Duration get transitionDuration => _transitionBuilder.transitionDuration;
@@ -929,63 +929,6 @@ class _BunpodPageRoute<T> extends MaterialPageRoute<T> {
       animation,
       secondaryAnimation,
       child,
-    );
-  }
-}
-
-class _SoftBackFadeForwardsPageTransitionsBuilder
-    extends PageTransitionsBuilder {
-  const _SoftBackFadeForwardsPageTransitionsBuilder();
-
-  static const _curve = Curves.easeInOutCubicEmphasized;
-  static const _fadeIn = Interval(0.0, 0.75);
-  static const _fadeOut = Interval(0.0, 0.75);
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 450);
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return DualTransitionBuilder(
-      animation: animation,
-      forwardBuilder: (context, animation, child) {
-        return FadeTransition(
-          opacity: Tween<double>(begin: 0, end: 1)
-              .chain(CurveTween(curve: _fadeIn))
-              .animate(animation),
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.25, 0),
-              end: Offset.zero,
-            ).chain(CurveTween(curve: _curve)).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      reverseBuilder: (context, animation, child) {
-        return IgnorePointer(
-          ignoring: animation.status == AnimationStatus.forward,
-          child: FadeTransition(
-            opacity: Tween<double>(begin: 1, end: 0)
-                .chain(CurveTween(curve: _fadeOut))
-                .animate(animation),
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset.zero,
-                end: const Offset(0.25, 0),
-              ).chain(CurveTween(curve: _curve)).animate(animation),
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: child,
     );
   }
 }
