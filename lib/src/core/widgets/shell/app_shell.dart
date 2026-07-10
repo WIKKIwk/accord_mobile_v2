@@ -215,7 +215,7 @@ class _AppShellState extends State<AppShell>
   }
 
   Widget? _nativeAppBarLeading(bool shouldHideLeading) {
-    if (shouldHideLeading) {
+    if (shouldHideLeading || !widget.automaticallyImplyNativeLeading) {
       return null;
     }
     if (widget.leading != null) {
