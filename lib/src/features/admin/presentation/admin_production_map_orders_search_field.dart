@@ -121,7 +121,6 @@ class _OpenedOrderSearchField extends StatelessWidget {
           ),
         );
         return SizedBox(
-          width: MediaQuery.sizeOf(context).width - 20,
           height: AppTheme.appBarHeight,
           child: Align(
             alignment: Alignment.center,
