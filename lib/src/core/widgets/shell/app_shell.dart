@@ -77,7 +77,6 @@ class AppShell extends StatefulWidget {
     this.showProfileAction = true,
     this.profileActionListenable,
     this.showProfileActionResolver,
-    this.hideNativeLeading = false,
   });
 
   final String title;
@@ -106,7 +105,6 @@ class AppShell extends StatefulWidget {
   final bool showProfileAction;
   final Listenable? profileActionListenable;
   final bool Function()? showProfileActionResolver;
-  final bool hideNativeLeading;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -217,7 +215,7 @@ class _AppShellState extends State<AppShell>
   }
 
   Widget? _nativeAppBarLeading(bool shouldHideLeading) {
-    if (shouldHideLeading || widget.hideNativeLeading) {
+    if (shouldHideLeading) {
       return null;
     }
     if (widget.leading != null) {
@@ -353,7 +351,7 @@ class _AppShellState extends State<AppShell>
               scrolledUnderElevation: 0,
               toolbarHeight: AppTheme.appBarHeight,
               titleSpacing: widget.titleWidget != null
-                  ? (widget.hideNativeLeading ? 0 : 10)
+                  ? 10
                   : (compactTitleNearLeading ? 0 : 20),
               centerTitle: false,
               bottom: widget.appBarBottomLoading ||

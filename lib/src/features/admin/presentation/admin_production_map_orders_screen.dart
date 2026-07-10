@@ -34,6 +34,7 @@ import '../state/calculate_order_store.dart';
 import '../../shared/models/app_models.dart';
 import 'raw_material_scan_dialog.dart';
 import 'widgets/admin_dock.dart';
+import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
@@ -55,7 +56,6 @@ part 'admin_production_map_orders_detail_map_widgets.dart';
 part 'admin_production_map_orders_move_widgets.dart';
 part 'admin_production_map_orders_closed_widgets.dart';
 part 'admin_production_map_orders_apparatus_picker.dart';
-part 'admin_production_map_orders_search_field.dart';
 part 'admin_production_map_orders_opened_widgets.dart';
 part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
@@ -375,17 +375,29 @@ class _AdminProductionMapOrdersScreenState
       title: '',
       subtitle: '',
       nativeTopBar: true,
-      hideNativeLeading: true,
+      automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
-      titleWidget: _OpenedOrderSearchField(
+      titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
+        hintText: 'Ochilgan zakaz qidirish',
         onChanged: (value) => setState(() => _searchQuery = value),
         onClear: () {
           _searchController.clear();
           setState(() => _searchQuery = '');
+        },
+        onBack: () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+            return;
+          }
+          final target = widget.workerMode
+              ? AppRoutes.apparatusQueue
+              : AppRoutes.adminHome;
+          nav.pushNamedAndRemoveUntil(target, (route) => false);
         },
       ),
       bottom: widget.workerMode
