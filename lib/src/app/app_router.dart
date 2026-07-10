@@ -908,8 +908,6 @@ class _BunpodPageRoute<T> extends MaterialPageRoute<T> {
 
   static const FadeForwardsPageTransitionsBuilder _transitionBuilder =
       FadeForwardsPageTransitionsBuilder();
-  static final DelegatedTransitionBuilder _delegatedTransition =
-      _transitionBuilder.delegatedTransition!;
 
   @override
   Duration get transitionDuration => _transitionBuilder.transitionDuration;
@@ -917,9 +915,6 @@ class _BunpodPageRoute<T> extends MaterialPageRoute<T> {
   @override
   Duration get reverseTransitionDuration =>
       _transitionBuilder.transitionDuration;
-
-  @override
-  DelegatedTransitionBuilder? get delegatedTransition => _delegatedTransition;
 
   @override
   Widget buildTransitions(
