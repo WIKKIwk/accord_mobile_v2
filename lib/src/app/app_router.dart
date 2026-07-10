@@ -898,7 +898,7 @@ class AppRouter {
   }
 
   static bool _usesBunpodPageTransition(String? routeName) {
-    return routeName == AppRoutes.adminCalculateOrders;
+    return routeName == AppRoutes.profile;
   }
 }
 
