@@ -793,13 +793,13 @@ class _AppShellProfileActionState extends State<AppShellProfileAction> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: scheme.primaryContainer.withValues(alpha: 0.92),
+                      color: scheme.onPrimaryContainer,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.person_rounded,
                       size: AppTheme.headerActionIconSize,
-                      color: scheme.onPrimaryContainer,
+                      color: scheme.primaryContainer,
                     ),
                   )
                 : ClipOval(
