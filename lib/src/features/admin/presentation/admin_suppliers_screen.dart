@@ -544,6 +544,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
       titleWidget: AdminCatalogSearchField(
