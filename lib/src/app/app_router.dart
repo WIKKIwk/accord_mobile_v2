@@ -834,9 +834,6 @@ class AppRouter {
   };
 
   static PageRoute<dynamic> _buildRoute(RouteSettings settings, Widget child) {
-    if (_usesBunpodPageTransition(settings.name)) {
-      return _BunpodPageRoute<dynamic>(settings: settings, child: child);
-    }
     if (_usesAdminPageTransition(settings.name)) {
       return PageRouteBuilder<dynamic>(
         settings: settings,
@@ -895,41 +892,6 @@ class AppRouter {
 
   static bool _usesAdminPageTransition(String? routeName) {
     return false;
-  }
-
-  static bool _usesBunpodPageTransition(String? routeName) {
-    return routeName == AppRoutes.profile;
-  }
-}
-
-class _BunpodPageRoute<T> extends MaterialPageRoute<T> {
-  _BunpodPageRoute({required RouteSettings settings, required Widget child})
-      : super(settings: settings, builder: (context) => child);
-
-  static const FadeForwardsPageTransitionsBuilder _transitionBuilder =
-      FadeForwardsPageTransitionsBuilder();
-
-  @override
-  Duration get transitionDuration => _transitionBuilder.transitionDuration;
-
-  @override
-  Duration get reverseTransitionDuration =>
-      _transitionBuilder.transitionDuration;
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return _transitionBuilder.buildTransitions(
-      this,
-      context,
-      animation,
-      secondaryAnimation,
-      child,
-    );
   }
 }
 

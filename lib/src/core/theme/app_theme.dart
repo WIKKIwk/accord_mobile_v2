@@ -1246,7 +1246,7 @@ class AppTheme {
   }
 
   static PageTransitionsTheme _pageTransitionsTheme() {
-    const builder = _FadeOnlyPageTransitionsBuilder();
+    const builder = FadeForwardsPageTransitionsBuilder();
     return const PageTransitionsTheme(
       builders: {
         TargetPlatform.android: builder,
@@ -1256,28 +1256,6 @@ class AppTheme {
         TargetPlatform.windows: builder,
         TargetPlatform.fuchsia: builder,
       },
-    );
-  }
-}
-
-class _FadeOnlyPageTransitionsBuilder extends PageTransitionsBuilder {
-  const _FadeOnlyPageTransitionsBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Easing.standardDecelerate,
-        reverseCurve: Easing.standardAccelerate,
-      ),
-      child: child,
     );
   }
 }
