@@ -145,7 +145,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     }
 
     return AppShell(
-      title: 'Accord Mobile V2',
+      title: 'Accord Mobile',
       subtitle: '',
       child: Center(
         child: _navigated

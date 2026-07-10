@@ -132,7 +132,8 @@ void main() {
     expect(snapshot.printerKind, 'godex');
   });
 
-  test('MonitorSnapshot keeps connected status when printer label is empty', () {
+  test('MonitorSnapshot keeps connected status when printer label is empty',
+      () {
     final snapshot = MonitorSnapshot.fromJson(const {
       'ok': true,
       'state': {
@@ -191,8 +192,7 @@ void main() {
 
     expect(copy.title, isNot('Server topilmadi'));
     expect(copy.title, contains('Qurilma'));
-    expect(copy.message, contains('tarozi'));
-    expect(copy.message, contains('printer'));
+    expect(copy.message, 'Service tarmoqda topilmadi.');
     expect(copy.primaryActionLabel, 'Qayta qidirish');
     expect(copy.secondaryActionLabel, 'Manzil qo‘shish');
   });

@@ -28,12 +28,11 @@ class AppLocalizations {
     return en;
   }
 
-  String get appTitle =>
-      _t('Accord Mobile V2', 'Accord Mobile V2', 'Accord Mobile V2');
+  String get appTitle => _t('Accord Mobile', 'Accord Mobile', 'Accord Mobile');
   String get welcomeToAccord => _t(
-        'Accord Mobile V2 ilovasiga xush kelibsiz',
-        'Welcome to Accord Mobile V2',
-        'Добро пожаловать в Accord Mobile V2',
+        'Accord Mobile ilovasiga xush kelibsiz',
+        'Welcome to Accord Mobile',
+        'Добро пожаловать в Accord Mobile',
       );
   String get signInTitle => _t('Kirish', 'Sign in', 'Вход');
   String get getStarted => _t('Boshlash', 'Get started', 'Начать');
@@ -452,9 +451,9 @@ class AppLocalizations {
         'PDF сохранён в Files.',
       );
   String get archivePdfSavedOnIPhone => _t(
-        'PDF Files ilovasiga saqlandi: On My iPhone > Accord Mobile V2',
-        'PDF saved in Files: On My iPhone > Accord Mobile V2',
-        'PDF сохранён в Files: На моём iPhone > Accord Mobile V2',
+        'PDF Files ilovasiga saqlandi: On My iPhone > Accord Mobile',
+        'PDF saved in Files: On My iPhone > Accord Mobile',
+        'PDF сохранён в Files: На моём iPhone > Accord Mobile',
       );
   String get archivePdfDownloadStartedWeb => _t(
         'PDF yuklab olish boshlandi.',

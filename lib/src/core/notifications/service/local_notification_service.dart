@@ -8,7 +8,7 @@ class LocalNotificationService {
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'accord_updates',
-    'Accord Mobile V2 Updates',
+    'Accord Mobile Updates',
     description: 'Supplier va werka holatlari uchun system bildirishnomalar',
     importance: Importance.max,
     playSound: true,

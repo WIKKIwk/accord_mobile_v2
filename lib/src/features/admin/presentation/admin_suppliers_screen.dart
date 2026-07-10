@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
@@ -475,6 +476,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     }
     return AppRefreshIndicator(
       onRefresh: _reload,
+      allowRefreshOnShortContent: true,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (kind == _selectedKind) {
@@ -483,6 +485,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
           return false;
         },
         child: ListView.builder(
+          physics: const TopRefreshScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
           itemCount: visibleItems.isEmpty
               ? 1

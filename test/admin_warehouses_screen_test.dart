@@ -84,8 +84,19 @@ void main() {
     expect(find.textContaining('Mahsulotlar'), findsOneWidget);
     expect(find.textContaining('(3)'), findsOneWidget);
     expect(find.text('Demo kraska'), findsOneWidget);
-    expect(find.textContaining('DEMO-RAW-001'), findsWidgets);
-    expect(find.textContaining('30AA'), findsWidgets);
+    expect(find.text('Demo xomashyo rulon'), findsOneWidget);
+
+    await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mahsulot kodi'), findsOneWidget);
+    expect(find.text('DEMO-RAW-001'), findsOneWidget);
+    expect(find.text('Shtrix-kod'), findsOneWidget);
+    expect(find.text('30AA'), findsOneWidget);
+    expect(find.text('Holati'), findsOneWidget);
+    expect(find.text('Mavjud'), findsOneWidget);
+    expect(find.text('Kirim raqami'), findsOneWidget);
+    expect(find.text('GSR-30AA'), findsOneWidget);
   });
 
   testWidgets('admin warehouses page has list and create tabs with detail', (

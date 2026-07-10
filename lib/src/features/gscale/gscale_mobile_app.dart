@@ -62,8 +62,7 @@ class GScalePickerEmptyCopy {
 
   const GScalePickerEmptyCopy.noDevices()
       : title = 'Qurilma topilmadi',
-        message =
-            'Ishlayotgan tarozi yoki printer ko‘rinmadi. Qayta qidiring yoki manzil qo‘shing.',
+        message = 'Service tarmoqda topilmadi.',
         primaryActionLabel = 'Qayta qidirish',
         secondaryActionLabel = 'Manzil qo‘shish';
 
@@ -377,7 +376,6 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
               if (!_scanning && servers.isEmpty)
                 _EmptyServerState(
                   onRetry: _scan,
-                  onManualAdd: _openManualEntrySheet,
                 ),
               if (servers.isNotEmpty)
                 _ServerList(
@@ -3504,21 +3502,44 @@ class _DeviceSelectionHeader extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Printer yoki tarozini tanlang',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Icon(
+                Icons.devices_other_rounded,
+                color: scheme.onPrimaryContainer,
+                size: 22,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Ishlayotgan RPS/GScale service ro‘yxatdan tanlanadi.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Printer yoki tarozini tanlang',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tarmoqdagi ishlayotgan qurilmani tanlang yoki manzilini qo‘shing.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.25,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -3604,13 +3625,9 @@ class _ScanningState extends StatelessWidget {
 }
 
 class _EmptyServerState extends StatelessWidget {
-  const _EmptyServerState({
-    required this.onRetry,
-    required this.onManualAdd,
-  });
+  const _EmptyServerState({required this.onRetry});
 
   final VoidCallback onRetry;
-  final VoidCallback onManualAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -3618,42 +3635,32 @@ class _EmptyServerState extends StatelessWidget {
     final scheme = theme.colorScheme;
     const copy = GScalePickerEmptyCopy.noDevices();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            copy.title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+    return Card.filled(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      color: scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              copy.message,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            copy.message,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.icon(
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
                 label: Text(copy.primaryActionLabel),
               ),
-              TextButton.icon(
-                onPressed: onManualAdd,
-                icon: const Icon(Icons.add_link_rounded),
-                label: Text(copy.secondaryActionLabel),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1221,14 +1221,6 @@ class _WarehouseRawStockRow extends StatelessWidget {
     final title = stock.itemName.trim().isEmpty
         ? stock.itemCode.trim()
         : stock.itemName.trim();
-    final subtitle = <String>[
-      if (stock.itemCode.trim().isNotEmpty) stock.itemCode.trim(),
-      if (stock.barcode.trim().isNotEmpty) stock.barcode.trim(),
-      '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
-      if (stock.status.trim().isNotEmpty) stock.status.trim(),
-      if (stock.reservedOrderId.trim().isNotEmpty)
-        'Band ${stock.reservedOrderId.trim()}',
-    ].join(' • ');
 
     return _WarehouseExpandableSummaryCard(
       slot: slot,
@@ -1249,19 +1241,20 @@ class _WarehouseRawStockRow extends StatelessWidget {
         ),
       ),
       title: title.isEmpty ? stock.barcode : title,
-      subtitle: subtitle,
+      subtitle: '',
       details: [
-        _WarehouseDetailEntry('Kod', stock.itemCode),
-        _WarehouseDetailEntry('Barcode', stock.barcode),
+        _WarehouseDetailEntry('Mahsulot kodi', stock.itemCode),
+        _WarehouseDetailEntry('Shtrix-kod', stock.barcode),
         _WarehouseDetailEntry(
           'Miqdor',
           '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
         ),
-        _WarehouseDetailEntry('Status', stock.status),
+        _WarehouseDetailEntry(
+            'Holati', _warehouseStockStatusLabel(stock.status)),
         if (stock.reservedOrderId.trim().isNotEmpty)
           _WarehouseDetailEntry('Band', stock.reservedOrderId),
         if (stock.sourceReceiptId.trim().isNotEmpty)
-          _WarehouseDetailEntry('Kirim', stock.sourceReceiptId),
+          _WarehouseDetailEntry('Kirim raqami', stock.sourceReceiptId),
       ],
     );
   }
@@ -1583,6 +1576,19 @@ bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {
   return switch (stock.status.trim().toLowerCase()) {
     'reserved' || 'band' => true,
     _ => false,
+  };
+}
+
+String _warehouseStockStatusLabel(String rawStatus) {
+  return switch (rawStatus.trim().toLowerCase()) {
+    'available' => 'Mavjud',
+    'reserved' || 'band' => 'Band qilingan',
+    'in_use' => 'Ishlatilmoqda',
+    'consumed' => 'Sarflangan',
+    'returned' => 'Qaytarilgan',
+    'processed' => 'Qayta ishlangan',
+    final value when value.isEmpty => '',
+    final value => value,
   };
 }
 

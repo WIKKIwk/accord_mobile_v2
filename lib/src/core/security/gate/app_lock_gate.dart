@@ -149,7 +149,7 @@ class _PrivacyShieldOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              'Accord Mobile V2',
+                              'Accord Mobile',
                               style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
                                     color: scheme.onPrimary,

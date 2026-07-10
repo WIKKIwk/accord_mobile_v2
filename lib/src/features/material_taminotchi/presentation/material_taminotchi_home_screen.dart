@@ -202,33 +202,11 @@ class _MaterialHistoryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.history_rounded,
-                  size: 20,
-                  color: scheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text('Harakatlar tarixi', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Yangilash',
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-          ),
           FutureBuilder<List<AdminRawMaterialEvent>>(
             future: future,
             builder: (context, snapshot) {
@@ -344,11 +322,18 @@ class _MaterialHistoryMessage extends StatelessWidget {
   }
 }
 
-class _MaterialHistoryCard extends StatelessWidget {
+class _MaterialHistoryCard extends StatefulWidget {
   const _MaterialHistoryCard({required this.slot, required this.event});
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialEvent event;
+
+  @override
+  State<_MaterialHistoryCard> createState() => _MaterialHistoryCardState();
+}
+
+class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -358,56 +343,134 @@ class _MaterialHistoryCard extends StatelessWidget {
         ? AppTheme.actionSurface(context)
         : scheme.surfaceContainerLowest;
     return M3SegmentFilledSurface(
-      slot: slot,
-      cornerRadius: slot == M3SegmentVerticalSlot.middle
+      slot: widget.slot,
+      cornerRadius: widget.slot == M3SegmentVerticalSlot.middle
           ? M3SegmentedListGeometry.cornerMiddle
           : M3SegmentedListGeometry.cornerLarge,
       backgroundColor: backgroundColor,
+      onTap: () => setState(() => _expanded = !_expanded),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        child: Column(
           children: [
-            Icon(
-              _materialHistoryIcon(event.eventType),
-              size: 22,
-              color: scheme.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _materialHistoryTitle(event),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _materialHistoryIcon(widget.event.eventType),
+                  size: 22,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _materialHistoryTitle(widget.event),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _materialHistorySubtitle(widget.event),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _materialHistorySubtitle(event),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.25,
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _materialHistoryTime(widget.event.occurredAtUnix),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 3),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Text(
-              _materialHistoryTime(event.occurredAtUnix),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 34, top: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final detail
+                              in _materialHistoryDetails(widget.event))
+                            _MaterialHistoryDetailLine(
+                              label: detail.label,
+                              value: detail.value,
+                            ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryDetailLine extends StatelessWidget {
+  const _MaterialHistoryDetailLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -485,11 +548,6 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       icon: Icons.warehouse_outlined,
       title: 'Omborlarim',
       routeName: AppRoutes.adminWarehouses,
-    ),
-    const _MaterialHomeAction(
-      icon: Icons.person_outline_rounded,
-      title: 'Profil',
-      routeName: AppRoutes.profile,
     ),
   ];
   return candidates
@@ -608,6 +666,112 @@ IconData _materialHistoryIcon(String type) {
   };
 }
 
+List<({String label, String value})> _materialHistoryDetails(
+  AdminRawMaterialEvent event,
+) {
+  final details = <({String label, String value})>[];
+
+  void add(String label, String value) {
+    if (value.trim().isNotEmpty) {
+      details.add((label: label, value: value.trim()));
+    }
+  }
+
+  final itemName = event.itemName.trim();
+  add('Harakat turi', _materialHistoryEventTypeLabel(event.eventType));
+  add('Mahsulot', itemName.isEmpty ? event.itemCode : itemName);
+  add('Mahsulot kodi', event.itemCode);
+  add('Ombor', event.warehouse);
+  add('Miqdor', _materialHistoryQuantity(event.qtyDelta, event.uom));
+  add('Shtrix-kod', event.barcode);
+
+  final before = _materialHistoryStatusLabel(event.stockStatusBefore);
+  final after = _materialHistoryStatusLabel(event.stockStatusAfter);
+  add(
+    'Holati',
+    before.isEmpty || after.isEmpty || before == after
+        ? after.isNotEmpty
+            ? after
+            : before
+        : '$before → $after',
+  );
+  add('Zakaz', event.orderId);
+  add('Apparat', event.apparatus);
+
+  final actor = [
+    event.actorDisplayName.trim(),
+    event.actorRef.trim(),
+  ].where((value) => value.isNotEmpty).join(' • ');
+  add('Bajargan', actor);
+  add('Rol', _materialHistoryRoleLabel(event.actorRole));
+  add('Manba', _materialHistorySourceLabel(event.sourceType));
+  add('Receipt raqami', event.sourceId);
+  add('Event ID', event.eventId);
+  add('Vaqt', _materialHistoryDateTime(event.occurredAtUnix));
+  add('Yozilgan vaqt', _materialHistoryDateTime(event.recordedAtUnix));
+  return details;
+}
+
+String _materialHistoryEventTypeLabel(String type) {
+  return switch (type.trim().toLowerCase()) {
+    'receipt_posted' => 'Omborga kirim qilindi',
+    'order_reserved' => 'Zakaz uchun band qilindi',
+    'order_unreserved' => 'Zakaz bandi yechildi',
+    'usage_started' => 'Ishlatishga o‘tkazildi',
+    'consumption_posted' => 'Material sarflandi',
+    'adjustment_increase' => 'Miqdor oshirildi',
+    'adjustment_decrease' => 'Miqdor kamaytirildi',
+    'transfer_in' => 'Omborga transfer qilindi',
+    'transfer_out' => 'Ombordan transfer qilindi',
+    final value when value.isEmpty => '',
+    final value => value,
+  };
+}
+
+String _materialHistoryStatusLabel(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'available' => 'Mavjud',
+    'reserved' => 'Band qilingan',
+    'in_use' => 'Ishlatilmoqda',
+    'consumed' => 'Sarflangan',
+    final value when value.isEmpty => '',
+    final value => value,
+  };
+}
+
+String _materialHistoryQuantity(double quantity, String uom) {
+  if (quantity == 0) {
+    return '';
+  }
+  final sign = quantity > 0 ? '+' : '';
+  final unit = uom.trim();
+  return '$sign${quantity.toStringAsFixed(3)}${unit.isEmpty ? '' : ' $unit'}';
+}
+
+String _materialHistoryRoleLabel(String role) {
+  return switch (role.trim().toLowerCase()) {
+    'material_taminotchi' => 'Material ta’minotchisi',
+    'admin' => 'Administrator',
+    'werka' => 'Werka',
+    'supplier' => 'Ta’minotchi',
+    final value when value.isEmpty => '',
+    final value => value,
+  };
+}
+
+String _materialHistorySourceLabel(String source) {
+  return switch (source.trim().toLowerCase()) {
+    'gscale_receipt' => 'Tarozi kirimi',
+    'order_assignment' => 'Zakaz biriktirishi',
+    'consumption' => 'Sarflanish',
+    'manual_adjustment' => 'Qo‘lda tuzatish',
+    'warehouse_transfer' => 'Omborlararo transfer',
+    'system' => 'Tizim',
+    final value when value.isEmpty => '',
+    final value => value,
+  };
+}
+
 String _materialHistoryTitle(AdminRawMaterialEvent event) {
   final item = event.itemName.trim().isNotEmpty
       ? event.itemName.trim()
@@ -653,6 +817,18 @@ String _materialHistoryTime(int unix) {
     return clock;
   }
   return '${_two(time.day)}.${_two(time.month)} $clock';
+}
+
+String _materialHistoryDateTime(int unix) {
+  if (unix <= 0) {
+    return '';
+  }
+  final time = DateTime.fromMillisecondsSinceEpoch(
+    unix * 1000,
+    isUtc: true,
+  ).toLocal();
+  return '${_two(time.day)}.${_two(time.month)}.${time.year} '
+      '${_two(time.hour)}:${_two(time.minute)}';
 }
 
 String _two(int value) => value.toString().padLeft(2, '0');
