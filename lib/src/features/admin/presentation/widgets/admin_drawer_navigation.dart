@@ -1,5 +1,4 @@
 import '../../../../app/app_router.dart';
-import '../../../../core/navigation/app_root_navigation.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AdminDrawerNavigation {
@@ -13,36 +12,22 @@ abstract final class AdminDrawerNavigation {
       return;
     }
     final navigator = Navigator.of(context);
+    navigator.popUntil(
+      (route) => route.settings.name == AppRoutes.adminHome || route.isFirst,
+    );
 
-    var foundHome = false;
-    navigator.popUntil((route) {
-      if (route.settings.name == AppRoutes.adminHome) {
-        foundHome = true;
-        return true;
-      }
-      if (route.isFirst) {
-        return true;
-      }
-      return false;
-    });
-
-    if (foundHome &&
-        ModalRoute.of(context)?.settings.name == AppRoutes.adminHome) {
-      if (routeName == AppRoutes.adminHome) {
-        return;
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) {
-          return;
-        }
-        if (ModalRoute.of(context)?.settings.name == routeName) {
-          return;
-        }
-        Navigator.of(context).pushNamed(routeName);
-      });
+    if (routeName == AppRoutes.adminHome) {
       return;
     }
 
-    AppRootNavigation.replaceRootRoute(context, routeName);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) {
+        return;
+      }
+      if (ModalRoute.of(context)?.settings.name == routeName) {
+        return;
+      }
+      Navigator.of(context).pushNamed(routeName);
+    });
   }
 }
