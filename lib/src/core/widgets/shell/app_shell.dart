@@ -65,7 +65,7 @@ class AppShell extends StatefulWidget {
     this.bottomDockFadeStrength,
     this.contentPadding = const EdgeInsets.fromLTRB(4, 0, 6, 0),
     this.bottomPadding = EdgeInsets.zero,
-    this.animateOnEnter = true,
+    this.animateOnEnter = false,
     this.preferNativeTitle = false,
     this.nativeTopBar = false,
     this.nativeTitleTextStyle,

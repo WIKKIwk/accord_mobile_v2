@@ -676,7 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
           ],
-          animateOnEnter: current.accessRole != UserRole.customer,
+          animateOnEnter: false,
           drawer: switch (shellKind) {
             _ProfileShellKind.werka => WerkaNavigationDrawer(
                 selectedIndex: 3,
