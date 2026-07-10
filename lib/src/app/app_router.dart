@@ -835,53 +835,7 @@ class AppRouter {
 
   static PageRoute<dynamic> _buildRoute(RouteSettings settings, Widget child) {
     if (_usesBunpodPageTransition(settings.name)) {
-      return PageRouteBuilder<dynamic>(
-        settings: settings,
-        transitionDuration: const Duration(milliseconds: 450),
-        reverseTransitionDuration: const Duration(milliseconds: 450),
-        pageBuilder: (context, animation, secondaryAnimation) => child,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final enter = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOutCubicEmphasized,
-            reverseCurve: Curves.easeInOutCubicEmphasized,
-          );
-          final fadeIn = CurvedAnimation(
-            parent: animation,
-            curve: const Interval(0.0, 0.75),
-            reverseCurve: const Interval(0.0, 0.75),
-          );
-          final exit = CurvedAnimation(
-            parent: secondaryAnimation,
-            curve: Curves.easeInOutCubicEmphasized,
-          );
-          final fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
-            CurvedAnimation(
-              parent: secondaryAnimation,
-              curve: const Interval(0.0, 0.25),
-            ),
-          );
-          return FadeTransition(
-            opacity: fadeOut,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset.zero,
-                end: const Offset(-0.25, 0),
-              ).animate(exit),
-              child: FadeTransition(
-                opacity: fadeIn,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.25, 0),
-                    end: Offset.zero,
-                  ).animate(enter),
-                  child: child,
-                ),
-              ),
-            ),
-          );
-        },
-      );
+      return _BunpodPageRoute<dynamic>(settings: settings, child: child);
     }
     if (_usesAdminPageTransition(settings.name)) {
       return PageRouteBuilder<dynamic>(
@@ -946,6 +900,148 @@ class AppRouter {
   static bool _usesBunpodPageTransition(String? routeName) {
     return routeName == AppRoutes.adminCalculateOrders;
   }
+}
+
+class _BunpodPageRoute<T> extends PageRouteBuilder<T> {
+  _BunpodPageRoute({required RouteSettings settings, required Widget child})
+      : super(
+          settings: settings,
+          transitionDuration: const Duration(milliseconds: 450),
+          reverseTransitionDuration: const Duration(milliseconds: 450),
+          pageBuilder: (context, animation, secondaryAnimation) => child,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              _BunpodFadeForwardsPageTransition(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          ),
+        );
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition => (
+        BuildContext context,
+        Animation<double> animation,
+        Animation<double> secondaryAnimation,
+        bool allowSnapshotting,
+        Widget? child,
+      ) =>
+          _buildBunpodDelegatedTransition(context, secondaryAnimation, child);
+}
+
+class _BunpodFadeForwardsPageTransition extends StatelessWidget {
+  const _BunpodFadeForwardsPageTransition({
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Animation<double> secondaryAnimation;
+  final Widget child;
+
+  static final Animatable<Offset> _forwardTranslationTween = Tween<Offset>(
+    begin: const Offset(0.25, 0),
+    end: Offset.zero,
+  ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized));
+
+  static final Animatable<Offset> _backwardTranslationTween = Tween<Offset>(
+    begin: Offset.zero,
+    end: const Offset(0.25, 0),
+  ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized));
+
+  static final Animatable<double> _fadeInTransition = Tween<double>(
+    begin: 0,
+    end: 1,
+  ).chain(CurveTween(curve: const Interval(0, 0.75)));
+
+  static final Animatable<double> _fadeOutTransition = Tween<double>(
+    begin: 1,
+    end: 0,
+  ).chain(CurveTween(curve: const Interval(0, 0.25)));
+
+  @override
+  Widget build(BuildContext context) {
+    return DualTransitionBuilder(
+      animation: animation,
+      forwardBuilder: (context, animation, child) {
+        return FadeTransition(
+          opacity: _fadeInTransition.animate(animation),
+          child: SlideTransition(
+            position: _forwardTranslationTween.animate(animation),
+            child: child,
+          ),
+        );
+      },
+      reverseBuilder: (context, animation, child) {
+        return IgnorePointer(
+          ignoring: animation.status == AnimationStatus.forward,
+          child: FadeTransition(
+            opacity: _fadeOutTransition.animate(animation),
+            child: SlideTransition(
+              position: _backwardTranslationTween.animate(animation),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child:
+          _buildBunpodDelegatedTransition(context, secondaryAnimation, child),
+    );
+  }
+}
+
+Widget _buildBunpodDelegatedTransition(
+  BuildContext context,
+  Animation<double> secondaryAnimation,
+  Widget? child,
+) {
+  final builder = DualTransitionBuilder(
+    animation: ReverseAnimation(secondaryAnimation),
+    forwardBuilder: (context, animation, child) {
+      return FadeTransition(
+        opacity: _BunpodFadeForwardsPageTransition._fadeInTransition.animate(
+          animation,
+        ),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-0.25, 0),
+            end: Offset.zero,
+          ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized)).animate(
+                animation,
+              ),
+          child: child,
+        ),
+      );
+    },
+    reverseBuilder: (context, animation, child) {
+      return FadeTransition(
+        opacity: _BunpodFadeForwardsPageTransition._fadeOutTransition.animate(
+          animation,
+        ),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset.zero,
+            end: const Offset(-0.25, 0),
+          ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized)).animate(
+                animation,
+              ),
+          child: child,
+        ),
+      );
+    },
+    child: child,
+  );
+
+  final bool isOpaque = ModalRoute.opaqueOf(context) ?? true;
+  if (!isOpaque) {
+    return builder;
+  }
+  return ColoredBox(
+    color: secondaryAnimation.isAnimating
+        ? ColorScheme.of(context).surface
+        : Colors.transparent,
+    child: builder,
+  );
 }
 
 class _CapabilityDeniedScreen extends StatelessWidget {
