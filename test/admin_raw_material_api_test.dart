@@ -556,6 +556,7 @@ void main() {
       final assignment = await MobileApi.instance.adminAssignRawMaterialToOrder(
         orderId: 'zakaz-1',
         barcode: 'RM-001',
+        apparatus: 'Pechat',
       );
 
       expect(rule.apparatus, 'Pechat');
@@ -583,10 +584,60 @@ void main() {
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/raw-material-assignments '
-          '{"order_id":"zakaz-1","barcode":"RM-001"}',
+          '{"order_id":"zakaz-1","barcode":"RM-001",'
+          '"apparatus":"Pechat"}',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('raw material assignment exposes apparatus choices from backend',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: '',
+      ref: 'admin',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminAssignRawMaterialToOrder(
+          orderId: 'zakaz-1',
+          barcode: 'RM-001',
+        ),
+        throwsA(
+          isA<MobileApiException>()
+              .having(
+            (error) => error.code,
+            'code',
+            'raw_material_group_ambiguous',
+          )
+              .having(
+            (error) => error.apparatusOptions,
+            'apparatusOptions',
+            ['7 ta rangli pechat', 'Laminatsiya 1'],
+          ).having(
+            (error) => error.message,
+            'message',
+            'Bu homashyoni qaysi aparatga ulashni tanlang',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              assignmentErrorCode: 'raw_material_group_ambiguous',
+              assignmentErrorApparatusOptions: const [
+                '7 ta rangli pechat',
+                'Laminatsiya 1',
+              ],
+            ));
   });
 
   test('raw material lookup returns understandable scan report data', () async {
@@ -829,6 +880,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.seenRequests, {
     this.queueActionErrorCode = '',
     this.assignmentErrorCode = '',
+    this.assignmentErrorApparatusOptions = const [],
     this.unlinkErrorCode = '',
     this.queueActionProgress = false,
     this.queueActionCompleteMetrics = false,
@@ -839,6 +891,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final List<String> seenRequests;
   final String queueActionErrorCode;
   final String assignmentErrorCode;
+  final List<String> assignmentErrorApparatusOptions;
   final String unlinkErrorCode;
   final bool queueActionProgress;
   final bool queueActionCompleteMetrics;
@@ -1251,7 +1304,11 @@ class _RawMaterialApiHttpClient implements HttpClient {
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':
         if (assignmentErrorCode.isNotEmpty) {
-          body = {'error': assignmentErrorCode};
+          body = {
+            'error': assignmentErrorCode,
+            if (assignmentErrorApparatusOptions.isNotEmpty)
+              'apparatus_options': assignmentErrorApparatusOptions,
+          };
           return _FakeHttpClientRequest(
             response: _FakeHttpClientResponse(
               body: jsonEncode(body),

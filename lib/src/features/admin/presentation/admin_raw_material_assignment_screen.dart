@@ -237,7 +237,7 @@ class _AdminRawMaterialAssignmentPanelState
     }
     setState(() => _saving = true);
     try {
-      final saved = await MobileApi.instance.adminAssignRawMaterialToOrder(
+      final saved = await _assignMaterialWithApparatusSelection(
         orderId: orderId,
         barcode: barcode,
       );
@@ -270,6 +270,124 @@ class _AdminRawMaterialAssignmentPanelState
         setState(() => _saving = false);
       }
     }
+  }
+
+  Future<AdminRawMaterialAssignment> _assignMaterialWithApparatusSelection({
+    required String orderId,
+    required String barcode,
+  }) async {
+    try {
+      return await MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: orderId,
+        barcode: barcode,
+      );
+    } on MobileApiException catch (error) {
+      if (error.code != 'raw_material_group_ambiguous' ||
+          error.apparatusOptions.isEmpty ||
+          !mounted) {
+        rethrow;
+      }
+      final apparatus = await _showApparatusChoice(error.apparatusOptions);
+      if (apparatus == null || !mounted) {
+        throw const MobileApiException(
+          code: 'raw_material_assignment_cancelled',
+          message: 'Homashyoni ulash bekor qilindi',
+        );
+      }
+      return MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: orderId,
+        barcode: barcode,
+        apparatus: apparatus,
+      );
+    }
+  }
+
+  Future<String?> _showApparatusChoice(List<String> options) {
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final scheme = theme.colorScheme;
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          backgroundColor: Colors.transparent,
+          child: Card.filled(
+            margin: EdgeInsets.zero,
+            color: scheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(
+                            Icons.account_tree_rounded,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Qaysi aparatga ulaymiz?',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Bu homashyo bir nechta bosqichga mos keladi. Bittasini tanlang.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  for (final option in options) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(option),
+                        icon:
+                            const Icon(Icons.precision_manufacturing_outlined),
+                        label: Text(option),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _unlink(AdminRawMaterialAssignment assignment) async {

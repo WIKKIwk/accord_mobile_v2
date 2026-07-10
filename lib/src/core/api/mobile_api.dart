@@ -38,11 +38,13 @@ class MobileApiException implements Exception {
     required this.code,
     required this.message,
     this.statusCode,
+    this.apparatusOptions = const [],
   });
 
   final String code;
   final String message;
   final int? statusCode;
+  final List<String> apparatusOptions;
 
   @override
   String toString() => message;

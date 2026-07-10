@@ -1583,6 +1583,7 @@ MobileApiException _adminProductionMapException(
   String fallbackCode,
 ) {
   String code = fallbackCode;
+  var apparatusOptions = const <String>[];
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -1591,9 +1592,16 @@ MobileApiException _adminProductionMapException(
         code = error;
       }
     }
+    if (payload is Map && payload['apparatus_options'] is List) {
+      apparatusOptions = [
+        for (final option in payload['apparatus_options'] as List)
+          if (option.toString().trim().isNotEmpty) option.toString().trim(),
+      ];
+    }
   } catch (_) {}
   return MobileApiException(
     code: code,
+    apparatusOptions: apparatusOptions,
     message: switch (code) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
@@ -1626,6 +1634,8 @@ MobileApiException _adminProductionMapException(
         'Bu homashyo allaqachon shu zakazga ulangan',
       'raw_material_group_not_allowed' =>
         'Bu homashyo ish boshlash uchun mos emas',
+      'raw_material_group_ambiguous' =>
+        'Bu homashyoni qaysi aparatga ulashni tanlang',
       'raw_material_roll_size_missing' => 'Rulon razmeri topilmadi',
       'raw_material_roll_size_mismatch' =>
         'Bu rulon bu buyurtma uchun mos emas',
@@ -2820,10 +2830,12 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminRawMaterialAssignment> adminAssignRawMaterialToOrder({
     required String orderId,
     required String barcode,
+    String apparatus = '',
   }) async {
     final body = {
       'order_id': orderId.trim(),
       'barcode': barcode.trim(),
+      if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
     };
     if (await TestModeController.instance.isEnabled()) {
       final assignment = AdminRawMaterialAssignment(
