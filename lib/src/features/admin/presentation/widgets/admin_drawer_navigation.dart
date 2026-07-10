@@ -1,4 +1,5 @@
 import '../../../../app/app_router.dart';
+import '../../../../core/navigation/app_root_navigation.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AdminDrawerNavigation {
@@ -12,22 +13,17 @@ abstract final class AdminDrawerNavigation {
       return;
     }
     final navigator = Navigator.of(context);
-    navigator.popUntil(
-      (route) => route.settings.name == AppRoutes.adminHome || route.isFirst,
-    );
-
-    if (routeName == AppRoutes.adminHome) {
+    if (AppRootNavigation.containsRoute(routeName)) {
+      navigator.popUntil((route) => route.settings.name == routeName);
       return;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      if (ModalRoute.of(context)?.settings.name == routeName) {
-        return;
-      }
-      Navigator.of(context).pushNamed(routeName);
-    });
+    if (current != AppRoutes.adminHome &&
+        AppRootNavigation.containsRoute(AppRoutes.adminHome)) {
+      navigator.pushReplacementNamed(routeName);
+      return;
+    }
+
+    navigator.pushNamed(routeName);
   }
 }
