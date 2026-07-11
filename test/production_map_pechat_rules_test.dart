@@ -1,0 +1,22 @@
+import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('default bosma apparatus names require qolip scan', () {
+    for (final colorCount in [7, 8, 9]) {
+      final name = '$colorCount ta rangli bosma aparat';
+      expect(productionMapPechatColorCount(name), colorCount);
+      expect(productionMapApparatusRequiresQolipScan(name), isTrue);
+      expect(productionMapQolipScanAllowsStart(name, ''), isFalse);
+      expect(productionMapQolipScanAllowsStart(name, 'QOLIP-QR'), isTrue);
+    }
+  });
+
+  test('legacy pechat aliases still require qolip scan', () {
+    expect(
+      productionMapApparatusRequiresQolipScan('7 ta rangli pechat - A'),
+      isTrue,
+    );
+    expect(productionMapApparatusRequiresQolipScan('Laminatsiya 1'), isFalse);
+  });
+}

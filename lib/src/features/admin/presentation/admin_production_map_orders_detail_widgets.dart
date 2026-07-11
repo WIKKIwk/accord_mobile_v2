@@ -15,10 +15,13 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
+    required this.requiresQolipScan,
+    required this.qolipScanned,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
     required this.onScan,
     required this.onProgressScan,
+    required this.onQolipScan,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -38,10 +41,13 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
+  final bool requiresQolipScan;
+  final bool qolipScanned;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
   final VoidCallback onScan;
   final VoidCallback? onProgressScan;
+  final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -90,9 +96,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 inputProgressBatches: inputProgressBatches,
                 inputProgressLoading: inputProgressLoading,
                 inputProgressError: inputProgressError,
+                requiresQolipScan: requiresQolipScan,
+                qolipScanned: qolipScanned,
                 rezkaInstructionLines: rezkaInstructionLines,
                 onScan: onScan,
                 onProgressScan: onProgressScan,
+                onQolipScan: onQolipScan,
                 onStart: onStart,
                 onPause: onPause,
                 onComplete: onComplete,
@@ -425,9 +434,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
+    required this.requiresQolipScan,
+    required this.qolipScanned,
     required this.rezkaInstructionLines,
     required this.onScan,
     required this.onProgressScan,
+    required this.onQolipScan,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -456,9 +468,12 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
+  final bool requiresQolipScan;
+  final bool qolipScanned;
   final List<String> rezkaInstructionLines;
   final VoidCallback onScan;
   final VoidCallback? onProgressScan;
+  final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -647,6 +662,26 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 ),
               ),
             if (showStart && hasMaterialAssignments) const SizedBox(height: 10),
+            if (showStart && requiresQolipScan) ...[
+              FilledButton.tonalIcon(
+                onPressed: actionInFlight || qolipScanned ? null : onQolipScan,
+                icon: Icon(
+                  qolipScanned
+                      ? Icons.check_circle_rounded
+                      : Icons.qr_code_scanner_rounded,
+                ),
+                label: Text(
+                  qolipScanned ? 'Qolip tasdiqlandi' : 'Qolip QR scan',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (showStart && previousProgressRequired) ...[
               _PreviousProgressQrTile(
                 previousStage: previousStage ?? '',
@@ -668,6 +703,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: actionInFlight ||
                         (hasMaterialAssignments && !allMaterialsScanned) ||
+                        (requiresQolipScan && !qolipScanned) ||
                         !previousProgressReady
                     ? null
                     : onStart,

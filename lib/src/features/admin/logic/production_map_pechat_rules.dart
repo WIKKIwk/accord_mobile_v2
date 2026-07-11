@@ -25,6 +25,15 @@ int? productionMapPechatColorCount(String title) {
   return int.tryParse(match.group(1) ?? '');
 }
 
+bool productionMapApparatusRequiresQolipScan(String title) {
+  return productionMapPechatColorCount(title) != null;
+}
+
+bool productionMapQolipScanAllowsStart(String title, String qolipCode) {
+  return !productionMapApparatusRequiresQolipScan(title) ||
+      qolipCode.trim().isNotEmpty;
+}
+
 int? productionMapRecommendedPechatColorCount({
   double? rollCount,
   double? widthMm,

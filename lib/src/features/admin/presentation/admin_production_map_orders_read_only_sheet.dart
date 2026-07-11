@@ -129,6 +129,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
       order: widget.order,
+      qolipScanned: _scannedQolipCode.trim().isNotEmpty,
     );
     if (prepared == null) {
       return;
@@ -214,6 +215,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     setState(() => _scannedQolipCode = code.trim());
     return code.trim();
+  }
+
+  Future<void> _scanQolip() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const QolipRawQrScanScreen()),
+    );
+    if (!mounted || code == null || code.trim().isEmpty) {
+      return;
+    }
+    setState(() => _scannedQolipCode = code.trim());
   }
 
   Future<void> _runProgressAction(String action) async {
@@ -418,6 +429,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       queuePolicy: widget.queuePolicy,
       startInputProgressBatch: _startInputProgressBatch,
     );
+    final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
+    final qolipScanAllowsStart = productionMapQolipScanAllowsStart(
+      uiState.station,
+      _scannedQolipCode,
+    );
 
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
@@ -433,6 +449,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       inputProgressBatches: _availableInputProgressBatches,
       inputProgressLoading: _inputProgressLoading,
       inputProgressError: _inputProgressError,
+      requiresQolipScan: requiresQolipScan,
+      qolipScanned: qolipScanAllowsStart,
       mapExpanded: _mapExpanded,
       onToggleMapExpanded: () {
         setState(() => _mapExpanded = !_mapExpanded);
@@ -441,6 +459,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onProgressScan: uiState.previousStage == null
           ? null
           : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
+      onQolipScan: () => unawaited(_scanQolip()),
       onStart: () => unawaited(_runQueueAction('start')),
       onPause: () => unawaited(_runProgressAction('pause')),
       onComplete: () => unawaited(_runProgressAction('complete')),

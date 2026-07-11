@@ -285,7 +285,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
 }
 
 bool _apparatusRequiresQolipScan(String apparatus) {
-  return productionMapPechatColorCount(apparatus) != null;
+  return productionMapApparatusRequiresQolipScan(apparatus);
 }
 
 String? _queueActionStartBlockReason({
@@ -296,6 +296,8 @@ String? _queueActionStartBlockReason({
   required ProductionMapDefinition map,
   required String station,
   required AdminProgressBatch? startInputProgressBatch,
+  required bool qolipScanRequired,
+  required bool qolipScanned,
 }) {
   if (action != 'start') {
     return null;
@@ -307,6 +309,9 @@ String? _queueActionStartBlockReason({
         orderId: orderId,
       )) {
     return 'Avval hamma homashyoni QR scan qiling';
+  }
+  if (qolipScanRequired && !qolipScanned) {
+    return 'Avval qolip QR scan qiling';
   }
   final previousStage = station.isEmpty
       ? null
@@ -342,6 +347,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required ProductionMapSaved order,
   required Set<String> scannedMaterialBarcodes,
   required AdminProgressBatch? startInputProgressBatch,
+  required bool qolipScanned,
 }) {
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
@@ -367,6 +373,8 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       map: order.map,
       station: station,
       startInputProgressBatch: inputProgressBatch,
+      qolipScanRequired: _apparatusRequiresQolipScan(station),
+      qolipScanned: qolipScanned,
     ),
   );
 }
