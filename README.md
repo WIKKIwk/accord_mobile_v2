@@ -1,660 +1,649 @@
 # Accord Mobile V2
 
-`accord_mobile_v2` is the Flutter client for the Accord mini ERP ecosystem.
-It is not a standalone business system. The app renders role-specific mobile
-workspaces, keeps device/session/UI state, and calls `mini_rs_erp` through the
-stable `/v1/mobile/*` HTTP contract.
+`accord_mobile_v2` — Accord mini ERP uchun Flutter mobil klienti. Ilova
+foydalanuvchining roli va capability'lariga mos ish maydonini ko'rsatadi,
+qurilma bilan bog'liq holatlarni boshqaradi va barcha ERP amallarini
+`mini_rs_erp` backendining `/v1/mobile/*` API contract'i orqali bajaradi.
 
-The backend owns business truth: authentication, roles, production maps, WIP,
-warehouse state, Qolip inventory, QR validation, customer/supplier workflow,
-admin operations, printing side effects, push dispatch, and persistence. The
-mobile app owns presentation, navigation, local device behavior, and API
-orchestration.
+> Muhim chegara: PostgreSQL va `mini_rs_erp` biznes haqiqatining yagona
+> manbasi. Mobile UI, navigatsiya, scan, lokal preference va API
+> orchestration'ni bajaradi; stock, queue, production map, Qolip va role
+> qoidalarini mustaqil ravishda tasdiqlamaydi.
 
-## Current Scope
+## Mundarija
 
-The app currently covers these mobile areas:
+- [Tizimdagi o'rni](#tizimdagi-orni)
+- [Qo'llab-quvvatlanadigan rollar](#qollab-quvvatlanadigan-rollar)
+- [Tez ishga tushirish](#tez-ishga-tushirish)
+- [Konfiguratsiya](#konfiguratsiya)
+- [Arxitektura](#arxitektura)
+- [Production map modeli](#production-map-modeli)
+- [Order lifecycle](#order-lifecycle)
+- [Production execution qoidalari](#production-execution-qoidalari)
+- [Asosiy ish oqimlari](#asosiy-ish-oqimlari)
+- [Navigatsiya va umumiy UI](#navigatsiya-va-umumiy-ui)
+- [Lokal holat va qurilma integratsiyalari](#lokal-holat-va-qurilma-integratsiyalari)
+- [Build, test va tekshiruv](#build-test-va-tekshiruv)
+- [Muammo yechish](#muammo-yechish)
+- [Development qoidalari](#development-qoidalari)
 
-| Area | Responsibility |
-| --- | --- |
-| Auth and session | Phone/code login, token restore, automatic re-authentication, logout. |
-| Role routing | Opens the correct workspace from backend role/capability data. |
-| Supplier | Item selection, quantity entry, dispatch confirmation, history, notifications. |
-| Werka | Warehouse/operator dashboard, pending/history/archive, confirmations, customer issue, unannounced receipt, QR lookup. |
-| Customer | Delivery review, approve/reject flow, status details, notifications. |
-| Admin | Users, roles, suppliers, customers, items, warehouses, production maps, WIP, monitoring, settings. |
-| Aparatchi | Operator queue workspace for production-map work stages. |
-| Qolipchi | Qolip/block/location inventory workspace. |
-| Rezka | Cutting/split workflow entry point. |
-| GScale/RPS | Embedded scale/print workflow and mobileapi integration. |
-| Device runtime | Camera, QR scanner, biometric lock, push notifications, local files, theme, locale, preview mode. |
-
-`werka` is still used in routes, capabilities, endpoints, labels, and local
-keys as the compatibility name for the warehouse/operator flow. Do not rename it
-casually: it is part of the mobile contract and persisted app state.
-
-## Runtime Model
+## Tizimdagi o'rni
 
 ```mermaid
-flowchart TB
-    App["Accord Mobile V2<br/>Flutter app"]
-    Shell["App shell<br/>routing, lock, network gate,<br/>notifications, dock/back bridge"]
-    Api["MobileApi<br/>/v1/mobile/*"]
-    Domain["mini_rs_erp<br/>Axum mini ERP API"]
-    DB["PostgreSQL<br/>ERP state"]
-    Local["Mobile local state<br/>SharedPreferences, caches"]
-    Push["Firebase Messaging<br/>push token + local notifications"]
-    Device["Device integrations<br/>camera, biometrics, files, QR"]
-    GScale["GScale / RPS mobileapi<br/>LAN scale and printer"]
-    DomainSide["Backend side effects<br/>FCM, print, AI, QR"]
-    Tunnel["Domain / Cloudflare tunnel"]
-
-    App --> Shell
-    Shell --> Api
-    Shell --> Local
-    Shell --> Push
-    Shell --> Device
-    Api --> Tunnel
-    Tunnel --> Domain
-    Domain --> DB
-    Domain --> DomainSide
-    App --> GScale
+flowchart LR
+    User["Foydalanuvchi"] --> Mobile["Accord Mobile V2"]
+    Mobile --> Runtime["Session, lock, theme, locale,<br/>notification va device runtime"]
+    Mobile --> Api["MobileApi<br/>/v1/mobile/*"]
+    Api --> Domain["mini_rs_erp<br/>Axum backend"]
+    Domain --> DB["PostgreSQL<br/>ERP source of truth"]
+    Domain --> SideEffects["Push, print, QR va<br/>boshqa backend side effect'lar"]
+    Mobile --> GScale["GScale/RPS LAN runtime"]
 ```
 
-Default test backend:
+Mas'uliyatlar:
+
+| Qism | Egasi |
+| --- | --- |
+| Auth token, profil va capability contract | `mini_rs_erp`, mobile'da session cache |
+| Role bo'yicha ekran va route tanlash | Mobile |
+| Production map validation va saqlash | `mini_rs_erp` |
+| Queue holati va action ruxsati | `mini_rs_erp` |
+| Stock, homashyo reservation va Qolip checkout | `mini_rs_erp` + PostgreSQL |
+| Scan qilish va operator input'ini yig'ish | Mobile |
+| WIP/progress lineage va yakuniy natija | `mini_rs_erp` |
+| Theme, locale, PIN/biometric va preview | Mobile lokal storage |
+| Push qarori | Backend; ko'rsatish va unread holati mobile |
+
+Default development domeni:
 
 ```text
 https://mini-rs-erp-dev.wspace.sbs
 ```
 
-This domain is wired in both `Makefile` and `MobileApi.baseUrl`. A build should
-not hardcode old domains or local-only URLs unless the run target explicitly
-asks for local mode.
+Bu qiymat `MobileApi.baseUrl` va `Makefile`dagi `API_URL` default'ida bir xil.
+Eski domenni kodga yoki build script'ga hardcode qilmang.
 
-## Repository Boundary
+## Qo'llab-quvvatlanadigan rollar
 
-This repository is responsible for:
+Amaldagi `UserRole` qiymatlari:
 
-- Flutter app startup and role routing.
-- Mobile screens, shared components, theme, motion, navigation, and preview.
-- Calling `mini_rs_erp` through `MobileApi`.
-- Keeping local UI/session state in device storage.
-- Registering Firebase push tokens and displaying local notifications.
-- Camera, QR scan, file, biometric, iOS native back/dock, and Android runtime
-  permission integration.
-- Shared UI architecture so top bars, docks, drawers, fields, cards, dialogs,
-  lists, and shells are reused instead of copy-pasted per role.
+```dart
+enum UserRole {
+  supplier,
+  werka,
+  customer,
+  aparatchi,
+  qolipchi,
+  materialTaminotchi,
+  admin,
+}
+```
 
-This repository is not responsible for:
-
-- PostgreSQL schema or production ERP persistence.
-- Production-map calculation truth.
-- Queue validation truth.
-- Qolip inventory truth.
-- Stock movement truth.
-- Role/capability truth.
-- Push dispatch decisions.
-- Print job business decisions.
-
-Those belong to `mini_rs_erp`.
-
-## Backend Dependency
-
-`accord_mobile_v2` requires a reachable `mini_rs_erp` instance. Login and role
-navigation depend on the backend. There is no production fallback that should
-pretend ERP is working when the backend/database is unavailable.
-
-The main app expects:
-
-- `GET /healthz`
-- endpoints under `/v1/mobile/auth/*`
-- profile and push endpoints under `/v1/mobile/profile` and
-  `/v1/mobile/push/token`
-- Supplier endpoints under `/v1/mobile/supplier/*`
-- Werka endpoints under `/v1/mobile/werka/*`
-- Customer endpoints under `/v1/mobile/customer/*`
-- Admin endpoints under `/v1/mobile/admin/*`
-- Qolip endpoints under `/v1/mobile/qolip/*`
-- Rezka endpoints under `/v1/mobile/rezka/*`
-- calculation endpoints under `/v1/mobile/calculate*`
-- GScale/RPS bridge endpoints used by `lib/src/core/api/gscale/`
-- notification endpoints under `/v1/mobile/notifications/*`
-- stock-entry and QR lookup endpoints used by warehouse/admin flows
-- websocket endpoint for warehouse live updates
-
-The app sends bearer tokens from `AppSession`. If a request returns `401`,
-`MobileApi` tries to re-authenticate from stored phone/code credentials. If that
-fails, the session is cleared and the user must log in again.
-
-## Runtime Configuration
-
-Main backend URL:
-
-| Variable | Default | Used by |
+| Role | Asosiy workspace | Vazifa |
 | --- | --- | --- |
-| `MOBILE_API_BASE_URL` | `https://mini-rs-erp-dev.wspace.sbs` | Main Accord mobile API. |
-| `API_URL` | `https://mini-rs-erp-dev.wspace.sbs` | Makefile wrapper value passed into `MOBILE_API_BASE_URL`. |
-| `LOCAL_API_URL` | `http://127.0.0.1:18081` | Local backend helper targets. |
+| `supplier` | `/supplier-home` | Mahsulot tanlash, miqdor, jo'natish, tarix va bildirishnomalar. |
+| `werka` | `/werka-home` | Ombor qabul/chiqim, QR lookup, customer issue va arxiv. |
+| `customer` | `/customer-home` | Yetkazmani ko'rish, tasdiqlash yoki rad etish. |
+| `aparatchi` | `/apparatus-queue` | Biriktirilgan apparat queue'sida ishlab chiqarish amallari. |
+| `qolipchi` | `/qolip` | Qolip bloklari, yacheyka, checkout, return va ko'chirish. |
+| `material_taminotchi` | `/material-home` | Homashyo biriktirish, ombor va harakatlar tarixi. |
+| `admin` | `/admin-home` | Katalog, user, role, order, production map, WIP va monitoring. |
 
-GScale LAN/mobileapi URL:
+Home route faqat role nomidan tanlanmaydi. `AppSession.homeRoute` avval backend
+bergan capability'larni tekshiradi. Route'larning o'zi ham
+`AppRouter.canOpenRoute` orqali capability-gated. Shuning uchun UI'da tugmani
+yashirish xavfsizlik chegarasi emas; backend har bir amalni qayta tekshirishi
+shart.
 
-| Variable | Default | Used by |
-| --- | --- | --- |
-| `API_BASE_URL` | `http://gscale.local:39117` | Embedded GScale runtime. |
+`werka` nomi route, endpoint, capability va saqlangan preference'larda contract
+nomi bo'lib qolgan. Uni oddiy UI rename sifatida o'zgartirish mumkin emas.
 
-Preview variables:
+## Tez ishga tushirish
 
-| Variable | Description |
-| --- | --- |
-| `APP_FORCE_DEVICE_PREVIEW` | Forces DevicePreview in debug mode. `make run` sets this by default. |
-| `APP_PREVIEW_ROUTE` | Opens a specific route for focused UI preview. |
-| `APP_PREVIEW_PHONE` | Phone used by preview login helpers. |
-| `APP_PREVIEW_CODE` | Code used by preview login helpers. |
-| `APP_PREVIEW_BATCH_DISPATCH_DEMO` | Enables direct batch dispatch preview mode when paired with a route. |
+Talablar:
 
-## Quick Start
+- Flutter `>=3.24.0`;
+- Dart `>=3.5.0 <4.0.0`;
+- web preview uchun Chromium/Chrome;
+- ishlayotgan `mini_rs_erp` backend;
+- release target uchun platform SDK va signing.
 
-Install Flutter dependencies:
+Dependency'larni olish:
 
 ```bash
 make deps
 ```
 
-Run against the current test domain in Chromium with DevicePreview:
+Default domen va DevicePreview bilan web-server ishga tushirish:
 
 ```bash
 make run
 ```
 
-Run against a custom backend:
+Boshqa API bilan:
 
 ```bash
-make run API_URL=https://mini-rs-erp-dev.wspace.sbs
+make run API_URL=https://example.invalid
 ```
 
-Run against a local mini ERP backend:
-
-```bash
-make run-local
-```
-
-Run web explicitly:
+Chrome target'ini to'g'ridan-to'g'ri ishlatish:
 
 ```bash
 make web
 ```
 
-Run web against a local backend:
+Local API (`http://127.0.0.1:18081`) bilan:
+
+```bash
+make run-local
+```
+
+Yoki Chrome target'i bilan:
 
 ```bash
 make web-local
 ```
 
-Static analysis:
+Backend lifecycle'ning asosiy egasi qo'shni `mini_rs_erp` repo hisoblanadi.
+Mobile repo ichidagi `core-*`, `domain-*`, `remote-*`, `backend-*` va eski mock
+target'lar compatibility/helper vazifasida; yangi production runbook uchun
+backend repo script'larini source of truth deb oling.
 
-```bash
-make analyze
-```
-
-Flutter tests:
-
-```bash
-make test
-```
-
-## Domain And Backend Startup Helpers
-
-The mobile repo includes helper targets that delegate to runtime scripts and
-the neighboring backend workspace. They are convenience wrappers, not the
-source of backend truth.
-
-Common backend/domain helpers:
-
-| Target | Purpose |
-| --- | --- |
-| `make core-up` | Start required local core/runtime helpers. |
-| `make core-stop` | Stop local core/runtime helpers. |
-| `make remote-up` | Start a remote/tunnel runtime helper. |
-| `make remote-stop` | Stop remote/tunnel runtime helper. |
-| `make remote-url` | Print generated remote URL from `garbage/.core_tunnel_url`. |
-| `make domain-up` | Start backend through the configured domain helper. |
-| `make domain-up-fast` | Start domain helper without public healthcheck. |
-| `make domain-url` | Print generated domain URL from `garbage/.core_domain_url`. |
-| `make backend-up` | Start local mobile API helper when `API_URL` is local. |
-| `make backend-stop` | Stop local mobile API helper. |
-
-For the current shared test environment, the expected public API is:
+Backendni mobile'dan oldin tekshirish:
 
 ```bash
 curl https://mini-rs-erp-dev.wspace.sbs/healthz
 ```
 
-Expected healthy response:
+Kutiladigan javob:
 
 ```json
 {"ok":true}
 ```
 
-If the domain is down, fix `mini_rs_erp` first. The mobile app cannot pass login
-or ERP workflow smoke tests without it.
+## Konfiguratsiya
 
-## Build Targets
+### Asosiy API
 
-Release APK through Makefile:
+| Dart define / Make qiymati | Default | Maqsad |
+| --- | --- | --- |
+| `MOBILE_API_BASE_URL` | `https://mini-rs-erp-dev.wspace.sbs` | `MobileApi` ishlatadigan asosiy mini ERP URL. |
+| `API_URL` | shu domen | `Makefile` orqali `MOBILE_API_BASE_URL`ga uzatiladi. |
+| `LOCAL_API_URL` | `http://127.0.0.1:18081` | `run-local` va `web-local` uchun. |
+| `API_BASE_URL` | `http://gscale.local:39117` | GScale/RPS LAN runtime uchun alohida URL. |
 
-```bash
-make apk API_URL=https://mini-rs-erp-dev.wspace.sbs APK_NAME=accord.apk
-```
+`MobileApi` bearer tokenni `AppSession`dan oladi. Authorized request `401`
+qaytarsa, saqlangan telefon/code bilan bir marta re-auth qiladi; muvaffaqiyatsiz
+bo'lsa session tozalanadi.
 
-The Makefile release APK target builds arm64 only:
+Warehouse live endpoint asosiy URL'dan avtomatik hosil qilinadi:
+`https -> wss`, `http -> ws`, path esa
+`/v1/mobile/admin/warehouses/live`.
 
-```make
---release --target-platform android-arm64
-```
+### Preview
 
-Debug arm64 APK, when a non-release test APK is needed:
+| Define | Maqsad |
+| --- | --- |
+| `APP_FORCE_DEVICE_PREVIEW` | Debug build'da DevicePreview'ni majburan yoqadi. |
+| `APP_PREVIEW_ROUTE` | Fokuslangan preview route. |
+| `APP_PREVIEW_PHONE` | Preview login telefoni. |
+| `APP_PREVIEW_CODE` | Preview login kodi. |
+| `APP_PREVIEW_BATCH_DISPATCH_DEMO` | Direct batch-dispatch demo rejimi. |
 
-```bash
-flutter build apk --debug --target-platform android-arm64 \
-  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs
-```
+DevicePreview release build'da doim o'chadi. `APP_PREVIEW_ROUTE` faqat
+`APP_PREVIEW_BATCH_DISPATCH_DEMO` bilan direct initial route sifatida ishlaydi.
 
-Domain-backed release APK:
-
-```bash
-make apk-domain
-```
-
-Remote/tunnel-backed release APK:
-
-```bash
-make apk-remote
-```
-
-Android SDK bootstrap:
-
-```bash
-make android-sdk-setup
-```
-
-## Main Workflows
+## Arxitektura
 
 ### Startup
 
-Startup happens in `lib/main.dart`:
+`lib/main.dart` quyidagi tartibda ishga tushadi:
 
-1. Flutter binding is initialized.
-2. Edge-to-edge system UI is enabled.
-3. Native back-button bridge is initialized.
-4. Native dock bridge is initialized.
-5. Local notifications are initialized.
-6. Session is loaded.
-7. Unread notification state is loaded.
-8. Security, theme, locale, and platform helpers are loaded.
-9. `ErpnextStockMobileApp` is rendered inside `DevicePreview` when preview is
-   enabled.
-10. Firebase push messaging is initialized outside web builds.
+1. Flutter binding va edge-to-edge system UI.
+2. Native back/dock bridge init urinishlari.
+3. Local notification service.
+4. Session va unread notification store.
+5. Security, theme, locale va platform helper.
+6. `ErpnextStockMobileApp`, kerak bo'lsa DevicePreview ichida.
+7. Web bo'lmagan platformada async Firebase Messaging init.
 
-### App Shell
+Har bir startup qadami alohida himoyalangan: bitta device service xatosi butun
+app start'ini yiqitmaydi.
 
-The app shell in `lib/src/app/app.dart` wraps every route with:
+### Global app shell
 
-- `DockGestureOverlay`
-- `NetworkRequirementRuntime`
-- `NotificationRuntime`
-- `AppLockGate`
-- theme controller
-- locale controller
-- native back/dock navigation observers
-- route capability checks
+`lib/src/app/app.dart` har bir route'ni quyidagilar bilan o'raydi:
 
-This means feature pages should not reimplement global lock, network,
-notification, or native navigation behavior.
+- `DockGestureOverlay`;
+- `NetworkRequirementRuntime`;
+- `NotificationRuntime`;
+- `AppLockGate`;
+- theme va locale controller'lari;
+- root navigation, profile overlay va bridge observer'lari.
 
-### Auth And Capability Flow
+Feature ekranlari global network gate, app lock, notification runtime yoki
+root navigation'ni o'zicha qayta yaratmasligi kerak.
 
-The backend returns profile, role, access role, and capability data. The app
-uses that profile to decide which routes can be opened.
+### Papkalar
 
-Role enum:
+| Path | Vazifa |
+| --- | --- |
+| `lib/main.dart` | Bootstrap. |
+| `lib/src/app/` | `MaterialApp`, route registry va capability gate. |
+| `lib/src/core/api/` | `MobileApi` facade va domain bo'yicha API part'lari. |
+| `lib/src/core/session/` | Token, profile, home route va runtime reset. |
+| `lib/src/core/theme/` | MD3 color scheme, Kalmar default theme, typography va motion. |
+| `lib/src/core/widgets/` | Shared shell, navigation, form, card, feedback va list widget'lari. |
+| `lib/src/core/network/` | Majburiy network runtime. |
+| `lib/src/core/notifications/` | Push, local notification va unread state. |
+| `lib/src/core/security/` | PIN, biometric va app lock. |
+| `lib/src/core/realtime/` | WebSocket/live update client'lari. |
+| `lib/src/core/files/` | File save/share helper'lari. |
+| `lib/src/features/` | Role va workflow bo'yicha feature'lar. |
+| `test/` | Unit va widget testlar. |
+| `docs/runbooks/` | Operatsion runbook'lar. |
+| `tools/` | Build/runtime helper script'lari. |
+| `third_party/` | Intentional local dependency override'lari. |
 
-```dart
-enum UserRole { supplier, werka, customer, aparatchi, qolipchi, admin }
+`MobileApi` bitta public facade bo'lib, implementatsiya auth, admin,
+calculation, customer, supplier, werka, qolip, rezka va GScale part'lariga
+ajratilgan. Screen ichida yangi `http.Client` ochish o'rniga mavjud API part'iga
+method qo'shing.
+
+## Production map modeli
+
+Production map — bitta order qanday ishlab chiqarilishini ifodalovchi graph.
+Order uchun **bitta map** mavjud. Map ichidagi alternative apparatlar alohida
+map yoki parallel order emas; ular shu bosqichni bajara oladigan nomzodlardir.
+
+### Map metadata
+
+`ProductionMapDefinition` quyidagilarni saqlaydi:
+
+| Field | Ma'nosi |
+| --- | --- |
+| `id` | Map/order texnik identifikatori. |
+| `productCode` | Tayyor mahsulot kodi. |
+| `title`, `code` | Ko'rinadigan nom va template/code. |
+| `orderNumber` | O'zgarmas, unique zakaz raqami. |
+| `rollCount` | Rulon soni, mavjud bo'lsa. |
+| `widthMm` | Ish kengligi millimetrda. |
+| `orderKg` | Order og'irligi kilogrammda. |
+| `baseLength` | Hisoblangan bazaviy uzunlik. |
+| `nodes`, `edges` | Graph bosqichlari va ulanishlari. |
+
+Asosiy node turlari:
+
+| `kind` | Vazifa |
+| --- | --- |
+| `start` | Graph kirish nuqtasi. |
+| `task` | Zakaz, ish yoki post-apparat operatsiyasi. |
+| `apparatus` | Real ishlab chiqarish stansiyasi/apparat. |
+| `formula` | `target` qiymatini `expression` orqali hisoblash. |
+| `condition` | Expression natijasiga bog'liq branch. |
+| `end` | Tayyor mahsulot/graph yakuni. |
+
+Node apparat, role, item, quantity formula, location va rezka metadata'sini ham
+olishi mumkin. Edge `from`, `to` va kerak bo'lsa `branch`ni saqlaydi.
+
+### Alternative apparat
+
+Alternative group uchta muhim field bilan ifodalanadi:
+
+- `alternativeGroupId` — bir xil bosqichdagi nomzodlarni bog'laydi;
+- `alternativeGroupLabel` — guruhning UI nomi;
+- `alternativeAssignedTitle` — aynan shu order uchun tanlangan apparat.
+
+Misol: mapdagi bosma bosqichini 7 rangli yoki 8 rangli apparat bajara olsa,
+ikkalasi bitta alternative group ichida turadi. Order ochilganda yoki ko'chirish
+paytida bittasi tanlanadi; orderda ikkinchi production map yaratilmaydi.
+
+Orderni boshqa apparatga ko'chirishda mobile compatibility preview beradi,
+backend esa yakuniy qarorni tekshiradi. Batch move uchun alohida
+`/production-maps/move-batch` endpoint bor va u “hammasi yoki hech biri”
+semantikasini backend transaction orqali ta'minlashi kerak.
+
+### Condition branch
+
+Condition orderga tegishli real texnologik qarorni ifodalaydi. Map order uchun
+bir marta to'g'ri tuzilgan bo'lsa, masalan laminatsiya talab qilinsa, keyingi
+queue hisobida uni “alternative sifatida kerak emas” deb tashlab yuborish mumkin
+emas. Branch expression va edge `branch` contract'i backend compiler/runner
+bilan bir xil talqin qilinishi shart.
+
+Mobile editor graphni ko'rsatadi va yuboradi. Authoritative compile, validation
+va run `mini_rs_erp`da bajariladi. Saqlangan javob map bilan birga compiled
+`ProductionMapProgram` (`operations`)ni ham qaytaradi.
+
+## Order lifecycle
+
+```mermaid
+flowchart TD
+    Calc["Hisob-kitob<br/>customer + product + o'lcham + qatlamlar"]
+    Template["Quick-order template"]
+    Map["Bitta order-specific<br/>production map"]
+    Validate["Backend validate + compile<br/>+ transaction save"]
+    Queue["Apparat queue'lari"]
+    Start["Scan va start validation"]
+    Work["in_progress / pause / resume"]
+    Complete["Bosqich completion metrics"]
+    WIP["Progress/WIP QR<br/>keyingi bosqichga lineage"]
+    Finished["Tayyor mahsulot<br/>va closed order"]
+    Approval["0 yoki noodatiy natija<br/>admin approval"]
+
+    Calc --> Template
+    Template --> Map
+    Map --> Validate
+    Validate --> Queue
+    Queue --> Start
+    Start --> Work
+    Work --> Complete
+    Complete --> WIP
+    WIP --> Queue
+    Complete --> Approval
+    Approval --> WIP
+    WIP --> Finished
 ```
 
-Capability enforcement lives in `AppRouter.canOpenRoute` and
-`_routeCapabilities`. Feature pages should not bypass that route gate. If a new
-screen requires a permission, add the route capability there and keep the
-backend capability contract in sync.
-
-### Supplier Flow
-
-Supplier screens handle:
-
-- supplier dashboard and status summary
-- item picker
-- quantity entry
-- confirm dispatch
-- success/result page
-- recent/history views
-- notification views
-- status breakdown and submitted-category details
-
-Supplier pages should use shared navigation, shared cards, shared buttons, and
-`MobileApi` supplier methods. They should not create their own HTTP clients.
-
-### Werka Flow
-
-Werka is the warehouse/operator workspace. It handles:
-
-- dashboard and pending queues
-- status breakdown and detail pages
-- supplier receipt confirmation
-- customer issue creation
-- batch customer issue creation
-- unannounced supplier creation
-- stock-entry barcode lookup
-- stock-entry QR scan
-- archive by sent hub, day, month, year, period, and list
-- Batch QR lookup and dispatch
-- archive PDF/file save/share flows
-- notifications
-
-Important behavior:
-
-- QR and stock-entry validation is backend-owned.
-- Duplicate dispatch protection is backend-owned.
-- Customer selection ordering is shared, not copied per screen.
-- Archive/file flows may use local file APIs, but ERP truth remains in backend
-  state.
-
-### Customer Flow
-
-Customer screens handle:
-
-- delivery list and status summary
-- delivery detail
-- approve/reject response
-- notifications
-- shared notification detail
-
-Customer priority and state helpers live under `lib/src/core/customer/` and the
-customer feature state folder.
-
-### Admin Flow
-
-Admin screens handle:
-
-- home/dashboard
-- users and worker profiles
-- roles and capabilities
-- suppliers and customers
-- supplier/customer item assignment
-- inactive supplier restore/removal
-- item and item group creation
-- item group bulk move
-- warehouses
-- calculate and calculate orders
-- production map test/editor
-- production map live order queue
-- WIP batches
-- progress QR scan
-- raw material rules and assignments
-- apparatus settings, groups, and queue policies
-- server monitor
-- activity and notifications
-
-Admin is the widest surface in the app. New admin functionality should be split
-into focused state/model/helper files when it grows, but not fragmented so far
-that the flow becomes harder to read.
-
-### Calculation And Quick Order Flow
-
-The calculation screen is the mobile entry point for creating a calculated
-production order before the real order is opened.
-
-Main files:
-
-| Path | Responsibility |
-| --- | --- |
-| `lib/src/features/admin/presentation/admin_calculate_screen.dart` | UI for selecting customer/product, entering calculation inputs, viewing result, linking map, and opening order. |
-| `lib/src/core/api/calculate/mobile_api_calculate.dart` | Request/response models and `/v1/mobile/calculate*` API calls. |
-| `lib/src/features/admin/state/calculate_order_store.dart` | Cached quick-order template list and upsert/delete behavior. |
-| `lib/src/features/admin/presentation/admin_calculate_orders_screen.dart` | Saved quick-order list. |
-| `lib/src/features/admin/presentation/admin_production_map_test_screen.dart` | Production map editor/viewer used after calculation. |
-
-The normal user flow is:
-
-1. Admin opens `AdminCalculateScreen`.
-2. Admin selects customer and product.
-3. App can auto-select a likely customer for the product when customer is not
-   chosen yet.
-4. Admin enters KG, one-frame product size, frame count, waste percent, optional
-   roll count, and material layers.
-5. First and second material layers are required; the third layer is optional.
-6. App calculates derived width as `frameProductSizeMm * frameCount + 15`.
-7. App sends `CalculateRequest` to `POST /v1/mobile/calculate`.
-8. Backend returns calculation result with coefficients, size, base length,
-   waste length, rounded final length, minimum mold size, and rubber size.
-9. UI shows the result card and print/roll compatibility summary.
-10. Admin can link the calculated template to a production map.
-11. After a fresh calculation, admin can open a real `zakaz` from the saved map.
-12. App clones the source production map, applies order number, product, roll
-    count, width, KG, and base length, then calls
-    `/v1/mobile/admin/production-maps/with-order`.
-
-Calculation input fields:
-
-| Field | Meaning |
-| --- | --- |
-| `customer` / `customerRef` | Customer selected from admin customer directory. |
-| `product` / `itemCode` | Product selected from customer-specific or global catalog. |
-| `kg` | Target order weight. |
-| `frameProductSizeMm` | Product size inside one frame. |
-| `frameCount` | Number of frames. |
-| `edgeAllowanceMm` | Fixed edge allowance; currently `15 mm`. |
-| `wastePercent` | Waste percentage added to base length. |
-| `rollCount` | Optional roll count for print/roll compatibility. |
-| `firstLayer` | Required material and micron. |
-| `secondLayer` | Required material and micron. |
-| `thirdLayer` | Optional material and micron. |
-| `note` | Operator/admin note saved with the quick-order template. |
-| `image` | Optional reference image uploaded through `/v1/mobile/calculate/orders/image`. |
-
-Calculation output shown to the user:
-
-| Output | Meaning |
-| --- | --- |
-| `coeffSum` | Sum coefficient used by backend calculation. |
-| `widthSm` | Calculated working width in centimeters. |
-| `minMoldSizeMm` | Minimum mold size; mobile fallback is `frameProductSizeMm * frameCount + 50`. |
-| `rubberSizeMm` | Rubber size selected from production-map print rules. |
-| `baseLength` | Base calculated material length before waste. |
-| `wasteLength` | Extra material length from waste percent. |
-| `roundedLength` | Final rounded length displayed as the main result. |
-
-Quick-order template behavior:
-
-- Saved calculation templates are loaded from `GET /v1/mobile/calculate/orders`.
-- Templates are upserted through `POST /v1/mobile/calculate/orders`.
-- Templates are deduplicated by `code` in `CalculateOrderTemplateStore`.
-- Images are uploaded through `POST /v1/mobile/calculate/orders/image`.
-- A template can keep `sourceMapId`, which points to the reusable production map
-  used later when opening a real order.
-- When opening a real order, the app saves both the cloned production map and
-  the calculate template through one backend call so they stay consistent.
-
-Important boundary:
-
-- Mobile derives simple UI-side values such as width preview and freshness
-  signature.
-- Backend owns the authoritative calculation and order/map persistence.
-- A stale result cannot open an order: if inputs change after calculation, the
-  app requires pressing `Hisoblash` again.
-- Order number uniqueness and final save validation belong to `mini_rs_erp`.
-
-### Aparatchi Flow
-
-Aparatchi uses the production-map queue workspace for operator execution. Its
-capabilities are centered around:
-
-- viewing assigned apparatus queue
-- starting/pause/resume/complete actions through backend-owned validation
-- progress QR and material validation where required
-- worker-mode route access
-
-### Qolipchi Flow
-
-Qolipchi screens are the mobile entry for Qolip inventory work:
-
-- blocks
-- locations
-- cells
-- QR-based inventory identity
-- checkout/return/move actions through backend endpoints
-
-The app should display the workflow and collect scans/actions. Inventory truth
-belongs to `mini_rs_erp`.
-
-### Rezka Flow
-
-Rezka exposes split/cutting workflow screens behind the
-`rezka.split.manage` capability. Quantity rules and final state changes must
-stay backend-owned.
-
-### GScale/RPS Flow
-
-GScale mode is embedded in the app but has a separate LAN/mobileapi runtime.
-It covers:
-
-- LAN server discovery with `gscale.local` and approved ports
-- health and handshake
-- live monitor stream
-- ERP setup status and setup submission/removal
-- item and warehouse lookup
-- batch start/stop
-- manual print requests
-- Zebra/Godex printer mode selection
-- archive listing and archive print requests
-- local draft persistence for operator settings
-
-The main `mini_rs_erp` API is still used for related catalog/RPS bridge calls
-where the code routes through `MobileApi`.
-
-## Code Architecture
-
-Top-level layout:
-
-| Path | Purpose |
-| --- | --- |
-| `lib/main.dart` | Process startup and app bootstrap. |
-| `lib/src/app/` | `MaterialApp`, router, route capability gate, page transitions. |
-| `lib/src/core/api/` | API client facade and endpoint groups. |
-| `lib/src/core/session/` | Session load/save, auth token, profile runtime. |
-| `lib/src/core/security/` | PIN/biometric/app-lock runtime. |
-| `lib/src/core/network/` | Network requirement gate. |
-| `lib/src/core/notifications/` | Push, local notifications, unread/runtime stores. |
-| `lib/src/core/realtime/` | Websocket/live clients. |
-| `lib/src/core/search/` | Search normalization and activity state. |
-| `lib/src/core/files/` | File save/share helpers. |
-| `lib/src/core/localization/` | Uzbek, English, Russian localization runtime. |
-| `lib/src/core/theme/` | Theme, typography, motion, visual tokens. |
-| `lib/src/core/widgets/` | Shared app shell, cards, buttons, forms, lists, feedback, navigation widgets. |
-| `lib/src/features/` | Role and feature-specific presentation/state/logic. |
-| `test/` | Flutter widget/unit tests. |
-| `docs/` | Runbooks and refactor plans. |
-| `tools/` | Bootstrap/runtime helper scripts. |
-
-Feature layout:
-
-| Path | Purpose |
-| --- | --- |
-| `lib/src/features/auth/` | Login and app entry. |
-| `lib/src/features/supplier/` | Supplier workspace. |
-| `lib/src/features/werka/` | Warehouse/operator workspace. |
-| `lib/src/features/customer/` | Customer workspace. |
-| `lib/src/features/admin/` | Admin, production map, roles, warehouses, WIP, raw material, monitoring. |
-| `lib/src/features/aparatchi/` | Operator-specific presentation entry points. |
-| `lib/src/features/qolip/` | Qolipchi inventory workspace. |
-| `lib/src/features/rezka/` | Rezka split workflow. |
-| `lib/src/features/gscale/` | Embedded GScale/RPS runtime. |
-| `lib/src/features/shared/` | Shared models and cross-role presentation. |
-
-## Shared UI Rules
-
-This app intentionally avoids copy-paste UI per role. Reusable pieces should
-live in `lib/src/core/widgets/`, `lib/src/core/theme/`, or
-`lib/src/features/shared/` when they are cross-role.
-
-Use shared components for:
-
-- top bars and native title styles
-- bottom docks
-- drawers
-- profile shell
-- cards and expandable cards
-- form fields
-- confirm dialogs
-- loading/error/empty states
-- list rows
-- scroll physics
-- route transition behavior
-
-Do not create a new role-local copy of a component just to change text or a
-small callback. Add parameters to the shared component instead. Role-local
-widgets are acceptable when the workflow is genuinely unique.
-
-## Navigation And Motion
-
-Routes are centralized in `lib/src/app/app_router.dart`.
-
-Current behavior:
-
-- Most routes use `MaterialPageRoute`.
-- Admin custom transition is disabled by `_usesAdminPageTransition`, which
-  currently returns `false`.
-- Static dock routes are listed in `AppRouter.staticDockRoutes`.
-- Route access is capability-gated before building the page.
-
-If a new transition is introduced, it should be intentional and shared. Do not
-add one-off page slide effects that make back navigation feel inconsistent.
-
-## Data And Local State
-
-Local state is allowed for device/runtime concerns:
-
-- auth token, last phone, and last code
-- app profile and avatar cache
-- unread/hidden notification state
-- Supplier, Werka, and Customer runtime stores
-- search activity and search normalization
-- PIN, biometric, theme, and locale preferences
-- cached GScale servers and operator-control drafts
-- temporary files used for archive save/share flows
-
-Local state is not the ERP source of truth. Any production action must go
-through backend endpoints.
-
-## Device Features
-
-Android dependencies and permissions support:
-
-- camera and QR scanning
-- Firebase Cloud Messaging
-- local notifications
-- biometric unlock
-- file save/share
-- gallery access where needed
-- legacy external storage support where required by older Android versions
-
-iOS support includes:
-
-- Face ID usage text
-- camera usage text
-- photo library usage text
-- remote notification registration
-- native scene integration for back navigation and bottom dock behavior
-- signed profile build runbook for physical device installs
+### 1. Hisob-kitob va template
+
+Admin customer va mahsulotni tanlaydi, KG, frame product size, frame count,
+waste foizi, rulon soni va material qatlamlarini kiritadi. Birinchi va ikkinchi
+qatlam majburiy, uchinchisi optional. Mobile preview qiymatlarini ko'rsatadi,
+lekin authoritative natija `POST /v1/mobile/calculate`dan keladi.
+
+Quick-order template'lar:
+
+- `GET /v1/mobile/calculate/orders` orqali olinadi;
+- `POST /v1/mobile/calculate/orders` orqali upsert qilinadi;
+- optional image alohida image endpoint orqali yuklanadi;
+- `sourceMapId` reusable source mapga ishora qilishi mumkin.
+
+Input o'zgargandan keyin eski calculation result bilan order ochilmaydi;
+foydalanuvchi qayta `Hisoblash` qilishi kerak.
+
+### 2. Map bilan orderni atomik ochish
+
+Mobile source mapdan order-specific nusxa tayyorlab, order number, product,
+width, KG, roll count va base lengthni qo'llaydi. Map va quick-order ma'lumoti
+bitta request bilan yuboriladi:
+
+```text
+PUT /v1/mobile/admin/production-maps/with-order
+```
+
+Bu endpoint map va order/template holatini transaction ichida birga saqlashi
+kerak. Unique order number, immutable order number va graph validity backendda
+tekshiriladi.
+
+### 3. Queue shakllanishi
+
+Backend queue snapshot quyidagilarni qaytaradi:
+
+- apparat bo'yicha order sequence;
+- har bir apparatda ko'rinishi kerak bo'lgan order ID'lar;
+- orderlarning `pending`, `in_progress`, `paused`, `completed` holati;
+- queue policy.
+
+`strict_sequence`da faqat navbatdagi order boshlanadi. `free_pick`da backend
+ruxsat bergan pending order tanlanishi mumkin. Bosma oilasi uchun policy locked
+bo'lishi va strict sequence'dan chiqmasligi mumkin.
+
+Keyingi apparat oldingi work stage `completed` bo'lmaguncha ishni boshlamasligi
+kerak. Mobile readiness holatini tushunarli ko'rsatadi, backend esa actionni
+yakuniy bloklaydi.
+
+### 4. Start, pause, resume va complete
+
+Queue action endpoint:
+
+```text
+POST /v1/mobile/admin/production-maps/queue-action
+```
+
+Action payload apparat, order, action va holatga qarab scan/progress/completion
+fieldlarini yuboradi. Backend response yangi queue state, progress batch yoki
+admin approval requestni qaytarishi mumkin.
+
+### 5. WIP va progress QR
+
+Bosqichdan chiqqan yarim tayyor mahsulot progress batch bilan kuzatiladi.
+Keyingi stansiya oldingi progress QR'ni scan qiladi; backend batch, order,
+apparat, status va lineage mosligini tekshiradi. Pause qilingan batch faqat mos
+order/apparatda resume qilinadi.
+
+Admin WIP ekranlari waiting/in-use/processed holatlarni, current/next location
+va order bog'lanishini backenddan oladi. Mobile bu ma'lumotni lokal taxmin bilan
+almashtirmaydi.
+
+## Production execution qoidalari
+
+### Homashyo
+
+Admin/material ta'minotchi homashyoni order va kerak bo'lsa aniq apparatga
+biriktiradi. Biriktirishda backend quyidagilarni tekshiradi:
+
+- apparatus uchun raw-material rule mavjudligi;
+- item group ruxsati;
+- barcode/QR identity;
+- stock mavjudligi;
+- boshqa order uchun band emasligi;
+- rulon razmeri va order compatibility;
+- ambiguous group bo'lsa foydalanuvchi tanlagan apparat.
+
+Ish boshlanishida kerakli homashyo barcode'lari scan qilinadi. UI scanlarni
+yig'adi, ammo `raw_material_scan_required`, `raw_material_mismatch`,
+`raw_material_stock_unavailable` va reservation qoidalarini backend beradi.
+
+### Qolip: faqat bosma oilasi uchun majburiy
+
+7, 8 va 9 rangli bosma apparatlarda operator homashyo bilan darhol ish boshlay
+olmaydi. Start uchun Qolip QR scan majburiy. Backend atomik ravishda:
+
+1. scan qilingan Qolip mavjudligini;
+2. u ombor yacheykasida va stockda borligini;
+3. Qolip orderdagi tayyor mahsulot guruhiga mosligini;
+4. checkout va queue start bir transactionda bajarilishini tekshiradi.
+
+Istalgan boshqa Qolipni scan qilish startga ruxsat bermaydi. Mobile
+`qolip_scan_required`, `qolip_code_not_found`, `qolip_code_mismatch`,
+`qolip_location_not_found` va `insufficient_stock` xatolarini operator tilida
+ko'rsatadi.
+
+Bu default majburiylik laminatsiya, rezka yoki boshqa apparat oilalariga
+avtomatik tatbiq qilinmaydi.
+
+### Completion metrics va 0 qiymat
+
+Bosma, laminatsiya va rezka turli majburiy completion fieldlariga ega. Mobile
+kerakli numeric formni ko'rsatadi, backend esa fieldlar to'liqligini tekshiradi.
+
+Qaytgan kraska yoki chiqindining `0` bo'lishi zavod jarayonida noodatiy holat.
+Shuning uchun 0 yuborilganda izoh majburiy:
+
+- backend `zero_metric_explanation_required` qaytaradi;
+- izoh bilan yuborilgan holat darhol oddiy completion bo'lib ketmaydi;
+- admin notification/completion request oladi;
+- admin qarori audit sifatida saqlanadi.
+
+Mobile admin notification detail'da qaysi metric 0 bo'lganini, order,
+apparat, operator va izohni ko'rsatadi.
+
+### Birliklar va numeric input
+
+ERP inputida birlik contract'i o'zgartirilmaydi: KG so'ralgan fieldga KG,
+gram so'ralgan fieldga gram, mm so'ralgan fieldga mm kiritiladi. Mobile
+foydalanuvchi kiritgan qiymatni yashirincha boshqa birlikka aylantirmasligi
+kerak. Decimal qiymatlar (`13.00003` kabi) backend/PostgreSQL precision
+contract'iga yo'qotishsiz uzatilishi kerak.
+
+Son kiritiladigan fieldlar oddiy text keyboard emas, mos numeric/decimal
+keypad ochishi kerak. UOM label input yonida aniq ko'rinadi.
+
+### Backend xatolarini ko'rsatish
+
+Production map API error code'lari `_adminProductionMapException`da operator
+uchun tushunarli matnga tarjima qilinadi. Yangi backend validation code qo'shilsa
+mobile fallback “Production map amali bajarilmadi”ga tushib qolmasligi uchun shu
+mapping va test yangilanadi.
+
+Hozir tarjima qilinadigan muhim guruhlar:
+
+- duplicate/immutable order;
+- queue policy va previous stage;
+- bosma, laminatsiya va rezka completion metrics;
+- 0 metric explanation;
+- raw material scan/stock/rule/assignment;
+- Qolip scan/match/location/stock;
+- progress QR va WIP;
+- move compatibility.
+
+## Asosiy ish oqimlari
+
+### Supplier
+
+- dashboard va status breakdown;
+- item picker va quantity;
+- dispatch confirm va success;
+- recent/history;
+- notification detail.
+
+### Werka
+
+- pending va status detail;
+- supplier receipt confirmation;
+- customer issue va batch issue;
+- unannounced supplier receipt;
+- stock-entry barcode/QR lookup;
+- sent/day/month/year/period arxivi;
+- batch QR dispatch;
+- archive file/PDF save va share.
+
+QR validity, duplicate dispatch va stock movement backend-owned.
+
+### Customer
+
+- delivery list va status;
+- delivery detail;
+- approve/reject;
+- notificationlar.
+
+### Material ta'minotchi
+
+- tarozilar/GScale rejimiga o'tish;
+- homashyoni order/apparatga biriktirish;
+- o'ziga ruxsat berilgan omborlarni ko'rish;
+- raw-material harakatlari tarixi;
+- pull-to-refresh va expandable detail.
+
+### Admin
+
+- dashboard, activity va notification;
+- user, worker, role va capability;
+- supplier/customer va item assignment;
+- item, item group, bulk move va warehouse;
+- calculate/quick orders;
+- production map editor va live queue;
+- apparatus, group va queue policy;
+- raw-material rule/assignment/history;
+- WIP, progress QR va completed/closed order;
+- server monitor, printer va transport testlari.
+
+### Aparatchi
+
+- backend ruxsat bergan apparat queue'si;
+- start/pause/resume/complete;
+- homashyo va Qolip scan;
+- progress/WIP QR;
+- completion metriclari.
+
+### Qolipchi
+
+- block, location va cell;
+- mahsulot/Qolip grouping;
+- cell va Qolip QR;
+- issue checkout, return va move;
+- printer tanlash va QR chop etish.
+
+### Rezka
+
+`rezka.split.manage` capability bilan cutting/split flow. Split quantity,
+progress lineage va final stock mutation backend tomonidan tekshiriladi.
+
+### GScale/RPS
+
+- Bonjour/UDP va `gscale.local` orqali LAN discovery;
+- health/handshake va monitor stream;
+- ERP setup;
+- item/warehouse lookup;
+- batch start/stop;
+- Zebra/Godex print;
+- archive va reprint;
+- operator preference'lari uchun lokal draft.
+
+## Navigatsiya va umumiy UI
+
+Route'lar `lib/src/app/app_router.dart`da markazlashgan.
+
+- Route access page qurilishidan oldin capability-gated.
+- Static dock route'lar `AppRouter.staticDockRoutes`da.
+- Root dock switching `AppRootNavigation` orqali bir frame ichidagi duplicate
+  navigation va qarama-qarshi animatsiyani oldini oladi.
+- Drawer route ochishda mavjud stack route'ga qaytish, replacement yoki push
+  holati markaziy helper bilan tanlanadi.
+- Hozirgi route'lar `MaterialPageRoute`dan foydalanadi;
+  `_usesAdminPageTransition` custom page route'ni o'chirib turibdi.
+- `AppShell.animateOnEnter` yoqilgan ekranlarda shared fade motion ishlaydi.
+
+Back, drawer va dock bir xil route'ga har xil stack semantikasi bermasligi
+kerak. Yangi feature navigatsiyani screen ichida maxsus workaround bilan emas,
+mavjud root/drawer helper orqali amalga oshiradi.
+
+Shared UI qoidasi:
+
+- top bar, dock, drawer, profile action;
+- field, button, card va expandable row;
+- loading/error/empty state;
+- dialog/sheet;
+- refresh physics va list shell
+
+uchun avval `lib/src/core/widgets/` va mavjud feature-shared widget'larni reuse
+qiling. Faqat matn yoki callback farqi uchun nusxa widget yaratmang.
+
+Kalmar theme yangi install uchun default. User theme'ni o'zgartirsa tanlov
+`SharedPreferences`da saqlanadi. Light va dark color scheme'lar
+`AppThemeVariant` orqali boshqariladi.
+
+## Lokal holat va qurilma integratsiyalari
+
+Lokal saqlanishi mumkin bo'lgan holatlar:
+
+- session token/profile va oxirgi login credential;
+- avatar cache;
+- unread/hidden notification state;
+- PIN, biometric, theme va locale;
+- search activity;
+- feature runtime cache'lari;
+- GScale server/operator draft'lari;
+- vaqtinchalik archive/file state.
+
+Production map, stock, raw-material reservation, Qolip checkout, queue yoki WIP
+local storage'da source of truth bo'la olmaydi.
+
+Qurilma integratsiyalari:
+
+- camera va `mobile_scanner` QR;
+- Firebase Messaging va local notifications;
+- biometric lock;
+- file picker/image picker, save va share;
+- iOS Face ID/camera/photo permission;
+- Android camera/notification/storage permission;
+- native USB printer va Iroh transport helper'lari;
+- iOS SceneDelegate ichidagi device/GScale bridge'lari.
+
+`NativeBackButtonBridge` va `NativeDockBridge` kodi saqlangan, lekin hozir
+platform support flag'lari `false`; amaldagi UI Flutter back/dock'ni ishlatadi.
+Native bridge qayta yoqilsa Dart va iOS tarafini birga test qilish kerak.
 
 iOS physical device runbook:
 
@@ -662,99 +651,67 @@ iOS physical device runbook:
 docs/runbooks/ios_device_install_runbook.md
 ```
 
-## Testing
+## Build, test va tekshiruv
 
-Run all Flutter tests:
-
-```bash
-make test
-```
-
-Run analyzer:
+Analyze:
 
 ```bash
 make analyze
 ```
 
-Focused test coverage currently includes:
-
-- app navigation and retry state
-- route capability gates
-- app shell native top-bar and bottom-nav behavior
-- shared theme behavior
-- supplier confirm flow
-- customer delivery runtime and priority behavior
-- Werka archive, QR, create hub, runtime store, and stock-entry lookup
-- admin supplier/customer/item workflows
-- admin roles, users, warehouses, WIP, server monitor, raw material screens
-- production map models, chain, branch labels, stress paths
-- GScale discovery/catalog/print helpers
-- shared dialogs, async pickers, scroll physics
-- search normalization and search activity persistence
-
-Docs-only changes do not require a full Flutter test run, but code changes
-should at minimum pass `make analyze` and the relevant focused tests.
-
-## Operational Smoke Test
-
-Before validating the mobile app, validate backend health:
+Testlar:
 
 ```bash
-curl https://mini-rs-erp-dev.wspace.sbs/healthz
+make test
 ```
 
-Then run:
+Release arm64 APK:
 
 ```bash
-make run
+make apk \
+  API_URL=https://mini-rs-erp-dev.wspace.sbs \
+  APK_NAME=accord.apk
 ```
 
-Minimum manual smoke path:
+Natija:
 
-1. Login with a valid test user.
-2. Confirm the correct role workspace opens.
-3. Open profile and return.
-4. Open notifications.
-5. For Supplier: select item, enter quantity, reach confirm page.
-6. For Werka: open pending/history/archive and one QR/lookup screen.
-7. For Customer: open a delivery detail.
-8. For Admin: open roles, users, production map orders, WIP, server monitor.
-9. Confirm navigation back behavior is normal.
-10. Confirm no page uses an old backend domain.
+```text
+build/app/outputs/flutter-apk/accord.apk
+```
 
-## Troubleshooting
+iOS release build va oldindan ulangan physical device'ga install:
+
+```bash
+make ios-release-install
+```
+
+Bu target build/install/signing amali bo'lgani uchun uni faqat aniq target
+device va signing tayyor bo'lganda ishlating. Batafsil qadamlar runbook'da.
+
+Testlar production map model/chain/branch, queue snapshot, raw material,
+progress QR, WIP, route capability, root navigation, role session, supplier,
+werka, customer, Qolip va GScale helper'larini qamrab oladi.
+
+Minimal smoke test:
+
+1. `/healthz` ishlayotganini tekshiring.
+2. Valid user bilan login qiling.
+3. Role/capability'ga mos home ochilganini tekshiring.
+4. Profile, notification, dock, drawer va back flow'ni tekshiring.
+5. Tegishli role uchun bitta read flow va mutation confirm bosqichigacha boring.
+6. Admin'da production map orders, WIP va server monitorni oching.
+7. Build eski API domeniga qarab qolmaganini tekshiring.
+
+## Muammo yechish
 
 ### `make: flutter: No such file or directory`
 
-Flutter is not installed or not in `PATH`. The Makefile also checks:
+`flutter` `PATH`da bo'lishi kerak. Makefile qo'shimcha ravishda workspace local
+SDK va `$HOME/.local/flutter/bin/flutter`ni tekshiradi.
 
-```text
-$HOME/.local/flutter/bin/flutter
-```
+### Preview'da telefon ramkasi yo'q
 
-Install Flutter or export the Flutter binary path before running Make targets.
-
-### Linux build asks for `clang++`
-
-That happens when running the Linux desktop target without the native build
-toolchain. For normal preview, use the default Chromium target:
-
-```bash
-make run
-```
-
-If Linux desktop is required, install the C++ compiler/CMake GTK toolchain for
-the host OS.
-
-### Preview does not show phone frames
-
-`make run` sets:
-
-```text
-APP_FORCE_DEVICE_PREVIEW=true
-```
-
-If running manually, pass it:
+`make run` `APP_FORCE_DEVICE_PREVIEW=true` beradi. Manual run:
 
 ```bash
 flutter run -d chrome \
@@ -762,57 +719,59 @@ flutter run -d chrome \
   --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 ```
 
-### Login does not work
+### Login ishlamayapti
 
-Check in this order:
+Quyidagi tartibda tekshiring:
 
-1. `mini_rs_erp` domain responds to `/healthz`.
-2. Backend database is connected and not asleep.
-3. The test user exists and has the expected role/capabilities.
-4. The app was built with the expected `MOBILE_API_BASE_URL`.
-5. Browser/device is not using a stale build with an old domain.
+1. backend `/healthz`;
+2. PostgreSQL connection;
+3. user, role va capability;
+4. builddagi `MOBILE_API_BASE_URL`;
+5. eski web/device build cache.
 
-### CORS or web-only failures
+### Web CORS xatosi
 
-`make run` uses Chromium flags that relax web security for local preview. Do
-not treat those flags as production behavior. Production/mobile APKs must rely
-on a real reachable HTTPS backend.
+`make run` local preview uchun web security flag'larini yumshatadi. Bu production
+security modeli emas. Mobile/release build real HTTPS API bilan ishlashi kerak.
 
-### APK points to the wrong backend
+### Build noto'g'ri backendga qarayapti
 
-Rebuild with the explicit define:
+Har doim explicit URL bilan qayta build qiling:
 
 ```bash
-flutter build apk --debug --target-platform android-arm64 \
+flutter build apk --release --target-platform android-arm64 \
   --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs
 ```
 
-or for Makefile release builds:
+### Production map amali generic xato ko'rsatmoqda
 
-```bash
-make apk API_URL=https://mini-rs-erp-dev.wspace.sbs
-```
+Backend response'dagi `error` code'ni tekshiring. Yangi code bo'lsa
+`_adminProductionMapException` mapping'i va tegishli API testiga operator uchun
+aniq matn qo'shing; backend validation'ni mobile'da takrorlamang.
 
-## Development Rules
+## Development qoidalari
 
-- Keep backend truth in `mini_rs_erp`; keep this repo focused on mobile UX and
-  device integration.
-- Use `MobileApi.instance` and existing endpoint groups instead of creating
-  ad-hoc HTTP clients in screens.
-- Keep route names, role names, capability codes, and endpoint paths compatible
-  with the backend.
-- Do not hardcode old domains.
-- Do not duplicate role UI when a shared component can be parameterized.
-- Add or update tests when behavior changes.
-- Keep `third_party/**` vendored code out of app-owned analyzer cleanup unless
-  the vendored patch is intentional.
-- Update this README when changing run commands, backend domain behavior,
-  role/capability flow, or build artifacts.
+1. Backend truthni mobile cache yoki UI taxmini bilan almashtirmang.
+2. `MobileApi.instance` va mavjud API part'larini reuse qiling.
+3. Route, role, capability, error code va JSON field contract'ini backend bilan
+   sync saqlang.
+4. Production map order-specific: alternative groupni alohida map deb talqin
+   qilmang.
+5. Stock/Qolip/queue bilan bog'liq multi-step mutation backend transactionda
+   atomik bo'lishi kerak.
+6. Numeric inputda UOMni o'zgartirmang va decimal precisionni yo'qotmang.
+7. Shared shell/navigation/widget pattern'larini chetlab o'tmang.
+8. Yangi backend error code'ni tushunarli mobile matn va test bilan qo'shing.
+9. `third_party/**`ni faqat intentional dependency patch bo'lsa o'zgartiring.
+10. Domain, lifecycle, production map yoki build contract o'zgarsa README'ni
+    shu commitda yangilang.
 
-## Related Repositories
+## Bog'liq repolar
 
-| Repository | Relationship |
+| Repo | Holati |
 | --- | --- |
-| `mini_rs_erp` | Primary backend and ERP source of truth for this app. |
-| `accord_mobile_v2` | Flutter mobile client in this repository. |
-| `gscale-zebra` | Optional LAN/mobileapi scale and printer runtime used by GScale mode. |
+| `mini_rs_erp` | Aktiv primary backend, API va PostgreSQL source of truth. |
+| `accord_mobile_v2` | Ushbu Flutter client. |
+| `accord_mobile_server_rs` | Eski/compatibility backend; yangi biznes rivoji uchun primary emas. |
+| Go backend | Arxivlangan, rivojlantirilmaydi. |
+| `gscale-zebra` | GScale/RPS LAN scale va printer runtime. |
