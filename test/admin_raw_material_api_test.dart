@@ -93,6 +93,49 @@ void main() {
             ));
   });
 
+  test('queue action translates production map backend errors', () async {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    const expectedMessages = {
+      'laminatsiya_completion_metrics_required':
+          'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
+      'laminatsiya_rubber_too_large':
+          'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
+      'raw_material_stock_unavailable':
+          'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
+      'insufficient_stock': 'Bu qolip omborda qolmagan',
+    };
+
+    for (final entry in expectedMessages.entries) {
+      await HttpOverrides.runZoned(() async {
+        await expectLater(
+          MobileApi.instance.adminApparatusQueueAction(
+            apparatus: 'Laminatsiya 1',
+            orderId: 'zakaz-1',
+            action: 'complete',
+          ),
+          throwsA(
+            isA<MobileApiException>()
+                .having((error) => error.code, 'code', entry.key)
+                .having((error) => error.message, 'message', entry.value),
+          ),
+        );
+      },
+          createHttpClient: (_) => _RawMaterialApiHttpClient(
+                <String>[],
+                queueActionErrorCode: entry.key,
+              ));
+    }
+  });
+
   test('queue progress action sends qty and reads progress batch', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';

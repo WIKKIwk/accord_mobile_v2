@@ -1622,6 +1622,10 @@ MobileApiException _adminProductionMapException(
         'Bosma aparati doim ketma-ketlik bo‘yicha ishlaydi',
       'bosma_completion_metrics_required' =>
         'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
+      'laminatsiya_completion_metrics_required' =>
+        'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
+      'laminatsiya_rubber_too_large' =>
+        'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
       'rezka_progress_metrics_required' =>
         'Rezka uchun barcha majburiy fieldlarni kiriting',
       'zero_metric_explanation_required' =>
@@ -1629,6 +1633,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
+      'raw_material_stock_unavailable' =>
+        'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
       'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
