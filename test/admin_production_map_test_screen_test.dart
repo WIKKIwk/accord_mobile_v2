@@ -2564,7 +2564,9 @@ void main() {
     expect(find.text('Tugatish'), findsNothing);
 
     await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await _completeQolipScan(tester);
 
     expect(find.text('Tugatish'), findsOneWidget);
     expect(find.text('Boshlash'), findsNothing);
@@ -2666,7 +2668,9 @@ void main() {
     await tester.tap(find.textContaining('worker-completed-1').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await _completeQolipScan(tester);
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2754,7 +2758,9 @@ void main() {
     await tester.tap(find.textContaining('bosma-dialog').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await _completeQolipScan(tester);
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
@@ -3433,6 +3439,13 @@ void main() {
       findsWidgets,
     );
   });
+}
+
+Future<void> _completeQolipScan(WidgetTester tester) async {
+  final title = find.text('Qolip scan');
+  expect(title, findsOneWidget);
+  Navigator.of(tester.element(title)).pop<String>('TEST-QOLIP-QR');
+  await tester.pumpAndSettle();
 }
 
 ProductionMapDefinition _alternativeProductionOrderMap({

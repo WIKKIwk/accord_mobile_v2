@@ -185,7 +185,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return;
       }
-      setState(() => _actionInFlight = false);
+      setState(() {
+        _actionInFlight = false;
+        if (action == 'start' && _queueActionShouldClearQolipScan(error)) {
+          _scannedQolipCode = '';
+        }
+      });
       _showSheetNotice(_readOnlyQueueActionErrorText(error));
     }
   }

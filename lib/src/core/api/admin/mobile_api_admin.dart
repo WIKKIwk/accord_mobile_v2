@@ -1633,6 +1633,9 @@ MobileApiException _adminProductionMapException(
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
       'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
+      'insufficient_stock' => 'Bu qolip omborda qolmagan',
+      'location_identity_mismatch' =>
+        'Qolip joylashuvi o‘zgargan, qayta skanerlang',
       'raw_material_rule_not_found' => 'Bu homashyo uchun aparat qoidasi yo‘q',
       'raw_material_assignment_not_found' => 'Homashyo biriktirilmagan',
       'raw_material_assignment_locked' =>
