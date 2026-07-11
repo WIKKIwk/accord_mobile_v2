@@ -1,2 +1,5 @@
 #!/usr/bin/env bash
-exec env DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer /usr/bin/xcrun "$@"
+set -euo pipefail
+
+DEVELOPER_DIR="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p)}"
+exec env DEVELOPER_DIR="$DEVELOPER_DIR" /usr/bin/xcrun "$@"
