@@ -218,15 +218,6 @@ class _AdminProductionMapOrdersScreenState
         result: result,
       );
       return result;
-    } catch (error) {
-      if (!mounted) {
-        return null;
-      }
-      showAdminTopNotice(
-        context,
-        _queueActionErrorText(error),
-      );
-      return null;
     } finally {
       _setQueueActionInFlight(false);
     }

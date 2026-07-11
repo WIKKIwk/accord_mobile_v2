@@ -57,6 +57,51 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('qolip is confirmed only after backend order validation', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      await MobileApi.instance.adminValidateProductionMapQolip(
+        apparatus: '7 ta rangli bosma aparat',
+        orderId: 'zakaz-1212',
+        qolipCode: 'QOLIP-1212',
+      );
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/qolip-validate '
+          '{"apparatus":"7 ta rangli bosma aparat",'
+          '"order_id":"zakaz-1212","qolip_code":"QOLIP-1212"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('qolip validation exposes backend rejection', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminValidateProductionMapQolip(
+          apparatus: '7 ta rangli bosma aparat',
+          orderId: 'zakaz-1212',
+          qolipCode: 'UNKNOWN',
+        ),
+        throwsA(
+          isA<MobileApiException>()
+              .having((error) => error.code, 'code', 'qolip_code_not_found'),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              qolipValidationErrorCode: 'qolip_code_not_found',
+            ));
+  });
+
   test('queue action explains incompatible raw material scan', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -922,6 +967,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   _RawMaterialApiHttpClient(
     this.seenRequests, {
     this.queueActionErrorCode = '',
+    this.qolipValidationErrorCode = '',
     this.assignmentErrorCode = '',
     this.assignmentErrorApparatusOptions = const [],
     this.unlinkErrorCode = '',
@@ -933,6 +979,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
 
   final List<String> seenRequests;
   final String queueActionErrorCode;
+  final String qolipValidationErrorCode;
   final String assignmentErrorCode;
   final List<String> assignmentErrorApparatusOptions;
   final String unlinkErrorCode;
@@ -949,6 +996,22 @@ class _RawMaterialApiHttpClient implements HttpClient {
 
     Object body;
     switch (key) {
+      case 'POST /v1/mobile/admin/production-maps/qolip-validate':
+        if (qolipValidationErrorCode.isNotEmpty) {
+          body = {'error': qolipValidationErrorCode};
+          return _FakeHttpClientRequest(
+            response: _FakeHttpClientResponse(
+              body: jsonEncode(body),
+              statusCode: HttpStatus.badRequest,
+              requestKey: key,
+              seenRequests: seenRequests,
+            ),
+          );
+        }
+        body = const {
+          'ok': true,
+          'qolip': {'qolip_code': 'QOLIP-1212'},
+        };
       case 'POST /v1/mobile/admin/production-maps/queue-action':
         if (queueActionErrorCode.isNotEmpty) {
           body = {'error': queueActionErrorCode};

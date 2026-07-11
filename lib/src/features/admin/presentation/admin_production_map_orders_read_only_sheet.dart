@@ -224,7 +224,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mounted || code == null || code.trim().isEmpty) {
       return;
     }
-    setState(() => _scannedQolipCode = code.trim());
+    try {
+      await MobileApi.instance.adminValidateProductionMapQolip(
+        apparatus: widget.apparatus?.warehouse ?? '',
+        orderId: widget.order.map.id,
+        qolipCode: code,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _scannedQolipCode = code.trim());
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _scannedQolipCode = '');
+      _showSheetNotice(_readOnlyQueueActionErrorText(error));
+    }
   }
 
   Future<void> _runProgressAction(String action) async {

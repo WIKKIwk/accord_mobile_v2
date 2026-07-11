@@ -3101,6 +3101,34 @@ extension MobileApiAdmin on MobileApi {
     return result.states;
   }
 
+  Future<void> adminValidateProductionMapQolip({
+    required String apparatus,
+    required String orderId,
+    required String qolipCode,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      await qolipProductByQr(qolipCode);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/qolip-validate',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': apparatus.trim(),
+          'order_id': orderId.trim(),
+          'qolip_code': qolipCode.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'qolip_code_not_found');
+    }
+  }
+
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
