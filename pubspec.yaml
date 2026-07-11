@@ -47,6 +47,8 @@ dependency_overrides:
     path: third_party/local_auth_darwin
   pdfx:
     path: third_party/pdfx
+  model_viewer_plus:
+    path: third_party/model_viewer_plus
 
 flutter:
   uses-material-design: true

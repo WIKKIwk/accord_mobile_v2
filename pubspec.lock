@@ -671,10 +671,9 @@ packages:
   model_viewer_plus:
     dependency: "direct main"
     description:
-      name: model_viewer_plus
-      sha256: c5bfcd296a28246cceec821b0e7da268690e40baa99a3fa0f09d7a3227eb967d
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/model_viewer_plus"
+      relative: true
+    source: path
     version: "1.10.0"
   native_toolchain_c:
     dependency: transitive
