@@ -125,6 +125,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
       titleWidget: AdminCatalogSearchField(

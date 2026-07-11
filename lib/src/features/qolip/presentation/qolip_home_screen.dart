@@ -445,6 +445,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       title: '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
       titleWidget: AdminCatalogSearchField(
