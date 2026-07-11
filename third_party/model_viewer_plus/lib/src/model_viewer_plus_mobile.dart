@@ -259,6 +259,7 @@ class ModelViewerState extends State<ModelViewer> {
           await response.close();
         case '/model-viewer.min.js':
         case '/three.module.js':
+        case '/three.core.js':
         case '/GLTFLoader.js':
         case '/OrbitControls.js':
         case '/factory-map-renderer.js':

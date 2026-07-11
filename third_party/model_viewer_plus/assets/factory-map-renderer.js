@@ -116,23 +116,54 @@ controls.addEventListener('change', () => renderer.render(scene, camera));
 window.addEventListener('resize', resize);
 new ResizeObserver(resize).observe(canvas);
 
-new GLTFLoader().load(
-  modelSource,
-  (gltf) => {
-    const root = gltf.scene;
-    scene.add(root);
-    const bounds = new THREE.Box3().setFromObject(root);
-    enableRealShadows(root, bounds);
-    renderer.shadowMap.needsUpdate = true;
-    status.hidden = true;
-    status.style.display = 'none';
-    resize();
-  },
-  undefined,
-  (error) => {
-    status.textContent = 'Zavod modeli yuklanmadi';
-    status.hidden = false;
-    status.style.display = 'grid';
-    console.error('Factory map load failed', error);
-  },
-);
+function showError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  status.textContent = 'Zavod modeli yuklanmadi';
+  status.title = message;
+  status.hidden = false;
+  status.style.display = 'grid';
+  console.error('Factory map load failed', error);
+}
+
+async function loadModel() {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch(modelSource, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Model request failed: HTTP ${response.status}`);
+    }
+
+    const data = await response.arrayBuffer();
+    await new Promise((resolve, reject) => {
+      new GLTFLoader().parse(
+        data,
+        '',
+        (gltf) => {
+          const root = gltf.scene;
+          scene.add(root);
+          const bounds = new THREE.Box3().setFromObject(root);
+          enableRealShadows(root, bounds);
+          renderer.shadowMap.needsUpdate = true;
+          status.hidden = true;
+          status.style.display = 'none';
+          resize();
+          resolve();
+        },
+        reject,
+      );
+    });
+  } catch (error) {
+    showError(error?.name === 'AbortError'
+      ? new Error('Model yuklanishi 20 soniyada tugamadi')
+      : error);
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+loadModel().catch(showError);

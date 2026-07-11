@@ -50,8 +50,18 @@ class AdminFactoryMapScreen extends StatelessWidget {
                       font: 14px sans-serif;
                     }
                   </style>
-                  <script type="importmap">
-                    {"imports":{"three":"./three.module.js"}}
+                  <script>
+                    function showFactoryMapError(event) {
+                      var status = document.getElementById('factory-map-status');
+                      if (status) {
+                        status.textContent = 'Zavod modeli yuklanmadi';
+                        status.title = event && (event.message || event.reason || event.type) || 'Unknown renderer error';
+                        status.hidden = false;
+                        status.style.display = 'grid';
+                      }
+                    }
+                    window.addEventListener('error', showFactoryMapError, true);
+                    window.addEventListener('unhandledrejection', showFactoryMapError);
                   </script>
                   <canvas id="factory-map-canvas" data-model-src="__MODEL_SRC__"></canvas>
                   <div id="factory-map-status">Zavod modeli yuklanmoqda...</div>
