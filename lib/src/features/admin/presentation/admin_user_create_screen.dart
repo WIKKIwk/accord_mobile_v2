@@ -615,23 +615,12 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     setState(() => saving = true);
     try {
       if (_isQolipchiRole) {
-        final worker = await MobileApi.instance.adminCreateWorker(
+        final user = await MobileApi.instance.adminCreateSystemUser(
+          role: UserRole.qolipchi,
           name: name.text.trim(),
-          level: 'Brigader',
+          phone: phone.text.trim(),
         );
-        final workerPhone = phone.text.trim();
-        if (workerPhone.isNotEmpty) {
-          await MobileApi.instance.adminUpdateWorkerPhone(
-            id: worker.id,
-            phone: workerPhone,
-          );
-        }
-        await _assignCustomRole(
-          widget.assignedRole,
-          UserRole.qolipchi,
-          worker.id,
-        );
-        await MobileApi.instance.adminRegenerateWorkerCode(worker.id);
+        await MobileApi.instance.adminRegenerateSystemUserCode(user.id);
       } else if (_isMaterialTaminotchiAssignedRole) {
         await MobileApi.instance.adminCreateMaterialTaminotchi(
           name: name.text.trim(),

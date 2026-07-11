@@ -21,6 +21,8 @@ final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 final Map<String, String> _testModeWorkerCodes = {};
+final List<AdminSystemUser> _testModeSystemUsers = [];
+final Map<String, String> _testModeSystemUserCodes = {};
 bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 bool _testModeForceProductionMapMenuLoadFailure = false;
@@ -112,6 +114,8 @@ void resetMobileApiTestModeWorkerSettingsData() {
   _testModeWorkers.clear();
   _testModeWorkerGroups.clear();
   _testModeWorkerCodes.clear();
+  _testModeSystemUsers.clear();
+  _testModeSystemUserCodes.clear();
 }
 
 Map<String, List<String>> _testModeVisibleOrderIdsByApparatus() {
@@ -3724,6 +3728,146 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminSystemUser> adminCreateSystemUser({
+    required UserRole role,
+    required String name,
+    required String phone,
+  }) async {
+    if (role != UserRole.qolipchi) {
+      throw Exception('Unsupported system user role');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final user = AdminSystemUser(
+        id: 'qolipchi-${DateTime.now().microsecondsSinceEpoch}',
+        role: role,
+        name: name.trim(),
+        phone: phone.trim(),
+      );
+      _testModeSystemUsers.add(user);
+      return user;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/system-users'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'role': userRoleToJson(role),
+          'name': name,
+          'phone': phone,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin system user create failed');
+    }
+    return AdminSystemUser.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSystemUser> adminUpdateSystemUserPhone({
+    required String id,
+    required String name,
+    required String phone,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeSystemUsers.indexWhere((user) => user.id == id);
+      if (index < 0) throw Exception('Admin system user not found');
+      final updated = _testModeSystemUsers[index].copyWith(phone: phone.trim());
+      _testModeSystemUsers[index] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('$baseUrl/v1/mobile/admin/system-users'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'id': id,
+          'role': 'qolipchi',
+          'name': name,
+          'phone': phone,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin system user phone update failed');
+    }
+    return AdminSystemUser.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSystemUserDetail> adminSystemUserDetail(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final user = _testModeSystemUsers.firstWhere(
+        (user) => user.id == id,
+        orElse: () => throw Exception('Admin system user not found'),
+      );
+      return AdminSystemUserDetail(
+        id: user.id,
+        role: user.role,
+        name: user.name,
+        phone: user.phone,
+        avatarUrl: '',
+        code: _testModeSystemUserCodes[user.id] ?? '',
+        blocked: false,
+        codeLocked: false,
+        codeRetryAfterSec: 0,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('$baseUrl/v1/mobile/admin/system-users/detail')
+            .replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin system user detail failed');
+    }
+    return AdminSystemUserDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminSystemUserDetail> adminRegenerateSystemUserCode(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final user = _testModeSystemUsers.firstWhere(
+        (user) => user.id == id,
+        orElse: () => throw Exception('Admin system user not found'),
+      );
+      final code =
+          '50${DateTime.now().microsecondsSinceEpoch.toString().padLeft(10, '0').substring(0, 10)}';
+      _testModeSystemUserCodes[id] = code;
+      return AdminSystemUserDetail(
+        id: user.id,
+        role: user.role,
+        name: user.name,
+        phone: user.phone,
+        avatarUrl: '',
+        code: code,
+        blocked: false,
+        codeLocked: false,
+        codeRetryAfterSec: 0,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/system-users/code/regenerate')
+            .replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin system user code regenerate failed');
+    }
+    return AdminSystemUserDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminWorker> adminUpdateWorkerLevel({
     required String id,
     required String level,
@@ -4066,6 +4210,31 @@ extension MobileApiAdmin on MobileApi {
     String role = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
+      if (role.trim().toLowerCase() == 'qolipchi') {
+        final needle = query.trim().toLowerCase();
+        final items = _testModeSystemUsers
+            .where(
+              (user) =>
+                  needle.isEmpty ||
+                  user.name.toLowerCase().contains(needle) ||
+                  user.phone.toLowerCase().contains(needle),
+            )
+            .map(
+              (user) => AdminUserListEntry(
+                id: user.id,
+                name: user.name,
+                phone: user.phone,
+                kind: AdminUserKind.qolipchi,
+                principalRole: UserRole.qolipchi,
+                roleLabelOverride: 'Qolipchi',
+              ),
+            )
+            .toList(growable: false);
+        return AdminUserListPage(
+          items: items.skip(offset).take(limit).toList(growable: false),
+          hasMore: items.length > offset + limit,
+        );
+      }
       return TestModeDemoData.userListPage(
         query: query,
         limit: limit,

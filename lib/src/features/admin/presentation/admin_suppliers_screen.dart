@@ -59,24 +59,7 @@ String _adminUserKindRoleQuery(AdminUserKind kind) {
 }
 
 bool _adminUserKindUsesWorkers(AdminUserKind? kind) {
-  return kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi;
-}
-
-bool _workerIsQolipchi(
-  AdminWorker worker,
-  List<AdminRoleAssignment> assignments,
-) {
-  final workerId = worker.id.trim().toLowerCase();
-  for (final assignment in assignments) {
-    if (assignment.principalRef.trim().toLowerCase() != workerId) {
-      continue;
-    }
-    if (assignment.principalRole == UserRole.qolipchi ||
-        assignment.roleId.trim() == 'qolipchi') {
-      return true;
-    }
-  }
-  return false;
+  return kind == AdminUserKind.worker;
 }
 
 bool _assignmentIsMaterialTaminotchi(AdminRoleAssignment assignment) {
@@ -138,7 +121,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         _loadingMore ||
         _selectedKind == null ||
         _selectedKind == AdminUserKind.worker ||
-        _selectedKind == AdminUserKind.qolipchi ||
         !_hasMore) {
       return;
     }
@@ -197,9 +179,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_selectedKind == null ||
-        _selectedKind == AdminUserKind.worker ||
-        _selectedKind == AdminUserKind.qolipchi) {
+    if (_selectedKind == null || _selectedKind == AdminUserKind.worker) {
       return;
     }
     if (_loadingMore || _initialLoading) {
@@ -382,18 +362,16 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   List<AdminUserListEntry> _workerEntries(AdminUserKind kind) {
-    final isQolipTab = kind == AdminUserKind.qolipchi;
     return [
       for (final worker in _workers)
-        if (_workerIsQolipchi(worker, _assignments) == isQolipTab)
-          AdminUserListEntry(
-            id: worker.id,
-            name: worker.name,
-            phone: worker.phone,
-            kind: kind,
-            principalRole: isQolipTab ? UserRole.qolipchi : UserRole.aparatchi,
-            roleLabelOverride: isQolipTab ? 'Qolipchi' : worker.level.trim(),
-          ),
+        AdminUserListEntry(
+          id: worker.id,
+          name: worker.name,
+          phone: worker.phone,
+          kind: AdminUserKind.worker,
+          principalRole: UserRole.aparatchi,
+          roleLabelOverride: worker.level.trim(),
+        ),
     ];
   }
 
@@ -435,7 +413,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
           .map(_materialTaminotchiEntry)
           .toList(growable: false);
     }
-    if (kind == AdminUserKind.worker || kind == AdminUserKind.qolipchi) {
+    if (kind == AdminUserKind.worker) {
       return [
         ..._workerEntries(kind),
         ..._items.where((item) => item.kind == kind),

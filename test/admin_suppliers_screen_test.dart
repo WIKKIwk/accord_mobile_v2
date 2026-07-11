@@ -604,23 +604,20 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin qolipchi tab opens worker backed qolipchi profile', (
+  testWidgets('admin qolipchi tab opens system user profile', (
     tester,
   ) async {
     final client = _AdminUsersHttpClient(
-      workers: const [
+      users: const [
         {
-          'id': 'worker-q',
+          'id': 'system_user:qolipchi-q',
+          'source': 'system_user',
+          'entity_ref': 'qolipchi-q',
+          'principal_role': 'qolipchi',
           'name': 'Qolipchi user',
           'phone': '998900003',
-          'level': 'Master',
-        },
-      ],
-      roleAssignments: const [
-        {
-          'principal_role': 'qolipchi',
-          'principal_ref': 'worker-q',
-          'role_id': 'qolipchi',
+          'role_label': 'Qolipchi',
+          'blocked': false,
         },
       ],
     );
@@ -655,7 +652,7 @@ void main() {
       await _selectUserRole(tester, 'Qolipchi');
       expect(
         client.requests,
-        contains('GET /v1/mobile/admin/workers?role=qolipchi'),
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=qolipchi'),
       );
       expect(find.text('Qolipchi user'), findsOneWidget);
 
@@ -668,7 +665,9 @@ void main() {
       expect(find.text('998900003'), findsWidgets);
       expect(
         client.requests,
-        contains('GET /v1/mobile/admin/workers/detail?id=worker-q'),
+        contains(
+          'GET /v1/mobile/admin/system-users/detail?id=qolipchi-q',
+        ),
       );
       expect(
         client.requests.any(
@@ -808,6 +807,35 @@ class _AdminUsersHttpClient implements HttpClient {
           'phone': worker['phone'] ?? '',
           'level': worker['level'] ?? '',
           'code': workerCodes[id] ?? '',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
+        ),
+      );
+    }
+    if (key.startsWith('GET /v1/mobile/admin/system-users/detail')) {
+      final id = url.queryParameters['id'] ?? '';
+      final user = users.cast<Map<String, Object?>>().firstWhere(
+            (item) => (item['entity_ref'] ?? item['id']) == id,
+            orElse: () => <String, Object?>{},
+          );
+      if (user.isEmpty) {
+        statusCode = HttpStatus.notFound;
+        body = {'error': 'system user not found'};
+      } else {
+        body = {
+          'id': id,
+          'role': 'qolipchi',
+          'name': user['name'],
+          'phone': user['phone'] ?? '',
+          'avatar_url': '',
+          'code': '501234567890',
+          'blocked': false,
           'code_locked': false,
           'code_retry_after_sec': 0,
         };

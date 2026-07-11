@@ -153,7 +153,7 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin user create screen creates qolipchi as worker', (
+  testWidgets('admin user create screen creates qolipchi as system user', (
     tester,
   ) async {
     final seenRequests = <String>[];
@@ -188,21 +188,21 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      expect(seenRequests, contains('POST /v1/mobile/admin/workers'));
-      expect(seenRequests, contains('PUT /v1/mobile/admin/workers'));
-      expect(seenRequests, contains('PUT /v1/mobile/admin/role-assignments'));
+      expect(seenRequests, contains('POST /v1/mobile/admin/system-users'));
       expect(
         seenRequests,
-        contains('POST /v1/mobile/admin/workers/code/regenerate?id=worker-q'),
+        contains(
+          'POST /v1/mobile/admin/system-users/code/regenerate?id=qolipchi-q',
+        ),
       );
       expect(seenRequests, isNot(contains('POST /v1/mobile/admin/customers')));
       expect(
-        seenRequests.any((request) => request.contains('"role_id":"qolipchi"')),
-        isTrue,
+        seenRequests.any((request) => request.contains('/admin/workers')),
+        isFalse,
       );
       expect(
         seenRequests.any(
-          (request) => request.contains('"principal_role":"qolipchi"'),
+          (request) => request.contains('"role":"qolipchi"'),
         ),
         isTrue,
       );
@@ -643,6 +643,25 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'phone': '110000050',
           'level': 'Brigader',
           'code': '501234567890',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
+      case 'POST /v1/mobile/admin/system-users':
+        body = const {
+          'id': 'qolipchi-q',
+          'role': 'qolipchi',
+          'name': 'Qolipchi',
+          'phone': '110000050',
+        };
+      case 'POST /v1/mobile/admin/system-users/code/regenerate?id=qolipchi-q':
+        body = const {
+          'id': 'qolipchi-q',
+          'role': 'qolipchi',
+          'name': 'Qolipchi',
+          'phone': '110000050',
+          'avatar_url': '',
+          'code': '501234567890',
+          'blocked': false,
           'code_locked': false,
           'code_retry_after_sec': 0,
         };

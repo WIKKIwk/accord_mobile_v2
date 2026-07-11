@@ -1787,6 +1787,76 @@ class AdminWorkerDetail {
   }
 }
 
+class AdminSystemUser {
+  const AdminSystemUser({
+    required this.id,
+    required this.role,
+    required this.name,
+    required this.phone,
+  });
+
+  final String id;
+  final UserRole role;
+  final String name;
+  final String phone;
+
+  factory AdminSystemUser.fromJson(Map<String, dynamic> json) {
+    return AdminSystemUser(
+      id: json['id'] as String? ?? '',
+      role: userRoleFromJson(json['role'] as String? ?? ''),
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+    );
+  }
+
+  AdminSystemUser copyWith({String? name, String? phone}) {
+    return AdminSystemUser(
+      id: id,
+      role: role,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+    );
+  }
+}
+
+class AdminSystemUserDetail {
+  const AdminSystemUserDetail({
+    required this.id,
+    required this.role,
+    required this.name,
+    required this.phone,
+    required this.avatarUrl,
+    required this.code,
+    required this.blocked,
+    required this.codeLocked,
+    required this.codeRetryAfterSec,
+  });
+
+  final String id;
+  final UserRole role;
+  final String name;
+  final String phone;
+  final String avatarUrl;
+  final String code;
+  final bool blocked;
+  final bool codeLocked;
+  final int codeRetryAfterSec;
+
+  factory AdminSystemUserDetail.fromJson(Map<String, dynamic> json) {
+    return AdminSystemUserDetail(
+      id: json['id'] as String? ?? '',
+      role: userRoleFromJson(json['role'] as String? ?? ''),
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? '',
+      code: json['code'] as String? ?? '',
+      blocked: json['blocked'] as bool? ?? false,
+      codeLocked: json['code_locked'] as bool? ?? false,
+      codeRetryAfterSec: json['code_retry_after_sec'] as int? ?? 0,
+    );
+  }
+}
+
 class AdminWorkerGroup {
   const AdminWorkerGroup({
     required this.apparatus,

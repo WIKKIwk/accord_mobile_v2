@@ -42,6 +42,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   int get _retryAfterSec => _retryAfter.seconds;
 
   String get _workerId => widget.entry.id.trim();
+  bool get _isSystemUser => widget.entry.kind == AdminUserKind.qolipchi;
 
   @override
   void initState() {
@@ -70,11 +71,24 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       _loadError = null;
     });
     try {
-      final detail =
-          await MobileApi.instance.adminWorkerDetail(_workerId).timeout(
-                const Duration(seconds: 15),
-                onTimeout: () => throw Exception('Worker detail timeout'),
-              );
+      final detail = await (_isSystemUser
+              ? MobileApi.instance.adminSystemUserDetail(_workerId).then(
+                    (user) => AdminWorkerDetail(
+                      id: user.id,
+                      name: user.name,
+                      phone: user.phone,
+                      avatarUrl: user.avatarUrl,
+                      level: 'Qolipchi',
+                      code: user.code,
+                      codeLocked: user.codeLocked,
+                      codeRetryAfterSec: user.codeRetryAfterSec,
+                    ),
+                  )
+              : MobileApi.instance.adminWorkerDetail(_workerId))
+          .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Profil yuklash vaqti tugadi'),
+      );
       if (!mounted) {
         return;
       }
@@ -103,16 +117,24 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 
     setState(() => _savingPhone = true);
     try {
-      final updated = await MobileApi.instance.adminUpdateWorkerPhone(
-        id: detail.id,
-        phone: trimmedPhone,
-      );
+      final updatedPhone = _isSystemUser
+          ? (await MobileApi.instance.adminUpdateSystemUserPhone(
+              id: detail.id,
+              name: detail.name,
+              phone: trimmedPhone,
+            ))
+              .phone
+          : (await MobileApi.instance.adminUpdateWorkerPhone(
+              id: detail.id,
+              phone: trimmedPhone,
+            ))
+              .phone;
       if (!mounted) {
         return;
       }
       _changed = true;
       setState(() {
-        _detail = detail.copyWith(phone: updated.phone);
+        _detail = detail.copyWith(phone: updatedPhone);
       });
     } catch (error) {
       if (!mounted) {
@@ -131,15 +153,27 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   Future<void> _regenerateCode() async {
     setState(() => _regeneratingCode = true);
     try {
-      final updated = await MobileApi.instance.adminRegenerateWorkerCode(
-        _workerId,
-      );
+      final updated = _isSystemUser
+          ? await MobileApi.instance.adminRegenerateSystemUserCode(_workerId)
+          : null;
+      final detail = updated == null
+          ? await MobileApi.instance.adminRegenerateWorkerCode(_workerId)
+          : AdminWorkerDetail(
+              id: updated.id,
+              name: updated.name,
+              phone: updated.phone,
+              avatarUrl: updated.avatarUrl,
+              level: 'Qolipchi',
+              code: updated.code,
+              codeLocked: updated.codeLocked,
+              codeRetryAfterSec: updated.codeRetryAfterSec,
+            );
       if (!mounted) {
         return;
       }
       _changed = true;
-      _setRetryAfter(updated.codeRetryAfterSec);
-      setState(() => _detail = updated);
+      _setRetryAfter(detail.codeRetryAfterSec);
+      setState(() => _detail = detail);
     } catch (error) {
       if (!mounted) {
         return;
@@ -223,17 +257,19 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   onCopyCode: _copyCode,
                 ),
               ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                style: appOutlinedActionButtonStyle(
-                  borderRadius: _workerDetailFieldRadius,
+              if (!_isSystemUser) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  style: appOutlinedActionButtonStyle(
+                    borderRadius: _workerDetailFieldRadius,
+                  ),
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.adminWorkerProfileDetail,
+                    arguments: widget.entry,
+                  ),
+                  child: const Text('Ish faoliyati tafsilotlari'),
                 ),
-                onPressed: () => Navigator.of(context).pushNamed(
-                  AppRoutes.adminWorkerProfileDetail,
-                  arguments: widget.entry,
-                ),
-                child: const Text('Ish faoliyati tafsilotlari'),
-              ),
+              ],
               if (_loadError != null) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(
