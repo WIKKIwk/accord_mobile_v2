@@ -77,6 +77,7 @@ class _AdminPartyCreateScaffoldState extends State<AdminPartyCreateScaffold> {
           const SizedBox(height: 12),
           TextField(
             controller: _phone,
+            keyboardType: TextInputType.phone,
             decoration: InputDecoration(labelText: widget.phoneLabel),
           ),
           const SizedBox(height: 18),
