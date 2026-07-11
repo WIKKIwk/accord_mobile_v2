@@ -247,6 +247,7 @@ class AdminCompletionRequestNotification {
     required this.workerRef,
     required this.workerDisplayName,
     required this.description,
+    this.zeroMetricCodes = const [],
     this.noticeKind = 'completion_request',
     this.decisionRequired = true,
     required this.createdAtUnix,
@@ -262,6 +263,7 @@ class AdminCompletionRequestNotification {
   final String workerRef;
   final String workerDisplayName;
   final String description;
+  final List<String> zeroMetricCodes;
   final String noticeKind;
   final bool decisionRequired;
   final int createdAtUnix;
@@ -280,6 +282,11 @@ class AdminCompletionRequestNotification {
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
+      zeroMetricCodes: [
+        if (json['zero_metric_codes'] is List)
+          for (final code in json['zero_metric_codes'] as List)
+            if (code.toString().trim().isNotEmpty) code.toString().trim(),
+      ],
       noticeKind: json['notice_kind']?.toString() ?? 'completion_request',
       decisionRequired: json['decision_required'] is bool
           ? json['decision_required'] as bool
@@ -1617,6 +1624,8 @@ MobileApiException _adminProductionMapException(
         'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
       'rezka_progress_metrics_required' =>
         'Rezka uchun barcha majburiy fieldlarni kiriting',
+      'zero_metric_explanation_required' =>
+        '0 qiymat kiritilganda sababini yozing',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
@@ -3295,11 +3304,33 @@ extension MobileApiAdmin on MobileApi {
         final hasRezkaProgressMetrics = rezkaBosmaWaste != null &&
             rezkaLaminationWaste != null &&
             rezkaEdgeWaste != null;
-        if (note.isNotEmpty &&
+        final zeroMetricCodes = <String>[
+          if (producedQty == 0) 'produced_qty',
+          if (grossQty == 0) 'gross_qty',
+          if (returnInkKg == 0) 'return_ink_kg',
+          if (laminationPrintLeftoverRolls == 0)
+            'lamination_print_leftover_rolls',
+          if (laminationFilmLeftoverRolls == 0)
+            'lamination_film_leftover_rolls',
+          if (rezkaBosmaWaste == 0) 'rezka_bosma_waste',
+          if (rezkaLaminationWaste == 0) 'rezka_lamination_waste',
+          if (rezkaEdgeWaste == 0) 'rezka_edge_waste',
+          if (totalWaste == 0) 'total_waste',
+          if (finishedGoodsKg == 0) 'finished_goods_kg',
+          if (finishedGoodsMeter == 0) 'finished_goods_meter',
+        ];
+        if (zeroMetricCodes.isNotEmpty && note.isEmpty) {
+          throw const MobileApiException(
+            code: 'zero_metric_explanation_required',
+            message: '0 qiymat kiritilganda sababini yozing',
+          );
+        }
+        final missingOutputWithReason = note.isNotEmpty &&
             !hasCompleteMetrics &&
             !hasLaminatsiyaCompleteMetrics &&
             !hasRezkaProgressMetrics &&
-            grossQty == null) {
+            grossQty == null;
+        if (zeroMetricCodes.isNotEmpty || missingOutputWithReason) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           final map = _testModeProductionMaps
               .where((item) => item.map.id.trim() == orderId.trim())
@@ -3319,6 +3350,7 @@ extension MobileApiAdmin on MobileApi {
               workerDisplayName:
                   AppSession.instance.profile?.displayName.trim() ?? '',
               description: note,
+              zeroMetricCodes: zeroMetricCodes,
               createdAtUnix: now,
             ),
           );

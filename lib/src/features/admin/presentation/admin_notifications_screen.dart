@@ -282,8 +282,11 @@ class _CompletionRequestNotificationCard extends StatelessWidget {
       ref: request.workerRef,
     );
     final decisionRequired = request.decisionRequired;
+    final hasZeroMetrics = request.zeroMetricCodes.isNotEmpty;
     final title = decisionRequired
-        ? '$code zakaz 0 holatda'
+        ? hasZeroMetrics
+            ? '$code zakazda 0 ko‘rsatkich bor'
+            : '$code zakaz 0 holatda'
         : '$code laminatsiya qoldig‘i';
     final subtitle = decisionRequired
         ? '${request.apparatus.trim()} dagi $worker tugatishga urinyapti'
@@ -418,6 +421,7 @@ class _CompletionRequestDetails extends StatelessWidget {
       if (_timeLabel(request.createdAtUnix).isNotEmpty)
         'Vaqt: ${_timeLabel(request.createdAtUnix)}',
     ];
+    final zeroMetricLabels = _zeroMetricLabels(request.zeroMetricCodes);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(60, 0, 14, 14),
@@ -436,14 +440,35 @@ class _CompletionRequestDetails extends StatelessWidget {
                 ),
               ),
             ),
-          Text(
-            request.description.trim(),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.35,
-              fontWeight: FontWeight.w800,
-              color: scheme.onSurface,
+          if (zeroMetricLabels.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              '0 kiritilgan ko‘rsatkichlar',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.error,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+            const SizedBox(height: 3),
+            Text(
+              zeroMetricLabels.join(', '),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.25,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (request.description.trim().isNotEmpty)
+            Text(
+              request.description.trim(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                height: 1.35,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+            ),
           const SizedBox(height: 14),
           if (request.decisionRequired) ...[
             Text(
@@ -526,4 +551,23 @@ String _apparatusDetailLabel(String apparatus) {
     return 'Rezka mashinasi';
   }
   return 'Aparat';
+}
+
+List<String> _zeroMetricLabels(List<String> codes) {
+  const labels = <String, String>{
+    'produced_qty': 'Ishlab chiqarilgan miqdor',
+    'gross_qty': 'Brutto og‘irlik',
+    'return_ink_kg': 'Qaytgan kraska',
+    'lamination_print_leftover_rolls': 'Bosmadan ortgan rulon',
+    'lamination_film_leftover_rolls': 'Plyonkadan ortgan rulon',
+    'rezka_bosma_waste': 'Bosma chiqindisi',
+    'rezka_lamination_waste': 'Laminatsiya chiqindisi',
+    'rezka_edge_waste': 'Tayyor mahsulot cheti chiqindisi',
+    'total_waste': 'Jami chiqindi',
+    'finished_goods_kg': 'Tayyor mahsulot og‘irligi',
+    'finished_goods_meter': 'Tayyor mahsulot metraji',
+  };
+  return [
+    for (final code in codes) labels[code.trim()] ?? code.trim(),
+  ].where((label) => label.isNotEmpty).toList(growable: false);
 }

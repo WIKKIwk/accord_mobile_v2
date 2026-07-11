@@ -152,11 +152,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       validator: (value) {
         final trimmed = (value ?? '').trim();
         if (trimmed.isEmpty) {
-          return error;
+          return _isComplete ? null : error;
         }
         final qty = _parseQty(trimmed);
-        if (qty == null || !qty.isFinite || qty <= 0) {
+        if (qty == null || !qty.isFinite || qty < 0) {
           return 'To‘g‘ri raqam kiriting';
+        }
+        if (!_isComplete && qty == 0) {
+          return '0 dan katta raqam kiriting';
         }
         return null;
       },
@@ -253,25 +256,83 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (_isComplete) {
-      if (!formValid) {
-        return;
-      }
+      if (!formValid) return;
       final description = _descriptionController.text.trim();
       if (description.isNotEmpty) {
         Navigator.of(context).pop(
-          _ProgressQtyInput(
+          _completionRequestInput(
+            meterQty: meterQty,
+            kgQty: kgQty,
+            returnInkKg: returnInkKg,
+            printLeftoverRolls: printLeftoverRolls,
+            filmLeftoverRolls: filmLeftoverRolls,
+            rezkaBosmaWaste: rezkaBosmaWaste,
+            rezkaLaminationWaste: rezkaLaminationWaste,
+            rezkaEdgeWaste: rezkaEdgeWaste,
+            totalWaste: totalWaste,
             description: description,
-            isCompletionRequest: true,
           ),
         );
         return;
       }
       setState(() {
         _completionError =
-            'Barcha raqamli maydonlarni to‘ldiring yoki izoh qoldiring.';
+            '0 yoki to‘liq bo‘lmagan hisobot uchun sababini yozing.';
       });
       return;
     }
+  }
+
+  _ProgressQtyInput _completionRequestInput({
+    required double? meterQty,
+    required double? kgQty,
+    required double? returnInkKg,
+    required double? printLeftoverRolls,
+    required double? filmLeftoverRolls,
+    required double? rezkaBosmaWaste,
+    required double? rezkaLaminationWaste,
+    required double? rezkaEdgeWaste,
+    required double? totalWaste,
+    required String description,
+  }) {
+    if (widget.isBosma) {
+      return _ProgressQtyInput(
+        finishedGoodsMeter: meterQty,
+        finishedGoodsKg: kgQty,
+        returnInkKg: returnInkKg,
+        totalWaste: totalWaste,
+        description: description,
+        isCompletionRequest: true,
+      );
+    }
+    if (widget.isLaminatsiya) {
+      return _ProgressQtyInput(
+        finishedGoodsMeter: meterQty,
+        finishedGoodsKg: kgQty,
+        laminationPrintLeftoverRolls: printLeftoverRolls,
+        laminationFilmLeftoverRolls: filmLeftoverRolls,
+        totalWaste: totalWaste,
+        description: description,
+        isCompletionRequest: true,
+      );
+    }
+    if (widget.isRezka) {
+      return _ProgressQtyInput(
+        meterQty: meterQty,
+        kgQty: kgQty,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
+        description: description,
+        isCompletionRequest: true,
+      );
+    }
+    return _ProgressQtyInput(
+      meterQty: meterQty,
+      kgQty: kgQty,
+      description: description,
+      isCompletionRequest: true,
+    );
   }
 
   @override
@@ -285,7 +346,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final title =
         widget.action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori';
     final subtitle = _isComplete
-        ? 'Barcha maydonlarni to‘ldiring'
+        ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
         : 'Joriy miqdorni kiriting';
 
     return Dialog(
@@ -455,7 +516,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             maxLines: 4,
                             decoration: appSurfaceInputDecoration(
                               context,
-                              labelText: 'Nima sababdan tugatyapsiz?',
+                              labelText: '0 yoki noodatiy tugatish sababi',
                               alignLabelWithHint: true,
                             ),
                             onChanged: (_) {

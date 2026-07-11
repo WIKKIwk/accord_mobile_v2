@@ -223,6 +223,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (input.isCompletionRequest) {
       await _runQueueAction(
         action,
+        progressInput: input,
+        uom: 'm',
         completionRequestNote: input.description,
       );
       return;
