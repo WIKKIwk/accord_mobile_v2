@@ -42,6 +42,8 @@ class AdminFactoryMapScreen extends StatelessWidget {
                 disableZoom: false,
                 interactionPrompt: InteractionPrompt.none,
                 loading: Loading.eager,
+                shadowIntensity: 0.85,
+                shadowSoftness: 0.75,
                 backgroundColor: Colors.transparent,
               ),
             ),
