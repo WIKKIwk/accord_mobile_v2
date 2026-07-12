@@ -7,6 +7,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
+import '../state/chat_failure.dart';
 import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
 
@@ -55,10 +56,13 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         AppRoutes.chatDetail,
         arguments: conversation,
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Suhbatni ochib bo‘lmadi')),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(chatFailureMessage(error)),
+        ),
       );
     } finally {
       if (mounted) setState(() => openingRef = '');
@@ -74,10 +78,11 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
           title: 'Yangi suhbat',
           subtitle: 'Foydalanuvchini tanlang',
           nativeTopBar: true,
+          contentPadding: EdgeInsets.zero,
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                 child: SearchBar(
                   controller: searchController,
                   hintText: 'Ism bo‘yicha qidirish',
@@ -97,22 +102,37 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
     if (store.loadingDirectory && store.directory.isEmpty) {
       return const Center(child: AppLoadingIndicator());
     }
+    if (store.error.isNotEmpty && store.directory.isEmpty) {
+      return Center(
+        child: FilledButton.tonalIcon(
+          onPressed: () => store.searchDirectory(searchController.text),
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Qayta qidirish'),
+        ),
+      );
+    }
     if (store.directory.isEmpty) {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
       itemCount: store.directory.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
       itemBuilder: (context, index) {
         final entry = store.directory[index];
         return ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          minTileHeight: 76,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 4,
+          ),
           onTap: () => _open(entry),
           leading: ChatAvatar(
             name: entry.displayName,
             avatarUrl: entry.avatarUrl,
+            radius: 25,
           ),
           title: Text(
             entry.displayName,

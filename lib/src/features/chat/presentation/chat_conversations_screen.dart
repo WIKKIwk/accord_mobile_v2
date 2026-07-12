@@ -20,11 +20,19 @@ class ChatConversationsScreen extends StatefulWidget {
 
 class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   final store = ChatStore.instance;
+  final searchController = TextEditingController();
+  String query = '';
 
   @override
   void initState() {
     super.initState();
     unawaited(store.startForCurrentSession());
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -37,22 +45,50 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           subtitle: store.connected ? 'Onlayn' : 'Ulanmoqda…',
           nativeTopBar: true,
           bottom: const ChatRoleDock(),
-          child: Stack(
+          contentPadding: EdgeInsets.zero,
+          child: Column(
             children: [
-              RefreshIndicator(
-                onRefresh: store.refreshConversations,
-                child: _conversationList(context),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: SearchBar(
+                  controller: searchController,
+                  hintText: 'Chatlardan qidirish',
+                  leading: const Icon(Icons.search_rounded),
+                  trailing: [
+                    if (query.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Tozalash',
+                        onPressed: () {
+                          searchController.clear();
+                          setState(() => query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => query = value.trim()),
+                ),
               ),
-              Positioned(
-                right: 18,
-                bottom: 22,
-                child: FloatingActionButton(
-                  heroTag: 'chat-new-conversation',
-                  tooltip: 'Yangi suhbat',
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.chatDirectory,
-                  ),
-                  child: const Icon(Icons.edit_rounded),
+              Expanded(
+                child: Stack(
+                  children: [
+                    RefreshIndicator(
+                      onRefresh: store.refreshConversations,
+                      child: _conversationList(context),
+                    ),
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: FloatingActionButton.extended(
+                        heroTag: 'chat-new-conversation',
+                        tooltip: 'Yangi suhbat',
+                        onPressed: () => Navigator.of(context).pushNamed(
+                          AppRoutes.chatDirectory,
+                        ),
+                        icon: const Icon(Icons.edit_rounded),
+                        label: const Text('Yangi chat'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -62,31 +98,68 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     );
   }
 
+  List<ChatConversation> get _visibleConversations {
+    final normalized = query.toLowerCase();
+    if (normalized.isEmpty) return store.conversations;
+    return store.conversations.where((conversation) {
+      final title = conversation.displayTitle.toLowerCase();
+      final preview = conversation.lastMessage?.body.toLowerCase() ?? '';
+      return title.contains(normalized) || preview.contains(normalized);
+    }).toList(growable: false);
+  }
+
   Widget _conversationList(BuildContext context) {
     if (store.loadingConversations && store.conversations.isEmpty) {
       return const Center(child: AppLoadingIndicator());
     }
-    if (store.conversations.isEmpty) {
+    if (store.error.isNotEmpty && store.conversations.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(28, 120, 28, 100),
-        children: const [
-          Icon(Icons.forum_outlined, size: 56),
-          SizedBox(height: 16),
+        padding: const EdgeInsets.fromLTRB(32, 100, 32, 120),
+        children: [
+          const Icon(Icons.cloud_off_outlined, size: 52),
+          const SizedBox(height: 14),
+          const Text(
+            'Chatlar yuklanmadi',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: FilledButton.tonalIcon(
+              onPressed: store.refreshConversations,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Qayta yuklash'),
+            ),
+          ),
+        ],
+      );
+    }
+    final conversations = _visibleConversations;
+    if (conversations.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(28, 90, 28, 120),
+        children: [
+          Icon(
+            query.isEmpty ? Icons.forum_outlined : Icons.search_off_rounded,
+            size: 56,
+          ),
+          const SizedBox(height: 16),
           Text(
-            'Hali suhbat yo‘q. Pastdagi tugma orqali foydalanuvchini tanlang.',
+            query.isEmpty
+                ? 'Hali suhbat yo‘q. “Yangi chat” orqali foydalanuvchini tanlang.'
+                : 'Bu qidiruv bo‘yicha chat topilmadi.',
             textAlign: TextAlign.center,
           ),
         ],
       );
     }
-    return ListView.separated(
+    return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 96),
-      itemCount: store.conversations.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 104),
+      itemCount: conversations.length,
       itemBuilder: (context, index) {
-        final conversation = store.conversations[index];
+        final conversation = conversations[index];
         return _ConversationTile(
           conversation: conversation,
           onTap: () => Navigator.of(context).pushNamed(
@@ -107,29 +180,79 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final peer = conversation.peer;
     final message = conversation.lastMessage;
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      leading: ChatAvatar(
-        name: conversation.displayTitle,
-        avatarUrl: peer?.avatarUrl ?? '',
+    final unread = conversation.unreadCount > 0;
+    final timestamp = message?.createdAtUnix ?? conversation.updatedAtUnix;
+    return Semantics(
+      button: true,
+      label: '${conversation.displayTitle}, '
+          '${message?.body ?? 'Suhbat boshlandi'}',
+      child: ListTile(
+        minTileHeight: 78,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: ChatAvatar(
+          name: conversation.displayTitle,
+          avatarUrl: peer?.avatarUrl ?? '',
+          radius: 27,
+        ),
+        title: Text(
+          conversation.displayTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          message?.body ?? 'Suhbat boshlandi',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: unread ? scheme.onSurface : scheme.onSurfaceVariant,
+            fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+        trailing: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _conversationTime(context, timestamp),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: unread ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 7),
+            if (unread)
+              Badge(
+                backgroundColor: scheme.primary,
+                textColor: scheme.onPrimary,
+                label: Text('${conversation.unreadCount}'),
+              )
+            else
+              const SizedBox(height: 16),
+          ],
+        ),
       ),
-      title: Text(
-        conversation.displayTitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        message?.body ?? 'Suhbat boshlandi',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: conversation.unreadCount > 0
-          ? Badge(label: Text('${conversation.unreadCount}'))
-          : const Icon(Icons.chevron_right_rounded),
     );
   }
+}
+
+String _conversationTime(BuildContext context, int unixSeconds) {
+  if (unixSeconds <= 0) return '';
+  final date = DateTime.fromMillisecondsSinceEpoch(
+    unixSeconds * 1000,
+  ).toLocal();
+  final now = DateTime.now();
+  if (date.year == now.year && date.month == now.month && date.day == now.day) {
+    return '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
+  }
+  return MaterialLocalizations.of(context).formatCompactDate(date);
 }

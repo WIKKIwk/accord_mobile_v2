@@ -3,9 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/session/session.dart';
+import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
 import '../state/chat_store.dart';
+import 'widgets/chat_avatar.dart';
+import 'widgets/chat_message_bubble.dart';
+import 'widgets/chat_message_composer.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   const ChatDetailScreen({super.key, required this.conversation});
@@ -43,13 +47,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     try {
       await store.sendMessage(widget.conversation.conversationId, body);
       controller.clear();
+      store.clearSendError();
       _scrollToBottom();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xabar yuborilmadi')),
-      );
-    }
+    } catch (_) {}
+  }
+
+  void _draftChanged() {
+    store.clearSendError();
   }
 
   void _scrollToBottom() {
@@ -75,15 +79,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         }
         return AppShell(
           title: widget.conversation.displayTitle,
-          subtitle: store.connected ? 'Onlayn' : 'Ulanmoqda…',
+          subtitle: '',
+          titleWidget: _ConversationTitle(
+            conversation: widget.conversation,
+            connected: store.connected,
+          ),
           nativeTopBar: true,
+          showProfileAction: false,
+          contentPadding: EdgeInsets.zero,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           child: Column(
             children: [
               Expanded(child: _messages(messages)),
-              _Composer(
+              ChatMessageComposer(
                 controller: controller,
                 sending: store.sending,
+                errorText: store.sendError,
                 onSend: _send,
+                onDraftChanged: _draftChanged,
               ),
             ],
           ),
@@ -93,139 +106,134 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _messages(List<ChatMessage> messages) {
+    if (messages.isEmpty &&
+        store.loadingMessagesFor(widget.conversation.conversationId)) {
+      return const Center(child: AppLoadingIndicator());
+    }
     if (messages.isEmpty) {
-      return const Center(child: Text('Birinchi xabarni yozing'));
+      final scheme = Theme.of(context).colorScheme;
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.waving_hand_outlined,
+                size: 42,
+                color: scheme.primary,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Suhbatni boshlang',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Birinchi xabaringizni yozing.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     final profile = AppSession.instance.profile;
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
-      itemCount: messages.length +
-          (store.hasMoreMessages(widget.conversation.conversationId) ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (store.hasMoreMessages(widget.conversation.conversationId) &&
-            index == 0) {
-          return Center(
-            child: TextButton(
-              onPressed: () => store.loadOlderMessages(
-                widget.conversation.conversationId,
-              ),
-              child: const Text('Oldingi xabarlar'),
+    final children = <Widget>[];
+    if (store.hasMoreMessages(widget.conversation.conversationId)) {
+      children.add(
+        Center(
+          child: TextButton.icon(
+            onPressed: () => store.loadOlderMessages(
+              widget.conversation.conversationId,
             ),
-          );
-        }
-        final offset =
-            store.hasMoreMessages(widget.conversation.conversationId) ? 1 : 0;
-        final message = messages[index - offset];
-        final mine = profile != null && message.isMine(profile);
-        return _MessageBubble(message: message, mine: mine);
-      },
+            icon: const Icon(Icons.expand_less_rounded),
+            label: const Text('Oldingi xabarlar'),
+          ),
+        ),
+      );
+    }
+    DateTime? previousDay;
+    ChatMessage? previousMessage;
+    for (final message in messages) {
+      final createdAt = DateTime.fromMillisecondsSinceEpoch(
+        message.createdAtUnix * 1000,
+      ).toLocal();
+      final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
+      final newDay = previousDay == null || day != previousDay;
+      if (newDay) {
+        children.add(ChatDateDivider(date: createdAt));
+      }
+      final compactTop = !newDay &&
+          previousMessage?.senderPrincipalId == message.senderPrincipalId &&
+          message.createdAtUnix - (previousMessage?.createdAtUnix ?? 0) <= 300;
+      children.add(
+        ChatMessageBubble(
+          message: message,
+          mine: profile != null && message.isMine(profile),
+          compactTop: compactTop,
+        ),
+      );
+      previousDay = day;
+      previousMessage = message;
+    }
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: children,
+      ),
     );
   }
 }
 
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.mine});
+class _ConversationTitle extends StatelessWidget {
+  const _ConversationTitle({
+    required this.conversation,
+    required this.connected,
+  });
 
-  final ChatMessage message;
-  final bool mine;
+  final ChatConversation conversation;
+  final bool connected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final time = DateTime.fromMillisecondsSinceEpoch(
-      message.createdAtUnix * 1000,
-    ).toLocal();
-    final timeText = '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}';
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 320),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.fromLTRB(12, 9, 10, 6),
-        decoration: BoxDecoration(
-          color: mine ? scheme.primaryContainer : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(18).copyWith(
-            bottomRight: mine ? const Radius.circular(4) : null,
-            bottomLeft: mine ? null : const Radius.circular(4),
+    return Row(
+      children: [
+        ChatAvatar(
+          name: conversation.displayTitle,
+          avatarUrl: conversation.peer?.avatarUrl ?? '',
+          radius: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                conversation.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              Text(
+                connected ? 'Onlayn' : 'Ulanmoqda…',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(message.body),
-            const SizedBox(height: 3),
-            Text(
-              timeText,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.controller,
-    required this.sending,
-    required this.onSend,
-  });
-
-  final TextEditingController controller;
-  final bool sending;
-  final VoidCallback onSend;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 5,
-                maxLength: 4000,
-                buildCounter: (_,
-                        {required currentLength,
-                        required isFocused,
-                        maxLength}) =>
-                    null,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Xabar yozing',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(22)),
-                  ),
-                ),
-                onSubmitted: (_) {
-                  if (!sending) onSend();
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              tooltip: 'Yuborish',
-              onPressed: sending ? null : onSend,
-              icon: sending
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_rounded),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

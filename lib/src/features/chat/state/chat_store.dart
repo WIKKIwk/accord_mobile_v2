@@ -10,6 +10,7 @@ import '../../shared/models/app_models.dart';
 import '../data/chat_local_store.dart';
 import '../models/chat_models.dart';
 import '../realtime/chat_realtime_service.dart';
+import 'chat_failure.dart';
 
 class ChatStore extends ChangeNotifier {
   ChatStore._();
@@ -20,6 +21,7 @@ class ChatStore extends ChangeNotifier {
   final ChatRealtimeService _realtime = ChatRealtimeService();
   final Map<String, List<ChatMessage>> _messages = {};
   final Map<String, bool> _hasMoreMessages = {};
+  final Set<String> _loadingMessages = {};
 
   List<ChatConversation> conversations = const [];
   List<ChatDirectoryEntry> directory = const [];
@@ -30,6 +32,7 @@ class ChatStore extends ChangeNotifier {
   bool connected = false;
   bool sending = false;
   String error = '';
+  String sendError = '';
 
   int get totalUnread => conversations.fold<int>(
         0,
@@ -43,6 +46,9 @@ class ChatStore extends ChangeNotifier {
 
   bool hasMoreMessages(String conversationId) =>
       _hasMoreMessages[conversationId] ?? false;
+
+  bool loadingMessagesFor(String conversationId) =>
+      _loadingMessages.contains(conversationId);
 
   Future<void> startForCurrentSession() async {
     final profile = AppSession.instance.profile;
@@ -61,6 +67,7 @@ class ChatStore extends ChangeNotifier {
     directory = const [];
     _messages.clear();
     _hasMoreMessages.clear();
+    _loadingMessages.clear();
     activeConversationId = '';
     error = '';
     notifyListeners();
@@ -89,12 +96,14 @@ class ChatStore extends ChangeNotifier {
     directory = const [];
     _messages.clear();
     _hasMoreMessages.clear();
+    _loadingMessages.clear();
     activeConversationId = '';
     connected = false;
     loadingConversations = false;
     loadingDirectory = false;
     sending = false;
     error = '';
+    sendError = '';
     notifyListeners();
   }
 
@@ -164,7 +173,13 @@ class ChatStore extends ChangeNotifier {
   Future<void> loadMessages(String conversationId) async {
     await startForCurrentSession();
     final key = profileKey;
-    if (key.isEmpty || conversationId.trim().isEmpty) return;
+    if (key.isEmpty ||
+        conversationId.trim().isEmpty ||
+        _loadingMessages.contains(conversationId)) {
+      return;
+    }
+    _loadingMessages.add(conversationId);
+    notifyListeners();
     if (!_messages.containsKey(conversationId)) {
       try {
         final cached = await ChatLocalStore.instance.loadMessages(
@@ -195,6 +210,8 @@ class ChatStore extends ChangeNotifier {
       unawaited(_flushPendingMessages(conversationId));
     } catch (exception) {
       if (profileKey == key) error = exception.toString();
+    } finally {
+      _loadingMessages.remove(conversationId);
     }
     notifyListeners();
   }
@@ -220,8 +237,20 @@ class ChatStore extends ChangeNotifier {
   Future<void> sendMessage(String conversationId, String rawBody) async {
     final body = rawBody.trim();
     if (body.isEmpty || sending) return;
+    await startForCurrentSession();
+    if (profileKey.isEmpty || conversationId.trim().isEmpty) {
+      final exception = const MobileApiException(
+        code: 'authentication_required',
+        message: 'Chat sessiyasi tayyor emas',
+        statusCode: 401,
+      );
+      sendError = chatFailureMessage(exception);
+      notifyListeners();
+      throw exception;
+    }
     sending = true;
     error = '';
+    sendError = '';
     notifyListeners();
     final key = profileKey;
     try {
@@ -244,7 +273,7 @@ class ChatStore extends ChangeNotifier {
           ),
         );
       } catch (_) {}
-      final message = await MobileApi.instance.chatSendMessage(
+      final message = await _sendWithRetry(
         conversationId: conversationId,
         clientMessageId: clientMessageId,
         body: body,
@@ -259,11 +288,42 @@ class ChatStore extends ChangeNotifier {
       await refreshConversations();
     } catch (exception) {
       error = exception.toString();
+      sendError = chatFailureMessage(exception);
       rethrow;
     } finally {
       sending = false;
       notifyListeners();
     }
+  }
+
+  void clearSendError() {
+    if (sendError.isEmpty) return;
+    sendError = '';
+    notifyListeners();
+  }
+
+  Future<ChatMessage> _sendWithRetry({
+    required String conversationId,
+    required String clientMessageId,
+    required String body,
+  }) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await MobileApi.instance.chatSendMessage(
+          conversationId: conversationId,
+          clientMessageId: clientMessageId,
+          body: body,
+        );
+      } catch (error) {
+        lastError = error;
+        if (attempt > 0 || !isTransientChatFailure(error)) {
+          rethrow;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+      }
+    }
+    throw lastError ?? StateError('chat_send_failed');
   }
 
   Future<void> markRead(String conversationId) async {
@@ -324,9 +384,35 @@ class ChatStore extends ChangeNotifier {
   Future<void> _acceptMessage(ChatMessage message) async {
     final current = _messages[message.conversationId] ?? const <ChatMessage>[];
     _messages[message.conversationId] = _mergeMessages(current, [message]);
+    final conversationIndex = conversations.indexWhere(
+      (conversation) => conversation.conversationId == message.conversationId,
+    );
+    if (conversationIndex >= 0) {
+      final next = [...conversations];
+      next[conversationIndex] = next[conversationIndex].copyWith(
+        lastMessage: message,
+        lastMessageSequence: message.sequence,
+        unreadCount: message.conversationId == activeConversationId
+            ? 0
+            : next[conversationIndex].unreadCount,
+        updatedAtUnix: message.createdAtUnix,
+      );
+      next.sort(
+        (left, right) => right.updatedAtUnix.compareTo(left.updatedAtUnix),
+      );
+      conversations = next;
+    }
     if (profileKey.isNotEmpty) {
       try {
         await ChatLocalStore.instance.saveMessages(profileKey, [message]);
+        if (conversationIndex >= 0) {
+          final updated = conversations.firstWhere(
+            (conversation) =>
+                conversation.conversationId == message.conversationId,
+          );
+          await ChatLocalStore.instance
+              .saveConversations(profileKey, [updated]);
+        }
       } catch (_) {}
     }
     notifyListeners();
@@ -344,10 +430,15 @@ class ChatStore extends ChangeNotifier {
     } catch (_) {
       return;
     }
+    if (pending.isEmpty) return;
+    sending = true;
+    sendError = '';
+    notifyListeners();
+    var sentAny = false;
     for (final item in pending) {
-      if (profileKey != key) return;
+      if (profileKey != key) break;
       try {
-        final message = await MobileApi.instance.chatSendMessage(
+        final message = await _sendWithRetry(
           conversationId: item.conversationId,
           clientMessageId: item.clientMessageId,
           body: item.body,
@@ -357,11 +448,15 @@ class ChatStore extends ChangeNotifier {
           key,
           item.clientMessageId,
         );
-      } catch (_) {
-        return;
+        sentAny = true;
+      } catch (error) {
+        sendError = chatFailureMessage(error);
+        break;
       }
     }
-    if (pending.isNotEmpty) await refreshConversations();
+    sending = false;
+    notifyListeners();
+    if (sentAny) await refreshConversations();
   }
 
   void _upsertConversation(ChatConversation conversation) {
