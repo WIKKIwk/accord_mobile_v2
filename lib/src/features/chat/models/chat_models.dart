@@ -148,6 +148,8 @@ class ChatConversation {
   final int unreadCount;
   final int updatedAtUnix;
 
+  bool get hasMessages => lastMessageSequence > 0 && lastMessage != null;
+
   String get displayTitle {
     final peerName = peer?.displayName.trim() ?? '';
     if (peerName.isNotEmpty) return peerName;

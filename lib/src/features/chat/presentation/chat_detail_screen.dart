@@ -85,9 +85,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             connected: store.connected,
           ),
           nativeTopBar: true,
-          showProfileAction: false,
           contentPadding: EdgeInsets.zero,
-          backgroundColor: Theme.of(context).colorScheme.surface,
           child: Column(
             children: [
               Expanded(child: _messages(messages)),

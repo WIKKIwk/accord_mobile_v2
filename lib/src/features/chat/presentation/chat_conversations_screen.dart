@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
+import '../../../core/navigation/app_root_navigation.dart';
+import '../../../core/session/session.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../models/chat_models.dart';
 import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
@@ -21,6 +25,7 @@ class ChatConversationsScreen extends StatefulWidget {
 class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   final store = ChatStore.instance;
   final searchController = TextEditingController();
+  final searchFocusNode = FocusNode();
   String query = '';
 
   @override
@@ -32,6 +37,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   @override
   void dispose() {
     searchController.dispose();
+    searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -41,54 +47,53 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
       animation: store,
       builder: (context, _) {
         return AppShell(
-          title: 'Chatlar',
-          subtitle: store.connected ? 'Onlayn' : 'Ulanmoqda…',
+          title: '',
+          subtitle: '',
           nativeTopBar: true,
+          automaticallyImplyNativeLeading: false,
+          nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+          profileActionListenable: searchFocusNode,
+          showProfileActionResolver: () => !searchFocusNode.hasFocus,
+          titleWidget: AdminCatalogSearchField(
+            controller: searchController,
+            focusNode: searchFocusNode,
+            hintText: 'Chatlardan qidirish',
+            onChanged: (value) => setState(() => query = value.trim()),
+            onClear: () {
+              searchController.clear();
+              setState(() => query = '');
+            },
+            onBackWithContext: (context) {
+              final navigator = Navigator.of(context);
+              if (navigator.canPop()) {
+                navigator.pop();
+                return;
+              }
+              AppRootNavigation.replaceRootRoute(
+                context,
+                AppSession.instance.homeRoute,
+              );
+            },
+          ),
           bottom: const ChatRoleDock(),
           contentPadding: EdgeInsets.zero,
-          child: Column(
+          child: Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: SearchBar(
-                  controller: searchController,
-                  hintText: 'Chatlardan qidirish',
-                  leading: const Icon(Icons.search_rounded),
-                  trailing: [
-                    if (query.isNotEmpty)
-                      IconButton(
-                        tooltip: 'Tozalash',
-                        onPressed: () {
-                          searchController.clear();
-                          setState(() => query = '');
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => query = value.trim()),
-                ),
+              RefreshIndicator(
+                onRefresh: store.refreshConversations,
+                child: _conversationList(context),
               ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    RefreshIndicator(
-                      onRefresh: store.refreshConversations,
-                      child: _conversationList(context),
-                    ),
-                    Positioned(
-                      right: 16,
-                      bottom: 16,
-                      child: FloatingActionButton.extended(
-                        heroTag: 'chat-new-conversation',
-                        tooltip: 'Yangi suhbat',
-                        onPressed: () => Navigator.of(context).pushNamed(
-                          AppRoutes.chatDirectory,
-                        ),
-                        icon: const Icon(Icons.edit_rounded),
-                        label: const Text('Yangi chat'),
-                      ),
-                    ),
-                  ],
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: FloatingActionButton.extended(
+                  heroTag: 'chat-new-conversation',
+                  tooltip: 'Yangi suhbat',
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.chatDirectory,
+                  ),
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('Yangi chat'),
                 ),
               ),
             ],
@@ -100,8 +105,11 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
   List<ChatConversation> get _visibleConversations {
     final normalized = query.toLowerCase();
-    if (normalized.isEmpty) return store.conversations;
-    return store.conversations.where((conversation) {
+    final started = store.conversations.where(
+      (conversation) => conversation.hasMessages,
+    );
+    if (normalized.isEmpty) return started.toList(growable: false);
+    return started.where((conversation) {
       final title = conversation.displayTitle.toLowerCase();
       final preview = conversation.lastMessage?.body.toLowerCase() ?? '';
       return title.contains(normalized) || preview.contains(normalized);

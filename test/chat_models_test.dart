@@ -58,6 +58,7 @@ void main() {
     expect(page.items.single.displayTitle, 'Qolipchi');
     expect(page.items.single.unreadCount, 3);
     expect(page.items.single.peer?.role, UserRole.qolipchi);
+    expect(page.items.single.hasMessages, isFalse);
     expect(page.hasMore, isFalse);
   });
 }

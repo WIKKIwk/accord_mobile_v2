@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
 import '../state/chat_failure.dart';
@@ -21,6 +23,7 @@ class ChatDirectoryScreen extends StatefulWidget {
 class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
   final store = ChatStore.instance;
   final searchController = TextEditingController();
+  final searchFocusNode = FocusNode();
   Timer? debounce;
   String openingRef = '';
 
@@ -35,6 +38,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
   void dispose() {
     debounce?.cancel();
     searchController.dispose();
+    searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -75,24 +79,25 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
       animation: store,
       builder: (context, _) {
         return AppShell(
-          title: 'Yangi suhbat',
-          subtitle: 'Foydalanuvchini tanlang',
+          title: '',
+          subtitle: '',
           nativeTopBar: true,
-          contentPadding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                child: SearchBar(
-                  controller: searchController,
-                  hintText: 'Ism bo‘yicha qidirish',
-                  leading: const Icon(Icons.search_rounded),
-                  onChanged: _search,
-                ),
-              ),
-              Expanded(child: _directoryList()),
-            ],
+          automaticallyImplyNativeLeading: false,
+          nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+          profileActionListenable: searchFocusNode,
+          showProfileActionResolver: () => !searchFocusNode.hasFocus,
+          titleWidget: AdminCatalogSearchField(
+            controller: searchController,
+            focusNode: searchFocusNode,
+            hintText: 'Foydalanuvchi qidirish',
+            onChanged: _search,
+            onClear: () {
+              searchController.clear();
+              _search('');
+            },
           ),
+          contentPadding: EdgeInsets.zero,
+          child: _directoryList(),
         );
       },
     );

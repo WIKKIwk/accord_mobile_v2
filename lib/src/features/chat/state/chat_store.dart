@@ -73,7 +73,9 @@ class ChatStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      conversations = await ChatLocalStore.instance.loadConversations(nextKey);
+      conversations = (await ChatLocalStore.instance.loadConversations(nextKey))
+          .where((conversation) => conversation.hasMessages)
+          .toList(growable: false);
       notifyListeners();
     } catch (_) {}
     await refreshConversations();
@@ -123,7 +125,9 @@ class ChatStore extends ChangeNotifier {
     try {
       final page = await MobileApi.instance.chatConversations();
       if (profileKey != key) return;
-      conversations = page.items;
+      conversations = page.items
+          .where((conversation) => conversation.hasMessages)
+          .toList(growable: false);
       try {
         await ChatLocalStore.instance.saveConversations(key, conversations);
       } catch (_) {}
@@ -253,8 +257,8 @@ class ChatStore extends ChangeNotifier {
     sendError = '';
     notifyListeners();
     final key = profileKey;
+    var clientMessageId = _newClientMessageId();
     try {
-      var clientMessageId = _newClientMessageId();
       try {
         final pending = await ChatLocalStore.instance.loadPendingMessages(
           key,
@@ -278,14 +282,21 @@ class ChatStore extends ChangeNotifier {
         clientMessageId: clientMessageId,
         body: body,
       );
-      await _acceptMessage(message);
+      try {
+        await _acceptMessage(message);
+      } catch (stateError) {
+        debugPrint(
+          'chat message accepted by server but local state update failed: '
+          '${stateError.runtimeType}: $stateError',
+        );
+      }
       try {
         await ChatLocalStore.instance.removePendingMessage(
           key,
           clientMessageId,
         );
       } catch (_) {}
-      await refreshConversations();
+      unawaited(refreshConversations());
     } catch (exception) {
       error = exception.toString();
       sendError = chatFailureMessage(exception);
