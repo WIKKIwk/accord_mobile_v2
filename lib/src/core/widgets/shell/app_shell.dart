@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import '../../../app/app_router.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
-import '../../../features/chat/state/chat_store.dart';
 import '../../localization/app_localizations.dart';
 import '../../session/session.dart';
 import '../../theme/app_motion.dart';
@@ -277,13 +276,8 @@ class _AppShellState extends State<AppShell>
     final routeName = ModalRoute.of(context)?.settings.name;
     final showProfile =
         widget.showProfileAction && routeName != AppRoutes.profile;
-    final showChat = AppSession.instance.isLoggedIn &&
-        routeName != AppRoutes.chat &&
-        routeName != AppRoutes.chatDirectory &&
-        routeName != AppRoutes.chatDetail;
     final actions = <Widget>[
       ...?widget.actions,
-      if (showChat) const AppShellChatAction(),
       if (showProfile) _nativeAppBarProfileAction(),
     ];
     return actions.isEmpty ? null : actions;
@@ -729,39 +723,6 @@ class AppShellProfileAction extends StatefulWidget {
 
   @override
   State<AppShellProfileAction> createState() => _AppShellProfileActionState();
-}
-
-class AppShellChatAction extends StatelessWidget {
-  const AppShellChatAction({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ChatStore.instance,
-      builder: (context, _) {
-        final unread = ChatStore.instance.totalUnread;
-        return SizedBox(
-          width: 48,
-          child: Center(
-            child: Semantics(
-              button: true,
-              label: unread > 0 ? 'Chatlar, $unread yangi xabar' : 'Chatlar',
-              child: IconButton(
-                tooltip: 'Chatlar',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.chat),
-                icon: Badge(
-                  isLabelVisible: unread > 0,
-                  label: Text(unread > 99 ? '99+' : '$unread'),
-                  child: const Icon(Icons.chat_bubble_outline_rounded),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _AppShellProfileActionState extends State<AppShellProfileAction> {

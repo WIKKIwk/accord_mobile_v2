@@ -1,4 +1,7 @@
+import '../../../app/app_router.dart';
+import '../../navigation/app_root_navigation.dart';
 import '../../native_dock_bridge.dart';
+import '../../../features/chat/state/chat_store.dart';
 import 'app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
@@ -52,62 +55,85 @@ class RoleDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useNativeDock = NativeDockBridge.isSupportedPlatform &&
-        NativeDockBridge.instance.supportsSystemDock;
-    if (useNativeDock) {
-      NativeDockBridge.instance.register(
-        NativeDockState(
-          visible: true,
-          compact: compact,
-          tightToEdges: tightToEdges,
-          items: [
-            for (final destination in destinations)
-              if (!destination.primary || primaryVisible)
-                NativeDockItem(
-                  id: destination.id,
-                  label: destination.label,
-                  iconCodePoint:
-                      (destination.nativeIcon ?? destination.icon).codePoint,
-                  selectedIconCodePoint: (destination.nativeSelectedIcon ??
-                          destination.selectedIcon)
-                      .codePoint,
-                  active: destination.active,
-                  primary: destination.primary,
-                  showBadge: destination.showBadge,
-                  routeName: destination.primary ? null : destination.routeName,
-                  replaceStack: destination.replaceStack,
-                  onTap: destination.onTap,
-                ),
-          ],
-        ),
-      );
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: tightToEdges ? 0 : 8),
-      child: AppNavigationBar(
-        height: compact ? 60 : 64,
-        selectionVisible: selectionVisible,
-        selectedIndex: selectedIndex,
-        primaryVisible: primaryVisible,
-        destinations: [
-          for (final destination in destinations)
-            AppNavigationDestination(
-              label: destination.label,
-              icon: Icon(destination.icon),
-              selectedIcon: Icon(destination.selectedIcon),
-              isPrimary: destination.primary,
-              showBadge: destination.showBadge,
+    return AnimatedBuilder(
+      animation: ChatStore.instance,
+      builder: (context, _) {
+        final allDestinations = [
+          ...destinations,
+          RoleDockDestination(
+            id: 'shared-chat',
+            label: 'Chat',
+            icon: Icons.chat_bubble_outline_rounded,
+            selectedIcon: Icons.chat_bubble_rounded,
+            active: false,
+            showBadge: ChatStore.instance.totalUnread > 0,
+            routeName: AppRoutes.chat,
+            onTap: () => AppRootNavigation.replaceRootRoute(
+              context,
+              AppRoutes.chat,
             ),
-        ],
-        onDestinationSelected: (index) {
-          if (index < 0 || index >= destinations.length) {
-            return;
-          }
-          destinations[index].onTap();
-        },
-      ),
+          ),
+        ];
+        final useNativeDock = NativeDockBridge.isSupportedPlatform &&
+            NativeDockBridge.instance.supportsSystemDock;
+        if (useNativeDock) {
+          NativeDockBridge.instance.register(
+            NativeDockState(
+              visible: true,
+              compact: compact,
+              tightToEdges: tightToEdges,
+              items: [
+                for (final destination in allDestinations)
+                  if (!destination.primary || primaryVisible)
+                    NativeDockItem(
+                      id: destination.id,
+                      label: destination.label,
+                      iconCodePoint:
+                          (destination.nativeIcon ?? destination.icon)
+                              .codePoint,
+                      selectedIconCodePoint: (destination.nativeSelectedIcon ??
+                              destination.selectedIcon)
+                          .codePoint,
+                      active: destination.active,
+                      primary: destination.primary,
+                      showBadge: destination.showBadge,
+                      routeName:
+                          destination.primary ? null : destination.routeName,
+                      replaceStack: destination.replaceStack,
+                      onTap: destination.onTap,
+                    ),
+              ],
+            ),
+          );
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: tightToEdges ? 0 : 8),
+          child: AppNavigationBar(
+            height: compact ? 60 : 64,
+            selectionVisible: selectionVisible,
+            selectedIndex: selectedIndex,
+            primaryVisible: primaryVisible,
+            destinations: [
+              for (final destination in allDestinations)
+                AppNavigationDestination(
+                  label: destination.label,
+                  icon: Icon(destination.icon),
+                  selectedIcon: Icon(destination.selectedIcon),
+                  isPrimary: destination.primary,
+                  showBadge: destination.showBadge,
+                ),
+            ],
+            onDestinationSelected: (index) {
+              if (index < 0 || index >= allDestinations.length) {
+                return;
+              }
+              allDestinations[index].onTap();
+            },
+          ),
+        );
+      },
     );
   }
 }
