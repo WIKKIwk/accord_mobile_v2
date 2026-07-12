@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
 import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
+import 'widgets/chat_role_dock.dart';
 
 class ChatConversationsScreen extends StatefulWidget {
   const ChatConversationsScreen({super.key});
@@ -35,6 +36,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           title: 'Chatlar',
           subtitle: store.connected ? 'Onlayn' : 'Ulanmoqda…',
           nativeTopBar: true,
+          bottom: const ChatRoleDock(),
           child: Stack(
             children: [
               RefreshIndicator(

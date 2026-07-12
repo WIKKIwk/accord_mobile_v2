@@ -65,7 +65,7 @@ class RoleDock extends StatelessWidget {
             label: 'Chat',
             icon: Icons.chat_bubble_outline_rounded,
             selectedIcon: Icons.chat_bubble_rounded,
-            active: false,
+            active: ModalRoute.of(context)?.settings.name == AppRoutes.chat,
             showBadge: ChatStore.instance.totalUnread > 0,
             routeName: AppRoutes.chat,
             onTap: () => AppRootNavigation.replaceRootRoute(
@@ -74,6 +74,11 @@ class RoleDock extends StatelessWidget {
             ),
           ),
         ];
+        final isChatRoute =
+            ModalRoute.of(context)?.settings.name == AppRoutes.chat;
+        final effectiveSelectionVisible = selectionVisible || isChatRoute;
+        final effectiveSelectedIndex =
+            isChatRoute ? allDestinations.length - 1 : selectedIndex;
         final useNativeDock = NativeDockBridge.isSupportedPlatform &&
             NativeDockBridge.instance.supportsSystemDock;
         if (useNativeDock) {
@@ -112,8 +117,8 @@ class RoleDock extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: tightToEdges ? 0 : 8),
           child: AppNavigationBar(
             height: compact ? 60 : 64,
-            selectionVisible: selectionVisible,
-            selectedIndex: selectedIndex,
+            selectionVisible: effectiveSelectionVisible,
+            selectedIndex: effectiveSelectedIndex,
             primaryVisible: primaryVisible,
             destinations: [
               for (final destination in allDestinations)
