@@ -51,6 +51,7 @@ class AppLocalizations {
         'Пожалуйста, подключитесь к интернету.',
       );
   String get profileTitle => _t('Profil', 'Profile', 'Профиль');
+  String get adminUserTitle => _t('Foydalanuvchi', 'User', 'Пользователь');
   String get profileSettingsTitle =>
       _t('Profil sozlamalari', 'Profile settings', 'Настройки профиля');
   String get profileSettingsBody => _t(

@@ -110,7 +110,7 @@ void main() {
         theme: ThemeData(useMaterial3: true),
         home: const Scaffold(
           bottomNavigationBar: AdminDock(
-            activeTab: AdminDockTab.profile,
+            activeTab: AdminDockTab.user,
             showPrimaryFab: false,
           ),
         ),
@@ -119,7 +119,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Profil'), findsOneWidget);
+    expect(find.text('Foydalanuvchi'), findsOneWidget);
     expect(find.text('Foydalanuvchilar'), findsNothing);
     expect(tester.takeException(), isNull);
   });

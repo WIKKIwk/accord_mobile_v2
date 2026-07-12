@@ -726,7 +726,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 activeTab: QolipDockTab.profile,
               ),
             _ProfileShellKind.admin => const AdminDock(
-                activeTab: AdminDockTab.profile,
+                activeTab: AdminDockTab.user,
                 showPrimaryFab: false,
               ),
             _ProfileShellKind.none => null,

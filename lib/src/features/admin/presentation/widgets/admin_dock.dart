@@ -7,7 +7,7 @@ import '../../../../core/widgets/navigation/role_dock.dart';
 import 'admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
-enum AdminDockTab { home, profile, suppliers, settings, activity }
+enum AdminDockTab { home, user, suppliers, settings, activity }
 
 class AdminDock extends StatelessWidget {
   const AdminDock({
@@ -29,7 +29,7 @@ class AdminDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final homeLabel = l10n?.adminHomeNavTitle ?? 'Uy';
-    final profileLabel = l10n?.profileTitle ?? 'Profil';
+    final userLabel = l10n?.adminUserTitle ?? 'Foydalanuvchi';
     final createLabel = l10n?.adminCreateTitle ?? 'Yangi';
     final activityLabel = l10n?.adminActivityNavTitle ?? 'Faoliyat';
     return AnimatedBuilder(
@@ -40,7 +40,7 @@ class AdminDock extends StatelessWidget {
       builder: (context, _) {
         final destinations = _visibleDestinations(
           homeLabel: homeLabel,
-          profileLabel: profileLabel,
+          userLabel: userLabel,
           createLabel: createLabel,
           activityLabel: activityLabel,
         );
@@ -132,7 +132,7 @@ class _AdminDockDestination {
 
 List<_AdminDockDestination> _visibleDestinations({
   required String homeLabel,
-  required String profileLabel,
+  required String userLabel,
   required String createLabel,
   required String activityLabel,
 }) {
@@ -146,9 +146,9 @@ List<_AdminDockDestination> _visibleDestinations({
       routeName: AppRoutes.adminHome,
     ),
     _AdminDockDestination(
-      id: 'admin-profile',
-      tab: AdminDockTab.profile,
-      label: profileLabel,
+      id: 'admin-user',
+      tab: AdminDockTab.user,
+      label: userLabel,
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
       routeName: AppRoutes.profile,
