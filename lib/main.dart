@@ -14,9 +14,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const mapboxAccessToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
+  if (mapboxAccessToken.trim().isNotEmpty) {
+    MapboxOptions.setAccessToken(mapboxAccessToken);
+  }
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await _runStartupStep('native back button bridge', () async {
     await NativeBackButtonBridge.instance.initialize();

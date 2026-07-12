@@ -1,6 +1,7 @@
 import '../../../app/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'admin_factory_map_mapbox.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 
@@ -29,10 +30,11 @@ class AdminFactoryMapScreen extends StatelessWidget {
                 border: Border.all(color: scheme.outlineVariant),
               ),
               clipBehavior: Clip.antiAlias,
-              child: const ModelViewer(
-                src: 'assets/models/zavod6-phone.glb',
-                alt: 'Zavod 3D kartasi',
-                customHtml: '''
+              child: const _FactoryMapSwitcher(
+                fallback: ModelViewer(
+                  src: 'assets/models/zavod6-phone.glb',
+                  alt: 'Zavod 3D kartasi',
+                  customHtml: '''
                   <style>
                     html, body { background: #202426; }
                     #factory-map-canvas {
@@ -67,22 +69,39 @@ class AdminFactoryMapScreen extends StatelessWidget {
                   <div id="factory-map-status">Zavod modeli yuklanmoqda...</div>
                   <script type="module" src="./factory-map-renderer.js"></script>
                 ''',
-                cameraControls: true,
-                cameraTarget: '0m 0m 0m',
-                cameraOrbit: '45deg 65deg 150m',
-                minCameraOrbit: 'auto auto 5m',
-                maxCameraOrbit: 'auto auto 250m',
-                fieldOfView: '35deg',
-                autoRotate: false,
-                disableZoom: false,
-                interactionPrompt: InteractionPrompt.none,
-                loading: Loading.eager,
-                backgroundColor: Colors.transparent,
+                  cameraControls: true,
+                  cameraTarget: '0m 0m 0m',
+                  cameraOrbit: '45deg 65deg 150m',
+                  minCameraOrbit: 'auto auto 5m',
+                  maxCameraOrbit: 'auto auto 250m',
+                  fieldOfView: '35deg',
+                  autoRotate: false,
+                  disableZoom: false,
+                  interactionPrompt: InteractionPrompt.none,
+                  loading: Loading.eager,
+                  backgroundColor: Colors.transparent,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _FactoryMapSwitcher extends StatelessWidget {
+  const _FactoryMapSwitcher({required this.fallback});
+
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    const enabled = bool.fromEnvironment('MAPBOX_FACTORY_MAP');
+    const token = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
+    if (enabled && token.trim().isNotEmpty) {
+      return const MapboxFactoryMapViewport();
+    }
+    return fallback;
   }
 }
