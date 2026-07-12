@@ -103,4 +103,24 @@ void main() {
     semantics.dispose();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('admin dock exposes the current user profile', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: const Scaffold(
+          bottomNavigationBar: AdminDock(
+            activeTab: AdminDockTab.profile,
+            showPrimaryFab: false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profil'), findsOneWidget);
+    expect(find.text('Foydalanuvchilar'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
