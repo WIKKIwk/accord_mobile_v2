@@ -4,6 +4,10 @@ import '../features/customer/presentation/customer_delivery_detail_screen.dart';
 import '../features/customer/presentation/customer_home_screen.dart';
 import '../features/customer/presentation/customer_notifications_screen.dart';
 import '../features/customer/presentation/customer_status_detail_screen.dart';
+import '../features/chat/presentation/chat_conversations_screen.dart';
+import '../features/chat/presentation/chat_detail_screen.dart';
+import '../features/chat/presentation/chat_directory_screen.dart';
+import '../features/chat/models/chat_models.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
@@ -130,6 +134,9 @@ class AppRoutes {
       '/werka-customer-delivery-detail';
   static const String werkaSuccess = '/werka-success';
   static const String profile = '/profile';
+  static const String chat = '/chat';
+  static const String chatDirectory = '/chat/directory';
+  static const String chatDetail = '/chat/detail';
   static const String customerHome = '/customer-home';
   static const String customerNotifications = '/customer-notifications';
   static const String customerStatusDetail = '/customer-status-detail';
@@ -224,6 +231,7 @@ class AppRouter {
     AppRoutes.adminUserCreate,
     AppRoutes.adminWerka,
     AppRoutes.profile,
+    AppRoutes.chat,
     AppRoutes.customerHome,
     AppRoutes.customerNotifications,
     AppRoutes.materialHome,
@@ -392,6 +400,21 @@ class AppRouter {
         return _buildRoute(settings, WerkaSuccessScreen(record: record));
       case AppRoutes.profile:
         return _buildRoute(settings, const ProfileScreen());
+      case AppRoutes.chat:
+        return _buildRoute(settings, const ChatConversationsScreen());
+      case AppRoutes.chatDirectory:
+        return _buildRoute(settings, const ChatDirectoryScreen());
+      case AppRoutes.chatDetail:
+        final conversation = settings.arguments is ChatConversation
+            ? settings.arguments as ChatConversation
+            : null;
+        if (conversation == null) {
+          return _buildRoute(settings, const ChatConversationsScreen());
+        }
+        return _buildRoute(
+          settings,
+          ChatDetailScreen(conversation: conversation),
+        );
       case AppRoutes.customerHome:
         return _buildRoute(settings, const CustomerHomeScreen());
       case AppRoutes.customerNotifications:
@@ -641,6 +664,9 @@ class AppRouter {
     if (routeName == null ||
         routeName == AppRoutes.login ||
         routeName == AppRoutes.profile ||
+        routeName == AppRoutes.chat ||
+        routeName == AppRoutes.chatDirectory ||
+        routeName == AppRoutes.chatDetail ||
         routeName == AppRoutes.pinSetupEntry ||
         routeName == AppRoutes.pinSetupConfirm) {
       return true;

@@ -1,5 +1,6 @@
 import '../../../features/admin/state/admin_store.dart';
 import '../../../features/customer/state/customer_store.dart';
+import '../../../features/chat/state/chat_store.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
 import '../../../features/shared/models/app_models.dart';
 import '../../../features/supplier/state/supplier_store.dart';
@@ -21,6 +22,7 @@ class AppRuntimeReset {
     required SessionProfile? previousProfile,
   }) async {
     CustomerStore.instance.clear();
+    ChatStore.instance.clearMemory();
     SupplierStore.instance.clear();
     WerkaStore.instance.clear();
     WerkaNotificationStore.instance.clear();

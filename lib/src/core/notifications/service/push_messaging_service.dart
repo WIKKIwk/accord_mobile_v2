@@ -4,6 +4,7 @@ import '../hub/refresh_hub.dart';
 import '../store/notification_unread_store.dart';
 import '../../session/session.dart';
 import '../../../features/shared/models/app_models.dart';
+import '../../../features/chat/state/chat_store.dart';
 import 'local_notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -95,10 +96,26 @@ class PushMessagingService {
         return;
       }
       final accessRole = profile.accessRole;
-      if (targetRole.isNotEmpty && targetRole != accessRole?.name) {
+      final acceptedTargetRoles = <String>{
+        profile.role.name,
+        userRoleToJson(profile.role),
+        if (accessRole != null) accessRole.name,
+        if (accessRole != null) userRoleToJson(accessRole),
+      };
+      if (targetRole.isNotEmpty && !acceptedTargetRoles.contains(targetRole)) {
         return;
       }
       if (targetRef.isNotEmpty && targetRef != profile.ref) {
+        return;
+      }
+      if ((data['event_type'] ?? '').trim() == 'chat.message.created') {
+        await ChatStore.instance.handlePush(data);
+        await LocalNotificationService.instance.showChatNotification(
+          id: data['message_id'] ??
+              DateTime.now().millisecondsSinceEpoch.toString(),
+          title: message.notification?.title ?? 'Yangi xabar',
+          body: message.notification?.body ?? 'Chatda yangi xabar',
+        );
         return;
       }
       final record = DispatchRecord(

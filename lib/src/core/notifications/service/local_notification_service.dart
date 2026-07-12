@@ -13,6 +13,14 @@ class LocalNotificationService {
     importance: Importance.max,
     playSound: true,
   );
+  static const AndroidNotificationChannel _chatChannel =
+      AndroidNotificationChannel(
+    'accord_chat',
+    'Accord Chat',
+    description: 'Yangi chat xabarlari',
+    importance: Importance.max,
+    playSound: true,
+  );
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -38,25 +46,20 @@ class LocalNotificationService {
     );
     await _plugin.initialize(settings: settings);
 
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     await android?.createNotificationChannel(_channel);
+    await android?.createNotificationChannel(_chatChannel);
     _initialized = true;
   }
 
   Future<void> requestPermission() async {
     await initialize();
-    final ios = _plugin
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >();
+    final ios = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
     await ios?.requestPermissions(alert: true, badge: true, sound: true);
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestNotificationsPermission();
   }
 
@@ -84,6 +87,33 @@ class LocalNotificationService {
       id: record.id.hashCode,
       title: _title(role, record),
       body: _body(role, record),
+      notificationDetails: details,
+    );
+  }
+
+  Future<void> showChatNotification({
+    required String id,
+    required String title,
+    required String body,
+  }) async {
+    await initialize();
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _chatChannel.id,
+        _chatChannel.name,
+        channelDescription: _chatChannel.description,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+      ),
+      iOS: const DarwinNotificationDetails(),
+      macOS: const DarwinNotificationDetails(),
+      linux: const LinuxNotificationDetails(),
+    );
+    await _plugin.show(
+      id: id.hashCode,
+      title: title.trim().isEmpty ? 'Yangi xabar' : title.trim(),
+      body: body.trim().isEmpty ? 'Chatda yangi xabar' : body.trim(),
       notificationDetails: details,
     );
   }

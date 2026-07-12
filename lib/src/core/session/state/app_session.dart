@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../runtime/app_runtime_reset.dart';
 import '../../../features/shared/models/app_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSession {
@@ -10,6 +11,7 @@ class AppSession {
   static final AppSession instance = AppSession._();
   static const String _tokenKey = 'app_session_token';
   static const String _profileKey = 'app_session_profile';
+  final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   String? token;
   SessionProfile? profile;
@@ -117,6 +119,7 @@ class AppSession {
     profile = SessionProfile.fromJson(
       jsonDecode(storedProfile) as Map<String, dynamic>,
     );
+    revision.value++;
   }
 
   Future<void> setSession({
@@ -140,6 +143,7 @@ class AppSession {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
+    revision.value++;
   }
 
   Future<void> clear() async {
@@ -153,12 +157,14 @@ class AppSession {
     await AppRuntimeReset.instance.resetSessionScopedState(
       previousProfile: previousProfile,
     );
+    revision.value++;
   }
 
   Future<void> updateProfile(SessionProfile nextProfile) async {
     profile = nextProfile;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_profileKey, jsonEncode(nextProfile.toJson()));
+    revision.value++;
   }
 
   WerkaHomeData? consumeWerkaHomeBootstrap() {
