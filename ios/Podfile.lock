@@ -103,18 +103,6 @@ PODS:
   - local_auth_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
-  - mapbox_maps_flutter (2.26.0):
-    - Flutter
-    - MapboxMaps (= 11.26.0)
-    - Turf (= 4.0.0)
-  - MapboxCommon (24.26.0):
-    - Turf (= 4.0.0)
-  - MapboxCoreMaps (11.26.0):
-    - MapboxCommon (= 24.26.0)
-  - MapboxMaps (11.26.0):
-    - MapboxCommon (= 24.26.0)
-    - MapboxCoreMaps (= 11.26.0)
-    - Turf (= 4.0.0)
   - mobile_scanner (7.0.0):
     - Flutter
     - FlutterMacOS
@@ -135,7 +123,6 @@ PODS:
     - Flutter
     - FlutterMacOS
   - SwiftyGif (5.4.5)
-  - Turf (4.0.0)
   - url_launcher_ios (0.0.1):
     - Flutter
   - webview_flutter_wkwebview (0.0.1):
@@ -151,7 +138,6 @@ DEPENDENCIES:
   - gal (from `.symlinks/plugins/gal/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
-  - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - pdfx (from `.symlinks/plugins/pdfx/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
@@ -170,14 +156,10 @@ SPEC REPOS:
     - FirebaseMessaging
     - GoogleDataTransport
     - GoogleUtilities
-    - MapboxCommon
-    - MapboxCoreMaps
-    - MapboxMaps
     - nanopb
     - PromisesObjC
     - SDWebImage
     - SwiftyGif
-    - Turf
 
 EXTERNAL SOURCES:
   file_picker:
@@ -196,8 +178,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   local_auth_darwin:
     :path: ".symlinks/plugins/local_auth_darwin/darwin"
-  mapbox_maps_flutter:
-    :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
   mobile_scanner:
     :path: ".symlinks/plugins/mobile_scanner/darwin"
   pdfx:
@@ -229,10 +209,6 @@ SPEC CHECKSUMS:
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   local_auth_darwin: 553ce4f9b16d3fdfeafce9cf042e7c9f77c1c391
-  mapbox_maps_flutter: b4a4c37d75d78595e513400992bb9d02dc03a48a
-  MapboxCommon: d720fff8fb3c92988e01cea7cf2bd4300521ffb2
-  MapboxCoreMaps: e135510ab94ae1a8d9ccb26031c145f9292a94ef
-  MapboxMaps: 8d68ef15e1a23337d88e419c3deb29cde8ad9380
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   pdfx: 77f4dddc48361fbb01486fa2bdee4532cbb97ef3
@@ -241,7 +217,6 @@ SPEC CHECKSUMS:
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
-  Turf: c9eb11a65d96af58cac523460fd40fec5061b081
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
