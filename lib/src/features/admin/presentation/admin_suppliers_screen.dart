@@ -59,7 +59,7 @@ String _adminUserKindRoleQuery(AdminUserKind kind) {
 }
 
 bool _adminUserKindUsesWorkers(AdminUserKind? kind) {
-  return kind == AdminUserKind.worker;
+  return false;
 }
 
 bool _assignmentIsMaterialTaminotchi(AdminRoleAssignment assignment) {
@@ -117,11 +117,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   void _handleScrollMetrics(ScrollMetrics metrics) {
-    if (_initialLoading ||
-        _loadingMore ||
-        _selectedKind == null ||
-        _selectedKind == AdminUserKind.worker ||
-        !_hasMore) {
+    if (_initialLoading || _loadingMore || _selectedKind == null || !_hasMore) {
       return;
     }
     final viewport = metrics.viewportDimension;
@@ -179,7 +175,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_selectedKind == null || _selectedKind == AdminUserKind.worker) {
+    if (_selectedKind == null) {
       return;
     }
     if (_loadingMore || _initialLoading) {
@@ -397,6 +393,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       name: item.name,
       phone: item.phone,
       kind: AdminUserKind.materialTaminotchi,
+      avatarUrl: item.avatarUrl,
       principalRole: UserRole.materialTaminotchi,
       blocked: item.blocked,
       roleLabelOverride: 'Material taminotchisi',
@@ -445,8 +442,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         ),
       );
     }
-    final showFooter = kind != AdminUserKind.worker &&
-        kind != AdminUserKind.qolipchi &&
+    final showFooter = kind != AdminUserKind.qolipchi &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     if (_initialLoading) {

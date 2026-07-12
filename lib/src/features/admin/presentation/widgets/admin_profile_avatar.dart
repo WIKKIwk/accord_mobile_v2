@@ -21,13 +21,15 @@ class AdminProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final innerSize = size - 10;
+    final padding = size >= 60 ? 5.0 : 2.0;
+    final innerSize = size - padding * 2;
     final fallback = Center(
       child: Text(
         fallbackText,
         style: theme.textTheme.headlineSmall?.copyWith(
           color: scheme.onPrimaryContainer,
           fontWeight: FontWeight.w900,
+          fontSize: size * 0.26,
         ),
       ),
     );
@@ -35,7 +37,7 @@ class AdminProfileAvatar extends StatelessWidget {
     return Container(
       height: size,
       width: size,
-      padding: const EdgeInsets.all(5),
+      padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: scheme.surface,
@@ -56,6 +58,7 @@ class AdminProfileAvatar extends StatelessWidget {
                   height: innerSize,
                   width: innerSize,
                   fit: BoxFit.cover,
+                  gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => fallback,
                 )
               : fallback,

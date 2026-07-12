@@ -444,7 +444,7 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
-  testWidgets('admin users list filters workers from worker list', (
+  testWidgets('admin users list loads workers from unified profile list', (
     tester,
   ) async {
     final client = _AdminUsersHttpClient(
@@ -508,7 +508,7 @@ void main() {
       expect(find.text('Jasur worker'), findsNothing);
 
       await _selectUserRole(tester, 'Ta’minotchi');
-      expect(find.text('Ta’minotchi'), findsOneWidget);
+      expect(find.text('Rol: Ta’minotchi'), findsOneWidget);
       expect(find.text('Rollar tanlanmagan'), findsNothing);
       expect(
         client.requests,
@@ -524,7 +524,7 @@ void main() {
       await _selectUserRole(tester, 'Ishchi');
       expect(
         client.requests,
-        contains('GET /v1/mobile/admin/workers?role=worker'),
+        contains('GET /v1/mobile/admin/users/list?limit=50&role=worker'),
       );
       expect(find.text('Supplier One'), findsNothing);
       expect(find.text('Jasur worker'), findsOneWidget);
@@ -917,20 +917,37 @@ class _AdminUsersHttpClient implements HttpClient {
       );
     }
     if (key.startsWith('GET /v1/mobile/admin/users/list')) {
+      final role = url.queryParameters['role'] ?? '';
+      final profileItems = role == 'worker'
+          ? workers.map((worker) {
+              final item = (worker as Map).cast<String, Object?>();
+              return <String, Object?>{
+                'id': 'worker:${item['id']}',
+                'source': 'worker',
+                'entity_ref': item['id'],
+                'principal_role': 'aparatchi',
+                'name': item['name'],
+                'phone': item['phone'] ?? '',
+                'avatar_url': item['avatar_url'] ?? '',
+                'role_label': item['level'] ?? '',
+                'blocked': false,
+              };
+            }).toList(growable: false)
+          : createdCustomer && users.isEmpty
+              ? const [
+                  {
+                    'id': 'customer:CUS-1',
+                    'source': 'customer',
+                    'entity_ref': 'CUS-1',
+                    'name': 'chichqoq',
+                    'phone': '998901234567',
+                    'role_label': 'Item yaratuvchi',
+                    'blocked': false,
+                  },
+                ]
+              : users;
       body = {
-        'items': createdCustomer && users.isEmpty
-            ? const [
-                {
-                  'id': 'customer:CUS-1',
-                  'source': 'customer',
-                  'entity_ref': 'CUS-1',
-                  'name': 'chichqoq',
-                  'phone': '998901234567',
-                  'role_label': 'Item yaratuvchi',
-                  'blocked': false,
-                },
-              ]
-            : users,
+        'items': profileItems,
         'has_more': false,
       };
       return _FakeHttpClientRequest(

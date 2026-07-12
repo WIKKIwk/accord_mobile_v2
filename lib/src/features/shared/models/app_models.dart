@@ -2144,6 +2144,7 @@ class AdminUserListEntry {
     required this.name,
     required this.phone,
     required this.kind,
+    this.avatarUrl = '',
     this.principalRole = UserRole.supplier,
     this.blocked = false,
     this.roleLabelOverride,
@@ -2153,6 +2154,7 @@ class AdminUserListEntry {
   final String name;
   final String phone;
   final AdminUserKind kind;
+  final String avatarUrl;
   final UserRole principalRole;
   final bool blocked;
   final String? roleLabelOverride;
@@ -2180,6 +2182,7 @@ class AdminUserListEntry {
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       kind: kind,
+      avatarUrl: json['avatar_url'] as String? ?? '',
       principalRole: principalRole,
       blocked: json['blocked'] as bool? ?? false,
       roleLabelOverride: json['role_label'] as String?,

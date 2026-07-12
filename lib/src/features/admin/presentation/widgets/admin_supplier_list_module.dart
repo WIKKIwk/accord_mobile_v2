@@ -1,6 +1,7 @@
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_summary_card.dart';
+import 'admin_profile_avatar.dart';
 import 'package:flutter/material.dart';
 
 class AdminSupplierListModule extends StatelessWidget {
@@ -75,39 +76,10 @@ class AdminSupplierListRow extends StatelessWidget {
       showChevron: true,
       leading: SizedBox.square(
         dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: switch (item.kind) {
-              AdminUserKind.werka => scheme.primaryContainer,
-              AdminUserKind.customer => scheme.tertiaryContainer,
-              AdminUserKind.materialTaminotchi => scheme.secondaryContainer,
-              AdminUserKind.worker => scheme.surfaceContainerHighest,
-              AdminUserKind.qolipchi => scheme.primaryContainer,
-              AdminUserKind.supplier => scheme.secondaryContainer,
-            },
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Icon(
-              switch (item.kind) {
-                AdminUserKind.werka => Icons.storefront_rounded,
-                AdminUserKind.customer => Icons.groups_rounded,
-                AdminUserKind.materialTaminotchi => Icons.inventory_rounded,
-                AdminUserKind.worker => Icons.engineering_rounded,
-                AdminUserKind.qolipchi => Icons.content_cut_rounded,
-                AdminUserKind.supplier => Icons.person_rounded,
-              },
-              color: switch (item.kind) {
-                AdminUserKind.werka => scheme.onPrimaryContainer,
-                AdminUserKind.customer => scheme.onTertiaryContainer,
-                AdminUserKind.materialTaminotchi => scheme.onSecondaryContainer,
-                AdminUserKind.worker => scheme.onSurfaceVariant,
-                AdminUserKind.qolipchi => scheme.onPrimaryContainer,
-                AdminUserKind.supplier => scheme.onSecondaryContainer,
-              },
-              size: 16,
-            ),
-          ),
+        child: AdminProfileAvatar(
+          avatarUrl: item.avatarUrl,
+          fallbackText: _initials(item.name),
+          size: 30,
         ),
       ),
       title: item.name,
@@ -123,4 +95,17 @@ class AdminSupplierListRow extends StatelessWidget {
           ),
     );
   }
+}
+
+String _initials(String value) {
+  final parts = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .toList(growable: false);
+  if (parts.isEmpty) {
+    return '?';
+  }
+  return parts.map((part) => part.substring(0, 1).toUpperCase()).join();
 }
