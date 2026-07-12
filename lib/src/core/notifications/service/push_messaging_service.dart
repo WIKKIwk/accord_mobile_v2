@@ -80,10 +80,7 @@ class PushMessagingService {
         'push token refresh platform=$_platformName token=${maskPushToken(token)}',
       );
       if (AppSession.instance.isLoggedIn) {
-        await MobileApi.instance.registerPushToken(
-          tokenValue: token,
-          platform: _platformName,
-        );
+        await _registerToken(token);
       }
     });
 
@@ -189,10 +186,7 @@ class PushMessagingService {
     debugPrint(
       'push sync obtained platform=$_platformName token=${maskPushToken(token)}',
     );
-    await MobileApi.instance.registerPushToken(
-      tokenValue: token,
-      platform: _platformName,
-    );
+    await _registerToken(token);
     debugPrint(
       'push sync stored platform=$_platformName token=${maskPushToken(token)}',
     );
@@ -220,7 +214,27 @@ class PushMessagingService {
     debugPrint(
       'push unregister platform=$_platformName token=${maskPushToken(token)}',
     );
-    await MobileApi.instance.unregisterPushToken(token);
+    try {
+      await MobileApi.instance.unregisterPushToken(token);
+    } catch (_) {}
+    try {
+      await MobileApi.instance.chatUnregisterDeviceToken(token);
+    } catch (_) {}
+  }
+
+  Future<void> _registerToken(String token) async {
+    try {
+      await MobileApi.instance.registerPushToken(
+        tokenValue: token,
+        platform: _platformName,
+      );
+    } catch (_) {}
+    try {
+      await MobileApi.instance.chatRegisterDeviceToken(
+        tokenValue: token,
+        platform: _platformName,
+      );
+    } catch (_) {}
   }
 }
 

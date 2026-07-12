@@ -1,6 +1,33 @@
 part of '../mobile_api.dart';
 
 extension MobileApiChat on MobileApi {
+  Future<void> chatRegisterDeviceToken({
+    required String tokenValue,
+    required String platform,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/chat/device-token'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'token': tokenValue.trim(), 'platform': platform}),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_device_register_failed');
+  }
+
+  Future<void> chatUnregisterDeviceToken(String tokenValue) async {
+    final token = AppSession.instance.token;
+    if (token == null || token.isEmpty) return;
+    final response = await _delete(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/chat/device-token').replace(
+        queryParameters: {'token': tokenValue.trim()},
+      ),
+      headers: _headers(token),
+    );
+    _requireChatSuccess(response, 'chat_device_unregister_failed');
+  }
+
   Future<ChatDirectoryPage> chatDirectory({String query = ''}) async {
     final response = await _sendAuthorized(
       () => _get(
