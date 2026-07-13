@@ -25,7 +25,11 @@ const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = false;
 controls.enableZoom = true;
 controls.enablePan = true;
-controls.screenSpacePanning = true;
+// Keep panning on the factory's horizontal plane so it cannot move the
+// camera target below the map floor.
+controls.screenSpacePanning = false;
+// The camera may look down to the horizon, but never orbit underneath it.
+controls.maxPolarAngle = Math.PI / 2 - 0.04;
 controls.minDistance = 5;
 controls.maxDistance = 250;
 controls.target.set(0, 0, 0);
@@ -79,6 +83,22 @@ function enableRealShadows(root, bounds) {
 
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
+  const floorY = Math.min(bounds.min.y - 0.06, -0.06);
+  const floorSize = Math.max(size.x, size.z) * 1.35;
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(floorSize, floorSize),
+    new THREE.MeshStandardMaterial({
+      color: 0xe8ebe9,
+      roughness: 1,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(center.x, floorY, center.z);
+  floor.receiveShadow = true;
+  scene.add(floor);
+
   const extent = Math.max(size.x, size.z, 30);
   keyLight.position.set(center.x - extent, center.y + extent * 1.8, center.z + extent * 0.45);
   keyLight.target.position.set(center.x, 0, center.z);
