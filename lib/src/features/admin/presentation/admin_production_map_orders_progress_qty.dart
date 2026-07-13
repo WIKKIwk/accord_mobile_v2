@@ -370,8 +370,8 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                   message: option.label,
                   child: Material(
                     color: option.color,
-                    elevation: 4,
-                    shadowColor: Colors.black38,
+                    elevation: 7,
+                    shadowColor: Colors.black45,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
