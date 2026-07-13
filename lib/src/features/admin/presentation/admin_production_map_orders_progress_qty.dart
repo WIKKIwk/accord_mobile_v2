@@ -368,50 +368,57 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
               for (final option in options)
                 Tooltip(
                   message: option.label,
-                  child: Material(
-                    color: option.color,
-                    elevation: 7,
-                    shadowColor: Colors.black45,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        setState(() {
-                          _selectedPaint = option.label;
-                          _selectedUsageIndex = usageIndex;
-                          _selectedFieldLabels =
-                              option.fieldLabels ?? _fieldLabels;
-                        });
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Stack(
-                          children: [
-                            Center(
-                              child: Text(
-                                option.label,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: option.foreground,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                ),
-                              ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final radius = BorderRadius.circular(
+                        constraints.maxHeight / 2,
+                      );
+                      return Material(
+                        color: option.color,
+                        elevation: 7,
+                        shadowColor: Colors.black45,
+                        borderRadius: radius,
+                        child: InkWell(
+                          borderRadius: radius,
+                          onTap: () {
+                            setState(() {
+                              _selectedPaint = option.label;
+                              _selectedUsageIndex = usageIndex;
+                              _selectedFieldLabels =
+                                  option.fieldLabels ?? _fieldLabels;
+                            });
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: radius,
                             ),
-                            if (_completionIndicator(option, usageIndex)
-                                case final indicator?)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: indicator,
-                              ),
-                          ],
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: Text(
+                                    option.label,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: option.foreground,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                if (_completionIndicator(option, usageIndex)
+                                    case final indicator?)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: indicator,
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
             ],
