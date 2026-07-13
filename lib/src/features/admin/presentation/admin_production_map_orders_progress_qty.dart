@@ -489,39 +489,39 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                 ),
                 const SizedBox(height: 12),
               ],
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                reverseDuration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  final offset = Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(animation);
-                  return FadeTransition(
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                reverseDuration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  reverseDuration: const Duration(milliseconds: 140),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
-                    child: SlideTransition(position: offset, child: child),
-                  );
-                },
-                child: _selectedPaint == null
-                    ? SizedBox(
-                        key: const ValueKey('returned-paint-palette'),
-                        height: 640,
-                        child: TabBarView(
-                          controller: _usageController,
-                          children: [palettePage(0), palettePage(1)],
+                    child: child,
+                  ),
+                  child: _selectedPaint == null
+                      ? SizedBox(
+                          key: const ValueKey('returned-paint-palette'),
+                          height: 640,
+                          child: TabBarView(
+                            controller: _usageController,
+                            children: [palettePage(0), palettePage(1)],
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey('returned-paint-fields'),
+                          child: _paintFields(
+                            context,
+                            _selectedPaint!,
+                            _selectedFieldLabels ?? _fieldLabels,
+                            _selectedUsageIndex ?? _usageController.index,
+                          ),
                         ),
-                      )
-                    : KeyedSubtree(
-                        key: const ValueKey('returned-paint-fields'),
-                        child: _paintFields(
-                          context,
-                          _selectedPaint!,
-                          _selectedFieldLabels ?? _fieldLabels,
-                          _selectedUsageIndex ?? _usageController.index,
-                        ),
-                      ),
+                ),
               ),
               Divider(color: scheme.outlineVariant),
             ],
