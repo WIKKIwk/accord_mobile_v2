@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/core/widgets/display/shared_header_title.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -112,5 +113,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Drawer content'), findsOneWidget);
+  });
+
+  testWidgets('search field menu leading opens the worker drawer', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: AppShell(
+          title: '',
+          subtitle: '',
+          nativeTopBar: true,
+          automaticallyImplyNativeLeading: false,
+          titleWidget: AdminCatalogSearchField(
+            controller: controller,
+            focusNode: focusNode,
+            hintText: 'Ochilgan zakaz qidirish',
+            onChanged: (_) {},
+            onClear: controller.clear,
+            onBackWithContext: (context) =>
+                AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+            leadingIcon: Icons.menu_rounded,
+          ),
+          drawer: const SizedBox(
+            width: 280,
+            child: ColoredBox(
+              color: Colors.white,
+              child: Text('Worker drawer'),
+            ),
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Worker drawer'), findsOneWidget);
   });
 }

@@ -1642,6 +1642,7 @@ MobileApiException _adminProductionMapException(
       'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
+      'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',
       'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
       'insufficient_stock' => 'Bu qolip omborda qolmagan',
       'location_identity_mismatch' =>

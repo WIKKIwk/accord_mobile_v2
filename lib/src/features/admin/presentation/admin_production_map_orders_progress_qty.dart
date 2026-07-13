@@ -81,6 +81,450 @@ Widget _progressQtySectionLabel(BuildContext context, String label) {
   );
 }
 
+class _ReturnedPaintOption {
+  const _ReturnedPaintOption({
+    required this.label,
+    required this.color,
+    required this.foreground,
+    this.fieldLabels,
+  });
+
+  final String label;
+  final Color color;
+  final Color foreground;
+  final List<String>? fieldLabels;
+}
+
+const _returnedPaintColors = <_ReturnedPaintOption>[
+  _ReturnedPaintOption(
+    label: 'Oq',
+    color: Color(0xFFF8F7F2),
+    foreground: Color(0xFF332C26),
+  ),
+  _ReturnedPaintOption(
+    label: 'Sariq',
+    color: Color(0xFFFFD54F),
+    foreground: Color(0xFF3B2A00),
+  ),
+  _ReturnedPaintOption(
+    label: 'Qizil',
+    color: Color(0xFFE53935),
+    foreground: Colors.white,
+  ),
+  _ReturnedPaintOption(
+    label: 'Ko‘k',
+    color: Color(0xFF1E88E5),
+    foreground: Colors.white,
+  ),
+  _ReturnedPaintOption(
+    label: 'Tilla',
+    color: Color(0xFFD4A72C),
+    foreground: Color(0xFF332100),
+  ),
+  _ReturnedPaintOption(
+    label: 'Kumush',
+    color: Color(0xFFC7CDD3),
+    foreground: Color(0xFF273038),
+  ),
+  _ReturnedPaintOption(
+    label: 'Qora',
+    color: Color(0xFF202124),
+    foreground: Colors.white,
+  ),
+  _ReturnedPaintOption(
+    label: 'Varnish',
+    color: Color(0xFF5A321F),
+    foreground: Colors.white,
+  ),
+];
+
+const _returnedPaintLacquers = <_ReturnedPaintOption>[
+  _ReturnedPaintOption(
+    label: 'Lak',
+    color: Color(0xFFB7BCC2),
+    foreground: Color(0xFF273038),
+    fieldLabels: <String>['OPV lak', 'MAT lak'],
+  ),
+];
+
+const _returnedPaintSolvents = <_ReturnedPaintOption>[
+  _ReturnedPaintOption(
+    label: 'Spirtlar',
+    color: Color(0xFFE4B77A),
+    foreground: Color(0xFF3E2815),
+    fieldLabels: <String>[
+      'Aralashmalar',
+      'Etil',
+      'Metoxil',
+      'Rasvavitel',
+      'Izopropel',
+    ],
+  ),
+];
+
+class _ReturnedPaintSheet extends StatefulWidget {
+  const _ReturnedPaintSheet();
+
+  @override
+  State<_ReturnedPaintSheet> createState() => _ReturnedPaintSheetState();
+}
+
+class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
+    with TickerProviderStateMixin {
+  late final TabController _usageController;
+  String? _selectedPaint;
+  int? _selectedUsageIndex;
+  List<String>? _selectedFieldLabels;
+  final Map<String, List<bool>> _filledFieldsByPaint = {};
+  final Map<String, List<TextEditingController>> _fieldControllersByPaint = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _usageController = TabController(length: 2, vsync: this);
+  }
+
+  static const _fieldLabels = <String>[
+    'Mix',
+    'Oq',
+    'Qora',
+    'Sariq',
+    'Qizil',
+    'Ko‘k',
+    'Varnish',
+    'Spirt',
+    'Pantone+',
+  ];
+
+  Color _fieldBorderColor(String label) {
+    return switch (label) {
+      'Mix' => const Color(0xFF8A6A4A),
+      'Oq' => const Color(0xFFB9B6AD),
+      'Qora' => const Color(0xFF202124),
+      'Sariq' => const Color(0xFFE0B52D),
+      'Qizil' => const Color(0xFFE53935),
+      'Ko‘k' => const Color(0xFF1E88E5),
+      'Varnish' => const Color(0xFF5A321F),
+      'Spirt' => const Color(0xFF6AAED6),
+      'Pantone+' => const Color(0xFF8E6BBE),
+      _ => Theme.of(context).colorScheme.outlineVariant,
+    };
+  }
+
+  InputDecoration _paintFieldDecoration(
+    BuildContext context,
+    String label,
+  ) {
+    final base = appSurfaceInputDecoration(context, labelText: label);
+    final color = _fieldBorderColor(label);
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color, width: 1.2),
+    );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color, width: 1.8),
+    );
+    return base.copyWith(
+      border: border,
+      enabledBorder: border,
+      focusedBorder: focusedBorder,
+    );
+  }
+
+  List<String> _fieldsForOption(_ReturnedPaintOption option) =>
+      option.fieldLabels ?? _fieldLabels;
+
+  String _paintStateKey(String paint, int usageIndex) =>
+      '${usageIndex == 0 ? 'rasxot' : 'astatka'}:$paint';
+
+  List<TextEditingController> _controllersForPaint(
+    String paint,
+    List<String> fieldLabels,
+    int usageIndex,
+  ) {
+    final stateKey = _paintStateKey(paint, usageIndex);
+    final existing = _fieldControllersByPaint[stateKey];
+    if (existing != null && existing.length == fieldLabels.length) {
+      return existing;
+    }
+    final controllers = [
+      for (var index = 0; index < fieldLabels.length; index++)
+        TextEditingController(),
+    ];
+    _fieldControllersByPaint[stateKey] = controllers;
+    return controllers;
+  }
+
+  @override
+  void dispose() {
+    _usageController.dispose();
+    for (final controllers in _fieldControllersByPaint.values) {
+      for (final controller in controllers) {
+        controller.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  Widget? _completionIndicator(
+    _ReturnedPaintOption option,
+    int usageIndex,
+  ) {
+    final fields =
+        _filledFieldsByPaint[_paintStateKey(option.label, usageIndex)];
+    if (fields == null || fields.every((filled) => !filled)) {
+      return null;
+    }
+    if (fields.length == _fieldsForOption(option).length &&
+        fields.every((filled) => filled)) {
+      return Icon(
+        Icons.check_rounded,
+        size: 17,
+        color: option.foreground,
+      );
+    }
+    return Icon(
+      Icons.star_rounded,
+      size: 16,
+      color: option.foreground,
+    );
+  }
+
+  void _updateFieldValue({
+    required String paint,
+    required int index,
+    required String value,
+    required int usageIndex,
+  }) {
+    final stateKey = _paintStateKey(paint, usageIndex);
+    final fields = List<bool>.from(
+      _filledFieldsByPaint[stateKey] ??
+          List<bool>.filled(
+              _selectedFieldLabels?.length ?? _fieldLabels.length, false),
+    );
+    fields[index] = value.trim().isNotEmpty;
+    setState(() => _filledFieldsByPaint[stateKey] = fields);
+  }
+
+  Widget _paintFields(
+    BuildContext context,
+    String paint,
+    List<String> fieldLabels,
+    int usageIndex,
+  ) {
+    final controllers = _controllersForPaint(paint, fieldLabels, usageIndex);
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 2.6,
+      children: [
+        for (var index = 0; index < fieldLabels.length; index++)
+          TextFormField(
+            controller: controllers[index],
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+            ),
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            ],
+            decoration: _paintFieldDecoration(context, fieldLabels[index]),
+            onChanged: (value) => _updateFieldValue(
+              paint: paint,
+              index: index,
+              value: value,
+              usageIndex: usageIndex,
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    Widget category(
+      String title,
+      List<_ReturnedPaintOption> options,
+      int usageIndex,
+    ) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _progressQtySectionLabel(context, title),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.45,
+            children: [
+              for (final option in options)
+                Tooltip(
+                  message: option.label,
+                  child: Material(
+                    color: option.color,
+                    elevation: 4,
+                    shadowColor: Colors.black38,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        setState(() {
+                          _selectedPaint = option.label;
+                          _selectedUsageIndex = usageIndex;
+                          _selectedFieldLabels =
+                              option.fieldLabels ?? _fieldLabels;
+                        });
+                      },
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: Text(
+                                option.label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: option.foreground,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            if (_completionIndicator(option, usageIndex)
+                                case final indicator?)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: indicator,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
+      );
+    }
+
+    Widget palettePage(int usageIndex) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          category('Ranglar', _returnedPaintColors, usageIndex),
+          category('Laklar', _returnedPaintLacquers, usageIndex),
+          category(
+            'Erituvchilar / spirtli suyuqliklar',
+            _returnedPaintSolvents,
+            usageIndex,
+          ),
+        ],
+      );
+    }
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  if (_selectedPaint != null)
+                    IconButton(
+                      tooltip: 'Orqaga',
+                      onPressed: () {
+                        setState(() {
+                          _selectedPaint = null;
+                          _selectedUsageIndex = null;
+                          _selectedFieldLabels = null;
+                        });
+                      },
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  Expanded(
+                    child: Text(
+                      'Qaytarilgan bo‘yoq',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (_selectedPaint == null) ...[
+                AdminSurfaceTabBar(
+                  controller: _usageController,
+                  tabs: const [
+                    Tab(height: 38, text: 'Rasxot'),
+                    Tab(height: 38, text: 'Astatka'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                reverseDuration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  final offset = Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(animation);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(position: offset, child: child),
+                  );
+                },
+                child: _selectedPaint == null
+                    ? SizedBox(
+                        key: const ValueKey('returned-paint-palette'),
+                        height: 640,
+                        child: TabBarView(
+                          controller: _usageController,
+                          children: [palettePage(0), palettePage(1)],
+                        ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey('returned-paint-fields'),
+                        child: _paintFields(
+                          context,
+                          _selectedPaint!,
+                          _selectedFieldLabels ?? _fieldLabels,
+                          _selectedUsageIndex ?? _usageController.index,
+                        ),
+                      ),
+              ),
+              Divider(color: scheme.outlineVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProgressQtyDialog extends StatefulWidget {
   const _ProgressQtyDialog({
     required this.action,
@@ -132,6 +576,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   double? _parseQty(String value) =>
       double.tryParse(value.trim().replaceAll(',', '.'));
 
+  void _openReturnedPaintSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const _ReturnedPaintSheet(),
+    );
+  }
+
   Widget _qtyField({
     required TextEditingController controller,
     required String label,
@@ -182,8 +636,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final totalWaste = _parseQty(_wasteController.text);
     final hasMeter = meterQty != null && meterQty.isFinite && meterQty > 0;
     final hasKg = kgQty != null && kgQty.isFinite && kgQty > 0;
-    final hasReturnInk =
-        returnInkKg != null && returnInkKg.isFinite && returnInkKg > 0;
     final hasPrintLeftover = printLeftoverRolls != null &&
         printLeftoverRolls.isFinite &&
         printLeftoverRolls > 0;
@@ -200,9 +652,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
-    final bosmaMetricsReady = _isComplete
-        ? hasReturnInk && hasWaste && hasMeter && hasKg
-        : hasWaste && hasMeter && hasKg;
+    final bosmaMetricsReady = hasWaste && hasMeter && hasKg;
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasFilmLeftover && hasWaste && hasMeter && hasKg;
@@ -414,19 +864,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (_isComplete && isBosma) ...[
-                          _progressQtySectionLabel(
-                            context,
-                            'Qaytim va chiqindi',
-                          ),
-                          _qtyField(
-                            controller: _returnInkController,
-                            label: 'Vazrat kraska',
-                            error: 'Vazrat kraska kg kiriting',
-                            suffix: 'kg',
-                          ),
-                          const SizedBox(height: 10),
-                        ],
                         if (_isComplete && isLaminatsiya) ...[
                           _progressQtySectionLabel(
                               context, 'Ortiqcha rulonlar'),
@@ -475,9 +912,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (hasDetailedMetrics) ...[
-                          if (!(isBosma && _isComplete))
-                            _progressQtySectionLabel(context, 'Chiqindi'),
+                        if (hasDetailedMetrics &&
+                            !(isBosma && _isComplete)) ...[
+                          _progressQtySectionLabel(context, 'Chiqindi'),
                           _qtyField(
                             controller: _wasteController,
                             label: 'Jami chiqindi',
@@ -507,6 +944,31 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               : 'Kg kiriting',
                           suffix: 'kg',
                         ),
+                        if (_isComplete && isBosma) ...[
+                          const SizedBox(height: 10),
+                          _progressQtySectionLabel(
+                            context,
+                            'Qaytim va chiqindi',
+                          ),
+                          _qtyField(
+                            controller: _wasteController,
+                            label: 'Jami chiqindi',
+                            error: 'Jami chiqindi kg kiriting',
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton(
+                            onPressed: _openReturnedPaintSheet,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              alignment: Alignment.centerLeft,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text("Qaytarilgan bo'yoq"),
+                          ),
+                        ],
                         if (_isComplete) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(context, 'Izoh'),

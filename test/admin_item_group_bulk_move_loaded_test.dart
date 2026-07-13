@@ -10,11 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,

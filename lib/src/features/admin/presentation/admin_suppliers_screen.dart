@@ -532,7 +532,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
         },
       ),
       contentPadding: EdgeInsets.zero,
-      bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+      bottom: const AdminDock(activeTab: AdminDockTab.user),
       child: Column(
         children: [
           _AdminUserRolePicker(

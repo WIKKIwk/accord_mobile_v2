@@ -53,7 +53,9 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminRawMaterialRulesScreen(),
+          home: const AdminRawMaterialRulesScreen(
+            initialTab: AdminRawMaterialSettingsTab.rules,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -86,7 +88,9 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminRawMaterialRulesScreen(),
+          home: const AdminRawMaterialRulesScreen(
+            initialTab: AdminRawMaterialSettingsTab.rules,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -139,7 +143,9 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminRawMaterialRulesScreen(),
+          home: const AdminRawMaterialRulesScreen(
+            initialTab: AdminRawMaterialSettingsTab.rules,
+          ),
         ),
       );
       await tester.pumpAndSettle();

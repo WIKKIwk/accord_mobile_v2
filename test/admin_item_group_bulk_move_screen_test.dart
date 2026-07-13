@@ -30,7 +30,7 @@ void main() {
 
       expect(find.text("Mahsulot group ko'chirish"), findsOneWidget);
       expect(find.text('Uy'), findsOneWidget);
-      expect(find.text('Foydalanuvchilar'), findsOneWidget);
+      expect(find.text('Foydalanuvchi'), findsOneWidget);
       expect(find.text('Faoliyat'), findsOneWidget);
       expect(tester.takeException(), isNull);
 

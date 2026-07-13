@@ -92,7 +92,7 @@ class _AdminSupplierItemsViewScreenState
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+      bottom: const AdminDock(activeTab: AdminDockTab.user),
       child: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: loading

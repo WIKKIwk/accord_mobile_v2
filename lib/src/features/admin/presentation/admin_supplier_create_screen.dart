@@ -15,7 +15,7 @@ class AdminSupplierCreateScreen extends StatelessWidget {
       phoneLabel: 'Supplier phone',
       submitLabel: 'Supplier qo‘shish',
       savingLabel: 'Qo‘shilmoqda...',
-      activeTab: AdminDockTab.suppliers,
+      activeTab: AdminDockTab.user,
       onCreate: (name, phone) {
         return MobileApi.instance.adminCreateSupplier(
           name: name,

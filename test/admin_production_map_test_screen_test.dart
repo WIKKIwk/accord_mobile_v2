@@ -1743,7 +1743,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add_rounded), findsNothing);
 
-    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+    expect(find.textContaining('Godex aparat - DEMO'), findsOneWidget);
     expect(find.textContaining('2 ta zakaz'), findsOneWidget);
 
     expect(find.textContaining('Paket order A'), findsOneWidget);
@@ -2573,10 +2573,143 @@ void main() {
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Vazrat kraska'),
-      '1',
+    final tayyorMahsulotY = tester.getTopLeft(find.text('Tayyor mahsulot')).dy;
+    final qaytimChiqindiY =
+        tester.getTopLeft(find.text('Qaytim va chiqindi')).dy;
+    final jamiChiqindiY = tester.getTopLeft(find.text('Jami chiqindi')).dy;
+    final qaytarilganBoyoqY =
+        tester.getTopLeft(find.text("Qaytarilgan bo'yoq")).dy;
+    expect(tayyorMahsulotY, lessThan(qaytimChiqindiY));
+    expect(jamiChiqindiY, lessThan(qaytarilganBoyoqY));
+    await tester.tap(find.text("Qaytarilgan bo'yoq"));
+    await tester.pumpAndSettle();
+    for (final paint in const [
+      'Oq',
+      'Sariq',
+      'Qizil',
+      'Ko‘k',
+      'Lak',
+      'Tilla',
+      'Kumush',
+      'Qora',
+      'Varnish',
+      'Spirtlar',
+    ]) {
+      expect(find.byTooltip(paint), findsOneWidget);
+    }
+    final usageTabBar = find.byType(TabBar).last;
+    final usagePageView = find.byType(TabBarView).last;
+    expect(tester.widget<TabBar>(usageTabBar).controller?.index, 0);
+    await tester.drag(usagePageView, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TabBar>(usageTabBar).controller?.index, 1);
+    await tester.drag(usagePageView, const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TabBar>(usageTabBar).controller?.index, 0);
+    await tester.tap(find.text('Astatka'));
+    await tester.pumpAndSettle();
+    for (final paint in const [
+      'Oq',
+      'Sariq',
+      'Qizil',
+      'Ko‘k',
+      'Lak',
+      'Tilla',
+      'Kumush',
+      'Qora',
+      'Varnish',
+      'Spirtlar',
+    ]) {
+      expect(find.byTooltip(paint), findsOneWidget);
+    }
+    await tester.tap(find.text('Rasxot'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNWidgets(2));
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    for (final field in const [
+      'Mix',
+      'Oq',
+      'Qora',
+      'Sariq',
+      'Qizil',
+      'Ko‘k',
+      'Varnish',
+      'Spirt',
+      'Pantone+',
+    ]) {
+      expect(find.text(field), findsOneWidget);
+    }
+    final mixField = find.widgetWithText(TextFormField, 'Mix');
+    await tester.enterText(mixField, '43');
+    expect(find.byType(BottomSheet), findsNWidgets(2));
+    expect(find.byTooltip('Orqaga'), findsOneWidget);
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Orqaga'), findsNothing);
+    expect(find.byTooltip('Oq'), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    await tester.tap(find.text('Astatka'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.star_rounded), findsNothing);
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .controller
+          ?.text,
+      isEmpty,
     );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Mix'),
+      '17',
+    );
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rasxot'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .controller
+          ?.text,
+      '43',
+    );
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Spirtlar'));
+    await tester.pumpAndSettle();
+    for (final field in const [
+      'Aralashmalar',
+      'Etil',
+      'Metoxil',
+      'Rasvavitel',
+      'Izopropel',
+    ]) {
+      expect(find.text(field), findsOneWidget);
+    }
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Lak'));
+    await tester.pumpAndSettle();
+    expect(find.text('OPV lak'), findsOneWidget);
+    expect(find.text('MAT lak'), findsOneWidget);
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .controller
+          ?.text,
+      '43',
+    );
+    Navigator.of(tester.element(find.byType(BottomSheet).first)).pop();
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Jami chiqindi'),
       '2',
@@ -2674,10 +2807,6 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Vazrat kraska'),
-      '1',
-    );
-    await tester.enterText(
       find.widgetWithText(TextFormField, 'Jami chiqindi'),
       '2',
     );
@@ -2765,7 +2894,7 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Vazrat kraska'), findsOneWidget);
+    expect(find.text("Qaytarilgan bo'yoq"), findsOneWidget);
     expect(find.text('Jami chiqindi'), findsOneWidget);
     expect(find.text("Og'irlik"), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
@@ -2775,7 +2904,7 @@ void main() {
     await tester.tap(find.text('Pauza'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Vazrat kraska'), findsNothing);
+    expect(find.text("Qaytarilgan bo'yoq"), findsNothing);
     expect(find.text('Jami chiqindi'), findsOneWidget);
     expect(find.text("Og'irlik"), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
@@ -3442,10 +3571,31 @@ void main() {
 }
 
 Future<void> _completeQolipScan(WidgetTester tester) async {
+  final scanButton = find.text('Qolip QR scan');
+  final requiresSeparateScan = scanButton.evaluate().isNotEmpty;
+  if (requiresSeparateScan) {
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: const QolipProduct(
+        code: 'DEMO-CPP',
+        name: 'CPP sous',
+        itemGroup: 'Demo xomashyo',
+      ),
+      qolipCode: 'TEST-QOLIP-QR',
+      size: 50,
+    );
+    await tester.tap(scanButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
   final title = find.text('Qolip scan');
+  await tester.pump();
   expect(title, findsOneWidget);
   Navigator.of(tester.element(title)).pop<String>('TEST-QOLIP-QR');
   await tester.pumpAndSettle();
+  if (requiresSeparateScan) {
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+  }
 }
 
 ProductionMapDefinition _alternativeProductionOrderMap({

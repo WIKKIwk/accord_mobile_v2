@@ -38,6 +38,7 @@ import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
+import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'dart:ui' show ImageFilter;
 
@@ -379,17 +380,27 @@ class _AdminProductionMapOrdersScreenState
           _searchController.clear();
           setState(() => _searchQuery = '');
         },
-        onBack: () {
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-            return;
-          }
-          final target = widget.workerMode
-              ? AppRoutes.apparatusQueue
-              : AppRoutes.adminHome;
-          nav.pushNamedAndRemoveUntil(target, (route) => false);
-        },
+        onBack: widget.workerMode
+            ? null
+            : () {
+                final nav = Navigator.of(context);
+                if (nav.canPop()) {
+                  nav.pop();
+                  return;
+                }
+                nav.pushNamedAndRemoveUntil(
+                  AppRoutes.adminHome,
+                  (route) => false,
+                );
+              },
+        onBackWithContext: widget.workerMode
+            ? (context) => AppShellDrawerScope.maybeOf(context)?.openDrawer()
+            : null,
+        leadingIcon:
+            widget.workerMode ? Icons.menu_rounded : Icons.arrow_back_rounded,
+        leadingTooltip: widget.workerMode
+            ? MaterialLocalizations.of(context).openAppDrawerTooltip
+            : null,
       ),
       bottom: widget.workerMode
           ? const AparatchiDock(activeTab: AparatchiDockTab.home)

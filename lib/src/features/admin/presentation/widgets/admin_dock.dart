@@ -151,7 +151,7 @@ List<_AdminDockDestination> _visibleDestinations({
       label: userLabel,
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
-      routeName: AppRoutes.profile,
+      routeName: AppRoutes.adminSuppliers,
     ),
     _AdminDockDestination(
       id: 'admin-create',

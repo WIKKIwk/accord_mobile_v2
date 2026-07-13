@@ -46,7 +46,7 @@ class _AdminWorkerProfileDetailScreenState
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
-      bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+      bottom: const AdminDock(activeTab: AdminDockTab.user),
       child: FutureBuilder<AdminWorkerProfileDetail>(
         future: _future,
         builder: (context, snapshot) {

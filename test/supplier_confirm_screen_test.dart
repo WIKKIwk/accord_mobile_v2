@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/supplier/presentation/supplier_confirm_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -15,6 +17,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         routes: {
           AppRoutes.supplierSuccess: (_) =>
               const Scaffold(body: SizedBox.shrink()),
@@ -36,6 +46,7 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     final submitButton = find.text('Ha, jo‘natishni saqlash');
     expect(submitButton, findsOneWidget);

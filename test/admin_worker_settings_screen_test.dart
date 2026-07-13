@@ -54,12 +54,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ishchi sozlamalari'), findsOneWidget);
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-hub-custom-Ishchi qo‘shish')),
+    );
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Ali ishchi');
     await tester.tap(find.text('Brigader').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Master').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ishchi qo‘shish'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Ishchi qo‘shish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Ishchi saqlandi'), findsOneWidget);
@@ -116,9 +122,16 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, 'Guruhlar'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('worker-group-code-input')), 'ab');
-    await tester.tap(find.text('Saqlash').first);
+        find.byKey(const Key('worker-group-code-dialog-input')), 'ab');
+    await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AB guruh'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
@@ -172,12 +185,19 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, 'Guruhlar'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('worker-group-code-input')), 'b guruh');
-    await tester.tap(find.text('Saqlash').first);
+        find.byKey(const Key('worker-group-code-dialog-input')), 'b guruh');
+    await tester.tap(find.text('Saqlash'));
     await tester.pumpAndSettle();
 
     expect(find.text('B GURUH guruh'), findsOneWidget);
+    await tester.tap(find.text('B GURUH guruh'));
+    await tester.pumpAndSettle();
     expect(find.text('B GURUH guruh ma’lumoti'), findsOneWidget);
     expect(find.text('Biriktirilmagan'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
@@ -196,9 +216,16 @@ void main() {
     expect(find.text('B GURUH guruh ma’lumoti'), findsOneWidget);
     expect(find.text('Bekor qilish'), findsNothing);
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('worker-group-code-input')), 'dd');
-    await tester.tap(find.text('Saqlash').first);
+        find.byKey(const Key('worker-group-code-dialog-input')), 'dd');
+    await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DD guruh'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
@@ -213,9 +240,16 @@ void main() {
     await tester.tap(find.text('Saqlash').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('worker-group-code-input')), 'ee');
-    await tester.tap(find.text('Saqlash').first);
+        find.byKey(const Key('worker-group-code-dialog-input')), 'ee');
+    await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('EE guruh'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
@@ -254,18 +288,32 @@ void main() {
     await tester.tap(find.text('Guruhlar'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')),
+    );
+    await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('worker-group-code-input')), 'ab');
-    await tester.tap(find.text('Saqlash').first);
+        find.byKey(const Key('worker-group-code-dialog-input')), 'ab');
+    await tester.tap(find.text('Saqlash'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(Tab, 'Ishchilar'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-hub-custom-Ishchi qo‘shish')),
+    );
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Yangi ishchi');
-    await tester.tap(find.text('Ishchi qo‘shish'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Ishchi qo‘shish'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(Tab, 'Guruhlar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AB guruh'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();

@@ -226,9 +226,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         contentPadding: EdgeInsets.zero,
-        bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+        bottom: const AdminDock(activeTab: AdminDockTab.user),
         child: ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: AppTheme.shellStart(context),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
               _workerDetailPanelGap,

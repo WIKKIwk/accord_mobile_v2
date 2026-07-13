@@ -192,9 +192,17 @@ void main() {
       );
 
       await _pumpUntilFound(tester, find.text('Biriktirish'));
-      await tester.tap(
-        find.byKey(const ValueKey('admin-role-edit-catalog_reader')),
+      await tester.tap(find.byType(Tab).first);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Catalog reader'),
+        240,
+        scrollable: find.byType(Scrollable).first,
       );
+      final editRole = find.byKey(
+        const ValueKey('admin-role-edit-catalog_reader'),
+      );
+      tester.widget<IconButton>(editRole).onPressed!.call();
       await tester.pumpAndSettle();
 
       expect(find.text('Roleni tahrirlash'), findsOneWidget);

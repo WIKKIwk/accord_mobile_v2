@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_dock.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_supplier_list_module.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
@@ -62,7 +63,7 @@ void main() {
         home: AppShell(
           title: 'Suppliers',
           subtitle: '',
-          bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+          bottom: const AdminDock(activeTab: AdminDockTab.user),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
@@ -121,6 +122,61 @@ void main() {
 
     expect(find.text('Foydalanuvchi'), findsOneWidget);
     expect(find.text('Foydalanuvchilar'), findsNothing);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      1,
+    );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('admin user dock opens the users page', (tester) async {
+    final observer = _RecordingNavigatorObserver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [observer],
+        onGenerateRoute: (settings) {
+          if (settings.name == AppRoutes.adminSuppliers) {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => const Text('Foydalanuvchilar page'),
+            );
+          }
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => Scaffold(
+              bottomNavigationBar: const AdminDock(
+                activeTab: AdminDockTab.user,
+                showPrimaryFab: false,
+              ),
+            ),
+          );
+        },
+        home: const Scaffold(
+          bottomNavigationBar: AdminDock(
+            activeTab: AdminDockTab.home,
+            showPrimaryFab: false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Foydalanuvchi'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(observer.routeNames, contains(AppRoutes.adminSuppliers));
+    expect(find.text('Foydalanuvchilar page'), findsOneWidget);
+  });
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<String?> routeNames = [];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    routeNames.add(route.settings.name);
+    super.didPush(route, previousRoute);
+  }
 }

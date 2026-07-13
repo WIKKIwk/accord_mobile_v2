@@ -360,7 +360,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         contentPadding: EdgeInsets.zero,
-        bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+        bottom: const AdminDock(activeTab: AdminDockTab.user),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             _customerDetailPanelGap,

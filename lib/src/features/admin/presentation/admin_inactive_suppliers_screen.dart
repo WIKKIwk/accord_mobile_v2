@@ -69,7 +69,7 @@ class _AdminInactiveSuppliersScreenState
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+      bottom: const AdminDock(activeTab: AdminDockTab.user),
       child: FutureBuilder<List<AdminSupplier>>(
         future: _future,
         builder: (context, snapshot) {

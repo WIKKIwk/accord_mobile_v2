@@ -57,6 +57,13 @@ void main() {
       parent: 'aparat - A',
     );
 
-    expect(warehouses.map((item) => item.warehouse), ['Godex aparat - DEMO']);
+    expect(warehouses.map((item) => item.warehouse), [
+      'Godex aparat - DEMO',
+      '7 ta rangli bosma aparat',
+      '8 ta rangli bosma aparat',
+      '9 ta rangli bosma aparat',
+      'Laminatsiya 1',
+      'Laminatsiya 2',
+    ]);
   });
 }

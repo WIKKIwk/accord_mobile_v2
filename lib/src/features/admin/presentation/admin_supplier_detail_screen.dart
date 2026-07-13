@@ -200,7 +200,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
         nativeTopBar: true,
         nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
         contentPadding: EdgeInsets.zero,
-        bottom: const AdminDock(activeTab: AdminDockTab.suppliers),
+        bottom: const AdminDock(activeTab: AdminDockTab.user),
         child: SafeArea(
           top: false,
           child: FutureBuilder<AdminSupplierDetail>(
