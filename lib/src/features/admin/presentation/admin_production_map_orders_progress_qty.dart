@@ -972,7 +972,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: const Text("Qaytarilgan bo'yoq"),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  child: Text("Qaytarilgan bo'yoq"),
+                                ),
+                                Icon(Icons.arrow_forward_rounded),
+                              ],
+                            ),
                           ),
                         ],
                         if (_isComplete) ...[
