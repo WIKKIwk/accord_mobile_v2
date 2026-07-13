@@ -960,6 +960,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           OutlinedButton(
                             onPressed: _openReturnedPaintSheet,
                             style: OutlinedButton.styleFrom(
+                              backgroundColor: scheme.primary,
+                              foregroundColor: scheme.onPrimary,
+                              side: BorderSide(
+                                color: scheme.primary,
+                                width: 1.2,
+                              ),
                               minimumSize: const Size.fromHeight(52),
                               alignment: Alignment.centerLeft,
                               shape: RoundedRectangleBorder(
