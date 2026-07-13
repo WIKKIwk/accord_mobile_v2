@@ -410,7 +410,7 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                                     case final indicator?)
                                   Positioned(
                                     top: 8,
-                                    right: 8,
+                                    right: 12,
                                     child: indicator,
                                   ),
                               ],
