@@ -212,6 +212,60 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('admin user create screen adds standard boyoqchi role', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminUserCreateHttpClient(
+      seenRequests,
+      boyoqchiSystemUser: true,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminUserCreateScreen(),
+        ),
+      );
+
+      await _pumpUi(tester);
+      await tester.tap(find.text('Role tanlang').first);
+      await _pumpUi(tester);
+      await _selectPickerItem(tester, 'Bo‘yoqchi');
+
+      await tester.enterText(find.byType(TextField).at(0), 'Bo‘yoqchi');
+      await tester.enterText(find.byType(TextField).at(1), '110000080');
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Foydalanuvchi saqlash'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        seenRequests,
+        contains(
+          'POST /v1/mobile/admin/system-users/code/regenerate?id=boyoqchi-q',
+        ),
+      );
+      expect(
+        seenRequests.any((request) => request.contains('"role":"boyoqchi"')),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await _pumpUi(tester);
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('admin user create screen assigns material taminotchi role', (
     tester,
   ) async {
@@ -532,12 +586,14 @@ class _AdminUserCreateHttpClient implements HttpClient {
   _AdminUserCreateHttpClient(
     this.seenRequests, {
     this.includeMaterialRole = true,
+    this.boyoqchiSystemUser = false,
     this.roleAssignmentStatusCode = HttpStatus.ok,
     this.roleAssignmentBody,
   });
 
   final List<String> seenRequests;
   final bool includeMaterialRole;
+  final bool boyoqchiSystemUser;
   final int roleAssignmentStatusCode;
   final Object? roleAssignmentBody;
 
@@ -647,12 +703,19 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'code_retry_after_sec': 0,
         };
       case 'POST /v1/mobile/admin/system-users':
-        body = const {
-          'id': 'qolipchi-q',
-          'role': 'qolipchi',
-          'name': 'Qolipchi',
-          'phone': '110000050',
-        };
+        body = boyoqchiSystemUser
+            ? const {
+                'id': 'boyoqchi-q',
+                'role': 'boyoqchi',
+                'name': 'Bo‘yoqchi',
+                'phone': '110000080',
+              }
+            : const {
+                'id': 'qolipchi-q',
+                'role': 'qolipchi',
+                'name': 'Qolipchi',
+                'phone': '110000050',
+              };
       case 'POST /v1/mobile/admin/system-users/code/regenerate?id=qolipchi-q':
         body = const {
           'id': 'qolipchi-q',
@@ -661,6 +724,18 @@ class _AdminUserCreateHttpClient implements HttpClient {
           'phone': '110000050',
           'avatar_url': '',
           'code': '501234567890',
+          'blocked': false,
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+        };
+      case 'POST /v1/mobile/admin/system-users/code/regenerate?id=boyoqchi-q':
+        body = const {
+          'id': 'boyoqchi-q',
+          'role': 'boyoqchi',
+          'name': 'Bo‘yoqchi',
+          'phone': '110000080',
+          'avatar_url': '',
+          'code': '801234567890',
           'blocked': false,
           'code_locked': false,
           'code_retry_after_sec': 0,

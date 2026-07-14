@@ -41,8 +41,12 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
       final hasMaterialTaminotchi = assignableRoles.any(
         _isMaterialTaminotchiRole,
       );
+      final hasBoyoqchi = assignableRoles.any(
+        (role) => role.id == 'boyoqchi',
+      );
       final fallbackChoices = _fallbackRoleChoices(
         includeMaterialTaminotchi: !hasMaterialTaminotchi,
+        includeBoyoqchi: !hasBoyoqchi,
       );
       return [
         ...assignableRoles
@@ -59,7 +63,10 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
         ),
       ];
     } catch (_) {
-      return _fallbackRoleChoices(includeMaterialTaminotchi: true);
+      return _fallbackRoleChoices(
+        includeMaterialTaminotchi: true,
+        includeBoyoqchi: true,
+      );
     }
   }
 
@@ -219,10 +226,12 @@ enum _AdminUserCreateKind {
 
 List<_AdminUserCreateChoice> _fallbackRoleChoices({
   required bool includeMaterialTaminotchi,
+  required bool includeBoyoqchi,
 }) {
   return [
     if (includeMaterialTaminotchi)
       _AdminUserCreateChoice.custom(_materialTaminotchiRoleDefinition),
+    if (includeBoyoqchi) _AdminUserCreateChoice.custom(_boyoqchiRoleDefinition),
     _AdminUserCreateChoice.system(_AdminUserCreateKind.werka),
     _AdminUserCreateChoice.system(_AdminUserCreateKind.customer),
     _AdminUserCreateChoice.system(_AdminUserCreateKind.supplier),
@@ -241,6 +250,17 @@ const AdminRoleDefinition _materialTaminotchiRoleDefinition =
     'rps.batch.manage',
     'catalog.item.create',
     'raw_material.assign',
+  ],
+  system: true,
+);
+
+const AdminRoleDefinition _boyoqchiRoleDefinition = AdminRoleDefinition(
+  id: 'boyoqchi',
+  label: 'Bo‘yoqchi',
+  baseRole: UserRole.boyoqchi,
+  capabilityCodes: [
+    'boyoqchi.access',
+    'returned_paint.request.read',
   ],
   system: true,
 );
