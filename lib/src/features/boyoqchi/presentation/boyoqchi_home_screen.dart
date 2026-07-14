@@ -1,5 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -104,10 +105,6 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final titleParts = [
-      request.orderCode.trim(),
-      request.orderName.trim(),
-    ].where((value) => value.isNotEmpty).toList(growable: false);
     final rasxot = request.items
         .where((item) => item.usage == 'rasxot')
         .toList(growable: false);
@@ -124,37 +121,31 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              titleParts.isEmpty ? request.orderId : titleParts.join(' · '),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+            _ReturnedPaintInfoRow(
+              label: 'Order',
+              value: _orderLabel(request),
+              prominent: true,
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${request.apparatus} · ${request.senderDisplayName}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+            _ReturnedPaintInfoRow(
+              label: 'Operator',
+              value: _displayOrDash(request.senderDisplayName),
             ),
-            if (request.message.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                request.message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            if (rasxot.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _ReturnedPaintUsage(title: 'Rasxot', items: rasxot),
-            ],
-            if (astatka.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _ReturnedPaintUsage(title: 'Astatka', items: astatka),
-            ],
+            _ReturnedPaintInfoRow(
+              label: 'Rasxot',
+              value: _usageLabel(rasxot),
+            ),
+            _ReturnedPaintInfoRow(
+              label: 'Astatka',
+              value: _usageLabel(astatka),
+            ),
+            _ReturnedPaintInfoRow(
+              label: 'Time',
+              value: formatLocalDateTime(request.createdAt),
+            ),
+            _ReturnedPaintInfoRow(
+              label: 'Location',
+              value: _displayOrDash(request.apparatus),
+            ),
           ],
         ),
       ),
@@ -162,38 +153,67 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
   }
 }
 
-class _ReturnedPaintUsage extends StatelessWidget {
-  const _ReturnedPaintUsage({required this.title, required this.items});
+class _ReturnedPaintInfoRow extends StatelessWidget {
+  const _ReturnedPaintInfoRow({
+    required this.label,
+    required this.value,
+    this.prominent = false,
+  });
 
-  final String title;
-  final List<ReturnedPaintItemInput> items;
+  final String label;
+  final String value;
+  final bool prominent;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: scheme.primary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        for (final item in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              '${item.name}: ${item.values.entries.map((entry) => '${entry.key} ${_formatNumber(entry.value)}').join(', ')}',
-              style: theme.textTheme.bodyMedium,
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          style: textTheme.bodyMedium,
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-      ],
+            TextSpan(
+              text: value,
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: prominent ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
+}
+
+String _orderLabel(ReturnedPaintRequest request) {
+  final name = request.orderName.trim();
+  final code = request.orderCode.trim();
+  if (name.isNotEmpty && code.isNotEmpty) return '$name — #$code';
+  if (name.isNotEmpty) return name;
+  if (code.isNotEmpty) return '#$code';
+  return _displayOrDash(request.orderId);
+}
+
+String _usageLabel(List<ReturnedPaintItemInput> items) {
+  if (items.isEmpty) return '—';
+  return items
+      .map(
+        (item) =>
+            '${item.name}: ${item.values.entries.map((entry) => '${entry.key} ${_formatNumber(entry.value)}').join(', ')}',
+      )
+      .join('; ');
+}
+
+String _displayOrDash(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? '—' : trimmed;
 }
 
 class _BoyoqchiMessage extends StatelessWidget {
