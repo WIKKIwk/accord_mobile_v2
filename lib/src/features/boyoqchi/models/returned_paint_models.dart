@@ -74,6 +74,7 @@ class ReturnedPaintRequest {
     required this.senderDisplayName,
     required this.items,
     required this.createdAt,
+    this.message = '',
   });
 
   final String id;
@@ -86,6 +87,7 @@ class ReturnedPaintRequest {
   final String senderDisplayName;
   final List<ReturnedPaintItemInput> items;
   final DateTime createdAt;
+  final String message;
 
   factory ReturnedPaintRequest.fromJson(Map<String, dynamic> json) {
     final createdAtUnix = (json['created_at_unix'] as num?)?.toInt() ?? 0;
@@ -98,6 +100,7 @@ class ReturnedPaintRequest {
       senderRole: userRoleFromJson(json['sender_role']?.toString()),
       senderRef: json['sender_ref']?.toString() ?? '',
       senderDisplayName: json['sender_display_name']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
       items: (json['items'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(

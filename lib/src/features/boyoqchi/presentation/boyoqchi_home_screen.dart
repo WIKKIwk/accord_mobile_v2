@@ -137,6 +137,16 @@ class _ReturnedPaintRequestCard extends StatelessWidget {
                 color: scheme.onSurfaceVariant,
               ),
             ),
+            if (request.message.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                request.message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (rasxot.isNotEmpty) ...[
               const SizedBox(height: 14),
               _ReturnedPaintUsage(title: 'Rasxot', items: rasxot),

@@ -13,6 +13,7 @@ class _ProgressQtyInput {
     this.totalWaste,
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
+    this.returnedPaintItems = const [],
     this.description = '',
     this.isCompletionRequest = false,
   });
@@ -28,6 +29,7 @@ class _ProgressQtyInput {
   final double? totalWaste;
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
+  final List<ReturnedPaintItemInput> returnedPaintItems;
   final String description;
   final bool isCompletionRequest;
 }
@@ -40,6 +42,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
+  _ReturnedPaintDraft? returnedPaintDraft,
 }) {
   return showDialog<_ProgressQtyInput>(
     context: context,
@@ -51,6 +54,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
+      returnedPaintDraft: returnedPaintDraft ?? _ReturnedPaintDraft(),
     ),
   );
 }
@@ -60,6 +64,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required String action,
   required AdminWarehouse? apparatus,
   required ProductionMapSaved order,
+  _ReturnedPaintDraft? returnedPaintDraft,
 }) {
   final title = apparatus?.warehouse ?? '';
   return _showProgressQtyDialog(
@@ -70,6 +75,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isBosma: productionMapPechatColorCount(title) != null,
     isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
     isRezka: productionMapIsRezkaApparatus(title),
+    returnedPaintDraft: returnedPaintDraft,
   );
 }
 
@@ -169,18 +175,89 @@ const _returnedPaintSolvents = <_ReturnedPaintOption>[
   ),
 ];
 
+const _returnedPaintFieldLabels = <String>[
+  'Mix',
+  'Oq',
+  'Qora',
+  'Sariq',
+  'Qizil',
+  'Ko‘k',
+  'Varnish',
+  'Spirt',
+  'Pantone+',
+];
+
+class _ReturnedPaintDraft {
+  final Map<String, List<String>> _valuesByStateKey = {};
+  int selectedUsageIndex = 0;
+
+  List<String> valuesFor(String stateKey, int length) {
+    final existing = _valuesByStateKey[stateKey];
+    if (existing == null || existing.length != length) {
+      return List<String>.filled(length, '');
+    }
+    return List<String>.from(existing);
+  }
+
+  void setValue(String stateKey, int index, String value, int length) {
+    final values = valuesFor(stateKey, length);
+    values[index] = value;
+    _valuesByStateKey[stateKey] = values;
+  }
+}
+
+List<ReturnedPaintItemInput> _returnedPaintItemsFromDraft(
+  _ReturnedPaintDraft draft,
+) {
+  final items = <ReturnedPaintItemInput>[];
+
+  void collect(
+    int usageIndex,
+    String category,
+    List<_ReturnedPaintOption> options,
+  ) {
+    for (final option in options) {
+      final fields = option.fieldLabels ?? _returnedPaintFieldLabels;
+      final rawValues = draft.valuesFor(
+        '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}',
+        fields.length,
+      );
+      final values = <String, double>{};
+      for (var index = 0; index < fields.length; index++) {
+        final raw = rawValues[index].trim();
+        if (raw.isEmpty) continue;
+        final value = double.tryParse(raw.replaceAll(',', '.'));
+        if (value != null && value.isFinite && value >= 0) {
+          values[fields[index]] = value;
+        }
+      }
+      if (values.isNotEmpty) {
+        items.add(
+          ReturnedPaintItemInput(
+            usage: usageIndex == 0 ? 'rasxot' : 'astatka',
+            category: category,
+            name: option.label,
+            values: values,
+          ),
+        );
+      }
+    }
+  }
+
+  for (var usageIndex = 0; usageIndex < 2; usageIndex++) {
+    collect(usageIndex, 'colors', _returnedPaintColors);
+    collect(usageIndex, 'lacquers', _returnedPaintLacquers);
+    collect(usageIndex, 'solvents', _returnedPaintSolvents);
+  }
+  return items;
+}
+
 class _ReturnedPaintSheet extends StatefulWidget {
   const _ReturnedPaintSheet({
-    required this.orderId,
-    required this.orderCode,
-    required this.orderName,
-    required this.apparatus,
+    required this.draft,
   });
 
-  final String orderId;
-  final String orderCode;
-  final String orderName;
-  final String apparatus;
+  final _ReturnedPaintDraft draft;
 
   @override
   State<_ReturnedPaintSheet> createState() => _ReturnedPaintSheetState();
@@ -192,28 +269,20 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
   String? _selectedPaint;
   int? _selectedUsageIndex;
   List<String>? _selectedFieldLabels;
-  final Map<String, List<bool>> _filledFieldsByPaint = {};
   final Map<String, List<TextEditingController>> _fieldControllersByPaint = {};
-  bool _sending = false;
-  String _sendError = '';
 
   @override
   void initState() {
     super.initState();
-    _usageController = TabController(length: 2, vsync: this);
+    _usageController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.draft.selectedUsageIndex == 1 ? 1 : 0,
+    )..addListener(() {
+        final index = _usageController.index == 1 ? 1 : 0;
+        widget.draft.selectedUsageIndex = index;
+      });
   }
-
-  static const _fieldLabels = <String>[
-    'Mix',
-    'Oq',
-    'Qora',
-    'Sariq',
-    'Qizil',
-    'Ko‘k',
-    'Varnish',
-    'Spirt',
-    'Pantone+',
-  ];
 
   Color _fieldBorderColor(String label) {
     return switch (label) {
@@ -252,7 +321,7 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
   }
 
   List<String> _fieldsForOption(_ReturnedPaintOption option) =>
-      option.fieldLabels ?? _fieldLabels;
+      option.fieldLabels ?? _returnedPaintFieldLabels;
 
   String _paintStateKey(String paint, int usageIndex) =>
       '${usageIndex == 0 ? 'rasxot' : 'astatka'}:$paint';
@@ -267,9 +336,10 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
     if (existing != null && existing.length == fieldLabels.length) {
       return existing;
     }
+    final values = widget.draft.valuesFor(stateKey, fieldLabels.length);
     final controllers = [
       for (var index = 0; index < fieldLabels.length; index++)
-        TextEditingController(),
+        TextEditingController(text: values[index]),
     ];
     _fieldControllersByPaint[stateKey] = controllers;
     return controllers;
@@ -290,9 +360,12 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
     _ReturnedPaintOption option,
     int usageIndex,
   ) {
-    final fields =
-        _filledFieldsByPaint[_paintStateKey(option.label, usageIndex)];
-    if (fields == null || fields.every((filled) => !filled)) {
+    final values = widget.draft.valuesFor(
+      _paintStateKey(option.label, usageIndex),
+      _fieldsForOption(option).length,
+    );
+    final fields = values.map((value) => value.trim().isNotEmpty).toList();
+    if (fields.every((filled) => !filled)) {
       return null;
     }
     if (fields.length == _fieldsForOption(option).length &&
@@ -317,92 +390,12 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
     required int usageIndex,
   }) {
     final stateKey = _paintStateKey(paint, usageIndex);
-    final fields = List<bool>.from(
-      _filledFieldsByPaint[stateKey] ??
-          List<bool>.filled(
-              _selectedFieldLabels?.length ?? _fieldLabels.length, false),
-    );
-    fields[index] = value.trim().isNotEmpty;
+    final fieldLength =
+        _selectedFieldLabels?.length ?? _returnedPaintFieldLabels.length;
+    widget.draft.setValue(stateKey, index, value, fieldLength);
     setState(() {
-      _filledFieldsByPaint[stateKey] = fields;
-      _sendError = '';
+      // Keep the current sheet reactive so the completion indicator updates.
     });
-  }
-
-  List<ReturnedPaintItemInput> _enteredItems() {
-    final items = <ReturnedPaintItemInput>[];
-    void collect(
-      int usageIndex,
-      String category,
-      List<_ReturnedPaintOption> options,
-    ) {
-      for (final option in options) {
-        final fields = _fieldsForOption(option);
-        final controllers =
-            _fieldControllersByPaint[_paintStateKey(option.label, usageIndex)];
-        if (controllers == null || controllers.length != fields.length) {
-          continue;
-        }
-        final values = <String, double>{};
-        for (var index = 0; index < fields.length; index++) {
-          final raw = controllers[index].text.trim();
-          if (raw.isEmpty) continue;
-          final value = double.tryParse(raw.replaceAll(',', '.'));
-          if (value != null && value.isFinite && value >= 0) {
-            values[fields[index]] = value;
-          }
-        }
-        if (values.isNotEmpty) {
-          items.add(
-            ReturnedPaintItemInput(
-              usage: usageIndex == 0 ? 'rasxot' : 'astatka',
-              category: category,
-              name: option.label,
-              values: values,
-            ),
-          );
-        }
-      }
-    }
-
-    for (var usageIndex = 0; usageIndex < 2; usageIndex++) {
-      collect(usageIndex, 'colors', _returnedPaintColors);
-      collect(usageIndex, 'lacquers', _returnedPaintLacquers);
-      collect(usageIndex, 'solvents', _returnedPaintSolvents);
-    }
-    return items;
-  }
-
-  Future<void> _send() async {
-    final items = _enteredItems();
-    if (items.isEmpty) {
-      setState(() => _sendError = 'Kamida bitta qiymat kiriting');
-      return;
-    }
-    setState(() {
-      _sending = true;
-      _sendError = '';
-    });
-    try {
-      await MobileApi.instance.submitReturnedPaint(
-        ReturnedPaintSubmission(
-          orderId: widget.orderId,
-          orderCode: widget.orderCode,
-          orderName: widget.orderName,
-          apparatus: widget.apparatus,
-          items: items,
-        ),
-      );
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _sending = false;
-        _sendError = error is MobileApiException
-            ? error.message
-            : 'Ma’lumot yuborilmadi';
-      });
-    }
   }
 
   Widget _paintFields(
@@ -482,8 +475,8 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                             setState(() {
                               _selectedPaint = option.label;
                               _selectedUsageIndex = usageIndex;
-                              _selectedFieldLabels =
-                                  option.fieldLabels ?? _fieldLabels;
+                              _selectedFieldLabels = option.fieldLabels ??
+                                  _returnedPaintFieldLabels;
                             });
                           },
                           child: Container(
@@ -554,18 +547,21 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
             children: [
               Row(
                 children: [
-                  if (_selectedPaint != null)
-                    IconButton(
-                      tooltip: 'Orqaga',
-                      onPressed: () {
+                  IconButton(
+                    tooltip: 'Orqaga',
+                    onPressed: () {
+                      if (_selectedPaint != null) {
                         setState(() {
                           _selectedPaint = null;
                           _selectedUsageIndex = null;
                           _selectedFieldLabels = null;
                         });
-                      },
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
+                        return;
+                      }
+                      Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
                   Expanded(
                     child: Text(
                       'Qaytarilgan bo‘yoq',
@@ -615,40 +611,13 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                           child: _paintFields(
                             context,
                             _selectedPaint!,
-                            _selectedFieldLabels ?? _fieldLabels,
+                            _selectedFieldLabels ?? _returnedPaintFieldLabels,
                             _selectedUsageIndex ?? _usageController.index,
                           ),
                         ),
                 ),
               ),
               Divider(color: scheme.outlineVariant),
-              if (_sendError.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _sendError,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _sending ? null : _send,
-                icon: _sending
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: Text(_sending ? 'Yuborilmoqda...' : 'Yuborish'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -665,6 +634,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isBosma,
     required this.isLaminatsiya,
     required this.isRezka,
+    required this.returnedPaintDraft,
   });
 
   final String action;
@@ -673,6 +643,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
+  final _ReturnedPaintDraft returnedPaintDraft;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -691,6 +662,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
+
+  _ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
+
+  List<ReturnedPaintItemInput> get _returnedPaintItems => _isComplete
+      ? _returnedPaintItemsFromDraft(_returnedPaintDraft)
+      : const [];
 
   bool get _isComplete => widget.action == 'complete';
 
@@ -713,23 +690,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       double.tryParse(value.trim().replaceAll(',', '.'));
 
   Future<void> _openReturnedPaintSheet() async {
-    final sent = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _ReturnedPaintSheet(
-        orderId: widget.order.map.id,
-        orderCode: widget.order.map.code.trim().isNotEmpty
-            ? widget.order.map.code
-            : widget.order.map.orderNumber,
-        orderName: widget.order.map.title,
-        apparatus: widget.apparatus,
-      ),
-    );
-    if (!mounted || sent != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bo‘yoqchiga yuborildi')),
+      builder: (_) => _ReturnedPaintSheet(draft: _returnedPaintDraft),
     );
   }
 
@@ -813,8 +779,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         !widget.isRezka &&
         hasMeter &&
         hasKg) {
-      Navigator.of(context)
-          .pop(_ProgressQtyInput(meterQty: meterQty, kgQty: kgQty));
+      Navigator.of(context).pop(_ProgressQtyInput(
+        meterQty: meterQty,
+        kgQty: kgQty,
+        returnedPaintItems: _returnedPaintItems,
+      ));
       return;
     }
     if (widget.isBosma && bosmaMetricsReady) {
@@ -824,6 +793,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsKg: kgQty,
           returnInkKg: _isComplete ? returnInkKg : null,
           totalWaste: totalWaste,
+          returnedPaintItems: _returnedPaintItems,
         ),
       );
       return;
@@ -836,6 +806,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
           rezkaEdgeWaste: rezkaEdgeWaste,
+          returnedPaintItems: _returnedPaintItems,
         ),
       );
       return;
@@ -848,6 +819,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           laminationPrintLeftoverRolls: _isComplete ? printLeftoverRolls : null,
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
+          returnedPaintItems: _returnedPaintItems,
         ),
       );
       return;
@@ -899,6 +871,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         returnInkKg: returnInkKg,
         totalWaste: totalWaste,
         description: description,
+        returnedPaintItems: _returnedPaintItems,
         isCompletionRequest: true,
       );
     }
@@ -910,6 +883,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         laminationFilmLeftoverRolls: filmLeftoverRolls,
         totalWaste: totalWaste,
         description: description,
+        returnedPaintItems: _returnedPaintItems,
         isCompletionRequest: true,
       );
     }
@@ -921,6 +895,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaLaminationWaste: rezkaLaminationWaste,
         rezkaEdgeWaste: rezkaEdgeWaste,
         description: description,
+        returnedPaintItems: _returnedPaintItems,
         isCompletionRequest: true,
       );
     }
@@ -928,6 +903,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       meterQty: meterQty,
       kgQty: kgQty,
       description: description,
+      returnedPaintItems: _returnedPaintItems,
       isCompletionRequest: true,
     );
   }

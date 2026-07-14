@@ -28,6 +28,7 @@ class _ReadOnlyQueueActionRequest {
     this.progressBatchId = '',
     this.driverUrl = '',
     this.completionRequestNote = '',
+    this.returnedPaintItems = const [],
   });
 
   final AdminWarehouse apparatus;
@@ -51,6 +52,7 @@ class _ReadOnlyQueueActionRequest {
   final String progressBatchId;
   final String driverUrl;
   final String completionRequestNote;
+  final List<ReturnedPaintItemInput> returnedPaintItems;
 }
 
 class _WorkerWatchTab {

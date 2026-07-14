@@ -44,6 +44,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
   bool _mapExpanded = false;
+  _ReturnedPaintDraft _returnedPaintDraft = _ReturnedPaintDraft();
 
   @override
   void initState() {
@@ -66,6 +67,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
       _inputProgressLoading = false;
+      _returnedPaintDraft = _ReturnedPaintDraft();
       unawaited(_loadInputProgressBatches());
     }
     if (_actionInFlight) {
@@ -111,7 +113,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<void> _runQueueAction(
+  Future<bool> _runQueueAction(
     String action, {
     _ProgressQtyInput? progressInput,
     String uom = '',
@@ -132,15 +134,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       qolipScanned: _scannedQolipCode.trim().isNotEmpty,
     );
     if (prepared == null) {
-      return;
+      return false;
     }
     if (prepared.blockReason != null) {
       _showSheetNotice(prepared.blockReason!);
-      return;
+      return false;
     }
     final qolipCode = await _qolipCodeForQueueAction(action, prepared);
     if (!mounted || qolipCode == null) {
-      return;
+      return false;
     }
     setState(() => _actionInFlight = true);
     try {
@@ -159,7 +161,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         ),
       );
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
         _actionInFlight = false;
@@ -182,9 +184,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (states != null) {
         unawaited(_loadInputProgressBatches());
       }
+      return states != null;
     } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
         _actionInFlight = false;
@@ -193,6 +196,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
       });
       _showSheetNotice(_readOnlyQueueActionErrorText(error));
+      return false;
     }
   }
 
@@ -249,6 +253,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       action: action,
       apparatus: widget.apparatus,
       order: widget.order,
+      returnedPaintDraft: _returnedPaintDraft,
     );
     if (!mounted || input == null) {
       return;
@@ -269,12 +274,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (!mounted || driverUrl == null) {
       return;
     }
-    await _runQueueAction(
+    final completed = await _runQueueAction(
       action,
       progressInput: input,
       uom: 'm',
       driverUrl: driverUrl,
     );
+    if (completed && action == 'complete') {
+      _returnedPaintDraft = _ReturnedPaintDraft();
+    }
   }
 
   Future<void> _scanMaterial() async {

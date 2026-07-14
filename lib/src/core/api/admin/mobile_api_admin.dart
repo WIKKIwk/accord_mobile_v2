@@ -3076,6 +3076,7 @@ extension MobileApiAdmin on MobileApi {
     String progressBatchId = '',
     String driverUrl = '',
     String completionRequestNote = '',
+    List<ReturnedPaintItemInput> returnedPaintItems = const [],
   }) async {
     final result = await adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -3100,6 +3101,7 @@ extension MobileApiAdmin on MobileApi {
       progressBatchId: progressBatchId,
       driverUrl: driverUrl,
       completionRequestNote: completionRequestNote,
+      returnedPaintItems: returnedPaintItems,
     );
     return result.states;
   }
@@ -3155,6 +3157,7 @@ extension MobileApiAdmin on MobileApi {
     String progressBatchId = '',
     String driverUrl = '',
     String completionRequestNote = '',
+    List<ReturnedPaintItemInput> returnedPaintItems = const [],
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -3444,6 +3447,41 @@ extension MobileApiAdmin on MobileApi {
             ),
           );
         }
+        if (returnedPaintItems.isNotEmpty) {
+          final reportId =
+              'returned-paint-complete:$completedOrderId:$storageKey';
+          if (!_testModeReturnedPaintRequests
+              .any((request) => request.id == reportId)) {
+            final map = _testModeProductionMaps
+                .where((item) => item.map.id.trim() == completedOrderId)
+                .cast<ProductionMapSaved?>()
+                .firstWhere((item) => item != null, orElse: () => null);
+            final profile = AppSession.instance.profile;
+            final operatorName = profile?.displayName.trim().isNotEmpty == true
+                ? profile!.displayName.trim()
+                : 'Operator';
+            final orderCode = map?.map.code.trim().isNotEmpty == true
+                ? map!.map.code.trim()
+                : map?.map.orderNumber.trim() ?? '';
+            _testModeReturnedPaintRequests.insert(
+              0,
+              ReturnedPaintRequest(
+                id: reportId,
+                orderId: completedOrderId,
+                orderCode: orderCode,
+                orderName: map?.map.title.trim() ?? '',
+                apparatus: storageKey,
+                senderRole: profile?.role ?? UserRole.aparatchi,
+                senderRef: profile?.ref.trim() ?? 'test-user',
+                senderDisplayName: operatorName,
+                items: returnedPaintItems,
+                message:
+                    '$operatorName orderni $completedOrderId apparatida muvaffaqiyatli yopdi. Rasxot bo‘yoq sarfi va Astatka qolgan bo‘yoq miqdorlari qayd etildi.',
+                createdAt: DateTime.now(),
+              ),
+            );
+          }
+        }
         _testModeApparatusQueueStates[storageKey] = states;
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -3503,6 +3541,10 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
           if (trimmedCompletionRequestNote.isNotEmpty)
             'completion_request_note': trimmedCompletionRequestNote,
+          if (returnedPaintItems.isNotEmpty)
+            'returned_paint_items': returnedPaintItems
+                .map((item) => item.toJson())
+                .toList(growable: false),
         }),
       ),
     );

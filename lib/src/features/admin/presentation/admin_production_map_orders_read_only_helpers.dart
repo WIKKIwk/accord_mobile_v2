@@ -281,6 +281,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     ),
     driverUrl: driverUrl,
     completionRequestNote: completionRequestNote,
+    returnedPaintItems: progressInput?.returnedPaintItems ?? const [],
   );
 }
 

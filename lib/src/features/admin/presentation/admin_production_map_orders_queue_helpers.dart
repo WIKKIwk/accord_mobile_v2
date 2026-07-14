@@ -208,6 +208,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     progressBatchId: request.progressBatchId,
     driverUrl: request.driverUrl,
     completionRequestNote: request.completionRequestNote,
+    returnedPaintItems: request.returnedPaintItems,
   );
 }
 
