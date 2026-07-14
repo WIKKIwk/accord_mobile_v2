@@ -78,9 +78,8 @@ class AppNavigationBar extends StatelessWidget {
       return SizedBox(height: height + systemBottomInset);
     }
 
-    final int effectiveIndex = selectedIndex
-        .clamp(0, destinations.length - 1)
-        .toInt();
+    final int effectiveIndex =
+        selectedIndex.clamp(0, destinations.length - 1).toInt();
     final int primaryIndex = destinations.indexWhere(
       (destination) => destination.isPrimary,
     );
@@ -89,135 +88,121 @@ class AppNavigationBar extends StatelessWidget {
     final bool barSelectionVisible = selectionVisible && !primarySelected;
     final List<AppNavigationDestination> barDestinations = hasPrimary
         ? destinations
-              .asMap()
-              .entries
-              .where((entry) => entry.key != primaryIndex)
-              .map((entry) => entry.value)
-              .toList()
+            .asMap()
+            .entries
+            .where((entry) => entry.key != primaryIndex)
+            .map((entry) => entry.value)
+            .toList()
         : destinations;
     final int barSelectedIndex = hasPrimary
         ? primarySelected || barDestinations.isEmpty
-              ? 0
-              : destinations
-                    .take(effectiveIndex)
-                    .where((destination) => !destination.isPrimary)
-                    .length
-                    .clamp(0, barDestinations.length - 1)
-                    .toInt()
+            ? 0
+            : destinations
+                .take(effectiveIndex)
+                .where((destination) => !destination.isPrimary)
+                .length
+                .clamp(0, barDestinations.length - 1)
+                .toInt()
         : effectiveIndex;
     final double dockHeight = appNavigationBarDockHeight(
       height: height,
       systemBottomInset: systemBottomInset,
     );
-    final double hostHeight =
-        dockHeight +
+    final double hostHeight = dockHeight +
         (hasPrimary && primaryVisible
             ? appNavigationBarPrimaryButtonSize +
-                  appNavigationBarPrimaryButtonGap
+                appNavigationBarPrimaryButtonGap
             : 0);
 
     return MediaQuery.removePadding(
       context: context,
       removeBottom: true,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final double availableWidth = constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width;
-
-          return SizedBox(
-            key: const ValueKey('app-navigation-bar-host'),
-            width: availableWidth,
-            height: hostHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: SizedBox(
-                    key: const ValueKey('app-navigation-bar-shell'),
-                    width: availableWidth,
-                    height: dockHeight,
-                    child: MediaQuery(
-                      data: viewMetrics.copyWith(
-                        padding: EdgeInsets.only(bottom: systemBottomInset),
-                      ),
-                      child: barDestinations.length == 1
-                          ? _SingleDestinationNavigationBar(
-                              destination: barDestinations.single,
-                              selected: barSelectionVisible,
-                              height: height,
-                              onTap: () {
-                                final originalIndex = destinations.indexOf(
-                                  barDestinations.single,
+      child: SizedBox(
+        key: const ValueKey('app-navigation-bar-host'),
+        width: double.infinity,
+        height: hostHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SizedBox(
+                key: const ValueKey('app-navigation-bar-shell'),
+                width: double.infinity,
+                height: dockHeight,
+                child: MediaQuery(
+                  data: viewMetrics.copyWith(
+                    padding: EdgeInsets.only(bottom: systemBottomInset),
+                  ),
+                  child: barDestinations.length == 1
+                      ? _SingleDestinationNavigationBar(
+                          destination: barDestinations.single,
+                          selected: barSelectionVisible,
+                          height: height,
+                          onTap: () {
+                            final originalIndex = destinations.indexOf(
+                              barDestinations.single,
+                            );
+                            onDestinationSelected(originalIndex);
+                          },
+                        )
+                      : _SelectionAwareNavigationBarTheme(
+                          enabled: barSelectionVisible,
+                          height: height,
+                          child: NavigationBar(
+                            backgroundColor: navigationBarBackground,
+                            height: height,
+                            selectedIndex: barSelectedIndex,
+                            labelBehavior:
+                                NavigationDestinationLabelBehavior.alwaysShow,
+                            onDestinationSelected: (index) {
+                              final destination = barDestinations[index];
+                              final originalIndex = destinations.indexOf(
+                                destination,
+                              );
+                              onDestinationSelected(originalIndex);
+                            },
+                            destinations: List<NavigationDestination>.generate(
+                              barDestinations.length,
+                              (index) {
+                                final destination = barDestinations[index];
+                                return NavigationDestination(
+                                  label: destination.label,
+                                  tooltip: destination.onLongPress == null
+                                      ? null
+                                      : '',
+                                  icon: _AppNavigationDestinationIcon(
+                                    destination: destination,
+                                    selected: false,
+                                  ),
+                                  selectedIcon: _AppNavigationDestinationIcon(
+                                    destination: destination,
+                                    selected: true,
+                                  ),
                                 );
-                                onDestinationSelected(originalIndex);
                               },
-                            )
-                          : _SelectionAwareNavigationBarTheme(
-                              enabled: barSelectionVisible,
-                              height: height,
-                              child: NavigationBar(
-                                backgroundColor: navigationBarBackground,
-                                height: height,
-                                selectedIndex: barSelectedIndex,
-                                labelBehavior:
-                                    NavigationDestinationLabelBehavior
-                                        .alwaysShow,
-                                onDestinationSelected: (index) {
-                                  final destination = barDestinations[index];
-                                  final originalIndex = destinations.indexOf(
-                                    destination,
-                                  );
-                                  onDestinationSelected(originalIndex);
-                                },
-                                destinations:
-                                    List<NavigationDestination>.generate(
-                                      barDestinations.length,
-                                      (index) {
-                                        final destination =
-                                            barDestinations[index];
-                                        return NavigationDestination(
-                                          label: destination.label,
-                                          tooltip:
-                                              destination.onLongPress == null
-                                              ? null
-                                              : '',
-                                          icon: _AppNavigationDestinationIcon(
-                                            destination: destination,
-                                            selected: false,
-                                          ),
-                                          selectedIcon:
-                                              _AppNavigationDestinationIcon(
-                                                destination: destination,
-                                                selected: true,
-                                              ),
-                                        );
-                                      },
-                                    ),
-                              ),
                             ),
-                    ),
-                  ),
+                          ),
+                        ),
                 ),
-                if (hasPrimary && primaryVisible)
-                  PositionedDirectional(
-                    end: 16,
-                    bottom: appNavigationBarPrimaryButtonBottom(
-                      dockHeight: dockHeight,
-                    ),
-                    child: _AppPrimaryNavigationButton(
-                      destination: destinations[primaryIndex],
-                      selected: primarySelected,
-                      onTap: () => onDestinationSelected(primaryIndex),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          );
-        },
+            if (hasPrimary && primaryVisible)
+              PositionedDirectional(
+                end: 16,
+                bottom: appNavigationBarPrimaryButtonBottom(
+                  dockHeight: dockHeight,
+                ),
+                child: _AppPrimaryNavigationButton(
+                  destination: destinations[primaryIndex],
+                  selected: primarySelected,
+                  onTap: () => onDestinationSelected(primaryIndex),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -242,8 +227,8 @@ class _SelectionAwareNavigationBarTheme extends StatelessWidget {
 
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final TextStyle? unselectedLabelStyle = theme.textTheme.labelMedium
-        ?.copyWith(color: scheme.onSurfaceVariant);
+    final TextStyle? unselectedLabelStyle =
+        theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant);
 
     return NavigationBarTheme(
       data: NavigationBarThemeData(
@@ -293,8 +278,7 @@ class _SingleDestinationNavigationBar extends StatelessWidget {
       color: scheme.onSecondaryContainer,
     );
     return Material(
-      color:
-          NavigationBarTheme.of(context).backgroundColor ??
+      color: NavigationBarTheme.of(context).backgroundColor ??
           scheme.surfaceContainer,
       child: SizedBox(
         height: height,
@@ -387,12 +371,10 @@ class _AppPrimaryNavigationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final Color background = selected
-        ? scheme.primary
-        : scheme.primaryContainer;
-    final Color foreground = selected
-        ? scheme.onPrimary
-        : scheme.onPrimaryContainer;
+    final Color background =
+        selected ? scheme.primary : scheme.primaryContainer;
+    final Color foreground =
+        selected ? scheme.onPrimary : scheme.onPrimaryContainer;
     final Widget icon = destination.selectedIcon ?? destination.icon;
 
     return Semantics(
