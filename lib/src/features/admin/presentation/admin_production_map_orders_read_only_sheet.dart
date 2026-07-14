@@ -123,12 +123,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final prepared = _prepareReadOnlyQueueAction(
       action: action,
       apparatus: widget.apparatus,
+      order: widget.order,
       onQueueAction: widget.onQueueAction,
       actionInFlight: _actionInFlight,
       materialAssignments: _materialAssignments,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
-      order: widget.order,
       qolipScanned: _scannedQolipCode.trim().isNotEmpty,
     );
     if (prepared == null) {
@@ -248,6 +248,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       context,
       action: action,
       apparatus: widget.apparatus,
+      order: widget.order,
     );
     if (!mounted || input == null) {
       return;

@@ -155,6 +155,7 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
         return CustomerStore.instance.historyItems;
       case UserRole.aparatchi:
       case UserRole.qolipchi:
+      case UserRole.boyoqchi:
       case UserRole.materialTaminotchi:
       case UserRole.admin:
       case null:

@@ -42,7 +42,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   int get _retryAfterSec => _retryAfter.seconds;
 
   String get _workerId => widget.entry.id.trim();
-  bool get _isSystemUser => widget.entry.kind == AdminUserKind.qolipchi;
+  bool get _isSystemUser =>
+      widget.entry.kind == AdminUserKind.qolipchi ||
+      widget.entry.kind == AdminUserKind.boyoqchi;
 
   @override
   void initState() {
@@ -78,7 +80,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                       name: user.name,
                       phone: user.phone,
                       avatarUrl: user.avatarUrl,
-                      level: 'Qolipchi',
+                      level: widget.entry.roleLabel,
                       code: user.code,
                       codeLocked: user.codeLocked,
                       codeRetryAfterSec: user.codeRetryAfterSec,
@@ -120,6 +122,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       final updatedPhone = _isSystemUser
           ? (await MobileApi.instance.adminUpdateSystemUserPhone(
               id: detail.id,
+              role: widget.entry.principalRole,
               name: detail.name,
               phone: trimmedPhone,
             ))
@@ -163,7 +166,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
               name: updated.name,
               phone: updated.phone,
               avatarUrl: updated.avatarUrl,
-              level: 'Qolipchi',
+              level: widget.entry.roleLabel,
               code: updated.code,
               codeLocked: updated.codeLocked,
               codeRetryAfterSec: updated.codeRetryAfterSec,

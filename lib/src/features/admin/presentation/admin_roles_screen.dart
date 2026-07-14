@@ -842,7 +842,9 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
         ? UserRole.aparatchi
         : role.id == 'qolipchi'
             ? UserRole.qolipchi
-            : widget.principal.role;
+            : role.id == 'boyoqchi'
+                ? UserRole.boyoqchi
+                : widget.principal.role;
     Navigator.of(context).pop(
       AdminRoleAssignment(
         principalRole: principalRole,
@@ -1059,6 +1061,9 @@ bool _roleCanAssignToPrincipal(
   if (role.id == 'qolipchi') {
     return principal.role == UserRole.qolipchi ||
         principal.role == UserRole.aparatchi;
+  }
+  if (role.id == 'boyoqchi') {
+    return principal.role == UserRole.boyoqchi;
   }
   if (role.baseRole == null) {
     return true;

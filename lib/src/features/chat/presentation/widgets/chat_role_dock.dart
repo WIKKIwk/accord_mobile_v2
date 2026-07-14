@@ -4,6 +4,7 @@ import '../../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../../customer/presentation/widgets/customer_dock.dart';
 import '../../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../../qolip/presentation/widgets/qolip_dock.dart';
+import '../../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../../werka/presentation/widgets/werka_dock.dart';
@@ -34,6 +35,7 @@ class ChatRoleDock extends StatelessWidget {
       UserRole.customer => const CustomerDock(activeTab: null),
       UserRole.aparatchi => const AparatchiDock(activeTab: null),
       UserRole.qolipchi => const QolipDock(activeTab: null),
+      UserRole.boyoqchi => const BoyoqchiDock(activeTab: null),
       UserRole.materialTaminotchi => const MaterialTaminotchiDock(
           activeTab: null,
         ),

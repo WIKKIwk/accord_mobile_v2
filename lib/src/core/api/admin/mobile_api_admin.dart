@@ -175,6 +175,8 @@ String _adminWarehouseRoleToJson(UserRole role) {
       return 'aparatchi';
     case UserRole.qolipchi:
       return 'qolipchi';
+    case UserRole.boyoqchi:
+      return 'boyoqchi';
     case UserRole.materialTaminotchi:
       return 'material_taminotchi';
   }
@@ -3762,12 +3764,12 @@ extension MobileApiAdmin on MobileApi {
     required String name,
     required String phone,
   }) async {
-    if (role != UserRole.qolipchi) {
+    if (role != UserRole.qolipchi && role != UserRole.boyoqchi) {
       throw Exception('Unsupported system user role');
     }
     if (await TestModeController.instance.isEnabled()) {
       final user = AdminSystemUser(
-        id: 'qolipchi-${DateTime.now().microsecondsSinceEpoch}',
+        id: '${userRoleToJson(role)}-${DateTime.now().microsecondsSinceEpoch}',
         role: role,
         name: name.trim(),
         phone: phone.trim(),
@@ -3797,6 +3799,7 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminSystemUser> adminUpdateSystemUserPhone({
     required String id,
+    required UserRole role,
     required String name,
     required String phone,
   }) async {
@@ -3814,7 +3817,7 @@ extension MobileApiAdmin on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'id': id,
-          'role': 'qolipchi',
+          'role': userRoleToJson(role),
           'name': name,
           'phone': phone,
         }),
@@ -3867,8 +3870,9 @@ extension MobileApiAdmin on MobileApi {
         (user) => user.id == id,
         orElse: () => throw Exception('Admin system user not found'),
       );
+      final prefix = user.role == UserRole.boyoqchi ? '80' : '50';
       final code =
-          '50${DateTime.now().microsecondsSinceEpoch.toString().padLeft(10, '0').substring(0, 10)}';
+          '$prefix${DateTime.now().microsecondsSinceEpoch.toString().padLeft(10, '0').substring(0, 10)}';
       _testModeSystemUserCodes[id] = code;
       return AdminSystemUserDetail(
         id: user.id,
@@ -4239,23 +4243,31 @@ extension MobileApiAdmin on MobileApi {
     String role = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      if (role.trim().toLowerCase() == 'qolipchi') {
+      final systemRole = switch (role.trim().toLowerCase()) {
+        'qolipchi' => UserRole.qolipchi,
+        'boyoqchi' => UserRole.boyoqchi,
+        _ => null,
+      };
+      if (systemRole != null) {
         final needle = query.trim().toLowerCase();
         final items = _testModeSystemUsers
             .where(
               (user) =>
-                  needle.isEmpty ||
-                  user.name.toLowerCase().contains(needle) ||
-                  user.phone.toLowerCase().contains(needle),
+                  user.role == systemRole &&
+                  (needle.isEmpty ||
+                      user.name.toLowerCase().contains(needle) ||
+                      user.phone.toLowerCase().contains(needle)),
             )
             .map(
               (user) => AdminUserListEntry(
                 id: user.id,
                 name: user.name,
                 phone: user.phone,
-                kind: AdminUserKind.qolipchi,
-                principalRole: UserRole.qolipchi,
-                roleLabelOverride: 'Qolipchi',
+                kind: systemRole == UserRole.qolipchi
+                    ? AdminUserKind.qolipchi
+                    : AdminUserKind.boyoqchi,
+                principalRole: systemRole,
+                roleLabelOverride: userRoleLabel(systemRole),
               ),
             )
             .toList(growable: false);

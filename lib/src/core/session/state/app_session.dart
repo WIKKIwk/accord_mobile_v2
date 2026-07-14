@@ -36,6 +36,9 @@ class AppSession {
     if (profile.hasCapability('customer.access')) {
       return '/customer-home';
     }
+    if (profile.hasCapability('boyoqchi.access')) {
+      return '/boyoqchi-home';
+    }
     if (profile.role == UserRole.materialTaminotchi &&
         profile.hasAnyCapability(materialTaminotchiWorkspaceCapabilities)) {
       return '/material-home';
@@ -94,6 +97,8 @@ class AppSession {
         return '/apparatus-queue';
       case UserRole.qolipchi:
         return '/qolip';
+      case UserRole.boyoqchi:
+        return '/boyoqchi-home';
       case UserRole.materialTaminotchi:
         return '/material-home';
       case UserRole.admin:

@@ -17,6 +17,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
+import '../../boyoqchi/models/returned_paint_models.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
         DiscoveredServer,

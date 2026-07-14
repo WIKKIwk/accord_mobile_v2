@@ -34,6 +34,7 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.materialTaminotchi,
   AdminUserKind.worker,
   AdminUserKind.qolipchi,
+  AdminUserKind.boyoqchi,
 ];
 
 String _adminUserKindLabel(AdminUserKind kind) {
@@ -44,6 +45,7 @@ String _adminUserKindLabel(AdminUserKind kind) {
     AdminUserKind.materialTaminotchi => 'Material taminotchisi',
     AdminUserKind.worker => 'Ishchi',
     AdminUserKind.qolipchi => 'Qolipchi',
+    AdminUserKind.boyoqchi => 'Bo‘yoqchi',
   };
 }
 
@@ -55,6 +57,7 @@ String _adminUserKindRoleQuery(AdminUserKind kind) {
     AdminUserKind.materialTaminotchi => 'material_taminotchi',
     AdminUserKind.worker => 'worker',
     AdminUserKind.qolipchi => 'qolipchi',
+    AdminUserKind.boyoqchi => 'boyoqchi',
   };
 }
 
@@ -262,7 +265,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
   Future<void> _openUser(AdminUserListEntry item) async {
     bool changed = false;
     if (item.kind == AdminUserKind.worker ||
-        item.kind == AdminUserKind.qolipchi) {
+        item.kind == AdminUserKind.qolipchi ||
+        item.kind == AdminUserKind.boyoqchi) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWorkerDetail, arguments: item);
@@ -443,6 +447,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       );
     }
     final showFooter = kind != AdminUserKind.qolipchi &&
+        kind != AdminUserKind.boyoqchi &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     if (_initialLoading) {

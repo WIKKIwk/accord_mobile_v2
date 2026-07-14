@@ -30,6 +30,8 @@ import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
 import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
+import '../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
+import '../../boyoqchi/presentation/widgets/boyoqchi_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:async';
@@ -655,7 +657,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ? l10n.customerAccount
                         : current.accessRole == UserRole.materialTaminotchi
                             ? 'Material ta’minotchisi profili'
-                            : l10n.adminAccount;
+                            : current.accessRole == UserRole.boyoqchi
+                                ? 'Bo‘yoqchi profili'
+                                : l10n.adminAccount;
         final bool savingProfileChanges = savingNickname || savingAvatar;
         final displayName = _normalizedDisplayName(current);
         final legalName = _normalizedLegalName(current);
@@ -703,6 +707,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 selectedIndex: 1,
                 onNavigate: _openQolipDrawerRoute,
               ),
+            _ProfileShellKind.boyoqchi => BoyoqchiNavigationDrawer(
+                selectedRouteName: AppRoutes.profile,
+                onNavigate: _openBoyoqchiDrawerRoute,
+              ),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
@@ -724,6 +732,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             _ProfileShellKind.qolip => const QolipDock(
                 activeTab: QolipDockTab.profile,
+              ),
+            _ProfileShellKind.boyoqchi => const BoyoqchiDock(
+                activeTab: BoyoqchiDockTab.profile,
               ),
             _ProfileShellKind.admin => const AdminDock(
                 activeTab: AdminDockTab.user,
@@ -829,6 +840,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
     AppRootNavigation.replaceRootRoute(context, route);
   }
+
+  void _openBoyoqchiDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
+      return;
+    }
+    AppRootNavigation.replaceRootRoute(context, route);
+  }
 }
 
 enum _ProfileShellKind {
@@ -838,6 +857,7 @@ enum _ProfileShellKind {
   materialTaminotchi,
   aparatchi,
   qolip,
+  boyoqchi,
   admin,
   none,
 }
@@ -850,6 +870,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.materialHome => _ProfileShellKind.materialTaminotchi,
     AppRoutes.apparatusQueue => _ProfileShellKind.aparatchi,
     AppRoutes.qolipHome => _ProfileShellKind.qolip,
+    AppRoutes.boyoqchiHome => _ProfileShellKind.boyoqchi,
     AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

@@ -174,4 +174,21 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.qolipCheckouts), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
+
+  test('boyoqchi home is isolated behind boyoqchi access', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.boyoqchi,
+      displayName: 'Bo‘yoqchi',
+      legalName: '',
+      ref: 'boyoqchi-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['boyoqchi.access', 'returned_paint.request.read'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.boyoqchiHome), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.qolipHome), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isFalse);
+  });
 }

@@ -4,6 +4,7 @@ enum UserRole {
   customer,
   aparatchi,
   qolipchi,
+  boyoqchi,
   materialTaminotchi,
   admin,
 }
@@ -18,11 +19,13 @@ UserRole userRoleFromJson(String? value) {
               ? UserRole.aparatchi
               : roleValue == 'qolipchi'
                   ? UserRole.qolipchi
-                  : roleValue == 'material_taminotchi'
-                      ? UserRole.materialTaminotchi
-                      : roleValue == 'admin'
-                          ? UserRole.admin
-                          : UserRole.supplier;
+                  : roleValue == 'boyoqchi'
+                      ? UserRole.boyoqchi
+                      : roleValue == 'material_taminotchi'
+                          ? UserRole.materialTaminotchi
+                          : roleValue == 'admin'
+                              ? UserRole.admin
+                              : UserRole.supplier;
 }
 
 String userRoleToJson(UserRole role) {
@@ -34,11 +37,13 @@ String userRoleToJson(UserRole role) {
               ? 'aparatchi'
               : role == UserRole.qolipchi
                   ? 'qolipchi'
-                  : role == UserRole.materialTaminotchi
-                      ? 'material_taminotchi'
-                      : role == UserRole.admin
-                          ? 'admin'
-                          : 'supplier';
+                  : role == UserRole.boyoqchi
+                      ? 'boyoqchi'
+                      : role == UserRole.materialTaminotchi
+                          ? 'material_taminotchi'
+                          : role == UserRole.admin
+                              ? 'admin'
+                              : 'supplier';
 }
 
 String userRoleLabel(UserRole role) {
@@ -50,11 +55,13 @@ String userRoleLabel(UserRole role) {
               ? 'Aparatchi'
               : role == UserRole.qolipchi
                   ? 'Qolipchi'
-                  : role == UserRole.materialTaminotchi
-                      ? 'Material ta\'minotchisi'
-                      : role == UserRole.admin
-                          ? 'Admin'
-                          : 'Ta\'minotchi';
+                  : role == UserRole.boyoqchi
+                      ? 'Bo‘yoqchi'
+                      : role == UserRole.materialTaminotchi
+                          ? 'Material ta\'minotchisi'
+                          : role == UserRole.admin
+                              ? 'Admin'
+                              : 'Ta\'minotchi';
 }
 
 enum DispatchStatus { draft, pending, accepted, partial, rejected, cancelled }
@@ -1267,6 +1274,7 @@ class SessionProfile {
           'werka.access',
           'supplier.access',
           'customer.access',
+          'boyoqchi.access',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -1291,6 +1299,9 @@ class SessionProfile {
     }
     if (hasCapability('customer.access')) {
       return UserRole.customer;
+    }
+    if (hasCapability('boyoqchi.access')) {
+      return UserRole.boyoqchi;
     }
     if (role == UserRole.materialTaminotchi &&
         hasAnyCapability(materialTaminotchiWorkspaceCapabilities)) {
@@ -1345,9 +1356,17 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
     case UserRole.customer:
       return const ['customer.access'];
     case UserRole.aparatchi:
-      return const ['apparatus.queue.read'];
+      return const [
+        'apparatus.queue.read',
+        'returned_paint.request.create',
+      ];
     case UserRole.qolipchi:
       return const ['qolip.manage'];
+    case UserRole.boyoqchi:
+      return const [
+        'boyoqchi.access',
+        'returned_paint.request.read',
+      ];
     case UserRole.materialTaminotchi:
       return const [
         'gscale.catalog.read',
@@ -1379,6 +1398,7 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
         'admin.activity.read',
         'werka.code.manage',
         'production.map.manage',
+        'returned_paint.request.create',
         'apparatus.queue.read',
         'gscale.catalog.read',
         'gscale.print',
@@ -2135,6 +2155,7 @@ enum AdminUserKind {
   customer,
   worker,
   qolipchi,
+  boyoqchi,
   materialTaminotchi,
 }
 
@@ -2174,7 +2195,9 @@ class AdminUserListEntry {
                     ? AdminUserKind.customer
                     : principalRole == UserRole.qolipchi
                         ? AdminUserKind.qolipchi
-                        : AdminUserKind.supplier;
+                        : principalRole == UserRole.boyoqchi
+                            ? AdminUserKind.boyoqchi
+                            : AdminUserKind.supplier;
     final entityRef = (json['entity_ref'] as String? ?? '').trim();
     final rawId = (json['id'] as String? ?? '').trim();
     return AdminUserListEntry(
@@ -2200,11 +2223,13 @@ class AdminUserListEntry {
             ? 'Customer'
             : kind == AdminUserKind.qolipchi
                 ? 'Qolipchi'
-                : kind == AdminUserKind.materialTaminotchi
-                    ? 'Material taminotchisi'
-                    : kind == AdminUserKind.worker
-                        ? userRoleLabel(principalRole)
-                        : 'Supplier';
+                : kind == AdminUserKind.boyoqchi
+                    ? 'Bo‘yoqchi'
+                    : kind == AdminUserKind.materialTaminotchi
+                        ? 'Material taminotchisi'
+                        : kind == AdminUserKind.worker
+                            ? userRoleLabel(principalRole)
+                            : 'Supplier';
   }
 }
 

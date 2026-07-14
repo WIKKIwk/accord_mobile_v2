@@ -35,6 +35,8 @@ class _ProgressQtyInput {
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
   BuildContext context,
   String action, {
+  required ProductionMapSaved order,
+  required String apparatus,
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
@@ -44,6 +46,8 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
     barrierColor: Colors.black54,
     builder: (context) => _ProgressQtyDialog(
       action: action,
+      order: order,
+      apparatus: apparatus,
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
@@ -55,11 +59,14 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   BuildContext context, {
   required String action,
   required AdminWarehouse? apparatus,
+  required ProductionMapSaved order,
 }) {
   final title = apparatus?.warehouse ?? '';
   return _showProgressQtyDialog(
     context,
     action,
+    order: order,
+    apparatus: title,
     isBosma: productionMapPechatColorCount(title) != null,
     isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
     isRezka: productionMapIsRezkaApparatus(title),
@@ -163,7 +170,17 @@ const _returnedPaintSolvents = <_ReturnedPaintOption>[
 ];
 
 class _ReturnedPaintSheet extends StatefulWidget {
-  const _ReturnedPaintSheet();
+  const _ReturnedPaintSheet({
+    required this.orderId,
+    required this.orderCode,
+    required this.orderName,
+    required this.apparatus,
+  });
+
+  final String orderId;
+  final String orderCode;
+  final String orderName;
+  final String apparatus;
 
   @override
   State<_ReturnedPaintSheet> createState() => _ReturnedPaintSheetState();
@@ -177,6 +194,8 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
   List<String>? _selectedFieldLabels;
   final Map<String, List<bool>> _filledFieldsByPaint = {};
   final Map<String, List<TextEditingController>> _fieldControllersByPaint = {};
+  bool _sending = false;
+  String _sendError = '';
 
   @override
   void initState() {
@@ -304,7 +323,86 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
               _selectedFieldLabels?.length ?? _fieldLabels.length, false),
     );
     fields[index] = value.trim().isNotEmpty;
-    setState(() => _filledFieldsByPaint[stateKey] = fields);
+    setState(() {
+      _filledFieldsByPaint[stateKey] = fields;
+      _sendError = '';
+    });
+  }
+
+  List<ReturnedPaintItemInput> _enteredItems() {
+    final items = <ReturnedPaintItemInput>[];
+    void collect(
+      int usageIndex,
+      String category,
+      List<_ReturnedPaintOption> options,
+    ) {
+      for (final option in options) {
+        final fields = _fieldsForOption(option);
+        final controllers =
+            _fieldControllersByPaint[_paintStateKey(option.label, usageIndex)];
+        if (controllers == null || controllers.length != fields.length) {
+          continue;
+        }
+        final values = <String, double>{};
+        for (var index = 0; index < fields.length; index++) {
+          final raw = controllers[index].text.trim();
+          if (raw.isEmpty) continue;
+          final value = double.tryParse(raw.replaceAll(',', '.'));
+          if (value != null && value.isFinite && value >= 0) {
+            values[fields[index]] = value;
+          }
+        }
+        if (values.isNotEmpty) {
+          items.add(
+            ReturnedPaintItemInput(
+              usage: usageIndex == 0 ? 'rasxot' : 'astatka',
+              category: category,
+              name: option.label,
+              values: values,
+            ),
+          );
+        }
+      }
+    }
+
+    for (var usageIndex = 0; usageIndex < 2; usageIndex++) {
+      collect(usageIndex, 'colors', _returnedPaintColors);
+      collect(usageIndex, 'lacquers', _returnedPaintLacquers);
+      collect(usageIndex, 'solvents', _returnedPaintSolvents);
+    }
+    return items;
+  }
+
+  Future<void> _send() async {
+    final items = _enteredItems();
+    if (items.isEmpty) {
+      setState(() => _sendError = 'Kamida bitta qiymat kiriting');
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _sendError = '';
+    });
+    try {
+      await MobileApi.instance.submitReturnedPaint(
+        ReturnedPaintSubmission(
+          orderId: widget.orderId,
+          orderCode: widget.orderCode,
+          orderName: widget.orderName,
+          apparatus: widget.apparatus,
+          items: items,
+        ),
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _sendError = error is MobileApiException
+            ? error.message
+            : 'Ma’lumot yuborilmadi';
+      });
+    }
   }
 
   Widget _paintFields(
@@ -524,6 +622,33 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
                 ),
               ),
               Divider(color: scheme.outlineVariant),
+              if (_sendError.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _sendError,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: _sending ? null : _send,
+                icon: _sending
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded),
+                label: Text(_sending ? 'Yuborilmoqda...' : 'Yuborish'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -535,12 +660,16 @@ class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
 class _ProgressQtyDialog extends StatefulWidget {
   const _ProgressQtyDialog({
     required this.action,
+    required this.order,
+    required this.apparatus,
     required this.isBosma,
     required this.isLaminatsiya,
     required this.isRezka,
   });
 
   final String action;
+  final ProductionMapSaved order;
+  final String apparatus;
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
@@ -583,13 +712,24 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   double? _parseQty(String value) =>
       double.tryParse(value.trim().replaceAll(',', '.'));
 
-  void _openReturnedPaintSheet() {
-    showModalBottomSheet<void>(
+  Future<void> _openReturnedPaintSheet() async {
+    final sent = await showModalBottomSheet<bool>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => const _ReturnedPaintSheet(),
+      builder: (_) => _ReturnedPaintSheet(
+        orderId: widget.order.map.id,
+        orderCode: widget.order.map.code.trim().isNotEmpty
+            ? widget.order.map.code
+            : widget.order.map.orderNumber,
+        orderName: widget.order.map.title,
+        apparatus: widget.apparatus,
+      ),
+    );
+    if (!mounted || sent != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bo‘yoqchiga yuborildi')),
     );
   }
 

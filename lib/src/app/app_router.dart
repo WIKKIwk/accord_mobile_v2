@@ -8,6 +8,7 @@ import '../features/chat/presentation/chat_conversations_screen.dart';
 import '../features/chat/presentation/chat_detail_screen.dart';
 import '../features/chat/presentation/chat_directory_screen.dart';
 import '../features/chat/models/chat_models.dart';
+import '../features/boyoqchi/presentation/boyoqchi_home_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';
 import '../features/admin/presentation/admin_calculate_screen.dart';
@@ -191,6 +192,7 @@ class AppRoutes {
   static const String qolipHome = '/qolip';
   static const String qolipProducts = '/qolip-products';
   static const String qolipCheckouts = '/qolip-checkouts';
+  static const String boyoqchiHome = '/boyoqchi-home';
   static const String rezkaSplit = '/rezka-split';
 }
 
@@ -239,6 +241,7 @@ class AppRouter {
     AppRoutes.qolipHome,
     AppRoutes.qolipProducts,
     AppRoutes.qolipCheckouts,
+    AppRoutes.boyoqchiHome,
   };
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -653,6 +656,8 @@ class AppRouter {
         return _buildRoute(settings, const QolipProductsScreen());
       case AppRoutes.qolipCheckouts:
         return _buildRoute(settings, const QolipCheckoutsScreen());
+      case AppRoutes.boyoqchiHome:
+        return _buildRoute(settings, const BoyoqchiHomeScreen());
       case AppRoutes.rezkaSplit:
         return _buildRoute(settings, const RezkaSplitScreen());
       default:
@@ -745,6 +750,7 @@ class AppRouter {
     AppRoutes.qolipHome: {'qolip.manage'},
     AppRoutes.qolipProducts: {'qolip.manage'},
     AppRoutes.qolipCheckouts: {'qolip.manage'},
+    AppRoutes.boyoqchiHome: {'boyoqchi.access'},
     AppRoutes.rezkaSplit: {'rezka.split.manage'},
     AppRoutes.adminHome: {
       'admin.access',

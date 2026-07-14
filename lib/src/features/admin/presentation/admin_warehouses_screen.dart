@@ -1540,6 +1540,9 @@ UserRole _roleForUser(AdminUserListEntry user) {
   if (user.principalRole == UserRole.qolipchi) {
     return UserRole.qolipchi;
   }
+  if (user.principalRole == UserRole.boyoqchi) {
+    return UserRole.boyoqchi;
+  }
   switch (user.kind) {
     case AdminUserKind.supplier:
       return UserRole.supplier;
@@ -1551,6 +1554,8 @@ UserRole _roleForUser(AdminUserListEntry user) {
       return UserRole.materialTaminotchi;
     case AdminUserKind.qolipchi:
       return UserRole.qolipchi;
+    case AdminUserKind.boyoqchi:
+      return UserRole.boyoqchi;
     case AdminUserKind.worker:
       return UserRole.aparatchi;
   }

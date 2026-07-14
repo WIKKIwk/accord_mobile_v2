@@ -171,6 +171,29 @@ void main() {
     expect(AppSession.instance.can('qolip.manage'), isTrue);
   });
 
+  test('boyoqchi role has its own home route and capabilities', () async {
+    await AppSession.instance.setSession(
+      token: 'token',
+      profile: const SessionProfile(
+        role: UserRole.boyoqchi,
+        displayName: 'Bo‘yoqchi',
+        legalName: '',
+        ref: 'boyoqchi-1',
+        phone: '',
+        avatarUrl: '',
+        capabilities: [
+          'boyoqchi.access',
+          'returned_paint.request.read',
+        ],
+      ),
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.boyoqchiHome);
+    expect(AppSession.instance.profile?.accessRole, UserRole.boyoqchi);
+    expect(userRoleFromJson('boyoqchi'), UserRole.boyoqchi);
+    expect(userRoleToJson(UserRole.boyoqchi), 'boyoqchi');
+  });
+
   test('material taminotchi role opens material home and tarozi access',
       () async {
     await AppSession.instance.setSession(

@@ -164,6 +164,16 @@ class TestModeDemoData {
       system: true,
     ),
     AdminRoleDefinition(
+      id: 'boyoqchi',
+      label: 'Bo‘yoqchi',
+      baseRole: UserRole.boyoqchi,
+      capabilityCodes: [
+        'boyoqchi.access',
+        'returned_paint.request.read',
+      ],
+      system: true,
+    ),
+    AdminRoleDefinition(
       id: 'demo-admin',
       label: 'Demo admin',
       baseRole: UserRole.admin,
