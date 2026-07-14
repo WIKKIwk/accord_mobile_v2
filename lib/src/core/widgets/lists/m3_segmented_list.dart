@@ -159,6 +159,62 @@ class M3SegmentFilledSurface extends StatelessWidget {
   }
 }
 
+/// MD3 contained list item with the same expand/collapse motion used by
+/// production order lists.
+class M3ExpandableFilledSurface extends StatelessWidget {
+  const M3ExpandableFilledSurface({
+    super.key,
+    required this.slot,
+    required this.cornerRadius,
+    required this.expanded,
+    required this.onExpandedChanged,
+    required this.header,
+    required this.expandedChild,
+    this.headerPadding = const EdgeInsets.fromLTRB(14, 8, 4, 8),
+    this.collapsedMinHeight = 45,
+    this.duration = const Duration(milliseconds: 180),
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final double cornerRadius;
+  final bool expanded;
+  final ValueChanged<bool> onExpandedChanged;
+  final Widget header;
+  final Widget expandedChild;
+  final EdgeInsetsGeometry headerPadding;
+  final double collapsedMinHeight;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    return M3SegmentFilledSurface(
+      slot: slot,
+      cornerRadius: cornerRadius,
+      onTap: () => onExpandedChanged(!expanded),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: headerPadding,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: expanded ? 0 : collapsedMinHeight,
+              ),
+              child: header,
+            ),
+          ),
+          AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded ? expandedChild : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Bir nechta [children] orasiga [M3SegmentedListGeometry.gap] qo‘yilgan [Column].
 ///
 /// Faqat **vizual spacing**; har bir child o‘z slot shaklini o‘zi beradi.

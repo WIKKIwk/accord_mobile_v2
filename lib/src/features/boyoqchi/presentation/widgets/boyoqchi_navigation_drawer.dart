@@ -29,6 +29,12 @@ class BoyoqchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.boyoqchiHome,
         ),
         const RoleNavigationDrawerDestination(
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2_rounded,
+          label: 'Astatka',
+          routeName: AppRoutes.boyoqchiAstatka,
+        ),
+        const RoleNavigationDrawerDestination(
           icon: Icons.chat_bubble_outline_rounded,
           selectedIcon: Icons.chat_bubble_rounded,
           label: 'Chat',

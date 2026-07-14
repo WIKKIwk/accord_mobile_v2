@@ -222,13 +222,14 @@ List<ReturnedPaintItemInput> _returnedPaintItemsFromDraft(
         '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}',
         fields.length,
       );
-      final values = <String, double>{};
+      final values = <String, String>{};
       for (var index = 0; index < fields.length; index++) {
         final raw = rawValues[index].trim();
         if (raw.isEmpty) continue;
-        final value = double.tryParse(raw.replaceAll(',', '.'));
+        final normalized = raw.replaceAll(',', '.');
+        final value = double.tryParse(normalized);
         if (value != null && value.isFinite && value >= 0) {
-          values[fields[index]] = value;
+          values[fields[index]] = normalized;
         }
       }
       if (values.isNotEmpty) {

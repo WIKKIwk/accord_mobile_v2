@@ -37,15 +37,44 @@ Future<void> main() async {
   await _runStartupStep('theme', ThemeController.instance.load);
   await _runStartupStep('locale', LocaleController.instance.load);
   await _runStartupStep('platform helper', PlatformHelper.load);
-  runApp(
-    DevicePreview(
-      enabled: AppPreview.enabled,
-      builder: (_) => const ErpnextStockMobileApp(),
-    ),
-  );
+  runApp(buildAppRoot());
   if (!kIsWeb) {
     unawaited(PushMessagingService.instance.initialize());
   }
+}
+
+@visibleForTesting
+Widget buildAppRoot({bool? previewEnabled}) {
+  final enabled = previewEnabled ?? AppPreview.enabled;
+  if (!enabled) {
+    return DevicePreview(
+      enabled: false,
+      builder: (_) => const ErpnextStockMobileApp(),
+    );
+  }
+
+  // DevicePreview 1.3.1 rebuilds its own LayoutBuilder around the preview.
+  // Flutter 3.44 rejects that rebuild when a nested Scaffold BodyBuilder is
+  // being laid out. Keep the same default iPhone frame without nesting the
+  // application under DevicePreview's LayoutBuilder.
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: ColoredBox(
+      color: const Color(0xFFFDF5FF),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: DeviceFrame(
+              device: Devices.ios.iPhone13,
+              screen: const ErpnextStockMobileApp(),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 Future<void> _runStartupStep(

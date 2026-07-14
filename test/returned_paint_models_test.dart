@@ -13,6 +13,16 @@ void main() {
       'sender_ref': 'worker-1',
       'sender_display_name': 'Bosmachi',
       'created_at_unix': 100,
+      'calculation': {
+        'rasxot_mix_total': '3',
+        'astatka_mix_total': '1.5',
+        'rasxot_alcohol': '0.9',
+        'astatka_alcohol': '0.45',
+        'final_used_alcohol': '0.45',
+        'rasxot_pure_paint': '2.1',
+        'astatka_pure_paint': '1.05',
+        'final_used_paint': '1.05',
+      },
       'items': [
         {
           'usage': 'rasxot',
@@ -30,9 +40,12 @@ void main() {
     });
 
     expect(request.items[0].usage, 'rasxot');
-    expect(request.items[0].values['Mix'], 3);
+    expect(request.items[0].values['Mix'], '3');
     expect(request.items[1].usage, 'astatka');
-    expect(request.items[1].values['Mix'], 1.5);
+    expect(request.items[1].values['Mix'], '1.5');
+    expect(request.calculation?.rasxotMixTotal, '3');
+    expect(request.calculation?.finalUsedAlcohol, '0.45');
+    expect(request.calculation?.finalUsedPaint, '1.05');
   });
 
   test('astatka values become the aggregate return ink amount', () {
@@ -41,19 +54,19 @@ void main() {
         usage: 'rasxot',
         category: 'colors',
         name: 'Oq',
-        values: {'Mix': 9, 'Oq': 3},
+        values: {'Mix': '9', 'Oq': '3'},
       ),
       ReturnedPaintItemInput(
         usage: 'astatka',
         category: 'colors',
         name: 'Oq',
-        values: {'Mix': 1.25, 'Oq': 0.75},
+        values: {'Mix': '1.25', 'Oq': '0.75'},
       ),
       ReturnedPaintItemInput(
         usage: 'astatka',
         category: 'solvents',
         name: 'Spirtlar',
-        values: {'Etil': 0.5},
+        values: {'Etil': '0.5'},
       ),
     ];
 

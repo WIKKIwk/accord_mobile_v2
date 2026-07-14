@@ -188,6 +188,7 @@ void main() {
     );
 
     expect(AppRouter.canOpenRoute(AppRoutes.boyoqchiHome), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.boyoqchiAstatka), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.qolipHome), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isFalse);
   });

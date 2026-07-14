@@ -11,7 +11,7 @@ class ReturnedPaintItemInput {
   final String usage;
   final String category;
   final String name;
-  final Map<String, double> values;
+  final Map<String, String> values;
 
   Map<String, dynamic> toJson() => {
         'usage': usage,
@@ -30,10 +30,10 @@ class ReturnedPaintItemInput {
           ? rawValues.map(
               (key, value) => MapEntry(
                 key.toString(),
-                (value as num).toDouble(),
+                value.toString(),
               ),
             )
-          : const <String, double>{},
+          : const <String, String>{},
     );
   }
 }
@@ -48,7 +48,9 @@ double? returnedPaintAstatkaTotal(
   for (final item in values) {
     if (item.usage.trim().toLowerCase() != 'astatka') continue;
     for (final value in item.values.values) {
-      total += value;
+      final parsed = double.tryParse(value);
+      if (parsed == null || !parsed.isFinite) return null;
+      total += parsed;
     }
   }
   return total.isFinite ? total : null;
@@ -90,6 +92,7 @@ class ReturnedPaintRequest {
     required this.senderDisplayName,
     required this.items,
     required this.createdAt,
+    this.calculation,
     this.message = '',
   });
 
@@ -103,6 +106,7 @@ class ReturnedPaintRequest {
   final String senderDisplayName;
   final List<ReturnedPaintItemInput> items;
   final DateTime createdAt;
+  final ReturnedPaintCalculation? calculation;
   final String message;
 
   factory ReturnedPaintRequest.fromJson(Map<String, dynamic> json) {
@@ -125,6 +129,11 @@ class ReturnedPaintRequest {
             ),
           )
           .toList(growable: false),
+      calculation: json['calculation'] is Map
+          ? ReturnedPaintCalculation.fromJson(
+              (json['calculation'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         createdAtUnix * 1000,
         isUtc: true,
@@ -132,6 +141,43 @@ class ReturnedPaintRequest {
     );
   }
 }
+
+class ReturnedPaintCalculation {
+  const ReturnedPaintCalculation({
+    required this.rasxotMixTotal,
+    required this.astatkaMixTotal,
+    required this.rasxotAlcohol,
+    required this.astatkaAlcohol,
+    required this.finalUsedAlcohol,
+    required this.rasxotPurePaint,
+    required this.astatkaPurePaint,
+    required this.finalUsedPaint,
+  });
+
+  final String rasxotMixTotal;
+  final String astatkaMixTotal;
+  final String rasxotAlcohol;
+  final String astatkaAlcohol;
+  final String finalUsedAlcohol;
+  final String rasxotPurePaint;
+  final String astatkaPurePaint;
+  final String finalUsedPaint;
+
+  factory ReturnedPaintCalculation.fromJson(Map<String, dynamic> json) {
+    return ReturnedPaintCalculation(
+      rasxotMixTotal: _decimalText(json['rasxot_mix_total']),
+      astatkaMixTotal: _decimalText(json['astatka_mix_total']),
+      rasxotAlcohol: _decimalText(json['rasxot_alcohol']),
+      astatkaAlcohol: _decimalText(json['astatka_alcohol']),
+      finalUsedAlcohol: _decimalText(json['final_used_alcohol']),
+      rasxotPurePaint: _decimalText(json['rasxot_pure_paint']),
+      astatkaPurePaint: _decimalText(json['astatka_pure_paint']),
+      finalUsedPaint: _decimalText(json['final_used_paint']),
+    );
+  }
+}
+
+String _decimalText(Object? value) => value?.toString().trim() ?? '';
 
 class ReturnedPaintRequestPage {
   const ReturnedPaintRequestPage({

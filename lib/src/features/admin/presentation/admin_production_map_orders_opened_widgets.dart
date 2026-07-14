@@ -64,73 +64,56 @@ class _OpenedOrderExpandableRow extends StatelessWidget {
     final map = order.map;
     final subtitle = _openedOrderSubtitle(map, includeApparatusCount: true);
 
-    return M3SegmentFilledSurface(
+    return M3ExpandableFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      onTap: () => onExpandedChanged(!expanded),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
-              child: Row(
-                children: [
-                  const _OpenedOrderTreeBadge(),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _OpenedOrderTitleLine(
-                          map: map,
-                          theme: theme,
-                          scheme: scheme,
-                        ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.05,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 22,
+      expanded: expanded,
+      onExpandedChanged: onExpandedChanged,
+      header: Row(
+        children: [
+          const _OpenedOrderTreeBadge(),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _OpenedOrderTitleLine(
+                  map: map,
+                  theme: theme,
+                  scheme: scheme,
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
+                      height: 1.05,
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: expanded
-                  ? _OpenedOrderWorkflowDetail(
-                      map: map,
-                      baseMetraj: baseMetraj,
-                      orderKg: orderKg,
-                    )
-                  : const SizedBox.shrink(),
+          ),
+          AnimatedRotation(
+            turns: expanded ? 0.5 : 0,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 22,
+              color: scheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+      expandedChild: _OpenedOrderWorkflowDetail(
+        map: map,
+        baseMetraj: baseMetraj,
+        orderKg: orderKg,
       ),
     );
   }
