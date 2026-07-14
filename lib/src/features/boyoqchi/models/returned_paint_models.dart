@@ -38,6 +38,22 @@ class ReturnedPaintItemInput {
   }
 }
 
+double? returnedPaintAstatkaTotal(
+  Iterable<ReturnedPaintItemInput> items,
+) {
+  final values = items.toList(growable: false);
+  if (values.isEmpty) return null;
+
+  var total = 0.0;
+  for (final item in values) {
+    if (item.usage.trim().toLowerCase() != 'astatka') continue;
+    for (final value in item.values.values) {
+      total += value;
+    }
+  }
+  return total.isFinite ? total : null;
+}
+
 class ReturnedPaintSubmission {
   const ReturnedPaintSubmission({
     required this.orderId,

@@ -652,7 +652,6 @@ class _ProgressQtyDialog extends StatefulWidget {
 class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
-  final _returnInkController = TextEditingController();
   final _printLeftoverController = TextEditingController();
   final _filmLeftoverController = TextEditingController();
   final _rezkaBosmaWasteController = TextEditingController();
@@ -680,7 +679,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     _rezkaBosmaWasteController.dispose();
     _filmLeftoverController.dispose();
     _printLeftoverController.dispose();
-    _returnInkController.dispose();
     _kgController.dispose();
     _meterController.dispose();
     super.dispose();
@@ -739,7 +737,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
-    final returnInkKg = _parseQty(_returnInkController.text);
+    final returnedPaintItems = _returnedPaintItems;
+    final returnInkKg =
+        _isComplete ? returnedPaintAstatkaTotal(returnedPaintItems) : null;
     final printLeftoverRolls = _parseQty(_printLeftoverController.text);
     final filmLeftoverRolls = _parseQty(_filmLeftoverController.text);
     final rezkaBosmaWaste = _parseQty(_rezkaBosmaWasteController.text);
@@ -765,7 +765,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
-    final bosmaMetricsReady = hasWaste && hasMeter && hasKg;
+    final hasReturnInk =
+        returnInkKg != null && returnInkKg.isFinite && returnInkKg > 0;
+    final bosmaMetricsReady =
+        hasWaste && hasMeter && hasKg && (!_isComplete || hasReturnInk);
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasFilmLeftover && hasWaste && hasMeter && hasKg;
@@ -782,7 +785,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       Navigator.of(context).pop(_ProgressQtyInput(
         meterQty: meterQty,
         kgQty: kgQty,
-        returnedPaintItems: _returnedPaintItems,
+        returnedPaintItems: returnedPaintItems,
       ));
       return;
     }
@@ -793,7 +796,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsKg: kgQty,
           returnInkKg: _isComplete ? returnInkKg : null,
           totalWaste: totalWaste,
-          returnedPaintItems: _returnedPaintItems,
+          returnedPaintItems: returnedPaintItems,
         ),
       );
       return;
@@ -806,7 +809,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
           rezkaEdgeWaste: rezkaEdgeWaste,
-          returnedPaintItems: _returnedPaintItems,
+          returnedPaintItems: returnedPaintItems,
         ),
       );
       return;
@@ -819,7 +822,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           laminationPrintLeftoverRolls: _isComplete ? printLeftoverRolls : null,
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
-          returnedPaintItems: _returnedPaintItems,
+          returnedPaintItems: returnedPaintItems,
         ),
       );
       return;

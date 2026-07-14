@@ -34,4 +34,30 @@ void main() {
     expect(request.items[1].usage, 'astatka');
     expect(request.items[1].values['Mix'], 1.5);
   });
+
+  test('astatka values become the aggregate return ink amount', () {
+    const items = [
+      ReturnedPaintItemInput(
+        usage: 'rasxot',
+        category: 'colors',
+        name: 'Oq',
+        values: {'Mix': 9, 'Oq': 3},
+      ),
+      ReturnedPaintItemInput(
+        usage: 'astatka',
+        category: 'colors',
+        name: 'Oq',
+        values: {'Mix': 1.25, 'Oq': 0.75},
+      ),
+      ReturnedPaintItemInput(
+        usage: 'astatka',
+        category: 'solvents',
+        name: 'Spirtlar',
+        values: {'Etil': 0.5},
+      ),
+    ];
+
+    expect(returnedPaintAstatkaTotal(items), 2.5);
+    expect(returnedPaintAstatkaTotal(const []), isNull);
+  });
 }
