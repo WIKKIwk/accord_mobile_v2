@@ -240,6 +240,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _isComplete ? (_returnedPaintDraft.image?.imageId.trim() ?? '') : '';
     final returnedPaintFieldCount =
         returnedPaintFilledFieldCount(returnedPaintItems);
+    final rasxotFieldCount = returnedPaintFilledFieldCountForUsage(
+      returnedPaintItems,
+      'rasxot',
+    );
+    final astatkaFieldCount = returnedPaintFilledFieldCountForUsage(
+      returnedPaintItems,
+      'astatka',
+    );
     final returnedPaintValid = returnedPaintReportCanClose(
       items: returnedPaintItems,
       imageId: returnedPaintImageId,
@@ -247,11 +255,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     if (_isComplete && widget.isBosma && !returnedPaintValid) {
       setState(() {
         _completionError = returnedPaintFieldCount > 0
-            ? returnedPaintImageId.isNotEmpty
-                ? 'Qisman kiritilgan qiymatlarni kamida 3 taga yetkazing yoki '
-                    'barcha qiymatlarni tozalang.'
-                : 'Qisman kiritilgan qiymatlarni kamida 3 taga yetkazing yoki '
-                    'ularni tozalab, rasm yuklang.'
+            ? 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
+                'Rasxot: $rasxotFieldCount/3, '
+                'Astatka: $astatkaFieldCount/3.'
             : 'Kamida 3 ta qaytarilgan bo‘yoq maydonini to‘ldiring yoki '
                 'rasm yuklang.';
       });

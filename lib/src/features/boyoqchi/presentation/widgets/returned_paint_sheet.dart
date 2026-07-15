@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/api/mobile_api.dart';
@@ -29,6 +30,12 @@ class _ReturnedPaintOption {
 }
 
 const _returnedPaintColors = <_ReturnedPaintOption>[
+  _ReturnedPaintOption(
+    label: 'Mix',
+    color: Color(0xFF8A6A4A),
+    foreground: Colors.white,
+    fieldLabels: <String>[],
+  ),
   _ReturnedPaintOption(
     label: 'Oq',
     color: Color(0xFFF8F7F2),
@@ -64,11 +71,6 @@ const _returnedPaintColors = <_ReturnedPaintOption>[
     color: Color(0xFF202124),
     foreground: Colors.white,
   ),
-  _ReturnedPaintOption(
-    label: 'Varnish',
-    color: Color(0xFF5A321F),
-    foreground: Colors.white,
-  ),
 ];
 
 const _returnedPaintLacquers = <_ReturnedPaintOption>[
@@ -96,14 +98,12 @@ const _returnedPaintSolvents = <_ReturnedPaintOption>[
 ];
 
 const _returnedPaintFieldLabels = <String>[
-  'Mix',
   '1w Oq',
   '7w Oq',
   'Qora',
   'Sariq',
   'Qizil',
   'Ko‘k',
-  'Varnish',
   'Spirt',
 ];
 
@@ -121,9 +121,7 @@ List<ReturnedPaintItemInput> returnedPaintItemsFromDraft(
       final stateKey =
           '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}';
       final baseFields = option.fieldLabels ?? _returnedPaintFieldLabels;
-      final fields = option.fieldLabels == null
-          ? draft.fieldLabelsFor(stateKey, baseFields)
-          : baseFields;
+      final fields = draft.fieldLabelsFor(stateKey, baseFields);
       final rawValues = draft.valuesFor(stateKey, fields.length);
       final values = <String, String>{};
       for (var index = 0; index < fields.length; index++) {
@@ -161,12 +159,32 @@ int returnedPaintFilledFieldCount(
 ) =>
     items.fold<int>(0, (count, item) => count + item.values.length);
 
+int returnedPaintFilledFieldCountForUsage(
+  Iterable<ReturnedPaintItemInput> items,
+  String usage,
+) {
+  final normalizedUsage = usage.trim().toLowerCase();
+  return items
+      .where((item) => item.usage.trim().toLowerCase() == normalizedUsage)
+      .fold<int>(0, (count, item) => count + item.values.length);
+}
+
+bool returnedPaintHasMinimumFieldsPerUsage(
+  Iterable<ReturnedPaintItemInput> items,
+) {
+  final values = items.toList(growable: false);
+  return returnedPaintFilledFieldCountForUsage(values, 'rasxot') >= 3 &&
+      returnedPaintFilledFieldCountForUsage(values, 'astatka') >= 3;
+}
+
 bool returnedPaintReportCanClose({
   required Iterable<ReturnedPaintItemInput> items,
   required String imageId,
 }) {
-  final fieldCount = returnedPaintFilledFieldCount(items);
-  return fieldCount >= 3 || (fieldCount == 0 && imageId.trim().isNotEmpty);
+  final values = items.toList(growable: false);
+  final hasFields = returnedPaintFilledFieldCount(values) > 0;
+  return returnedPaintHasMinimumFieldsPerUsage(values) ||
+      (!hasFields && imageId.trim().isNotEmpty);
 }
 
 bool returnedPaintDraftHasInvalidValues(ReturnedPaintDraft draft) {
@@ -179,9 +197,7 @@ bool returnedPaintDraftHasInvalidValues(ReturnedPaintDraft draft) {
       final stateKey =
           '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}';
       final baseFields = option.fieldLabels ?? _returnedPaintFieldLabels;
-      final fields = option.fieldLabels == null
-          ? draft.fieldLabelsFor(stateKey, baseFields)
-          : baseFields;
+      final fields = draft.fieldLabelsFor(stateKey, baseFields);
       for (final raw in draft.valuesFor(stateKey, fields.length)) {
         if (raw.trim().isNotEmpty && !_isValidReturnedPaintNumber(raw)) {
           return true;
@@ -260,8 +276,8 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
       'Sariq' => const Color(0xFFE0B52D),
       'Qizil' => const Color(0xFFE53935),
       'Ko‘k' => const Color(0xFF1E88E5),
-      'Varnish' => const Color(0xFF5A321F),
       'Spirt' => const Color(0xFF6AAED6),
+      'Mix+' => const Color(0xFF8A6A4A),
       'Pantone+' => const Color(0xFF8E6BBE),
       _ => Theme.of(context).colorScheme.outlineVariant,
     };
@@ -294,12 +310,10 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     int usageIndex,
   ) {
     final fields = option.fieldLabels ?? _returnedPaintFieldLabels;
-    return option.fieldLabels == null
-        ? widget.draft.fieldLabelsFor(
-            _paintStateKey(option.label, usageIndex),
-            fields,
-          )
-        : fields;
+    return widget.draft.fieldLabelsFor(
+      _paintStateKey(option.label, usageIndex),
+      fields,
+    );
   }
 
   List<TextEditingController> _controllersForPaint(
@@ -350,22 +364,100 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
   }) {
     final stateKey = _paintStateKey(paint, usageIndex);
     final baseFields = _selectedFieldLabels ?? _returnedPaintFieldLabels;
-    final fields = baseFields.contains('1w Oq')
-        ? widget.draft.fieldLabelsFor(stateKey, baseFields)
-        : baseFields;
+    final fields = widget.draft.fieldLabelsFor(stateKey, baseFields);
     widget.draft.setValue(stateKey, index, value, fields.length);
     setState(() => _error = '');
   }
 
-  void _addPantoneField(String paint, int usageIndex) {
-    widget.draft.addPantoneField(_paintStateKey(paint, usageIndex));
-    setState(() {});
+  Future<void> _addNamedField(String paint, int usageIndex) async {
+    final stateKey = _paintStateKey(paint, usageIndex);
+    final existing = widget.draft.dynamicFieldLabelsFor(stateKey);
+    var enteredLabel = '';
+    final label = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$paint maydoni nomi'),
+        content: TextField(
+          key: const ValueKey('returned-paint-field-name'),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Majburiy nom',
+            hintText: 'Masalan: Pantone Blue',
+          ),
+          onChanged: (value) => enteredLabel = value,
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              Navigator.of(context).pop(value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            key: const ValueKey('returned-paint-confirm-field-name'),
+            onPressed: () {
+              final value = enteredLabel.trim();
+              if (value.isNotEmpty) Navigator.of(context).pop(value);
+            },
+            child: const Text('Qo‘shish'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || label == null) return;
+    if (existing.any((value) => value.toLowerCase() == label.toLowerCase())) {
+      setState(() => _error = 'Bu nom allaqachon qo‘shilgan.');
+      return;
+    }
+    widget.draft.addNamedField(stateKey, label);
+    setState(() => _error = '');
   }
 
-  Future<void> _pickImage() async {
+  Future<ImageSource?> _chooseImageSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_outlined),
+                  title: const Text('Kamera'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Gallery'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _chooseAndPickImage() async {
+    if (_uploadingImage || _removingImage) return;
+    final source = await _chooseImageSource();
+    if (!mounted || source == null) return;
+    await _pickImage(source);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     if (_uploadingImage || _removingImage) return;
     final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 1800,
       maxHeight: 1800,
       imageQuality: 84,
@@ -440,9 +532,18 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
       return;
     }
     final items = returnedPaintItemsFromDraft(widget.draft);
-    if (returnedPaintFilledFieldCount(items) < 3) {
+    if (!returnedPaintHasMinimumFieldsPerUsage(items)) {
+      final rasxotCount = returnedPaintFilledFieldCountForUsage(
+        items,
+        'rasxot',
+      );
+      final astatkaCount = returnedPaintFilledFieldCountForUsage(
+        items,
+        'astatka',
+      );
       setState(() {
-        _error = 'Kamida 3 ta qaytarilgan bo‘yoq maydonini to‘ldiring.';
+        _error = 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
+            'Rasxot: $rasxotCount/3, Astatka: $astatkaCount/3.';
       });
       return;
     }
@@ -470,10 +571,12 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     int usageIndex,
   ) {
     final stateKey = _paintStateKey(paint, usageIndex);
-    final hasPantoneButton = fieldLabels.contains('1w Oq');
-    final resolvedFields = hasPantoneButton
-        ? widget.draft.fieldLabelsFor(stateKey, fieldLabels)
-        : fieldLabels;
+    final dynamicButtonLabel = paint == 'Mix'
+        ? 'Mix+'
+        : fieldLabels.contains('1w Oq')
+            ? 'Pantone+'
+            : null;
+    final resolvedFields = widget.draft.fieldLabelsFor(stateKey, fieldLabels);
     final controllers = _controllersForPaint(
       paint,
       resolvedFields,
@@ -482,7 +585,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: resolvedFields.length + (hasPantoneButton ? 1 : 0),
+      itemCount: resolvedFields.length + (dynamicButtonLabel == null ? 0 : 1),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 10,
@@ -490,14 +593,16 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
         mainAxisExtent: _fieldHeight,
       ),
       itemBuilder: (context, index) {
-        if (hasPantoneButton && index == resolvedFields.length) {
+        if (dynamicButtonLabel != null && index == resolvedFields.length) {
           return OutlinedButton(
-            onPressed: () => _addPantoneField(paint, usageIndex),
+            onPressed: () => _addNamedField(paint, usageIndex),
             style: OutlinedButton.styleFrom(
-              backgroundColor: const Color(0xFF8E6BBE),
+              backgroundColor: dynamicButtonLabel == 'Pantone+'
+                  ? const Color(0xFF8E6BBE)
+                  : const Color(0xFF8A6A4A),
               foregroundColor: Colors.white,
               side: BorderSide(
-                color: _fieldBorderColor('Pantone+'),
+                color: _fieldBorderColor(dynamicButtonLabel),
                 width: 1.2,
               ),
               shape: RoundedRectangleBorder(
@@ -507,7 +612,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('Pantone+'),
+            child: Text(dynamicButtonLabel),
           );
         }
         return TextFormField(
@@ -677,7 +782,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                               tooltip: widget.draft.image == null
                                   ? 'Rasm qo‘shish'
                                   : 'Rasmni almashtirish',
-                              onPressed: _pickImage,
+                              onPressed: _chooseAndPickImage,
                               icon: const Icon(
                                   Icons.add_photo_alternate_outlined),
                             ),
@@ -685,7 +790,13 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                 ),
                 if (widget.draft.image case final image?) ...[
                   const SizedBox(height: 8),
-                  ReturnedPaintImageView(image: image),
+                  ReturnedPaintImageView(
+                    image: image,
+                    onTap: () => showReturnedPaintImagePreview(
+                      context,
+                      image,
+                    ),
+                  ),
                   if (widget.allowImageEditing) ...[
                     const SizedBox(height: 8),
                     Row(
@@ -694,7 +805,7 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
                           child: OutlinedButton.icon(
                             onPressed: _uploadingImage || _removingImage
                                 ? null
-                                : _pickImage,
+                                : _chooseAndPickImage,
                             icon: const Icon(Icons.sync_rounded),
                             label: const Text('Almashtirish'),
                           ),
@@ -791,15 +902,17 @@ class ReturnedPaintImageView extends StatelessWidget {
   const ReturnedPaintImageView({
     super.key,
     required this.image,
+    this.onTap,
   });
 
   final ReturnedPaintImage image;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final url = MobileApi.instance.returnedPaintImageUrl(image.imageUrl);
-    return ClipRRect(
+    final content = ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: ColoredBox(
         color: scheme.surfaceContainerHighest,
@@ -826,7 +939,172 @@ class ReturnedPaintImageView extends StatelessWidget {
         ),
       ),
     );
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      label: 'Rasmni to‘liq ko‘rish',
+      child: GestureDetector(
+        onTap: onTap,
+        child: content,
+      ),
+    );
   }
+}
+
+Future<void> showReturnedPaintImagePreview(
+  BuildContext context,
+  ReturnedPaintImage image, {
+  bool allowDownload = false,
+}) async {
+  final url = MobileApi.instance.returnedPaintImageUrl(image.imageUrl);
+  await showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.94),
+    builder: (_) => _ReturnedPaintImagePreview(
+      image: image,
+      url: url,
+      allowDownload: allowDownload,
+    ),
+  );
+}
+
+class _ReturnedPaintImagePreview extends StatefulWidget {
+  const _ReturnedPaintImagePreview({
+    required this.image,
+    required this.url,
+    required this.allowDownload,
+  });
+
+  final ReturnedPaintImage image;
+  final String url;
+  final bool allowDownload;
+
+  @override
+  State<_ReturnedPaintImagePreview> createState() =>
+      _ReturnedPaintImagePreviewState();
+}
+
+class _ReturnedPaintImagePreviewState
+    extends State<_ReturnedPaintImagePreview> {
+  bool _downloading = false;
+
+  Future<void> _download() async {
+    if (_downloading) return;
+    setState(() => _downloading = true);
+    try {
+      final bytes = await MobileApi.instance.downloadReturnedPaintImage(
+        widget.image,
+      );
+      await Gal.putImageBytes(
+        Uint8List.fromList(bytes),
+        name: _returnedPaintDownloadName(widget.image),
+      );
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('Rasm Photos ga saqlandi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              error is MobileApiException
+                  ? error.message
+                  : 'Rasm yuklab olinmadi',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.transparent,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: widget.url.isEmpty
+                ? const Icon(
+                    Icons.image_outlined,
+                    color: Colors.white70,
+                    size: 72,
+                  )
+                : InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4,
+                    child: Image.network(
+                      widget.url,
+                      headers: MobileApi.instance.returnedPaintImageHeaders(),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white70,
+                        size: 72,
+                      ),
+                    ),
+                  ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: SafeArea(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.allowDownload)
+                    IconButton(
+                      tooltip: 'Rasmni yuklab olish',
+                      onPressed: _downloading ? null : _download,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: _downloading
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.download_rounded),
+                    ),
+                  IconButton(
+                    tooltip: 'Yopish',
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _returnedPaintDownloadName(ReturnedPaintImage image) {
+  final name = image.imageName.trim();
+  if (name.isNotEmpty) return name;
+  final extension = switch (image.imageMime.trim().toLowerCase()) {
+    'image/png' => 'png',
+    'image/webp' => 'webp',
+    'image/heic' => 'heic',
+    'image/heif' => 'heif',
+    _ => 'jpg',
+  };
+  return 'qaytarilgan-boyoq.$extension';
 }
 
 class _ReturnedPaintErrorMessage extends StatelessWidget {

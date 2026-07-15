@@ -103,18 +103,24 @@ void main() {
     expect(request.image?.imageSizeBytes, 123);
   });
 
-  test('close rule accepts three fields or an entirely image-only report', () {
-    const oneField = ReturnedPaintItemInput(
+  test('close rule requires three fields in each tab or image-only input', () {
+    const oneRasxotField = ReturnedPaintItemInput(
       usage: 'rasxot',
       category: 'colors',
       name: 'Oq',
       values: {'Mix': '10'},
     );
-    const threeFields = ReturnedPaintItemInput(
+    const threeRasxotFields = ReturnedPaintItemInput(
       usage: 'rasxot',
       category: 'colors',
       name: 'Oq',
       values: {'Mix': '10', '1w Oq': '2', '7w Oq': '1'},
+    );
+    const threeAstatkaFields = ReturnedPaintItemInput(
+      usage: 'astatka',
+      category: 'colors',
+      name: 'Oq',
+      values: {'Mix': '5', '1w Oq': '1', '7w Oq': '1'},
     );
 
     expect(
@@ -122,19 +128,32 @@ void main() {
       isTrue,
     );
     expect(
-      returnedPaintReportCanClose(items: const [threeFields], imageId: ''),
+      returnedPaintReportCanClose(
+        items: const [threeRasxotFields, threeAstatkaFields],
+        imageId: '',
+      ),
       isTrue,
     );
     expect(
-      returnedPaintReportCanClose(items: const [oneField], imageId: ''),
+      returnedPaintReportCanClose(
+        items: const [threeRasxotFields],
+        imageId: '',
+      ),
       isFalse,
     );
     expect(
       returnedPaintReportCanClose(
-        items: const [oneField],
+        items: const [oneRasxotField, threeAstatkaFields],
         imageId: 'image-1',
       ),
       isFalse,
+    );
+    expect(
+      returnedPaintFilledFieldCountForUsage(
+        const [threeRasxotFields, threeAstatkaFields],
+        'rasxot',
+      ),
+      3,
     );
   });
 }

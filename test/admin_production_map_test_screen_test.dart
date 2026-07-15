@@ -2592,7 +2592,7 @@ void main() {
       'Tilla',
       'Kumush',
       'Qora',
-      'Varnish',
+      'Mix',
       'Spirtlar',
     ]) {
       expect(find.byTooltip(paint), findsOneWidget);
@@ -2617,7 +2617,7 @@ void main() {
       'Tilla',
       'Kumush',
       'Qora',
-      'Varnish',
+      'Mix',
       'Spirtlar',
     ]) {
       expect(find.byTooltip(paint), findsOneWidget);
@@ -2628,14 +2628,12 @@ void main() {
     await tester.tap(find.byTooltip('Oq'));
     await tester.pumpAndSettle();
     for (final field in const [
-      'Mix',
       '1w Oq',
       '7w Oq',
       'Qora',
       'Sariq',
       'Qizil',
       'Ko‘k',
-      'Varnish',
       'Spirt',
     ]) {
       expect(find.text(field), findsOneWidget);
@@ -2644,21 +2642,35 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Pantone+'), findsOneWidget);
     await tester.tap(find.widgetWithText(OutlinedButton, 'Pantone+'));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-name')),
+      'Pantone Blue',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('returned-paint-confirm-field-name')),
+    );
+    await tester.pumpAndSettle();
     final returnedFields = find.descendant(
       of: find.byKey(const ValueKey('returned-paint-fields')),
       matching: find.byType(TextFormField),
     );
-    expect(returnedFields, findsNWidgets(10));
+    expect(returnedFields, findsNWidgets(8));
     expect(find.widgetWithText(OutlinedButton, 'Pantone+'), findsOneWidget);
     await tester.enterText(
-      returnedFields.at(9),
+      find.widgetWithText(TextFormField, 'Pantone Blue'),
       '12',
     );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Pantone+'));
     await tester.pumpAndSettle();
-    expect(returnedFields, findsNWidgets(11));
-    final mixField = find.widgetWithText(TextFormField, 'Mix');
-    await tester.enterText(mixField, '43');
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-name')),
+      'Pantone Red',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('returned-paint-confirm-field-name')),
+    );
+    await tester.pumpAndSettle();
+    expect(returnedFields, findsNWidgets(9));
     expect(find.byType(BottomSheet), findsNWidgets(2));
     expect(find.byTooltip('Orqaga'), findsOneWidget);
     await tester.tap(find.byTooltip('Orqaga'));
@@ -2666,31 +2678,56 @@ void main() {
     expect(find.byTooltip('Orqaga'), findsOneWidget);
     expect(find.byTooltip('Oq'), findsOneWidget);
     expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    await tester.tap(find.byTooltip('Mix'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Mix+'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-name')),
+      'Batch A',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('returned-paint-confirm-field-name')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Batch A'), '43');
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Astatka'));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.star_rounded), findsNothing);
-    await tester.tap(find.byTooltip('Oq'));
+    await tester.tap(find.byTooltip('Mix'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Mix+'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-name')),
+      'Batch A',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('returned-paint-confirm-field-name')),
+    );
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Batch A'))
           .controller
           ?.text,
       isEmpty,
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Mix'),
+      find.widgetWithText(TextFormField, 'Batch A'),
       '17',
     );
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rasxot'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Oq'));
+    await tester.tap(find.byTooltip('Mix'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Batch A'))
           .controller
           ?.text,
       '43',
@@ -2716,11 +2753,11 @@ void main() {
     expect(find.text('MAT lak'), findsOneWidget);
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Oq'));
+    await tester.tap(find.byTooltip('Mix'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Mix'))
+          .widget<TextFormField>(find.widgetWithText(TextFormField, 'Batch A'))
           .controller
           ?.text,
       '43',
@@ -2742,7 +2779,7 @@ void main() {
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tugatish'), findsNothing);
+    expect(find.text('Tugatish'), findsOneWidget);
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
 

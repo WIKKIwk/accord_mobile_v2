@@ -250,7 +250,14 @@ class _AstatkaRequestCard extends StatelessWidget {
             ),
             if (request.image case final image?) ...[
               const SizedBox(height: 4),
-              ReturnedPaintImageView(image: image),
+              ReturnedPaintImageView(
+                image: image,
+                onTap: () => showReturnedPaintImagePreview(
+                  context,
+                  image,
+                  allowDownload: true,
+                ),
+              ),
             ],
             const Divider(height: 24),
             if (waiting) ...[

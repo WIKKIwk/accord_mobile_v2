@@ -199,6 +199,32 @@ extension MobileApiBoyoqchi on MobileApi {
     return value;
   }
 
+  Future<List<int>> downloadReturnedPaintImage(
+    ReturnedPaintImage image,
+  ) async {
+    final url = returnedPaintImageUrl(image.imageUrl);
+    if (url.isEmpty) {
+      throw const MobileApiException(
+        code: 'returned_paint_image_url_missing',
+        message: 'Rasm manzili topilmadi',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(url),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      throw _returnedPaintException(
+        response,
+        code: 'returned_paint_image_download_failed',
+        message: 'Rasm yuklab olinmadi',
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Map<String, String> returnedPaintImageHeaders() => _headers(requireToken());
 
   Future<ReturnedPaintRequestPage> boyoqchiReturnedPaintRequests({

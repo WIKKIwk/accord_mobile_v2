@@ -150,6 +150,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.image_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Rasmni yuklab olish'), findsOneWidget);
+    await tester.tap(find.byTooltip('Yopish'));
+    await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Qaytarilgan bo‘yoq'));
     await tester.pumpAndSettle();
@@ -167,6 +172,23 @@ void main() {
     await tester.enterText(fields.at(0), '10');
     await tester.enterText(fields.at(1), '2');
     await tester.enterText(fields.at(2), '1');
+    final returnedPaintBack = find.byTooltip('Orqaga');
+    await tester.ensureVisible(returnedPaintBack);
+    await tester.tap(returnedPaintBack);
+    await tester.pumpAndSettle();
+    final astatkaTab = find.byType(Tab).last;
+    await tester.ensureVisible(astatkaTab);
+    await tester.tap(astatkaTab);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    final astatkaFields = find.descendant(
+      of: find.byKey(const ValueKey('returned-paint-fields')),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(astatkaFields.at(0), '5');
+    await tester.enterText(astatkaFields.at(1), '1');
+    await tester.enterText(astatkaFields.at(2), '1');
     await tester.ensureVisible(find.text('Saqlash'));
     await tester.tap(find.text('Saqlash'));
     await tester.pumpAndSettle();
@@ -174,7 +196,7 @@ void main() {
     expect(submitted, isNotNull);
     expect(
       submitted!.items.fold<int>(0, (sum, item) => sum + item.values.length),
-      3,
+      6,
     );
     await tester.tap(find.text('Rasmli order — #8963'));
     await tester.pumpAndSettle();

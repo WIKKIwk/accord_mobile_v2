@@ -53,27 +53,11 @@ Widget buildAppRoot({bool? previewEnabled}) {
     );
   }
 
-  // DevicePreview 1.3.1 rebuilds its own LayoutBuilder around the preview.
-  // Flutter 3.44 rejects that rebuild when a nested Scaffold BodyBuilder is
-  // being laid out. Keep the same default iPhone frame without nesting the
-  // application under DevicePreview's LayoutBuilder.
-  return MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: ColoredBox(
-      color: const Color(0xFFFDF5FF),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: DeviceFrame(
-              device: Devices.ios.iPhone13,
-              screen: const ErpnextStockMobileApp(),
-            ),
-          ),
-        ),
-      ),
-    ),
+  return DevicePreview(
+    enabled: true,
+    defaultDevice: Devices.ios.iPhone13,
+    tools: DevicePreview.defaultTools,
+    builder: (_) => const ErpnextStockMobileApp(),
   );
 }
 
