@@ -2593,6 +2593,7 @@ void main() {
       'Kumush',
       'Qora',
       'Mix',
+      'Pantone',
       'Spirtlar',
     ]) {
       expect(find.byTooltip(paint), findsOneWidget);
@@ -2618,6 +2619,7 @@ void main() {
       'Kumush',
       'Qora',
       'Mix',
+      'Pantone',
       'Spirtlar',
     ]) {
       expect(find.byTooltip(paint), findsOneWidget);

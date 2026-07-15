@@ -37,6 +37,12 @@ const _returnedPaintColors = <_ReturnedPaintOption>[
     fieldLabels: <String>[],
   ),
   _ReturnedPaintOption(
+    label: 'Pantone',
+    color: Color(0xFF8E6BBE),
+    foreground: Colors.white,
+    fieldLabels: <String>[],
+  ),
+  _ReturnedPaintOption(
     label: 'Oq',
     color: Color(0xFFF8F7F2),
     foreground: Color(0xFF332C26),
@@ -108,6 +114,9 @@ const _returnedPaintFieldLabels = <String>[
   'Spirt',
 ];
 
+String _returnedPaintStateKey(String paint, int usageIndex) =>
+    '${usageIndex == 0 ? 'rasxot' : 'astatka'}:$paint';
+
 List<ReturnedPaintItemInput> returnedPaintItemsFromDraft(
   ReturnedPaintDraft draft,
 ) {
@@ -118,10 +127,11 @@ List<ReturnedPaintItemInput> returnedPaintItemsFromDraft(
     String category,
     List<_ReturnedPaintOption> options,
   ) {
-    for (final option in options) {
-      final stateKey =
-          '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}';
-      final baseFields = option.fieldLabels ?? _returnedPaintFieldLabels;
+    void collectState({
+      required String stateKey,
+      required String name,
+      required List<String> baseFields,
+    }) {
       final fields = draft.fieldLabelsFor(stateKey, baseFields);
       final rawValues = draft.valuesFor(stateKey, fields.length);
       final values = <String, String>{};
@@ -139,9 +149,32 @@ List<ReturnedPaintItemInput> returnedPaintItemsFromDraft(
           ReturnedPaintItemInput(
             usage: usageIndex == 0 ? 'rasxot' : 'astatka',
             category: category,
-            name: option.label,
+            name: name,
             values: values,
           ),
+        );
+      }
+    }
+
+    for (final option in options) {
+      final baseFields = option.fieldLabels ?? _returnedPaintFieldLabels;
+      final stateKey = _returnedPaintStateKey(option.label, usageIndex);
+      if (option.label == 'Pantone') {
+        collectState(
+          stateKey: stateKey,
+          name: 'Pantone',
+          baseFields: baseFields,
+        );
+        collectState(
+          stateKey: _returnedPaintStateKey('Pantone Mix', usageIndex),
+          name: 'Mix',
+          baseFields: const [],
+        );
+      } else {
+        collectState(
+          stateKey: stateKey,
+          name: option.label,
+          baseFields: baseFields,
         );
       }
     }
@@ -195,13 +228,24 @@ bool returnedPaintDraftHasInvalidValues(ReturnedPaintDraft draft) {
       ..._returnedPaintLacquers,
       ..._returnedPaintSolvents,
     ]) {
-      final stateKey =
-          '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}';
       final baseFields = option.fieldLabels ?? _returnedPaintFieldLabels;
-      final fields = draft.fieldLabelsFor(stateKey, baseFields);
-      for (final raw in draft.valuesFor(stateKey, fields.length)) {
-        if (raw.trim().isNotEmpty && !_isValidReturnedPaintNumber(raw)) {
-          return true;
+      final stateFields = <({String key, List<String> base})>[
+        (
+          key: _returnedPaintStateKey(option.label, usageIndex),
+          base: baseFields
+        ),
+        if (option.label == 'Pantone')
+          (
+            key: _returnedPaintStateKey('Pantone Mix', usageIndex),
+            base: const <String>[],
+          ),
+      ];
+      for (final state in stateFields) {
+        final fields = draft.fieldLabelsFor(state.key, state.base);
+        for (final raw in draft.valuesFor(state.key, fields.length)) {
+          if (raw.trim().isNotEmpty && !_isValidReturnedPaintNumber(raw)) {
+            return true;
+          }
         }
       }
     }
@@ -323,6 +367,13 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     int usageIndex,
   ) {
     final stateKey = _paintStateKey(paint, usageIndex);
+    return _controllersForState(stateKey, fieldLabels);
+  }
+
+  List<TextEditingController> _controllersForState(
+    String stateKey,
+    List<String> fieldLabels,
+  ) {
     final existing = _fieldControllersByPaint[stateKey];
     if (existing != null && existing.length == fieldLabels.length) {
       return existing;
@@ -343,6 +394,24 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     _ReturnedPaintOption option,
     int usageIndex,
   ) {
+    if (option.label == 'Pantone') {
+      final pantoneKey = _paintStateKey('Pantone', usageIndex);
+      final mixKey = _paintStateKey('Pantone Mix', usageIndex);
+      final pantoneFields = widget.draft.fieldLabelsFor(pantoneKey, const []);
+      final mixFields = widget.draft.fieldLabelsFor(mixKey, const []);
+      final filled = [
+        ...widget.draft.valuesFor(pantoneKey, pantoneFields.length),
+        ...widget.draft.valuesFor(mixKey, mixFields.length),
+      ].map((value) => value.trim().isNotEmpty).toList();
+      if (filled.every((value) => !value)) return null;
+      return Icon(
+        filled.every((value) => value)
+            ? Icons.check_rounded
+            : Icons.star_rounded,
+        size: filled.every((value) => value) ? 17 : 16,
+        color: option.foreground,
+      );
+    }
     final fields = _resolvedFields(option, usageIndex);
     final values = widget.draft.valuesFor(
       _paintStateKey(option.label, usageIndex),
@@ -365,13 +434,31 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
   }) {
     final stateKey = _paintStateKey(paint, usageIndex);
     final baseFields = _selectedFieldLabels ?? _returnedPaintFieldLabels;
+    _updateStateFieldValue(
+      stateKey: stateKey,
+      index: index,
+      value: value,
+      baseFields: baseFields,
+    );
+  }
+
+  void _updateStateFieldValue({
+    required String stateKey,
+    required int index,
+    required String value,
+    required List<String> baseFields,
+  }) {
     final fields = widget.draft.fieldLabelsFor(stateKey, baseFields);
     widget.draft.setValue(stateKey, index, value, fields.length);
     setState(() => _error = '');
   }
 
-  Future<void> _addNamedField(String paint, int usageIndex) async {
-    final stateKey = _paintStateKey(paint, usageIndex);
+  Future<void> _addNamedField(
+    String paint,
+    int usageIndex, {
+    String? stateKeyOverride,
+  }) async {
+    final stateKey = stateKeyOverride ?? _paintStateKey(paint, usageIndex);
     final existing = widget.draft.dynamicFieldLabelsFor(stateKey);
     var enteredLabel = '';
     var enteredValue = '';
@@ -608,11 +695,102 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     }
   }
 
+  Widget _pantoneFields(int usageIndex) {
+    final pantoneKey = _paintStateKey('Pantone', usageIndex);
+    final mixKey = _paintStateKey('Pantone Mix', usageIndex);
+    final pantoneFields = widget.draft.fieldLabelsFor(pantoneKey, const []);
+    final mixFields = widget.draft.fieldLabelsFor(mixKey, const []);
+    final fields = <({String stateKey, String label})>[
+      for (final label in pantoneFields) (stateKey: pantoneKey, label: label),
+      for (final label in mixFields) (stateKey: mixKey, label: label),
+    ];
+    final controllers = <String, List<TextEditingController>>{
+      pantoneKey: _controllersForState(pantoneKey, pantoneFields),
+      mixKey: _controllersForState(mixKey, mixFields),
+    };
+
+    Widget dynamicButton(String label, VoidCallback onPressed) {
+      final color = label == 'Pantone+'
+          ? const Color(0xFF8E6BBE)
+          : const Color(0xFF8A6A4A);
+      return OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          side: BorderSide(color: color, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(label),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: fields.length + 2,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: _fieldHeight,
+      ),
+      itemBuilder: (context, index) {
+        if (index == fields.length) {
+          return dynamicButton(
+            'Pantone+',
+            () => _addNamedField(
+              'Pantone',
+              usageIndex,
+              stateKeyOverride: pantoneKey,
+            ),
+          );
+        }
+        if (index == fields.length + 1) {
+          return dynamicButton(
+            'Mix+',
+            () => _addNamedField(
+              'Mix',
+              usageIndex,
+              stateKeyOverride: mixKey,
+            ),
+          );
+        }
+        final field = fields[index];
+        final stateFields =
+            field.stateKey == pantoneKey ? pantoneFields : mixFields;
+        final stateIndex = field.stateKey == pantoneKey
+            ? pantoneFields.indexOf(field.label)
+            : mixFields.indexOf(field.label);
+        return TextFormField(
+          controller: controllers[field.stateKey]![stateIndex],
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: <TextInputFormatter>[
+            _returnedPaintNumberFormatter(),
+          ],
+          decoration: _paintFieldDecoration(field.label),
+          onChanged: (value) => _updateStateFieldValue(
+            stateKey: field.stateKey,
+            index: stateIndex,
+            value: value,
+            baseFields: stateFields,
+          ),
+        );
+      },
+    );
+  }
+
   Widget _paintFields(
     String paint,
     List<String> fieldLabels,
     int usageIndex,
   ) {
+    if (paint == 'Pantone') return _pantoneFields(usageIndex);
     final stateKey = _paintStateKey(paint, usageIndex);
     final dynamicButtonLabel = paint == 'Mix'
         ? 'Mix+'

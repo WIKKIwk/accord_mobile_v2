@@ -53,4 +53,21 @@ void main() {
     draft.setValue('rasxot:Oq', 0, '1.123456789012', 9);
     expect(returnedPaintDraftHasInvalidValues(draft), isTrue);
   });
+
+  test('pantone hybrid keeps paint and mix fields separate', () async {
+    final draft = await ReturnedPaintDraftStore.instance.load(
+      scope: 'worker:worker-1:order-pantone:7 ta rangli bosma',
+    );
+
+    draft.addNamedField('rasxot:Pantone', 'Blue shade');
+    draft.setValue('rasxot:Pantone', 0, '2', 1);
+    draft.addNamedField('rasxot:Pantone Mix', 'Recipe A');
+    draft.setValue('rasxot:Pantone Mix', 0, '1.5', 1);
+
+    final items = returnedPaintItemsFromDraft(draft);
+    final pantone = items.singleWhere((item) => item.name == 'Pantone');
+    final mix = items.singleWhere((item) => item.name == 'Mix');
+    expect(pantone.values, {'Blue shade': '2'});
+    expect(mix.values, {'Recipe A': '1.5'});
+  });
 }
