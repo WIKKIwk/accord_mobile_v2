@@ -98,6 +98,7 @@ const _returnedPaintSolvents = <_ReturnedPaintOption>[
 ];
 
 const _returnedPaintFieldLabels = <String>[
+  'Mix',
   '1w Oq',
   '7w Oq',
   'Qora',
@@ -373,47 +374,89 @@ class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     final stateKey = _paintStateKey(paint, usageIndex);
     final existing = widget.draft.dynamicFieldLabelsFor(stateKey);
     var enteredLabel = '';
-    final label = await showDialog<String>(
+    var enteredValue = '';
+    final field = await showDialog<List<String>>(
       context: context,
       builder: (context) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 22),
         title: Text('$paint maydoni nomi'),
-        content: TextField(
-          key: const ValueKey('returned-paint-field-name'),
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Majburiy nom',
-            hintText: 'Masalan: Pantone Blue',
-          ),
-          onChanged: (value) => enteredLabel = value,
-          onSubmitted: (value) {
-            if (value.trim().isNotEmpty) {
-              Navigator.of(context).pop(value.trim());
-            }
-          },
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('returned-paint-field-name'),
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Majburiy nom',
+                hintText: 'Masalan: Pantone Blue',
+              ),
+              onChanged: (value) => enteredLabel = value,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('returned-paint-field-value'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: <TextInputFormatter>[
+                _returnedPaintNumberFormatter(),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Qiymat',
+                hintText: 'Masalan: 12.5',
+              ),
+              onChanged: (value) => enteredValue = value,
+            ),
+          ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Bekor qilish'),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Bekor qilish'),
+            ),
           ),
-          FilledButton(
-            key: const ValueKey('returned-paint-confirm-field-name'),
-            onPressed: () {
-              final value = enteredLabel.trim();
-              if (value.isNotEmpty) Navigator.of(context).pop(value);
-            },
-            child: const Text('Qo‘shish'),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              key: const ValueKey('returned-paint-confirm-field-name'),
+              onPressed: () {
+                final label = enteredLabel.trim();
+                final value = enteredValue.trim().replaceAll(',', '.');
+                final parsed = double.tryParse(value);
+                if (label.isNotEmpty &&
+                    value.isNotEmpty &&
+                    parsed != null &&
+                    parsed.isFinite &&
+                    parsed >= 0) {
+                  Navigator.of(context).pop([label, value]);
+                }
+              },
+              child: const Text('Qo‘shish'),
+            ),
           ),
         ],
       ),
     );
-    if (!mounted || label == null) return;
+    if (!mounted || field == null || field.length != 2) return;
+    final label = field[0].trim();
+    final value = field[1].trim();
     if (existing.any((value) => value.toLowerCase() == label.toLowerCase())) {
       setState(() => _error = 'Bu nom allaqachon qo‘shilgan.');
       return;
     }
     widget.draft.addNamedField(stateKey, label);
+    final baseFields = _selectedFieldLabels ?? _returnedPaintFieldLabels;
+    final fields = widget.draft.fieldLabelsFor(stateKey, baseFields);
+    widget.draft.setValue(stateKey, fields.length - 1, value, fields.length);
     setState(() => _error = '');
   }
 

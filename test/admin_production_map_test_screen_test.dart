@@ -2628,6 +2628,7 @@ void main() {
     await tester.tap(find.byTooltip('Oq'));
     await tester.pumpAndSettle();
     for (final field in const [
+      'Mix',
       '1w Oq',
       '7w Oq',
       'Qora',
@@ -2646,6 +2647,10 @@ void main() {
       find.byKey(const ValueKey('returned-paint-field-name')),
       'Pantone Blue',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-value')),
+      '12',
+    );
     await tester.tap(
       find.byKey(const ValueKey('returned-paint-confirm-field-name')),
     );
@@ -2654,23 +2659,23 @@ void main() {
       of: find.byKey(const ValueKey('returned-paint-fields')),
       matching: find.byType(TextFormField),
     );
-    expect(returnedFields, findsNWidgets(8));
+    expect(returnedFields, findsNWidgets(9));
     expect(find.widgetWithText(OutlinedButton, 'Pantone+'), findsOneWidget);
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Pantone Blue'),
-      '12',
-    );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Pantone+'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('returned-paint-field-name')),
       'Pantone Red',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-value')),
+      '5',
+    );
     await tester.tap(
       find.byKey(const ValueKey('returned-paint-confirm-field-name')),
     );
     await tester.pumpAndSettle();
-    expect(returnedFields, findsNWidgets(9));
+    expect(returnedFields, findsNWidgets(10));
     expect(find.byType(BottomSheet), findsNWidgets(2));
     expect(find.byTooltip('Orqaga'), findsOneWidget);
     await tester.tap(find.byTooltip('Orqaga'));
@@ -2686,11 +2691,14 @@ void main() {
       find.byKey(const ValueKey('returned-paint-field-name')),
       'Batch A',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-value')),
+      '43',
+    );
     await tester.tap(
       find.byKey(const ValueKey('returned-paint-confirm-field-name')),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Batch A'), '43');
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Astatka'));
@@ -2704,6 +2712,10 @@ void main() {
       find.byKey(const ValueKey('returned-paint-field-name')),
       'Batch A',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('returned-paint-field-value')),
+      '17',
+    );
     await tester.tap(
       find.byKey(const ValueKey('returned-paint-confirm-field-name')),
     );
@@ -2713,10 +2725,6 @@ void main() {
           .widget<TextFormField>(find.widgetWithText(TextFormField, 'Batch A'))
           .controller
           ?.text,
-      isEmpty,
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Batch A'),
       '17',
     );
     await tester.tap(find.byTooltip('Orqaga'));
