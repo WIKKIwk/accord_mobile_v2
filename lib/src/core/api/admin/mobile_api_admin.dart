@@ -3077,6 +3077,7 @@ extension MobileApiAdmin on MobileApi {
     String driverUrl = '',
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
+    String returnedPaintImageId = '',
   }) async {
     final result = await adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -3102,6 +3103,7 @@ extension MobileApiAdmin on MobileApi {
       driverUrl: driverUrl,
       completionRequestNote: completionRequestNote,
       returnedPaintItems: returnedPaintItems,
+      returnedPaintImageId: returnedPaintImageId,
     );
     return result.states;
   }
@@ -3158,6 +3160,7 @@ extension MobileApiAdmin on MobileApi {
     String driverUrl = '',
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
+    String returnedPaintImageId = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -3338,10 +3341,13 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         final note = completionRequestNote.trim();
-        final hasCompleteMetrics = returnInkKg != null &&
-            totalWaste != null &&
-            finishedGoodsKg != null &&
-            finishedGoodsMeter != null;
+        final hasReturnedPaintReport = returnedPaintItems.isNotEmpty ||
+            returnedPaintImageId.trim().isNotEmpty;
+        final hasCompleteMetrics =
+            (returnInkKg != null || hasReturnedPaintReport) &&
+                totalWaste != null &&
+                finishedGoodsKg != null &&
+                finishedGoodsMeter != null;
         final hasLaminatsiyaCompleteMetrics =
             (laminationPrintLeftoverRolls != null ||
                     laminationFilmLeftoverRolls != null) &&
@@ -3447,7 +3453,8 @@ extension MobileApiAdmin on MobileApi {
             ),
           );
         }
-        if (returnedPaintItems.isNotEmpty) {
+        if (returnedPaintItems.isNotEmpty ||
+            returnedPaintImageId.trim().isNotEmpty) {
           final reportId =
               'returned-paint-complete:$completedOrderId:$storageKey';
           if (!_testModeReturnedPaintRequests
@@ -3463,6 +3470,9 @@ extension MobileApiAdmin on MobileApi {
             final orderCode = map?.map.code.trim().isNotEmpty == true
                 ? map!.map.code.trim()
                 : map?.map.orderNumber.trim() ?? '';
+            final image =
+                _testModeReturnedPaintImages[returnedPaintImageId.trim()];
+            final waiting = returnedPaintItems.isEmpty && image != null;
             _testModeReturnedPaintRequests.insert(
               0,
               ReturnedPaintRequest(
@@ -3475,6 +3485,22 @@ extension MobileApiAdmin on MobileApi {
                 senderRef: profile?.ref.trim() ?? 'test-user',
                 senderDisplayName: operatorName,
                 items: returnedPaintItems,
+                status: waiting
+                    ? ReturnedPaintStatus.waitingForBoyoqchiInput
+                    : ReturnedPaintStatus.completed,
+                image: image,
+                calculation: waiting
+                    ? null
+                    : const ReturnedPaintCalculation(
+                        rasxotMixTotal: '0',
+                        astatkaMixTotal: '0',
+                        rasxotAlcohol: '0',
+                        astatkaAlcohol: '0',
+                        finalUsedAlcohol: '0',
+                        rasxotPurePaint: '0',
+                        astatkaPurePaint: '0',
+                        finalUsedPaint: '0',
+                      ),
                 message:
                     '$operatorName orderni $completedOrderId apparatida muvaffaqiyatli yopdi. Rasxot bo‘yoq sarfi va Astatka qolgan bo‘yoq miqdorlari qayd etildi.',
                 createdAt: DateTime.now(),
@@ -3545,6 +3571,8 @@ extension MobileApiAdmin on MobileApi {
             'returned_paint_items': returnedPaintItems
                 .map((item) => item.toJson())
                 .toList(growable: false),
+          if (returnedPaintImageId.trim().isNotEmpty)
+            'returned_paint_image_id': returnedPaintImageId.trim(),
         }),
       ),
     );

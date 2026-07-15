@@ -176,12 +176,6 @@ bool _queueActionSentCompletionRequest({
       result.completionRequest != null;
 }
 
-String _queueActionErrorText(Object error) {
-  return error is MobileApiException
-      ? error.message
-      : 'Navbat amali bajarilmadi';
-}
-
 Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
   _ReadOnlyQueueActionRequest request, {
   required String apparatusKey,
@@ -209,6 +203,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     driverUrl: request.driverUrl,
     completionRequestNote: request.completionRequestNote,
     returnedPaintItems: request.returnedPaintItems,
+    returnedPaintImageId: request.returnedPaintImageId,
   );
 }
 

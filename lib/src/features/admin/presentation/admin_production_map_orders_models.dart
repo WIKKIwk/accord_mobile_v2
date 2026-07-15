@@ -29,6 +29,7 @@ class _ReadOnlyQueueActionRequest {
     this.driverUrl = '',
     this.completionRequestNote = '',
     this.returnedPaintItems = const [],
+    this.returnedPaintImageId = '',
   });
 
   final AdminWarehouse apparatus;
@@ -53,6 +54,7 @@ class _ReadOnlyQueueActionRequest {
   final String driverUrl;
   final String completionRequestNote;
   final List<ReturnedPaintItemInput> returnedPaintItems;
+  final String returnedPaintImageId;
 }
 
 class _WorkerWatchTab {

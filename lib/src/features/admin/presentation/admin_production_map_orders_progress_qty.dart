@@ -14,6 +14,7 @@ class _ProgressQtyInput {
     this.finishedGoodsKg,
     this.finishedGoodsMeter,
     this.returnedPaintItems = const [],
+    this.returnedPaintImageId = '',
     this.description = '',
     this.isCompletionRequest = false,
   });
@@ -30,6 +31,7 @@ class _ProgressQtyInput {
   final double? finishedGoodsKg;
   final double? finishedGoodsMeter;
   final List<ReturnedPaintItemInput> returnedPaintItems;
+  final String returnedPaintImageId;
   final String description;
   final bool isCompletionRequest;
 }
@@ -42,8 +44,17 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
-  _ReturnedPaintDraft? returnedPaintDraft,
-}) {
+  ReturnedPaintDraft? returnedPaintDraft,
+}) async {
+  final draft = returnedPaintDraft ??
+      await ReturnedPaintDraftStore.instance.load(
+        scope: returnedPaintWorkerDraftScope(
+          actorRef: AppSession.instance.profile?.ref ?? '',
+          orderId: order.map.id,
+          apparatus: apparatus,
+        ),
+      );
+  if (!context.mounted) return null;
   return showDialog<_ProgressQtyInput>(
     context: context,
     barrierColor: Colors.black54,
@@ -54,7 +65,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
-      returnedPaintDraft: returnedPaintDraft ?? _ReturnedPaintDraft(),
+      returnedPaintDraft: draft,
     ),
   );
 }
@@ -64,7 +75,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required String action,
   required AdminWarehouse? apparatus,
   required ProductionMapSaved order,
-  _ReturnedPaintDraft? returnedPaintDraft,
+  ReturnedPaintDraft? returnedPaintDraft,
 }) {
   final title = apparatus?.warehouse ?? '';
   return _showProgressQtyDialog(
@@ -94,539 +105,6 @@ Widget _progressQtySectionLabel(BuildContext context, String label) {
   );
 }
 
-class _ReturnedPaintOption {
-  const _ReturnedPaintOption({
-    required this.label,
-    required this.color,
-    required this.foreground,
-    this.fieldLabels,
-  });
-
-  final String label;
-  final Color color;
-  final Color foreground;
-  final List<String>? fieldLabels;
-}
-
-const _returnedPaintColors = <_ReturnedPaintOption>[
-  _ReturnedPaintOption(
-    label: 'Oq',
-    color: Color(0xFFF8F7F2),
-    foreground: Color(0xFF332C26),
-  ),
-  _ReturnedPaintOption(
-    label: 'Sariq',
-    color: Color(0xFFFFD54F),
-    foreground: Color(0xFF3B2A00),
-  ),
-  _ReturnedPaintOption(
-    label: 'Qizil',
-    color: Color(0xFFE53935),
-    foreground: Colors.white,
-  ),
-  _ReturnedPaintOption(
-    label: 'Ko‘k',
-    color: Color(0xFF1E88E5),
-    foreground: Colors.white,
-  ),
-  _ReturnedPaintOption(
-    label: 'Tilla',
-    color: Color(0xFFD4A72C),
-    foreground: Color(0xFF332100),
-  ),
-  _ReturnedPaintOption(
-    label: 'Kumush',
-    color: Color(0xFFC7CDD3),
-    foreground: Color(0xFF273038),
-  ),
-  _ReturnedPaintOption(
-    label: 'Qora',
-    color: Color(0xFF202124),
-    foreground: Colors.white,
-  ),
-  _ReturnedPaintOption(
-    label: 'Varnish',
-    color: Color(0xFF5A321F),
-    foreground: Colors.white,
-  ),
-];
-
-const _returnedPaintLacquers = <_ReturnedPaintOption>[
-  _ReturnedPaintOption(
-    label: 'Lak',
-    color: Color(0xFFB7BCC2),
-    foreground: Color(0xFF273038),
-    fieldLabels: <String>['OPV lak', 'MAT lak'],
-  ),
-];
-
-const _returnedPaintSolvents = <_ReturnedPaintOption>[
-  _ReturnedPaintOption(
-    label: 'Spirtlar',
-    color: Color(0xFFE4B77A),
-    foreground: Color(0xFF3E2815),
-    fieldLabels: <String>[
-      'Aralashmalar',
-      'Etil',
-      'Metoxil',
-      'Rasvavitel',
-      'Izopropel',
-    ],
-  ),
-];
-
-const _returnedPaintFieldLabels = <String>[
-  'Mix',
-  'Oq',
-  'Qora',
-  'Sariq',
-  'Qizil',
-  'Ko‘k',
-  'Varnish',
-  'Spirt',
-  'Pantone+',
-];
-
-class _ReturnedPaintDraft {
-  final Map<String, List<String>> _valuesByStateKey = {};
-  int selectedUsageIndex = 0;
-
-  List<String> valuesFor(String stateKey, int length) {
-    final existing = _valuesByStateKey[stateKey];
-    if (existing == null || existing.length != length) {
-      return List<String>.filled(length, '');
-    }
-    return List<String>.from(existing);
-  }
-
-  void setValue(String stateKey, int index, String value, int length) {
-    final values = valuesFor(stateKey, length);
-    values[index] = value;
-    _valuesByStateKey[stateKey] = values;
-  }
-}
-
-List<ReturnedPaintItemInput> _returnedPaintItemsFromDraft(
-  _ReturnedPaintDraft draft,
-) {
-  final items = <ReturnedPaintItemInput>[];
-
-  void collect(
-    int usageIndex,
-    String category,
-    List<_ReturnedPaintOption> options,
-  ) {
-    for (final option in options) {
-      final fields = option.fieldLabels ?? _returnedPaintFieldLabels;
-      final rawValues = draft.valuesFor(
-        '${usageIndex == 0 ? 'rasxot' : 'astatka'}:${option.label}',
-        fields.length,
-      );
-      final values = <String, String>{};
-      for (var index = 0; index < fields.length; index++) {
-        final raw = rawValues[index].trim();
-        if (raw.isEmpty) continue;
-        final normalized = raw.replaceAll(',', '.');
-        final value = double.tryParse(normalized);
-        if (value != null && value.isFinite && value >= 0) {
-          values[fields[index]] = normalized;
-        }
-      }
-      if (values.isNotEmpty) {
-        items.add(
-          ReturnedPaintItemInput(
-            usage: usageIndex == 0 ? 'rasxot' : 'astatka',
-            category: category,
-            name: option.label,
-            values: values,
-          ),
-        );
-      }
-    }
-  }
-
-  for (var usageIndex = 0; usageIndex < 2; usageIndex++) {
-    collect(usageIndex, 'colors', _returnedPaintColors);
-    collect(usageIndex, 'lacquers', _returnedPaintLacquers);
-    collect(usageIndex, 'solvents', _returnedPaintSolvents);
-  }
-  return items;
-}
-
-class _ReturnedPaintSheet extends StatefulWidget {
-  const _ReturnedPaintSheet({
-    required this.draft,
-  });
-
-  final _ReturnedPaintDraft draft;
-
-  @override
-  State<_ReturnedPaintSheet> createState() => _ReturnedPaintSheetState();
-}
-
-class _ReturnedPaintSheetState extends State<_ReturnedPaintSheet>
-    with TickerProviderStateMixin {
-  late final TabController _usageController;
-  String? _selectedPaint;
-  int? _selectedUsageIndex;
-  List<String>? _selectedFieldLabels;
-  final Map<String, List<TextEditingController>> _fieldControllersByPaint = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _usageController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.draft.selectedUsageIndex == 1 ? 1 : 0,
-    )..addListener(() {
-        final index = _usageController.index == 1 ? 1 : 0;
-        widget.draft.selectedUsageIndex = index;
-      });
-  }
-
-  Color _fieldBorderColor(String label) {
-    return switch (label) {
-      'Mix' => const Color(0xFF8A6A4A),
-      'Oq' => const Color(0xFFB9B6AD),
-      'Qora' => const Color(0xFF202124),
-      'Sariq' => const Color(0xFFE0B52D),
-      'Qizil' => const Color(0xFFE53935),
-      'Ko‘k' => const Color(0xFF1E88E5),
-      'Varnish' => const Color(0xFF5A321F),
-      'Spirt' => const Color(0xFF6AAED6),
-      'Pantone+' => const Color(0xFF8E6BBE),
-      _ => Theme.of(context).colorScheme.outlineVariant,
-    };
-  }
-
-  InputDecoration _paintFieldDecoration(
-    BuildContext context,
-    String label,
-  ) {
-    final base = appSurfaceInputDecoration(context, labelText: label);
-    final color = _fieldBorderColor(label);
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color, width: 1.2),
-    );
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: color, width: 1.8),
-    );
-    return base.copyWith(
-      border: border,
-      enabledBorder: border,
-      focusedBorder: focusedBorder,
-    );
-  }
-
-  List<String> _fieldsForOption(_ReturnedPaintOption option) =>
-      option.fieldLabels ?? _returnedPaintFieldLabels;
-
-  String _paintStateKey(String paint, int usageIndex) =>
-      '${usageIndex == 0 ? 'rasxot' : 'astatka'}:$paint';
-
-  List<TextEditingController> _controllersForPaint(
-    String paint,
-    List<String> fieldLabels,
-    int usageIndex,
-  ) {
-    final stateKey = _paintStateKey(paint, usageIndex);
-    final existing = _fieldControllersByPaint[stateKey];
-    if (existing != null && existing.length == fieldLabels.length) {
-      return existing;
-    }
-    final values = widget.draft.valuesFor(stateKey, fieldLabels.length);
-    final controllers = [
-      for (var index = 0; index < fieldLabels.length; index++)
-        TextEditingController(text: values[index]),
-    ];
-    _fieldControllersByPaint[stateKey] = controllers;
-    return controllers;
-  }
-
-  @override
-  void dispose() {
-    _usageController.dispose();
-    for (final controllers in _fieldControllersByPaint.values) {
-      for (final controller in controllers) {
-        controller.dispose();
-      }
-    }
-    super.dispose();
-  }
-
-  Widget? _completionIndicator(
-    _ReturnedPaintOption option,
-    int usageIndex,
-  ) {
-    final values = widget.draft.valuesFor(
-      _paintStateKey(option.label, usageIndex),
-      _fieldsForOption(option).length,
-    );
-    final fields = values.map((value) => value.trim().isNotEmpty).toList();
-    if (fields.every((filled) => !filled)) {
-      return null;
-    }
-    if (fields.length == _fieldsForOption(option).length &&
-        fields.every((filled) => filled)) {
-      return Icon(
-        Icons.check_rounded,
-        size: 17,
-        color: option.foreground,
-      );
-    }
-    return Icon(
-      Icons.star_rounded,
-      size: 16,
-      color: option.foreground,
-    );
-  }
-
-  void _updateFieldValue({
-    required String paint,
-    required int index,
-    required String value,
-    required int usageIndex,
-  }) {
-    final stateKey = _paintStateKey(paint, usageIndex);
-    final fieldLength =
-        _selectedFieldLabels?.length ?? _returnedPaintFieldLabels.length;
-    widget.draft.setValue(stateKey, index, value, fieldLength);
-    setState(() {
-      // Keep the current sheet reactive so the completion indicator updates.
-    });
-  }
-
-  Widget _paintFields(
-    BuildContext context,
-    String paint,
-    List<String> fieldLabels,
-    int usageIndex,
-  ) {
-    final controllers = _controllersForPaint(paint, fieldLabels, usageIndex);
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 2.6,
-      children: [
-        for (var index = 0; index < fieldLabels.length; index++)
-          TextFormField(
-            controller: controllers[index],
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-            ],
-            decoration: _paintFieldDecoration(context, fieldLabels[index]),
-            onChanged: (value) => _updateFieldValue(
-              paint: paint,
-              index: index,
-              value: value,
-              usageIndex: usageIndex,
-            ),
-          ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    Widget category(
-      String title,
-      List<_ReturnedPaintOption> options,
-      int usageIndex,
-    ) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _progressQtySectionLabel(context, title),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.45,
-            children: [
-              for (final option in options)
-                Tooltip(
-                  message: option.label,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final radius = BorderRadius.circular(
-                        constraints.maxHeight / 2,
-                      );
-                      return Material(
-                        color: option.color,
-                        elevation: 7,
-                        shadowColor: Colors.black45,
-                        borderRadius: radius,
-                        child: InkWell(
-                          borderRadius: radius,
-                          onTap: () {
-                            setState(() {
-                              _selectedPaint = option.label;
-                              _selectedUsageIndex = usageIndex;
-                              _selectedFieldLabels = option.fieldLabels ??
-                                  _returnedPaintFieldLabels;
-                            });
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              borderRadius: radius,
-                            ),
-                            child: Stack(
-                              children: [
-                                Center(
-                                  child: Text(
-                                    option.label,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: option.foreground,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                if (_completionIndicator(option, usageIndex)
-                                    case final indicator?)
-                                  Positioned(
-                                    top: 8,
-                                    right: 12,
-                                    child: indicator,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-        ],
-      );
-    }
-
-    Widget palettePage(int usageIndex) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          category('Ranglar', _returnedPaintColors, usageIndex),
-          category('Laklar', _returnedPaintLacquers, usageIndex),
-          category(
-            'Erituvchilar / spirtli suyuqliklar',
-            _returnedPaintSolvents,
-            usageIndex,
-          ),
-        ],
-      );
-    }
-
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: EdgeInsets.only(bottom: keyboardInset),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Orqaga',
-                    onPressed: () {
-                      if (_selectedPaint != null) {
-                        setState(() {
-                          _selectedPaint = null;
-                          _selectedUsageIndex = null;
-                          _selectedFieldLabels = null;
-                        });
-                        return;
-                      }
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Qaytarilgan bo‘yoq',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (_selectedPaint == null) ...[
-                AdminSurfaceTabBar(
-                  controller: _usageController,
-                  tabs: const [
-                    Tab(height: 38, text: 'Rasxot'),
-                    Tab(height: 38, text: 'Astatka'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-              ],
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                reverseDuration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  reverseDuration: const Duration(milliseconds: 140),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  ),
-                  child: _selectedPaint == null
-                      ? SizedBox(
-                          key: const ValueKey('returned-paint-palette'),
-                          height: 640,
-                          child: TabBarView(
-                            controller: _usageController,
-                            children: [palettePage(0), palettePage(1)],
-                          ),
-                        )
-                      : KeyedSubtree(
-                          key: const ValueKey('returned-paint-fields'),
-                          child: _paintFields(
-                            context,
-                            _selectedPaint!,
-                            _selectedFieldLabels ?? _returnedPaintFieldLabels,
-                            _selectedUsageIndex ?? _usageController.index,
-                          ),
-                        ),
-                ),
-              ),
-              Divider(color: scheme.outlineVariant),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProgressQtyDialog extends StatefulWidget {
   const _ProgressQtyDialog({
     required this.action,
@@ -644,7 +122,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
-  final _ReturnedPaintDraft returnedPaintDraft;
+  final ReturnedPaintDraft returnedPaintDraft;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -663,11 +141,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final _formKey = GlobalKey<FormState>();
   String _completionError = '';
 
-  _ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
+  ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
 
-  List<ReturnedPaintItemInput> get _returnedPaintItems => _isComplete
-      ? _returnedPaintItemsFromDraft(_returnedPaintDraft)
-      : const [];
+  List<ReturnedPaintItemInput> get _returnedPaintItems =>
+      _isComplete ? returnedPaintItemsFromDraft(_returnedPaintDraft) : const [];
 
   bool get _isComplete => widget.action == 'complete';
 
@@ -694,7 +171,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _ReturnedPaintSheet(draft: _returnedPaintDraft),
+      builder: (_) => ReturnedPaintSheet(
+        draft: _returnedPaintDraft,
+        orderId: widget.order.map.id,
+        apparatus: widget.apparatus,
+        allowImageEditing: true,
+      ),
     );
   }
 
@@ -738,9 +220,43 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
+    if (_isComplete &&
+        widget.isBosma &&
+        returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {
+      setState(() {
+        _completionError =
+            'Qaytarilgan bo‘yoq qiymatlarini to‘g‘ri raqamda kiriting.';
+      });
+      return;
+    }
     final returnedPaintItems = _returnedPaintItems;
-    final returnInkKg =
+    final rawReturnInkKg =
         _isComplete ? returnedPaintAstatkaTotal(returnedPaintItems) : null;
+    final returnInkKg =
+        rawReturnInkKg != null && rawReturnInkKg.isFinite && rawReturnInkKg > 0
+            ? rawReturnInkKg
+            : null;
+    final returnedPaintImageId =
+        _isComplete ? (_returnedPaintDraft.image?.imageId.trim() ?? '') : '';
+    final returnedPaintFieldCount =
+        returnedPaintFilledFieldCount(returnedPaintItems);
+    final returnedPaintValid = returnedPaintReportCanClose(
+      items: returnedPaintItems,
+      imageId: returnedPaintImageId,
+    );
+    if (_isComplete && widget.isBosma && !returnedPaintValid) {
+      setState(() {
+        _completionError = returnedPaintFieldCount > 0
+            ? returnedPaintImageId.isNotEmpty
+                ? 'Qisman kiritilgan qiymatlarni kamida 3 taga yetkazing yoki '
+                    'barcha qiymatlarni tozalang.'
+                : 'Qisman kiritilgan qiymatlarni kamida 3 taga yetkazing yoki '
+                    'ularni tozalab, rasm yuklang.'
+            : 'Kamida 3 ta qaytarilgan bo‘yoq maydonini to‘ldiring yoki '
+                'rasm yuklang.';
+      });
+      return;
+    }
     final printLeftoverRolls = _parseQty(_printLeftoverController.text);
     final filmLeftoverRolls = _parseQty(_filmLeftoverController.text);
     final rezkaBosmaWaste = _parseQty(_rezkaBosmaWasteController.text);
@@ -766,10 +282,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
-    final hasReturnInk =
-        returnInkKg != null && returnInkKg.isFinite && returnInkKg > 0;
     final bosmaMetricsReady =
-        hasWaste && hasMeter && hasKg && (!_isComplete || hasReturnInk);
+        hasWaste && hasMeter && hasKg && (!_isComplete || returnedPaintValid);
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasFilmLeftover && hasWaste && hasMeter && hasKg;
@@ -787,6 +301,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         meterQty: meterQty,
         kgQty: kgQty,
         returnedPaintItems: returnedPaintItems,
+        returnedPaintImageId: returnedPaintImageId,
       ));
       return;
     }
@@ -798,6 +313,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnInkKg: _isComplete ? returnInkKg : null,
           totalWaste: totalWaste,
           returnedPaintItems: returnedPaintItems,
+          returnedPaintImageId: returnedPaintImageId,
         ),
       );
       return;
@@ -811,6 +327,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           rezkaLaminationWaste: rezkaLaminationWaste,
           rezkaEdgeWaste: rezkaEdgeWaste,
           returnedPaintItems: returnedPaintItems,
+          returnedPaintImageId: returnedPaintImageId,
         ),
       );
       return;
@@ -824,6 +341,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
           returnedPaintItems: returnedPaintItems,
+          returnedPaintImageId: returnedPaintImageId,
         ),
       );
       return;
@@ -876,6 +394,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         totalWaste: totalWaste,
         description: description,
         returnedPaintItems: _returnedPaintItems,
+        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
         isCompletionRequest: true,
       );
     }
@@ -888,6 +407,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         totalWaste: totalWaste,
         description: description,
         returnedPaintItems: _returnedPaintItems,
+        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
         isCompletionRequest: true,
       );
     }
@@ -900,6 +420,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste: rezkaEdgeWaste,
         description: description,
         returnedPaintItems: _returnedPaintItems,
+        returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
         isCompletionRequest: true,
       );
     }
@@ -908,6 +429,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       kgQty: kgQty,
       description: description,
       returnedPaintItems: _returnedPaintItems,
+      returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
       isCompletionRequest: true,
     );
   }

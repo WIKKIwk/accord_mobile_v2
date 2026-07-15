@@ -2629,24 +2629,41 @@ void main() {
     await tester.pumpAndSettle();
     for (final field in const [
       'Mix',
-      'Oq',
+      '1w Oq',
+      '7w Oq',
       'Qora',
       'Sariq',
       'Qizil',
       'Ko‘k',
       'Varnish',
       'Spirt',
-      'Pantone+',
     ]) {
       expect(find.text(field), findsOneWidget);
     }
+    expect(find.widgetWithText(TextFormField, 'Pantone+'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Pantone+'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Pantone+'));
+    await tester.pumpAndSettle();
+    final returnedFields = find.descendant(
+      of: find.byKey(const ValueKey('returned-paint-fields')),
+      matching: find.byType(TextFormField),
+    );
+    expect(returnedFields, findsNWidgets(10));
+    expect(find.widgetWithText(OutlinedButton, 'Pantone+'), findsOneWidget);
+    await tester.enterText(
+      returnedFields.at(9),
+      '12',
+    );
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Pantone+'));
+    await tester.pumpAndSettle();
+    expect(returnedFields, findsNWidgets(11));
     final mixField = find.widgetWithText(TextFormField, 'Mix');
     await tester.enterText(mixField, '43');
     expect(find.byType(BottomSheet), findsNWidgets(2));
     expect(find.byTooltip('Orqaga'), findsOneWidget);
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Orqaga'), findsNothing);
+    expect(find.byTooltip('Orqaga'), findsOneWidget);
     expect(find.byTooltip('Oq'), findsOneWidget);
     expect(find.byIcon(Icons.star_rounded), findsOneWidget);
     await tester.tap(find.text('Astatka'));
@@ -2818,6 +2835,21 @@ void main() {
       find.widgetWithText(TextFormField, "Og'irlik"),
       '3',
     );
+    await tester.tap(find.text("Qaytarilgan bo'yoq"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    final completedOrderReturnedPaintFields = find.descendant(
+      of: find.byKey(const ValueKey('returned-paint-fields')),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(completedOrderReturnedPaintFields.at(0), '1');
+    await tester.enterText(completedOrderReturnedPaintFields.at(1), '2');
+    await tester.enterText(completedOrderReturnedPaintFields.at(2), '3');
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(20, 20));

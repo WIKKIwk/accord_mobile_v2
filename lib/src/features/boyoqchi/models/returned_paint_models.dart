@@ -63,6 +63,7 @@ class ReturnedPaintSubmission {
     required this.orderName,
     required this.apparatus,
     required this.items,
+    this.imageId = '',
   });
 
   final String orderId;
@@ -70,13 +71,75 @@ class ReturnedPaintSubmission {
   final String orderName;
   final String apparatus;
   final List<ReturnedPaintItemInput> items;
+  final String imageId;
 
   Map<String, dynamic> toJson() => {
         'order_id': orderId,
         'order_code': orderCode,
         'order_name': orderName,
         'apparatus': apparatus,
+        if (imageId.trim().isNotEmpty) 'image_id': imageId.trim(),
         'items': items.map((item) => item.toJson()).toList(growable: false),
+      };
+}
+
+class ReturnedPaintCompleteSubmission {
+  const ReturnedPaintCompleteSubmission({
+    required this.requestId,
+    required this.items,
+  });
+
+  final String requestId;
+  final List<ReturnedPaintItemInput> items;
+
+  Map<String, dynamic> toJson() => {
+        'request_id': requestId,
+        'items': items.map((item) => item.toJson()).toList(growable: false),
+      };
+}
+
+enum ReturnedPaintStatus {
+  waitingForBoyoqchiInput,
+  completed,
+}
+
+ReturnedPaintStatus returnedPaintStatusFromJson(Object? value) {
+  return value?.toString().trim() == 'waiting_for_boyoqchi_input'
+      ? ReturnedPaintStatus.waitingForBoyoqchiInput
+      : ReturnedPaintStatus.completed;
+}
+
+class ReturnedPaintImage {
+  const ReturnedPaintImage({
+    required this.imageId,
+    required this.imageName,
+    required this.imageMime,
+    required this.imageSizeBytes,
+    required this.imageUrl,
+  });
+
+  final String imageId;
+  final String imageName;
+  final String imageMime;
+  final int imageSizeBytes;
+  final String imageUrl;
+
+  factory ReturnedPaintImage.fromJson(Map<String, dynamic> json) {
+    return ReturnedPaintImage(
+      imageId: json['image_id']?.toString() ?? '',
+      imageName: json['image_name']?.toString() ?? '',
+      imageMime: json['image_mime']?.toString() ?? '',
+      imageSizeBytes: (json['image_size_bytes'] as num?)?.toInt() ?? 0,
+      imageUrl: json['image_url']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'image_id': imageId,
+        'image_name': imageName,
+        'image_mime': imageMime,
+        'image_size_bytes': imageSizeBytes,
+        'image_url': imageUrl,
       };
 }
 
@@ -92,6 +155,8 @@ class ReturnedPaintRequest {
     required this.senderDisplayName,
     required this.items,
     required this.createdAt,
+    this.status = ReturnedPaintStatus.completed,
+    this.image,
     this.calculation,
     this.message = '',
   });
@@ -106,8 +171,13 @@ class ReturnedPaintRequest {
   final String senderDisplayName;
   final List<ReturnedPaintItemInput> items;
   final DateTime createdAt;
+  final ReturnedPaintStatus status;
+  final ReturnedPaintImage? image;
   final ReturnedPaintCalculation? calculation;
   final String message;
+
+  bool get waitingForBoyoqchiInput =>
+      status == ReturnedPaintStatus.waitingForBoyoqchiInput;
 
   factory ReturnedPaintRequest.fromJson(Map<String, dynamic> json) {
     final createdAtUnix = (json['created_at_unix'] as num?)?.toInt() ?? 0;
@@ -120,6 +190,7 @@ class ReturnedPaintRequest {
       senderRole: userRoleFromJson(json['sender_role']?.toString()),
       senderRef: json['sender_ref']?.toString() ?? '',
       senderDisplayName: json['sender_display_name']?.toString() ?? '',
+      status: returnedPaintStatusFromJson(json['status']),
       message: json['message']?.toString() ?? '',
       items: (json['items'] as List<dynamic>? ?? const [])
           .whereType<Map>()
@@ -129,6 +200,11 @@ class ReturnedPaintRequest {
             ),
           )
           .toList(growable: false),
+      image: json['image'] is Map
+          ? ReturnedPaintImage.fromJson(
+              (json['image'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       calculation: json['calculation'] is Map
           ? ReturnedPaintCalculation.fromJson(
               (json['calculation'] as Map).cast<String, dynamic>(),
@@ -138,6 +214,33 @@ class ReturnedPaintRequest {
         createdAtUnix * 1000,
         isUtc: true,
       ).toLocal(),
+    );
+  }
+
+  ReturnedPaintRequest copyWith({
+    List<ReturnedPaintItemInput>? items,
+    ReturnedPaintStatus? status,
+    ReturnedPaintImage? image,
+    bool clearImage = false,
+    ReturnedPaintCalculation? calculation,
+    bool clearCalculation = false,
+    String? message,
+  }) {
+    return ReturnedPaintRequest(
+      id: id,
+      orderId: orderId,
+      orderCode: orderCode,
+      orderName: orderName,
+      apparatus: apparatus,
+      senderRole: senderRole,
+      senderRef: senderRef,
+      senderDisplayName: senderDisplayName,
+      items: items ?? this.items,
+      createdAt: createdAt,
+      status: status ?? this.status,
+      image: clearImage ? null : (image ?? this.image),
+      calculation: clearCalculation ? null : (calculation ?? this.calculation),
+      message: message ?? this.message,
     );
   }
 }

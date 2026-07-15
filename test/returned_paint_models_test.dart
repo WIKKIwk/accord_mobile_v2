@@ -1,4 +1,5 @@
 import 'package:accord_mobile_v2/src/features/boyoqchi/models/returned_paint_models.dart';
+import 'package:accord_mobile_v2/src/features/boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -72,5 +73,68 @@ void main() {
 
     expect(returnedPaintAstatkaTotal(items), 2.5);
     expect(returnedPaintAstatkaTotal(const []), isNull);
+  });
+
+  test('image-only report keeps waiting status and image metadata', () {
+    final request = ReturnedPaintRequest.fromJson(const {
+      'id': 'returned-paint-waiting',
+      'order_id': 'order-image',
+      'order_code': '8963',
+      'order_name': 'Rasmli order',
+      'apparatus': '7 ta rangli bosma',
+      'sender_role': 'aparatchi',
+      'sender_ref': 'worker-image',
+      'sender_display_name': 'Bosmachi',
+      'created_at_unix': 100,
+      'status': 'waiting_for_boyoqchi_input',
+      'image': {
+        'image_id': 'image-1',
+        'image_name': 'qoldiq.jpg',
+        'image_mime': 'image/jpeg',
+        'image_size_bytes': 123,
+        'image_url': '/v1/mobile/returned-paint/images/view?id=image-1',
+      },
+      'items': [],
+    });
+
+    expect(request.waitingForBoyoqchiInput, isTrue);
+    expect(request.calculation, isNull);
+    expect(request.image?.imageId, 'image-1');
+    expect(request.image?.imageSizeBytes, 123);
+  });
+
+  test('close rule accepts three fields or an entirely image-only report', () {
+    const oneField = ReturnedPaintItemInput(
+      usage: 'rasxot',
+      category: 'colors',
+      name: 'Oq',
+      values: {'Mix': '10'},
+    );
+    const threeFields = ReturnedPaintItemInput(
+      usage: 'rasxot',
+      category: 'colors',
+      name: 'Oq',
+      values: {'Mix': '10', '1w Oq': '2', '7w Oq': '1'},
+    );
+
+    expect(
+      returnedPaintReportCanClose(items: const [], imageId: 'image-1'),
+      isTrue,
+    );
+    expect(
+      returnedPaintReportCanClose(items: const [threeFields], imageId: ''),
+      isTrue,
+    );
+    expect(
+      returnedPaintReportCanClose(items: const [oneField], imageId: ''),
+      isFalse,
+    );
+    expect(
+      returnedPaintReportCanClose(
+        items: const [oneField],
+        imageId: 'image-1',
+      ),
+      isFalse,
+    );
   });
 }

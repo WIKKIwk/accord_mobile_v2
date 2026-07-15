@@ -44,7 +44,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
   bool _mapExpanded = false;
-  _ReturnedPaintDraft _returnedPaintDraft = _ReturnedPaintDraft();
+  ReturnedPaintDraft? _returnedPaintDraft;
+  String _returnedPaintDraftScope = '';
 
   @override
   void initState() {
@@ -67,7 +68,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
       _inputProgressLoading = false;
-      _returnedPaintDraft = _ReturnedPaintDraft();
+      _returnedPaintDraft = null;
+      _returnedPaintDraftScope = '';
       unawaited(_loadInputProgressBatches());
     }
     if (_actionInFlight) {
@@ -248,6 +250,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _runProgressAction(String action) async {
+    final scope = returnedPaintWorkerDraftScope(
+      actorRef: AppSession.instance.profile?.ref ?? '',
+      orderId: widget.order.map.id,
+      apparatus: widget.apparatus?.warehouse ?? '',
+    );
+    if (_returnedPaintDraft == null || _returnedPaintDraftScope != scope) {
+      _returnedPaintDraft = await ReturnedPaintDraftStore.instance.load(
+        scope: scope,
+      );
+      _returnedPaintDraftScope = scope;
+    }
+    if (!mounted) return;
     final input = await _showProgressQtyDialogForApparatus(
       context,
       action: action,
@@ -281,7 +295,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       driverUrl: driverUrl,
     );
     if (completed && action == 'complete') {
-      _returnedPaintDraft = _ReturnedPaintDraft();
+      await ReturnedPaintDraftStore.instance.clear(scope);
+      _returnedPaintDraft = null;
+      _returnedPaintDraftScope = '';
     }
   }
 
