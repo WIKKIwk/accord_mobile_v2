@@ -282,9 +282,18 @@ MobileApiException _returnedPaintException(
   required String code,
   required String message,
 }) {
+  var serverMessage = '';
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      serverMessage = (payload['error'] as String).trim();
+    }
+  } catch (_) {
+    // Keep the feature-specific fallback when the server response is not JSON.
+  }
   return MobileApiException(
     code: code,
-    message: message,
+    message: serverMessage.isEmpty ? message : serverMessage,
     statusCode: response.statusCode,
   );
 }
