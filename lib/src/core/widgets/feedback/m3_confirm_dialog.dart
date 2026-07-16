@@ -12,6 +12,8 @@ Future<bool?> showM3ConfirmDialog({
   bool blurBackground = false,
   double dialogRadius = 28,
   double buttonRadius = 20,
+  Color? confirmBackgroundColor,
+  Color? confirmForegroundColor,
 }) {
   return showDialog<bool>(
     context: context,
@@ -22,10 +24,10 @@ Future<bool?> showM3ConfirmDialog({
       final confirmStyle = FilledButton.styleFrom(
         backgroundColor: destructive
             ? scheme.errorContainer
-            : scheme.primaryContainer,
+            : confirmBackgroundColor ?? scheme.primaryContainer,
         foregroundColor: destructive
             ? scheme.onErrorContainer
-            : scheme.onPrimaryContainer,
+            : confirmForegroundColor ?? scheme.onPrimaryContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(buttonRadius),
         ),

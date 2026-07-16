@@ -38,4 +38,52 @@ void main() {
     expect(find.byType(BackdropFilter), findsOneWidget);
     expect(find.text('Chiqish'), findsOneWidget);
   });
+
+  testWidgets('confirm dialog accepts a themed primary confirmation color', (
+    tester,
+  ) async {
+    const primary = Color(0xFF5B321F);
+    const onPrimary = Color(0xFFFFFFFF);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () {
+                    showM3ConfirmDialog(
+                      context: context,
+                      title: 'Chiqish',
+                      message: 'Dasturdan chiqaymi?',
+                      cancelLabel: 'Yo‘q',
+                      confirmLabel: 'Ha',
+                      confirmBackgroundColor: primary,
+                      confirmForegroundColor: onPrimary,
+                    );
+                  },
+                  child: const Text('open'),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Ha'),
+    );
+    expect(
+      confirmButton.style?.backgroundColor?.resolve({}),
+      primary,
+    );
+    expect(
+      confirmButton.style?.foregroundColor?.resolve({}),
+      onPrimary,
+    );
+  });
 }
