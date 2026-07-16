@@ -4,14 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
 import '../state/chat_failure.dart';
 import '../state/chat_store.dart';
-import 'widgets/chat_avatar.dart';
 
 class ChatDirectoryScreen extends StatefulWidget {
   const ChatDirectoryScreen({super.key});
@@ -120,38 +121,88 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 24),
       itemCount: store.directory.length,
       itemBuilder: (context, index) {
         final entry = store.directory[index];
-        return ListTile(
-          minTileHeight: 76,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+        return Padding(
+          padding: EdgeInsets.only(
+            top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 4,
+          child: _ChatDirectoryRow(
+            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+              index,
+              store.directory.length,
+            ),
+            entry: entry,
+            opening: openingRef == entry.ref,
+            onTap: () => _open(entry),
           ),
-          onTap: () => _open(entry),
-          leading: ChatAvatar(
-            name: entry.displayName,
-            avatarUrl: entry.avatarUrl,
-            radius: 25,
-          ),
-          title: Text(
-            entry.displayName,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          subtitle: Text(userRoleLabel(entry.role)),
-          trailing: openingRef == entry.ref
-              ? const SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.chat_bubble_outline_rounded),
         );
       },
+    );
+  }
+}
+
+class _ChatDirectoryRow extends StatelessWidget {
+  const _ChatDirectoryRow({
+    required this.slot,
+    required this.entry,
+    required this.opening,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final ChatDirectoryEntry entry;
+  final bool opening;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      trailing: opening
+          ? const Padding(
+              padding: EdgeInsets.only(left: 12),
+              child: SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : null,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.person_outline_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: entry.displayName,
+      subtitle: userRoleLabel(entry.role),
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
     );
   }
 }

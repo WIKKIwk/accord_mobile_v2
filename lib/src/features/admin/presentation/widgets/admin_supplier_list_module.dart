@@ -1,7 +1,6 @@
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_summary_card.dart';
-import 'admin_profile_avatar.dart';
 import 'package:flutter/material.dart';
 
 class AdminSupplierListModule extends StatelessWidget {
@@ -69,17 +68,23 @@ class AdminSupplierListRow extends StatelessWidget {
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-      elevation: 4,
       value: '',
-      showChevron: true,
+      showChevron: false,
       leading: SizedBox.square(
         dimension: 30,
-        child: AdminProfileAvatar(
-          avatarUrl: item.avatarUrl,
-          fallbackText: _initials(item.name),
-          size: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.person_outline_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
         ),
       ),
       title: item.name,
@@ -95,17 +100,4 @@ class AdminSupplierListRow extends StatelessWidget {
           ),
     );
   }
-}
-
-String _initials(String value) {
-  final parts = value
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .take(2)
-      .toList(growable: false);
-  if (parts.isEmpty) {
-    return '?';
-  }
-  return parts.map((part) => part.substring(0, 1).toUpperCase()).join();
 }

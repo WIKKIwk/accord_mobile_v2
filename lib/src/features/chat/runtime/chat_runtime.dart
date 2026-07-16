@@ -20,7 +20,14 @@ class _ChatRuntimeState extends State<ChatRuntime> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AppSession.instance.revision.addListener(_sessionChanged);
-    unawaited(ChatStore.instance.startForCurrentSession());
+    // ChatStore notifies its listeners while it restores the session. Starting
+    // it synchronously here can rebuild the Scaffold bottom dock during the
+    // first layout pass and trigger Flutter's RenderLayoutBuilder mutation
+    // assertion. Let the initial frame finish before wiring chat state in.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ChatStore.instance.startForCurrentSession());
+    });
   }
 
   @override

@@ -1,5 +1,5 @@
 HOST_OS := $(shell uname -s)
-API_URL ?= https://mini-rs-erp-dev.wspace.sbs
+API_URL ?= https://mini-rs-erp-test.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:18081
 WORKSPACE_ROOT := $(abspath ..)
 LOCAL_TOOLS_ROOT ?= $(WORKSPACE_ROOT)/.tools

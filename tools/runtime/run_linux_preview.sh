@@ -15,5 +15,5 @@ if [ -z "$FLUTTER_BIN" ]; then
 fi
 
 "$FLUTTER_BIN" pub get
-API_URL="${MOBILE_API_BASE_URL:-https://mini-rs-erp-dev.wspace.sbs}"
+API_URL="${MOBILE_API_BASE_URL:-https://mini-rs-erp-test.wspace.sbs}"
 "$FLUTTER_BIN" run -d linux --dart-define=MOBILE_API_BASE_URL="$API_URL"

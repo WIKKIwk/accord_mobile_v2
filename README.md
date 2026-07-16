@@ -57,7 +57,7 @@ Mas'uliyatlar:
 Default development domeni:
 
 ```text
-https://mini-rs-erp-dev.wspace.sbs
+https://mini-rs-erp-test.wspace.sbs
 ```
 
 Bu qiymat `MobileApi.baseUrl` va `Makefile`dagi `API_URL` default'ida bir xil.
@@ -152,7 +152,7 @@ backend repo script'larini source of truth deb oling.
 Backendni mobile'dan oldin tekshirish:
 
 ```bash
-curl https://mini-rs-erp-dev.wspace.sbs/healthz
+curl https://mini-rs-erp-test.wspace.sbs/healthz
 ```
 
 Kutiladigan javob:
@@ -167,7 +167,7 @@ Kutiladigan javob:
 
 | Dart define / Make qiymati | Default | Maqsad |
 | --- | --- | --- |
-| `MOBILE_API_BASE_URL` | `https://mini-rs-erp-dev.wspace.sbs` | `MobileApi` ishlatadigan asosiy mini ERP URL. |
+| `MOBILE_API_BASE_URL` | `https://mini-rs-erp-test.wspace.sbs` | `MobileApi` ishlatadigan asosiy mini ERP URL. |
 | `API_URL` | shu domen | `Makefile` orqali `MOBILE_API_BASE_URL`ga uzatiladi. |
 | `LOCAL_API_URL` | `http://127.0.0.1:18081` | `run-local` va `web-local` uchun. |
 | `API_BASE_URL` | `http://gscale.local:39117` | GScale/RPS LAN runtime uchun alohida URL. |
@@ -669,7 +669,7 @@ Release arm64 APK:
 
 ```bash
 make apk \
-  API_URL=https://mini-rs-erp-dev.wspace.sbs \
+  API_URL=https://mini-rs-erp-test.wspace.sbs \
   APK_NAME=accord.apk
 ```
 
@@ -715,7 +715,7 @@ SDK va `$HOME/.local/flutter/bin/flutter`ni tekshiradi.
 
 ```bash
 flutter run -d chrome \
-  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs \
+  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-test.wspace.sbs \
   --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 ```
 
@@ -740,7 +740,7 @@ Har doim explicit URL bilan qayta build qiling:
 
 ```bash
 flutter build apk --release --target-platform android-arm64 \
-  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-dev.wspace.sbs
+  --dart-define=MOBILE_API_BASE_URL=https://mini-rs-erp-test.wspace.sbs
 ```
 
 ### Production map amali generic xato ko'rsatmoqda
