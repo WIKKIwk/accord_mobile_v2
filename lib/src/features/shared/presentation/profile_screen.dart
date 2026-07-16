@@ -1971,16 +1971,6 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context)
-                    .colorScheme
-                    .shadow
-                    .withValues(alpha: 0.14),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(4),
