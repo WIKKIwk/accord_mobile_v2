@@ -81,7 +81,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: store,
+      animation: Listenable.merge([store, controller]),
       builder: (context, _) {
         final messages = store.messagesFor(widget.conversation.conversationId);
         if (messages.length > previousMessageCount) {
@@ -107,8 +107,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
           ],
           contentPadding: EdgeInsets.zero,
-          bottomDockHeight: ChatRoleDock.messageComposerHeight,
+          bottomDockHeight: ChatRoleDock.composerHeight(
+            context,
+            controller.text,
+          ),
           bottom: ChatRoleDock(
+            composerController: controller,
             messageComposer: ChatMessageComposer(
               controller: controller,
               sending: store.sending,

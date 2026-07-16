@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../../core/session/state/app_session.dart';
 import '../../../admin/presentation/widgets/admin_dock.dart';
 import '../../../aparatchi/presentation/widgets/aparatchi_dock.dart';
@@ -14,21 +16,64 @@ import 'package:flutter/material.dart';
 /// Keeps the role-specific navigation visible on the conversation list and
 /// provides the shared dock container for the conversation composer.
 class ChatRoleDock extends StatelessWidget {
-  const ChatRoleDock({super.key, this.messageComposer});
+  const ChatRoleDock({
+    super.key,
+    this.messageComposer,
+    this.composerController,
+  });
 
   static const double messageComposerHeight = 76;
+  static const double maxMessageComposerHeight = 128;
 
   final Widget? messageComposer;
+  final TextEditingController? composerController;
+
+  static double composerHeight(BuildContext context, String text) {
+    if (text.trim().isEmpty) {
+      return messageComposerHeight;
+    }
+
+    final width = MediaQuery.sizeOf(context).width;
+    final inputContentWidth = math.max(1.0, width - 106);
+    final textStyle = Theme.of(context).textTheme.bodyLarge ??
+        const TextStyle(fontSize: 16, height: 1.2);
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: textStyle),
+      textDirection: Directionality.of(context),
+      maxLines: 5,
+    )..layout(maxWidth: inputContentWidth);
+    final lineCount = painter.computeLineMetrics().length.clamp(1, 5);
+    final inputHeight = painter.preferredLineHeight * lineCount + 20;
+    return math.min(
+      maxMessageComposerHeight,
+      math.max(messageComposerHeight, inputHeight + 16),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     if (messageComposer != null) {
-      return AppNavigationBar(
-        height: messageComposerHeight,
-        destinations: const [],
-        selectedIndex: 0,
-        onDestinationSelected: (_) {},
-        content: messageComposer,
+      final controller = composerController;
+      if (controller == null) {
+        return AppNavigationBar(
+          height: messageComposerHeight,
+          destinations: const [],
+          selectedIndex: 0,
+          onDestinationSelected: (_) {},
+          content: messageComposer,
+        );
+      }
+      return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          return AppNavigationBar(
+            height: composerHeight(context, value.text),
+            destinations: const [],
+            selectedIndex: 0,
+            onDestinationSelected: (_) {},
+            content: messageComposer,
+          );
+        },
       );
     }
 
