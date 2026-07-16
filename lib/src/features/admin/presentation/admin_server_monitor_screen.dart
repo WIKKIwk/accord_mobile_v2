@@ -365,7 +365,7 @@ class _HealthDial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = active ? scheme.primary : const Color(0xFFB56B20);
+    final color = active ? scheme.primary : scheme.tertiary;
     return SizedBox(
       width: 92,
       height: 92,
@@ -1463,7 +1463,7 @@ Color _usageColor(BuildContext context, int percent) {
     return scheme.error;
   }
   if (percent >= 75) {
-    return const Color(0xFFB56B20);
+    return scheme.tertiary;
   }
   return scheme.primary;
 }
