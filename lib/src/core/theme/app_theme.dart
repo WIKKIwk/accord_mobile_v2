@@ -57,6 +57,7 @@ class AppTheme {
       colorScheme: colorScheme,
       textTheme: textTheme,
       inputFillColor: colorScheme.surfaceContainerHigh,
+      isWhiteTheme: variant == AppThemeVariant.white,
     );
   }
 
@@ -89,6 +90,7 @@ class AppTheme {
       colorScheme: colorScheme,
       textTheme: textTheme,
       inputFillColor: colorScheme.surfaceContainerHighest,
+      isWhiteTheme: variant == AppThemeVariant.white,
     );
   }
 
@@ -1092,6 +1094,7 @@ class AppTheme {
     required ColorScheme colorScheme,
     required TextTheme textTheme,
     required Color inputFillColor,
+    required bool isWhiteTheme,
   }) {
     final Color shellBackground = colorScheme.surfaceContainerLow;
     final Color appChromeBackground = colorScheme.surfaceContainerHigh;
@@ -1118,6 +1121,16 @@ class AppTheme {
         backgroundColor: appChromeBackground,
         surfaceTintColor: Colors.transparent,
       ),
+      navigationDrawerTheme: isWhiteTheme
+          ? NavigationDrawerThemeData(
+              labelTextStyle: WidgetStatePropertyAll<TextStyle?>(
+                textTheme.bodyMedium,
+              ),
+              iconTheme: WidgetStatePropertyAll<IconThemeData>(
+                IconThemeData(color: colorScheme.onSurface),
+              ),
+            )
+          : null,
       pageTransitionsTheme: _pageTransitionsTheme(),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
