@@ -17,6 +17,7 @@ class ChatStore extends ChangeNotifier {
 
   static final ChatStore instance = ChatStore._();
   static const _deviceIdKey = 'chat_device_id_v1';
+  static const _sendTimeout = Duration(seconds: 15);
 
   final ChatRealtimeService _realtime = ChatRealtimeService();
   final Map<String, List<ChatMessage>> _messages = {};
@@ -241,24 +242,23 @@ class ChatStore extends ChangeNotifier {
   Future<void> sendMessage(String conversationId, String rawBody) async {
     final body = rawBody.trim();
     if (body.isEmpty || sending) return;
-    await startForCurrentSession();
-    if (profileKey.isEmpty || conversationId.trim().isEmpty) {
-      final exception = const MobileApiException(
-        code: 'authentication_required',
-        message: 'Chat sessiyasi tayyor emas',
-        statusCode: 401,
-      );
-      sendError = chatFailureMessage(exception);
-      notifyListeners();
-      throw exception;
-    }
     sending = true;
     error = '';
     sendError = '';
     notifyListeners();
-    final key = profileKey;
-    var clientMessageId = _newClientMessageId();
     try {
+      if (profileKey.isEmpty) {
+        await startForCurrentSession().timeout(_sendTimeout);
+      }
+      if (profileKey.isEmpty || conversationId.trim().isEmpty) {
+        throw const MobileApiException(
+          code: 'authentication_required',
+          message: 'Chat sessiyasi tayyor emas',
+          statusCode: 401,
+        );
+      }
+      final key = profileKey;
+      var clientMessageId = _newClientMessageId();
       try {
         final pending = await ChatLocalStore.instance.loadPendingMessages(
           key,
@@ -321,11 +321,13 @@ class ChatStore extends ChangeNotifier {
     Object? lastError;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
-        return await MobileApi.instance.chatSendMessage(
-          conversationId: conversationId,
-          clientMessageId: clientMessageId,
-          body: body,
-        );
+        return await MobileApi.instance
+            .chatSendMessage(
+              conversationId: conversationId,
+              clientMessageId: clientMessageId,
+              body: body,
+            )
+            .timeout(_sendTimeout);
       } catch (error) {
         lastError = error;
         if (attempt > 0 || !isTransientChatFailure(error)) {
@@ -503,7 +505,7 @@ class ChatStore extends ChangeNotifier {
   }
 
   static String _newClientMessageId() {
-    final random = Random.secure().nextInt(1 << 32).toRadixString(16);
+    final random = Random.secure().nextInt(0x7fffffff).toRadixString(16);
     return 'client_${DateTime.now().microsecondsSinceEpoch}_$random';
   }
 
@@ -512,7 +514,7 @@ class ChatStore extends ChangeNotifier {
     final existing = prefs.getString(_deviceIdKey)?.trim() ?? '';
     if (existing.isNotEmpty) return existing;
     final random =
-        List<int>.generate(4, (_) => Random.secure().nextInt(1 << 32))
+        List<int>.generate(4, (_) => Random.secure().nextInt(0x7fffffff))
             .map((value) => value.toRadixString(16).padLeft(8, '0'))
             .join();
     final id = 'device_$random';

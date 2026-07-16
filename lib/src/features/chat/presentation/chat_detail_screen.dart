@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
 import '../state/chat_store.dart';
+import '../state/chat_failure.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_message_composer.dart';
@@ -45,13 +46,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _send() async {
     final body = controller.text.trim();
-    if (body.isEmpty) return;
+    if (body.isEmpty || store.sending) return;
     try {
       await store.sendMessage(widget.conversation.conversationId, body);
       controller.clear();
       store.clearSendError();
       _scrollToBottom();
-    } catch (_) {}
+    } catch (exception) {
+      if (!mounted) return;
+      final message = store.sendError.isNotEmpty
+          ? store.sendError
+          : chatFailureMessage(exception);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _draftChanged() {
