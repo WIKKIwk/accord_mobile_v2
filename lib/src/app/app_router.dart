@@ -922,7 +922,7 @@ class AppRouter {
         },
       );
     }
-    return MaterialPageRoute<dynamic>(
+    return _AppMaterialPageRoute<dynamic>(
       settings: settings,
       builder: (context) {
         return child;
@@ -955,6 +955,16 @@ class AppRouter {
   static bool _usesAdminPageTransition(String? routeName) {
     return false;
   }
+}
+
+class _AppMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  _AppMaterialPageRoute({required super.builder, super.settings});
+
+  @override
+  Duration get transitionDuration => AppMotion.pageEnter;
+
+  @override
+  Duration get reverseTransitionDuration => AppMotion.pageExit;
 }
 
 class _ProfileMaterialPageRoute<T> extends MaterialPageRoute<T> {
