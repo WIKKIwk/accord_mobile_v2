@@ -22,18 +22,24 @@ class ChatMessageComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (embeddedInDock) {
-      return Center(
-        child: Transform.translate(
-          offset: const Offset(0, -5),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: _ComposerRow(
-              controller: controller,
-              sending: sending,
-              errorText: errorText,
-              onSend: onSend,
-              onDraftChanged: onDraftChanged,
-              compact: true,
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: OverflowBox(
+          alignment: Alignment.bottomCenter,
+          minHeight: 0,
+          maxHeight: 128,
+          child: Transform.translate(
+            offset: const Offset(0, -5),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: _ComposerRow(
+                controller: controller,
+                sending: sending,
+                errorText: errorText,
+                onSend: onSend,
+                onDraftChanged: onDraftChanged,
+                compact: true,
+              ),
             ),
           ),
         ),
@@ -107,12 +113,10 @@ class _ComposerRow extends StatelessWidget {
               child: TextField(
                 controller: controller,
                 minLines: 1,
-                maxLines: compact ? 1 : 6,
+                maxLines: compact ? 5 : 6,
                 maxLength: 4000,
                 keyboardType: TextInputType.multiline,
-                textInputAction:
-                    compact ? TextInputAction.send : TextInputAction.newline,
-                onSubmitted: compact && canSend ? (_) => onSend() : null,
+                textInputAction: TextInputAction.newline,
                 textCapitalization: TextCapitalization.sentences,
                 autocorrect: true,
                 enableSuggestions: true,
