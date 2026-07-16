@@ -29,7 +29,6 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   final store = ChatStore.instance;
   final searchController = TextEditingController();
   final searchFocusNode = FocusNode();
-  String query = '';
 
   @override
   void initState() {
@@ -46,41 +45,38 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
-        return AppShell(
-          title: '',
-          subtitle: '',
-          nativeTopBar: true,
-          automaticallyImplyNativeLeading: false,
-          nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-          profileActionListenable: searchFocusNode,
-          showProfileActionResolver: () => !searchFocusNode.hasFocus,
-          titleWidget: AdminCatalogSearchField(
-            controller: searchController,
-            focusNode: searchFocusNode,
-            hintText: 'Chatlardan qidirish',
-            onChanged: (value) => setState(() => query = value.trim()),
-            onClear: () {
-              searchController.clear();
-              setState(() => query = '');
-            },
-            onBackWithContext: (context) {
-              final navigator = Navigator.of(context);
-              if (navigator.canPop()) {
-                navigator.pop();
-                return;
-              }
-              AppRootNavigation.replaceRootRoute(
-                context,
-                AppSession.instance.homeRoute,
-              );
-            },
-          ),
-          bottom: const ChatRoleDock(),
-          contentPadding: EdgeInsets.zero,
-          child: Stack(
+    return AppShell(
+      title: '',
+      subtitle: '',
+      nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: searchFocusNode,
+      showProfileActionResolver: () => !searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: searchController,
+        focusNode: searchFocusNode,
+        hintText: 'Chatlardan qidirish',
+        onChanged: (_) {},
+        onClear: searchController.clear,
+        onBackWithContext: (context) {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+            return;
+          }
+          AppRootNavigation.replaceRootRoute(
+            context,
+            AppSession.instance.homeRoute,
+          );
+        },
+      ),
+      bottom: const ChatRoleDock(),
+      contentPadding: EdgeInsets.zero,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([store, searchController]),
+        builder: (context, _) {
+          return Stack(
             children: [
               RefreshIndicator(
                 onRefresh: store.refreshConversations,
@@ -100,14 +96,14 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                 ),
               ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   List<ChatConversation> get _visibleConversations {
-    final normalized = query.toLowerCase();
+    final normalized = searchController.text.trim().toLowerCase();
     final started = store.conversations.where(
       (conversation) => conversation.hasMessages,
     );
@@ -152,12 +148,14 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         padding: const EdgeInsets.fromLTRB(28, 90, 28, 120),
         children: [
           Icon(
-            query.isEmpty ? Icons.forum_outlined : Icons.search_off_rounded,
+            searchController.text.trim().isEmpty
+                ? Icons.forum_outlined
+                : Icons.search_off_rounded,
             size: 56,
           ),
           const SizedBox(height: 16),
           Text(
-            query.isEmpty
+            searchController.text.trim().isEmpty
                 ? 'Hali suhbat yo‘q. “Yangi chat” orqali foydalanuvchini tanlang.'
                 : 'Bu qidiruv bo‘yicha chat topilmadi.',
             textAlign: TextAlign.center,
