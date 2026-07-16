@@ -6,9 +6,12 @@ import '../../../app/app_router.dart';
 import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_controller.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../models/chat_models.dart';
 import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
@@ -168,11 +171,20 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
       itemCount: conversations.length,
       itemBuilder: (context, index) {
         final conversation = conversations[index];
-        return _ConversationTile(
-          conversation: conversation,
-          onTap: () => Navigator.of(context).pushNamed(
-            AppRoutes.chatDetail,
-            arguments: conversation,
+        return Padding(
+          padding: EdgeInsets.only(
+            top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+          ),
+          child: _ConversationTile(
+            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+              index,
+              conversations.length,
+            ),
+            conversation: conversation,
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRoutes.chatDetail,
+              arguments: conversation,
+            ),
           ),
         );
       },
@@ -181,8 +193,13 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 }
 
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conversation, required this.onTap});
+  const _ConversationTile({
+    required this.slot,
+    required this.conversation,
+    required this.onTap,
+  });
 
+  final M3SegmentVerticalSlot slot;
   final ChatConversation conversation;
   final VoidCallback onTap;
 
@@ -198,31 +215,27 @@ class _ConversationTile extends StatelessWidget {
       button: true,
       label: '${conversation.displayTitle}, '
           '${message?.body ?? 'Suhbat boshlandi'}',
-      child: ListTile(
-        minTileHeight: 78,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: AdminSummaryCard(
+        slot: slot,
+        cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: ChatAvatar(
-          name: conversation.displayTitle,
-          avatarUrl: peer?.avatarUrl ?? '',
-          radius: 27,
-        ),
-        title: Text(
-          conversation.displayTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          message?.body ?? 'Suhbat boshlandi',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: unread ? scheme.onSurface : scheme.onSurfaceVariant,
-            fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+        backgroundColor: scheme.surfaceContainerLowest,
+        fixedHeight: 61,
+        padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+        value: '',
+        showChevron: false,
+        leading: SizedBox.square(
+          dimension: 30,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ChatAvatar(
+              name: conversation.displayTitle,
+              avatarUrl: peer?.avatarUrl ?? '',
+              radius: 15,
+            ),
           ),
         ),
         trailing: Column(
@@ -247,6 +260,20 @@ class _ConversationTile extends StatelessWidget {
               const SizedBox(height: 16),
           ],
         ),
+        title: conversation.displayTitle,
+        subtitle: message?.body ?? 'Suhbat boshlandi',
+        titleMaxLines: 1,
+        subtitleMaxLines: 1,
+        titleStyle: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
+        ),
+        subtitleStyle: theme.textTheme.bodySmall?.copyWith(
+          color: unread ? scheme.onSurface : scheme.onSurfaceVariant,
+          fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+          height: 1.05,
+        ),
+        elevation:
+            ThemeController.instance.variant == AppThemeVariant.white ? 1 : 0,
       ),
     );
   }
