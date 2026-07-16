@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/app_router.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -86,6 +87,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             connected: store.connected,
           ),
           nativeTopBar: true,
+          showProfileAction: false,
+          actions: [
+            _ChatParticipantProfileAction(
+              participant: widget.conversation.peer,
+              onTap: _openParticipantProfile,
+            ),
+          ],
           contentPadding: EdgeInsets.zero,
           bottomDockHeight: ChatRoleDock.messageComposerHeight,
           bottom: ChatRoleDock(
@@ -114,27 +122,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.waving_hand_outlined,
-                size: 42,
-                color: scheme.primary,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Suhbatni boshlang',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Birinchi xabaringizni yozing.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
+          child: Text(
+            'Birinchi xabaringizni yozing.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
         ),
       );
@@ -188,6 +181,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
     );
   }
+
+  void _openParticipantProfile() {
+    final participant = widget.conversation.peer;
+    if (participant == null) {
+      return;
+    }
+    Navigator.of(context).pushNamed(
+      AppRoutes.chatParticipantProfile,
+      arguments: participant,
+    );
+  }
 }
 
 class _ConversationTitle extends StatelessWidget {
@@ -202,37 +206,55 @@ class _ConversationTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChatAvatar(
-          name: conversation.displayTitle,
-          avatarUrl: conversation.peer?.avatarUrl ?? '',
-          radius: 18,
+        Text(
+          conversation.displayTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                conversation.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+        Text(
+          connected ? 'Onlayn' : 'Ulanmoqda…',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
-              Text(
-                connected ? 'Onlayn' : 'Ulanmoqda…',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-          ),
         ),
       ],
+    );
+  }
+}
+
+class _ChatParticipantProfileAction extends StatelessWidget {
+  const _ChatParticipantProfileAction({
+    required this.participant,
+    required this.onTap,
+  });
+
+  final ChatPrincipal? participant;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = participant?.displayName.trim().isNotEmpty == true
+        ? participant!.displayName
+        : 'Suhbat';
+    return Semantics(
+      button: true,
+      label: '$name profili',
+      child: AppShellIconAction(
+        size: 44,
+        iconWidget: ChatAvatar(
+          name: name,
+          avatarUrl: participant?.avatarUrl ?? '',
+          radius: 17,
+        ),
+        onTap: participant == null ? () {} : onTap,
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../features/customer/presentation/customer_status_detail_screen.dart';
 import '../features/chat/presentation/chat_conversations_screen.dart';
 import '../features/chat/presentation/chat_detail_screen.dart';
 import '../features/chat/presentation/chat_directory_screen.dart';
+import '../features/chat/presentation/chat_participant_profile_screen.dart';
 import '../features/chat/models/chat_models.dart';
 import '../features/boyoqchi/presentation/boyoqchi_astatka_screen.dart';
 import '../features/boyoqchi/presentation/boyoqchi_home_screen.dart';
@@ -139,6 +140,7 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String chatDirectory = '/chat/directory';
   static const String chatDetail = '/chat/detail';
+  static const String chatParticipantProfile = '/chat/participant-profile';
   static const String customerHome = '/customer-home';
   static const String customerNotifications = '/customer-notifications';
   static const String customerStatusDetail = '/customer-status-detail';
@@ -421,6 +423,17 @@ class AppRouter {
           settings,
           ChatDetailScreen(conversation: conversation),
         );
+      case AppRoutes.chatParticipantProfile:
+        final participant = settings.arguments is ChatPrincipal
+            ? settings.arguments as ChatPrincipal
+            : null;
+        if (participant == null) {
+          return _buildRoute(settings, const ChatConversationsScreen());
+        }
+        return _buildRoute(
+          settings,
+          ChatParticipantProfileScreen(participant: participant),
+        );
       case AppRoutes.customerHome:
         return _buildRoute(settings, const CustomerHomeScreen());
       case AppRoutes.customerNotifications:
@@ -677,6 +690,7 @@ class AppRouter {
         routeName == AppRoutes.chat ||
         routeName == AppRoutes.chatDirectory ||
         routeName == AppRoutes.chatDetail ||
+        routeName == AppRoutes.chatParticipantProfile ||
         routeName == AppRoutes.pinSetupEntry ||
         routeName == AppRoutes.pinSetupConfirm) {
       return true;
