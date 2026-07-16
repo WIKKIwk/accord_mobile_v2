@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'chat_role_dock.dart';
+
 class ChatMessageComposer extends StatelessWidget {
   const ChatMessageComposer({
     super.key,
@@ -27,7 +29,7 @@ class ChatMessageComposer extends StatelessWidget {
         child: OverflowBox(
           alignment: Alignment.bottomCenter,
           minHeight: 0,
-          maxHeight: 128,
+          maxHeight: chatComposerMaxHeight,
           child: Transform.translate(
             offset: const Offset(0, -5),
             child: Padding(

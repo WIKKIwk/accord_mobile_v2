@@ -142,6 +142,9 @@ void main() {
     final dockSize =
         tester.getSize(find.byKey(const ValueKey('app-navigation-bar-shell')));
     expect(dockSize.height, greaterThan(76));
-    expect(dockSize.height, lessThanOrEqualTo(128));
+    expect(
+      dockSize.height,
+      lessThanOrEqualTo(ChatRoleDock.maxMessageComposerHeight),
+    );
   });
 }
