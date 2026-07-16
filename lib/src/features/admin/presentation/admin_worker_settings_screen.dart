@@ -377,16 +377,19 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
             if (!blocked)
               SizedBox(
                 width: double.infinity,
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(dialogContext).pop(false),
                         child: const Text('Bekor qilish'),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
                       child: FilledButton(
                         onPressed: () => Navigator.of(dialogContext).pop(true),
                         style: FilledButton.styleFrom(

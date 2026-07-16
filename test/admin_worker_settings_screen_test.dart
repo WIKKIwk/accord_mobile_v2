@@ -361,6 +361,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(OutlinedButton, 'Bekor qilish'), findsOneWidget);
+    final cancelRect = tester.getRect(
+      find.widgetWithText(OutlinedButton, 'Bekor qilish'),
+    );
+    final deleteRect = tester.getRect(
+      find.widgetWithText(FilledButton, 'O‘chirish'),
+    );
+    expect(cancelRect.width, closeTo(deleteRect.width, 0.1));
+    expect(cancelRect.bottom, lessThan(deleteRect.top));
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
 
