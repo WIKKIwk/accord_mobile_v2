@@ -56,7 +56,7 @@ class RoleDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: ChatStore.instance,
+      animation: ChatStore.instance.unreadCountListenable,
       builder: (context, _) {
         final allDestinations = [
           ...destinations,
@@ -66,7 +66,7 @@ class RoleDock extends StatelessWidget {
             icon: Icons.chat_bubble_outline_rounded,
             selectedIcon: Icons.chat_bubble_rounded,
             active: ModalRoute.of(context)?.settings.name == AppRoutes.chat,
-            showBadge: ChatStore.instance.totalUnread > 0,
+            showBadge: ChatStore.instance.unreadCountListenable.value > 0,
             routeName: AppRoutes.chat,
             onTap: () => AppRootNavigation.replaceRootRoute(
               context,

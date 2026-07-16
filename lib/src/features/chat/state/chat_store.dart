@@ -34,11 +34,28 @@ class ChatStore extends ChangeNotifier {
   bool sending = false;
   String error = '';
   String sendError = '';
+  final ValueNotifier<int> unreadCountListenable = ValueNotifier<int>(0);
 
   int get totalUnread => conversations.fold<int>(
         0,
         (total, conversation) => total + conversation.unreadCount,
       );
+
+  @override
+  void notifyListeners() {
+    final unreadCount = totalUnread;
+    if (unreadCountListenable.value != unreadCount) {
+      unreadCountListenable.value = unreadCount;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _realtime.stop();
+    unreadCountListenable.dispose();
+    super.dispose();
+  }
 
   List<ChatMessage> messagesFor(String conversationId) =>
       List<ChatMessage>.unmodifiable(
