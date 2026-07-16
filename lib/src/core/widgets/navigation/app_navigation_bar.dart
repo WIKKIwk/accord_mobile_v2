@@ -52,6 +52,7 @@ class AppNavigationBar extends StatelessWidget {
     this.selectionVisible = true,
     this.height = appNavigationBarHeight,
     this.primaryVisible = true,
+    this.content,
   });
 
   final List<AppNavigationDestination> destinations;
@@ -60,6 +61,9 @@ class AppNavigationBar extends StatelessWidget {
   final bool selectionVisible;
   final double height;
   final bool primaryVisible;
+
+  /// Replaces the navigation destinations inside the same dock shell.
+  final Widget? content;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +77,35 @@ class AppNavigationBar extends StatelessWidget {
       viewMetrics,
       thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
     );
+
+    if (content != null) {
+      final double dockHeight = appNavigationBarDockHeight(
+        height: height,
+        systemBottomInset: systemBottomInset,
+      );
+      return MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
+        child: SizedBox(
+          key: const ValueKey('app-navigation-bar-host'),
+          width: double.infinity,
+          height: dockHeight,
+          child: Material(
+            key: const ValueKey('app-navigation-bar-shell'),
+            color: navigationBarBackground,
+            child: MediaQuery(
+              data: viewMetrics.copyWith(
+                padding: EdgeInsets.only(bottom: systemBottomInset),
+              ),
+              child: SizedBox(
+                height: dockHeight,
+                child: content,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     if (destinations.isEmpty) {
       return SizedBox(height: height + systemBottomInset);

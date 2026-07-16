@@ -10,6 +10,7 @@ import '../state/chat_store.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_message_composer.dart';
+import 'widgets/chat_role_dock.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   const ChatDetailScreen({super.key, required this.conversation});
@@ -86,18 +87,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           nativeTopBar: true,
           contentPadding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Expanded(child: _messages(messages)),
-              ChatMessageComposer(
-                controller: controller,
-                sending: store.sending,
-                errorText: store.sendError,
-                onSend: _send,
-                onDraftChanged: _draftChanged,
-              ),
-            ],
+          bottom: ChatRoleDock(
+            messageComposer: ChatMessageComposer(
+              controller: controller,
+              sending: store.sending,
+              errorText: store.sendError,
+              onSend: _send,
+              onDraftChanged: _draftChanged,
+              embeddedInDock: true,
+            ),
           ),
+          child: _messages(messages),
         );
       },
     );

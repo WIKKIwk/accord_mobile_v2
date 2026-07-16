@@ -8,15 +8,28 @@ import '../../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../../werka/presentation/widgets/werka_dock.dart';
+import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
-/// Keeps the role-specific navigation visible on the conversation list.
-/// The full conversation detail intentionally remains distraction-free.
+/// Keeps the role-specific navigation visible on the conversation list and
+/// provides the shared dock container for the conversation composer.
 class ChatRoleDock extends StatelessWidget {
-  const ChatRoleDock({super.key});
+  const ChatRoleDock({super.key, this.messageComposer});
+
+  final Widget? messageComposer;
 
   @override
   Widget build(BuildContext context) {
+    if (messageComposer != null) {
+      return AppNavigationBar(
+        height: 60,
+        destinations: const [],
+        selectedIndex: 0,
+        onDestinationSelected: (_) {},
+        content: messageComposer,
+      );
+    }
+
     final profile = AppSession.instance.profile;
     final role = profile?.accessRole ?? profile?.role;
     return switch (role) {
