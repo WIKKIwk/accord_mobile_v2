@@ -375,17 +375,34 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
           ),
           actions: [
             if (!blocked)
-              TextButton(
+              SizedBox(
+                width: double.infinity,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        child: const Text('Bekor qilish'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: scheme.error,
+                        ),
+                        child: const Text('O‘chirish'),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Bekor qilish'),
+                child: const Text('Yopish'),
               ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(!blocked),
-              style: blocked
-                  ? null
-                  : FilledButton.styleFrom(backgroundColor: scheme.error),
-              child: Text(blocked ? 'Yopish' : 'O‘chirish'),
-            ),
           ],
         );
       },

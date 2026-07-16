@@ -360,6 +360,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.widgetWithText(OutlinedButton, 'Bekor qilish'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
 
