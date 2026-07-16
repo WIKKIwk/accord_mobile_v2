@@ -77,31 +77,29 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
-        return AppShell(
-          title: '',
-          subtitle: '',
-          nativeTopBar: true,
-          automaticallyImplyNativeLeading: false,
-          nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-          profileActionListenable: searchFocusNode,
-          showProfileActionResolver: () => !searchFocusNode.hasFocus,
-          titleWidget: AdminCatalogSearchField(
-            controller: searchController,
-            focusNode: searchFocusNode,
-            hintText: 'Foydalanuvchi qidirish',
-            onChanged: _search,
-            onClear: () {
-              searchController.clear();
-              _search('');
-            },
-          ),
-          contentPadding: EdgeInsets.zero,
-          child: _directoryList(),
-        );
-      },
+    return AppShell(
+      title: '',
+      subtitle: '',
+      nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      profileActionListenable: searchFocusNode,
+      showProfileActionResolver: () => !searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: searchController,
+        focusNode: searchFocusNode,
+        hintText: 'Foydalanuvchi qidirish',
+        onChanged: _search,
+        onClear: () {
+          searchController.clear();
+          _search('');
+        },
+      ),
+      contentPadding: EdgeInsets.zero,
+      child: AnimatedBuilder(
+        animation: store,
+        builder: (context, _) => _directoryList(),
+      ),
     );
   }
 
