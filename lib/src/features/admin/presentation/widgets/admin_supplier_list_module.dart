@@ -1,4 +1,5 @@
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../../core/theme/theme_controller.dart';
 import '../../../shared/models/app_models.dart';
 import 'admin_summary_card.dart';
 import 'package:flutter/material.dart';
@@ -98,6 +99,8 @@ class AdminSupplierListRow extends StatelessWidget {
             color: scheme.onSurfaceVariant,
             height: 1.05,
           ),
+      elevation:
+          ThemeController.instance.variant == AppThemeVariant.white ? 1 : 0,
     );
   }
 }
