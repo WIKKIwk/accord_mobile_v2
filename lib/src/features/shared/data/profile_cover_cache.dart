@@ -1,34 +1,16 @@
 import '../models/app_models.dart';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileCoverCache {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+  static final Map<String, Uint8List> _memory = {};
 
   static String _profileKey(SessionProfile profile) =>
       '${profile.role.name}_${_safePart(profile.ref)}';
 
-  static String _bytesKey(SessionProfile profile) =>
-      'profile_cover_bytes_${_profileKey(profile)}';
-
   static Future<Uint8List?> getCached(SessionProfile profile) async {
-    if (profile.ref.trim().isEmpty) {
-      return null;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = prefs.getString(_bytesKey(profile));
-    if (encoded == null || encoded.isEmpty) {
-      return null;
-    }
-    try {
-      return base64Decode(encoded);
-    } catch (_) {
-      await prefs.remove(_bytesKey(profile));
-      _bumpRevision();
-      return null;
-    }
+    return _memory[_profileKey(profile)];
   }
 
   static Future<Uint8List?> cacheFromBytes(
@@ -38,8 +20,7 @@ class ProfileCoverCache {
     if (profile.ref.trim().isEmpty || bytes.isEmpty) {
       return null;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_bytesKey(profile), base64Encode(bytes));
+    _memory[_profileKey(profile)] = Uint8List.fromList(bytes);
     _bumpRevision();
     return Uint8List.fromList(bytes);
   }
@@ -48,8 +29,15 @@ class ProfileCoverCache {
     if (profile.ref.trim().isEmpty) {
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_bytesKey(profile));
+    _memory.remove(_profileKey(profile));
+    _bumpRevision();
+  }
+
+  static Future<void> clearAll() async {
+    if (_memory.isEmpty) {
+      return;
+    }
+    _memory.clear();
     _bumpRevision();
   }
 

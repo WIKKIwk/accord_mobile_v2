@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/display/image_fade.dart';
+
 class ChatAvatar extends StatelessWidget {
   const ChatAvatar({
     super.key,
@@ -21,12 +23,13 @@ class ChatAvatar extends StatelessWidget {
         dimension: radius * 2,
         child: avatarUrl.trim().isEmpty
             ? _fallback(scheme, initial)
-            : Image.network(
-                avatarUrl,
+            : ImageFade(
+                image: NetworkImage(avatarUrl),
                 fit: BoxFit.cover,
                 cacheWidth: (radius * 4).round(),
                 cacheHeight: (radius * 4).round(),
-                errorBuilder: (_, __, ___) => _fallback(scheme, initial),
+                placeholder: _fallback(scheme, initial),
+                errorBuilder: (context, _) => _fallback(scheme, initial),
               ),
       ),
     );

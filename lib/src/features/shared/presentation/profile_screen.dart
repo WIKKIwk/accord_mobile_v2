@@ -151,7 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _refreshProfile() async {
     final updated = await MobileApi.instance.profile();
-    final bytes = await ProfileAvatarCache.ensureCached(updated);
+    final bytes = await ProfileAvatarCache.refreshFromUrl(updated) ??
+        await ProfileAvatarCache.getCached(updated);
     if (!mounted) {
       return;
     }

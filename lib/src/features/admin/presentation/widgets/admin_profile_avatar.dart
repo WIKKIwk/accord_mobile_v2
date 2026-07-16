@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/display/image_fade.dart';
+
 class AdminProfileAvatar extends StatelessWidget {
   const AdminProfileAvatar({
     super.key,
@@ -46,13 +48,13 @@ class AdminProfileAvatar extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(color: scheme.primaryContainer),
           child: _canLoadAvatar
-              ? Image.network(
-                  avatarUrl.trim(),
+              ? ImageFade(
+                  image: NetworkImage(avatarUrl.trim()),
                   height: innerSize,
                   width: innerSize,
                   fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, __, ___) => fallback,
+                  placeholder: fallback,
+                  errorBuilder: (context, _) => fallback,
                 )
               : fallback,
         ),

@@ -2,6 +2,7 @@ import '../../../features/admin/state/admin_store.dart';
 import '../../../features/customer/state/customer_store.dart';
 import '../../../features/chat/state/chat_store.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
+import '../../../features/shared/data/profile_cover_cache.dart';
 import '../../../features/shared/models/app_models.dart';
 import '../../../features/supplier/state/supplier_store.dart';
 import '../../../features/werka/state/werka_notification_store.dart';
@@ -12,6 +13,7 @@ import '../../notifications/store/notification_unread_store.dart';
 import '../../notifications/store/supplier_runtime_store.dart';
 import '../../notifications/store/werka_runtime_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 
 class AppRuntimeReset {
   AppRuntimeReset._();
@@ -34,7 +36,12 @@ class AppRuntimeReset {
     await NotificationHiddenStore.instance.clearAll();
     if (previousProfile != null) {
       await ProfileAvatarCache.clearForProfile(previousProfile);
+      await ProfileCoverCache.clearForProfile(previousProfile);
     }
+    await ProfileAvatarCache.clearAll();
+    await ProfileCoverCache.clearAll();
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
 
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
@@ -43,7 +50,10 @@ class AppRuntimeReset {
           key == 'cache_customer_notifications' ||
           key == 'cache_werka_notifications' ||
           key == 'last_login_phone' ||
-          key == 'last_login_code') {
+          key == 'last_login_code' ||
+          key.startsWith('profile_avatar_bytes_') ||
+          key.startsWith('profile_avatar_url_') ||
+          key.startsWith('profile_cover_bytes_')) {
         await prefs.remove(key);
       }
     }
