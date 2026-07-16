@@ -1080,7 +1080,7 @@ class AppTheme {
       surfaceContainerLowest: const Color(0xFFFFFFFF),
       surfaceContainerLow: const Color(0xFFF5F5F5),
       surfaceContainer: const Color(0xFFF0F0F0),
-      surfaceContainerHigh: const Color(0xFFEBEBEB),
+      surfaceContainerHigh: const Color(0xFFE6E6E6),
       surfaceContainerHighest: const Color(0xFFFFFFFF),
       outline: const Color(0xFF707070),
       outlineVariant: const Color(0xFFD0D0D0),
