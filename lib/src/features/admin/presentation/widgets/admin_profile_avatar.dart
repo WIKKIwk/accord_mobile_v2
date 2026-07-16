@@ -41,13 +41,6 @@ class AdminProfileAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: scheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.16),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: ClipOval(
         child: DecoratedBox(
