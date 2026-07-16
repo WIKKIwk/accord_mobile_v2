@@ -147,4 +147,62 @@ void main() {
       lessThanOrEqualTo(ChatRoleDock.maxMessageComposerHeight),
     );
   });
+
+  testWidgets('composer keeps fixed boundary spacing while growing', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          bottomNavigationBar: ChatRoleDock(
+            composerController: controller,
+            messageComposer: ChatMessageComposer(
+              controller: controller,
+              sending: false,
+              errorText: '',
+              onSend: () {},
+              onDraftChanged: () {},
+              embeddedInDock: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final shell = find.byKey(const ValueKey('app-navigation-bar-shell'));
+    final field = find.byType(TextField);
+    final send = find.byTooltip('Yuborish');
+    double? topGap;
+    double? bottomGap;
+    double? leftGap;
+    double? sendRightGap;
+    for (final draft in [
+      '',
+      'Hello',
+      'First line\nSecond line\nThird line',
+      'One\nTwo\nThree\nFour\nFive',
+    ]) {
+      controller.text = draft;
+      await tester.pump();
+      final shellRect = tester.getRect(shell);
+      final fieldRect = tester.getRect(field);
+      final sendRect = tester.getRect(send);
+      final currentTopGap = fieldRect.top - shellRect.top;
+      final currentBottomGap = shellRect.bottom - sendRect.bottom;
+      final currentLeftGap = fieldRect.left - shellRect.left;
+      final currentSendRightGap = shellRect.right - sendRect.right;
+      topGap ??= currentTopGap;
+      bottomGap ??= currentBottomGap;
+      leftGap ??= currentLeftGap;
+      sendRightGap ??= currentSendRightGap;
+      expect(currentTopGap, closeTo(topGap, 0.5));
+      expect(currentBottomGap, closeTo(bottomGap, 0.5));
+      expect(currentLeftGap, closeTo(leftGap, 0.5));
+      expect(currentSendRightGap, closeTo(sendRightGap, 0.5));
+    }
+  });
 }

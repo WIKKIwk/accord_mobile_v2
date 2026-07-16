@@ -13,7 +13,7 @@ import '../../../werka/presentation/widgets/werka_dock.dart';
 import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
-const double chatComposerMaxHeight = 152;
+const double chatComposerMaxHeight = 172;
 
 /// Keeps the role-specific navigation visible on the conversation list and
 /// provides the shared dock container for the conversation composer.
@@ -26,7 +26,7 @@ class ChatRoleDock extends StatelessWidget {
 
   static const double messageComposerHeight = 76;
   static const double maxMessageComposerHeight = chatComposerMaxHeight;
-  static const double _composerRowHeight = 42;
+  static const double _composerRowHeight = 44;
   static const double _composerVerticalPadding = 16;
   static const double _composerLift = 5;
   static const double _composerTopGap = messageComposerHeight -
@@ -52,6 +52,9 @@ class ChatRoleDock extends StatelessWidget {
       maxLines: 5,
     )..layout(maxWidth: inputContentWidth);
     final lineCount = painter.computeLineMetrics().length.clamp(1, 5);
+    if (lineCount == 1) {
+      return messageComposerHeight;
+    }
     final inputHeight = painter.preferredLineHeight * lineCount + 20;
     final rowHeight = math.max(_composerRowHeight, inputHeight);
     return math.min(
