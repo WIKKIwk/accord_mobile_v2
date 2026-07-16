@@ -61,11 +61,12 @@ void main() {
     expect(theme.brightness, Brightness.light);
     expect(scheme.surface, const Color(0xFFFFFFFF));
     expect(scheme.onSurface, const Color(0xFF1B1F23));
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFF5F6F7));
     expect(theme.cardColor, const Color(0xFFFFFFFF));
-    expect(scheme.surfaceContainer, const Color(0xFFF1F3F5));
-    expect(theme.appBarTheme.backgroundColor, const Color(0xFFE9EDF0));
-    expect(theme.navigationBarTheme.backgroundColor, const Color(0xFFE9EDF0));
+    expect(scheme.surfaceContainer, const Color(0xFFEEF1F3));
+    expect(scheme.surfaceContainerHighest, const Color(0xFFFFFFFF));
+    expect(theme.appBarTheme.backgroundColor, const Color(0xFFE8ECEF));
+    expect(theme.navigationBarTheme.backgroundColor, const Color(0xFFE8ECEF));
     expect(scheme.outlineVariant, const Color(0xFFCBD2D7));
   });
 }
