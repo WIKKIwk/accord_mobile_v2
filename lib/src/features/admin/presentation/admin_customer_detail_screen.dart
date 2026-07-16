@@ -615,23 +615,12 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 top: 112,
                 child: ColoredBox(color: scheme.surface),
               ),
-              Positioned(
+              const Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
                 height: 112,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        scheme.surfaceContainerHighest,
-                        scheme.surfaceContainerLow,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
+                child: ColoredBox(color: Colors.black),
               ),
               Positioned(
                 right: 14,
