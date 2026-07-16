@@ -16,6 +16,7 @@ enum AppThemeVariant {
   fleuriste,
   paleNimbus,
   blackEdition,
+  white,
 }
 
 class ThemeController extends ChangeNotifier {
@@ -79,6 +80,7 @@ class ThemeController extends ChangeNotifier {
       'fleuriste' => AppThemeVariant.fleuriste,
       'pale_nimbus' => AppThemeVariant.paleNimbus,
       'black_edition' => AppThemeVariant.blackEdition,
+      'white' => AppThemeVariant.white,
       _ => AppThemeVariant.kalmar,
     };
   }
@@ -99,6 +101,7 @@ class ThemeController extends ChangeNotifier {
       AppThemeVariant.fleuriste => 'fleuriste',
       AppThemeVariant.paleNimbus => 'pale_nimbus',
       AppThemeVariant.blackEdition => 'black_edition',
+      AppThemeVariant.white => 'white',
     };
   }
 }

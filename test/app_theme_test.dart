@@ -50,6 +50,23 @@ void main() {
     expect(scheme.surface, const Color(0xFFFFF8F3));
     expect(theme.scaffoldBackgroundColor, const Color(0xFFF8EFE8));
   });
+
+  test('white theme uses a near-white shell with readable dark chrome',
+      () async {
+    final theme = await _buildThemeIgnoringGoogleFontLoadErrors(
+      () => AppTheme.light(AppThemeVariant.white),
+    );
+    final scheme = theme.colorScheme;
+
+    expect(theme.brightness, Brightness.light);
+    expect(scheme.surface, const Color(0xFFFFFFFF));
+    expect(scheme.onSurface, const Color(0xFF1B1F23));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
+    expect(theme.cardColor, const Color(0xFFFFFFFF));
+    expect(theme.appBarTheme.backgroundColor, const Color(0xFFEFF2F4));
+    expect(theme.navigationBarTheme.backgroundColor, const Color(0xFFEFF2F4));
+    expect(scheme.outlineVariant, const Color(0xFFCBD2D7));
+  });
 }
 
 Future<ThemeData> _buildThemeIgnoringGoogleFontLoadErrors(

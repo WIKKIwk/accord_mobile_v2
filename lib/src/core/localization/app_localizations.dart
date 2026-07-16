@@ -195,6 +195,7 @@ class AppLocalizations {
       _t('Pale Nimbus', 'Pale Nimbus', 'Pale Nimbus');
   String get themeBlackEditionLabel =>
       _t('Black Edition', 'Black Edition', 'Black Edition');
+  String get themeWhiteLabel => _t('Oq', 'Pure White', 'Белая');
   String get uzbek => _t('O‘zbekcha', 'Uzbek', 'Узбекский');
   String get english => _t('English', 'English', 'Английский');
   String get russian => _t('Ruscha', 'Russian', 'Русский');

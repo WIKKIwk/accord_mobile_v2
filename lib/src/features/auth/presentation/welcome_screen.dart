@@ -556,6 +556,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 onTap: () =>
                     Navigator.of(context).pop(AppThemeVariant.paleNimbus),
               ),
+              const SizedBox(height: 10),
+              _ThemeSelectionOption(
+                title: l10n.themeWhiteLabel,
+                swatches: _themeSwatches(AppThemeVariant.white),
+                active: currentVariant == AppThemeVariant.white,
+                onTap: () => Navigator.of(context).pop(AppThemeVariant.white),
+              ),
             ],
           ),
         );
@@ -632,6 +639,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       AppThemeVariant.fleuriste => l10n.themeFleuristeLabel,
       AppThemeVariant.paleNimbus => l10n.themePaleNimbusLabel,
       AppThemeVariant.blackEdition => l10n.themeBlackEditionLabel,
+      AppThemeVariant.white => l10n.themeWhiteLabel,
     };
   }
 }
@@ -1730,6 +1738,12 @@ List<Color> _themeSwatches(AppThemeVariant variant) {
         Color(0xFFA3FFD1),
         Color(0xFFFFA3A3),
         Color(0xFFFFFFF0),
+      ],
+    AppThemeVariant.white => const [
+        Color(0xFFFFFFFF),
+        Color(0xFFF5F7F8),
+        Color(0xFFCBD2D7),
+        Color(0xFF44515D),
       ],
   };
 }
