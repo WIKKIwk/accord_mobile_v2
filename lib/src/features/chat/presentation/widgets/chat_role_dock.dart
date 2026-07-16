@@ -28,7 +28,10 @@ class ChatRoleDock extends StatelessWidget {
   static const double maxMessageComposerHeight = chatComposerMaxHeight;
   static const double _composerRowHeight = 44;
   static const double _composerVerticalPadding = 16;
-  static const double _composerLift = 5;
+  // Keep the resting field above the bottom edge of the dock. The same lift
+  // is included in the dynamic-height calculation so multiline growth keeps
+  // the field's bottom spacing unchanged.
+  static const double _composerLift = 13;
   static const double _composerTopGap = messageComposerHeight -
       _composerRowHeight -
       _composerVerticalPadding -

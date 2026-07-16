@@ -31,7 +31,7 @@ class ChatMessageComposer extends StatelessWidget {
           minHeight: 0,
           maxHeight: chatComposerMaxHeight,
           child: Transform.translate(
-            offset: const Offset(0, -5),
+            offset: const Offset(0, -13),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: _ComposerRow(
