@@ -336,7 +336,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                     blocked
                         ? '${worker.name} quyidagi faol ishni tugatmaguncha o‘chirib bo‘lmaydi.'
                         : dependencies.isEmpty
-                            ? '${worker.name}da faol ish yoki ulanish topilmadi. O‘chirishni tasdiqlaysizmi?'
+                            ? '“${worker.name}” ishchisida faol ish yoki bog‘lanish topilmadi. Uni o‘chirishni tasdiqlaysizmi?'
                             : '${worker.name} quyidagi ulanishlarga ega. Tasdiqlasangiz, ular ishchi bilan birga olib tashlanadi.',
                   ),
                   if (dependencies.isNotEmpty) ...[

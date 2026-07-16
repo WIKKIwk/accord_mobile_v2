@@ -355,7 +355,11 @@ void main() {
 
     expect(find.text('Ishchini o‘chirish'), findsOneWidget);
     expect(
-        find.textContaining('faol ish yoki ulanish topilmadi'), findsOneWidget);
+      find.text(
+        '“O‘chiriladigan ishchi” ishchisida faol ish yoki bog‘lanish topilmadi. Uni o‘chirishni tasdiqlaysizmi?',
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
 
