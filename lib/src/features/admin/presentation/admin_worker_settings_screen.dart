@@ -39,6 +39,36 @@ const Map<String, String> adminWorkerStartDayLabels = {
 const String _workerGroupsScope = 'worker-settings';
 const double _workerSettingsPanelGap = 4;
 
+String _workerDeletionDependencyLabel(
+  AdminWorkerDeletionDependency dependency,
+) {
+  switch (dependency.kind) {
+    case 'active_order':
+      final status = dependency.status == 'paused'
+          ? 'vaqtincha to‘xtatilgan'
+          : 'jarayonda';
+      return 'Zakaz: ${dependency.orderId} • ${dependency.apparatus} • $status';
+    case 'worker_group':
+      final apparatus = dependency.apparatus.trim();
+      return apparatus.isEmpty || apparatus == _workerGroupsScope
+          ? 'Guruh: ${dependency.label}'
+          : 'Guruh: ${dependency.label} • $apparatus';
+    case 'apparatus':
+      return 'Apparat: ${dependency.label}';
+    case 'role_assignment':
+      return 'Ruxsat roli: ${dependency.label}';
+    case 'item_group':
+      return 'Mahsulot guruhi: ${dependency.label}';
+    case 'qolip_checkout':
+      final warehouse = dependency.apparatus.trim();
+      return warehouse.isEmpty
+          ? 'Qolip: ${dependency.label}'
+          : 'Qolip: ${dependency.label} • $warehouse';
+    default:
+      return dependency.label;
+  }
+}
+
 String _workerGroupCodeKey(String code) =>
     code.trim().split(RegExp(r'\s+')).join(' ').toUpperCase();
 
@@ -70,6 +100,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   int _workersVersion = 0;
   int _groupsVersion = 0;
   String? _selectedWorkerId;
+  String? _deletingWorkerId;
 
   @override
   void initState() {
@@ -208,6 +239,160 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     );
   }
 
+  Future<void> _deleteWorker(
+    AdminWorker worker,
+    List<AdminWorker> currentWorkers,
+  ) async {
+    if (_deletingWorkerId != null) {
+      return;
+    }
+    setState(() => _deletingWorkerId = worker.id);
+    try {
+      final check =
+          await MobileApi.instance.adminWorkerDeletionCheck(worker.id);
+      if (!mounted) {
+        return;
+      }
+      final confirmed = await _showWorkerDeletionDialog(worker, check);
+      if (!confirmed || !mounted) {
+        return;
+      }
+      await MobileApi.instance.adminDeleteWorker(
+        id: worker.id,
+        confirmConnections: check.requiresConfirmation,
+      );
+      if (!mounted) {
+        return;
+      }
+      final remaining = currentWorkers
+          .where((item) => item.id != worker.id)
+          .toList(growable: false);
+      setState(() {
+        _selectedWorkerId = null;
+        _future = Future.value(remaining);
+        _workersVersion++;
+        _groupsVersion++;
+      });
+      showAdminTopNotice(context, 'Ishchi o‘chirildi');
+    } on AdminWorkerDeletionRejected catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (error.check.blocked) {
+        await _showWorkerDeletionDialog(worker, error.check);
+      } else {
+        showAdminTopNotice(
+          context,
+          'Ishchi ulanishlari o‘zgardi. Qayta urinib ko‘ring',
+          icon: Icons.error,
+        );
+      }
+    } on MobileApiException catch (error) {
+      if (mounted) {
+        showAdminTopNotice(context, error.message, icon: Icons.error);
+      }
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          'Ishchi o‘chirilmadi',
+          icon: Icons.error,
+        );
+      }
+    } finally {
+      if (mounted && _deletingWorkerId == worker.id) {
+        setState(() => _deletingWorkerId = null);
+      }
+    }
+  }
+
+  Future<bool> _showWorkerDeletionDialog(
+    AdminWorker worker,
+    AdminWorkerDeletionCheck check,
+  ) async {
+    final blocked = check.blocked;
+    final dependencies = blocked ? check.activeWork : check.connections;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          icon: Icon(
+            blocked ? Icons.block_rounded : Icons.delete_outline_rounded,
+            color: blocked ? scheme.error : scheme.onSurface,
+          ),
+          title: Text(
+            blocked ? 'Ishchini o‘chirib bo‘lmaydi' : 'Ishchini o‘chirish',
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    blocked
+                        ? '${worker.name} quyidagi faol ishni tugatmaguncha o‘chirib bo‘lmaydi.'
+                        : dependencies.isEmpty
+                            ? '${worker.name}da faol ish yoki ulanish topilmadi. O‘chirishni tasdiqlaysizmi?'
+                            : '${worker.name} quyidagi ulanishlarga ega. Tasdiqlasangiz, ular ishchi bilan birga olib tashlanadi.',
+                  ),
+                  if (dependencies.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    for (final dependency in dependencies)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              blocked
+                                  ? Icons.work_history_outlined
+                                  : Icons.link_rounded,
+                              size: 18,
+                              color: blocked
+                                  ? scheme.error
+                                  : scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _workerDeletionDependencyLabel(dependency),
+                                style: Theme.of(dialogContext)
+                                    .textTheme
+                                    .bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            if (!blocked)
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Bekor qilish'),
+              ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(!blocked),
+              style: blocked
+                  ? null
+                  : FilledButton.styleFrom(backgroundColor: scheme.error),
+              child: Text(blocked ? 'Yopish' : 'O‘chirish'),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -313,6 +498,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                         },
                         onEditLevel: () =>
                             unawaited(_openWorkerLevelPicker(workers[index])),
+                        deleting: _deletingWorkerId == workers[index].id,
+                        onDelete: () => unawaited(
+                          _deleteWorker(workers[index], workers),
+                        ),
                       ),
                   ],
                 );
@@ -1488,6 +1677,8 @@ class _WorkerSettingsCard extends StatelessWidget {
     required this.expanded,
     required this.onExpandedChanged,
     required this.onEditLevel,
+    required this.deleting,
+    required this.onDelete,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -1495,6 +1686,8 @@ class _WorkerSettingsCard extends StatelessWidget {
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
   final VoidCallback onEditLevel;
+  final bool deleting;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1610,13 +1803,26 @@ class _WorkerSettingsCard extends StatelessWidget {
                         ),
                         _WorkerGroupInfoRow(label: 'ID', value: worker.id),
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton.filledTonal(
-                            tooltip: 'Darajani o‘zgartirish',
-                            onPressed: onEditLevel,
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton.filledTonal(
+                              tooltip: 'Darajani o‘zgartirish',
+                              onPressed: deleting ? null : onEditLevel,
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              tooltip: 'Ishchini o‘chirish',
+                              onPressed: deleting ? null : onDelete,
+                              style: IconButton.styleFrom(
+                                foregroundColor: scheme.error,
+                              ),
+                              icon: deleting
+                                  ? const Icon(Icons.hourglass_top_rounded)
+                                  : const Icon(Icons.delete_outline_rounded),
+                            ),
+                          ],
                         ),
                       ],
                     ),

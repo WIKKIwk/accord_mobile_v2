@@ -960,6 +960,82 @@ class AdminWorkerProfileDetail {
   }
 }
 
+class AdminWorkerDeletionDependency {
+  const AdminWorkerDeletionDependency({
+    required this.kind,
+    required this.label,
+    required this.apparatus,
+    required this.orderId,
+    required this.status,
+  });
+
+  final String kind;
+  final String label;
+  final String apparatus;
+  final String orderId;
+  final String status;
+
+  factory AdminWorkerDeletionDependency.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerDeletionDependency(
+      kind: json['kind']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+    );
+  }
+}
+
+class AdminWorkerDeletionCheck {
+  const AdminWorkerDeletionCheck({
+    required this.workerId,
+    required this.workerName,
+    required this.blocked,
+    required this.requiresConfirmation,
+    required this.activeWork,
+    required this.connections,
+  });
+
+  final String workerId;
+  final String workerName;
+  final bool blocked;
+  final bool requiresConfirmation;
+  final List<AdminWorkerDeletionDependency> activeWork;
+  final List<AdminWorkerDeletionDependency> connections;
+
+  factory AdminWorkerDeletionCheck.fromJson(Map<String, dynamic> json) {
+    return AdminWorkerDeletionCheck(
+      workerId: json['worker_id']?.toString() ?? '',
+      workerName: json['worker_name']?.toString() ?? '',
+      blocked: json['blocked'] == true,
+      requiresConfirmation: json['requires_confirmation'] == true,
+      activeWork: [
+        for (final item in (json['active_work'] as List? ?? const []))
+          AdminWorkerDeletionDependency.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
+      connections: [
+        for (final item in (json['connections'] as List? ?? const []))
+          AdminWorkerDeletionDependency.fromJson(
+            (item as Map).cast<String, dynamic>(),
+          ),
+      ],
+    );
+  }
+}
+
+class AdminWorkerDeletionRejected implements Exception {
+  const AdminWorkerDeletionRejected(this.check);
+
+  final AdminWorkerDeletionCheck check;
+
+  @override
+  String toString() => check.blocked
+      ? 'Ishchining faol ishi mavjud'
+      : 'Mavjud ulanishlarni tasdiqlash kerak';
+}
+
 class AdminServerMonitorBackupFile {
   const AdminServerMonitorBackupFile({
     required this.name,
@@ -4091,6 +4167,120 @@ extension MobileApiAdmin on MobileApi {
     return AdminWorkerProfileDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<AdminWorkerDeletionCheck> adminWorkerDeletionCheck(String id) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final worker = _testModeWorkers.firstWhere(
+        (worker) => worker.id == id,
+        orElse: () => throw Exception('Admin worker not found'),
+      );
+      final groups = _testModeWorkerGroups.where(
+        (group) => group.workerIds.any((workerId) => workerId == id),
+      );
+      final apparatuses = groups
+          .map((group) => group.apparatus.trim())
+          .where(
+            (apparatus) =>
+                apparatus.isNotEmpty && apparatus != 'worker-settings',
+          )
+          .toSet();
+      final connections = <AdminWorkerDeletionDependency>[
+        for (final group in groups)
+          AdminWorkerDeletionDependency(
+            kind: 'worker_group',
+            label: group.groupCode,
+            apparatus: group.apparatus,
+            orderId: '',
+            status: '',
+          ),
+        for (final apparatus in apparatuses)
+          AdminWorkerDeletionDependency(
+            kind: 'apparatus',
+            label: apparatus,
+            apparatus: apparatus,
+            orderId: '',
+            status: '',
+          ),
+      ];
+      return AdminWorkerDeletionCheck(
+        workerId: worker.id,
+        workerName: worker.name,
+        blocked: false,
+        requiresConfirmation: connections.isNotEmpty,
+        activeWork: const [],
+        connections: connections,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers/delete-check')
+            .replace(queryParameters: {'id': id}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'worker_delete_check_failed',
+        fallbackMessage: 'Ishchi ulanishlari tekshirilmadi',
+      );
+    }
+    return AdminWorkerDeletionCheck.fromJson(
+      (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<void> adminDeleteWorker({
+    required String id,
+    required bool confirmConnections,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final check = await adminWorkerDeletionCheck(id);
+      if (check.blocked || check.requiresConfirmation && !confirmConnections) {
+        throw AdminWorkerDeletionRejected(check);
+      }
+      for (var index = 0; index < _testModeWorkerGroups.length; index++) {
+        final group = _testModeWorkerGroups[index];
+        _testModeWorkerGroups[index] = group.copyWith(
+          workerIds: group.workerIds
+              .where((workerId) => workerId != id)
+              .toList(growable: false),
+        );
+      }
+      final workerExists = _testModeWorkers.any((worker) => worker.id == id);
+      if (!workerExists) {
+        throw Exception('Admin worker not found');
+      }
+      _testModeWorkers.removeWhere((worker) => worker.id == id);
+      _testModeWorkerCodes.remove(id);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers').replace(
+          queryParameters: {
+            'id': id,
+            if (confirmConnections) 'confirm_connections': 'true',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode == 409) {
+      throw AdminWorkerDeletionRejected(
+        AdminWorkerDeletionCheck.fromJson(
+          (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+        ),
+      );
+    }
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'worker_delete_failed',
+        fallbackMessage: 'Ishchi o‘chirilmadi',
+      );
+    }
   }
 
   Future<AdminWorkerDetail> adminRegenerateWorkerCode(String id) async {

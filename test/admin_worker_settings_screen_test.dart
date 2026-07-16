@@ -321,4 +321,99 @@ void main() {
     expect(
         find.widgetWithText(CheckboxListTile, 'Yangi ishchi'), findsOneWidget);
   });
+
+  testWidgets('worker without dependencies is deleted after confirmation', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await MobileApi.instance.adminCreateWorker(
+      name: 'O‘chiriladigan ishchi',
+      level: 'Master',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('O‘chiriladigan ishchi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ishchini o‘chirish'), findsOneWidget);
+    expect(
+        find.textContaining('faol ish yoki ulanish topilmadi'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ishchi o‘chirildi'), findsOneWidget);
+    expect(find.text('O‘chiriladigan ishchi'), findsNothing);
+    expect(await MobileApi.instance.adminWorkers(), isEmpty);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('worker connections are listed before confirmed deletion', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final worker = await MobileApi.instance.adminCreateWorker(
+      name: 'Guruhdagi ishchi',
+      level: 'Brigader',
+    );
+    await MobileApi.instance.adminSaveWorkerGroup(
+      AdminWorkerGroup(
+        apparatus: 'Laminatsiya 1',
+        groupCode: 'AB',
+        shift: 'kunduz',
+        workerIds: [worker.id],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Guruhdagi ishchi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guruh: AB • Laminatsiya 1'), findsOneWidget);
+    expect(find.text('Apparat: Laminatsiya 1'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guruhdagi ishchi'), findsNothing);
+    final groups = await MobileApi.instance.adminWorkerGroups(
+      apparatus: 'Laminatsiya 1',
+    );
+    expect(groups.single.workerIds, isEmpty);
+    await tester.pump(const Duration(seconds: 2));
+  });
 }
