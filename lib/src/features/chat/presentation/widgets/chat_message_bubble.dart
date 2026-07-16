@@ -57,6 +57,7 @@ class ChatMessageBubble extends StatelessWidget {
                 Flexible(
                   child: Text(
                     message.body,
+                    textAlign: mine ? TextAlign.right : TextAlign.left,
                     style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
                   ),
                 ),
