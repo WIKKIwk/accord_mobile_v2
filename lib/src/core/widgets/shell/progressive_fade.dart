@@ -12,25 +12,31 @@ class ProgressiveFade extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final end = height / MediaQuery.sizeOf(context).height;
     return ShaderMask(
       shaderCallback: (bounds) {
+        final extent = (height / bounds.height).clamp(0.0, 0.5);
         return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: const [
             Color(0x00FFFFFF),
-            Color(0x26FFFFFF),
-            Color(0x66FFFFFF),
-            Color(0xB3FFFFFF),
+            Color(0x33FFFFFF),
+            Color(0x80FFFFFF),
             Color(0xFFFFFFFF),
+            Color(0xFFFFFFFF),
+            Color(0x80FFFFFF),
+            Color(0x33FFFFFF),
+            Color(0x00FFFFFF),
           ],
           stops: [
             0,
-            end * 0.25,
-            end * 0.5,
-            end * 0.75,
-            end,
+            extent * 0.25,
+            extent * 0.5,
+            extent,
+            1 - extent,
+            1 - extent * 0.5,
+            1 - extent * 0.25,
+            1,
           ],
         ).createShader(bounds);
       },
