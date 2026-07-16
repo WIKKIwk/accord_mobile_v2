@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/shell/progressive_fade.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../shared/models/app_models.dart';
@@ -120,26 +121,28 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
     if (store.directory.isEmpty) {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 24),
-      itemCount: store.directory.length,
-      itemBuilder: (context, index) {
-        final entry = store.directory[index];
-        return Padding(
-          padding: EdgeInsets.only(
-            top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
-          ),
-          child: _ChatDirectoryRow(
-            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-              index,
-              store.directory.length,
+    return ProgressiveFade(
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(4, 12, 4, 24),
+        itemCount: store.directory.length,
+        itemBuilder: (context, index) {
+          final entry = store.directory[index];
+          return Padding(
+            padding: EdgeInsets.only(
+              top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
             ),
-            entry: entry,
-            opening: openingRef == entry.ref,
-            onTap: () => _open(entry),
-          ),
-        );
-      },
+            child: _ChatDirectoryRow(
+              slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                index,
+                store.directory.length,
+              ),
+              entry: entry,
+              opening: openingRef == entry.ref,
+              onTap: () => _open(entry),
+            ),
+          );
+        },
+      ),
     );
   }
 }
