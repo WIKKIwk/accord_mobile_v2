@@ -3,19 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppThemeVariant {
   classic,
-  earthy,
   kalmar,
-  blush,
   moss,
   lavender,
-  slate,
-  ocean,
-  bingsu,
   bliss,
-  dollar,
-  fleuriste,
-  paleNimbus,
-  blackEdition,
   white,
 }
 
@@ -69,17 +60,9 @@ class ThemeController extends ChangeNotifier {
     return switch (value) {
       'classic' => AppThemeVariant.classic,
       'kalmar' => AppThemeVariant.kalmar,
-      'blush' => AppThemeVariant.blush,
       'moss' => AppThemeVariant.moss,
       'lavender' => AppThemeVariant.lavender,
-      'slate' => AppThemeVariant.slate,
-      'ocean' => AppThemeVariant.ocean,
-      'bingsu' => AppThemeVariant.bingsu,
       'bliss' => AppThemeVariant.bliss,
-      'dollar' => AppThemeVariant.dollar,
-      'fleuriste' => AppThemeVariant.fleuriste,
-      'pale_nimbus' => AppThemeVariant.paleNimbus,
-      'black_edition' => AppThemeVariant.blackEdition,
       'white' => AppThemeVariant.white,
       _ => AppThemeVariant.kalmar,
     };
@@ -89,18 +72,9 @@ class ThemeController extends ChangeNotifier {
     return switch (variant) {
       AppThemeVariant.classic => 'classic',
       AppThemeVariant.kalmar => 'kalmar',
-      AppThemeVariant.earthy => 'earthy',
-      AppThemeVariant.blush => 'blush',
       AppThemeVariant.moss => 'moss',
       AppThemeVariant.lavender => 'lavender',
-      AppThemeVariant.slate => 'slate',
-      AppThemeVariant.ocean => 'ocean',
-      AppThemeVariant.bingsu => 'bingsu',
       AppThemeVariant.bliss => 'bliss',
-      AppThemeVariant.dollar => 'dollar',
-      AppThemeVariant.fleuriste => 'fleuriste',
-      AppThemeVariant.paleNimbus => 'pale_nimbus',
-      AppThemeVariant.blackEdition => 'black_edition',
       AppThemeVariant.white => 'white',
     };
   }

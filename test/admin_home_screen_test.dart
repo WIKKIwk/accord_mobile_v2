@@ -46,7 +46,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -91,7 +91,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -142,7 +142,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -180,7 +180,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -215,7 +215,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('en'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -238,7 +238,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('ru'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -275,7 +275,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('en'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -340,7 +340,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('en'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -395,7 +395,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('en'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -460,7 +460,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(AppThemeVariant.earthy),
+        theme: AppTheme.light(AppThemeVariant.kalmar),
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,

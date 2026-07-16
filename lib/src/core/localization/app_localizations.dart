@@ -180,21 +180,10 @@ class AppLocalizations {
         'Выберите светлое или темное оформление',
       );
   String get themeClassicLabel => _t('Klassik', 'Classic', 'Классика');
-  String get themeEarthLabel => _t('Qumli', 'Earthy', 'Песочная');
   String get themeKalmarLabel => _t('Kalmar', 'Kalmar', 'Калмар');
-  String get themeBlushLabel => _t('Atirgul', 'Blush', 'Розовая');
   String get themeMossLabel => _t('Yaproq', 'Moss', 'Листва');
   String get themeLavenderLabel => _t('Lavanda', 'Lavender', 'Лаванда');
-  String get themeSlateLabel => _t('Tutun', 'Slate', 'Сланец');
-  String get themeOceanLabel => _t('Dengiz', 'Ocean', 'Океан');
-  String get themeBingsuLabel => _t('Bingsu', 'Bingsu', 'Bingsu');
   String get themeBlissLabel => _t('Bliss', 'Bliss', 'Bliss');
-  String get themeDollarLabel => _t('Dollar', 'Dollar', 'Dollar');
-  String get themeFleuristeLabel => _t('Fleuriste', 'Fleuriste', 'Fleuriste');
-  String get themePaleNimbusLabel =>
-      _t('Pale Nimbus', 'Pale Nimbus', 'Pale Nimbus');
-  String get themeBlackEditionLabel =>
-      _t('Black Edition', 'Black Edition', 'Black Edition');
   String get themeWhiteLabel => _t('Oq', 'Pure White', 'Белая');
   String get uzbek => _t('O‘zbekcha', 'Uzbek', 'Узбекский');
   String get english => _t('English', 'English', 'Английский');

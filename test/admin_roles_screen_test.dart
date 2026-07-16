@@ -44,7 +44,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -123,7 +123,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -178,7 +178,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -235,7 +235,7 @@ void main() {
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(AppThemeVariant.earthy),
+          theme: AppTheme.light(AppThemeVariant.kalmar),
           locale: const Locale('uz'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -283,7 +283,7 @@ void main() {
       await HttpOverrides.runZoned(() async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: AppTheme.light(AppThemeVariant.earthy),
+            theme: AppTheme.light(AppThemeVariant.kalmar),
             locale: const Locale('uz'),
             localizationsDelegates: const [
               AppLocalizations.delegate,
@@ -587,8 +587,8 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 class _FakeHttpClientResponse extends StreamView<List<int>>
     implements HttpClientResponse {
   _FakeHttpClientResponse({required String body, required this.statusCode})
-    : _headers = _FakeHttpHeaders(),
-      super(Stream<List<int>>.fromIterable([utf8.encode(body)]));
+      : _headers = _FakeHttpHeaders(),
+        super(Stream<List<int>>.fromIterable([utf8.encode(body)]));
 
   final _FakeHttpHeaders _headers;
 
@@ -638,7 +638,8 @@ class _FakeHttpClientResponse extends StreamView<List<int>>
     String? method,
     Uri? url,
     bool? followLoops,
-  ]) => Future<HttpClientResponse>.value(this);
+  ]) =>
+      Future<HttpClientResponse>.value(this);
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

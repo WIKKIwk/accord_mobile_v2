@@ -10,35 +10,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  test('earthy light theme keeps existing shell and chrome colors', () async {
-    final theme = await _buildThemeIgnoringGoogleFontLoadErrors(
-      () => AppTheme.light(AppThemeVariant.earthy),
-    );
-    final scheme = theme.colorScheme;
-
-    expect(theme.brightness, Brightness.light);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFECE7D1));
-    expect(theme.cardColor, const Color(0xFFE7DCC0));
-    expect(scheme.surfaceContainerHighest, const Color(0xFFECE7D1));
-    expect(theme.appBarTheme.backgroundColor, const Color(0xFFECE7D1));
-    expect(theme.navigationBarTheme.backgroundColor, const Color(0xFFECE7D1));
-  });
-
-  test('earthy dark theme separates shell from chrome and nav', () async {
-    final theme = await _buildThemeIgnoringGoogleFontLoadErrors(
-      () => AppTheme.dark(AppThemeVariant.earthy),
-    );
-
-    expect(theme.brightness, Brightness.dark);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFF211D16));
-    expect(theme.appBarTheme.backgroundColor, const Color(0xFF302A21));
-    expect(theme.navigationBarTheme.backgroundColor, const Color(0xFF302A21));
-    expect(
-      theme.scaffoldBackgroundColor,
-      isNot(theme.navigationBarTheme.backgroundColor),
-    );
-  });
-
   test('kalmar theme follows the app icon palette', () async {
     final theme = await _buildThemeIgnoringGoogleFontLoadErrors(
       () => AppTheme.light(AppThemeVariant.kalmar),
