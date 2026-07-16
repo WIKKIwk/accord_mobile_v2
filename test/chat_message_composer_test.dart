@@ -81,7 +81,7 @@ void main() {
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           bottomNavigationBar: AppNavigationBar(
-            height: 60,
+            height: 76,
             destinations: const [],
             selectedIndex: 0,
             onDestinationSelected: (_) {},
@@ -103,7 +103,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(
       tester.getSize(find.byKey(const ValueKey('app-navigation-bar-shell'))),
-      const Size(800, 60),
+      const Size(800, 76),
     );
   });
 }

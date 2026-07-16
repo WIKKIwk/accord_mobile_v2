@@ -22,15 +22,17 @@ class ChatMessageComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (embeddedInDock) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: _ComposerRow(
-          controller: controller,
-          sending: sending,
-          errorText: errorText,
-          onSend: onSend,
-          onDraftChanged: onDraftChanged,
-          compact: true,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: _ComposerRow(
+            controller: controller,
+            sending: sending,
+            errorText: errorText,
+            onSend: onSend,
+            onDraftChanged: onDraftChanged,
+            compact: true,
+          ),
         ),
       );
     }

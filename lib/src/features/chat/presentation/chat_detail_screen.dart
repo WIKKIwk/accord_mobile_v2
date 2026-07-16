@@ -87,6 +87,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           nativeTopBar: true,
           contentPadding: EdgeInsets.zero,
+          bottomDockHeight: ChatRoleDock.messageComposerHeight,
           bottom: ChatRoleDock(
             messageComposer: ChatMessageComposer(
               controller: controller,

@@ -63,6 +63,7 @@ class AppShell extends StatefulWidget {
     this.drawer,
     this.bottom,
     this.bottomDockFadeStrength,
+    this.bottomDockHeight = _contentBottomDockHeight,
     this.contentPadding = const EdgeInsets.fromLTRB(4, 0, 6, 0),
     this.bottomPadding = EdgeInsets.zero,
     this.animateOnEnter = false,
@@ -90,6 +91,9 @@ class AppShell extends StatefulWidget {
 
   /// Pastki dock ustidagi yumshoq scrim: **0** yo‘q, **1** to‘liq. `null` — scrim chizilmaydi.
   final ValueListenable<double>? bottomDockFadeStrength;
+
+  /// Content uchun reserve qilinadigan dock balandligi.
+  final double bottomDockHeight;
   final EdgeInsets contentPadding;
   final EdgeInsets bottomPadding;
   final bool animateOnEnter;
@@ -650,7 +654,7 @@ class _AppShellState extends State<AppShell>
       return 0;
     }
     final viewMetrics = MediaQueryData.fromView(View.of(context));
-    return _contentBottomDockHeight +
+    return widget.bottomDockHeight +
         dockLayoutBottomInset(
           viewMetrics,
           thinGestureBottom:

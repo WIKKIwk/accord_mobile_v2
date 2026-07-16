@@ -16,13 +16,15 @@ import 'package:flutter/material.dart';
 class ChatRoleDock extends StatelessWidget {
   const ChatRoleDock({super.key, this.messageComposer});
 
+  static const double messageComposerHeight = 76;
+
   final Widget? messageComposer;
 
   @override
   Widget build(BuildContext context) {
     if (messageComposer != null) {
       return AppNavigationBar(
-        height: 60,
+        height: messageComposerHeight,
         destinations: const [],
         selectedIndex: 0,
         onDestinationSelected: (_) {},
