@@ -9,6 +9,7 @@ class AppMotion {
   static const Duration sheetExit = Duration(milliseconds: 220);
   static const Duration pageEnter = Duration(milliseconds: 360);
   static const Duration pageExit = Duration(milliseconds: 300);
+  static const Duration profilePageTransition = Duration(milliseconds: 300);
 
   /// M3 Expressive **default spatial** easing (overshoot-friendly control handles).
   static const Cubic expressiveSpatialDefault = Cubic(0.38, 1.21, 0.22, 1.0);

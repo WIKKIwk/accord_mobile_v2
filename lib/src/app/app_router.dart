@@ -407,7 +407,7 @@ class AppRouter {
         final DispatchRecord record = args as DispatchRecord;
         return _buildRoute(settings, WerkaSuccessScreen(record: record));
       case AppRoutes.profile:
-        return _buildRoute(settings, const ProfileScreen());
+        return _buildProfileRoute(settings, const ProfileScreen());
       case AppRoutes.chat:
         return _buildRoute(settings, const ChatConversationsScreen());
       case AppRoutes.chatDirectory:
@@ -930,6 +930,16 @@ class AppRouter {
     );
   }
 
+  static PageRoute<dynamic> _buildProfileRoute(
+    RouteSettings settings,
+    Widget child,
+  ) {
+    return _ProfileMaterialPageRoute<dynamic>(
+      settings: settings,
+      builder: (context) => child,
+    );
+  }
+
   static PageRoute<dynamic> _buildAdminSettingsRoute(
     RouteSettings settings,
     Widget child,
@@ -945,6 +955,16 @@ class AppRouter {
   static bool _usesAdminPageTransition(String? routeName) {
     return false;
   }
+}
+
+class _ProfileMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  _ProfileMaterialPageRoute({required super.builder, super.settings});
+
+  @override
+  Duration get transitionDuration => AppMotion.profilePageTransition;
+
+  @override
+  Duration get reverseTransitionDuration => AppMotion.profilePageTransition;
 }
 
 class _CapabilityDeniedScreen extends StatelessWidget {

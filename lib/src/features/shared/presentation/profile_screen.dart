@@ -47,6 +47,8 @@ const String _profileAvatarHeroTag = 'profile-avatar-preview';
 const int _profileCoverArtCacheLimit = 8;
 final Map<int, _ProfileCoverArt?> _profileCoverArtCache = {};
 final Map<int, Future<_ProfileCoverArt?>> _profileCoverArtInflight = {};
+final Expando<int> _profileCoverArtKeys = Expando<int>('profileCoverArtKey');
+int _nextProfileCoverArtKey = 0;
 
 Widget _profileAvatarFlightShuttleBuilder(
   BuildContext flightContext,
@@ -123,8 +125,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     nicknameController.text = _normalizedDisplayName(profile);
-    _loadCachedAvatar();
-    _loadCachedCover();
+    unawaited(_loadCachedAvatar());
+    unawaited(_loadCachedCover());
   }
 
   Future<void> _loadCachedAvatar() async {
@@ -758,7 +760,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 children: [
                   SmoothAppear(
-                    delay: const Duration(milliseconds: 20),
+                    duration: AppMotion.fast,
                     child: AppSegmentSurfaceCard(
                       padding: EdgeInsets.zero,
                       child: _ProfileHeroCard(
@@ -878,11 +880,8 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
 }
 
 int _profileCoverArtKey(Uint8List bytes) {
-  var hash = 0x811c9dc5;
-  for (final byte in bytes) {
-    hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
-  }
-  return Object.hash(bytes.length, hash);
+  // Keep this O(1): hashing every image byte blocks profile route frames.
+  return _profileCoverArtKeys[bytes] ??= ++_nextProfileCoverArtKey;
 }
 
 void _cacheProfileCoverArt(int key, _ProfileCoverArt? art) {
@@ -2955,6 +2954,8 @@ class _AvatarPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final avatarCacheWidth =
+        (96 * MediaQuery.devicePixelRatioOf(context)).ceil();
     final fallback = Container(
       height: 96,
       width: 96,
@@ -2977,6 +2978,8 @@ class _AvatarPreview extends StatelessWidget {
           height: 96,
           width: 96,
           fit: BoxFit.cover,
+          cacheWidth: avatarCacheWidth,
+          filterQuality: FilterQuality.low,
           errorBuilder: (context, error, stackTrace) => fallback,
         ),
       );
@@ -2989,6 +2992,8 @@ class _AvatarPreview extends StatelessWidget {
           height: 96,
           width: 96,
           fit: BoxFit.cover,
+          cacheWidth: avatarCacheWidth,
+          filterQuality: FilterQuality.low,
           errorBuilder: (context, error, stackTrace) => fallback,
         ),
       );
