@@ -34,9 +34,9 @@ class ChatMessageBubble extends StatelessWidget {
       label: mine ? 'Siz yubordingiz' : message.senderDisplayName,
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: IntrinsicWidth(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: Container(
-            constraints: BoxConstraints(maxWidth: maxWidth),
             margin: EdgeInsets.only(top: compactTop ? 2 : 8),
             padding: const EdgeInsets.fromLTRB(10, 6, 8, 5),
             decoration: BoxDecoration(
@@ -50,33 +50,34 @@ class ChatMessageBubble extends StatelessWidget {
                     !mine && isLastInGroup ? const Radius.circular(4) : null,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Flexible(
-                  child: Text(
-                    message.body,
-                    textAlign: mine ? TextAlign.right : TextAlign.left,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: message.body,
                     style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
                   ),
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  timeText,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                  TextSpan(
+                    text: '  $timeText',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                if (mine) ...[
-                  const SizedBox(width: 3),
-                  Icon(
-                    Icons.check_rounded,
-                    size: 15,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  if (mine)
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 3),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 15,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                 ],
-              ],
+              ),
+              textAlign: mine ? TextAlign.right : TextAlign.left,
             ),
           ),
         ),
