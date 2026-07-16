@@ -23,15 +23,18 @@ class ChatMessageComposer extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     if (embeddedInDock) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: _ComposerRow(
-            controller: controller,
-            sending: sending,
-            errorText: errorText,
-            onSend: onSend,
-            onDraftChanged: onDraftChanged,
-            compact: true,
+        child: Transform.translate(
+          offset: const Offset(0, -3),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: _ComposerRow(
+              controller: controller,
+              sending: sending,
+              errorText: errorText,
+              onSend: onSend,
+              onDraftChanged: onDraftChanged,
+              compact: true,
+            ),
           ),
         ),
       );
