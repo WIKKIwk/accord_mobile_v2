@@ -89,9 +89,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           nativeTopBar: true,
           showProfileAction: false,
           actions: [
-            _ChatParticipantProfileAction(
-              participant: widget.conversation.peer,
-              onTap: _openParticipantProfile,
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: _ChatParticipantProfileAction(
+                participant: widget.conversation.peer,
+                onTap: _openParticipantProfile,
+              ),
             ),
           ],
           contentPadding: EdgeInsets.zero,
