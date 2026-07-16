@@ -24,7 +24,7 @@ class ChatMessageComposer extends StatelessWidget {
     if (embeddedInDock) {
       return Center(
         child: Transform.translate(
-          offset: const Offset(0, -3),
+          offset: const Offset(0, -5),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: _ComposerRow(
@@ -97,7 +97,7 @@ class _ComposerRow extends StatelessWidget {
         final canSend = value.text.trim().isNotEmpty && !sending;
         final inputPadding = EdgeInsets.symmetric(
           horizontal: compact ? 16 : 18,
-          vertical: compact ? 8 : 13,
+          vertical: compact ? 10 : 13,
         );
         final buttonSize = compact ? 42.0 : 50.0;
         return Row(
