@@ -10,11 +10,13 @@ class ChatMessageBubble extends StatelessWidget {
     required this.message,
     required this.mine,
     this.compactTop = false,
+    this.isLastInGroup = true,
   });
 
   final ChatMessage message;
   final bool mine;
   final bool compactTop;
+  final bool isLastInGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -34,46 +36,48 @@ class ChatMessageBubble extends StatelessWidget {
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
           constraints: BoxConstraints(maxWidth: maxWidth),
-          margin: EdgeInsets.only(top: compactTop ? 2 : 8),
+          margin: EdgeInsets.only(top: compactTop ? 3 : 10),
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 7),
           decoration: BoxDecoration(
             color:
                 mine ? scheme.primaryContainer : scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20).copyWith(
-              bottomRight: mine ? const Radius.circular(6) : null,
-              bottomLeft: mine ? null : const Radius.circular(6),
+              bottomRight:
+                  mine && isLastInGroup ? const Radius.circular(6) : null,
+              bottomLeft:
+                  !mine && isLastInGroup ? const Radius.circular(6) : null,
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  message.body,
-                  style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
-                ),
+              Text(
+                message.body,
+                style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
               ),
               const SizedBox(height: 3),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    timeText,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      timeText,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  if (mine) ...[
-                    const SizedBox(width: 3),
-                    Icon(
-                      Icons.check_rounded,
-                      size: 15,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    if (mine) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),

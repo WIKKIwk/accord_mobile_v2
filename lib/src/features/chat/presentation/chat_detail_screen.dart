@@ -159,29 +159,50 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ),
       );
     }
-    DateTime? previousDay;
-    ChatMessage? previousMessage;
-    for (final message in messages) {
+    for (var index = 0; index < messages.length; index++) {
+      final message = messages[index];
       final createdAt = DateTime.fromMillisecondsSinceEpoch(
         message.createdAtUnix * 1000,
       ).toLocal();
-      final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
-      final newDay = previousDay == null || day != previousDay;
+      final previous = index == 0 ? null : messages[index - 1];
+      final next = index + 1 < messages.length ? messages[index + 1] : null;
+      final previousCreatedAt = previous == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              previous.createdAtUnix * 1000,
+            ).toLocal();
+      final nextCreatedAt = next == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              next.createdAtUnix * 1000,
+            ).toLocal();
+      final groupedWithPrevious = _sameMessageGroup(
+        previous,
+        previousCreatedAt,
+        message,
+        createdAt,
+      );
+      final groupedWithNext = _sameMessageGroup(
+        message,
+        createdAt,
+        next,
+        nextCreatedAt,
+      );
+      final newDay = previousCreatedAt == null ||
+          createdAt.year != previousCreatedAt.year ||
+          createdAt.month != previousCreatedAt.month ||
+          createdAt.day != previousCreatedAt.day;
       if (newDay) {
         children.add(ChatDateDivider(date: createdAt));
       }
-      final compactTop = !newDay &&
-          previousMessage?.senderPrincipalId == message.senderPrincipalId &&
-          message.createdAtUnix - (previousMessage?.createdAtUnix ?? 0) <= 300;
       children.add(
         ChatMessageBubble(
           message: message,
           mine: profile != null && message.isMine(profile),
-          compactTop: compactTop,
+          compactTop: groupedWithPrevious,
+          isLastInGroup: !groupedWithNext,
         ),
       );
-      previousDay = day;
-      previousMessage = message;
     }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
@@ -192,6 +213,26 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: children,
       ),
     );
+  }
+
+  bool _sameMessageGroup(
+    ChatMessage? first,
+    DateTime? firstCreatedAt,
+    ChatMessage? second,
+    DateTime? secondCreatedAt,
+  ) {
+    if (first == null ||
+        firstCreatedAt == null ||
+        second == null ||
+        secondCreatedAt == null) {
+      return false;
+    }
+    final sameDay = firstCreatedAt.year == secondCreatedAt.year &&
+        firstCreatedAt.month == secondCreatedAt.month &&
+        firstCreatedAt.day == secondCreatedAt.day;
+    return sameDay &&
+        first.senderPrincipalId == second.senderPrincipalId &&
+        second.createdAtUnix - first.createdAtUnix <= 300;
   }
 
   void _openParticipantProfile() {
