@@ -5,10 +5,12 @@ class ProgressiveFade extends StatelessWidget {
     super.key,
     required this.child,
     this.height = 120,
+    this.topFade = true,
   });
 
   final Widget child;
   final double height;
+  final bool topFade;
 
   @override
   Widget build(BuildContext context) {
@@ -18,16 +20,27 @@ class ProgressiveFade extends StatelessWidget {
         return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: const [
-            Color(0x00FFFFFF),
-            Color(0x33FFFFFF),
-            Color(0x80FFFFFF),
-            Color(0xFFFFFFFF),
-            Color(0xFFFFFFFF),
-            Color(0x80FFFFFF),
-            Color(0x33FFFFFF),
-            Color(0x00FFFFFF),
-          ],
+          colors: topFade
+              ? const [
+                  Color(0x00FFFFFF),
+                  Color(0x33FFFFFF),
+                  Color(0x80FFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0x80FFFFFF),
+                  Color(0x33FFFFFF),
+                  Color(0x00FFFFFF),
+                ]
+              : const [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFFFFF),
+                  Color(0x80FFFFFF),
+                  Color(0x33FFFFFF),
+                  Color(0x00FFFFFF),
+                ],
           stops: [
             0,
             extent * 0.25,

@@ -122,6 +122,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
     return ProgressiveFade(
+      topFade: false,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(4, 12, 4, 24),
         itemCount: store.directory.length,
