@@ -34,52 +34,49 @@ class ChatMessageBubble extends StatelessWidget {
       label: mine ? 'Siz yubordingiz' : message.senderDisplayName,
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          margin: EdgeInsets.only(top: compactTop ? 3 : 10),
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 7),
-          decoration: BoxDecoration(
-            color:
-                mine ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(20).copyWith(
-              bottomRight:
-                  mine && isLastInGroup ? const Radius.circular(6) : null,
-              bottomLeft:
-                  !mine && isLastInGroup ? const Radius.circular(6) : null,
+        child: IntrinsicWidth(
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            margin: EdgeInsets.only(top: compactTop ? 2 : 8),
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 5),
+            decoration: BoxDecoration(
+              color: mine
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14).copyWith(
+                bottomRight:
+                    mine && isLastInGroup ? const Radius.circular(4) : null,
+                bottomLeft:
+                    !mine && isLastInGroup ? const Radius.circular(4) : null,
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message.body,
-                style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
-              ),
-              const SizedBox(height: 3),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      timeText,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (mine) ...[
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.check_rounded,
-                        size: 15,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    message.body,
+                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.28),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 7),
+                Text(
+                  timeText,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                if (mine) ...[
+                  const SizedBox(width: 3),
+                  Icon(
+                    Icons.check_rounded,
+                    size: 15,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
