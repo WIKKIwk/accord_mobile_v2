@@ -27,18 +27,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final store = ChatStore.instance;
   final controller = TextEditingController();
   final scrollController = ScrollController();
+  final composerHeight = ValueNotifier<double>(
+    ChatRoleDock.messageComposerHeight,
+  );
   int previousMessageCount = 0;
 
   @override
   void initState() {
     super.initState();
+    controller.addListener(_updateComposerHeight);
     store.setActiveConversation(widget.conversation.conversationId);
     unawaited(store.loadMessages(widget.conversation.conversationId));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateComposerHeight();
+  }
+
+  @override
   void dispose() {
     store.setActiveConversation('');
+    controller.removeListener(_updateComposerHeight);
+    composerHeight.dispose();
     controller.dispose();
     scrollController.dispose();
     super.dispose();
@@ -67,6 +79,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     store.clearSendError();
   }
 
+  void _updateComposerHeight() {
+    final next = ChatRoleDock.composerHeight(context, controller.text);
+    if ((composerHeight.value - next).abs() < 0.5) return;
+    composerHeight.value = next;
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!scrollController.hasClients) return;
@@ -80,20 +98,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([store, controller]),
-      builder: (context, _) {
-        final messages = store.messagesFor(widget.conversation.conversationId);
-        if (messages.length > previousMessageCount) {
-          previousMessageCount = messages.length;
-          _scrollToBottom();
-        }
+    return ValueListenableBuilder<double>(
+      valueListenable: composerHeight,
+      child: AnimatedBuilder(
+        animation: store,
+        builder: (context, _) {
+          final messages = store.messagesFor(
+            widget.conversation.conversationId,
+          );
+          if (messages.length > previousMessageCount) {
+            previousMessageCount = messages.length;
+            _scrollToBottom();
+          }
+          return _messages(messages);
+        },
+      ),
+      builder: (context, dockHeight, messageList) {
         return AppShell(
           title: widget.conversation.displayTitle,
           subtitle: '',
-          titleWidget: _ConversationTitle(
-            conversation: widget.conversation,
-            connected: store.connected,
+          titleWidget: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) => _ConversationTitle(
+              conversation: widget.conversation,
+              connected: store.connected,
+            ),
           ),
           nativeTopBar: true,
           showProfileAction: false,
@@ -107,22 +136,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
           ],
           contentPadding: EdgeInsets.zero,
-          bottomDockHeight: ChatRoleDock.composerHeight(
-            context,
-            controller.text,
-          ),
-          bottom: ChatRoleDock(
-            composerController: controller,
-            messageComposer: ChatMessageComposer(
-              controller: controller,
-              sending: store.sending,
-              errorText: store.sendError,
-              onSend: _send,
-              onDraftChanged: _draftChanged,
-              embeddedInDock: true,
+          bottomDockHeight: dockHeight,
+          bottom: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) => ChatRoleDock(
+              composerController: controller,
+              messageComposer: ChatMessageComposer(
+                controller: controller,
+                sending: store.sending,
+                errorText: store.sendError,
+                onSend: _send,
+                onDraftChanged: _draftChanged,
+                embeddedInDock: true,
+              ),
             ),
           ),
-          child: _messages(messages),
+          child: messageList!,
         );
       },
     );
