@@ -541,7 +541,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     super.didUpdateWidget(oldWidget);
     final previous = oldWidget.server?.endpoint.baseUrl;
     final next = widget.server?.endpoint.baseUrl;
-    if (previous == next) {
+    if (previous == next && oldWidget.printTransport == widget.printTransport) {
       return;
     }
     _stopLiveStream();
@@ -855,6 +855,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     }
     final server = widget.server;
     if (server == null) {
+      if (widget.printTransport.isOffline) {
+        if (mounted && _errorText.isNotEmpty) {
+          setState(() => _errorText = '');
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _errorText = 'Avval printer yoki tarozini tanlang';
