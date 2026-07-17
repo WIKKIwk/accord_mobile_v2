@@ -180,7 +180,7 @@ class GodexRpsRenderer {
       }
     }
 
-    drawCentered(name, 8, scale: 2);
+    drawCentered(name, 8, scale: 3);
     drawCentered(code, 352, scale: 4);
     return _encodeMonoBmp(bitmap.cropInk());
   }

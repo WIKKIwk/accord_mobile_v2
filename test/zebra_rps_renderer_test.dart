@@ -94,7 +94,7 @@ void main() {
       ),
     );
 
-    expect(zpl, contains('^FO8,8^A0N,18,16^FB784,1,0,C,0'));
+    expect(zpl, contains('^FO8,8^A0N,24,20^FB784,1,0,C,0'));
     expect(zpl, contains('^FO120,56^BQN,2,11'));
     expect(zpl, contains('^FO8,352^A0N,30,26^FB784,1,0,C,0'));
     expect(zpl, isNot(contains('^RFW')));
