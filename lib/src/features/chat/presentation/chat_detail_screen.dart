@@ -29,7 +29,8 @@ class ChatDetailScreen extends StatefulWidget {
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _ChatDetailScreenState extends State<ChatDetailScreen>
+    with WidgetsBindingObserver {
   final store = ChatStore.instance;
   final controller = TextEditingController();
   final scrollController = ScrollController();
@@ -37,10 +38,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     ChatRoleDock.messageComposerHeight,
   );
   int previousMessageCount = 0;
+  bool _keepPinnedToBottom = true;
+  bool _bottomCorrectionScheduled = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     controller.addListener(_updateComposerHeight);
     store.setActiveConversation(widget.conversation.conversationId);
     unawaited(store.loadMessages(widget.conversation.conversationId));
@@ -54,6 +58,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     store.setActiveConversation('');
     controller.removeListener(_updateComposerHeight);
     composerHeight.dispose();
@@ -92,6 +97,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _scrollToBottom() {
+    _keepPinnedToBottom = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!scrollController.hasClients) return;
       scrollController.animateTo(
@@ -99,6 +105,46 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
+    });
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_keepPinnedToBottom) {
+      _scheduleBottomCorrection();
+    }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    final userUpdate = notification is ScrollUpdateNotification &&
+        notification.dragDetails != null;
+    if (userUpdate || notification is ScrollEndNotification) {
+      _keepPinnedToBottom = notification.metrics.extentAfter <= 48;
+    }
+    return false;
+  }
+
+  bool _handleScrollMetricsNotification(
+    ScrollMetricsNotification notification,
+  ) {
+    if (_keepPinnedToBottom) {
+      _scheduleBottomCorrection();
+    }
+    return false;
+  }
+
+  void _scheduleBottomCorrection() {
+    if (_bottomCorrectionScheduled) return;
+    _bottomCorrectionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bottomCorrectionScheduled = false;
+      if (!mounted || !_keepPinnedToBottom || !scrollController.hasClients) {
+        return;
+      }
+      final position = scrollController.position;
+      if ((position.maxScrollExtent - position.pixels).abs() > 0.5) {
+        scrollController.jumpTo(position.maxScrollExtent);
+      }
     });
   }
 
@@ -124,45 +170,48 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         },
       ),
       builder: (context, dockHeight, messageList) {
-        return AppShell(
-          title: widget.conversation.displayTitle,
-          subtitle: '',
-          titleWidget: AnimatedBuilder(
-            animation: store,
-            builder: (context, _) => _ConversationTitle(
-              conversation: widget.conversation,
-              connected: store.connected,
-            ),
-          ),
-          nativeTopBar: true,
-          showProfileAction: false,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: _ChatParticipantProfileAction(
-                participant: widget.conversation.peer,
-                onTap: _openParticipantProfile,
+        return ChatKeyboardInsetLayout(
+          builder: (context, keyboardInset) => AppShell(
+            title: widget.conversation.displayTitle,
+            subtitle: '',
+            titleWidget: AnimatedBuilder(
+              animation: store,
+              builder: (context, _) => _ConversationTitle(
+                conversation: widget.conversation,
+                connected: store.connected,
               ),
             ),
-          ],
-          contentPadding: EdgeInsets.zero,
-          bottomDockHeight: dockHeight,
-          bottom: AnimatedBuilder(
-            animation: store,
-            builder: (context, _) => ChatRoleDock(
-              composerController: controller,
-              messageComposer: ChatMessageComposer(
-                controller: controller,
-                sending: store.sending,
-                errorText: store.sendError,
-                onSend: _send,
-                onDraftChanged: _draftChanged,
-                onAttach: _attachMedia,
-                embeddedInDock: true,
+            nativeTopBar: true,
+            showProfileAction: false,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: _ChatParticipantProfileAction(
+                  participant: widget.conversation.peer,
+                  onTap: _openParticipantProfile,
+                ),
+              ),
+            ],
+            contentPadding: EdgeInsets.zero,
+            bottomDockHeight: dockHeight + keyboardInset,
+            bottomPadding: EdgeInsets.only(bottom: keyboardInset),
+            bottom: AnimatedBuilder(
+              animation: store,
+              builder: (context, _) => ChatRoleDock(
+                composerController: controller,
+                messageComposer: ChatMessageComposer(
+                  controller: controller,
+                  sending: store.sending,
+                  errorText: store.sendError,
+                  onSend: _send,
+                  onDraftChanged: _draftChanged,
+                  onAttach: _attachMedia,
+                  embeddedInDock: true,
+                ),
               ),
             ),
+            child: messageList!,
           ),
-          child: messageList!,
         );
       },
     );
@@ -264,11 +313,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
-      child: ListView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        children: children,
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: _handleScrollMetricsNotification,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            children: children,
+          ),
+        ),
       ),
     );
   }

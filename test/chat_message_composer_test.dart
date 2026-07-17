@@ -239,4 +239,60 @@ void main() {
       expect(currentSendRightGap, closeTo(sendRightGap, 0.5));
     }
   });
+
+  testWidgets('chat keyboard inset lifts the dock smoothly', (tester) async {
+    Widget appWithInset(double inset) {
+      return MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: const Size(800, 600),
+            viewInsets: EdgeInsets.only(bottom: inset),
+          ),
+          child: ChatKeyboardInsetLayout(
+            builder: (context, keyboardInset) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: keyboardInset,
+                    child: const SizedBox(
+                      key: ValueKey('keyboard-aware-chat-dock'),
+                      height: ChatRoleDock.messageComposerHeight,
+                    ),
+                  ),
+                  Text(
+                    'inner:${MediaQuery.viewInsetsOf(context).bottom}',
+                    key: const ValueKey('inner-view-inset'),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(appWithInset(0));
+    await tester.pumpAndSettle();
+    final dock = find.byKey(const ValueKey('keyboard-aware-chat-dock'));
+    expect(tester.getRect(dock).bottom, 600);
+    expect(find.text('inner:0.0'), findsOneWidget);
+
+    await tester.pumpWidget(appWithInset(300));
+    await tester.pump();
+    await tester.pump(
+      Duration(
+        milliseconds: chatKeyboardInsetAnimationDuration.inMilliseconds ~/ 2,
+      ),
+    );
+    final midAnimationBottom = tester.getRect(dock).bottom;
+    expect(midAnimationBottom, greaterThan(300));
+    expect(midAnimationBottom, lessThan(600));
+
+    await tester.pumpAndSettle();
+    expect(tester.getRect(dock).bottom, closeTo(300, 0.5));
+    expect(tester.getSize(dock).height, ChatRoleDock.messageComposerHeight);
+  });
 }

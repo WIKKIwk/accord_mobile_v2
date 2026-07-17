@@ -14,6 +14,34 @@ import '../../../../core/widgets/navigation/app_navigation_bar.dart';
 import 'package:flutter/material.dart';
 
 const double chatComposerMaxHeight = 172;
+const Duration chatKeyboardInsetAnimationDuration = Duration(milliseconds: 220);
+
+class ChatKeyboardInsetLayout extends StatelessWidget {
+  const ChatKeyboardInsetLayout({
+    super.key,
+    required this.builder,
+  });
+
+  final Widget Function(BuildContext context, double keyboardInset) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: mediaQuery.viewInsets.bottom),
+      duration: chatKeyboardInsetAnimationDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, keyboardInset, _) {
+        return MediaQuery(
+          data: mediaQuery.copyWith(viewInsets: EdgeInsets.zero),
+          child: Builder(
+            builder: (context) => builder(context, keyboardInset),
+          ),
+        );
+      },
+    );
+  }
+}
 
 /// Keeps the role-specific navigation visible on the conversation list and
 /// provides the shared dock container for the conversation composer.
