@@ -2,36 +2,133 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/widgets/display/image_fade.dart';
+import '../models/chat_media_models.dart';
 
-class ChatImageViewerScreen extends StatelessWidget {
+Route<void> chatMediaViewerRoute({
+  required ChatMediaKind kind,
+  required Uri contentUri,
+  required Uri previewUri,
+  required Map<String, String> headers,
+  required String heroTag,
+}) {
+  return PageRouteBuilder<void>(
+    opaque: false,
+    barrierDismissible: true,
+    barrierColor: Colors.black.withValues(alpha: 0.72),
+    barrierLabel: 'Media viewer',
+    transitionDuration: const Duration(milliseconds: 220),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return kind == ChatMediaKind.image
+          ? ChatImageViewerScreen(
+              uri: contentUri,
+              previewUri: previewUri,
+              headers: headers,
+              heroTag: heroTag,
+            )
+          : ChatVideoViewerScreen(
+              uri: contentUri,
+              previewUri: previewUri,
+              headers: headers,
+              heroTag: heroTag,
+            );
+    },
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(opacity: curved, child: child);
+    },
+  );
+}
+
+class ChatImageViewerScreen extends StatefulWidget {
   const ChatImageViewerScreen({
     super.key,
     required this.uri,
     required this.headers,
+    this.previewUri,
+    this.heroTag = 'chat-media-viewer',
   });
 
   final Uri uri;
   final Map<String, String> headers;
+  final Uri? previewUri;
+  final String heroTag;
+
+  @override
+  State<ChatImageViewerScreen> createState() => _ChatImageViewerScreenState();
+}
+
+class _ChatImageViewerScreenState extends State<ChatImageViewerScreen> {
+  late final TransformationController transformationController;
+  int quarterTurns = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    transformationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleZoom() {
+    final scale = transformationController.value.getMaxScaleOnAxis();
+    transformationController.value = scale > 1.1
+        ? Matrix4.identity()
+        : (Matrix4.identity()..scaleByDouble(2.4, 2.4, 2.4, 1));
+  }
+
+  void _rotate() {
+    setState(() {
+      quarterTurns = (quarterTurns + 1) % 4;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
+    return _ChatMediaViewerShell(
+      actions: [
+        IconButton(
+          tooltip: 'Rasmni aylantirish',
+          onPressed: _rotate,
+          icon: const Icon(Icons.rotate_right_rounded),
+        ),
+      ],
+      child: GestureDetector(
+        onDoubleTap: _toggleZoom,
         child: InteractiveViewer(
+          transformationController: transformationController,
           minScale: 0.8,
           maxScale: 5,
-          child: ImageFade(
-            image: NetworkImage(uri.toString(), headers: headers),
-            fit: BoxFit.contain,
-            placeholder: const Center(child: CircularProgressIndicator()),
-            errorBuilder: (_, __) => const _MediaViewerError(
-              icon: Icons.broken_image_outlined,
-              label: 'Rasm ochilmadi',
+          boundaryMargin: const EdgeInsets.all(80),
+          child: Hero(
+            tag: widget.heroTag,
+            child: RotatedBox(
+              quarterTurns: quarterTurns,
+              child: ImageFade(
+                image: NetworkImage(
+                  widget.uri.toString(),
+                  headers: widget.headers,
+                ),
+                fit: BoxFit.contain,
+                placeholder: Center(
+                  child: _MediaPreviewImage(
+                    uri: widget.previewUri,
+                    headers: widget.headers,
+                  ),
+                ),
+                errorBuilder: (_, __) => const _MediaViewerError(
+                  icon: Icons.broken_image_outlined,
+                  label: 'Rasm ochilmadi',
+                ),
+              ),
             ),
           ),
         ),
@@ -45,10 +142,14 @@ class ChatVideoViewerScreen extends StatefulWidget {
     super.key,
     required this.uri,
     required this.headers,
+    this.previewUri,
+    this.heroTag = 'chat-media-viewer',
   });
 
   final Uri uri;
   final Map<String, String> headers;
+  final Uri? previewUri;
+  final String heroTag;
 
   @override
   State<ChatVideoViewerScreen> createState() => _ChatVideoViewerScreenState();
@@ -79,35 +180,44 @@ class _ChatVideoViewerScreenState extends State<ChatVideoViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
-      body: FutureBuilder<void>(
+    return _ChatMediaViewerShell(
+      child: FutureBuilder<void>(
         future: initialization,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(
-              child: _MediaViewerError(
-                icon: Icons.video_file_outlined,
-                label: 'Video ochilmadi',
+            return Center(
+              child: Hero(
+                tag: widget.heroTag,
+                child: const _MediaViewerError(
+                  icon: Icons.video_file_outlined,
+                  label: 'Video ochilmadi',
+                ),
               ),
             );
           }
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: Hero(
+                tag: widget.heroTag,
+                child: _MediaPreviewImage(
+                  uri: widget.previewUri,
+                  headers: widget.headers,
+                ),
+              ),
+            );
           }
           return Column(
             children: [
               Expanded(
                 child: Center(
-                  child: AspectRatio(
-                    aspectRatio: controller.value.aspectRatio > 0
-                        ? controller.value.aspectRatio
-                        : 16 / 9,
-                    child: VideoPlayer(controller),
+                  child: Hero(
+                    tag: widget.heroTag,
+                    child: AspectRatio(
+                      aspectRatio: controller.value.aspectRatio > 0
+                          ? controller.value.aspectRatio
+                          : 16 / 9,
+                      child: VideoPlayer(controller),
+                    ),
                   ),
                 ),
               ),
@@ -159,6 +269,65 @@ class _ChatVideoViewerScreenState extends State<ChatVideoViewerScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _ChatMediaViewerShell extends StatelessWidget {
+  const _ChatMediaViewerShell({required this.child, this.actions = const []});
+
+  final Widget child;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          Positioned.fill(child: SafeArea(child: child)),
+          Positioned(
+            left: 4,
+            top: 0,
+            child: SafeArea(
+              child: IconButton(
+                tooltip: 'Orqaga',
+                onPressed: () => Navigator.of(context).pop(),
+                color: Colors.white,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+            ),
+          ),
+          if (actions.isNotEmpty)
+            Positioned(
+              right: 4,
+              top: 0,
+              child: SafeArea(
+                child: Row(children: actions),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaPreviewImage extends StatelessWidget {
+  const _MediaPreviewImage({required this.uri, required this.headers});
+
+  final Uri? uri;
+  final Map<String, String> headers;
+
+  @override
+  Widget build(BuildContext context) {
+    if (uri == null) {
+      return const CircularProgressIndicator();
+    }
+    return ImageFade(
+      image: NetworkImage(uri!.toString(), headers: headers),
+      fit: BoxFit.contain,
+      placeholder: const CircularProgressIndicator(),
+      errorBuilder: (_, __) => const CircularProgressIndicator(),
     );
   }
 }

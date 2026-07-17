@@ -68,6 +68,7 @@ class ChatMessageBubble extends StatelessWidget {
                     caption: message.body,
                     timeText: timeText,
                     mine: mine,
+                    heroTag: _chatMediaHeroTag(message, attachment),
                   ),
           ),
         ),
@@ -118,12 +119,14 @@ class _MediaMessageContent extends StatelessWidget {
     required this.caption,
     required this.timeText,
     required this.mine,
+    required this.heroTag,
   });
 
   final ChatMessageAttachment attachment;
   final String caption;
   final String timeText;
   final bool mine;
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -152,75 +155,80 @@ class _MediaMessageContent extends StatelessWidget {
                 onTap: () => _openViewer(
                   context,
                   contentUri: contentUri,
+                  previewUri: thumbnailUri,
                   headers: headers,
                 ),
-                child: AspectRatio(
-                  aspectRatio: ratio,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ImageFade(
-                        image: NetworkImage(
-                          thumbnailUri.toString(),
-                          headers: headers,
-                        ),
-                        fit: BoxFit.cover,
-                        cacheWidth: 900,
-                        placeholder: ColoredBox(
-                          color: scheme.surfaceContainerHighest,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                child: Hero(
+                  tag: heroTag,
+                  child: AspectRatio(
+                    aspectRatio: ratio,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ImageFade(
+                          image: NetworkImage(
+                            thumbnailUri.toString(),
+                            headers: headers,
                           ),
-                        ),
-                        errorBuilder: (_, __) => ColoredBox(
-                          color: scheme.surfaceContainerHighest,
-                          child: Icon(
-                            attachment.kind == ChatMediaKind.video
-                                ? Icons.video_file_outlined
-                                : Icons.broken_image_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 38,
+                          fit: BoxFit.cover,
+                          cacheWidth: 900,
+                          placeholder: ColoredBox(
+                            color: scheme.surfaceContainerHighest,
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                        ),
-                      ),
-                      if (attachment.kind == ChatMediaKind.video) ...[
-                        ColoredBox(color: Colors.black.withValues(alpha: 0.16)),
-                        const Center(
-                          child: CircleAvatar(
-                            radius: 25,
-                            backgroundColor: Colors.black54,
+                          errorBuilder: (_, __) => ColoredBox(
+                            color: scheme.surfaceContainerHighest,
                             child: Icon(
-                              Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 34,
+                              attachment.kind == ChatMediaKind.video
+                                  ? Icons.video_file_outlined
+                                  : Icons.broken_image_outlined,
+                              color: scheme.onSurfaceVariant,
+                              size: 38,
                             ),
                           ),
                         ),
-                        if (attachment.durationMs != null)
-                          Positioned(
-                            right: 7,
-                            bottom: 6,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(8),
+                        if (attachment.kind == ChatMediaKind.video) ...[
+                          ColoredBox(
+                              color: Colors.black.withValues(alpha: 0.16)),
+                          const Center(
+                            child: CircleAvatar(
+                              radius: 25,
+                              backgroundColor: Colors.black54,
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 34,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                            ),
+                          ),
+                          if (attachment.durationMs != null)
+                            Positioned(
+                              right: 7,
+                              bottom: 6,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(
-                                  _mediaDuration(attachment.durationMs!),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: Colors.white,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  child: Text(
+                                    _mediaDuration(attachment.durationMs!),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -256,16 +264,31 @@ class _MediaMessageContent extends StatelessWidget {
   void _openViewer(
     BuildContext context, {
     required Uri contentUri,
+    required Uri previewUri,
     required Map<String, String> headers,
   }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => attachment.kind == ChatMediaKind.image
-            ? ChatImageViewerScreen(uri: contentUri, headers: headers)
-            : ChatVideoViewerScreen(uri: contentUri, headers: headers),
+    Navigator.of(context).push<void>(
+      chatMediaViewerRoute(
+        kind: attachment.kind,
+        contentUri: contentUri,
+        previewUri: previewUri,
+        headers: headers,
+        heroTag: heroTag,
       ),
     );
   }
+}
+
+String _chatMediaHeroTag(
+  ChatMessage message,
+  ChatMessageAttachment attachment,
+) {
+  final stableId = attachment.attachmentId.isNotEmpty
+      ? attachment.attachmentId
+      : message.messageId.isNotEmpty
+          ? message.messageId
+          : attachment.contentUrl;
+  return 'chat-media-$stableId';
 }
 
 WidgetSpan _deliveryStatus(ColorScheme scheme) {
