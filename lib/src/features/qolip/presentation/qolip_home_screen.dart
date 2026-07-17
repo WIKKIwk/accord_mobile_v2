@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_usb_printer.dart';
+import '../../../core/print_service.dart';
+import '../../../core/print_transport.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -113,18 +116,32 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
       return;
     }
     try {
-      final printer = qolipPrinterChoiceForDriver(
-        kind: option.printerKind,
-        label: option.printerLabel,
-      );
-      final cellQr = await MobileApi.instance.qolipPrintCellQr(
+      final printer = option.transport.isOffline
+          ? option.offlinePrinter!.printer
+          : qolipPrinterChoiceForDriver(
+              kind: option.printerKind,
+              label: option.printerLabel,
+            );
+      final result = await MobileApi.instance.qolipPrintCellQr(
         block: block,
         rowLetter: rowLetter,
         columnNumber: columnNumber,
         driverUrl: option.driverUrl,
         printer: printer,
-        printMode: printer == 'godex' ? 'label' : 'rfid',
+        printMode: option.transport.isOffline
+            ? option.offlinePrinter!.printMode
+            : printer == 'godex'
+                ? 'label'
+                : 'rfid',
+        printTransport: option.transport,
       );
+      if (option.transport.isOffline) {
+        await PrintService.printRps(
+          result.printJob,
+          printerProfile: option.offlinePrinter,
+        );
+      }
+      final cellQr = result.cellQr;
       if (!mounted) {
         return;
       }
@@ -1735,12 +1752,23 @@ class QolipPrinterOption {
     required this.driverUrl,
     required this.printerKind,
     required this.printerLabel,
-  });
+    this.transport = PrintTransport.wifi,
+  }) : offlinePrinter = null;
 
-  final DiscoveredServer server;
+  QolipPrinterOption.offline(UsbPrinterProfile profile)
+      : server = null,
+        driverUrl = offlineUsbDriverUrl,
+        printerKind = profile.printer,
+        printerLabel = profile.displayName,
+        transport = PrintTransport.offline,
+        offlinePrinter = profile;
+
+  final DiscoveredServer? server;
   final String driverUrl;
   final String printerKind;
   final String printerLabel;
+  final PrintTransport transport;
+  final UsbPrinterProfile? offlinePrinter;
 }
 
 Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) {
@@ -1764,7 +1792,9 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
   final http.Client _client = http.Client();
   List<QolipPrinterOption> _options = const [];
   bool _loading = true;
+  bool _detectingOffline = false;
   String _error = '';
+  String _offlineError = '';
 
   @override
   void initState() {
@@ -1820,90 +1850,158 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
     }
   }
 
+  Future<void> _selectOfflinePrinter() async {
+    if (_detectingOffline) {
+      return;
+    }
+    setState(() {
+      _detectingOffline = true;
+      _offlineError = '';
+    });
+    try {
+      final profile = await PrintService.detectOfflinePrinter();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(QolipPrinterOption.offline(profile));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _detectingOffline = false;
+        _offlineError = 'USB printer aniqlanmadi: $error';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return FractionallySizedBox(
-      heightFactor: 0.62,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Printerni tanlang',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+    return DefaultTabController(
+      length: 2,
+      child: FractionallySizedBox(
+        heightFactor: 0.68,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Printerni tanlang',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _loading ? null : () => unawaited(_loadPrinters()),
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: 'Yangilash',
-                  ),
-                ],
-              ),
-              if (_loading) ...[
-                const SizedBox(height: 8),
-                const LinearProgressIndicator(),
-              ],
-              if (!_loading && _error.isNotEmpty) ...[
+                    IconButton(
+                      onPressed:
+                          _loading ? null : () => unawaited(_loadPrinters()),
+                      icon: const Icon(Icons.refresh_rounded),
+                      tooltip: 'Yangilash',
+                    ),
+                  ],
+                ),
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.errorContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      _error,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onErrorContainer,
-                        fontWeight: FontWeight.w700,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      ListView(
+                        children: [
+                          ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            tileColor: scheme.surfaceContainerHighest,
+                            leading: const Icon(Icons.usb_rounded),
+                            title: const Text('USB printer'),
+                            subtitle: const Text(
+                              'GoDEX yoki Zebra avtomatik aniqlanadi',
+                            ),
+                            trailing: _detectingOffline
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.chevron_right_rounded),
+                            onTap: _detectingOffline
+                                ? null
+                                : () => unawaited(_selectOfflinePrinter()),
+                          ),
+                          if (_offlineError.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _offlineError,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
+                      ListView(
+                        children: [
+                          if (_loading) const LinearProgressIndicator(),
+                          if (!_loading && _error.isNotEmpty)
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: scheme.errorContainer,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  _error,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onErrorContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          for (final option in _options) ...[
+                            const SizedBox(height: 8),
+                            ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              tileColor: scheme.surfaceContainerHighest,
+                              leading: const Icon(Icons.print_rounded),
+                              title: Text(
+                                printTargetLabel(option.server!),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${option.printerLabel} • ${option.driverUrl}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => Navigator.of(context).pop(option),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _options.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final option = _options[index];
-                    return ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      tileColor: scheme.surfaceContainerHighest,
-                      leading: const Icon(Icons.print_rounded),
-                      title: Text(
-                        printTargetLabel(option.server),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${option.printerLabel} • ${option.driverUrl}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => Navigator.of(context).pop(option),
-                    );
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2404,16 +2502,30 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
     setState(() => _printingQr = true);
     try {
-      final printer = qolipPrinterChoiceForDriver(
-        kind: option.printerKind,
-        label: option.printerLabel,
-      );
-      final qr = await MobileApi.instance.qolipPrintCodeQr(
+      final printer = option.transport.isOffline
+          ? option.offlinePrinter!.printer
+          : qolipPrinterChoiceForDriver(
+              kind: option.printerKind,
+              label: option.printerLabel,
+            );
+      final result = await MobileApi.instance.qolipPrintCodeQr(
         qolipCode: saved.qolipCode,
         driverUrl: option.driverUrl,
         printer: printer,
-        printMode: printer == 'godex' ? 'label' : 'rfid',
+        printMode: option.transport.isOffline
+            ? option.offlinePrinter!.printMode
+            : printer == 'godex'
+                ? 'label'
+                : 'rfid',
+        printTransport: option.transport,
       );
+      if (option.transport.isOffline) {
+        await PrintService.printRps(
+          result.printJob,
+          printerProfile: option.offlinePrinter,
+        );
+      }
+      final qr = result.qolipQr;
       if (!mounted) {
         return;
       }

@@ -1,6 +1,8 @@
 import '../gscale_mobile_app.dart';
 import '../../../app/app_router.dart';
 import '../../../core/session/session.dart';
+import '../../../core/native_usb_printer.dart';
+import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/logout_prompt.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -42,13 +44,21 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
 class _MaterialGScaleControlScreenState
     extends State<_MaterialGScaleControlScreen> {
   DiscoveredServer? _selectedServer;
+  UsbPrinterProfile? _offlinePrinter;
+  PrintTransport _printTransport = PrintTransport.wifi;
 
-  Future<void> _openServer(DiscoveredServer server) async {
+  Future<void> _applyDeviceSelection(GScaleDeviceSelection selection) async {
     if (!mounted) {
       return;
     }
     setState(() {
-      _selectedServer = server;
+      _printTransport = selection.transport;
+      if (selection.offlinePrinter != null) {
+        _offlinePrinter = selection.offlinePrinter;
+      }
+      if (selection.server != null) {
+        _selectedServer = selection.server;
+      }
     });
   }
 
@@ -62,25 +72,26 @@ class _MaterialGScaleControlScreenState
   }
 
   Future<void> _openServerPicker() async {
-    final server = await showModalBottomSheet<DiscoveredServer>(
+    final selection = await showModalBottomSheet<GScaleDeviceSelection>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (sheetContext) {
         return ServerPickerPage(
           onOpenServer: (server) {
-            Navigator.of(sheetContext).pop(server);
+            Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
           },
+          onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
           onExitMode: () async {
             Navigator.of(sheetContext).pop();
           },
         );
       },
     );
-    if (server == null) {
+    if (selection == null) {
       return;
     }
-    await _openServer(server);
+    await _applyDeviceSelection(selection);
   }
 
   void _openDrawerRoute(String route) {
@@ -116,6 +127,8 @@ class _MaterialGScaleControlScreenState
       ),
       child: OperatorDashboardPage(
         server: _selectedServer,
+        printTransport: _printTransport,
+        offlinePrinter: _offlinePrinter,
         onExitMode: () async {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();

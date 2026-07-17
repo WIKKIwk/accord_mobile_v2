@@ -28,9 +28,34 @@ extension MobileApiRezka on MobileApi {
   }
 
   Future<RezkaSplitResponse> rezkaSplit(RezkaSplitRequest request) async {
+    return _rezkaSplitRequest('/v1/mobile/rezka/split', request);
+  }
+
+  Future<RezkaSplitResponse> rezkaSplitClientPrintPrepare(
+    RezkaSplitRequest request,
+  ) {
+    return _rezkaSplitRequest(
+      '/v1/mobile/rezka/split/client-print/prepare',
+      request,
+    );
+  }
+
+  Future<RezkaSplitResponse> rezkaSplitClientPrintConfirm(
+    RezkaSplitRequest request,
+  ) {
+    return _rezkaSplitRequest(
+      '/v1/mobile/rezka/split/client-print/confirm',
+      request,
+    );
+  }
+
+  Future<RezkaSplitResponse> _rezkaSplitRequest(
+    String path,
+    RezkaSplitRequest request,
+  ) async {
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/rezka/split'),
+        Uri.parse('${MobileApi.baseUrl}$path'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode(request.toJson()),
@@ -143,10 +168,30 @@ class RezkaSplitRequest {
       'outputs': outputs.map((output) => output.toJson()).toList(),
     };
   }
+
+  RezkaSplitRequest withPreparedOutputs(List<RezkaOutputLabel> prepared) {
+    if (prepared.length != outputs.length) {
+      throw StateError('Rezka prepared output count mismatch');
+    }
+    return RezkaSplitRequest(
+      sourceBarcode: sourceBarcode,
+      sourceStockEntry: sourceStockEntry,
+      sourceLineIndex: sourceLineIndex,
+      reason: reason,
+      driverUrl: driverUrl,
+      printer: printer,
+      printMode: printMode,
+      outputs: [
+        for (var index = 0; index < outputs.length; index++)
+          outputs[index].copyWithEpc(prepared[index].epc),
+      ],
+    );
+  }
 }
 
 class RezkaSplitOutputRequest {
   const RezkaSplitOutputRequest({
+    this.epc = '',
     required this.itemCode,
     required this.itemName,
     required this.qty,
@@ -156,6 +201,7 @@ class RezkaSplitOutputRequest {
     this.printQr = true,
   });
 
+  final String epc;
   final String itemCode;
   final String itemName;
   final double qty;
@@ -166,6 +212,7 @@ class RezkaSplitOutputRequest {
 
   Map<String, dynamic> toJson() {
     return {
+      if (epc.trim().isNotEmpty) 'epc': epc.trim(),
       'item_code': itemCode.trim(),
       'item_name': itemName.trim(),
       'qty': qty,
@@ -174,6 +221,19 @@ class RezkaSplitOutputRequest {
       'reason': reason.trim(),
       'print_qr': printQr,
     };
+  }
+
+  RezkaSplitOutputRequest copyWithEpc(String value) {
+    return RezkaSplitOutputRequest(
+      epc: value,
+      itemCode: itemCode,
+      itemName: itemName,
+      qty: qty,
+      uom: uom,
+      targetWarehouse: targetWarehouse,
+      reason: reason,
+      printQr: printQr,
+    );
   }
 }
 

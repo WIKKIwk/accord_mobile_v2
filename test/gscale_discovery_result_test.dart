@@ -1,8 +1,35 @@
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const usbPrinterChannel = MethodChannel('accord/usb_printer');
+
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(usbPrinterChannel, (call) async {
+      if (call.method == 'detectPrinter') {
+        return <String, Object?>{
+          'ok': true,
+          'printer': 'godex',
+          'deviceName': '/dev/mock-usb-printer',
+          'vendorId': 0x195f,
+          'productId': 0x0001,
+          'manufacturerName': 'GoDEX',
+          'productName': 'G500',
+        };
+      }
+      return null;
+    });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(usbPrinterChannel, null);
+  });
+
   test(
     'mergeDiscoveryResults keeps current servers when fast scan is empty',
     () {
@@ -218,6 +245,28 @@ void main() {
       find.text('Scale ulangan va kg kelganda tugma aktiv bo‘ladi.'),
       findsNothing,
     );
+  });
+
+  testWidgets('device picker exposes Offline USB and existing WiFi tabs', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(GScaleMobileApp(onExitMode: () async {}));
+    await tester.pump();
+    await tester.tap(find.text('Qurilma tanlash'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('WiFi'), findsOneWidget);
+    expect(find.text('Offline rejimni tanlash'), findsOneWidget);
+
+    await tester.tap(find.text('Offline rejimni tanlash'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('GoDEX • G500'), findsOneWidget);
   });
 }
 

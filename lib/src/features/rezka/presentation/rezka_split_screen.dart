@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_usb_printer.dart';
+import '../../../core/print_service.dart';
+import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../gscale/gscale_mobile_app.dart'
@@ -50,12 +53,45 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   bool _loadingSource = false;
   bool _submitting = false;
   bool _discoveringPrinters = false;
+  bool _detectingOfflinePrinter = false;
+  UsbPrinterProfile? _offlinePrinter;
+  String? _offlinePrinterError;
+  PrintTransport _printTransport = PrintTransport.offline;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_detectOfflinePrinter());
     unawaited(_seedCachedPrinterServers());
     unawaited(_refreshPrinterDiscovery());
+  }
+
+  Future<UsbPrinterProfile?> _detectOfflinePrinter() async {
+    if (mounted) {
+      setState(() {
+        _detectingOfflinePrinter = true;
+        _offlinePrinterError = null;
+      });
+    }
+    try {
+      final profile = await PrintService.detectOfflinePrinter();
+      if (mounted) {
+        setState(() {
+          _offlinePrinter = profile;
+          _detectingOfflinePrinter = false;
+        });
+      }
+      return profile;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _offlinePrinter = null;
+          _detectingOfflinePrinter = false;
+          _offlinePrinterError = error.toString();
+        });
+      }
+      return null;
+    }
   }
 
   @override
@@ -210,8 +246,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   }
 
   Future<void> _loadSource() async {
-    final barcode =
-        _extractLookupBarcode(_barcodeController.text) ??
+    final barcode = _extractLookupBarcode(_barcodeController.text) ??
         _barcodeController.text.trim();
     if (barcode.isEmpty || _loadingSource) {
       return;
@@ -400,10 +435,14 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       return;
     }
     final outputs = <RezkaSplitOutputRequest>[];
-    final driverUrl = _driverUrlController.text.trim();
-    final printer = _printerController.text.trim();
-    final printMode = _printModeController.text.trim();
-    if (driverUrl.isEmpty || printer.isEmpty || printMode.isEmpty) {
+    final offline = _printTransport.isOffline;
+    final wifiDriverUrl = _driverUrlController.text.trim();
+    final wifiPrinter = _printerController.text.trim();
+    final wifiPrintMode = _printModeController.text.trim();
+    if (!offline &&
+        (wifiDriverUrl.isEmpty ||
+            wifiPrinter.isEmpty ||
+            wifiPrintMode.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Printer sozlamasi to‘liq emas.')),
       );
@@ -448,25 +487,68 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     if (!await _validateOutputTotal(source, quantities)) {
       return;
     }
+    final offlinePrinter = offline ? await _detectOfflinePrinter() : null;
+    if (offline && offlinePrinter == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('GoDEX yoki Zebra USB printer topilmadi.')),
+        );
+      }
+      return;
+    }
+    final driverUrl = offline ? offlineUsbDriverUrl : wifiDriverUrl;
+    final printer = offline ? offlinePrinter!.printer : wifiPrinter;
+    final printMode = offline ? offlinePrinter!.printMode : wifiPrintMode;
     setState(() => _submitting = true);
     try {
-      final response = await MobileApi.instance.rezkaSplit(
-        RezkaSplitRequest(
-          sourceBarcode: source.barcode,
-          sourceStockEntry: source.stockEntryName,
-          sourceLineIndex: source.lineIndex,
-          reason: _reasonController.text,
-          driverUrl: driverUrl,
-          printer: printer,
-          printMode: printMode,
-          outputs: outputs,
-        ),
+      final request = RezkaSplitRequest(
+        sourceBarcode: source.barcode,
+        sourceStockEntry: source.stockEntryName,
+        sourceLineIndex: source.lineIndex,
+        reason: _reasonController.text,
+        driverUrl: driverUrl,
+        printer: printer,
+        printMode: printMode,
+        outputs: outputs,
       );
+      final RezkaSplitResponse response;
+      if (offline) {
+        final prepared =
+            await MobileApi.instance.rezkaSplitClientPrintPrepare(request);
+        for (final output in prepared.outputs) {
+          if (!output.printQr || output.epc.trim().isEmpty) {
+            continue;
+          }
+          await PrintService.printRps(
+            UsbRpsPrintRequest(
+              epc: output.epc,
+              itemCode: output.itemCode,
+              itemName: output.itemName,
+              warehouse: output.warehouse,
+              printer: printer,
+              printMode: printMode,
+              grossQty: output.qty,
+              unit: output.uom,
+            ),
+            printerProfile: offlinePrinter,
+          );
+        }
+        response = await MobileApi.instance.rezkaSplitClientPrintConfirm(
+          request.withPreparedOutputs(prepared.outputs),
+        );
+      } else {
+        response = await MobileApi.instance.rezkaSplit(request);
+      }
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${response.outputs.length} ta QR chiqarildi.')),
+        SnackBar(
+          content: Text(
+            '${response.outputs.where((item) => item.printQr).length} ta QR chiqarildi.',
+          ),
+        ),
       );
     } catch (error) {
       if (mounted) {
@@ -480,18 +562,16 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   }
 
   void _showError(Object error) {
-    final message = error is MobileApiException
-        ? error.message
-        : error.toString();
+    final message =
+        error is MobileApiException ? error.message : error.toString();
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showRezkaSubmitError(Object error) {
-    final message = error is MobileApiException
-        ? error.message
-        : error.toString();
+    final message =
+        error is MobileApiException ? error.message : error.toString();
     final parsed = RegExp(
       r'output_total_must_equal_source_qty:([0-9.]+)!=([0-9.]+)',
     ).firstMatch(message);
@@ -596,14 +676,72 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             label: const Text('QR ni tekshirish'),
           ),
           const SizedBox(height: 12),
-          _PrinterDiscoveryCard(
-            server: _selectedPrinterServer,
-            result: _printerDiscovery,
-            driverUrl: _driverUrlController.text,
-            error: _printerDiscoveryError,
-            discovering: _discoveringPrinters,
-            onRefresh: () => _refreshPrinterDiscovery(),
-            onSelectServer: _setPrinterServer,
+          DefaultTabController(
+            length: 2,
+            initialIndex: _printTransport.isOffline ? 0 : 1,
+            child: Column(
+              children: [
+                TabBar(
+                  onTap: (index) {
+                    setState(() {
+                      _printTransport = index == 0
+                          ? PrintTransport.offline
+                          : PrintTransport.wifi;
+                    });
+                    if (index == 0) {
+                      unawaited(_detectOfflinePrinter());
+                    }
+                  },
+                  tabs: const [
+                    Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_printTransport.isOffline)
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const Icon(Icons.usb_rounded),
+                      title: Text(
+                        _offlinePrinter?.displayName ?? 'USB printer',
+                      ),
+                      subtitle: Text(
+                        _detectingOfflinePrinter
+                            ? 'GoDEX yoki Zebra aniqlanmoqda...'
+                            : _offlinePrinterError != null
+                                ? 'USB printer topilmadi'
+                                : '${_offlinePrinter!.printer.toUpperCase()} • ${_offlinePrinter!.printMode}',
+                      ),
+                      trailing: _detectingOfflinePrinter
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : IconButton(
+                              onPressed: () =>
+                                  unawaited(_detectOfflinePrinter()),
+                              icon: Icon(
+                                _offlinePrinter == null
+                                    ? Icons.refresh_rounded
+                                    : Icons.check_circle_rounded,
+                              ),
+                              tooltip: 'USB printerni qayta aniqlash',
+                            ),
+                    ),
+                  )
+                else
+                  _PrinterDiscoveryCard(
+                    server: _selectedPrinterServer,
+                    result: _printerDiscovery,
+                    driverUrl: _driverUrlController.text,
+                    error: _printerDiscoveryError,
+                    discovering: _discoveringPrinters,
+                    onRefresh: () => _refreshPrinterDiscovery(),
+                    onSelectServer: _setPrinterServer,
+                  ),
+              ],
+            ),
           ),
           if (source != null) ...[
             const SizedBox(height: 16),
@@ -716,18 +854,18 @@ class _PrinterDiscoveryCard extends StatelessWidget {
     final isBusy = activity?.busy ?? false;
     final title = selected == null
         ? discovering
-              ? 'Printer qidirilmoqda'
-              : 'Printer fallback'
+            ? 'Printer qidirilmoqda'
+            : 'Printer fallback'
         : isBusy
-        ? 'Printer band'
-        : selected.handshake.displayName.trim().isEmpty
-        ? selected.endpoint.label
-        : selected.handshake.displayName;
+            ? 'Printer band'
+            : selected.handshake.displayName.trim().isEmpty
+                ? selected.endpoint.label
+                : selected.handshake.displayName;
     final subtitle = selected == null
         ? driverUrl
         : isBusy
-        ? activity!.displayDetail
-        : '${selected.endpoint.label} • ${selected.latencyMs} ms';
+            ? activity!.displayDetail
+            : '${selected.endpoint.label} • ${selected.latencyMs} ms';
     return Card(
       child: Theme(
         data: theme.copyWith(
@@ -832,8 +970,8 @@ class _PrinterDiscoveryCard extends StatelessWidget {
                     final itemTitle = itemBusy
                         ? 'Band'
                         : item.handshake.displayName.trim().isEmpty
-                        ? item.endpoint.label
-                        : item.handshake.displayName;
+                            ? item.endpoint.label
+                            : item.handshake.displayName;
                     return ListTile(
                       dense: true,
                       minVerticalPadding: 4,
@@ -924,8 +1062,8 @@ class _OutputCard extends StatelessWidget {
     final theme = Theme.of(context);
     final itemLabel = output.printQr
         ? output.itemCode.trim().isEmpty
-              ? 'Mahsulot tanlang'
-              : '${output.itemName} (${output.itemCode})'
+            ? 'Mahsulot tanlang'
+            : '${output.itemName} (${output.itemCode})'
         : 'Atxot: QR chiqarilmaydi';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),

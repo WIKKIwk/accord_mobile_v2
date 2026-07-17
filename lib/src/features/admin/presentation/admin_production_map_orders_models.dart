@@ -27,6 +27,9 @@ class _ReadOnlyQueueActionRequest {
     this.qrPayload = '',
     this.progressBatchId = '',
     this.driverUrl = '',
+    this.printTransport = PrintTransport.wifi,
+    this.printer = '',
+    this.printMode = '',
     this.completionRequestNote = '',
     this.returnedPaintItems = const [],
     this.returnedPaintImageId = '',
@@ -52,6 +55,9 @@ class _ReadOnlyQueueActionRequest {
   final String qrPayload;
   final String progressBatchId;
   final String driverUrl;
+  final PrintTransport printTransport;
+  final String printer;
+  final String printMode;
   final String completionRequestNote;
   final List<ReturnedPaintItemInput> returnedPaintItems;
   final String returnedPaintImageId;

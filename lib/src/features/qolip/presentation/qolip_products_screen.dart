@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/print_service.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -92,16 +93,30 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       return;
     }
     try {
-      final printer = qolipPrinterChoiceForDriver(
-        kind: option.printerKind,
-        label: option.printerLabel,
-      );
-      final qr = await MobileApi.instance.qolipPrintCodeQr(
+      final printer = option.transport.isOffline
+          ? option.offlinePrinter!.printer
+          : qolipPrinterChoiceForDriver(
+              kind: option.printerKind,
+              label: option.printerLabel,
+            );
+      final result = await MobileApi.instance.qolipPrintCodeQr(
         qolipCode: code,
         driverUrl: option.driverUrl,
         printer: printer,
-        printMode: printer == 'godex' ? 'label' : 'rfid',
+        printMode: option.transport.isOffline
+            ? option.offlinePrinter!.printMode
+            : printer == 'godex'
+                ? 'label'
+                : 'rfid',
+        printTransport: option.transport,
       );
+      if (option.transport.isOffline) {
+        await PrintService.printRps(
+          result.printJob,
+          printerProfile: option.offlinePrinter,
+        );
+      }
+      final qr = result.qolipQr;
       if (!mounted) {
         return;
       }

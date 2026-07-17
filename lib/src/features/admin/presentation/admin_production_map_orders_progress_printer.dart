@@ -5,11 +5,27 @@ class _ProgressPrinterOption {
     required this.server,
     required this.driverUrl,
     required this.printerLabel,
-  });
+    this.printer = '',
+    this.printMode = '',
+  })  : transport = PrintTransport.wifi,
+        offlinePrinter = null;
 
-  final DiscoveredServer server;
+  _ProgressPrinterOption.offline(UsbPrinterProfile profile)
+      : server = null,
+        driverUrl = offlineUsbDriverUrl,
+        printerLabel = profile.displayName,
+        transport = PrintTransport.offline,
+        printer = profile.printer,
+        printMode = profile.printMode,
+        offlinePrinter = profile;
+
+  final DiscoveredServer? server;
   final String driverUrl;
   final String printerLabel;
+  final PrintTransport transport;
+  final String printer;
+  final String printMode;
+  final UsbPrinterProfile? offlinePrinter;
 }
 
 Future<_ProgressPrinterOption?> _showProgressPrinterPicker(
@@ -23,14 +39,22 @@ Future<_ProgressPrinterOption?> _showProgressPrinterPicker(
   );
 }
 
-Future<String?> _pickProgressDriverUrl(
+Future<_ProgressPrinterOption?> _pickProgressPrinter(
   BuildContext context,
   Future<String?> Function(BuildContext context)? progressDriverUrlPicker,
 ) async {
   if (progressDriverUrlPicker != null) {
-    return progressDriverUrlPicker(context);
+    final driverUrl = await progressDriverUrlPicker(context);
+    if (driverUrl == null) {
+      return null;
+    }
+    return _ProgressPrinterOption(
+      server: null,
+      driverUrl: driverUrl,
+      printerLabel: 'RPS printer',
+    );
   }
-  return (await _showProgressPrinterPicker(context))?.driverUrl;
+  return _showProgressPrinterPicker(context);
 }
 
 class _ProgressPrinterPickerSheet extends StatefulWidget {
@@ -46,7 +70,9 @@ class _ProgressPrinterPickerSheetState
   final http.Client _client = http.Client();
   List<_ProgressPrinterOption> _options = const [];
   bool _loading = true;
+  bool _detectingOffline = false;
   String _error = '';
+  String _offlineError = '';
 
   @override
   void initState() {
@@ -102,90 +128,158 @@ class _ProgressPrinterPickerSheetState
     }
   }
 
+  Future<void> _selectOfflinePrinter() async {
+    if (_detectingOffline) {
+      return;
+    }
+    setState(() {
+      _detectingOffline = true;
+      _offlineError = '';
+    });
+    try {
+      final profile = await PrintService.detectOfflinePrinter();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(_ProgressPrinterOption.offline(profile));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _detectingOffline = false;
+        _offlineError = 'USB printer aniqlanmadi: $error';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return FractionallySizedBox(
-      heightFactor: 0.62,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Printerni tanlang',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+    return DefaultTabController(
+      length: 2,
+      child: FractionallySizedBox(
+        heightFactor: 0.68,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Printerni tanlang',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _loading ? null : () => unawaited(_loadPrinters()),
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: 'Yangilash',
-                  ),
-                ],
-              ),
-              if (_loading) ...[
-                const SizedBox(height: 8),
-                const LinearProgressIndicator(),
-              ],
-              if (!_loading && _error.isNotEmpty) ...[
+                    IconButton(
+                      onPressed:
+                          _loading ? null : () => unawaited(_loadPrinters()),
+                      icon: const Icon(Icons.refresh_rounded),
+                      tooltip: 'Yangilash',
+                    ),
+                  ],
+                ),
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.errorContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      _error,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onErrorContainer,
-                        fontWeight: FontWeight.w700,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      ListView(
+                        children: [
+                          ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            tileColor: scheme.surfaceContainerHighest,
+                            leading: const Icon(Icons.usb_rounded),
+                            title: const Text('USB printer'),
+                            subtitle: const Text(
+                              'GoDEX yoki Zebra avtomatik aniqlanadi',
+                            ),
+                            trailing: _detectingOffline
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.chevron_right_rounded),
+                            onTap: _detectingOffline
+                                ? null
+                                : () => unawaited(_selectOfflinePrinter()),
+                          ),
+                          if (_offlineError.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _offlineError,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
+                      ListView(
+                        children: [
+                          if (_loading) const LinearProgressIndicator(),
+                          if (!_loading && _error.isNotEmpty)
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: scheme.errorContainer,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  _error,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onErrorContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          for (final option in _options) ...[
+                            const SizedBox(height: 8),
+                            ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              tileColor: scheme.surfaceContainerHighest,
+                              leading: const Icon(Icons.print_rounded),
+                              title: Text(
+                                printTargetLabel(option.server!),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${option.printerLabel} • ${option.driverUrl}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => Navigator.of(context).pop(option),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _options.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final option = _options[index];
-                    return ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      tileColor: scheme.surfaceContainerHighest,
-                      leading: const Icon(Icons.print_rounded),
-                      title: Text(
-                        printTargetLabel(option.server),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${option.printerLabel} • ${option.driverUrl}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => Navigator.of(context).pop(option),
-                    );
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -241,6 +335,8 @@ Future<_ProgressPrinterOption?> _connectedProgressPrinter(
       server: server,
       driverUrl: driverUrlForRs(server).replaceFirst(RegExp(r'/+$'), ''),
       printerLabel: _jsonText(printerRaw['label'], fallback: kind),
+      printer: kind,
+      printMode: kind.trim().toLowerCase() == 'godex' ? 'label' : 'rfid',
     );
   } catch (_) {
     return null;

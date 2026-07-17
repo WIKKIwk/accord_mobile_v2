@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../app/app_router.dart';
 import '../../../core/native_usb_printer.dart';
+import '../../../core/print_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'widgets/admin_shell.dart';
@@ -34,7 +35,7 @@ class _AdminUsbPrinterTestScreenState extends State<AdminUsbPrinterTestScreen> {
       _status = 'Yuborilmoqda...';
     });
     try {
-      final result = await NativeUsbPrinter.printRpsTest(
+      final result = await PrintService.printRpsTest(
         UsbRpsPrintRequest.test(
           epc: _payloadController.text.trim().isEmpty
               ? 'RPS-USB-TEST'

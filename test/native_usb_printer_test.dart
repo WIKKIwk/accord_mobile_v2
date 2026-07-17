@@ -50,4 +50,49 @@ void main() {
     expect(response.vendorId, 1234);
     expect(response.productId, 5678);
   });
+
+  test('parses backend progress label into the shared USB print request', () {
+    final request = UsbRpsPrintRequest.fromPrintJson(const {
+      'ok': true,
+      'qr_payload': '303132333435363738394142',
+      'item_code': 'ORDER-2',
+      'item_name': 'Progress label',
+      'executor_name': 'Ali',
+      'gross_qty': 12.5,
+      'qty': 35.75,
+      'unit': 'kg',
+      'progress_unit': 'm',
+      'label_kind': 'progress',
+      'printer': 'godex',
+      'print_mode': 'label',
+      'print_count': 2,
+    });
+
+    expect(request.epc, '303132333435363738394142');
+    expect(request.warehouse, 'Ijrochi: Ali');
+    expect(request.isProgressLabel, isTrue);
+    expect(request.effectiveProgressQty, 35.75);
+    expect(request.progressUnit, 'm');
+    expect(request.printCount, 2);
+  });
+
+  test('parses detected Zebra USB profile and applies its defaults', () {
+    final profile = UsbPrinterProfile.fromMap(const {
+      'printer': 'zebra',
+      'deviceName': '/dev/bus/usb/001/002',
+      'vendorId': 0x0a5f,
+      'productId': 0x0164,
+      'manufacturerName': 'Zebra Technologies',
+      'productName': 'ZT411R',
+    });
+    final request = UsbRpsPrintRequest.test(
+      epc: '303132333435363738394142',
+    ).forPrinter(profile);
+
+    expect(profile.kind, UsbPrinterKind.zebra);
+    expect(profile.printMode, 'rfid');
+    expect(profile.displayName, 'Zebra • ZT411R');
+    expect(request.printer, 'zebra');
+    expect(request.printMode, 'rfid');
+  });
 }

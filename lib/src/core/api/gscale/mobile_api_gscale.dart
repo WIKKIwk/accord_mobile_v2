@@ -151,6 +151,54 @@ extension MobileApiGScale on MobileApi {
     }
     return GScaleMaterialReceiptPrintResponse.fromJson(payload);
   }
+
+  Future<GScaleMaterialReceiptPrintResponse> gscaleRpsBatchClientPrintPrepare(
+    GScaleRpsBatchPrintRequest request,
+  ) async {
+    return _gscaleRpsBatchClientPrintRequest(
+      '/v1/mobile/rps/batch/client-print/prepare',
+      request.toJson(),
+      fallbackCode: 'rps_batch_client_print_prepare_failed',
+    );
+  }
+
+  Future<GScaleMaterialReceiptPrintResponse> gscaleRpsBatchClientPrintConfirm(
+    GScaleRpsBatchPrintRequest request, {
+    required String epc,
+  }) async {
+    return _gscaleRpsBatchClientPrintRequest(
+      '/v1/mobile/rps/batch/client-print/confirm',
+      {...request.toJson(), 'epc': epc.trim()},
+      fallbackCode: 'rps_batch_client_print_confirm_failed',
+    );
+  }
+
+  Future<GScaleMaterialReceiptPrintResponse> _gscaleRpsBatchClientPrintRequest(
+    String path,
+    Map<String, dynamic> body, {
+    required String fallbackCode,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}$path'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(body),
+      ),
+    );
+    final payload = _gscaleDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code: _gscaleText(payload['error'], fallback: fallbackCode),
+        message: _gscaleText(
+          payload['detail'],
+          fallback: _gscaleText(payload['message'], fallback: fallbackCode),
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    return GScaleMaterialReceiptPrintResponse.fromJson(payload);
+  }
 }
 
 class GScaleRpsBatchStartRequest {
@@ -346,6 +394,23 @@ class GScaleMaterialReceiptPrintResponse {
   final String printMode;
   final String printerStatus;
   final int printCount;
+
+  UsbRpsPrintRequest toUsbPrintRequest() {
+    final tareKg = (grossQty - netQty).clamp(0, double.infinity).toDouble();
+    return UsbRpsPrintRequest(
+      epc: epc,
+      itemCode: itemCode,
+      itemName: itemName,
+      warehouse: warehouse,
+      printer: 'godex',
+      printMode: 'label',
+      grossQty: grossQty,
+      unit: unit,
+      tareEnabled: tareKg > 0,
+      tareKg: tareKg,
+      printCount: printCount,
+    );
+  }
 }
 
 Map<String, dynamic> _gscaleDecodeObject(String body) {

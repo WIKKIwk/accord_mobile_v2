@@ -12,6 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/mobile_api.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_controller.dart';
+import '../../core/native_usb_printer.dart';
+import '../../core/print_service.dart';
+import '../../core/print_transport.dart';
 import '../../core/session/session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
@@ -51,6 +54,35 @@ const _configuredApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: _defaultWifiServerAddress,
 );
+
+class GScaleDeviceSelection {
+  const GScaleDeviceSelection.wifi(DiscoveredServer this.server)
+      : transport = PrintTransport.wifi,
+        offlinePrinter = null;
+
+  const GScaleDeviceSelection.offline(this.offlinePrinter)
+      : transport = PrintTransport.offline,
+        server = null;
+
+  final PrintTransport transport;
+  final DiscoveredServer? server;
+  final UsbPrinterProfile? offlinePrinter;
+}
+
+Future<void> selectOfflineGScalePrinter(BuildContext context) async {
+  try {
+    final profile = await PrintService.detectOfflinePrinter();
+    if (context.mounted) {
+      Navigator.of(context).pop(GScaleDeviceSelection.offline(profile));
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('USB printer aniqlanmadi: $error')),
+      );
+    }
+  }
+}
 
 class GScalePickerEmptyCopy {
   const GScalePickerEmptyCopy({
@@ -124,6 +156,8 @@ class GScaleMobileApp extends StatefulWidget {
 
 class _GScaleMobileAppState extends State<GScaleMobileApp> {
   DiscoveredServer? _selectedServer;
+  UsbPrinterProfile? _offlinePrinter;
+  PrintTransport _printTransport = PrintTransport.wifi;
 
   @override
   void initState() {
@@ -142,35 +176,42 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
     }
   }
 
-  Future<void> _openServer(DiscoveredServer server) async {
+  Future<void> _applyDeviceSelection(GScaleDeviceSelection selection) async {
     if (!mounted) {
       return;
     }
     setState(() {
-      _selectedServer = server;
+      _printTransport = selection.transport;
+      if (selection.offlinePrinter != null) {
+        _offlinePrinter = selection.offlinePrinter;
+      }
+      if (selection.server != null) {
+        _selectedServer = selection.server;
+      }
     });
   }
 
   Future<void> _openServerPicker(BuildContext context) async {
-    final server = await showModalBottomSheet<DiscoveredServer>(
+    final selection = await showModalBottomSheet<GScaleDeviceSelection>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (sheetContext) {
         return ServerPickerPage(
           onOpenServer: (server) {
-            Navigator.of(sheetContext).pop(server);
+            Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
           },
+          onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
           onExitMode: () async {
             Navigator.of(sheetContext).pop();
           },
         );
       },
     );
-    if (server == null) {
+    if (selection == null) {
       return;
     }
-    await _openServer(server);
+    await _applyDeviceSelection(selection);
   }
 
   void _clearSelectedServer() {
@@ -193,6 +234,8 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
         if (widget.embedded) {
           return OperatorDashboardPage(
             server: _selectedServer,
+            printTransport: _printTransport,
+            offlinePrinter: _offlinePrinter,
             onExitMode: widget.onExitMode,
             onChangeServer: () => _openServerPicker(context),
             onServerUnavailable: _clearSelectedServer,
@@ -219,6 +262,8 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
             builder: (context) {
               return OperatorDashboardPage(
                 server: _selectedServer,
+                printTransport: _printTransport,
+                offlinePrinter: _offlinePrinter,
                 onExitMode: widget.onExitMode,
                 onChangeServer: () => _openServerPicker(context),
                 onServerUnavailable: _clearSelectedServer,
@@ -234,11 +279,13 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
 class ServerPickerPage extends StatefulWidget {
   const ServerPickerPage({
     required this.onOpenServer,
+    required this.onSelectOffline,
     required this.onExitMode,
     super.key,
   });
 
   final ValueChanged<DiscoveredServer> onOpenServer;
+  final Future<void> Function() onSelectOffline;
   final Future<void> Function() onExitMode;
 
   @override
@@ -348,40 +395,54 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
           unawaited(_confirmExitAndClose());
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: AppTheme.appBarHeight,
-          leading: IconButton(
-            onPressed: widget.onExitMode,
-            icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          ),
-          title: const Text('Tarozilar rejimi'),
-          actions: [
-            IconButton(
-              onPressed: _openManualEntrySheet,
-              icon: const Icon(Icons.add_link_rounded),
-              tooltip: 'Add',
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            toolbarHeight: AppTheme.appBarHeight,
+            leading: IconButton(
+              onPressed: widget.onExitMode,
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             ),
-          ],
-        ),
-        body: RefreshIndicator(
-          onRefresh: _scan,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+            title: const Text('Tarozilar rejimi'),
+            actions: [
+              IconButton(
+                onPressed: _openManualEntrySheet,
+                icon: const Icon(Icons.add_link_rounded),
+                tooltip: 'WiFi server qo‘shish',
+              ),
+            ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'Offline'),
+                Tab(text: 'WiFi'),
+              ],
+            ),
+          ),
+          body: TabBarView(
             children: [
-              const _DeviceSelectionHeader(),
-              if (_scanning && servers.isEmpty) const _ScanningState(),
-              if (!_scanning && servers.isEmpty)
-                _EmptyServerState(
-                  onRetry: _scan,
+              _OfflineUsbSelection(onSelect: widget.onSelectOffline),
+              RefreshIndicator(
+                onRefresh: _scan,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                  children: [
+                    const _DeviceSelectionHeader(),
+                    if (_scanning && servers.isEmpty) const _ScanningState(),
+                    if (!_scanning && servers.isEmpty)
+                      _EmptyServerState(
+                        onRetry: _scan,
+                      ),
+                    if (servers.isNotEmpty)
+                      _ServerList(
+                        servers: servers,
+                        onOpenServer: widget.onOpenServer,
+                      ),
+                  ],
                 ),
-              if (servers.isNotEmpty)
-                _ServerList(
-                  servers: servers,
-                  onOpenServer: widget.onOpenServer,
-                ),
+              ),
             ],
           ),
         ),
@@ -395,12 +456,16 @@ class OperatorDashboardPage extends StatefulWidget {
     required this.server,
     required this.onExitMode,
     required this.onChangeServer,
+    this.printTransport = PrintTransport.wifi,
+    this.offlinePrinter,
     this.controlOnly = false,
     this.onServerUnavailable,
     super.key,
   });
 
   final DiscoveredServer? server;
+  final PrintTransport printTransport;
+  final UsbPrinterProfile? offlinePrinter;
   final Future<void> Function() onExitMode;
   final Future<void> Function() onChangeServer;
   final bool controlOnly;
@@ -1425,7 +1490,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     required double grossQtyKg,
   }) async {
     final server = widget.server;
-    if (server == null) {
+    if (widget.printTransport == PrintTransport.wifi && server == null) {
       throw Exception('Avval printer yoki tarozini tanlang');
     }
     final item = _selectedItem;
@@ -1444,12 +1509,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (_babinaEnabled && tareKg == null) {
       throw Exception("Babina og'irligini kg da to'g'ri kiriting");
     }
-    final printer = normalizePrinterChoice(_batchPrinter);
-    final printMode = printer == 'godex'
-        ? 'label'
-        : (_batchPrintMode == 'label' ? 'label' : 'rfid');
+    final offlinePrinter = widget.printTransport.isOffline
+        ? widget.offlinePrinter ?? await PrintService.detectOfflinePrinter()
+        : null;
+    final printer =
+        offlinePrinter?.printer ?? normalizePrinterChoice(_batchPrinter);
+    final printMode = offlinePrinter?.printMode ??
+        (printer == 'godex'
+            ? 'label'
+            : (_batchPrintMode == 'label' ? 'label' : 'rfid'));
     final api = MobileApi.instance;
-    final driverUrl = driverUrlForRs(server);
+    final driverUrl = widget.printTransport.isOffline
+        ? offlineUsbDriverUrl
+        : driverUrlForRs(server!);
     final started = await api
         .gscaleRpsBatchStart(
           buildGScaleRpsBatchStartRequest(
@@ -1489,7 +1561,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     int printCount = 1,
   }) async {
     final server = widget.server;
-    if (server == null) {
+    if (widget.printTransport == PrintTransport.wifi && server == null) {
       throw Exception('Avval printer yoki tarozini tanlang');
     }
     final tareKg =
@@ -1502,16 +1574,31 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       throw Exception('Netto kg juda kichik');
     }
     final api = MobileApi.instance;
-    final driverUrl = driverUrlForRs(server);
-    final response = await api
-        .gscaleRpsBatchPrint(
-          buildGScaleRpsBatchPrintRequest(
-            grossQtyKg: grossQtyKg,
-            driverUrl: driverUrl,
-            printCount: printCount,
-          ),
-        )
-        .timeout(const Duration(seconds: 15));
+    final driverUrl = widget.printTransport.isOffline
+        ? offlineUsbDriverUrl
+        : driverUrlForRs(server!);
+    final request = buildGScaleRpsBatchPrintRequest(
+      grossQtyKg: grossQtyKg,
+      driverUrl: driverUrl,
+      printCount: printCount,
+    );
+    late final GScaleMaterialReceiptPrintResponse response;
+    if (widget.printTransport.isOffline) {
+      final prepared = await api
+          .gscaleRpsBatchClientPrintPrepare(request)
+          .timeout(const Duration(seconds: 15));
+      await PrintService.printRps(
+        prepared.toUsbPrintRequest(),
+        printerProfile: widget.offlinePrinter,
+      );
+      response = await api
+          .gscaleRpsBatchClientPrintConfirm(request, epc: prepared.epc)
+          .timeout(const Duration(seconds: 15));
+    } else {
+      response = await api
+          .gscaleRpsBatchPrint(request)
+          .timeout(const Duration(seconds: 15));
+    }
     unawaited(_refreshRsBatchState());
     return response;
   }
@@ -1614,8 +1701,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         content: Text(
           buildPrintSuccessMessage(
             response,
-            serverLabel:
-                server == null ? 'Tanlanmagan' : printTargetLabel(server),
+            serverLabel: widget.printTransport.isOffline
+                ? 'Offline • USB printer'
+                : server == null
+                    ? 'Tanlanmagan'
+                    : printTargetLabel(server),
           ),
         ),
       ),
@@ -1716,6 +1806,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   String _currentArchivePrinterChoice() {
+    if (widget.printTransport.isOffline) {
+      return widget.offlinePrinter?.printer ?? 'godex';
+    }
     final livePrinter = _snapshot.livePrinterChoice;
     if (livePrinter.isNotEmpty) {
       return livePrinter;
@@ -1794,6 +1887,51 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       _archiveError = '';
     });
     try {
+      if (widget.printTransport.isOffline) {
+        if (session.prints.isEmpty) {
+          throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
+        }
+        final entry = session.prints.last;
+        if (entry.epc.trim().isEmpty) {
+          throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
+        }
+        final grossQty = entry.grossQty > 0
+            ? entry.grossQty
+            : session.grossQty > 0
+                ? session.grossQty
+                : entry.netQty;
+        final netQty = entry.netQty > 0 ? entry.netQty : entry.qty;
+        await PrintService.printRps(
+          UsbRpsPrintRequest(
+            epc: entry.epc,
+            itemCode:
+                entry.itemCode.isEmpty ? session.itemCode : entry.itemCode,
+            itemName:
+                entry.itemName.isEmpty ? session.itemName : entry.itemName,
+            warehouse: session.warehouse,
+            printer: widget.offlinePrinter?.printer ?? 'godex',
+            printMode: widget.offlinePrinter?.printMode ?? 'label',
+            grossQty: grossQty,
+            unit: entry.unit.isEmpty ? session.displayUnit : entry.unit,
+            tareEnabled: grossQty > netQty,
+            tareKg: (grossQty - netQty).clamp(0, double.infinity).toDouble(),
+          ),
+          printerProfile: widget.offlinePrinter,
+        );
+        if (!mounted) {
+          return;
+        }
+        final displayName = session.displayItemName.isEmpty
+            ? 'Partiya'
+            : session.displayItemName;
+        setState(() {
+          _archivePrintLoadingSessionId = '';
+        });
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text('$displayName USB printerda chop etildi')),
+        );
+        return;
+      }
       final response = await _client
           .post(
             _apiUri('/v1/mobile/archive/print'),
@@ -2357,7 +2495,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     ColorScheme scheme,
     DiscoveredServer? server,
   ) {
-    final hasDevice = server != null;
+    final hasScaleDevice = server != null;
+    final hasPrintDevice = widget.printTransport.isOffline || hasScaleDevice;
     final selectedProduct = _selectedItem;
     final selectedWarehouse = _selectedWarehouse;
     final defaultWarehouse = _currentDefaultWarehouse;
@@ -2402,23 +2541,32 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           manualPrintLoading: _manualPrintLoading,
           batchActionLoading: _batchActionLoading,
         ) &&
-        hasDevice;
-    final printerStatusText = _printerStatusOverride.isNotEmpty
-        ? _printerStatusOverride
-        : !_snapshot.hasPrinterState
-            ? _errorText.isEmpty
-                ? 'Printer holati olinmoqda'
-                : 'Printer holati olinmadi'
-            : _snapshot.printerLabel;
+        hasScaleDevice;
+    final printerStatusText = widget.printTransport.isOffline
+        ? 'USB printer • Offline'
+        : _printerStatusOverride.isNotEmpty
+            ? _printerStatusOverride
+            : !_snapshot.hasPrinterState
+                ? _errorText.isEmpty
+                    ? 'Printer holati olinmoqda'
+                    : 'Printer holati olinmadi'
+                : _snapshot.printerLabel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        if (!hasDevice) ...[
+        if (!hasPrintDevice) ...[
           _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
           const SizedBox(height: 18),
         ],
-        if (hasDevice) ...[
+        if (widget.printTransport.isOffline && !hasScaleDevice) ...[
+          _OfflinePrintStatus(
+            onChangeMode: widget.onChangeServer,
+            printer: widget.offlinePrinter,
+          ),
+          const SizedBox(height: 18),
+        ],
+        if (hasScaleDevice) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2449,8 +2597,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                       const SizedBox(height: 8),
                       _MiniIconRow(
                         icon: Icons.link_rounded,
-                        text:
-                            '${printTargetLabel(server)} • ${server.endpoint.label}',
+                        text: widget.printTransport.isOffline
+                            ? 'Scale • ${server.endpoint.label}'
+                            : '${printTargetLabel(server)} • ${server.endpoint.label}',
                       ),
                     ],
                   ),
@@ -2680,7 +2829,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   child: IconButton.filled(
                     tooltip: 'Chop etish',
                     onPressed: hasPrintSelection &&
-                            hasDevice &&
+                            hasPrintDevice &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
@@ -2768,7 +2917,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 color: scheme.onSurfaceVariant,
               ),
             ),
-          ] else if (hasDevice && scaleQtyKg == null) ...[
+          ] else if (hasScaleDevice && scaleQtyKg == null) ...[
             const SizedBox(height: 6),
             Text(
               'Scale ulangan va kg kelganda tugma aktiv bo‘ladi.',
@@ -3543,6 +3692,154 @@ class _DeviceSelectionHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfflineUsbSelection extends StatefulWidget {
+  const _OfflineUsbSelection({required this.onSelect});
+
+  final Future<void> Function() onSelect;
+
+  @override
+  State<_OfflineUsbSelection> createState() => _OfflineUsbSelectionState();
+}
+
+class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
+  bool _detecting = false;
+
+  Future<void> _select() async {
+    if (_detecting) {
+      return;
+    }
+    setState(() => _detecting = true);
+    try {
+      await widget.onSelect();
+    } finally {
+      if (mounted) {
+        setState(() => _detecting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      children: [
+        Card.filled(
+          color: scheme.surfaceContainerLow,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.usb_rounded, color: scheme.primary, size: 30),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'USB printer',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Printer Android qurilmaga USB orqali ulanadi. '
+                  'RPS service va printer WiFi tarmog‘i talab qilinmaydi.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _detecting ? null : _select,
+                    icon: _detecting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.usb_rounded),
+                    label: Text(
+                      _detecting
+                          ? 'USB printer aniqlanmoqda...'
+                          : 'Offline rejimni tanlash',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OfflinePrintStatus extends StatelessWidget {
+  const _OfflinePrintStatus({
+    required this.onChangeMode,
+    required this.printer,
+  });
+
+  final Future<void> Function() onChangeMode;
+  final UsbPrinterProfile? printer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(Icons.usb_rounded, color: scheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    printer?.displayName ?? 'Offline USB printer',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    printer == null
+                        ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
+                        : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () => unawaited(onChangeMode()),
+              icon: const Icon(Icons.swap_horiz_rounded),
+              tooltip: 'Print rejimini almashtirish',
+            ),
+          ],
+        ),
       ),
     );
   }

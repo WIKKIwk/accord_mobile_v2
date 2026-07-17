@@ -38,8 +38,27 @@ class UsbPrinterChannel(
         when (call.method) {
             "printTest" -> printTest(call, result)
             "printRpsTest" -> printRpsTest(call, result)
+            "detectPrinter" -> detectPrinter(result)
+            "printRaw" -> printRaw(call, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun detectPrinter(result: MethodChannel.Result) {
+        val printer = findPrinterCandidate()
+        if (printer == null) {
+            result.error("usb_printer_not_found", "USB printer not found", null)
+            return
+        }
+        if (printer.profile.kind == UsbPrinterKind.UNKNOWN) {
+            result.error(
+                "usb_printer_unsupported",
+                "USB printer is neither GoDEX nor Zebra",
+                printer.profile.response(printer.device),
+            )
+            return
+        }
+        result.success(printer.profile.response(printer.device))
     }
 
     private fun printTest(call: MethodCall, result: MethodChannel.Result) {
@@ -85,6 +104,73 @@ class UsbPrinterChannel(
         startPrint(request)
     }
 
+    private fun printRaw(call: MethodCall, result: MethodChannel.Result) {
+        if (pendingPrint != null) {
+            result.error("usb_printer_busy", "Printer permission request is already open", null)
+            return
+        }
+        val printer = findPrinterCandidate()
+        if (printer == null) {
+            result.error("usb_printer_not_found", "USB printer not found", null)
+            return
+        }
+        val bytes = rawBytes(call)
+        if (bytes == null || bytes.isEmpty()) {
+            result.error("usb_printer_invalid_payload", "Raw USB payload is empty", null)
+            return
+        }
+        val expectedPrinter = UsbPrinterKind.fromValue(
+            call.argument<String>("printer_kind").orEmpty(),
+        )
+        if (printer.profile.kind == UsbPrinterKind.UNKNOWN) {
+            result.error(
+                "usb_printer_unsupported",
+                "USB printer is neither GoDEX nor Zebra",
+                printer.profile.response(printer.device),
+            )
+            return
+        }
+        if (expectedPrinter != UsbPrinterKind.UNKNOWN &&
+            expectedPrinter != printer.profile.kind
+        ) {
+            result.error(
+                "usb_printer_changed",
+                "Connected USB printer changed before print",
+                printer.profile.response(printer.device),
+            )
+            return
+        }
+        val printCount = call.argument<Number>("print_count")?.toInt()
+            ?.takeIf { it > 0 }
+            ?: 1
+        val payload = repeatBytes(bytes, printCount)
+        val request = PendingUsbPrint(printer.device, payload, result) { device, sent ->
+            mapOf(
+                "ok" to true,
+                "status" to "done",
+                "printer_status" to "USB OK",
+                "print_count" to printCount,
+                "bytes" to sent,
+                "deviceName" to device.deviceName,
+                "vendorId" to device.vendorId,
+                "productId" to device.productId,
+                "printer" to printer.profile.kind.value,
+                "manufacturerName" to printer.profile.manufacturerName,
+                "productName" to printer.profile.productName,
+            )
+        }
+        startPrint(request)
+    }
+
+    private fun rawBytes(call: MethodCall): ByteArray? {
+        val value = call.argument<Any>("bytes")
+        return when (value) {
+            is ByteArray -> value
+            is List<*> -> value.mapNotNull { (it as? Number)?.toInt()?.toByte() }.toByteArray()
+            else -> null
+        }
+    }
+
     private fun startPrint(request: PendingUsbPrint) {
         if (usbManager.hasPermission(request.device)) {
             finishPrint(request)
@@ -97,14 +183,12 @@ class UsbPrinterChannel(
 
     private fun findPrinterCandidate(): UsbPrinterCandidate? {
         val devices = usbManager.deviceList.values.toList()
-        val preferred = devices.firstNotNullOfOrNull { device ->
+        val candidates = devices.mapNotNull { device ->
             printerCandidate(device, requirePrinterClass = true)
+                ?: printerCandidate(device, requirePrinterClass = false)
         }
-        if (preferred != null) {
-            return preferred
-        }
-        return devices.firstNotNullOfOrNull { device ->
-            printerCandidate(device, requirePrinterClass = false)
+        return candidates.maxByOrNull { candidate ->
+            if (candidate.profile.kind == UsbPrinterKind.UNKNOWN) 0 else 1
         }
     }
 
@@ -118,7 +202,12 @@ class UsbPrinterChannel(
                 continue
             }
             val endpoint = bulkOutEndpoint(usbInterface) ?: continue
-            return UsbPrinterCandidate(device, usbInterface, endpoint)
+            return UsbPrinterCandidate(
+                device,
+                usbInterface,
+                endpoint,
+                UsbPrinterProfile.fromDevice(device),
+            )
         }
         return null
     }
@@ -288,7 +377,79 @@ private data class UsbPrinterCandidate(
     val device: UsbDevice,
     val usbInterface: UsbInterface,
     val endpoint: UsbEndpoint,
+    val profile: UsbPrinterProfile,
 )
+
+internal enum class UsbPrinterKind(val value: String) {
+    GODEX("godex"),
+    ZEBRA("zebra"),
+    UNKNOWN("unknown");
+
+    companion object {
+        fun fromValue(value: String): UsbPrinterKind {
+            return when (value.trim().lowercase(Locale.US)) {
+                "godex", "go-dex", "g500" -> GODEX
+                "zebra", "zpl", "rfid" -> ZEBRA
+                else -> UNKNOWN
+            }
+        }
+    }
+}
+
+internal data class UsbPrinterProfile(
+    val kind: UsbPrinterKind,
+    val manufacturerName: String,
+    val productName: String,
+) {
+    fun response(device: UsbDevice): Map<String, Any> {
+        return mapOf(
+            "ok" to (kind != UsbPrinterKind.UNKNOWN),
+            "printer" to kind.value,
+            "print_mode" to if (kind == UsbPrinterKind.ZEBRA) "rfid" else "label",
+            "rfid_epc_write" to (kind == UsbPrinterKind.ZEBRA),
+            "deviceName" to device.deviceName,
+            "vendorId" to device.vendorId,
+            "productId" to device.productId,
+            "manufacturerName" to manufacturerName,
+            "productName" to productName,
+        )
+    }
+
+    companion object {
+        fun fromDevice(device: UsbDevice): UsbPrinterProfile {
+            val manufacturer = runCatching { device.manufacturerName.orEmpty() }.getOrDefault("")
+            val product = runCatching { device.productName.orEmpty() }.getOrDefault("")
+            return UsbPrinterProfile(
+                kind = classifyUsbPrinter(
+                    vendorId = device.vendorId,
+                    productId = device.productId,
+                    manufacturerName = manufacturer,
+                    productName = product,
+                ),
+                manufacturerName = manufacturer,
+                productName = product,
+            )
+        }
+    }
+}
+
+internal fun classifyUsbPrinter(
+    vendorId: Int,
+    productId: Int,
+    manufacturerName: String,
+    productName: String,
+): UsbPrinterKind {
+    val descriptor = "$manufacturerName $productName".lowercase(Locale.US)
+    if ((vendorId == 0x195f && productId == 0x0001) ||
+        descriptor.contains("godex") || descriptor.contains("go-dex")
+    ) {
+        return UsbPrinterKind.GODEX
+    }
+    if (vendorId == 0x0a5f || descriptor.contains("zebra")) {
+        return UsbPrinterKind.ZEBRA
+    }
+    return UsbPrinterKind.UNKNOWN
+}
 
 private data class PendingUsbPrint(
     val device: UsbDevice,

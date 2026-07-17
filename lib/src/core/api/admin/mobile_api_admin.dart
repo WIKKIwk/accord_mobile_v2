@@ -1368,12 +1368,14 @@ class AdminApparatusQueueActionResult {
     this.orderStatus = const AdminProductionOrderStatusDetail(),
     this.progressBatch,
     this.completionRequest,
+    this.printJob,
   });
 
   final Map<String, String> states;
   final AdminProductionOrderStatusDetail orderStatus;
   final AdminProgressBatch? progressBatch;
   final AdminCompletionRequestNotification? completionRequest;
+  final UsbRpsPrintRequest? printJob;
 }
 
 enum ApparatusQueuePolicy {
@@ -3407,6 +3409,9 @@ extension MobileApiAdmin on MobileApi {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    PrintTransport printTransport = PrintTransport.wifi,
+    String printer = '',
+    String printMode = '',
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
@@ -3433,6 +3438,9 @@ extension MobileApiAdmin on MobileApi {
       qrPayload: qrPayload,
       progressBatchId: progressBatchId,
       driverUrl: driverUrl,
+      printTransport: printTransport,
+      printer: printer,
+      printMode: printMode,
       completionRequestNote: completionRequestNote,
       returnedPaintItems: returnedPaintItems,
       returnedPaintImageId: returnedPaintImageId,
@@ -3490,6 +3498,9 @@ extension MobileApiAdmin on MobileApi {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    PrintTransport printTransport = PrintTransport.wifi,
+    String printer = '',
+    String printMode = '',
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
@@ -3897,6 +3908,10 @@ extension MobileApiAdmin on MobileApi {
           if (progressBatchId.trim().isNotEmpty)
             'progress_batch_id': progressBatchId.trim(),
           if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
+          if (printTransport.isOffline)
+            'print_transport': printTransport.apiValue,
+          if (printer.trim().isNotEmpty) 'printer': printer.trim(),
+          if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
           if (trimmedCompletionRequestNote.isNotEmpty)
             'completion_request_note': trimmedCompletionRequestNote,
           if (returnedPaintItems.isNotEmpty)
@@ -3918,6 +3933,7 @@ extension MobileApiAdmin on MobileApi {
     }
     final progressRaw = payload['progress_batch'];
     final requestRaw = payload['completion_request'];
+    final printRaw = payload['print'];
     return AdminApparatusQueueActionResult(
       states: {
         for (final entry in raw.entries)
@@ -3932,6 +3948,11 @@ extension MobileApiAdmin on MobileApi {
       completionRequest: requestRaw is Map
           ? AdminCompletionRequestNotification.fromJson(
               requestRaw.cast<String, dynamic>(),
+            )
+          : null,
+      printJob: printRaw is Map && printRaw['ok'] == true
+          ? UsbRpsPrintRequest.fromPrintJson(
+              printRaw.cast<String, dynamic>(),
             )
           : null,
     );

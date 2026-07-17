@@ -738,13 +738,14 @@ extension MobileApiQolip on MobileApi {
     );
   }
 
-  Future<QolipCellQr> qolipPrintCellQr({
+  Future<QolipCellQrPrintResult> qolipPrintCellQr({
     required QolipBlock block,
     required String rowLetter,
     required int columnNumber,
     required String driverUrl,
     String printer = '',
     String printMode = '',
+    PrintTransport printTransport = PrintTransport.wifi,
   }) async {
     final cleanRow = rowLetter.trim().toUpperCase();
     if (await TestModeController.instance.isEnabled()) {
@@ -755,7 +756,7 @@ extension MobileApiQolip on MobileApi {
         cleanRow,
         columnNumber,
       ].join(':');
-      return QolipCellQr(
+      final cellQr = QolipCellQr(
         id: id,
         block: block.name,
         warehouse: block.warehouse,
@@ -763,6 +764,10 @@ extension MobileApiQolip on MobileApi {
         columnNumber: columnNumber,
         locationLabel: '$cleanRow$columnNumber',
         qrPayload: _testModeQolipCellQrPayload(id),
+      );
+      return QolipCellQrPrintResult(
+        cellQr: cellQr,
+        printJob: _qolipCellUsbPrintJob(cellQr),
       );
     }
     final response = await _sendAuthorized(
@@ -778,6 +783,8 @@ extension MobileApiQolip on MobileApi {
           'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
           if (printer.trim().isNotEmpty) 'printer': printer.trim(),
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
+          if (printTransport.isOffline)
+            'print_transport': printTransport.apiValue,
         }),
       ),
     );
@@ -785,16 +792,25 @@ extension MobileApiQolip on MobileApi {
       throw Exception('Qolip cell QR print failed');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return QolipCellQr.fromJson(
+    final cellQr = QolipCellQr.fromJson(
       (data['cell_qr'] as Map).cast<String, dynamic>(),
+    );
+    final print = (data['print'] as Map?)?.cast<String, dynamic>();
+    final cellLabel = _qolipCellLabel(cellQr);
+    return QolipCellQrPrintResult(
+      cellQr: cellQr,
+      printJob: print == null
+          ? _qolipCellUsbPrintJob(cellQr)
+          : UsbRpsPrintRequest.fromPrintJson(print).forQolipCell(cellLabel),
     );
   }
 
-  Future<QolipCodeQr> qolipPrintCodeQr({
+  Future<QolipCodeQrPrintResult> qolipPrintCodeQr({
     required String qolipCode,
     required String driverUrl,
     String printer = '',
     String printMode = '',
+    PrintTransport printTransport = PrintTransport.wifi,
   }) async {
     final code = qolipCode.trim();
     if (await TestModeController.instance.isEnabled()) {
@@ -806,13 +822,17 @@ extension MobileApiQolip on MobileApi {
       if (spec == null) {
         throw Exception('Qolip code not found');
       }
-      return QolipCodeQr(
+      final qolipQr = QolipCodeQr(
         qolipCode: spec.qolipCode,
         qrPayload: spec.qolipCode,
         itemCode: spec.code,
         itemName: spec.name,
         itemGroup: spec.itemGroup,
         size: spec.qolipSize,
+      );
+      return QolipCodeQrPrintResult(
+        qolipQr: qolipQr,
+        printJob: _qolipCodeUsbPrintJob(qolipQr),
       );
     }
     final response = await _sendAuthorized(
@@ -825,6 +845,8 @@ extension MobileApiQolip on MobileApi {
           'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
           if (printer.trim().isNotEmpty) 'printer': printer.trim(),
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
+          if (printTransport.isOffline)
+            'print_transport': printTransport.apiValue,
         }),
       ),
     );
@@ -832,8 +854,15 @@ extension MobileApiQolip on MobileApi {
       throw Exception('Qolip code QR print failed');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return QolipCodeQr.fromJson(
+    final qolipQr = QolipCodeQr.fromJson(
       (data['qolip_qr'] as Map).cast<String, dynamic>(),
+    );
+    final print = (data['print'] as Map?)?.cast<String, dynamic>();
+    return QolipCodeQrPrintResult(
+      qolipQr: qolipQr,
+      printJob: print == null
+          ? _qolipCodeUsbPrintJob(qolipQr)
+          : UsbRpsPrintRequest.fromPrintJson(print),
     );
   }
 
@@ -897,6 +926,75 @@ extension MobileApiQolip on MobileApi {
       (data['cell_qr'] as Map).cast<String, dynamic>(),
     );
   }
+}
+
+class QolipCellQrPrintResult {
+  const QolipCellQrPrintResult({required this.cellQr, required this.printJob});
+
+  final QolipCellQr cellQr;
+  final UsbRpsPrintRequest printJob;
+
+  String get id => cellQr.id;
+  String get block => cellQr.block;
+  String get warehouse => cellQr.warehouse;
+  String get rowLetter => cellQr.rowLetter;
+  int get columnNumber => cellQr.columnNumber;
+  String get locationLabel => cellQr.locationLabel;
+  String get qrPayload => cellQr.qrPayload;
+}
+
+class QolipCodeQrPrintResult {
+  const QolipCodeQrPrintResult({required this.qolipQr, required this.printJob});
+
+  final QolipCodeQr qolipQr;
+  final UsbRpsPrintRequest printJob;
+
+  String get qolipCode => qolipQr.qolipCode;
+  String get qrPayload => qolipQr.qrPayload;
+  String get itemCode => qolipQr.itemCode;
+  String get itemName => qolipQr.itemName;
+  String get itemGroup => qolipQr.itemGroup;
+  int get size => qolipQr.size;
+}
+
+UsbRpsPrintRequest _qolipCellUsbPrintJob(QolipCellQr cellQr) {
+  return UsbRpsPrintRequest(
+    epc: cellQr.qrPayload,
+    itemCode: cellQr.qrPayload,
+    itemName: _qolipCellLabel(cellQr),
+    warehouse: cellQr.warehouse,
+    printer: 'godex',
+    printMode: 'label',
+    grossQty: 1,
+    unit: 'dona',
+    labelKind: 'qolip_cell',
+    progressQty: 1,
+    progressUnit: 'dona',
+  );
+}
+
+String _qolipCellLabel(QolipCellQr cellQr) {
+  final row = cellQr.rowLetter.trim().toUpperCase();
+  if (row.isNotEmpty && cellQr.columnNumber > 0) {
+    return '$row${cellQr.columnNumber}';
+  }
+  return cellQr.locationLabel.trim();
+}
+
+UsbRpsPrintRequest _qolipCodeUsbPrintJob(QolipCodeQr qolipQr) {
+  return UsbRpsPrintRequest(
+    epc: qolipQr.qrPayload,
+    itemCode: qolipQr.qolipCode,
+    itemName: '${qolipQr.itemName} • ${qolipQr.size}',
+    warehouse: 'ACCORD',
+    printer: 'godex',
+    printMode: 'label',
+    grossQty: 1,
+    unit: 'dona',
+    labelKind: 'qolip_code',
+    progressQty: 1,
+    progressUnit: 'dona',
+  );
 }
 
 MobileApiException _qolipCellQrException(http.Response response) {

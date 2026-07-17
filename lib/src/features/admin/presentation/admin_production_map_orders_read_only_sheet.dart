@@ -122,6 +122,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String qrPayload = '',
     String progressBatchId = '',
     String driverUrl = '',
+    PrintTransport printTransport = PrintTransport.wifi,
+    String printer = '',
+    String printMode = '',
+    UsbPrinterProfile? offlinePrinter,
     String completionRequestNote = '',
   }) async {
     final prepared = _prepareReadOnlyQueueAction(
@@ -158,6 +162,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           qrPayload: qrPayload,
           progressBatchId: progressBatchId,
           driverUrl: driverUrl,
+          printTransport: printTransport,
+          printer: printer,
+          printMode: printMode,
           completionRequestNote: completionRequestNote,
           qolipCode: qolipCode,
         ),
@@ -185,6 +192,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       if (states != null) {
         unawaited(_loadInputProgressBatches());
+      }
+      if (states != null &&
+          printTransport.isOffline &&
+          states.printJob != null) {
+        try {
+          await PrintService.printRps(
+            states.printJob!,
+            printerProfile: offlinePrinter,
+          );
+        } catch (_) {
+          if (mounted) {
+            _showSheetNotice('Amal bajarildi, USB printer chop etmadi');
+          }
+        }
       }
       return states != null;
     } catch (error) {
@@ -281,18 +302,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       return;
     }
-    final driverUrl = await _pickProgressDriverUrl(
+    final printerOption = await _pickProgressPrinter(
       context,
       widget.progressDriverUrlPicker,
     );
-    if (!mounted || driverUrl == null) {
+    if (!mounted || printerOption == null) {
       return;
     }
     final completed = await _runQueueAction(
       action,
       progressInput: input,
       uom: 'm',
-      driverUrl: driverUrl,
+      driverUrl: printerOption.driverUrl,
+      printTransport: printerOption.transport,
+      printer: printerOption.printer,
+      printMode: printerOption.printMode,
+      offlinePrinter: printerOption.offlinePrinter,
     );
     if (completed && action == 'complete') {
       await ReturnedPaintDraftStore.instance.clear(scope);

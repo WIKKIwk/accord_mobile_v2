@@ -5,6 +5,7 @@ WORKSPACE_ROOT := $(abspath ..)
 LOCAL_TOOLS_ROOT ?= $(WORKSPACE_ROOT)/.tools
 LOCAL_FLUTTER_HOME ?= $(LOCAL_TOOLS_ROOT)/flutter-sdk/flutter
 FLUTTER_BIN ?= $(shell if command -v flutter >/dev/null 2>&1; then command -v flutter; elif [ -x "$(LOCAL_FLUTTER_HOME)/bin/flutter" ]; then printf '%s\n' "$(LOCAL_FLUTTER_HOME)/bin/flutter"; elif [ -x "$$HOME/.local/flutter/bin/flutter" ]; then printf '%s\n' "$$HOME/.local/flutter/bin/flutter"; fi)
+DART_BIN ?= $(shell if command -v dart >/dev/null 2>&1; then command -v dart; elif [ -x "$(LOCAL_FLUTTER_HOME)/bin/dart" ]; then printf '%s\n' "$(LOCAL_FLUTTER_HOME)/bin/dart"; fi)
 export PUB_CACHE ?= $(LOCAL_TOOLS_ROOT)/pub-cache
 CHROME_EXECUTABLE ?= $(shell if command -v chromium-browser >/dev/null 2>&1; then command -v chromium-browser; elif command -v chromium >/dev/null 2>&1; then command -v chromium; elif command -v google-chrome >/dev/null 2>&1; then command -v google-chrome; fi)
 ifeq ($(HOST_OS),Darwin)
@@ -16,6 +17,12 @@ APK_NAME ?= accord.apk
 ERP_ROOT ?= ../../erpnext_n1/erp
 MOCK_DIR ?= /tmp/accord_mobile_mock
 RUST_BACKEND_ROOT ?= ../accord_mobile_server_rs
+PRINT_BRIDGE_HOST ?= 127.0.0.1
+PRINT_BRIDGE_PORT ?= 39118
+PRINT_BRIDGE_URL ?= http://$(PRINT_BRIDGE_HOST):$(PRINT_BRIDGE_PORT)
+PRINT_BRIDGE_HELPER ?= $(CURDIR)/garbage/accord_mac_usb_raw_write
+PRINT_BRIDGE_PID ?= garbage/.accord_print_bridge.pid
+PRINT_BRIDGE_LOG ?= garbage/accord_print_bridge.log
 
 ifeq ($(HOST_OS),Darwin)
 RUN_DEVICE ?= web-server
@@ -53,7 +60,7 @@ endif
 # Release APKs: arm64-v8a only (typical phones); no universal/fat APK.
 FLUTTER_APK_RELEASE_FLAGS := --release --target-platform android-arm64
 
-.PHONY: run oneni ami web analyze test deps backend-up backend-stop mock-backend mock-stop core-up core-stop remote-up remote-stop remote-url apk apk-remote run-remote android-sdk-setup domain-up domain-up-fast domain-url apk-domain run-domain bench-start bench-restart bench-stop bench-limit-start bench-limit-stop prepare-run run-local web-local ios-release-install
+.PHONY: run oneni ami web analyze test deps backend-up backend-stop mock-backend mock-stop core-up core-stop remote-up remote-stop remote-url apk apk-remote run-remote android-sdk-setup domain-up domain-up-fast domain-url apk-domain run-domain bench-start bench-restart bench-stop bench-limit-start bench-limit-stop prepare-run run-local web-local ios-release-install print-bridge-build print-bridge-up print-bridge-stop
 
 deps:
 	@$(FLUTTER_BIN) pub get
@@ -72,6 +79,53 @@ prepare-run:
 		*) \
 			echo "Using external API: $(API_URL)" ;; \
 	esac
+
+print-bridge-build:
+ifeq ($(HOST_OS),Darwin)
+	@mkdir -p garbage
+	@clang -Wall -Wextra -O2 -framework IOKit -framework CoreFoundation tools/printer/mac_usb_raw_write.c -o "$(PRINT_BRIDGE_HELPER)"
+	@echo "Mac USB print helper: $(PRINT_BRIDGE_HELPER)"
+else
+	@echo "Mac USB print bridge is only available on Darwin"
+endif
+
+print-bridge-up: print-bridge-build
+ifeq ($(HOST_OS),Darwin)
+	@if curl -fsS "$(PRINT_BRIDGE_URL)/healthz" 2>/dev/null | grep -q '"version":2'; then \
+		echo "Mac print bridge already running: $(PRINT_BRIDGE_URL)"; \
+	else \
+		if curl -fsS "$(PRINT_BRIDGE_URL)/healthz" >/dev/null 2>&1; then \
+			if [ ! -f "$(PRINT_BRIDGE_PID)" ]; then \
+				echo "Mac print bridge is outdated and its PID file is missing"; exit 1; \
+			fi; \
+			kill "$$(cat "$(PRINT_BRIDGE_PID)")" 2>/dev/null || true; \
+			rm -f "$(PRINT_BRIDGE_PID)"; \
+			sleep 1; \
+		fi; \
+		mkdir -p garbage; \
+		ACCORD_PRINT_BRIDGE_HOST="$(PRINT_BRIDGE_HOST)" \
+		ACCORD_PRINT_BRIDGE_PORT="$(PRINT_BRIDGE_PORT)" \
+		ACCORD_MAC_USB_HELPER="$(PRINT_BRIDGE_HELPER)" \
+		nohup "$(DART_BIN)" run tools/printer/mac_print_bridge.dart >"$(PRINT_BRIDGE_LOG)" 2>&1 & \
+		echo $$! >"$(PRINT_BRIDGE_PID)"; \
+		for i in $$(seq 1 30); do \
+			if curl -fsS "$(PRINT_BRIDGE_URL)/healthz" 2>/dev/null | grep -q '"version":2'; then \
+				echo "Mac print bridge ready: $(PRINT_BRIDGE_URL)"; exit 0; \
+			fi; \
+			sleep 1; \
+		done; \
+		echo "Mac print bridge start failed"; tail -80 "$(PRINT_BRIDGE_LOG)" 2>/dev/null || true; exit 1; \
+	fi
+endif
+
+print-bridge-stop:
+	@if [ -f "$(PRINT_BRIDGE_PID)" ]; then \
+		kill "$$(cat "$(PRINT_BRIDGE_PID)")" 2>/dev/null || true; \
+		rm -f "$(PRINT_BRIDGE_PID)"; \
+		echo "Mac print bridge stopped"; \
+	else \
+		echo "Mac print bridge pid file not found"; \
+	fi
 
 core-up:
 	@API_URL=$(API_URL) BACKEND_ROOT="$$(cd .. && pwd)" ./tools/bootstrap/ensure_core.sh
@@ -172,6 +226,9 @@ remote-stop:
 	@./tools/runtime/stop_remote_core.sh
 
 run: $(RUN_PREREQ) deps
+ifeq ($(HOST_OS),Darwin)
+run: print-bridge-up
+endif
 ifeq ($(RUN_DEVICE),web-server)
 ifeq ($(HOST_OS),Darwin)
 ifneq ($(strip $(RUN_WEB_PORT)),auto)
@@ -187,7 +244,7 @@ endif
 endif
 endif
 endif
-	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) $(RUN_DART_DEFINES)
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d $(RUN_DEVICE) $(RUN_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL) $(RUN_DART_DEFINES)
 
 oneni:
 	@:
@@ -196,7 +253,10 @@ ami:
 	@:
 
 web: prepare-run deps
-	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL)
+ifeq ($(HOST_OS),Darwin)
+web: print-bridge-up
+endif
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL)
 
 run-local: API_URL=$(LOCAL_API_URL)
 run-local: run
