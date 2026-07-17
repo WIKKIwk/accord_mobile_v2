@@ -91,7 +91,7 @@ internal object GodexRpsRenderer {
     private fun renderQolipCodeTextGraphic(name: String, code: String): ByteArray {
         val canvas = MonoBitmap.filled(400, 400, light = true)
         drawCenteredText(canvas, name, y = 8, scale = 3)
-        drawCenteredText(canvas, code, y = 352, scale = 4)
+        drawCenteredText(canvas, code, y = 352, scale = 3)
         return encodeMonoBmp(canvas.cropInk())
     }
 
