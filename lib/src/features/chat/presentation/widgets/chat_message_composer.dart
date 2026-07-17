@@ -10,6 +10,7 @@ class ChatMessageComposer extends StatelessWidget {
     required this.errorText,
     required this.onSend,
     required this.onDraftChanged,
+    this.onAttach,
     this.embeddedInDock = false,
   });
 
@@ -18,6 +19,7 @@ class ChatMessageComposer extends StatelessWidget {
   final String errorText;
   final VoidCallback onSend;
   final VoidCallback onDraftChanged;
+  final VoidCallback? onAttach;
   final bool embeddedInDock;
 
   @override
@@ -40,6 +42,7 @@ class ChatMessageComposer extends StatelessWidget {
                 errorText: errorText,
                 onSend: onSend,
                 onDraftChanged: onDraftChanged,
+                onAttach: onAttach,
                 compact: true,
               ),
             ),
@@ -70,6 +73,7 @@ class ChatMessageComposer extends StatelessWidget {
                 errorText: errorText,
                 onSend: onSend,
                 onDraftChanged: onDraftChanged,
+                onAttach: onAttach,
               ),
             ],
           ),
@@ -86,6 +90,7 @@ class _ComposerRow extends StatelessWidget {
     required this.errorText,
     required this.onSend,
     required this.onDraftChanged,
+    this.onAttach,
     this.compact = false,
   });
 
@@ -94,6 +99,7 @@ class _ComposerRow extends StatelessWidget {
   final String errorText;
   final VoidCallback onSend;
   final VoidCallback onDraftChanged;
+  final VoidCallback? onAttach;
   final bool compact;
 
   @override
@@ -131,6 +137,13 @@ class _ComposerRow extends StatelessWidget {
                     null,
                 decoration: InputDecoration(
                   hintText: 'Xabar yozing',
+                  prefixIcon: onAttach == null
+                      ? null
+                      : IconButton(
+                          tooltip: 'Media biriktirish',
+                          onPressed: onAttach,
+                          icon: const Icon(Icons.attach_file_rounded),
+                        ),
                   filled: true,
                   fillColor: scheme.surfaceContainerHighest,
                   isDense: compact,

@@ -71,6 +71,40 @@ void main() {
     expect(retries, 1);
   });
 
+  testWidgets('attachment action is opt-in and keeps text sending available', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    var attachments = 0;
+    var sends = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: ChatMessageComposer(
+            controller: controller,
+            sending: false,
+            errorText: '',
+            onSend: () => sends++,
+            onDraftChanged: () {},
+            onAttach: () => attachments++,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Media biriktirish'));
+    expect(attachments, 1);
+    expect(sends, 0);
+
+    await tester.enterText(find.byType(TextField), 'Matnli xabar');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Yuborish'));
+    expect(sends, 1);
+  });
+
   testWidgets('embedded composer fits the shared navigation dock', (
     tester,
   ) async {

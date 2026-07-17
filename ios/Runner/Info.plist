@@ -31,7 +31,9 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to unlock the app securely and speed up sign-in for this device.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>The app needs camera access so Werka can capture a product photo and generate a search query.</string>
+	<string>The app needs camera access to capture photos and videos for operational workflows and chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The app needs microphone access when recording a video for chat.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_gscale-mobileapi._tcp</string>
@@ -47,7 +49,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Saved archive pages are added to Photos so you can review and share them later.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>The app needs photo library access to save rendered archive pages into Photos.</string>
+	<string>The app needs photo library access to choose images and videos for chat and other workflows.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>io.flutter.embedded_views_preview</key>

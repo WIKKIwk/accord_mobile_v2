@@ -1,17 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_router.dart';
+import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
+import '../models/chat_media_models.dart';
 import '../state/chat_store.dart';
 import '../state/chat_failure.dart';
+import 'chat_media_preview_screen.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_message_composer.dart';
+import 'widgets/chat_pending_media_bubble.dart';
 import 'widgets/chat_role_dock.dart';
 
 class ChatDetailScreen extends StatefulWidget {
@@ -106,11 +112,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           final messages = store.messagesFor(
             widget.conversation.conversationId,
           );
-          if (messages.length > previousMessageCount) {
-            previousMessageCount = messages.length;
+          final pending = store.pendingMediaFor(
+            widget.conversation.conversationId,
+          );
+          final visibleCount = messages.length + pending.length;
+          if (visibleCount > previousMessageCount) {
+            previousMessageCount = visibleCount;
             _scrollToBottom();
           }
-          return _messages(messages);
+          return _messages(messages, pending);
         },
       ),
       builder: (context, dockHeight, messageList) {
@@ -147,6 +157,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 errorText: store.sendError,
                 onSend: _send,
                 onDraftChanged: _draftChanged,
+                onAttach: _attachMedia,
                 embeddedInDock: true,
               ),
             ),
@@ -157,12 +168,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _messages(List<ChatMessage> messages) {
+  Widget _messages(
+    List<ChatMessage> messages,
+    List<ChatPendingMedia> pendingMedia,
+  ) {
     if (messages.isEmpty &&
+        pendingMedia.isEmpty &&
         store.loadingMessagesFor(widget.conversation.conversationId)) {
       return const Center(child: AppLoadingIndicator());
     }
-    if (messages.isEmpty) {
+    if (messages.isEmpty && pendingMedia.isEmpty) {
       final scheme = Theme.of(context).colorScheme;
       return Center(
         child: Padding(
@@ -237,6 +252,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ),
       );
     }
+    for (final pending in pendingMedia) {
+      children.add(
+        ChatPendingMediaBubble(
+          key: ValueKey(pending.localId),
+          pending: pending,
+          onRetry: () => store.retryMedia(pending.localId),
+          onCancel: () => store.cancelMedia(pending.localId),
+        ),
+      );
+    }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
       child: ListView(
@@ -268,6 +293,83 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         second.createdAtUnix - first.createdAtUnix <= 300;
   }
 
+  Future<void> _attachMedia() async {
+    final selection = await showModalBottomSheet<_MediaPickerSelection>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _ChatMediaPickerSheet(),
+    );
+    if (selection == null || !mounted) return;
+    try {
+      final picker = ImagePicker();
+      final XFile? source = switch ((selection.kind, selection.source)) {
+        (ChatMediaKind.image, ImageSource.gallery) => await picker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 95,
+          ),
+        (ChatMediaKind.image, ImageSource.camera) => await picker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 95,
+            preferredCameraDevice: CameraDevice.rear,
+          ),
+        (ChatMediaKind.video, ImageSource.gallery) => await picker.pickVideo(
+            source: ImageSource.gallery,
+          ),
+        (ChatMediaKind.video, ImageSource.camera) => await picker.pickVideo(
+            source: ImageSource.camera,
+            preferredCameraDevice: CameraDevice.rear,
+            maxDuration: chatMediaVideoMaxDuration,
+          ),
+      };
+      if (source == null || !mounted) return;
+      final size = await source.length();
+      final maximum = selection.kind == ChatMediaKind.image
+          ? chatMediaImageMaxBytes
+          : chatMediaVideoMaxBytes;
+      if (size <= 0 || size > maximum) {
+        throw MobileApiException(
+          code: 'chat_media_too_large',
+          message: selection.kind == ChatMediaKind.image
+              ? 'Rasm 15 MiB dan oshmasligi kerak.'
+              : 'Video 75 MiB dan oshmasligi kerak.',
+          statusCode: 413,
+        );
+      }
+      if (!mounted) return;
+      final draft = await Navigator.of(context).push<ChatMediaDraft>(
+        MaterialPageRoute(
+          builder: (_) => ChatMediaPreviewScreen(
+            source: source,
+            kind: selection.kind,
+          ),
+        ),
+      );
+      if (draft == null || !mounted) return;
+      await store.queueMedia(
+        conversationId: widget.conversation.conversationId,
+        source: draft.source,
+        kind: draft.kind,
+        caption: draft.caption,
+      );
+      _scrollToBottom();
+    } on PlatformException catch (error) {
+      _showMediaError(
+        error.code == 'camera_access_denied'
+            ? 'Kameraga ruxsat berilmagan.'
+            : 'Media tanlab bo‘lmadi. Ruxsatlarni tekshiring.',
+      );
+    } catch (error) {
+      _showMediaError(chatMediaFailureMessage(error));
+    }
+  }
+
+  void _showMediaError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _openParticipantProfile() {
     final participant = widget.conversation.peer;
     if (participant == null) {
@@ -276,6 +378,90 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     Navigator.of(context).pushNamed(
       AppRoutes.chatParticipantProfile,
       arguments: participant,
+    );
+  }
+}
+
+class _MediaPickerSelection {
+  const _MediaPickerSelection(this.kind, this.source);
+
+  final ChatMediaKind kind;
+  final ImageSource source;
+}
+
+class _ChatMediaPickerSheet extends StatelessWidget {
+  const _ChatMediaPickerSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MediaPickerTile(
+              icon: Icons.photo_library_outlined,
+              label: 'Galereyadan rasm',
+              onTap: () => _pop(
+                context,
+                ChatMediaKind.image,
+                ImageSource.gallery,
+              ),
+            ),
+            _MediaPickerTile(
+              icon: Icons.camera_alt_outlined,
+              label: 'Rasmga olish',
+              onTap: () =>
+                  _pop(context, ChatMediaKind.image, ImageSource.camera),
+            ),
+            _MediaPickerTile(
+              icon: Icons.video_library_outlined,
+              label: 'Galereyadan video',
+              onTap: () => _pop(
+                context,
+                ChatMediaKind.video,
+                ImageSource.gallery,
+              ),
+            ),
+            _MediaPickerTile(
+              icon: Icons.videocam_outlined,
+              label: 'Video yozish',
+              onTap: () =>
+                  _pop(context, ChatMediaKind.video, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _pop(
+    BuildContext context,
+    ChatMediaKind kind,
+    ImageSource source,
+  ) {
+    Navigator.of(context).pop(_MediaPickerSelection(kind, source));
+  }
+}
+
+class _MediaPickerTile extends StatelessWidget {
+  const _MediaPickerTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: onTap,
     );
   }
 }

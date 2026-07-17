@@ -110,7 +110,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     if (normalized.isEmpty) return started.toList(growable: false);
     return started.where((conversation) {
       final title = conversation.displayTitle.toLowerCase();
-      final preview = conversation.lastMessage?.body.toLowerCase() ?? '';
+      final preview = conversation.lastMessage?.previewText.toLowerCase() ?? '';
       return title.contains(normalized) || preview.contains(normalized);
     }).toList(growable: false);
   }
@@ -212,7 +212,7 @@ class _ConversationTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${conversation.displayTitle}, '
-          '${message?.body ?? 'Suhbat boshlandi'}',
+          '${message?.previewText ?? 'Suhbat boshlandi'}',
       child: AdminSummaryCard(
         slot: slot,
         cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -259,7 +259,7 @@ class _ConversationTile extends StatelessWidget {
           ],
         ),
         title: conversation.displayTitle,
-        subtitle: message?.body ?? 'Suhbat boshlandi',
+        subtitle: message?.previewText ?? 'Suhbat boshlandi',
         titleMaxLines: 1,
         subtitleMaxLines: 1,
         titleStyle: theme.textTheme.titleMedium?.copyWith(
