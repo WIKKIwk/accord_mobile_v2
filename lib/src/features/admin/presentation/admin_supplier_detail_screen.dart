@@ -23,9 +23,14 @@ const double _supplierDetailPanelGap = 4;
 const double _supplierDetailButtonRadius = 14;
 
 class AdminSupplierDetailScreen extends StatefulWidget {
-  const AdminSupplierDetailScreen({super.key, required this.supplierRef});
+  const AdminSupplierDetailScreen({
+    super.key,
+    required this.supplierRef,
+    this.readOnly = false,
+  });
 
   final String supplierRef;
+  final bool readOnly;
 
   @override
   State<AdminSupplierDetailScreen> createState() =>
@@ -231,6 +236,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                     padding: EdgeInsets.zero,
                     child: _AdminSupplierDetailCard(
                       detail: detail,
+                      readOnly: widget.readOnly,
                       retryAfterSec: _retryAfterSec,
                       expanded: _adminPanelExpanded,
                       savingStatus: _savingStatus,
@@ -268,6 +274,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
 class _AdminSupplierDetailCard extends StatelessWidget {
   const _AdminSupplierDetailCard({
     required this.detail,
+    required this.readOnly,
     required this.retryAfterSec,
     required this.expanded,
     required this.savingStatus,
@@ -285,6 +292,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
   });
 
   final AdminSupplierDetail detail;
+  final bool readOnly;
   final int retryAfterSec;
   final bool expanded;
   final bool savingStatus;
@@ -395,21 +403,24 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                key: const ValueKey('admin-supplier-detail-admin-toggle'),
-                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
-                onPressed: () => onExpandedChanged(!expanded),
-                icon: AnimatedRotation(
-                  turns: expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: scheme.onSurfaceVariant,
+              if (!readOnly) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const ValueKey('admin-supplier-detail-admin-toggle'),
+                  tooltip:
+                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  onPressed: () => onExpandedChanged(!expanded),
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -417,7 +428,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: expanded
+          child: !readOnly && expanded
               ? Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: _AdminSupplierPanel(

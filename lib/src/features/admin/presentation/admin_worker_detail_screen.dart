@@ -21,9 +21,14 @@ const double _workerDetailPanelGap = 4;
 const double _workerDetailFieldRadius = 14;
 
 class AdminWorkerDetailScreen extends StatefulWidget {
-  const AdminWorkerDetailScreen({super.key, required this.entry});
+  const AdminWorkerDetailScreen({
+    super.key,
+    required this.entry,
+    this.readOnly = false,
+  });
 
   final AdminUserListEntry entry;
+  final bool readOnly;
 
   @override
   State<AdminWorkerDetailScreen> createState() =>
@@ -244,6 +249,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 padding: EdgeInsets.zero,
                 child: _WorkerProfileExpandableCard(
                   detail: detail,
+                  readOnly: widget.readOnly,
                   statusLabel: _loading
                       ? 'Yuklanmoqda'
                       : _loadError != null
@@ -260,7 +266,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   onCopyCode: _copyCode,
                 ),
               ),
-              if (!_isSystemUser) ...[
+              if (!widget.readOnly && !_isSystemUser) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(
                   style: appOutlinedActionButtonStyle(
@@ -294,6 +300,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 class _WorkerProfileExpandableCard extends StatelessWidget {
   const _WorkerProfileExpandableCard({
     required this.detail,
+    required this.readOnly,
     required this.statusLabel,
     required this.expanded,
     required this.savingPhone,
@@ -305,6 +312,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   });
 
   final AdminWorkerDetail detail;
+  final bool readOnly;
   final String statusLabel;
   final bool expanded;
   final bool savingPhone;
@@ -406,21 +414,24 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                key: const ValueKey('admin-worker-detail-admin-toggle'),
-                tooltip: expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
-                onPressed: () => onExpandedChanged(!expanded),
-                icon: AnimatedRotation(
-                  turns: expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: scheme.onSurfaceVariant,
+              if (!readOnly) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const ValueKey('admin-worker-detail-admin-toggle'),
+                  tooltip:
+                      expanded ? 'Boshqaruvni yopish' : 'Boshqaruvni ochish',
+                  onPressed: () => onExpandedChanged(!expanded),
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -428,7 +439,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: expanded
+          child: !readOnly && expanded
               ? Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: _WorkerAdminPanel(
