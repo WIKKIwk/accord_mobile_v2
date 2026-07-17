@@ -267,6 +267,30 @@ class UsbRpsPrintRequest {
     );
   }
 
+  UsbRpsPrintRequest forQolipCode({
+    required String name,
+    required String code,
+    required String payload,
+  }) {
+    return UsbRpsPrintRequest(
+      epc: payload.trim(),
+      itemCode: code.trim(),
+      itemName: name.trim(),
+      warehouse: warehouse,
+      printer: printer,
+      printMode: printMode,
+      grossQty: grossQty,
+      unit: unit,
+      tareEnabled: tareEnabled,
+      tareKg: tareKg,
+      printCount: printCount,
+      labelKind: 'qolip_code',
+      executorName: executorName,
+      progressQty: progressQty,
+      progressUnit: progressUnit,
+    );
+  }
+
   Map<String, Object> toJson() {
     return {
       'epc': _cleanEpc(epc),

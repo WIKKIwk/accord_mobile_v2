@@ -858,11 +858,16 @@ extension MobileApiQolip on MobileApi {
       (data['qolip_qr'] as Map).cast<String, dynamic>(),
     );
     final print = (data['print'] as Map?)?.cast<String, dynamic>();
+    final printJob = print == null
+        ? _qolipCodeUsbPrintJob(qolipQr)
+        : UsbRpsPrintRequest.fromPrintJson(print);
     return QolipCodeQrPrintResult(
       qolipQr: qolipQr,
-      printJob: print == null
-          ? _qolipCodeUsbPrintJob(qolipQr)
-          : UsbRpsPrintRequest.fromPrintJson(print),
+      printJob: printJob.forQolipCode(
+        name: qolipQr.itemName,
+        code: qolipQr.qolipCode,
+        payload: qolipQr.qrPayload,
+      ),
     );
   }
 

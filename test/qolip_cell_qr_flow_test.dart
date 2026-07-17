@@ -68,6 +68,7 @@ void main() {
       );
       final body = jsonDecode(seenBodies.single) as Map<String, dynamic>;
       expect(body['qolip_code'], 'QOLIP-0007');
+      expect(qr.printJob.labelKind, 'qolip_code');
       expect(body['driver_url'], 'http://127.0.0.1:39117');
       expect(body['printer'], 'zebra');
       expect(body['print_mode'], 'rfid');
