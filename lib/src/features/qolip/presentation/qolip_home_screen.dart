@@ -712,7 +712,7 @@ class _QolipBlockGrid extends StatelessWidget {
     'Y',
     'Z',
   ];
-  static const int _gridRowCount = 9;
+  static const int _gridRowCount = 13;
 
   @override
   Widget build(BuildContext context) {
