@@ -167,12 +167,11 @@ class GodexRpsRenderer {
   }
 
   static Uint8List _renderQolipCodeTextGraphic(String name, String code) {
-    const scale = 4;
     const width = 400;
     const height = 400;
     final bitmap = _MonoBitmap.filled(width, height, light: true);
 
-    void drawCentered(String text, int y) {
+    void drawCentered(String text, int y, {required int scale}) {
       final textWidth = text.length * 6 * scale;
       var cursor = ((width - textWidth) ~/ 2).clamp(0, width - 1);
       for (final character in text.split('')) {
@@ -181,8 +180,8 @@ class GodexRpsRenderer {
       }
     }
 
-    drawCentered(name, 8);
-    drawCentered(code, 352);
+    drawCentered(name, 8, scale: 2);
+    drawCentered(code, 352, scale: 4);
     return _encodeMonoBmp(bitmap.cropInk());
   }
 
