@@ -10,7 +10,6 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../models/admin_item_group_tree_entry.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
@@ -129,28 +128,26 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       return null;
     }
     final results = await Future.wait([
-      MobileApi.instance.adminWarehouses(limit: 500),
-      MobileApi.instance.adminItems(),
-      MobileApi.instance.adminWarehouseAssignments(),
       MobileApi.instance.adminRawMaterialAssignments(),
-      MobileApi.instance.adminRawMaterialStock(limit: 500),
-      MobileApi.instance.adminItemGroupTree(),
+      MobileApi.instance.adminRawMaterialStock(
+        warehouse: warehouse,
+        limit: 500,
+      ),
     ]);
-    final data = _WarehouseInventoryData.from(
-      warehouses: results[0] as List<AdminWarehouse>,
-      items: results[1] as List<SupplierItem>,
-      assignments: results[2] as List<AdminWarehouseAssignment>,
-      reservations: results[3] as List<AdminRawMaterialAssignment>,
-      rawStock: results[4] as List<AdminRawMaterialStockEntry>,
-      itemGroupTree: results[5] as List<AdminItemGroupTreeEntry>,
+    final allReservations = results[0] as List<AdminRawMaterialAssignment>;
+    final rawStock = results[1] as List<AdminRawMaterialStockEntry>;
+    final stockBarcodes = rawStock
+        .map((item) => item.barcode.trim().toLowerCase())
+        .where((barcode) => barcode.isNotEmpty)
+        .toSet();
+    return _WarehouseInventorySection(
+      rawStock: List<AdminRawMaterialStockEntry>.unmodifiable(rawStock),
+      reservations: List<AdminRawMaterialAssignment>.unmodifiable(
+        allReservations.where(
+          (item) => stockBarcodes.contains(item.barcode.trim().toLowerCase()),
+        ),
+      ),
     );
-    final selected = warehouse.trim().toLowerCase();
-    for (final section in data.sections) {
-      if (section.warehouse.trim().toLowerCase() == selected) {
-        return section;
-      }
-    }
-    return null;
   }
 
   Future<void> _reload() async {
@@ -381,168 +378,14 @@ class _WarehouseSummarySection {
   final List<String> assignedDisplayNames;
 }
 
-class _WarehouseInventoryData {
-  const _WarehouseInventoryData({
-    required this.sections,
-  });
-
-  final List<_WarehouseInventorySection> sections;
-
-  factory _WarehouseInventoryData.from({
-    required List<AdminWarehouse> warehouses,
-    required List<SupplierItem> items,
-    required List<AdminWarehouseAssignment> assignments,
-    required List<AdminRawMaterialAssignment> reservations,
-    required List<AdminRawMaterialStockEntry> rawStock,
-    required List<AdminItemGroupTreeEntry> itemGroupTree,
-  }) {
-    final groupWarehouseResolver = _ItemGroupWarehouseResolver(
-      warehouses: warehouses,
-      itemGroupTree: itemGroupTree,
-    );
-    final byWarehouse = <String, List<SupplierItem>>{};
-    final itemWarehouseByCode = <String, String>{};
-    for (final item in items) {
-      final warehouse =
-          groupWarehouseResolver.resolve(item) ?? item.warehouse.trim();
-      if (warehouse.isEmpty) {
-        continue;
-      }
-      byWarehouse.putIfAbsent(warehouse, () => []).add(item);
-      final code = item.code.trim().toLowerCase();
-      if (code.isNotEmpty) {
-        itemWarehouseByCode[code] = warehouse;
-      }
-    }
-
-    final assignmentByWarehouse = <String, List<AdminWarehouseAssignment>>{};
-    for (final assignment in assignments) {
-      final warehouse = assignment.warehouse.trim();
-      if (warehouse.isEmpty) {
-        continue;
-      }
-      assignmentByWarehouse.putIfAbsent(warehouse, () => []).add(assignment);
-    }
-
-    final rawStockByWarehouse = <String, List<AdminRawMaterialStockEntry>>{};
-    final stockWarehouseByBarcode = <String, String>{};
-    for (final stock in rawStock) {
-      final warehouse = stock.warehouse.trim();
-      if (warehouse.isEmpty) {
-        continue;
-      }
-      rawStockByWarehouse.putIfAbsent(warehouse, () => []).add(stock);
-      final barcode = stock.barcode.trim().toLowerCase();
-      if (barcode.isNotEmpty) {
-        stockWarehouseByBarcode[barcode] = warehouse;
-      }
-    }
-
-    final reservationByWarehouse = <String, List<AdminRawMaterialAssignment>>{};
-    for (final reservation in reservations) {
-      final warehouse =
-          stockWarehouseByBarcode[reservation.barcode.trim().toLowerCase()] ??
-              itemWarehouseByCode[reservation.itemCode.trim().toLowerCase()] ??
-              '';
-      if (warehouse.isEmpty) {
-        continue;
-      }
-      reservationByWarehouse.putIfAbsent(warehouse, () => []).add(reservation);
-    }
-
-    final warehouseNames = <String>[];
-    void addWarehouse(String name) {
-      final normalized = name.trim();
-      if (normalized.isEmpty) {
-        return;
-      }
-      if (!warehouseNames
-          .any((item) => item.toLowerCase() == normalized.toLowerCase())) {
-        warehouseNames.add(normalized);
-      }
-    }
-
-    for (final warehouse in warehouses) {
-      if (warehouse.parentWarehouse.trim().isEmpty) {
-        addWarehouse(warehouse.warehouse);
-      }
-    }
-    for (final warehouse in byWarehouse.keys) {
-      addWarehouse(warehouse);
-    }
-    for (final warehouse in assignmentByWarehouse.keys) {
-      addWarehouse(warehouse);
-    }
-    for (final warehouse in rawStockByWarehouse.keys) {
-      addWarehouse(warehouse);
-    }
-    warehouseNames.sort(
-        (left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
-
-    final sections = <_WarehouseInventorySection>[];
-    for (final warehouse in warehouseNames) {
-      final warehouseItems = List<SupplierItem>.from(
-        byWarehouse[warehouse] ?? const [],
-      )..sort((left, right) {
-          final group = left.itemGroup.compareTo(right.itemGroup);
-          if (group != 0) {
-            return group;
-          }
-          return left.name.compareTo(right.name);
-        });
-      final warehouseAssignments = List<AdminWarehouseAssignment>.from(
-        assignmentByWarehouse[warehouse] ?? const [],
-      );
-      final warehouseReservations = List<AdminRawMaterialAssignment>.from(
-        reservationByWarehouse[warehouse] ?? const [],
-      );
-      final warehouseRawStock = List<AdminRawMaterialStockEntry>.from(
-        rawStockByWarehouse[warehouse] ?? const [],
-      )..sort((left, right) {
-          final code = left.itemCode.compareTo(right.itemCode);
-          if (code != 0) {
-            return code;
-          }
-          return left.barcode.compareTo(right.barcode);
-        });
-      sections.add(
-        _WarehouseInventorySection(
-          warehouse: warehouse,
-          items: List<SupplierItem>.unmodifiable(warehouseItems),
-          rawStock: List<AdminRawMaterialStockEntry>.unmodifiable(
-            warehouseRawStock,
-          ),
-          assignments: List<AdminWarehouseAssignment>.unmodifiable(
-            warehouseAssignments,
-          ),
-          reservations: List<AdminRawMaterialAssignment>.unmodifiable(
-            warehouseReservations,
-          ),
-        ),
-      );
-    }
-    return _WarehouseInventoryData(
-      sections: List<_WarehouseInventorySection>.unmodifiable(sections),
-    );
-  }
-}
-
 class _WarehouseInventorySection {
   const _WarehouseInventorySection({
-    required this.warehouse,
-    required this.items,
     required this.rawStock,
-    required this.assignments,
     required this.reservations,
   });
 
-  final String warehouse;
-  final List<SupplierItem> items;
   final List<AdminRawMaterialStockEntry> rawStock;
-  final List<AdminWarehouseAssignment> assignments;
   final List<AdminRawMaterialAssignment> reservations;
-
-  int get productCount => items.length + rawStock.length;
 }
 
 Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
@@ -884,7 +727,20 @@ class _WarehouseDetailsTab extends StatefulWidget {
 
 class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     with SingleTickerProviderStateMixin {
+  static const int _pageSize = 80;
+  static const double _loadMoreExtent = 420;
+
   late TabController _stockTabController;
+  final ScrollController _itemsScrollController = ScrollController();
+  final TextEditingController _itemsSearchController = TextEditingController();
+  Timer? _itemsSearchDebounce;
+  List<SupplierItem> _items = const <SupplierItem>[];
+  String _itemsQuery = '';
+  bool _initialItemsLoading = false;
+  bool _loadingMoreItems = false;
+  bool _hasMoreItems = false;
+  Object? _itemsError;
+  int _itemsRequestGeneration = 0;
   String? _expandedCardKey;
 
   @override
@@ -892,6 +748,8 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     super.initState();
     _stockTabController = TabController(length: 1, vsync: this);
     _stockTabController.addListener(_handleStockTabChanged);
+    _itemsScrollController.addListener(_handleItemsScroll);
+    unawaited(_loadFirstItemsPage());
   }
 
   @override
@@ -899,14 +757,128 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.warehouse != widget.warehouse) {
       _expandedCardKey = null;
+      _itemsSearchDebounce?.cancel();
+      _itemsSearchController.clear();
+      _itemsQuery = '';
+      unawaited(_loadFirstItemsPage());
     }
   }
 
   @override
   void dispose() {
+    _itemsSearchDebounce?.cancel();
+    _itemsScrollController.removeListener(_handleItemsScroll);
+    _itemsScrollController.dispose();
+    _itemsSearchController.dispose();
     _stockTabController.removeListener(_handleStockTabChanged);
     _stockTabController.dispose();
     super.dispose();
+  }
+
+  void _handleItemsSearchChanged(String value) {
+    _itemsSearchDebounce?.cancel();
+    _itemsSearchDebounce = Timer(const Duration(milliseconds: 220), () {
+      _itemsQuery = value.trim();
+      unawaited(_loadFirstItemsPage());
+    });
+  }
+
+  void _handleItemsScroll() {
+    if (!_itemsScrollController.hasClients ||
+        _initialItemsLoading ||
+        _loadingMoreItems ||
+        !_hasMoreItems) {
+      return;
+    }
+    if (_itemsScrollController.position.extentAfter <= _loadMoreExtent) {
+      unawaited(_loadNextItemsPage());
+    }
+  }
+
+  Future<void> _loadFirstItemsPage() async {
+    final warehouse = widget.warehouse?.trim() ?? '';
+    final generation = ++_itemsRequestGeneration;
+    if (_itemsScrollController.hasClients) {
+      _itemsScrollController.jumpTo(0);
+    }
+    if (mounted) {
+      setState(() {
+        _items = const <SupplierItem>[];
+        _initialItemsLoading = warehouse.isNotEmpty;
+        _loadingMoreItems = false;
+        _hasMoreItems = false;
+        _itemsError = null;
+      });
+    }
+    if (warehouse.isEmpty) {
+      return;
+    }
+    await _fetchItemsPage(
+      warehouse: warehouse,
+      offset: 0,
+      replace: true,
+      generation: generation,
+    );
+  }
+
+  Future<void> _loadNextItemsPage() async {
+    if (_initialItemsLoading || _loadingMoreItems || !_hasMoreItems) {
+      return;
+    }
+    final warehouse = widget.warehouse?.trim() ?? '';
+    if (warehouse.isEmpty) {
+      return;
+    }
+    final generation = _itemsRequestGeneration;
+    setState(() {
+      _loadingMoreItems = true;
+      _itemsError = null;
+    });
+    await _fetchItemsPage(
+      warehouse: warehouse,
+      offset: _items.length,
+      replace: false,
+      generation: generation,
+    );
+  }
+
+  Future<void> _fetchItemsPage({
+    required String warehouse,
+    required int offset,
+    required bool replace,
+    required int generation,
+  }) async {
+    final query = _itemsQuery;
+    try {
+      final page = await MobileApi.instance.adminWarehouseItemsPage(
+        warehouse: warehouse,
+        query: query,
+        limit: _pageSize,
+        offset: offset,
+      );
+      if (!mounted ||
+          generation != _itemsRequestGeneration ||
+          query != _itemsQuery ||
+          warehouse != (widget.warehouse?.trim() ?? '')) {
+        return;
+      }
+      setState(() {
+        _items = replace ? page : <SupplierItem>[..._items, ...page];
+        _initialItemsLoading = false;
+        _loadingMoreItems = false;
+        _hasMoreItems = page.length == _pageSize;
+        _itemsError = null;
+      });
+    } catch (error) {
+      if (!mounted || generation != _itemsRequestGeneration) {
+        return;
+      }
+      setState(() {
+        _initialItemsLoading = false;
+        _loadingMoreItems = false;
+        _itemsError = error;
+      });
+    }
   }
 
   void _handleStockTabChanged() {
@@ -955,10 +927,12 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     Widget buildScaffold(
       List<Widget> children, {
       List<Widget> leading = const [],
+      ScrollController? controller,
     }) {
       return ColoredBox(
         color: AppTheme.shellStart(context),
         child: ListView(
+          controller: controller,
           padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
           children: [
             ...leading,
@@ -986,53 +960,99 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     return FutureBuilder<_WarehouseInventorySection?>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done &&
-            !snapshot.hasData) {
-          return buildScaffold(const [
-            SizedBox(height: 24),
-            Center(child: AppLoadingIndicator()),
-          ]);
-        }
-        if (snapshot.hasError) {
-          return buildScaffold(const [
-            SizedBox(height: 24),
-            Center(child: Text('Ombor ma’lumoti yuklanmadi')),
-          ]);
-        }
-        final current = snapshot.data;
-        if (current == null) {
-          return buildScaffold(const [
-            SizedBox(height: 24),
-            Center(child: Text('Ombor topilmadi')),
-          ]);
-        }
-        if (current.items.isEmpty &&
-            current.rawStock.isEmpty &&
-            current.reservations.isEmpty) {
-          return buildScaffold(const [
-            SizedBox(height: 24),
-            Center(child: Text('Mahsulot topilmadi')),
-          ]);
-        }
+        final current = snapshot.data ??
+            const _WarehouseInventorySection(
+              rawStock: <AdminRawMaterialStockEntry>[],
+              reservations: <AdminRawMaterialAssignment>[],
+            );
         final availableRawStock = _availableRawStock(current.rawStock);
         final reservedRawStock = _reservedRawStock(current.rawStock);
-        final availableCount = current.items.length + availableRawStock.length;
+        _WarehouseSummarySection? selectedSummary;
+        for (final summary in widget.summaries) {
+          if (summary.warehouse.trim().toLowerCase() ==
+              selectedWarehouse.toLowerCase()) {
+            selectedSummary = summary;
+            break;
+          }
+        }
+        final availableCount = selectedSummary?.productCount ??
+            (_items.length + availableRawStock.length);
         final reservedCount = _bandTabEntryCount(
           reservedRawStock,
           current.reservations,
         );
         final availableChildren = <Widget>[
-          if (current.items.isNotEmpty)
+          SearchBar(
+            controller: _itemsSearchController,
+            hintText: 'Ombordagi mahsulotni qidirish',
+            constraints: const BoxConstraints(minHeight: 54),
+            padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+              EdgeInsets.symmetric(horizontal: 16),
+            ),
+            leading: Icon(
+              Icons.search_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            elevation: const WidgetStatePropertyAll<double>(0),
+            onChanged: _handleItemsSearchChanged,
+          ),
+          if (_initialItemsLoading)
+            const Padding(
+              padding: EdgeInsets.only(top: 28),
+              child: Center(child: AppLoadingIndicator()),
+            )
+          else if (_itemsError != null && _items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Center(
+                child: OutlinedButton.icon(
+                  onPressed: _loadFirstItemsPage,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Qayta urinish'),
+                ),
+              ),
+            )
+          else if (_items.isNotEmpty)
             _WarehouseItemListModule(
-              items: current.items,
+              items: _items,
               expandedKey: _expandedCardKey,
               onExpandedChanged: _onExpandedChanged,
+            )
+          else if (availableRawStock.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: Center(child: Text('Mahsulot topilmadi')),
             ),
           if (availableRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
               stock: availableRawStock,
               expandedKey: _expandedCardKey,
               onExpandedChanged: _onExpandedChanged,
+            ),
+          if (_loadingMoreItems)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: AppLoadingIndicator(size: 48, glyphSize: 28),
+            )
+          else if (_itemsError != null && _items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton.icon(
+                onPressed: _loadNextItemsPage,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Yana yuklash'),
+              ),
+            )
+          else if (_hasMoreItems)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                'Pastga scroll qiling, qolganlari yuklanadi',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
             ),
         ];
         final reservedChildren = <Widget>[
@@ -1049,20 +1069,12 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               onExpandedChanged: _onExpandedChanged,
             ),
         ];
-        final hasAvailable = availableChildren.isNotEmpty;
         final hasReserved = reservedChildren.isNotEmpty;
-        final stockTabs = <Tab>[];
-        final stockTabChildren = <List<Widget>>[];
-        if (hasAvailable && hasReserved) {
-          stockTabs.add(Tab(height: 38, text: 'Mavjud ($availableCount)'));
-          stockTabChildren.add(availableChildren);
-          stockTabs
-              .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
-          stockTabChildren.add(reservedChildren);
-        } else if (hasAvailable) {
-          stockTabs.add(Tab(height: 38, text: 'Mahsulotlar ($availableCount)'));
-          stockTabChildren.add(availableChildren);
-        } else if (hasReserved) {
+        final stockTabs = <Tab>[
+          Tab(height: 38, text: 'Mavjud ($availableCount)'),
+        ];
+        final stockTabChildren = <List<Widget>>[availableChildren];
+        if (hasReserved) {
           stockTabs
               .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
           stockTabChildren.add(reservedChildren);
@@ -1082,12 +1094,15 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               visibleChildren[index],
             ],
           ],
-        ], leading: [
-          AdminSurfaceTabBar(
-            controller: stockController,
-            tabs: stockTabs,
-          ),
-        ]);
+        ],
+            leading: [
+              AdminSurfaceTabBar(
+                controller: stockController,
+                tabs: stockTabs,
+              ),
+            ],
+            controller:
+                stockController.index == 0 ? _itemsScrollController : null);
       },
     );
   }
@@ -2164,92 +2179,3 @@ int _bandTabEntryCount(
 }
 
 String _formatQty(double value) => formatRawQuantity(value);
-
-class _ItemGroupWarehouseResolver {
-  _ItemGroupWarehouseResolver({
-    required List<AdminWarehouse> warehouses,
-    required List<AdminItemGroupTreeEntry> itemGroupTree,
-  })  : _rawWarehouse = _findWarehouse(warehouses, _isRawName),
-        _finishedWarehouse = _findWarehouse(warehouses, _isFinishedName),
-        _parentByGroup = _parentsFrom(itemGroupTree);
-
-  final String _rawWarehouse;
-  final String _finishedWarehouse;
-  final Map<String, String> _parentByGroup;
-
-  String? resolve(SupplierItem item) {
-    final group = item.itemGroup.trim();
-    if (group.isEmpty) {
-      return null;
-    }
-    if (_rawWarehouse.isNotEmpty && _groupMatches(group, _isRawName)) {
-      return _rawWarehouse;
-    }
-    if (_finishedWarehouse.isNotEmpty &&
-        _groupMatches(group, _isFinishedName)) {
-      return _finishedWarehouse;
-    }
-    return null;
-  }
-
-  bool _groupMatches(String group, bool Function(String) matcher) {
-    var current = group.trim();
-    final visited = <String>{};
-    while (current.isNotEmpty) {
-      final normalized = _normalize(current);
-      if (!visited.add(normalized)) {
-        return false;
-      }
-      if (matcher(normalized)) {
-        return true;
-      }
-      current = _parentByGroup[normalized] ?? '';
-    }
-    return false;
-  }
-
-  static Map<String, String> _parentsFrom(
-    List<AdminItemGroupTreeEntry> entries,
-  ) {
-    final parents = <String, String>{};
-    for (final entry in entries) {
-      final name = (entry.itemGroupName.trim().isNotEmpty
-              ? entry.itemGroupName
-              : entry.name)
-          .trim();
-      if (name.isEmpty) {
-        continue;
-      }
-      parents[_normalize(name)] = entry.parentItemGroup.trim();
-    }
-    return parents;
-  }
-
-  static String _findWarehouse(
-    List<AdminWarehouse> warehouses,
-    bool Function(String) matcher,
-  ) {
-    for (final warehouse in warehouses) {
-      final name = warehouse.warehouse.trim();
-      if (name.isEmpty || warehouse.parentWarehouse.trim().isNotEmpty) {
-        continue;
-      }
-      if (matcher(_normalize(name))) {
-        return name;
-      }
-    }
-    return '';
-  }
-
-  static bool _isRawName(String value) {
-    return value.contains('xomashyo') || value.contains('homashyo');
-  }
-
-  static bool _isFinishedName(String value) {
-    return value.contains('tayyor') && value.contains('mahsulot');
-  }
-
-  static String _normalize(String value) {
-    return value.trim().toLowerCase();
-  }
-}

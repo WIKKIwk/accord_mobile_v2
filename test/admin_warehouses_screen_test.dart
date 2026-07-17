@@ -34,6 +34,34 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  test('warehouse item pages filter, search, and paginate server-style',
+      () async {
+    final first = await MobileApi.instance.adminWarehouseItemsPage(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      limit: 1,
+    );
+    final second = await MobileApi.instance.adminWarehouseItemsPage(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      limit: 1,
+      offset: 1,
+    );
+    final searched = await MobileApi.instance.adminWarehouseItemsPage(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      query: 'ichimlik',
+      limit: 80,
+    );
+
+    expect(first, hasLength(1));
+    expect(second, hasLength(1));
+    expect(first.single.code, isNot(second.single.code));
+    expect(searched.map((item) => item.code), ['DEMO-DRINK']);
+    expect(
+      [...first, ...second]
+          .every((item) => item.warehouse.contains('Tayyor mahsulot')),
+      isTrue,
+    );
+  });
+
   testWidgets('admin warehouses page groups catalog items by warehouse', (
     tester,
   ) async {
@@ -141,7 +169,7 @@ void main() {
     await tester.tap(find.text('Ombor yaratish'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Ombor nomi'), findsOneWidget);
     expect(find.text('Tanlash uchun bosing'), findsOneWidget);
     expect(find.text('Assign qilish'), findsOneWidget);
   });

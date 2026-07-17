@@ -161,6 +161,48 @@ extension MobileApiAdminItems on MobileApi {
         .toList();
   }
 
+  Future<List<SupplierItem>> adminWarehouseItemsPage({
+    required String warehouse,
+    String query = '',
+    int limit = 80,
+    int offset = 0,
+  }) async {
+    final normalizedWarehouse = warehouse.trim().toLowerCase();
+    if (normalizedWarehouse.isEmpty) {
+      return const <SupplierItem>[];
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      return TestModeDemoData.warehouseItemPage(
+        warehouse: normalizedWarehouse,
+        query: query,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/items',
+        ).replace(
+          queryParameters: {
+            'warehouse': warehouse.trim(),
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (limit > 0) 'limit': '$limit',
+            if (offset > 0) 'offset': '$offset',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin warehouse items failed');
+    }
+    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    return json
+        .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<AdminWarehouse>> adminWarehouses({
     String query = '',
     String parent = '',
