@@ -4783,6 +4783,9 @@ extension MobileApiAdmin on MobileApi {
       final systemRole = switch (role.trim().toLowerCase()) {
         'qolipchi' => UserRole.qolipchi,
         'boyoqchi' => UserRole.boyoqchi,
+        'material_taminotchi' ||
+        'material-taminotchi' =>
+          UserRole.materialTaminotchi,
         _ => null,
       };
       if (systemRole != null) {
