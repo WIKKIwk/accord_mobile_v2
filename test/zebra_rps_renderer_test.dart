@@ -78,4 +78,25 @@ void main() {
     expect(zpl, contains('^FO120,124^BQN,2,11'));
     expect(zpl, isNot(contains('^RFW')));
   });
+
+  test('renders Qolip code with small name and code around a large QR', () {
+    final zpl = String.fromCharCodes(
+      ZebraRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: 'QOLIP-0007',
+          itemCode: 'QOLIP-0007',
+          itemName: 'Kross qolip',
+          printer: 'zebra',
+          printMode: 'label',
+          grossQty: 1,
+          labelKind: 'qolip_code',
+        ),
+      ),
+    );
+
+    expect(zpl, contains('^FO8,8^A0N,30,26^FB784,1,0,C,0'));
+    expect(zpl, contains('^FO120,56^BQN,2,11'));
+    expect(zpl, contains('^FO8,352^A0N,30,26^FB784,1,0,C,0'));
+    expect(zpl, isNot(contains('^RFW')));
+  });
 }

@@ -11,6 +11,9 @@ class ZebraRpsRenderer {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
     }
+    if (request.isQolipCodeLabel) {
+      return _renderQolipCode(request);
+    }
     final epc = _normalizeEpc(request.epc);
     final unit = request.unit.trim().isEmpty ? 'kg' : request.unit.trim();
     final item = _sanitize(
@@ -59,6 +62,29 @@ class ZebraRpsRenderer {
         '^FO8,16^A0N,88,76^FB784,1,0,C,0\n'
         '^FD$cellName^FS\n'
         '^FO120,124^BQN,2,11^FDLA,$payload^FS\n'
+        '^PQ1\n'
+        '^XZ\n';
+    return Uint8List.fromList(utf8.encode(zpl));
+  }
+
+  static Uint8List _renderQolipCode(UsbRpsPrintRequest request) {
+    final payload = _sanitize(request.epc, fallback: '-');
+    final name = _sanitize(
+      request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
+      fallback: '-',
+    );
+    final code = _sanitize(
+      request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
+      fallback: '-',
+    );
+    final zpl = '~PS\n'
+        '^XA\n'
+        '^LH0,0\n'
+        '^FO8,8^A0N,30,26^FB784,1,0,C,0\n'
+        '^FD$name^FS\n'
+        '^FO120,56^BQN,2,11^FDLA,$payload^FS\n'
+        '^FO8,352^A0N,30,26^FB784,1,0,C,0\n'
+        '^FD$code^FS\n'
         '^PQ1\n'
         '^XZ\n';
     return Uint8List.fromList(utf8.encode(zpl));

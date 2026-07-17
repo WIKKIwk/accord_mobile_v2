@@ -12,6 +12,9 @@ internal object GodexRpsRenderer {
     private val ascii: Charset = Charset.forName("US-ASCII")
 
     fun render(request: UsbRpsPrintRequest): ByteArray {
+        if (request.labelKind == "qolip_code") {
+            return renderQolipCode(request)
+        }
         val content = PackLabelContent(
             companyName = uppercaseClean("Accord"),
             productName = uppercaseClean(request.itemName.ifBlank { request.epc }),
@@ -42,6 +45,60 @@ internal object GodexRpsRenderer {
         buildPackCommands(content).forEach(::send)
         send("~S,STATUS")
         return out.toByteArray()
+    }
+
+    private fun renderQolipCode(request: UsbRpsPrintRequest): ByteArray {
+        val name = uppercaseClean(request.itemName.ifBlank { request.itemCode })
+        val code = uppercaseClean(request.itemCode.ifBlank { request.epc })
+        val payload = uppercaseClean(request.epc)
+        require(payload.isNotEmpty()) { "qr payload is empty" }
+        val textGraphic = renderQolipCodeTextGraphic(name, code)
+        val qrGraphic = renderQrGraphic(payload, qrBoxDots = 288)
+        val out = ByteArrayOutputStream()
+        fun send(command: String) {
+            out.write(command.trimEnd('\r', '\n').toByteArray(ascii))
+            out.write('\r'.code)
+            out.write('\n'.code)
+        }
+
+        send("^XSET,BUZZER,0")
+        send("~MDELG,$TEXT_GRAPHIC_NAME")
+        send("~EB,$TEXT_GRAPHIC_NAME,${textGraphic.size}")
+        out.write(textGraphic)
+        send("~MDELG,$QR_GRAPHIC_NAME")
+        send("~EB,$QR_GRAPHIC_NAME,${qrGraphic.size}")
+        out.write(qrGraphic)
+        listOf(
+            "~S,ESG",
+            "^AD",
+            "^XSET,UNICODE,1",
+            "^XSET,IMMEDIATE,1",
+            "^XSET,ACTIVERESPONSE,1",
+            "^XSET,CODEPAGE,16",
+            "^Q50,3",
+            "^W50",
+            "^H10",
+            "^P1",
+            "^L",
+            "Y0,0,$TEXT_GRAPHIC_NAME",
+            "Y56,56,$QR_GRAPHIC_NAME",
+            "E",
+        ).forEach(::send)
+        send("~S,STATUS")
+        return out.toByteArray()
+    }
+
+    private fun renderQolipCodeTextGraphic(name: String, code: String): ByteArray {
+        val canvas = MonoBitmap.filled(400, 400, light = true)
+        drawCenteredText(canvas, name, y = 8, scale = 4)
+        drawCenteredText(canvas, code, y = 352, scale = 4)
+        return encodeMonoBmp(canvas.cropInk())
+    }
+
+    private fun drawCenteredText(canvas: MonoBitmap, text: String, y: Int, scale: Int) {
+        val textWidth = text.length * 6 * scale
+        val x = ((canvas.width - textWidth) / 2).coerceAtLeast(0)
+        drawText(canvas, x, y, scale, text)
     }
 
     private fun buildPackCommands(content: PackLabelContent): List<String> {

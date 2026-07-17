@@ -985,7 +985,7 @@ UsbRpsPrintRequest _qolipCodeUsbPrintJob(QolipCodeQr qolipQr) {
   return UsbRpsPrintRequest(
     epc: qolipQr.qrPayload,
     itemCode: qolipQr.qolipCode,
-    itemName: '${qolipQr.itemName} • ${qolipQr.size}',
+    itemName: qolipQr.itemName,
     warehouse: 'ACCORD',
     printer: 'godex',
     printMode: 'label',

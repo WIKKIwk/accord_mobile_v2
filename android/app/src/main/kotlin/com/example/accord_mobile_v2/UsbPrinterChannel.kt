@@ -470,6 +470,7 @@ internal data class UsbRpsPrintRequest(
     val tareEnabled: Boolean,
     val tareKg: Double,
     val printCount: Int,
+    val labelKind: String = "",
 ) {
     fun response(device: UsbDevice, bytes: Int): Map<String, Any> {
         val netQty = netQty()
@@ -524,6 +525,7 @@ internal data class UsbRpsPrintRequest(
                 tareEnabled = call.argument<Boolean>("tare_enabled") == true || tareKg > 0.0,
                 tareKg = tareKg,
                 printCount = printCount,
+                labelKind = clean(call.argument<String>("label_kind"), "").lowercase(Locale.US),
             )
         }
 

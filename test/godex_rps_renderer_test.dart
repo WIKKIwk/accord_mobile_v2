@@ -60,4 +60,25 @@ void main() {
     expect(output, contains('Y56,96,QRLBL'));
     expect(output, isNot(contains('Y224,224,QRLBL')));
   });
+
+  test('renders Qolip code with small name and code around a large QR', () {
+    final output = String.fromCharCodes(
+      GodexRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: 'QOLIP-0007',
+          itemCode: 'QOLIP-0007',
+          itemName: 'Kross qolip',
+          printer: 'godex',
+          printMode: 'label',
+          grossQty: 1,
+          labelKind: 'qolip_code',
+        ),
+      ),
+    );
+
+    expect(output, contains('~EB,QRLBL,'));
+    expect(output, contains('Y0,0,TEXTLBL'));
+    expect(output, contains('Y56,56,QRLBL'));
+    expect(output, isNot(contains('Y224,224,QRLBL')));
+  });
 }

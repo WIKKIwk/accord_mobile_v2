@@ -223,6 +223,8 @@ class UsbRpsPrintRequest {
     return kind == 'qolip_cell' || kind == 'qr_center';
   }
 
+  bool get isQolipCodeLabel => labelKind.trim().toLowerCase() == 'qolip_code';
+
   double get effectiveProgressQty => progressQty ?? netQty;
 
   UsbRpsPrintRequest forPrinter(UsbPrinterProfile profile) {

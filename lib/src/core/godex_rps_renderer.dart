@@ -16,6 +16,9 @@ class GodexRpsRenderer {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
     }
+    if (request.isQolipCodeLabel) {
+      return _renderQolipCode(request);
+    }
     final content = _PackLabelContent(
       companyName: _uppercaseClean('Accord'),
       productName: _uppercaseClean(
@@ -103,6 +106,52 @@ class GodexRpsRenderer {
     return out.takeBytes();
   }
 
+  static Uint8List _renderQolipCode(UsbRpsPrintRequest request) {
+    final name = _uppercaseClean(
+      request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
+    );
+    final code = _uppercaseClean(
+      request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
+    );
+    final payload = _uppercaseClean(request.epc);
+    if (payload.isEmpty) {
+      throw StateError('qr payload is empty');
+    }
+    final textGraphic = _renderQolipCodeTextGraphic(name, code);
+    final qrGraphic = _renderQrGraphic(payload, 288);
+    final out = BytesBuilder(copy: false);
+
+    void send(String command) {
+      out.add(_ascii(command.replaceFirst(RegExp(r'[\r\n]+$'), '')));
+      out.addByte(13);
+      out.addByte(10);
+    }
+
+    send('^XSET,BUZZER,0');
+    send('~MDELG,TEXTLBL');
+    send('~EB,TEXTLBL,${textGraphic.length}');
+    out.add(textGraphic);
+    send('~MDELG,QRLBL');
+    send('~EB,QRLBL,${qrGraphic.length}');
+    out.add(qrGraphic);
+    send('~S,ESG');
+    send('^AD');
+    send('^XSET,UNICODE,1');
+    send('^XSET,IMMEDIATE,1');
+    send('^XSET,ACTIVERESPONSE,1');
+    send('^XSET,CODEPAGE,16');
+    send('^Q50,3');
+    send('^W50');
+    send('^H10');
+    send('^P1');
+    send('^L');
+    send('Y0,0,TEXTLBL');
+    send('Y56,56,QRLBL');
+    send('E');
+    send('~S,STATUS');
+    return out.takeBytes();
+  }
+
   static Uint8List _renderCellNameGraphic(String cellName) {
     const scale = 8;
     const width = 400;
@@ -114,6 +163,26 @@ class GodexRpsRenderer {
       _drawChar(bitmap, cursor, 16, scale, character);
       cursor += 6 * scale;
     }
+    return _encodeMonoBmp(bitmap.cropInk());
+  }
+
+  static Uint8List _renderQolipCodeTextGraphic(String name, String code) {
+    const scale = 4;
+    const width = 400;
+    const height = 400;
+    final bitmap = _MonoBitmap.filled(width, height, light: true);
+
+    void drawCentered(String text, int y) {
+      final textWidth = text.length * 6 * scale;
+      var cursor = ((width - textWidth) ~/ 2).clamp(0, width - 1);
+      for (final character in text.split('')) {
+        _drawChar(bitmap, cursor, y, scale, character);
+        cursor += 6 * scale;
+      }
+    }
+
+    drawCentered(name, 8);
+    drawCentered(code, 352);
     return _encodeMonoBmp(bitmap.cropInk());
   }
 
