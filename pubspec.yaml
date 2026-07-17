@@ -53,6 +53,8 @@ dependency_overrides:
     path: third_party/model_viewer_plus
 
 flutter:
+  config:
+    enable-swift-package-manager: true
   uses-material-design: true
   assets:
     - assets/icons/
