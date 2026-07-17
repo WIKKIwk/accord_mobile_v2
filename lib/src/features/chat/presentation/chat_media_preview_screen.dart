@@ -12,11 +12,13 @@ class ChatMediaDraft {
     required this.source,
     required this.kind,
     required this.caption,
+    required this.durationMs,
   });
 
   final XFile source;
   final ChatMediaKind kind;
   final String caption;
+  final int durationMs;
 }
 
 class ChatMediaPreviewScreen extends StatefulWidget {
@@ -50,8 +52,18 @@ class _ChatMediaPreviewScreenState extends State<ChatMediaPreviewScreen> {
       final controller = createLocalChatVideoController(widget.source.path);
       videoController = controller;
       videoInitialization = controller.initialize().then((_) {
-        if (controller.value.duration > chatMediaVideoMaxDuration) {
-          validationError = 'Video 120 soniyadan oshmasligi kerak.';
+        final value = controller.value;
+        if (value.duration > chatMediaVideoMaxDuration) {
+          validationError = 'Video 10 daqiqa (600 soniya)dan oshmasligi kerak.';
+        } else {
+          final width = value.size.width.round();
+          final height = value.size.height.round();
+          final longEdge = width > height ? width : height;
+          final shortEdge = width > height ? height : width;
+          if (longEdge > chatMediaVideoMaxLongEdge ||
+              shortEdge > chatMediaVideoMaxShortEdge) {
+            validationError = 'Video 1920×1080 dan oshmasligi kerak.';
+          }
         }
         if (mounted) setState(() {});
       }).catchError((Object _) {
@@ -210,6 +222,9 @@ class _ChatMediaPreviewScreenState extends State<ChatMediaPreviewScreen> {
         source: widget.source,
         kind: widget.kind,
         caption: captionController.text.trim(),
+        durationMs: widget.kind == ChatMediaKind.video
+            ? videoController?.value.duration.inMilliseconds ?? 0
+            : 0,
       ),
     );
   }

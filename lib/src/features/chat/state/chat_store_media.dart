@@ -1,7 +1,7 @@
 part of 'chat_store.dart';
 
 const Duration _mediaStatusPollInterval = Duration(seconds: 1);
-const int _mediaStatusPollLimit = 600;
+const int _mediaStatusPollLimit = 3600;
 
 extension ChatStoreMedia on ChatStore {
   List<ChatPendingMedia> pendingMediaFor(String conversationId) {
@@ -15,6 +15,7 @@ extension ChatStoreMedia on ChatStore {
     required XFile source,
     required ChatMediaKind kind,
     String caption = '',
+    int durationMs = 0,
   }) async {
     await startForCurrentSession();
     final key = profileKey;
@@ -34,8 +35,16 @@ extension ChatStoreMedia on ChatStore {
         code: 'chat_media_too_large',
         message: kind == ChatMediaKind.image
             ? 'Rasm 15 MiB dan oshmasligi kerak.'
-            : 'Video 75 MiB dan oshmasligi kerak.',
+            : 'Video 2 GiB va 10 daqiqadan oshmasligi kerak.',
         statusCode: 413,
+      );
+    }
+    if (kind == ChatMediaKind.video &&
+        durationMs > chatMediaVideoMaxDuration.inMilliseconds) {
+      throw const MobileApiException(
+        code: 'video_duration_too_long',
+        message: 'Video 10 daqiqa (600 soniya)dan oshmasligi kerak.',
+        statusCode: 422,
       );
     }
     final localId = _newMediaId('local_media');
@@ -68,6 +77,7 @@ extension ChatStoreMedia on ChatStore {
       status: ChatPendingMediaStatus.preparing,
       progress: 0,
       createdAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      durationMs: kind == ChatMediaKind.video ? durationMs : 0,
     );
     _insertPendingMedia(pending);
     unawaited(_preparePendingMedia(key, pending, source));
@@ -290,21 +300,36 @@ extension ChatStoreMedia on ChatStore {
               localId,
               (current) => current.copyWith(
                 status: ChatPendingMediaStatus.uploading,
-                progress: 0,
+                progress: serverMedia.sizeBytes <= 0
+                    ? 0
+                    : (serverMedia.uploadedBytes / serverMedia.sizeBytes)
+                        .clamp(0.0, 1.0)
+                        .toDouble(),
                 error: '',
               ),
             );
             final client = http.Client();
             _mediaUploadClients[localId] = client;
             try {
-              await MobileApi.instance.chatUploadMedia(
-                instruction: instruction,
-                content: XFile(pending.localPath).openRead(),
-                sizeBytes: pending.sizeBytes,
-                client: client,
-                onProgress: (progress) =>
-                    _updatePendingMediaProgress(key, localId, progress),
-              );
+              if (serverMedia.chunked) {
+                serverMedia = await _uploadPendingVideoChunks(
+                  key: key,
+                  localId: localId,
+                  pending: pending,
+                  serverMedia: serverMedia,
+                  instruction: instruction,
+                  client: client,
+                );
+              } else {
+                await MobileApi.instance.chatUploadMedia(
+                  instruction: instruction,
+                  content: XFile(pending.localPath).openRead(),
+                  sizeBytes: pending.sizeBytes,
+                  client: client,
+                  onProgress: (progress) =>
+                      _updatePendingMediaProgress(key, localId, progress),
+                );
+              }
             } finally {
               if (identical(_mediaUploadClients[localId], client)) {
                 _mediaUploadClients.remove(localId);
@@ -395,7 +420,84 @@ extension ChatStoreMedia on ChatStore {
       filename: pending.filename,
       contentType: pending.contentType,
       sizeBytes: pending.sizeBytes,
+      durationMs: pending.durationMs > 0 ? pending.durationMs : null,
     );
+  }
+
+  Future<ChatMediaUpload> _uploadPendingVideoChunks({
+    required String key,
+    required String localId,
+    required ChatPendingMedia pending,
+    required ChatMediaUpload serverMedia,
+    required ChatMediaUploadInstruction instruction,
+    required http.Client client,
+  }) async {
+    final chunkSize = instruction.chunkSizeBytes > 0
+        ? instruction.chunkSizeBytes
+        : serverMedia.chunkSizeBytes;
+    final totalChunks = instruction.totalChunks > 0
+        ? instruction.totalChunks
+        : serverMedia.totalChunks;
+    if (!instruction.resumable ||
+        chunkSize <= 0 ||
+        totalChunks <= 0 ||
+        totalChunks != serverMedia.totalChunks ||
+        chunkSize != serverMedia.chunkSizeBytes) {
+      throw StateError('chat_media_chunk_configuration_invalid');
+    }
+
+    final uploaded = serverMedia.uploadedChunkIndexes;
+    var uploadedBytes = 0;
+    for (final index in uploaded) {
+      if (index < 0 || index >= totalChunks) {
+        throw StateError('chat_media_chunk_configuration_invalid');
+      }
+      uploadedBytes += chatMediaChunkBounds(
+        index: index,
+        chunkSizeBytes: chunkSize,
+        totalSizeBytes: pending.sizeBytes,
+      ).sizeBytes;
+    }
+    _updatePendingMediaProgress(
+      key,
+      localId,
+      uploadedBytes / pending.sizeBytes,
+    );
+
+    var current = serverMedia;
+    for (var index = 0; index < totalChunks; index++) {
+      if (uploaded.contains(index)) continue;
+      final active = _pendingMediaById(localId);
+      if (active == null) throw const _ChatMediaCancelled();
+      _throwIfMediaCancelled(active);
+      final bounds = chatMediaChunkBounds(
+        index: index,
+        chunkSizeBytes: chunkSize,
+        totalSizeBytes: pending.sizeBytes,
+      );
+      final completedBeforeChunk = uploadedBytes;
+      current = await MobileApi.instance.chatUploadMediaChunk(
+        instruction: instruction,
+        bounds: bounds,
+        content: XFile(pending.localPath).openRead(
+          bounds.startByte,
+          bounds.endByteExclusive,
+        ),
+        client: client,
+        onProgress: (chunkProgress) {
+          final bytes =
+              completedBeforeChunk + (bounds.sizeBytes * chunkProgress).round();
+          _updatePendingMediaProgress(
+            key,
+            localId,
+            bytes / pending.sizeBytes,
+          );
+        },
+      );
+      uploadedBytes += bounds.sizeBytes;
+      uploaded.add(index);
+    }
+    return current;
   }
 
   Future<ChatMediaUpload> _waitForReadyMedia(

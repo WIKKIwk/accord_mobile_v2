@@ -39,7 +39,27 @@ void main() {
       statusCode: 422,
     );
 
-    expect(chatMediaFailureMessage(durationFailure), contains('120'));
+    expect(chatMediaFailureMessage(durationFailure), contains('600'));
+    expect(
+      chatMediaFailureMessage(
+        const MobileApiException(
+          code: 'video_resolution_too_large',
+          message: 'invalid',
+          statusCode: 422,
+        ),
+      ),
+      contains('1920×1080'),
+    );
+    expect(
+      chatMediaFailureMessage(
+        const MobileApiException(
+          code: 'video_frame_rate_too_high',
+          message: 'invalid',
+          statusCode: 422,
+        ),
+      ),
+      contains('60 FPS'),
+    );
     expect(
       chatMediaFailureMessage(
         StateError('chat_media_local_file_missing'),

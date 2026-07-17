@@ -331,7 +331,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           code: 'chat_media_too_large',
           message: selection.kind == ChatMediaKind.image
               ? 'Rasm 15 MiB dan oshmasligi kerak.'
-              : 'Video 75 MiB dan oshmasligi kerak.',
+              : 'Video 2 GiB va 10 daqiqadan oshmasligi kerak.',
           statusCode: 413,
         );
       }
@@ -350,6 +350,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         source: draft.source,
         kind: draft.kind,
         caption: draft.caption,
+        durationMs: draft.durationMs,
       );
       _scrollToBottom();
     } on PlatformException catch (error) {

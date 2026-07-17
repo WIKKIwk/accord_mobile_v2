@@ -1,8 +1,12 @@
 enum ChatMediaKind { image, video }
 
 const int chatMediaImageMaxBytes = 15 * 1024 * 1024;
-const int chatMediaVideoMaxBytes = 75 * 1024 * 1024;
-const Duration chatMediaVideoMaxDuration = Duration(seconds: 120);
+const int chatMediaVideoMaxBytes = 2 * 1024 * 1024 * 1024;
+const int chatMediaProcessedVideoMaxBytes = 1024 * 1024 * 1024;
+const Duration chatMediaVideoMaxDuration = Duration(seconds: 600);
+const int chatMediaVideoMaxLongEdge = 1920;
+const int chatMediaVideoMaxShortEdge = 1080;
+const int chatMediaVideoMaxFramesPerSecond = 60;
 
 ChatMediaKind chatMediaKindFromJson(Object? value) {
   return value?.toString() == 'video'
@@ -73,6 +77,8 @@ class ChatMediaUploadInstruction {
     required this.url,
     required this.headers,
     required this.expiresAtUnix,
+    this.chunkSizeBytes = 0,
+    this.totalChunks = 0,
   });
 
   final String strategy;
@@ -80,6 +86,14 @@ class ChatMediaUploadInstruction {
   final String url;
   final Map<String, String> headers;
   final int expiresAtUnix;
+  final int chunkSizeBytes;
+  final int totalChunks;
+
+  bool get resumable => strategy == 'resumable_chunks';
+
+  String urlForChunk(int chunkIndex) {
+    return url.replaceAll('{chunk_index}', chunkIndex.toString());
+  }
 
   factory ChatMediaUploadInstruction.fromJson(Map<String, dynamic> json) {
     final rawHeaders = json['headers'];
@@ -93,6 +107,28 @@ class ChatMediaUploadInstruction {
             )
           : const <String, String>{},
       expiresAtUnix: (json['expires_at_unix'] as num?)?.toInt() ?? 0,
+      chunkSizeBytes: (json['chunk_size_bytes'] as num?)?.toInt() ?? 0,
+      totalChunks: (json['total_chunks'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class ChatMediaUploadedChunk {
+  const ChatMediaUploadedChunk({
+    required this.chunkIndex,
+    required this.offsetBytes,
+    required this.sizeBytes,
+  });
+
+  final int chunkIndex;
+  final int offsetBytes;
+  final int sizeBytes;
+
+  factory ChatMediaUploadedChunk.fromJson(Map<String, dynamic> json) {
+    return ChatMediaUploadedChunk(
+      chunkIndex: (json['chunk_index'] as num?)?.toInt() ?? -1,
+      offsetBytes: (json['offset_bytes'] as num?)?.toInt() ?? -1,
+      sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -108,6 +144,10 @@ class ChatMediaUpload {
     required this.contentType,
     required this.sizeBytes,
     required this.errorCode,
+    this.uploadMode = 'single',
+    this.chunkSizeBytes = 0,
+    this.totalChunks = 0,
+    this.uploadedChunks = const <ChatMediaUploadedChunk>[],
   });
 
   final String mediaId;
@@ -119,9 +159,35 @@ class ChatMediaUpload {
   final String contentType;
   final int sizeBytes;
   final String errorCode;
+  final String uploadMode;
+  final int chunkSizeBytes;
+  final int totalChunks;
+  final List<ChatMediaUploadedChunk> uploadedChunks;
 
   bool get ready => status == 'ready';
   bool get terminalFailure => status == 'failed' || status == 'cancelled';
+  bool get chunked => uploadMode == 'chunked';
+  int get uploadedBytes {
+    final seen = <int>{};
+    return uploadedChunks.fold<int>(
+      0,
+      (total, chunk) =>
+          seen.add(chunk.chunkIndex) ? total + chunk.sizeBytes : total,
+    );
+  }
+
+  Set<int> get uploadedChunkIndexes => uploadedChunks
+      .where((chunk) => chunk.chunkIndex >= 0)
+      .map((chunk) => chunk.chunkIndex)
+      .toSet();
+
+  List<int> get missingChunkIndexes {
+    if (!chunked || totalChunks <= 0) return const <int>[];
+    final uploaded = uploadedChunkIndexes;
+    return List<int>.generate(totalChunks, (index) => index)
+        .where((index) => !uploaded.contains(index))
+        .toList(growable: false);
+  }
 
   factory ChatMediaUpload.fromJson(Map<String, dynamic> json) {
     return ChatMediaUpload(
@@ -134,8 +200,59 @@ class ChatMediaUpload {
       contentType: json['content_type']?.toString() ?? '',
       sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
       errorCode: json['error_code']?.toString() ?? '',
+      uploadMode: json['upload_mode']?.toString() ?? 'single',
+      chunkSizeBytes: (json['chunk_size_bytes'] as num?)?.toInt() ?? 0,
+      totalChunks: (json['total_chunks'] as num?)?.toInt() ?? 0,
+      uploadedChunks: (json['uploaded_chunks'] as List?)
+              ?.whereType<Map>()
+              .map(
+                (chunk) => ChatMediaUploadedChunk.fromJson(
+                  chunk.cast<String, dynamic>(),
+                ),
+              )
+              .toList(growable: false) ??
+          const <ChatMediaUploadedChunk>[],
     );
   }
+}
+
+class ChatMediaChunkBounds {
+  const ChatMediaChunkBounds({
+    required this.index,
+    required this.startByte,
+    required this.endByteExclusive,
+    required this.totalSizeBytes,
+  });
+
+  final int index;
+  final int startByte;
+  final int endByteExclusive;
+  final int totalSizeBytes;
+
+  int get sizeBytes => endByteExclusive - startByte;
+  int get endByteInclusive => endByteExclusive - 1;
+  String get contentRange =>
+      'bytes $startByte-$endByteInclusive/$totalSizeBytes';
+}
+
+ChatMediaChunkBounds chatMediaChunkBounds({
+  required int index,
+  required int chunkSizeBytes,
+  required int totalSizeBytes,
+}) {
+  if (index < 0 || chunkSizeBytes <= 0 || totalSizeBytes <= 0) {
+    throw ArgumentError('Invalid chat media chunk configuration.');
+  }
+  final startByte = index * chunkSizeBytes;
+  if (startByte >= totalSizeBytes) {
+    throw RangeError.index(index, const <int>[], 'index');
+  }
+  return ChatMediaChunkBounds(
+    index: index,
+    startByte: startByte,
+    endByteExclusive: (startByte + chunkSizeBytes).clamp(0, totalSizeBytes),
+    totalSizeBytes: totalSizeBytes,
+  );
 }
 
 class ChatMediaInitialization {
@@ -190,6 +307,7 @@ class ChatPendingMedia {
     this.mediaId = '',
     this.uploadId = '',
     this.error = '',
+    this.durationMs = 0,
   });
 
   final String localId;
@@ -208,6 +326,7 @@ class ChatPendingMedia {
   final String mediaId;
   final String uploadId;
   final String error;
+  final int durationMs;
 
   ChatPendingMedia copyWith({
     String? clientUploadId,
@@ -235,6 +354,7 @@ class ChatPendingMedia {
       mediaId: mediaId ?? this.mediaId,
       uploadId: uploadId ?? this.uploadId,
       error: error ?? this.error,
+      durationMs: durationMs,
     );
   }
 
@@ -259,6 +379,7 @@ class ChatPendingMedia {
       mediaId: json['media_id']?.toString() ?? '',
       uploadId: json['upload_id']?.toString() ?? '',
       error: json['error']?.toString() ?? '',
+      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -279,5 +400,6 @@ class ChatPendingMedia {
         'media_id': mediaId,
         'upload_id': uploadId,
         'error': error,
+        if (durationMs > 0) 'duration_ms': durationMs,
       };
 }

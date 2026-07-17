@@ -33,6 +33,64 @@ void main() {
     expect(initialization.upload.headers['Content-Type'], 'image/jpeg');
   });
 
+  test('resumable initialization restores uploaded chunks without duplicates',
+      () {
+    final initialization = ChatMediaInitialization.fromJson({
+      'media': {
+        'media_id': 'media_1',
+        'upload_id': 'upload_1',
+        'conversation_id': 'conversation_1',
+        'client_upload_id': 'client_upload_1',
+        'kind': 'video',
+        'status': 'pending',
+        'content_type': 'video/mp4',
+        'size_bytes': 25,
+        'upload_mode': 'chunked',
+        'chunk_size_bytes': 10,
+        'total_chunks': 3,
+        'uploaded_chunks': [
+          {'chunk_index': 0, 'offset_bytes': 0, 'size_bytes': 10},
+          {'chunk_index': 0, 'offset_bytes': 0, 'size_bytes': 10},
+          {'chunk_index': 2, 'offset_bytes': 20, 'size_bytes': 5},
+        ],
+      },
+      'upload': {
+        'strategy': 'resumable_chunks',
+        'method': 'PUT',
+        'url': '/uploads/upload_1/chunks/{chunk_index}',
+        'headers': {'content-type': 'application/octet-stream'},
+        'expires_at_unix': 200,
+        'chunk_size_bytes': 10,
+        'total_chunks': 3,
+      },
+      'created': false,
+    });
+
+    expect(initialization.created, isFalse);
+    expect(initialization.media.chunked, isTrue);
+    expect(initialization.media.uploadedBytes, 15);
+    expect(initialization.media.missingChunkIndexes, [1]);
+    expect(initialization.upload.resumable, isTrue);
+    expect(initialization.upload.urlForChunk(1), '/uploads/upload_1/chunks/1');
+  });
+
+  test('large video chunk bounds preserve the final partial chunk', () {
+    const chunkSize = 8 * 1024 * 1024;
+    final totalSize = chatMediaVideoMaxBytes - 1;
+    final finalChunk = chatMediaChunkBounds(
+      index: 255,
+      chunkSizeBytes: chunkSize,
+      totalSizeBytes: totalSize,
+    );
+
+    expect(finalChunk.startByte, 255 * chunkSize);
+    expect(finalChunk.sizeBytes, chunkSize - 1);
+    expect(
+      finalChunk.contentRange,
+      'bytes ${255 * chunkSize}-${totalSize - 1}/$totalSize',
+    );
+  });
+
   test('pending media survives JSON storage with retry identity intact', () {
     const pending = ChatPendingMedia(
       localId: 'local_1',
@@ -50,6 +108,7 @@ void main() {
       createdAtUnix: 100,
       mediaId: 'media_1',
       uploadId: 'upload_1',
+      durationMs: 600000,
     );
 
     final restored = ChatPendingMedia.fromJson(pending.toJson());
@@ -60,6 +119,7 @@ void main() {
     expect(restored.status, ChatPendingMediaStatus.processing);
     expect(restored.mediaId, 'media_1');
     expect(restored.uploadId, 'upload_1');
+    expect(restored.durationMs, 600000);
   });
 
   test('pending media state can restart without changing message identity', () {
@@ -95,7 +155,11 @@ void main() {
 
   test('V1 media limits match the approved contract', () {
     expect(chatMediaImageMaxBytes, 15 * 1024 * 1024);
-    expect(chatMediaVideoMaxBytes, 75 * 1024 * 1024);
-    expect(chatMediaVideoMaxDuration, const Duration(seconds: 120));
+    expect(chatMediaVideoMaxBytes, 2 * 1024 * 1024 * 1024);
+    expect(chatMediaProcessedVideoMaxBytes, 1024 * 1024 * 1024);
+    expect(chatMediaVideoMaxDuration, const Duration(seconds: 600));
+    expect(chatMediaVideoMaxLongEdge, 1920);
+    expect(chatMediaVideoMaxShortEdge, 1080);
+    expect(chatMediaVideoMaxFramesPerSecond, 60);
   });
 }

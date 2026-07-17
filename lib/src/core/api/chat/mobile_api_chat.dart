@@ -199,6 +199,47 @@ extension MobileApiChat on MobileApi {
     }
   }
 
+  Future<ChatMediaUpload> chatUploadMediaChunk({
+    required ChatMediaUploadInstruction instruction,
+    required ChatMediaChunkBounds bounds,
+    required Stream<List<int>> content,
+    required void Function(double progress) onProgress,
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse(
+      MobileApi.baseUrl,
+    ).resolve(instruction.urlForChunk(bounds.index));
+    final request = http.StreamedRequest(instruction.method, uri);
+    request.contentLength = bounds.sizeBytes;
+    request.headers
+      ..addAll(instruction.headers)
+      ..addAll(_headers(requireToken()))
+      ..['Content-Range'] = bounds.contentRange;
+    var sent = 0;
+    final tracked = content.map((chunk) {
+      sent += chunk.length;
+      onProgress(
+        bounds.sizeBytes <= 0
+            ? 0
+            : (sent / bounds.sizeBytes).clamp(0.0, 1.0).toDouble(),
+      );
+      return chunk;
+    });
+    final activeClient = client ?? http.Client();
+    try {
+      final responseFuture = activeClient.send(request);
+      await request.sink.addStream(tracked);
+      await request.sink.close();
+      final streamed = await responseFuture;
+      final response = await http.Response.fromStream(streamed);
+      _requireChatSuccess(response, 'chat_media_chunk_upload_failed');
+      onProgress(1);
+      return _chatMediaFromResponse(response);
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
   Future<ChatMediaUpload> chatMediaStatus({
     required String conversationId,
     required String uploadId,

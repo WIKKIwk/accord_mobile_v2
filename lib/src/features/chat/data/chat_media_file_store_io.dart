@@ -9,7 +9,21 @@ Future<String> persistChatMediaFile(XFile source, String localId) async {
   await directory.create(recursive: true);
   final extension = _safeExtension(source.name);
   final target = '${directory.path}/$localId$extension';
-  await source.saveTo(target);
+  final targetFile = File(target);
+  final expectedSize = await source.length();
+  final sink = targetFile.openWrite();
+  try {
+    await sink.addStream(source.openRead());
+    await sink.flush();
+    await sink.close();
+    if (await targetFile.length() != expectedSize) {
+      throw const FileSystemException('Incomplete chat media copy');
+    }
+  } catch (_) {
+    await sink.close();
+    if (await targetFile.exists()) await targetFile.delete();
+    rethrow;
+  }
   return target;
 }
 
