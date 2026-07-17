@@ -7,6 +7,7 @@ final List<AdminApparatusGroup> _testModeApparatusGroups = [
 final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final List<AdminWarehouse> _testModeWarehouses = [];
 final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
+final Set<String> _testModeDeletedWarehouseNames = {};
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
@@ -95,6 +96,7 @@ void resetMobileApiTestModeData() {
   _testModeApparatusWarehouses.clear();
   _testModeWarehouses.clear();
   _testModeWarehouseAssignments.clear();
+  _testModeDeletedWarehouseNames.clear();
   _testModeApparatusSequences.clear();
   _testModeApparatusQueueStates.clear();
   _testModeApparatusQueuePolicies.clear();

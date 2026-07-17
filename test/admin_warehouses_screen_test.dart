@@ -14,6 +14,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    resetMobileApiTestModeData();
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
@@ -81,7 +82,7 @@ void main() {
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Mahsulotlar'), findsOneWidget);
+    expect(find.textContaining('Mahsulotlar'), findsWidgets);
     expect(find.textContaining('(3)'), findsOneWidget);
     expect(find.text('Demo kraska'), findsOneWidget);
     expect(find.text('Demo xomashyo rulon'), findsOneWidget);
@@ -132,7 +133,7 @@ void main() {
     await tester.tap(find.text('Tayyor mahsulot ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Mahsulotlar'), findsOneWidget);
+    expect(find.textContaining('Mahsulotlar'), findsWidgets);
     expect(find.text('Hotlunch'), findsOneWidget);
 
     await tester.tap(find.byKey(_primaryNavigationButtonKey));
@@ -194,6 +195,89 @@ void main() {
 
     expect(find.text('Jumaniyoz qolipchi'), findsOneWidget);
     expect(find.text('Tanlash uchun bosing'), findsNothing);
+  });
+
+  testWidgets('warehouse page separates products and settings tabs', (
+    tester,
+  ) async {
+    await _pumpWarehousesScreen(tester);
+
+    expect(find.text('Mahsulotlar'), findsOneWidget);
+    expect(find.text('Sozlamalar'), findsOneWidget);
+
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ombor ma’lumoti'), findsOneWidget);
+    expect(find.text('Assign qilinganlar'), findsOneWidget);
+    expect(find.text('Kimga assign qilish'), findsOneWidget);
+    expect(find.text('Omborni o‘chirish'), findsOneWidget);
+  });
+
+  testWidgets('warehouse settings assigns a qolipchi user', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.qolipchi,
+      name: 'Jumaniyoz qolipchi',
+      phone: '+998110000011',
+    );
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('warehouse-assign-user')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'jumaniyoz');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jumaniyoz qolipchi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jumaniyoz qolipchi'), findsOneWidget);
+    expect(find.text('Qolipchi'), findsOneWidget);
+  });
+
+  testWidgets('warehouse deletion warns when products will be deleted', (
+    tester,
+  ) async {
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const ValueKey('warehouse-delete-button'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('mahsulot bor'), findsOneWidget);
+    expect(find.textContaining('o‘chib ketadi'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('warehouse-delete-confirm')), findsOneWidget);
+  });
+
+  testWidgets('confirmed deletion removes an empty warehouse immediately', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminCreateWarehouse('Bo‘sh ombor');
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Bo‘sh ombor');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const ValueKey('warehouse-delete-button'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('warehouse-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ombor o‘chirildi'), findsOneWidget);
+    expect(find.text('Ombor tanlanmagan'), findsOneWidget);
+    await _openWarehouseFilter(tester);
+    expect(find.text('Bo‘sh ombor'), findsNothing);
   });
 
   testWidgets('material scoped warehouses page shows only assigned warehouses',
@@ -268,5 +352,36 @@ const _primaryNavigationButtonKey = ValueKey('app-primary-navigation-button');
 
 Future<void> _openWarehouseFilter(WidgetTester tester) async {
   await tester.tap(find.byKey(_warehouseFilterKey));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpWarehousesScreen(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(800, 1200));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AdminWarehousesScreen(),
+    ),
+  );
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.byKey(_warehouseFilterKey).evaluate().isNotEmpty) {
+      return;
+    }
+  }
+}
+
+Future<void> _selectWarehouse(WidgetTester tester, String warehouse) async {
+  await _openWarehouseFilter(tester);
+  await tester.tap(find.text(warehouse));
   await tester.pumpAndSettle();
 }

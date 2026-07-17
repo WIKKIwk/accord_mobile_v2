@@ -33,8 +33,10 @@ class AdminWarehousesScreen extends StatefulWidget {
   State<AdminWarehousesScreen> createState() => _AdminWarehousesScreenState();
 }
 
-class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
+class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
+    with SingleTickerProviderStateMixin {
   late Future<_WarehouseSummaryData> _future;
+  late final TabController _pageTabController;
   StreamSubscription<Map<String, dynamic>>? _warehouseLiveSub;
   Timer? _warehouseLiveReconnectTimer;
   Future<_WarehouseInventorySection?>? _detailFuture;
@@ -84,6 +86,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
   @override
   void initState() {
     super.initState();
+    _pageTabController = TabController(length: 2, vsync: this);
     _future = _load();
     _connectWarehouseLive();
   }
@@ -93,6 +96,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
     _disposed = true;
     _warehouseLiveReconnectTimer?.cancel();
     _warehouseLiveSub?.cancel();
+    _pageTabController.dispose();
     super.dispose();
   }
 
@@ -151,6 +155,20 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
 
   Future<void> _reload() async {
     setState(() {
+      _future = _load();
+      final selected = _selectedWarehouse?.trim() ?? '';
+      if (selected.isNotEmpty) {
+        _detailFuture = _loadDetail(selected);
+      }
+    });
+    await _future;
+  }
+
+  Future<void> _handleWarehouseDeleted() async {
+    setState(() {
+      _selectedWarehouse = null;
+      _detailFuture = null;
+      _warehouseFilterExpanded = false;
       _future = _load();
     });
     await _future;
@@ -284,7 +302,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
           }
           final data = snapshot.data ?? _WarehouseSummaryData.empty;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
-          return _WarehouseDetailsTab(
+          final productsTab = _WarehouseDetailsTab(
             summaries: data.sections,
             warehouse: _selectedWarehouse,
             detailFuture: _detailFuture,
@@ -296,6 +314,42 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen> {
               });
             },
             onWarehouseChanged: _openWarehouseDetailByName,
+          );
+          if (materialScoped) {
+            return productsTab;
+          }
+          return Column(
+            children: [
+              AdminSurfaceTabBar(
+                controller: _pageTabController,
+                tabs: const [
+                  Tab(height: 38, text: 'Mahsulotlar'),
+                  Tab(height: 38, text: 'Sozlamalar'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _pageTabController,
+                  children: [
+                    productsTab,
+                    _WarehouseSettingsTab(
+                      summaries: data.sections,
+                      warehouse: _selectedWarehouse,
+                      bottomPadding: bottomPadding,
+                      filterExpanded: _warehouseFilterExpanded,
+                      onFilterToggle: () {
+                        setState(() {
+                          _warehouseFilterExpanded = !_warehouseFilterExpanded;
+                        });
+                      },
+                      onWarehouseChanged: _openWarehouseDetailByName,
+                      onChanged: _reload,
+                      onDeleted: _handleWarehouseDeleted,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -491,6 +545,57 @@ class _WarehouseInventorySection {
   int get productCount => items.length + rawStock.length;
 }
 
+Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
+  final results = await Future.wait([
+    MobileApi.instance.adminUserList(limit: 500),
+    MobileApi.instance.adminUserList(role: 'qolipchi', limit: 500),
+    MobileApi.instance.adminWorkers(),
+    MobileApi.instance.adminRoleAssignments(),
+  ]);
+  final page = results[0] as AdminUserListPage;
+  final qolipchiPage = results[1] as AdminUserListPage;
+  final workers = results[2] as List<AdminWorker>;
+  final assignments = results[3] as List<AdminRoleAssignment>;
+  final workerEntries = workers.map((worker) {
+    final assignment = assignments
+        .where((item) => item.principalRef.trim() == worker.id.trim())
+        .where((item) =>
+            item.principalRole == UserRole.qolipchi ||
+            item.roleId.trim() == 'qolipchi')
+        .cast<AdminRoleAssignment?>()
+        .firstWhere((item) => item != null, orElse: () => null);
+    final role = assignment?.principalRole == UserRole.qolipchi ||
+            assignment?.roleId.trim() == 'qolipchi'
+        ? UserRole.qolipchi
+        : UserRole.aparatchi;
+    return AdminUserListEntry(
+      id: worker.id,
+      name: worker.name,
+      phone: worker.phone,
+      kind: role == UserRole.qolipchi
+          ? AdminUserKind.qolipchi
+          : AdminUserKind.worker,
+      principalRole: role,
+      roleLabelOverride: userRoleLabel(role),
+    );
+  });
+  final byKey = <String, AdminUserListEntry>{};
+  for (final item in [
+    ...page.items,
+    ...qolipchiPage.items,
+    ...workerEntries,
+  ].where((item) => !item.blocked)) {
+    final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
+    byKey[key] = item;
+  }
+  return byKey.values.toList(growable: false)
+    ..sort(
+      (left, right) => left.name.toLowerCase().compareTo(
+            right.name.toLowerCase(),
+          ),
+    );
+}
+
 class _WarehouseCreateCard extends StatefulWidget {
   const _WarehouseCreateCard({
     required this.onSaved,
@@ -522,53 +627,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
     if (current != null) {
       return current;
     }
-    final next = Future.wait([
-      MobileApi.instance.adminUserList(limit: 500),
-      MobileApi.instance.adminUserList(role: 'qolipchi', limit: 500),
-      MobileApi.instance.adminWorkers(),
-      MobileApi.instance.adminRoleAssignments(),
-    ]).then((results) {
-      final page = results[0] as AdminUserListPage;
-      final qolipchiPage = results[1] as AdminUserListPage;
-      final workers = results[2] as List<AdminWorker>;
-      final assignments = results[3] as List<AdminRoleAssignment>;
-      final workerEntries = workers.map((worker) {
-        final assignment = assignments
-            .where((item) => item.principalRef.trim() == worker.id.trim())
-            .where((item) =>
-                item.principalRole == UserRole.qolipchi ||
-                item.roleId.trim() == 'qolipchi')
-            .cast<AdminRoleAssignment?>()
-            .firstWhere((item) => item != null, orElse: () => null);
-        final role = assignment?.principalRole == UserRole.qolipchi ||
-                assignment?.roleId.trim() == 'qolipchi'
-            ? UserRole.qolipchi
-            : UserRole.aparatchi;
-        return AdminUserListEntry(
-          id: worker.id,
-          name: worker.name,
-          phone: worker.phone,
-          kind: role == UserRole.qolipchi
-              ? AdminUserKind.qolipchi
-              : AdminUserKind.worker,
-          principalRole: role,
-          roleLabelOverride: userRoleLabel(role),
-        );
-      });
-      final byKey = <String, AdminUserListEntry>{};
-      for (final item in [
-        ...page.items,
-        ...qolipchiPage.items,
-        ...workerEntries,
-      ].where((item) => !item.blocked)) {
-        final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
-        byKey[key] = item;
-      }
-      return byKey.values.toList(growable: false)
-        ..sort((left, right) => left.name.toLowerCase().compareTo(
-              right.name.toLowerCase(),
-            ));
-    });
+    final next = _loadWarehouseAssigneeUsers();
     _usersFuture = next;
     return next;
   }
@@ -1032,6 +1091,483 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
       },
     );
   }
+}
+
+class _WarehouseSettingsTab extends StatefulWidget {
+  const _WarehouseSettingsTab({
+    required this.summaries,
+    required this.warehouse,
+    required this.bottomPadding,
+    required this.filterExpanded,
+    required this.onFilterToggle,
+    required this.onWarehouseChanged,
+    required this.onChanged,
+    required this.onDeleted,
+  });
+
+  final List<_WarehouseSummarySection> summaries;
+  final String? warehouse;
+  final double bottomPadding;
+  final bool filterExpanded;
+  final VoidCallback onFilterToggle;
+  final ValueChanged<String> onWarehouseChanged;
+  final Future<void> Function() onChanged;
+  final Future<void> Function() onDeleted;
+
+  @override
+  State<_WarehouseSettingsTab> createState() => _WarehouseSettingsTabState();
+}
+
+class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
+  Future<List<AdminWarehouseAssignment>>? _assignmentsFuture;
+  bool _assigning = false;
+  bool _deleting = false;
+
+  String get _warehouse => widget.warehouse?.trim() ?? '';
+
+  _WarehouseSummarySection? get _summary {
+    final selected = _warehouse.toLowerCase();
+    if (selected.isEmpty) {
+      return null;
+    }
+    for (final summary in widget.summaries) {
+      if (summary.warehouse.trim().toLowerCase() == selected) {
+        return summary;
+      }
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WarehouseSettingsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.warehouse != widget.warehouse) {
+      _loadAssignments();
+    }
+  }
+
+  void _loadAssignments() {
+    final warehouse = _warehouse;
+    _assignmentsFuture = warehouse.isEmpty
+        ? null
+        : MobileApi.instance.adminWarehouseAssignments(
+            warehouse: warehouse,
+          );
+  }
+
+  Future<void> _refreshAssignments() async {
+    setState(_loadAssignments);
+    await _assignmentsFuture;
+  }
+
+  Future<void> _assignUser() async {
+    if (_warehouse.isEmpty || _assigning) {
+      return;
+    }
+    setState(() => _assigning = true);
+    late final List<AdminUserListEntry> users;
+    try {
+      users = await _loadWarehouseAssigneeUsers();
+    } catch (_) {
+      if (mounted) {
+        _showWarehouseNotice(context, 'Foydalanuvchilar yuklanmadi');
+      }
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _assigning = false);
+      }
+    }
+    if (!mounted || users.isEmpty) {
+      return;
+    }
+    final picked = await showModalBottomSheet<AdminUserListEntry>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3PickerSheet<AdminUserListEntry>(
+          title: 'Kimga assign',
+          hintText: 'Foydalanuvchi qidiring',
+          items: users,
+          itemTitle: (item) => item.name,
+          itemSubtitle: (item) => item.roleLabel,
+          matchesQuery: (item, query) => searchMatches(query, [
+            item.name,
+            item.phone,
+            item.id,
+            item.roleLabel,
+          ]),
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _assigning = true);
+    try {
+      await MobileApi.instance.adminAssignWarehouse(
+        warehouse: _warehouse,
+        principalRole: _roleForUser(picked),
+        principalRef: picked.id,
+        displayName: picked.name,
+      );
+      await _refreshAssignments();
+      await widget.onChanged();
+      if (mounted) {
+        _showWarehouseNotice(context, '${picked.name} omborga assign qilindi');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showWarehouseNotice(context, 'Foydalanuvchi assign qilinmadi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _assigning = false);
+      }
+    }
+  }
+
+  Future<void> _deleteWarehouse() async {
+    final summary = _summary;
+    if (summary == null || _deleting) {
+      return;
+    }
+    if (summary.reservedCount > 0) {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        builder: (dialogContext) {
+          final scheme = Theme.of(dialogContext).colorScheme;
+          return AlertDialog(
+            icon: Icon(Icons.block_rounded, color: scheme.error),
+            title: const Text('Omborni o‘chirib bo‘lmaydi'),
+            content: Text(
+              '“${summary.warehouse}” omborida ${summary.reservedCount} ta faol band qilingan mahsulot bor. Avval ularni bo‘shating.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Yopish'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    final confirmed = await _confirmWarehouseDeletion(summary);
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() => _deleting = true);
+    try {
+      await MobileApi.instance.adminDeleteWarehouse(
+        warehouse: summary.warehouse,
+        deleteProducts: summary.productCount > 0,
+      );
+      await widget.onDeleted();
+      if (mounted) {
+        _showWarehouseNotice(context, 'Ombor o‘chirildi');
+      }
+    } catch (error) {
+      if (mounted) {
+        _showWarehouseNotice(context, _warehouseDeleteErrorMessage(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deleting = false);
+      }
+    }
+  }
+
+  Future<bool> _confirmWarehouseDeletion(
+    _WarehouseSummarySection summary,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        final hasProducts = summary.productCount > 0;
+        return AlertDialog(
+          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+          title: const Text('Omborni o‘chirish'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                hasProducts
+                    ? '“${summary.warehouse}” omborida ${summary.productCount} ta mahsulot bor. Omborni o‘chirsangiz, bu mahsulotlar ham o‘chib ketadi.'
+                    : '“${summary.warehouse}” omborini o‘chirishni tasdiqlaysizmi?',
+              ),
+              if (summary.assignmentCount > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '${summary.assignmentCount} ta foydalanuvchi assigni ham olib tashlanadi.',
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const ValueKey('warehouse-delete-confirm'),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: scheme.error,
+                      ),
+                      child: const Text('O‘chirish'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final summary = _summary;
+    final filter = _WarehouseFilterBar(
+      selectedWarehouse: _warehouse,
+      warehouses: widget.summaries,
+      expanded: widget.filterExpanded,
+      onToggle: widget.onFilterToggle,
+      onChanged: widget.onWarehouseChanged,
+    );
+    return ColoredBox(
+      color: AppTheme.shellStart(context),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
+        children: [
+          filter,
+          if (summary == null) ...[
+            const SizedBox(height: 24),
+            const Center(child: Text('Ombor tanlanmagan')),
+          ] else ...[
+            const SizedBox(height: 8),
+            Card.filled(
+              margin: EdgeInsets.zero,
+              color: scheme.surfaceContainerLowest,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ombor ma’lumoti',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    _WarehouseSettingCount(
+                      label: 'Mahsulotlar',
+                      value: summary.productCount,
+                    ),
+                    _WarehouseSettingCount(
+                      label: 'Band qilingan',
+                      value: summary.reservedCount,
+                    ),
+                    _WarehouseSettingCount(
+                      label: 'Assignlar',
+                      value: summary.assignmentCount,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card.filled(
+              margin: EdgeInsets.zero,
+              color: scheme.surfaceContainerLowest,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Assign qilinganlar',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    FutureBuilder<List<AdminWarehouseAssignment>>(
+                      future: _assignmentsFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(child: AppLoadingIndicator()),
+                          );
+                        }
+                        final assignments = snapshot.data ?? const [];
+                        if (assignments.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'Hech kim assign qilinmagan',
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ),
+                          );
+                        }
+                        return Column(
+                          children: [
+                            for (final assignment in assignments)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.person_outline),
+                                title: Text(
+                                  assignment.displayName.trim().isEmpty
+                                      ? assignment.principalRef
+                                      : assignment.displayName,
+                                ),
+                                subtitle: Text(
+                                  userRoleLabel(assignment.principalRole),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('warehouse-assign-user'),
+                        onPressed: _assigning ? null : _assignUser,
+                        icon: const Icon(Icons.person_add_alt_1_outlined),
+                        label: const Text('Kimga assign qilish'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card.filled(
+              margin: EdgeInsets.zero,
+              color: scheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Xavfli amal',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: scheme.onErrorContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Ombor o‘chirilganda uning mahsulotlari va assignlari ham olib tashlanadi.',
+                      style: TextStyle(color: scheme.onErrorContainer),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        key: const ValueKey('warehouse-delete-button'),
+                        onPressed: _deleting ? null : _deleteWarehouse,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: scheme.error,
+                          foregroundColor: scheme.onError,
+                        ),
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Omborni o‘chirish'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WarehouseSettingCount extends StatelessWidget {
+  const _WarehouseSettingCount({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label),
+          Text(
+            '$value',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _showWarehouseNotice(BuildContext context, String message) {
+  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
+String _warehouseDeleteErrorMessage(Object error) {
+  if (error is MobileApiException) {
+    return switch (error.code) {
+      'warehouse_has_active_reservations' =>
+        'Omborda faol band qilingan mahsulotlar bor',
+      'warehouse_has_children' => 'Omborda ichki omborlar bor',
+      'warehouse_not_empty' =>
+        'Omborda mahsulotlar bor. Ma’lumotni yangilab qayta urinib ko‘ring',
+      'warehouse_not_found' => 'Ombor topilmadi',
+      _ => 'Ombor o‘chirilmadi',
+    };
+  }
+  return 'Ombor o‘chirilmadi';
 }
 
 class _WarehouseFilterBar extends StatelessWidget {

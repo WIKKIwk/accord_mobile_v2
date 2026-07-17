@@ -176,6 +176,8 @@ extension MobileApiAdminItems on MobileApi {
       ]
           .where(
             (warehouse) =>
+                !_testModeDeletedWarehouseNames
+                    .contains(warehouse.warehouse.trim().toLowerCase()) &&
                 (normalized.isEmpty ||
                     warehouse.warehouse.toLowerCase().contains(normalized)) &&
                 (normalizedParent.isEmpty ||
@@ -284,6 +286,7 @@ extension MobileApiAdminItems on MobileApi {
         isGroup: false,
         parentWarehouse: '',
       );
+      _testModeDeletedWarehouseNames.remove(name.toLowerCase());
       final index = _testModeWarehouses.indexWhere(
         (existing) => existing.warehouse.toLowerCase() == name.toLowerCase(),
       );
@@ -313,6 +316,78 @@ extension MobileApiAdminItems on MobileApi {
     return AdminWarehouse.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<void> adminDeleteWarehouse({
+    required String warehouse,
+    required bool deleteProducts,
+  }) async {
+    final normalizedWarehouse = warehouse.trim();
+    if (normalizedWarehouse.isEmpty) {
+      throw const MobileApiException(
+        code: 'warehouse_required',
+        message: 'Ombor tanlanmagan',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final summary = _testModeWarehouseSummaries(
+        query: normalizedWarehouse,
+        limit: 500,
+      ).where(
+        (item) =>
+            item.warehouse.trim().toLowerCase() ==
+            normalizedWarehouse.toLowerCase(),
+      );
+      if (summary.isEmpty) {
+        throw const MobileApiException(
+          code: 'warehouse_not_found',
+          message: 'Ombor topilmadi',
+        );
+      }
+      final current = summary.first;
+      if (current.reservedCount > 0) {
+        throw const MobileApiException(
+          code: 'warehouse_has_active_reservations',
+          message: 'Omborda faol band qilingan mahsulotlar bor',
+        );
+      }
+      if (current.productCount > 0 && !deleteProducts) {
+        throw const MobileApiException(
+          code: 'warehouse_not_empty',
+          message: 'Omborda mahsulotlar bor',
+        );
+      }
+      _testModeDeletedWarehouseNames.add(normalizedWarehouse.toLowerCase());
+      _testModeWarehouses.removeWhere(
+        (item) =>
+            item.warehouse.trim().toLowerCase() ==
+            normalizedWarehouse.toLowerCase(),
+      );
+      _testModeWarehouseAssignments.removeWhere(
+        (item) =>
+            item.warehouse.trim().toLowerCase() ==
+            normalizedWarehouse.toLowerCase(),
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': normalizedWarehouse,
+          'delete_products': deleteProducts,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'warehouse_delete_failed',
+        fallbackMessage: 'Ombor o‘chirilmadi',
+      );
+    }
   }
 
   Future<List<AdminWarehouseAssignment>> adminWarehouseAssignments({
@@ -508,7 +583,14 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
   final warehouses = [
     ...TestModeDemoData.warehouses,
     ..._testModeWarehouses,
-  ].where((warehouse) => warehouse.parentWarehouse.trim().isEmpty).toList();
+  ]
+      .where(
+        (warehouse) =>
+            !_testModeDeletedWarehouseNames
+                .contains(warehouse.warehouse.trim().toLowerCase()) &&
+            warehouse.parentWarehouse.trim().isEmpty,
+      )
+      .toList();
   final rawWarehouse = _findNamedWarehouse(warehouses, _isRawWarehouseName);
   final finishedWarehouse =
       _findNamedWarehouse(warehouses, _isFinishedWarehouseName);
@@ -572,6 +654,7 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
   final summaries = names
       .where((name) =>
           name.trim().isNotEmpty &&
+          !_testModeDeletedWarehouseNames.contains(name.trim().toLowerCase()) &&
           (normalizedQuery.isEmpty ||
               name.toLowerCase().contains(normalizedQuery)))
       .map((warehouse) {
