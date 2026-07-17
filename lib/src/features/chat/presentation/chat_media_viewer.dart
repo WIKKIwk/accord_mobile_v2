@@ -98,6 +98,7 @@ class _ChatImageViewerScreenState extends State<ChatImageViewerScreen> {
         IconButton(
           tooltip: 'Rasmni aylantirish',
           onPressed: _rotate,
+          color: Colors.white,
           icon: const Icon(Icons.rotate_right_rounded),
         ),
       ],
@@ -300,7 +301,7 @@ class _ChatMediaViewerShell extends StatelessWidget {
           ),
           if (actions.isNotEmpty)
             Positioned(
-              right: 4,
+              right: 14,
               top: 0,
               child: SafeArea(
                 child: Row(children: actions),

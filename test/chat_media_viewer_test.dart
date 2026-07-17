@@ -19,6 +19,12 @@ void main() {
     expect(find.byType(InteractiveViewer), findsOneWidget);
     expect(find.byTooltip('Rasmni aylantirish'), findsOneWidget);
     expect(find.byTooltip('Orqaga'), findsOneWidget);
+    final rotateButton = find.ancestor(
+      of: find.byIcon(Icons.rotate_right_rounded),
+      matching: find.byType(IconButton),
+    );
+    expect(rotateButton, findsOneWidget);
+    expect(tester.widget<IconButton>(rotateButton).color, Colors.white);
 
     await tester.tap(find.byTooltip('Rasmni aylantirish'));
     await tester.pump();
