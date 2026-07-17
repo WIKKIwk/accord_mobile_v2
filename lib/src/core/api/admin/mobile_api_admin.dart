@@ -8,6 +8,7 @@ final List<AdminWarehouse> _testModeApparatusWarehouses = [];
 final List<AdminWarehouse> _testModeWarehouses = [];
 final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
 final Set<String> _testModeDeletedWarehouseNames = {};
+final List<AdminServerMonitorBackupSnapshot> _testModeBackupSnapshots = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
@@ -97,6 +98,7 @@ void resetMobileApiTestModeData() {
   _testModeWarehouses.clear();
   _testModeWarehouseAssignments.clear();
   _testModeDeletedWarehouseNames.clear();
+  _testModeBackupSnapshots.clear();
   _testModeApparatusSequences.clear();
   _testModeApparatusQueueStates.clear();
   _testModeApparatusQueuePolicies.clear();
@@ -1064,6 +1066,59 @@ class AdminServerMonitorBackupFile {
   }
 }
 
+class AdminServerMonitorBackupSnapshot {
+  const AdminServerMonitorBackupSnapshot({
+    required this.id,
+    required this.status,
+    required this.source,
+    required this.requestedBy,
+    required this.createdAtUnix,
+    required this.startedAtUnix,
+    required this.completedAtUnix,
+    required this.sizeBytes,
+    required this.artifactName,
+    required this.checksumSha256,
+    required this.verified,
+    required this.error,
+  });
+
+  final String id;
+  final String status;
+  final String source;
+  final String requestedBy;
+  final int createdAtUnix;
+  final int startedAtUnix;
+  final int completedAtUnix;
+  final int sizeBytes;
+  final String artifactName;
+  final String checksumSha256;
+  final bool verified;
+  final String error;
+
+  bool get ready => status == 'ready' && verified;
+  bool get running =>
+      status == 'queued' || status == 'running' || status == 'verifying';
+
+  factory AdminServerMonitorBackupSnapshot.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminServerMonitorBackupSnapshot(
+      id: json['id']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      source: json['source']?.toString() ?? '',
+      requestedBy: json['requested_by']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+      startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
+      completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+      sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
+      artifactName: json['artifact_name']?.toString() ?? '',
+      checksumSha256: json['checksum_sha256']?.toString() ?? '',
+      verified: json['verified'] == true,
+      error: json['error']?.toString() ?? '',
+    );
+  }
+}
+
 class AdminServerMonitorBackups {
   const AdminServerMonitorBackups({
     required this.directory,
@@ -1072,6 +1127,11 @@ class AdminServerMonitorBackups {
     required this.latest,
     required this.files,
     required this.error,
+    this.snapshotCount = 0,
+    this.latestSnapshot,
+    this.snapshots = const [],
+    this.activeJob,
+    this.healthy = false,
   });
 
   final String directory;
@@ -1080,9 +1140,22 @@ class AdminServerMonitorBackups {
   final AdminServerMonitorBackupFile? latest;
   final List<AdminServerMonitorBackupFile> files;
   final String error;
+  final int snapshotCount;
+  final AdminServerMonitorBackupSnapshot? latestSnapshot;
+  final List<AdminServerMonitorBackupSnapshot> snapshots;
+  final AdminServerMonitorBackupSnapshot? activeJob;
+  final bool healthy;
 
   factory AdminServerMonitorBackups.fromJson(Map<String, dynamic> json) {
     final latestRaw = json['latest'];
+    final latestSnapshotRaw = json['latest_snapshot'];
+    final activeJobRaw = json['active_job'];
+    final snapshots = [
+      for (final item in (json['snapshots'] as List? ?? const []))
+        AdminServerMonitorBackupSnapshot.fromJson(
+          (item as Map).cast<String, dynamic>(),
+        ),
+    ];
     return AdminServerMonitorBackups(
       directory: json['directory']?.toString() ?? '',
       exists: json['exists'] == true,
@@ -1099,8 +1172,38 @@ class AdminServerMonitorBackups {
           ),
       ],
       error: json['error']?.toString() ?? '',
+      snapshotCount:
+          (json['snapshot_count'] as num?)?.toInt() ?? snapshots.length,
+      latestSnapshot: latestSnapshotRaw is Map
+          ? AdminServerMonitorBackupSnapshot.fromJson(
+              latestSnapshotRaw.cast<String, dynamic>(),
+            )
+          : null,
+      snapshots: snapshots,
+      activeJob: activeJobRaw is Map
+          ? AdminServerMonitorBackupSnapshot.fromJson(
+              activeJobRaw.cast<String, dynamic>(),
+            )
+          : null,
+      healthy: json.containsKey('healthy')
+          ? json['healthy'] == true
+          : ((json['file_count'] as num?)?.toInt() ?? 0) > 0,
     );
   }
+}
+
+class AdminBackupDownload {
+  const AdminBackupDownload({
+    required this.filename,
+    required this.contentType,
+    required this.contentLength,
+    required this.stream,
+  });
+
+  final String filename;
+  final String contentType;
+  final int contentLength;
+  final Stream<List<int>> stream;
 }
 
 class AdminServerMonitorDatabase {
@@ -1855,6 +1958,22 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminServerMonitorReport> adminServerMonitor() async {
     if (await TestModeController.instance.isEnabled()) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final seededSnapshot = AdminServerMonitorBackupSnapshot(
+        id: 'test-backup-seed',
+        status: 'ready',
+        source: 'automatic',
+        requestedBy: 'Backup Doctor',
+        createdAtUnix: now - 1800,
+        startedAtUnix: now - 1800,
+        completedAtUnix: now - 1790,
+        sizeBytes: 12 * 1024 * 1024,
+        artifactName: 'mini_rs_erp_20260624_180448.dump',
+        checksumSha256: List<String>.filled(64, 'a').join(),
+        verified: true,
+        error: '',
+      );
+      final snapshots = [seededSnapshot, ..._testModeBackupSnapshots];
       return AdminServerMonitorReport(
         server: AdminServerMonitorServer(
           bindAddr: '127.0.0.1:8081',
@@ -1889,6 +2008,11 @@ extension MobileApiAdmin on MobileApi {
               ageSeconds: 1800,
             ),
           ],
+          snapshotCount: snapshots.where((item) => item.ready).length,
+          latestSnapshot: snapshots.first,
+          snapshots: snapshots,
+          activeJob: null,
+          healthy: true,
           error: '',
         ),
         runtime: const AdminServerMonitorRuntime(
@@ -1921,6 +2045,136 @@ extension MobileApiAdmin on MobileApi {
     return AdminServerMonitorReport.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<AdminServerMonitorBackupSnapshot> adminStartBackup() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final id = 'test-backup-$now';
+      final ready = AdminServerMonitorBackupSnapshot(
+        id: id,
+        status: 'ready',
+        source: 'manual',
+        requestedBy: AppSession.instance.profile?.displayName ?? 'Admin',
+        createdAtUnix: now,
+        startedAtUnix: now,
+        completedAtUnix: now,
+        sizeBytes: 1024,
+        artifactName: 'mini_rs_erp_$now.dump',
+        checksumSha256: List<String>.filled(64, 'b').join(),
+        verified: true,
+        error: '',
+      );
+      _testModeBackupSnapshots.insert(0, ready);
+      return AdminServerMonitorBackupSnapshot(
+        id: id,
+        status: 'queued',
+        source: 'manual',
+        requestedBy: ready.requestedBy,
+        createdAtUnix: now,
+        startedAtUnix: 0,
+        completedAtUnix: 0,
+        sizeBytes: 0,
+        artifactName: '',
+        checksumSha256: '',
+        verified: false,
+        error: '',
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/system/backups'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    Map<String, dynamic> payload = const {};
+    if (response.body.trim().isNotEmpty) {
+      try {
+        payload = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        payload = const {};
+      }
+    }
+    if (response.statusCode != 202) {
+      throw MobileApiException(
+        code: payload['error']?.toString() ?? 'backup_start_failed',
+        message: _backupErrorMessage(payload['error']?.toString() ?? ''),
+        statusCode: response.statusCode,
+      );
+    }
+    return AdminServerMonitorBackupSnapshot.fromJson(payload);
+  }
+
+  Future<AdminBackupDownload> adminDownloadBackup(String backupId) async {
+    final id = backupId.trim();
+    if (id.isEmpty) {
+      throw const MobileApiException(
+        code: 'backup_not_found',
+        message: 'Backup topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminBackupDownload(
+        filename: 'mini_rs_erp_test.dump',
+        contentType: 'application/octet-stream',
+        contentLength: 17,
+        stream: Stream<List<int>>.value(utf8.encode('test-backup-bytes')),
+      );
+    }
+    final uri = Uri.parse(
+      '$baseUrl/v1/mobile/admin/system/backups/${Uri.encodeComponent(id)}/download',
+    );
+    final response = await _sendMultipartAuthorized(() {
+      final request = http.Request('GET', uri)
+        ..headers.addAll(_headers(requireToken()));
+      return request.send();
+    });
+    if (response.statusCode != 200) {
+      final failed = await http.Response.fromStream(response);
+      var code = 'backup_download_failed';
+      if (failed.body.trim().isNotEmpty) {
+        try {
+          code = (jsonDecode(failed.body) as Map<String, dynamic>)['error']
+                  ?.toString() ??
+              code;
+        } catch (_) {
+          // Keep the stable fallback error code for non-JSON proxy errors.
+        }
+      }
+      throw MobileApiException(
+        code: code,
+        message: _backupErrorMessage(code),
+        statusCode: response.statusCode,
+      );
+    }
+    return AdminBackupDownload(
+      filename: _downloadFilename(
+        response.headers['content-disposition'] ?? '',
+      ),
+      contentType:
+          response.headers['content-type'] ?? 'application/octet-stream',
+      contentLength: response.contentLength ?? 0,
+      stream: response.stream,
+    );
+  }
+
+  String _downloadFilename(String contentDisposition) {
+    final match = RegExp(
+      r'filename="?([^";]+)"?',
+    ).firstMatch(contentDisposition);
+    final filename = match?.group(1)?.trim() ?? '';
+    return filename.isEmpty ? 'mini_rs_erp.dump' : filename;
+  }
+
+  String _backupErrorMessage(String code) {
+    return switch (code) {
+      'backup_already_running' => 'Backup olish allaqachon boshlangan',
+      'backup_service_unavailable' => 'Backup xizmati hozir mavjud emas',
+      'backup_not_ready' => 'Backup hali yuklab olishga tayyor emas',
+      'backup_not_found' => 'Backup topilmadi',
+      'backup_download_failed' => 'Backup yuklab olinmadi',
+      _ => 'Backup olish boshlanmadi',
+    };
   }
 
   Uri adminServerMonitorLiveUri() {

@@ -3,10 +3,14 @@ import 'dart:math' as math;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/files/backup_file_saver.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'widgets/admin_shell.dart';
 
 class AdminServerMonitorScreen extends StatefulWidget {
@@ -26,6 +30,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   final List<int> _latencySamples = <int>[];
   StreamSubscription<AdminServerMonitorLiveEvent>? _liveSubscription;
   int _liveGeneration = 0;
+  bool _startingBackup = false;
+  String? _downloadingBackupId;
+  double _downloadProgress = 0;
 
   @override
   void initState() {
@@ -44,6 +51,302 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   Future<void> _reload() async {
     await _loadSnapshot();
     _startLiveStream();
+  }
+
+  Future<void> _openBackupDay(_BackupDay day) async {
+    unawaited(HapticFeedback.mediumImpact());
+    final ready = day.snapshots.where((snapshot) => snapshot.ready).toList()
+      ..sort(
+        (left, right) => right.completedAtUnix.compareTo(left.completedAtUnix),
+      );
+    if (ready.isNotEmpty) {
+      await _showReadyBackups(day, ready);
+      return;
+    }
+    AdminServerMonitorBackupSnapshot? active;
+    for (final snapshot in day.snapshots) {
+      if (snapshot.running) {
+        active = snapshot;
+        break;
+      }
+    }
+    if (active != null) {
+      await _showBackupStatus(active);
+      return;
+    }
+    AdminServerMonitorBackupSnapshot? failed;
+    for (final snapshot in day.snapshots) {
+      if (snapshot.status == 'failed') {
+        failed = snapshot;
+        break;
+      }
+    }
+    await _confirmAndStartBackup(day.date, failed: failed);
+  }
+
+  Future<void> _showReadyBackups(
+    _BackupDay day,
+    List<AdminServerMonitorBackupSnapshot> snapshots,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            children: [
+              Text(
+                '${_formatBackupDay(day.date)} backup',
+                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              for (final snapshot in snapshots) ...[
+                Card.filled(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _formatBackupDateTime(snapshot.completedAtUnix),
+                          style: Theme.of(sheetContext)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_backupSourceLabel(snapshot.source)} • ${_formatBackupBytes(snapshot.sizeBytes)} • Tekshirilgan',
+                          style: Theme.of(sheetContext).textTheme.bodySmall,
+                        ),
+                        if (snapshot.checksumSha256.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'SHA-256: ${snapshot.checksumSha256.substring(0, math.min(16, snapshot.checksumSha256.length))}…',
+                            style: Theme.of(sheetContext).textTheme.labelSmall,
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _downloadingBackupId == null
+                                ? () {
+                                    Navigator.of(sheetContext).pop();
+                                    unawaited(_downloadBackup(snapshot));
+                                  }
+                                : null,
+                            icon: const Icon(Icons.download_rounded),
+                            label: const Text('Backupni yuklab olish'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showBackupStatus(
+    AdminServerMonitorBackupSnapshot snapshot,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Backup tayyorlanmoqda',
+                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(_backupStatusLabel(snapshot.status)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmAndStartBackup(
+    DateTime selectedDay, {
+    AdminServerMonitorBackupSnapshot? failed,
+  }) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final selected = DateUtils.dateOnly(selectedDay);
+    final isToday = selected == today;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.backup_outlined),
+          title: Text(failed == null ? 'Backup olish' : 'Backupni qayta olish'),
+          content: Text(
+            failed != null && failed.error.isNotEmpty
+                ? '${failed.error}\n\nYangi backup hozirgi database holatidan olinsinmi?'
+                : isToday
+                    ? 'Database’ning hozirgi holatidan backup olinsinmi?'
+                    : 'Bu sana uchun backup yo‘q. O‘tgan holatni qayta yaratib bo‘lmaydi. Yangi backup hozirgi database holatidan olinadi.',
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              key: const ValueKey('server-backup-start-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Backup olish'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted || _startingBackup) {
+      return;
+    }
+    setState(() => _startingBackup = true);
+    try {
+      await MobileApi.instance.adminStartBackup();
+      await _loadSnapshot();
+      if (mounted) {
+        _showNotice('Backup olish boshlandi');
+      }
+    } catch (error) {
+      if (mounted) {
+        _showNotice(_backupActionError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _startingBackup = false);
+      }
+    }
+  }
+
+  Future<void> _downloadBackup(
+    AdminServerMonitorBackupSnapshot snapshot,
+  ) async {
+    if (_downloadingBackupId != null) {
+      return;
+    }
+    setState(() {
+      _downloadingBackupId = snapshot.id;
+      _downloadProgress = 0;
+    });
+    _showNotice('Backup yuklanmoqda…');
+    try {
+      final download = await MobileApi.instance.adminDownloadBackup(
+        snapshot.id,
+      );
+      final saved = await saveBackupStream(
+        stream: download.stream,
+        filename: download.filename,
+        contentLength: download.contentLength,
+        onProgress: (received, total) {
+          if (!mounted || total <= 0) {
+            return;
+          }
+          setState(() {
+            _downloadProgress = (received / total).clamp(0, 1);
+          });
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      if (kIsWeb) {
+        _showNotice('Backup yuklab olindi');
+      } else {
+        await _showDownloadedBackup(saved);
+      }
+    } catch (error) {
+      if (mounted) {
+        _showNotice(_backupActionError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingBackupId = null;
+          _downloadProgress = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _showDownloadedBackup(SavedBackupFile saved) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Backup tayyor',
+                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text('${saved.filename} mobil qurilmaga saqlandi.'),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () async {
+                  final box = sheetContext.findRenderObject() as RenderBox?;
+                  await SharePlus.instance.share(
+                    ShareParams(
+                      title: saved.filename,
+                      subject: saved.filename,
+                      files: [XFile(saved.path)],
+                      sharePositionOrigin: box == null
+                          ? null
+                          : box.localToGlobal(Offset.zero) & box.size,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.ios_share_rounded),
+                label: const Text('Fayllarga saqlash yoki ulashish'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNotice(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadSnapshot() async {
@@ -201,6 +504,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
             latencySamples: _latencySamples,
+            onBackupDayPressed: _openBackupDay,
+            backupDownloadProgress:
+                _downloadingBackupId == null ? null : _downloadProgress,
           ),
           if (_error != null) ...[
             const SizedBox(height: 10),
@@ -223,19 +529,25 @@ class _StatusSummaryPanel extends StatelessWidget {
     required this.liveConnected,
     required this.lastUpdated,
     required this.latencySamples,
+    required this.onBackupDayPressed,
+    required this.backupDownloadProgress,
   });
 
   final AdminServerMonitorReport report;
   final bool liveConnected;
   final DateTime? lastUpdated;
   final List<int> latencySamples;
+  final ValueChanged<_BackupDay> onBackupDayPressed;
+  final double? backupDownloadProgress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final serverOk = report.server.status == 'running';
     final dbOk = report.database.reachable;
-    final backupOk = report.backups.exists && report.backups.fileCount > 0;
+    final backupOk = report.backups.snapshots.isEmpty
+        ? report.backups.exists && report.backups.fileCount > 0
+        : report.backups.healthy;
     final allOk = liveConnected && serverOk && dbOk && backupOk;
     final score = _healthScore(
       liveConnected: liveConnected,
@@ -315,7 +627,7 @@ class _StatusSummaryPanel extends StatelessWidget {
                 Expanded(
                   child: _CompactStatusChip(
                     label: 'Backup',
-                    value: '${report.backups.fileCount} fayl',
+                    value: '${report.backups.snapshotCount} backup',
                     ok: backupOk,
                   ),
                 ),
@@ -338,7 +650,14 @@ class _StatusSummaryPanel extends StatelessWidget {
             const SizedBox(height: 10),
             _DatabaseStatusPanel(database: report.database),
             const SizedBox(height: 10),
-            _BackupCalendarPanel(backups: report.backups),
+            _BackupCalendarPanel(
+              backups: report.backups,
+              onDayPressed: onBackupDayPressed,
+            ),
+            if (backupDownloadProgress != null) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(value: backupDownloadProgress),
+            ],
             const SizedBox(height: 12),
             _KeyValueLine(
                 label: 'Oxirgi update', value: _formatLocal(lastUpdated)),
@@ -1040,19 +1359,22 @@ class _PingSparklinePainter extends CustomPainter {
 }
 
 class _BackupCalendarPanel extends StatelessWidget {
-  const _BackupCalendarPanel({required this.backups});
+  const _BackupCalendarPanel({
+    required this.backups,
+    required this.onDayPressed,
+  });
 
   final AdminServerMonitorBackups backups;
+  final ValueChanged<_BackupDay> onDayPressed;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final files = backups.files.isEmpty && backups.latest != null
-        ? [backups.latest!]
-        : backups.files;
-    final days = _backupDays(files);
+    final days = _backupDays(backups.snapshots);
     final backedUpDays = days.where((day) => day.count > 0).length;
-    final ok = backups.exists && backups.fileCount > 0;
+    final ok = backups.snapshots.isEmpty
+        ? backups.exists && backups.fileCount > 0
+        : backups.healthy;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1090,13 +1412,21 @@ class _BackupCalendarPanel extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             child: SizedBox(
               height: 34,
-              child: CustomPaint(
-                painter: _BackupCalendarPainter(
-                  days: days,
-                  activeColor: _statusColor(context, ok),
-                  todayColor: scheme.onSurface,
-                  trackColor: scheme.outlineVariant.withValues(alpha: 0.58),
-                ),
+              child: Row(
+                children: [
+                  for (var index = 0; index < days.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: _BackupDayCell(
+                        day: days[index],
+                        activeColor: _statusColor(context, ok),
+                        trackColor:
+                            scheme.outlineVariant.withValues(alpha: 0.58),
+                        onPressed: () => onDayPressed(days[index]),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -1120,7 +1450,7 @@ class _BackupCalendarPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '${backups.fileCount} ta fayl',
+                '${backups.snapshotCount} ta backup',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -1133,24 +1463,30 @@ class _BackupCalendarPanel extends StatelessWidget {
     );
   }
 
-  List<_BackupDay> _backupDays(List<AdminServerMonitorBackupFile> files) {
+  List<_BackupDay> _backupDays(
+    List<AdminServerMonitorBackupSnapshot> snapshots,
+  ) {
     final today = _dateOnly(DateTime.now());
-    final counts = <DateTime, int>{};
-    for (final file in files) {
-      if (file.modifiedAtUnix <= 0) {
+    final byDay = <DateTime, List<AdminServerMonitorBackupSnapshot>>{};
+    for (final snapshot in snapshots) {
+      final timestamp = snapshot.completedAtUnix > 0
+          ? snapshot.completedAtUnix
+          : snapshot.createdAtUnix;
+      if (timestamp <= 0) {
         continue;
       }
       final day = _dateOnly(
         DateTime.fromMillisecondsSinceEpoch(
-          file.modifiedAtUnix * 1000,
+          timestamp * 1000,
         ).toLocal(),
       );
-      counts[day] = (counts[day] ?? 0) + 1;
+      byDay.putIfAbsent(day, () => []).add(snapshot);
     }
     return List<_BackupDay>.generate(7, (index) {
       final day = today.subtract(Duration(days: 6 - index));
       return _BackupDay(
-        count: counts[day] ?? 0,
+        date: day,
+        snapshots: byDay[day] ?? const [],
         isToday: index == 6,
       );
     });
@@ -1163,65 +1499,89 @@ class _BackupCalendarPanel extends StatelessWidget {
 
 class _BackupDay {
   const _BackupDay({
-    required this.count,
+    required this.date,
+    required this.snapshots,
     required this.isToday,
   });
 
-  final int count;
+  final DateTime date;
+  final List<AdminServerMonitorBackupSnapshot> snapshots;
   final bool isToday;
+
+  int get count => snapshots.where((snapshot) => snapshot.ready).length;
+  bool get running => snapshots.any((snapshot) => snapshot.running);
+  bool get failed =>
+      count == 0 && snapshots.any((snapshot) => snapshot.status == 'failed');
 }
 
-class _BackupCalendarPainter extends CustomPainter {
-  const _BackupCalendarPainter({
-    required this.days,
+class _BackupDayCell extends StatelessWidget {
+  const _BackupDayCell({
+    required this.day,
     required this.activeColor,
-    required this.todayColor,
     required this.trackColor,
+    required this.onPressed,
   });
 
-  final List<_BackupDay> days;
+  final _BackupDay day;
   final Color activeColor;
-  final Color todayColor;
   final Color trackColor;
+  final VoidCallback onPressed;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const segmentCount = 7;
-    const gap = 6.0;
-    final segmentWidth = (size.width - gap * (segmentCount - 1)) / segmentCount;
-
-    for (var index = 0; index < math.min(days.length, segmentCount); index++) {
-      final day = days[index];
-      final left = index * (segmentWidth + gap);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, 0, segmentWidth, size.height),
-        const Radius.circular(8),
-      );
-      canvas.drawRRect(
-        rect,
-        Paint()
-          ..color = day.count > 0
-              ? activeColor.withValues(alpha: day.count > 1 ? 0.95 : 0.78)
-              : trackColor,
-      );
-      if (day.isToday) {
-        canvas.drawRRect(
-          rect,
-          Paint()
-            ..color = todayColor.withValues(alpha: 0.7)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.4,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BackupCalendarPainter oldDelegate) {
-    return days != oldDelegate.days ||
-        activeColor != oldDelegate.activeColor ||
-        todayColor != oldDelegate.todayColor ||
-        trackColor != oldDelegate.trackColor;
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = day.count > 0
+        ? activeColor.withValues(alpha: day.count > 1 ? 0.95 : 0.78)
+        : day.running
+            ? scheme.tertiaryContainer
+            : day.failed
+                ? scheme.errorContainer
+                : trackColor;
+    final label = day.count > 0
+        ? '${_formatBackupDay(day.date)}: ${day.count} ta backup'
+        : day.running
+            ? '${_formatBackupDay(day.date)}: backup tayyorlanmoqda'
+            : day.failed
+                ? '${_formatBackupDay(day.date)}: backup xatosi'
+                : '${_formatBackupDay(day.date)}: backup yo‘q';
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: color,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: day.isToday
+              ? BorderSide(
+                  color: scheme.onSurface.withValues(alpha: 0.7),
+                  width: 1.4,
+                )
+              : BorderSide.none,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey(
+            'server-backup-day-${day.date.year}-${day.date.month}-${day.date.day}',
+          ),
+          onTap: onPressed,
+          onLongPress: onPressed,
+          child: day.running
+              ? const Center(
+                  child: SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : day.failed
+                  ? Icon(
+                      Icons.error_outline_rounded,
+                      size: 16,
+                      color: scheme.onErrorContainer,
+                    )
+                  : null,
+        ),
+      ),
+    );
   }
 }
 
@@ -1482,6 +1842,70 @@ String _shortBackupAgeLabel(AdminServerMonitorBackupFile backup) {
     return '$minutes daqiqa oldin';
   }
   return 'hozir';
+}
+
+String _formatBackupDay(DateTime value) {
+  final day = value.day.toString().padLeft(2, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  return '$day.$month.${value.year}';
+}
+
+String _formatBackupDateTime(int unixSeconds) {
+  if (unixSeconds <= 0) {
+    return 'Vaqt kutilmoqda';
+  }
+  return formatLocalDateTime(
+    DateTime.fromMillisecondsSinceEpoch(unixSeconds * 1000).toLocal(),
+  );
+}
+
+String _formatBackupBytes(int bytes) {
+  if (bytes <= 0) {
+    return '0 B';
+  }
+  const kib = 1024;
+  const mib = kib * 1024;
+  const gib = mib * 1024;
+  if (bytes >= gib) {
+    return '${(bytes / gib).toStringAsFixed(bytes >= 10 * gib ? 1 : 2)} GB';
+  }
+  if (bytes >= mib) {
+    return '${(bytes / mib).toStringAsFixed(bytes >= 10 * mib ? 1 : 2)} MB';
+  }
+  if (bytes >= kib) {
+    return '${(bytes / kib).toStringAsFixed(1)} KB';
+  }
+  return '$bytes B';
+}
+
+String _backupSourceLabel(String source) {
+  return switch (source.trim()) {
+    'automatic' => 'Avtomatik',
+    'manual' => 'Qo‘lda',
+    'legacy' => 'Avvalgi',
+    _ => 'Backup Doctor',
+  };
+}
+
+String _backupStatusLabel(String status) {
+  return switch (status.trim()) {
+    'queued' => 'Navbatga qo‘yildi',
+    'running' => 'Database nusxasi olinmoqda',
+    'verifying' => 'Backup tekshirilmoqda',
+    'ready' => 'Yuklab olishga tayyor',
+    'failed' => 'Backup olishda xato yuz berdi',
+    _ => 'Backup holati yangilanmoqda',
+  };
+}
+
+String _backupActionError(Object error) {
+  if (error is MobileApiException && error.message.trim().isNotEmpty) {
+    return error.message.trim();
+  }
+  if (error is StateError && error.message.trim().isNotEmpty) {
+    return error.message.trim();
+  }
+  return 'Backup amali bajarilmadi';
 }
 
 String _serverStatusLabel(String status) {
