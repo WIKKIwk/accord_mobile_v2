@@ -183,10 +183,10 @@ class GodexRpsRenderer {
     final nameLines = _wrapTextForEzpl(name, width, 1, 18, 22).take(2);
     var lineIndex = 0;
     for (final line in nameLines) {
-      drawCentered(line, 4 + lineIndex * 24, scale: 3);
+      drawCentered(line, lineIndex * 28, scale: 3);
       lineIndex++;
     }
-    drawCentered(code, 352, scale: 3);
+    drawCentered(code, 352, scale: 2);
     return _encodeMonoBmp(bitmap.cropInk());
   }
 

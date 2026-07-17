@@ -93,9 +93,9 @@ internal object GodexRpsRenderer {
         wrapTextForEzpl(name, 400, 1, 18, 22)
             .take(2)
             .forEachIndexed { index, line ->
-                drawCenteredText(canvas, line, y = 4 + index * 24, scale = 3)
+                drawCenteredText(canvas, line, y = index * 28, scale = 3)
             }
-        drawCenteredText(canvas, code, y = 352, scale = 3)
+        drawCenteredText(canvas, code, y = 352, scale = 2)
         return encodeMonoBmp(canvas.cropInk())
     }
 
