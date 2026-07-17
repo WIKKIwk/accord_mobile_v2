@@ -524,12 +524,14 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
     }
     final next = Future.wait([
       MobileApi.instance.adminUserList(limit: 500),
+      MobileApi.instance.adminUserList(role: 'qolipchi', limit: 500),
       MobileApi.instance.adminWorkers(),
       MobileApi.instance.adminRoleAssignments(),
     ]).then((results) {
       final page = results[0] as AdminUserListPage;
-      final workers = results[1] as List<AdminWorker>;
-      final assignments = results[2] as List<AdminRoleAssignment>;
+      final qolipchiPage = results[1] as AdminUserListPage;
+      final workers = results[2] as List<AdminWorker>;
+      final assignments = results[3] as List<AdminRoleAssignment>;
       final workerEntries = workers.map((worker) {
         final assignment = assignments
             .where((item) => item.principalRef.trim() == worker.id.trim())
@@ -554,7 +556,11 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
         );
       });
       final byKey = <String, AdminUserListEntry>{};
-      for (final item in [...page.items, ...workerEntries]) {
+      for (final item in [
+        ...page.items,
+        ...qolipchiPage.items,
+        ...workerEntries,
+      ].where((item) => !item.blocked)) {
         final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
         byKey[key] = item;
       }

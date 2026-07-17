@@ -145,6 +145,57 @@ void main() {
     expect(find.text('Assign qilish'), findsOneWidget);
   });
 
+  testWidgets('warehouse assignee search includes active qolipchi users', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.qolipchi,
+      name: 'Jumaniyoz qolipchi',
+      phone: '+998110000011',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWarehousesScreen(),
+      ),
+    );
+
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.byKey(_primaryNavigationButtonKey).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    await tester.tap(find.byKey(_primaryNavigationButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ombor yaratish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tanlash uchun bosing'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'jumaniyoz');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jumaniyoz qolipchi'), findsOneWidget);
+    expect(find.text('Qolipchi'), findsOneWidget);
+
+    await tester.tap(find.text('Jumaniyoz qolipchi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jumaniyoz qolipchi'), findsOneWidget);
+    expect(find.text('Tanlash uchun bosing'), findsNothing);
+  });
+
   testWidgets('material scoped warehouses page shows only assigned warehouses',
       (
     tester,
