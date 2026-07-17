@@ -32,6 +32,72 @@ void main() {
     expect(ChatMessage.fromJson(message.toJson()).body, 'Salom');
   });
 
+  test('media message preserves attachment metadata and preview fallback', () {
+    final message = ChatMessage.fromJson({
+      'message_id': 'message_media_1',
+      'conversation_id': 'conversation_1',
+      'sender_principal_id': 'principal_1',
+      'sender_role': 'material_taminotchi',
+      'sender_ref': 'material_1',
+      'sender_display_name': 'Materialchi',
+      'client_message_id': 'client_media_1',
+      'sequence': 8,
+      'type': 'video',
+      'body': '',
+      'created_at_unix': 101,
+      'attachment': {
+        'attachment_id': 'attachment_1',
+        'media_id': 'media_1',
+        'kind': 'video',
+        'content_type': 'video/mp4',
+        'size_bytes': 1024,
+        'width_pixels': 1280,
+        'height_pixels': 720,
+        'duration_ms': 42000,
+        'content_url': '/v1/mobile/chat/media/media_1/content',
+        'thumbnail_url': '/v1/mobile/chat/media/media_1/thumbnail',
+      },
+    });
+
+    expect(message.previewText, 'Video');
+    expect(message.attachment?.durationMs, 42000);
+    expect(message.attachment?.widthPixels, 1280);
+
+    final restored = ChatMessage.fromJson(message.toJson());
+    expect(restored.type, 'video');
+    expect(restored.attachment?.mediaId, 'media_1');
+    expect(restored.previewText, 'Video');
+  });
+
+  test('media caption is preferred over the generic conversation label', () {
+    final message = ChatMessage.fromJson({
+      'message_id': 'message_image_1',
+      'conversation_id': 'conversation_1',
+      'sender_principal_id': 'principal_1',
+      'sender_role': 'material_taminotchi',
+      'sender_ref': 'material_1',
+      'sender_display_name': 'Materialchi',
+      'client_message_id': 'client_image_1',
+      'sequence': 9,
+      'type': 'image',
+      'body': 'Bugungi natija',
+      'created_at_unix': 102,
+      'attachment': {
+        'attachment_id': 'attachment_2',
+        'media_id': 'media_2',
+        'kind': 'image',
+        'content_type': 'image/jpeg',
+        'size_bytes': 512,
+        'width_pixels': 800,
+        'height_pixels': 600,
+        'content_url': '/v1/mobile/chat/media/media_2/content',
+        'thumbnail_url': '/v1/mobile/chat/media/media_2/thumbnail',
+      },
+    });
+
+    expect(message.previewText, 'Bugungi natija');
+  });
+
   test('conversation page keeps peer, last message and unread count', () {
     final page = ChatConversationPage.fromJson({
       'items': [

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../models/chat_media_models.dart';
 import '../models/chat_models.dart';
 
 class ChatLocalStore {
@@ -17,7 +18,7 @@ class ChatLocalStore {
     final root = await getDatabasesPath();
     final database = await openDatabase(
       '$root/accord_chat_v1.db',
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE chat_conversations (
@@ -43,9 +44,11 @@ class ChatLocalStore {
           ON chat_messages(profile_key, message_id)
         ''');
         await _createPendingTable(db);
+        await _createPendingMediaTable(db);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) await _createPendingTable(db);
+        if (oldVersion < 3) await _createPendingMediaTable(db);
       },
     );
     _database = database;
@@ -186,6 +189,67 @@ class ChatLocalStore {
     );
   }
 
+  Future<List<ChatPendingMedia>> loadPendingMedia(
+    String profileKey, {
+    String? conversationId,
+  }) async {
+    final db = await _open();
+    final rows = await db.query(
+      'chat_pending_media',
+      where: conversationId == null
+          ? 'profile_key = ?'
+          : 'profile_key = ? AND conversation_id = ?',
+      whereArgs: [profileKey, if (conversationId != null) conversationId],
+      orderBy: 'created_at_unix ASC',
+    );
+    return rows
+        .map(
+          (row) => ChatPendingMedia.fromJson(
+            (jsonDecode(row['payload_json']! as String) as Map)
+                .cast<String, dynamic>(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> savePendingMedia(
+    String profileKey,
+    ChatPendingMedia media,
+  ) async {
+    final db = await _open();
+    await db.insert(
+      'chat_pending_media',
+      {
+        'profile_key': profileKey,
+        'local_id': media.localId,
+        'conversation_id': media.conversationId,
+        'created_at_unix': media.createdAtUnix,
+        'payload_json': jsonEncode(media.toJson()),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> removePendingMedia(String profileKey, String localId) async {
+    final db = await _open();
+    await db.delete(
+      'chat_pending_media',
+      where: 'profile_key = ? AND local_id = ?',
+      whereArgs: [profileKey, localId],
+    );
+  }
+
+  Future<List<ChatPendingMedia>> clearPendingMedia(String profileKey) async {
+    final pending = await loadPendingMedia(profileKey);
+    final db = await _open();
+    await db.delete(
+      'chat_pending_media',
+      where: 'profile_key = ?',
+      whereArgs: [profileKey],
+    );
+    return pending;
+  }
+
   static Future<void> _createPendingTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS chat_pending_messages (
@@ -195,6 +259,19 @@ class ChatLocalStore {
         body TEXT NOT NULL,
         created_at_unix INTEGER NOT NULL,
         PRIMARY KEY (profile_key, client_message_id)
+      )
+    ''');
+  }
+
+  static Future<void> _createPendingMediaTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_pending_media (
+        profile_key TEXT NOT NULL,
+        local_id TEXT NOT NULL,
+        conversation_id TEXT NOT NULL,
+        created_at_unix INTEGER NOT NULL,
+        payload_json TEXT NOT NULL,
+        PRIMARY KEY (profile_key, local_id)
       )
     ''');
   }

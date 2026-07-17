@@ -2,15 +2,21 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
 import '../../shared/models/app_models.dart';
 import '../data/chat_local_store.dart';
+import '../data/chat_media_file_store.dart';
+import '../models/chat_media_models.dart';
 import '../models/chat_models.dart';
 import '../realtime/chat_realtime_service.dart';
 import 'chat_failure.dart';
+
+part 'chat_store_media.dart';
 
 class ChatStore extends ChangeNotifier {
   ChatStore._();
@@ -23,6 +29,10 @@ class ChatStore extends ChangeNotifier {
   final Map<String, List<ChatMessage>> _messages = {};
   final Map<String, bool> _hasMoreMessages = {};
   final Set<String> _loadingMessages = {};
+  final Map<String, List<ChatPendingMedia>> _pendingMedia = {};
+  final Map<String, http.Client> _mediaUploadClients = {};
+  final Set<String> _runningMedia = {};
+  final Set<String> _clearingMediaProfiles = {};
 
   List<ChatConversation> conversations = const [];
   List<ChatDirectoryEntry> directory = const [];
@@ -96,6 +106,7 @@ class ChatStore extends ChangeNotifier {
           .toList(growable: false);
       notifyListeners();
     } catch (_) {}
+    await _restorePendingMedia(nextKey);
     await refreshConversations();
     if (profileKey != nextKey) return;
     _realtime.start(
@@ -111,6 +122,13 @@ class ChatStore extends ChangeNotifier {
 
   void clearMemory() {
     _realtime.stop();
+    for (final client in _mediaUploadClients.values) {
+      client.close();
+    }
+    _mediaUploadClients.clear();
+    _runningMedia.clear();
+    _clearingMediaProfiles.clear();
+    _pendingMedia.clear();
     profileKey = '';
     conversations = const [];
     directory = const [];

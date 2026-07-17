@@ -31,4 +31,26 @@ void main() {
     expect(isTransientChatFailure(failure), isFalse);
     expect(chatFailureMessage(failure), contains('Sessiya'));
   });
+
+  test('media validation and local recovery failures are user-facing', () {
+    const durationFailure = MobileApiException(
+      code: 'video_duration_too_long',
+      message: 'invalid',
+      statusCode: 422,
+    );
+
+    expect(chatMediaFailureMessage(durationFailure), contains('120'));
+    expect(
+      chatMediaFailureMessage(
+        StateError('chat_media_local_file_missing'),
+      ),
+      contains('topilmadi'),
+    );
+    expect(
+      chatMediaFailureMessage(
+        TimeoutException('chat_media_processing_timeout'),
+      ),
+      contains('uzoq'),
+    );
+  });
 }

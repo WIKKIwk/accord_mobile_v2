@@ -24,6 +24,9 @@ class AppRuntimeReset {
     required SessionProfile? previousProfile,
   }) async {
     CustomerStore.instance.clear();
+    if (previousProfile != null) {
+      await ChatStore.instance.clearPendingMediaForProfile(previousProfile);
+    }
     ChatStore.instance.clearMemory();
     SupplierStore.instance.clear();
     WerkaStore.instance.clear();

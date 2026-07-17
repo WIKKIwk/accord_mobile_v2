@@ -1,4 +1,5 @@
 import '../../shared/models/app_models.dart';
+import 'chat_media_models.dart';
 
 class ChatPrincipal {
   const ChatPrincipal({
@@ -72,6 +73,7 @@ class ChatMessage {
     required this.createdAtUnix,
     this.editedAtUnix,
     this.deletedAtUnix,
+    this.attachment,
   });
 
   final String messageId;
@@ -87,6 +89,17 @@ class ChatMessage {
   final int createdAtUnix;
   final int? editedAtUnix;
   final int? deletedAtUnix;
+  final ChatMessageAttachment? attachment;
+
+  String get previewText {
+    final caption = body.trim();
+    if (caption.isNotEmpty) return caption;
+    return switch (attachment?.kind) {
+      ChatMediaKind.image => 'Rasm',
+      ChatMediaKind.video => 'Video',
+      null => 'Xabar',
+    };
+  }
 
   bool isMine(SessionProfile profile) {
     return senderRole == profile.role && senderRef == profile.ref;
@@ -107,6 +120,11 @@ class ChatMessage {
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       editedAtUnix: (json['edited_at_unix'] as num?)?.toInt(),
       deletedAtUnix: (json['deleted_at_unix'] as num?)?.toInt(),
+      attachment: json['attachment'] is Map
+          ? ChatMessageAttachment.fromJson(
+              (json['attachment'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
 
@@ -124,6 +142,7 @@ class ChatMessage {
         'created_at_unix': createdAtUnix,
         if (editedAtUnix != null) 'edited_at_unix': editedAtUnix,
         if (deletedAtUnix != null) 'deleted_at_unix': deletedAtUnix,
+        if (attachment != null) 'attachment': attachment!.toJson(),
       };
 }
 

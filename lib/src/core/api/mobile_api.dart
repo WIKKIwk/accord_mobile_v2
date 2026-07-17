@@ -5,6 +5,7 @@ import '../../features/shared/models/app_models.dart';
 import '../../features/admin/models/admin_item_group_tree_entry.dart';
 import '../../features/admin/models/production_map_models.dart';
 import '../../features/chat/models/chat_models.dart';
+import '../../features/chat/models/chat_media_models.dart';
 import '../../features/boyoqchi/models/returned_paint_models.dart';
 import '../../features/shared/models/stock_entry_lookup.dart';
 import '../customer/customer_priority.dart';

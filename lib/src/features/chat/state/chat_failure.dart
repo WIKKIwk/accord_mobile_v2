@@ -26,6 +26,25 @@ String chatFailureMessage(Object error) {
       'chat_forbidden' => 'Bu suhbatga xabar yuborish ruxsati yo‘q.',
       'chat_not_found' => 'Suhbat topilmadi. Chatlar ro‘yxatini yangilang.',
       'chat_input_invalid' => 'Xabar bo‘sh yoki juda uzun.',
+      'chat_state_conflict' =>
+        'Bu media avval yuborilgan yoki endi yuborib bo‘lmaydi.',
+      'chat_media_too_large' => 'Tanlangan media fayl juda katta.',
+      'chat_media_input_invalid' ||
+      'invalid_media_content' =>
+        'Media fayl formati yaroqsiz yoki qo‘llab-quvvatlanmaydi.',
+      'video_duration_too_long' => 'Video 120 soniyadan oshmasligi kerak.',
+      'chat_media_forbidden' => 'Bu suhbatga media yuborish ruxsati yo‘q.',
+      'chat_media_state_conflict' =>
+        'Media yuklash holati o‘zgargan. Qayta urinib ko‘ring.',
+      'processor_unavailable' ||
+      'chat_media_unavailable' =>
+        'Media qayta ishlash xizmati hozir mavjud emas.',
+      'media_processing_failed' ||
+      'chat_media_processing_failed' =>
+        'Media fayl qayta ishlanmadi. Qayta urinib ko‘ring.',
+      'chat_media_storage_failed' ||
+      'chat_media_store_failed' =>
+        'Media serverda saqlanmadi. Qayta urinib ko‘ring.',
       'chat_unavailable' ||
       'chat_store_failed' =>
         'Chat serveri vaqtincha javob bermayapti.',
@@ -37,4 +56,16 @@ String chatFailureMessage(Object error) {
     };
   }
   return 'Xabar yuborilmadi. Qayta urinib ko‘ring.';
+}
+
+String chatMediaFailureMessage(Object error) {
+  if (error is StateError &&
+      error.message.toString().contains('chat_media_local_file_missing')) {
+    return 'Vaqtinchalik media fayl topilmadi. Faylni qayta tanlang.';
+  }
+  if (error is TimeoutException &&
+      error.message?.contains('chat_media_processing_timeout') == true) {
+    return 'Media qayta ishlanishi juda uzoq davom etdi. Qayta urinib ko‘ring.';
+  }
+  return chatFailureMessage(error);
 }

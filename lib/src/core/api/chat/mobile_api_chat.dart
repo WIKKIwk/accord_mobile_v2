@@ -107,6 +107,7 @@ extension MobileApiChat on MobileApi {
     required String conversationId,
     required String clientMessageId,
     required String body,
+    String? mediaId,
   }) async {
     final response = await _sendAuthorized(
       () => _post(
@@ -118,6 +119,8 @@ extension MobileApiChat on MobileApi {
         body: jsonEncode({
           'client_message_id': clientMessageId,
           'body': body,
+          if (mediaId != null && mediaId.trim().isNotEmpty)
+            'media_id': mediaId.trim(),
         }),
       ),
     );
@@ -125,6 +128,135 @@ extension MobileApiChat on MobileApi {
     final payload = (jsonDecode(response.body) as Map).cast<String, dynamic>();
     return ChatMessage.fromJson(
       (payload['message'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<ChatMediaInitialization> chatInitializeMedia({
+    required String conversationId,
+    required String clientUploadId,
+    required ChatMediaKind kind,
+    required String filename,
+    required String contentType,
+    required int sizeBytes,
+    int? durationMs,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/chat/conversations/${Uri.encodeComponent(conversationId)}/media/uploads',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'client_upload_id': clientUploadId,
+          'kind': chatMediaKindToJson(kind),
+          'filename': filename,
+          'content_type': contentType,
+          'size_bytes': sizeBytes,
+          if (durationMs != null) 'duration_ms': durationMs,
+        }),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_media_initialize_failed');
+    return ChatMediaInitialization.fromJson(
+      (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<void> chatUploadMedia({
+    required ChatMediaUploadInstruction instruction,
+    required Stream<List<int>> content,
+    required int sizeBytes,
+    required void Function(double progress) onProgress,
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse(MobileApi.baseUrl).resolve(instruction.url);
+    final request = http.StreamedRequest(instruction.method, uri);
+    request.contentLength = sizeBytes;
+    request.headers.addAll(instruction.headers);
+    if (instruction.strategy == 'local_proxy') {
+      request.headers.addAll(_headers(requireToken()));
+    }
+    var sent = 0;
+    final tracked = content.map((chunk) {
+      sent += chunk.length;
+      onProgress(
+        sizeBytes <= 0 ? 0 : (sent / sizeBytes).clamp(0.0, 1.0).toDouble(),
+      );
+      return chunk;
+    });
+    final activeClient = client ?? http.Client();
+    try {
+      final responseFuture = activeClient.send(request);
+      await request.sink.addStream(tracked);
+      await request.sink.close();
+      final streamed = await responseFuture;
+      final response = await http.Response.fromStream(streamed);
+      _requireChatSuccess(response, 'chat_media_upload_failed');
+      onProgress(1);
+    } finally {
+      if (client == null) activeClient.close();
+    }
+  }
+
+  Future<ChatMediaUpload> chatMediaStatus({
+    required String conversationId,
+    required String uploadId,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _get(
+        _chatMediaUploadUri(conversationId, uploadId),
+        headers: _headers(requireToken()),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_media_status_failed');
+    return _chatMediaFromResponse(response);
+  }
+
+  Future<ChatMediaUpload> chatCompleteMedia({
+    required String conversationId,
+    required String uploadId,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        _chatMediaUploadUri(conversationId, uploadId).replace(
+          path:
+              '${_chatMediaUploadUri(conversationId, uploadId).path}/complete',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_media_complete_failed');
+    return _chatMediaFromResponse(response);
+  }
+
+  Future<void> chatCancelMedia({
+    required String conversationId,
+    required String uploadId,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _delete(
+        _chatMediaUploadUri(conversationId, uploadId),
+        headers: _headers(requireToken()),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_media_cancel_failed');
+  }
+
+  Uri chatMediaUri(String path) => Uri.parse(MobileApi.baseUrl).resolve(path);
+
+  Map<String, String> chatMediaHeaders() => _headers(requireToken());
+
+  Uri _chatMediaUploadUri(String conversationId, String uploadId) {
+    return Uri.parse(
+      '${MobileApi.baseUrl}/v1/mobile/chat/conversations/${Uri.encodeComponent(conversationId)}/media/uploads/${Uri.encodeComponent(uploadId)}',
+    );
+  }
+
+  ChatMediaUpload _chatMediaFromResponse(http.Response response) {
+    final payload = (jsonDecode(response.body) as Map).cast<String, dynamic>();
+    return ChatMediaUpload.fromJson(
+      (payload['media'] as Map).cast<String, dynamic>(),
     );
   }
 
