@@ -1,9 +1,7 @@
 import '../store/notification_unread_store.dart';
+import '../../api/mobile_api.dart';
 import '../../session/session.dart';
-import '../../../features/customer/state/customer_store.dart';
 import '../../../features/shared/models/app_models.dart';
-import '../../../features/supplier/state/supplier_store.dart';
-import '../../../features/werka/state/werka_notification_store.dart';
 import '../service/local_notification_service.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -25,7 +23,9 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
   static const String _snapshotPrefix = 'notification_snapshot_v1';
   Timer? _timer;
   bool _polling = false;
-  String _lastUserKey = '';
+  SharedPreferences? _preferences;
+  String _snapshotUserKey = '';
+  Map<String, String>? _previousSnapshot;
 
   @override
   void initState() {
@@ -47,8 +47,12 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _startPolling();
       _poll();
+      return;
     }
+    _timer?.cancel();
+    _timer = null;
   }
 
   void _startPolling() {
@@ -74,35 +78,38 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
     _polling = true;
     try {
       final userKey = '${accessRole!.name}:${profile.ref}';
-      if (_lastUserKey.isNotEmpty && _lastUserKey != userKey) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('$_snapshotPrefix:$_lastUserKey');
+      final prefs = _preferences ??= await SharedPreferences.getInstance();
+      if (_snapshotUserKey.isNotEmpty && _snapshotUserKey != userKey) {
+        await prefs.remove('$_snapshotPrefix:$_snapshotUserKey');
+        _previousSnapshot = null;
       }
-      _lastUserKey = userKey;
+      if (_snapshotUserKey != userKey) {
+        _snapshotUserKey = userKey;
+        _previousSnapshot = _readSnapshot(
+          prefs.getString('$_snapshotPrefix:$userKey'),
+        );
+      }
 
       final records = await _loadCanonicalRecords(profile);
-
-      await NotificationUnreadStore.instance.retainForProfile(
-        profile: profile,
-        ids: records.map((item) => item.id),
-      );
-
       final current = <String, String>{
         for (final item in records) item.id: _signature(item),
       };
-
-      final prefs = await SharedPreferences.getInstance();
       final storageKey = '$_snapshotPrefix:$userKey';
-      final raw = prefs.getString(storageKey);
-      if (raw == null || raw.trim().isEmpty) {
+      await NotificationUnreadStore.instance.retainForProfile(
+        profile: profile,
+        ids: current.keys,
+      );
+      final previous = _previousSnapshot;
+      if (previous == null) {
+        _previousSnapshot = current;
         await prefs.setString(storageKey, jsonEncode(current));
         return;
       }
+      if (_sameSnapshot(previous, current)) {
+        return;
+      }
 
-      final previous = (jsonDecode(raw) as Map<String, dynamic>).map(
-        (key, value) => MapEntry(key, value as String),
-      );
-
+      final surfacedRecords = <DispatchRecord>[];
       for (final record in records) {
         final next = _signature(record);
         final old = previous[record.id];
@@ -112,17 +119,23 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
               record,
               hadPrevious: old != null,
             )) {
-          await NotificationUnreadStore.instance.markUnread(
-            profile: profile,
-            ids: [record.id],
-          );
+          surfacedRecords.add(record);
+        }
+      }
+
+      if (surfacedRecords.isNotEmpty) {
+        await NotificationUnreadStore.instance.markUnread(
+          profile: profile,
+          ids: surfacedRecords.map((item) => item.id),
+        );
+        for (final record in surfacedRecords) {
           await LocalNotificationService.instance.showDispatchNotification(
             role: accessRole,
             record: record,
           );
         }
       }
-
+      _previousSnapshot = current;
       await prefs.setString(storageKey, jsonEncode(current));
     } catch (_) {
       // Best-effort runtime notifications.
@@ -145,14 +158,20 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
   ) async {
     switch (profile.accessRole) {
       case UserRole.supplier:
-        await SupplierStore.instance.refreshHistory();
-        return SupplierStore.instance.historyItems;
+        return MobileApi.instance.supplierHistory();
       case UserRole.werka:
-        await WerkaNotificationStore.instance.refresh();
-        return WerkaNotificationStore.instance.items;
+        return MobileApi.instance.werkaNotifications();
       case UserRole.customer:
-        await CustomerStore.instance.refresh();
-        return CustomerStore.instance.historyItems;
+        final lists = await Future.wait<List<DispatchRecord>>([
+          MobileApi.instance.customerStatusDetails(CustomerStatusKind.pending),
+          MobileApi.instance
+              .customerStatusDetails(CustomerStatusKind.confirmed),
+          MobileApi.instance.customerStatusDetails(CustomerStatusKind.rejected),
+        ]);
+        return <String, DispatchRecord>{
+          for (final list in lists)
+            for (final item in list) item.id: item,
+        }.values.toList(growable: false);
       case UserRole.aparatchi:
       case UserRole.qolipchi:
       case UserRole.boyoqchi:
@@ -161,6 +180,31 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
       case null:
         return const <DispatchRecord>[];
     }
+  }
+
+  Map<String, String>? _readSnapshot(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value as String),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _sameSnapshot(Map<String, String> left, Map<String, String> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (final entry in left.entries) {
+      if (right[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _shouldSurfaceForCurrentProfile(
