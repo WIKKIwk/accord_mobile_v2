@@ -75,6 +75,15 @@ void main() {
         name: 'Qolip ma’lumoti yo‘q',
         itemGroup: 'Qolip',
       ),
+      QolipProduct(
+        code: 'ITEM-004',
+        name: 'Ishchidagi qolip',
+        itemGroup: 'Qolip',
+        qolipCode: 'Q-004',
+        qolipSize: 42,
+        hasQolipSpec: true,
+        isInUse: true,
+      ),
     ];
 
     final result = qolipProductsAvailableForCellPlacement(

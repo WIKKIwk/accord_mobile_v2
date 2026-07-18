@@ -307,6 +307,7 @@ class QolipProduct {
     this.qolipCode = '',
     this.qolipSize = 0,
     this.hasQolipSpec = false,
+    this.isInUse = false,
   });
 
   final String code;
@@ -315,6 +316,7 @@ class QolipProduct {
   final String qolipCode;
   final int qolipSize;
   final bool hasQolipSpec;
+  final bool isInUse;
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
@@ -324,6 +326,7 @@ class QolipProduct {
       qolipCode: json['qolip_code']?.toString() ?? '',
       qolipSize: (json['size'] as num?)?.toInt() ?? 0,
       hasQolipSpec: json['has_qolip_spec'] == true,
+      isInUse: json['is_in_use'] == true,
     );
   }
 }

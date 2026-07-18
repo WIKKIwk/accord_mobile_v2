@@ -94,6 +94,31 @@ void main() {
     }, createHttpClient: (_) => _QolipCellQrHttpClient(seenRequests));
   });
 
+  test('qolip products expose in-use status and batch delete codes', () async {
+    final seenRequests = <String>[];
+    final seenBodies = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      final products = await MobileApi.instance.qolipProducts(
+        withQolipOnly: true,
+      );
+      final deleted = await MobileApi.instance.qolipDeleteProductSpecs(
+        const ['QOLIP-0007', 'QOLIP-0008'],
+      );
+
+      expect(products.single.isInUse, isTrue);
+      expect(deleted, 2);
+      expect(
+        seenRequests,
+        contains('DELETE /v1/mobile/qolip/product-specs?'),
+      );
+      final body = jsonDecode(seenBodies.single) as Map<String, dynamic>;
+      expect(body['qolip_codes'], ['QOLIP-0007', 'QOLIP-0008']);
+    },
+        createHttpClient: (_) =>
+            _QolipCellQrHttpClient(seenRequests, seenBodies));
+  });
+
   test('universal qolip scan resolves both qolip location and cell', () async {
     final seenRequests = <String>[];
 
@@ -196,6 +221,7 @@ class _QolipCellQrHttpClient implements HttpClient {
                 'qolip_code': 'QOLIP-0007',
                 'size': 42,
                 'has_qolip_spec': true,
+                'is_in_use': true,
               },
             ],
           }),
@@ -298,6 +324,16 @@ class _QolipCellQrHttpClient implements HttpClient {
               'location_label': 'A2',
             },
           }),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+
+    if (method == 'DELETE' && url.path == '/v1/mobile/qolip/product-specs') {
+      return _FakeHttpClientRequest(
+        onBody: seenBodies.add,
+        response: _FakeHttpClientResponse(
+          body: jsonEncode({'ok': true, 'deleted_count': 2}),
           statusCode: HttpStatus.ok,
         ),
       );

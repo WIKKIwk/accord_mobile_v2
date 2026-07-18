@@ -49,4 +49,26 @@ void main() {
 
     expect(groups, isEmpty);
   });
+
+  test('container is locked when at least one child qolip is in use', () {
+    final groups = groupQolipProductsByContainer(const [
+      QolipProduct(
+        code: 'ITEM-001',
+        name: 'Kross',
+        itemGroup: 'Tayyor mahsulot',
+        qolipCode: 'Q-A-01',
+        hasQolipSpec: true,
+      ),
+      QolipProduct(
+        code: 'ITEM-001',
+        name: 'Kross',
+        itemGroup: 'Tayyor mahsulot',
+        qolipCode: 'Q-A-02',
+        hasQolipSpec: true,
+        isInUse: true,
+      ),
+    ]);
+
+    expect(groups.single.hasInUseQolip, isTrue);
+  });
 }

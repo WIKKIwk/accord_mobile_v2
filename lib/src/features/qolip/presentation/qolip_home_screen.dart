@@ -2749,9 +2749,11 @@ List<QolipProduct> qolipProductsAvailableForCellPlacement(
       .toSet();
   return _qolipProductsWithSavedCodeOnly(products)
       .where(
-        (product) => !normalizedPlacedCodes.contains(
-          product.qolipCode.trim().toLowerCase(),
-        ),
+        (product) =>
+            !product.isInUse &&
+            !normalizedPlacedCodes.contains(
+              product.qolipCode.trim().toLowerCase(),
+            ),
       )
       .toList(growable: false);
 }

@@ -23,6 +23,7 @@ String qolipErrorMessage(
     'quantity_required' => 'Qolip soni noto‘g‘ri',
     'location_identity_mismatch' =>
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
+    'qolip_in_use' => 'Ishchiga berilgan qolipni o‘chirib bo‘lmaydi',
     'forbidden' => 'Bu amal uchun ruxsat yo‘q',
     'unauthorized' => 'Sessiya tugagan. Qayta kiring',
     _ when code.contains('insufficient_stock') => 'Joyda yetarli qolip qolmadi',
@@ -110,27 +111,62 @@ extension MobileApiQolip on MobileApi {
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
-      return TestModeDemoData.items
-          .where((item) =>
-              !withQolipOnly ||
-              _testModeQolipSpecs.containsKey(item.code.trim().toLowerCase()))
-          .where((item) {
-            final spec = _testModeQolipSpecs[item.code.trim().toLowerCase()];
-            return normalized.isEmpty ||
-                item.name.toLowerCase().contains(normalized) ||
-                item.code.toLowerCase().contains(normalized) ||
-                (spec?.qolipCode.toLowerCase().contains(normalized) ?? false);
-          })
-          .take(limit)
-          .map((item) {
-            return _testModeQolipSpecs[item.code.trim().toLowerCase()] ??
-                QolipProduct(
-                  code: item.code,
-                  name: item.name,
-                  itemGroup: item.itemGroup,
-                );
-          })
-          .toList(growable: false);
+      final products = <QolipProduct>[];
+      for (final item in TestModeDemoData.items) {
+        final specs = _testModeQolipSpecs.values
+            .where(
+              (spec) =>
+                  spec.code.trim().toLowerCase() ==
+                  item.code.trim().toLowerCase(),
+            )
+            .toList(growable: false);
+        if (withQolipOnly && specs.isEmpty) {
+          continue;
+        }
+        if (specs.isEmpty) {
+          if (normalized.isEmpty ||
+              item.name.toLowerCase().contains(normalized) ||
+              item.code.toLowerCase().contains(normalized)) {
+            products.add(
+              QolipProduct(
+                code: item.code,
+                name: item.name,
+                itemGroup: item.itemGroup,
+              ),
+            );
+          }
+          continue;
+        }
+        for (final spec in specs) {
+          if (normalized.isNotEmpty &&
+              !item.name.toLowerCase().contains(normalized) &&
+              !item.code.toLowerCase().contains(normalized) &&
+              !spec.qolipCode.toLowerCase().contains(normalized)) {
+            continue;
+          }
+          final inUse = _testModeQolipCheckouts.any(
+            (checkout) =>
+                checkout.isOpen &&
+                checkout.qolipCode.trim().toLowerCase() ==
+                    spec.qolipCode.trim().toLowerCase(),
+          );
+          products.add(
+            QolipProduct(
+              code: spec.code,
+              name: spec.name,
+              itemGroup: spec.itemGroup,
+              qolipCode: spec.qolipCode,
+              qolipSize: spec.qolipSize,
+              hasQolipSpec: spec.hasQolipSpec,
+              isInUse: inUse,
+            ),
+          );
+          if (products.length >= limit) {
+            return products;
+          }
+        }
+      }
+      return products.take(limit).toList(growable: false);
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -232,9 +268,19 @@ extension MobileApiQolip on MobileApi {
       if (columnNumber != null) 'column_number': columnNumber,
     };
     if (await TestModeController.instance.isEnabled()) {
-      final spec = product == null
-          ? null
-          : _testModeQolipSpecs[product.code.trim().toLowerCase()];
+      QolipProduct? spec;
+      for (final item in _testModeQolipSpecs.values) {
+        final matches = effectiveQolipCode.isNotEmpty
+            ? item.qolipCode.trim().toLowerCase() ==
+                effectiveQolipCode.toLowerCase()
+            : product != null &&
+                item.code.trim().toLowerCase() ==
+                    product.code.trim().toLowerCase();
+        if (matches) {
+          spec = item;
+          break;
+        }
+      }
       final savedQolipCode = qolipCode.trim().isNotEmpty
           ? qolipCode.trim()
           : spec?.qolipCode.trim() ?? '';
@@ -305,7 +351,7 @@ extension MobileApiQolip on MobileApi {
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
-      _testModeQolipSpecs[product.code.trim().toLowerCase()] = saved;
+      _testModeQolipSpecs[saved.qolipCode.trim().toLowerCase()] = saved;
       return saved;
     }
     final response = await _sendAuthorized(
@@ -329,6 +375,55 @@ extension MobileApiQolip on MobileApi {
     return QolipProduct.fromJson(
       (data['product'] as Map).cast<String, dynamic>(),
     );
+  }
+
+  Future<int> qolipDeleteProductSpecs(List<String> qolipCodes) async {
+    final normalized = qolipCodes
+        .map((code) => code.trim())
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (normalized.isEmpty) {
+      return 0;
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final keys = normalized.map((code) => code.toLowerCase()).toSet();
+      if (_testModeQolipCheckouts.any(
+        (checkout) =>
+            checkout.isOpen &&
+            keys.contains(checkout.qolipCode.trim().toLowerCase()),
+      )) {
+        throw const MobileApiException(
+          code: 'qolip_in_use',
+          message: 'qolip_in_use',
+        );
+      }
+      final before = _testModeQolipSpecs.length;
+      _testModeQolipSpecs.removeWhere(
+        (_, product) => keys.contains(product.qolipCode.trim().toLowerCase()),
+      );
+      _testModeQolipLocations.removeWhere(
+        (location) => keys.contains(location.qolipCode.trim().toLowerCase()),
+      );
+      return before - _testModeQolipSpecs.length;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/product-specs'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'qolip_codes': normalized}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_delete_failed',
+        fallbackMessage: 'Qoliplar o‘chirilmadi.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['deleted_count'] as num?)?.toInt() ?? 0;
   }
 
   Future<List<QolipWorkerOption>> qolipWorkers({String query = ''}) async {
