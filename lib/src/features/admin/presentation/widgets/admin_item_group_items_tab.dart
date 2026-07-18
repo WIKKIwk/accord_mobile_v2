@@ -1,4 +1,6 @@
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
+import '../../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../../shared/models/app_models.dart';
 import 'admin_expandable_filter_chip.dart';
 import 'admin_item_group_selected_items.dart';
@@ -163,28 +165,17 @@ class _AdminItemGroupItemsTabState extends State<AdminItemGroupItemsTab> {
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 240;
     return ColoredBox(
       color: AppTheme.shellStart(context),
-      child: RefreshIndicator(
+      child: AppRefreshIndicator(
         onRefresh: _refreshItems,
+        allowRefreshOnShortContent: true,
         child: ListView(
           controller: _scrollController,
           padding: EdgeInsets.fromLTRB(12, 16, 12, bottomPadding),
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const TopRefreshScrollPhysics(),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Group itemlari',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton.filledTonal(
-                  onPressed: selected == null || selected.isEmpty
-                      ? null
-                      : _refreshItems,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
+            Text(
+              'Group itemlari',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 6),
             Text(

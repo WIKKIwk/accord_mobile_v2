@@ -1,4 +1,6 @@
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
+import '../../../../core/widgets/shell/app_shell.dart' show AppRefreshIndicator;
 import '../../models/admin_item_group_tree_entry.dart';
 import 'admin_item_group_tree_panel.dart';
 import 'package:flutter/material.dart';
@@ -41,11 +43,12 @@ class AdminItemGroupTreeTab extends StatelessWidget {
         final scheme = Theme.of(context).colorScheme;
         return ColoredBox(
           color: AppTheme.shellStart(context),
-          child: RefreshIndicator(
+          child: AppRefreshIndicator(
             onRefresh: onRefresh,
+            allowRefreshOnShortContent: true,
             child: ListView(
               padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: const TopRefreshScrollPhysics(),
               children: [
                 Material(
                   color: scheme.surfaceContainerLowest,
@@ -61,22 +64,12 @@ class AdminItemGroupTreeTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Item Group tree',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            IconButton.filledTonal(
-                              onPressed: onRefresh,
-                              icon: const Icon(Icons.refresh_rounded),
-                            ),
-                          ],
+                        Text(
+                          'Item Group tree',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 6),
                         Text(
