@@ -316,6 +316,90 @@ extension MobileApiAdminItems on MobileApi {
         .toList();
   }
 
+  Future<AdminRawMaterialStockEntry> adminUpdateRawMaterialStock({
+    required String barcode,
+    required String itemCode,
+    required double qty,
+  }) async {
+    final normalizedBarcode = barcode.trim();
+    final normalizedItemCode = itemCode.trim();
+    if (normalizedBarcode.isEmpty ||
+        normalizedItemCode.isEmpty ||
+        !qty.isFinite ||
+        qty <= 0) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_update_invalid',
+        message: 'Mahsulot va musbat miqdorni kiriting',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final stock = TestModeDemoData.rawMaterialStock.where(
+        (item) =>
+            item.barcode.trim().toLowerCase() ==
+            normalizedBarcode.toLowerCase(),
+      );
+      if (stock.isEmpty) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_not_found',
+          message: 'Homashyo omborda topilmadi',
+        );
+      }
+      final current = stock.first;
+      if (current.status.trim().toLowerCase() != 'available' ||
+          current.reservedOrderId.trim().isNotEmpty) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_locked',
+          message: 'Band qilingan homashyoni tahrirlab bo‘lmaydi',
+        );
+      }
+      final catalog = TestModeDemoData.itemPage(
+        query: normalizedItemCode,
+        limit: 0,
+      );
+      final selected = catalog.where(
+        (item) =>
+            item.code.trim().toLowerCase() == normalizedItemCode.toLowerCase(),
+      );
+      if (selected.isEmpty) {
+        throw const MobileApiException(
+          code: 'raw_material_item_not_found',
+          message: 'Tanlangan mahsulot topilmadi',
+        );
+      }
+      final item = selected.first;
+      return AdminRawMaterialStockEntry(
+        id: current.id,
+        warehouse: current.warehouse,
+        itemCode: item.code,
+        itemName: item.name,
+        barcode: current.barcode,
+        qty: qty,
+        uom: current.uom,
+        status: current.status,
+        reservedOrderId: current.reservedOrderId,
+        sourceReceiptId: current.sourceReceiptId,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'barcode': normalizedBarcode,
+          'item_code': normalizedItemCode,
+          'qty': qty,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _rawMaterialStockUpdateException(response);
+    }
+    return AdminRawMaterialStockEntry.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminWarehouse> adminCreateWarehouse(String warehouse) async {
     final name = warehouse.trim();
     if (name.isEmpty) {
@@ -672,6 +756,35 @@ extension MobileApiAdminItems on MobileApi {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+}
+
+MobileApiException _rawMaterialStockUpdateException(http.Response response) {
+  var code = 'raw_material_stock_update_failed';
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    statusCode: response.statusCode,
+    message: switch (code) {
+      'raw_material_stock_locked' =>
+        'Bu homashyo zakazga to‘liq yoki qisman band qilingan. Uni tahrirlab bo‘lmaydi',
+      'raw_material_stock_not_found' => 'Homashyo omborda topilmadi',
+      'raw_material_stock_qty_invalid' => 'Miqdor musbat son bo‘lishi kerak',
+      'raw_material_item_not_found' => 'Tanlangan mahsulot topilmadi',
+      'raw_material_uom_mismatch' =>
+        'Tanlangan mahsulotning o‘lchov birligi mos emas',
+      'item group is not assigned to material taminotchi' =>
+        'Bu mahsulot guruhi sizga biriktirilmagan',
+      _ => 'Homashyo ma’lumotlarini o‘zgartirib bo‘lmadi',
+    },
+  );
 }
 
 List<AdminWarehouseSummary> _testModeWarehouseSummaries({

@@ -17,6 +17,7 @@ import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_create_hub_sheet.dart';
+import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
@@ -44,6 +45,11 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   bool _warehouseFilterExpanded = false;
   bool _refreshing = false;
   bool _disposed = false;
+  final TextEditingController _materialItemsSearchController =
+      TextEditingController();
+  final FocusNode _materialItemsSearchFocusNode = FocusNode();
+  final GlobalKey<_WarehouseDetailsTabState> _warehouseDetailsKey =
+      GlobalKey<_WarehouseDetailsTabState>();
 
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
@@ -96,6 +102,8 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     _disposed = true;
     _warehouseLiveReconnectTimer?.cancel();
     _warehouseLiveSub?.cancel();
+    _materialItemsSearchController.dispose();
+    _materialItemsSearchFocusNode.dispose();
     _pageTabController.dispose();
     super.dispose();
   }
@@ -240,6 +248,15 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     });
   }
 
+  void _goBackFromMaterialSearch() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    nav.pushReplacementNamed(AppRoutes.materialHome);
+  }
+
   Future<void> _openWarehouseCreateDialog() async {
     await showDialog<void>(
       context: context,
@@ -271,10 +288,29 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               selectedRouteName: AppRoutes.adminWarehouses,
               onNavigate: _openDrawerRoute,
             ),
-      title: materialScoped ? 'Omborlarim' : 'Ombor',
+      title: materialScoped ? '' : 'Ombor',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      automaticallyImplyNativeLeading: !materialScoped,
+      profileActionListenable:
+          materialScoped ? _materialItemsSearchFocusNode : null,
+      showProfileActionResolver:
+          materialScoped ? () => !_materialItemsSearchFocusNode.hasFocus : null,
+      titleWidget: materialScoped
+          ? AdminCatalogSearchField(
+              controller: _materialItemsSearchController,
+              focusNode: _materialItemsSearchFocusNode,
+              hintText: 'Ombordagi mahsulotni qidirish',
+              onChanged: (value) => _warehouseDetailsKey.currentState
+                  ?.handleItemsSearchChanged(value),
+              onClear: () {
+                _materialItemsSearchController.clear();
+                _warehouseDetailsKey.currentState?.handleItemsSearchChanged('');
+              },
+              onBack: _goBackFromMaterialSearch,
+            )
+          : null,
       bottom: materialScoped
           ? const MaterialTaminotchiDock()
           : AdminDock(
@@ -301,17 +337,22 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           final data = snapshot.data ?? _WarehouseSummaryData.empty;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
           final productsTab = _WarehouseDetailsTab(
+            key: materialScoped ? _warehouseDetailsKey : null,
             summaries: data.sections,
             warehouse: _selectedWarehouse,
             detailFuture: _detailFuture,
             bottomPadding: bottomPadding,
             filterExpanded: _warehouseFilterExpanded,
+            searchController:
+                materialScoped ? _materialItemsSearchController : null,
             onFilterToggle: () {
               setState(() {
                 _warehouseFilterExpanded = !_warehouseFilterExpanded;
               });
             },
             onWarehouseChanged: _openWarehouseDetailByName,
+            allowRawStockEdit: materialScoped,
+            onRawStockChanged: _reload,
           );
           if (materialScoped) {
             return productsTab;
@@ -726,13 +767,17 @@ class _AssignUserPickerField extends StatelessWidget {
 
 class _WarehouseDetailsTab extends StatefulWidget {
   const _WarehouseDetailsTab({
+    super.key,
     required this.summaries,
     required this.warehouse,
     required this.detailFuture,
     required this.bottomPadding,
     required this.filterExpanded,
+    this.searchController,
     required this.onFilterToggle,
     required this.onWarehouseChanged,
+    this.allowRawStockEdit = false,
+    this.onRawStockChanged,
   });
 
   final List<_WarehouseSummarySection> summaries;
@@ -740,8 +785,11 @@ class _WarehouseDetailsTab extends StatefulWidget {
   final Future<_WarehouseInventorySection?>? detailFuture;
   final double bottomPadding;
   final bool filterExpanded;
+  final TextEditingController? searchController;
   final VoidCallback onFilterToggle;
   final ValueChanged<String> onWarehouseChanged;
+  final bool allowRawStockEdit;
+  final Future<void> Function()? onRawStockChanged;
 
   @override
   State<_WarehouseDetailsTab> createState() => _WarehouseDetailsTabState();
@@ -754,7 +802,8 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
 
   late TabController _stockTabController;
   final ScrollController _itemsScrollController = ScrollController();
-  final TextEditingController _itemsSearchController = TextEditingController();
+  late final TextEditingController _itemsSearchController;
+  late final bool _ownsItemsSearchController;
   Timer? _itemsSearchDebounce;
   List<SupplierItem> _items = const <SupplierItem>[];
   String _itemsQuery = '';
@@ -764,10 +813,13 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
   Object? _itemsError;
   int _itemsRequestGeneration = 0;
   String? _expandedCardKey;
+  String? _editingStockBarcode;
 
   @override
   void initState() {
     super.initState();
+    _ownsItemsSearchController = widget.searchController == null;
+    _itemsSearchController = widget.searchController ?? TextEditingController();
     _stockTabController = TabController(length: 1, vsync: this);
     _stockTabController.addListener(_handleStockTabChanged);
     _itemsScrollController.addListener(_handleItemsScroll);
@@ -780,7 +832,14 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     if (oldWidget.warehouse != widget.warehouse) {
       _expandedCardKey = null;
       _itemsSearchDebounce?.cancel();
-      _itemsSearchController.clear();
+      final queryToClear = _itemsSearchController.text;
+      if (queryToClear.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _itemsSearchController.text == queryToClear) {
+            _itemsSearchController.clear();
+          }
+        });
+      }
       _itemsQuery = '';
       unawaited(_loadFirstItemsPage());
     }
@@ -791,7 +850,9 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     _itemsSearchDebounce?.cancel();
     _itemsScrollController.removeListener(_handleItemsScroll);
     _itemsScrollController.dispose();
-    _itemsSearchController.dispose();
+    if (_ownsItemsSearchController) {
+      _itemsSearchController.dispose();
+    }
     _stockTabController.removeListener(_handleStockTabChanged);
     _stockTabController.dispose();
     super.dispose();
@@ -803,6 +864,58 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
       _itemsQuery = value.trim();
       unawaited(_loadFirstItemsPage());
     });
+  }
+
+  void handleItemsSearchChanged(String value) {
+    _handleItemsSearchChanged(value);
+  }
+
+  Future<void> _editRawStock(AdminRawMaterialStockEntry stock) async {
+    final barcode = stock.barcode.trim();
+    if (!widget.allowRawStockEdit ||
+        barcode.isEmpty ||
+        _editingStockBarcode != null) {
+      return;
+    }
+    setState(() => _editingStockBarcode = barcode);
+    try {
+      final result = await showModalBottomSheet<_RawMaterialStockEditResult>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        useRootNavigator: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (context) => _RawMaterialStockEditSheet(stock: stock),
+      );
+      if (result == null || !mounted) {
+        return;
+      }
+      await MobileApi.instance.adminUpdateRawMaterialStock(
+        barcode: stock.barcode,
+        itemCode: result.item.code,
+        qty: result.qty,
+      );
+      await widget.onRawStockChanged?.call();
+      if (mounted) {
+        _showWarehouseNotice(context, 'Homashyo ma’lumotlari yangilandi');
+      }
+    } on MobileApiException catch (error) {
+      if (mounted) {
+        _showWarehouseNotice(context, error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showWarehouseNotice(context, 'Homashyoni tahrirlab bo‘lmadi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _editingStockBarcode = null);
+      }
+    }
   }
 
   void _handleItemsScroll() {
@@ -1004,20 +1117,21 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
           current.reservations,
         );
         final availableChildren = <Widget>[
-          SearchBar(
-            controller: _itemsSearchController,
-            hintText: 'Ombordagi mahsulotni qidirish',
-            constraints: const BoxConstraints(minHeight: 54),
-            padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-              EdgeInsets.symmetric(horizontal: 16),
+          if (widget.searchController == null)
+            SearchBar(
+              controller: _itemsSearchController,
+              hintText: 'Ombordagi mahsulotni qidirish',
+              constraints: const BoxConstraints(minHeight: 54),
+              padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                EdgeInsets.symmetric(horizontal: 16),
+              ),
+              leading: Icon(
+                Icons.search_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              elevation: const WidgetStatePropertyAll<double>(0),
+              onChanged: _handleItemsSearchChanged,
             ),
-            leading: Icon(
-              Icons.search_rounded,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            elevation: const WidgetStatePropertyAll<double>(0),
-            onChanged: _handleItemsSearchChanged,
-          ),
           if (_initialItemsLoading)
             const Padding(
               padding: EdgeInsets.only(top: 28),
@@ -1050,6 +1164,15 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               stock: availableRawStock,
               expandedKey: _expandedCardKey,
               onExpandedChanged: _onExpandedChanged,
+              canEdit: widget.allowRawStockEdit
+                  ? (stock) => _canEditRawMaterialStock(
+                        stock,
+                        current.reservations,
+                      )
+                  : null,
+              onEdit: widget.allowRawStockEdit
+                  ? (stock) => unawaited(_editRawStock(stock))
+                  : null,
             ),
           if (_loadingMoreItems)
             const Padding(
@@ -1854,11 +1977,15 @@ class _WarehouseRawStockListModule extends StatelessWidget {
     required this.stock,
     required this.expandedKey,
     required this.onExpandedChanged,
+    this.canEdit,
+    this.onEdit,
   });
 
   final List<AdminRawMaterialStockEntry> stock;
   final String? expandedKey;
   final void Function(String key, bool expanded) onExpandedChanged;
+  final bool Function(AdminRawMaterialStockEntry stock)? canEdit;
+  final ValueChanged<AdminRawMaterialStockEntry>? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1877,6 +2004,9 @@ class _WarehouseRawStockListModule extends StatelessWidget {
               _warehouseStockCardKey(stock[index]),
               expanded,
             ),
+            onEdit: canEdit?.call(stock[index]) == true && onEdit != null
+                ? () => onEdit!(stock[index])
+                : null,
           ),
       ],
     );
@@ -1896,12 +2026,14 @@ class _WarehouseRawStockRow extends StatelessWidget {
     required this.stock,
     required this.expanded,
     required this.onExpandedChanged,
+    this.onEdit,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialStockEntry stock;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1944,6 +2076,271 @@ class _WarehouseRawStockRow extends StatelessWidget {
         if (stock.sourceReceiptId.trim().isNotEmpty)
           _WarehouseDetailEntry('Kirim raqami', stock.sourceReceiptId),
       ],
+      expandedFooter: onEdit == null
+          ? null
+          : Align(
+              alignment: Alignment.centerRight,
+              child: IconButton.filledTonal(
+                key: ValueKey('raw-stock-edit-${stock.barcode}'),
+                onPressed: onEdit,
+                tooltip: 'Tahrirlash',
+                icon: const Icon(Icons.edit_outlined),
+              ),
+            ),
+    );
+  }
+}
+
+class _RawMaterialStockEditResult {
+  const _RawMaterialStockEditResult({
+    required this.item,
+    required this.qty,
+  });
+
+  final SupplierItem item;
+  final double qty;
+}
+
+class _RawMaterialStockEditSheet extends StatefulWidget {
+  const _RawMaterialStockEditSheet({required this.stock});
+
+  final AdminRawMaterialStockEntry stock;
+
+  @override
+  State<_RawMaterialStockEditSheet> createState() =>
+      _RawMaterialStockEditSheetState();
+}
+
+class _RawMaterialStockEditSheetState
+    extends State<_RawMaterialStockEditSheet> {
+  late final TextEditingController _qtyController;
+  late SupplierItem _selectedItem;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController = TextEditingController(text: _formatQty(widget.stock.qty));
+    _selectedItem = SupplierItem(
+      code: widget.stock.itemCode,
+      name: widget.stock.itemName.trim().isEmpty
+          ? widget.stock.itemCode
+          : widget.stock.itemName,
+      uom: widget.stock.uom,
+      warehouse: widget.stock.warehouse,
+    );
+  }
+
+  @override
+  void dispose() {
+    _qtyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickItem() async {
+    final picked = await showModalBottomSheet<SupplierItem>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) => M3AsyncPickerSheet<SupplierItem>(
+        title: 'Mahsulot tanlang',
+        hintText: 'Mahsulot nomi yoki kodini qidiring',
+        supportingText: 'Faqat sizga biriktirilgan guruh mahsulotlari',
+        pageSize: 80,
+        loadPage: (query, offset, limit) => MobileApi.instance.adminItemsPage(
+          query: query,
+          offset: offset,
+          limit: limit,
+        ),
+        itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,
+        itemSubtitle: (item) => [
+          item.code,
+          if (item.uom.trim().isNotEmpty) item.uom.trim(),
+        ].join(' • '),
+        onSelected: (item) => Navigator.of(context).pop(item),
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedItem = picked;
+        _errorText = null;
+      });
+    }
+  }
+
+  void _save() {
+    final qty =
+        double.tryParse(_qtyController.text.trim().replaceAll(',', '.'));
+    if (_selectedItem.code.trim().isEmpty ||
+        qty == null ||
+        !qty.isFinite ||
+        qty <= 0) {
+      setState(() => _errorText = 'Mahsulot va musbat miqdorni kiriting');
+      return;
+    }
+    Navigator.of(context).pop(
+      _RawMaterialStockEditResult(item: _selectedItem, qty: qty),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final media = MediaQuery.of(context);
+    final itemName = _selectedItem.name.trim().isEmpty
+        ? _selectedItem.code
+        : _selectedItem.name;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Material(
+          color: scheme.surfaceContainer,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Homashyoni tahrirlash',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Yopish',
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: _pickItem,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InputDecorator(
+                      decoration: appSurfaceInputDecoration(
+                        context,
+                        labelText: 'Mahsulot nomi',
+                        prefixIcon: const Icon(Icons.science_outlined),
+                        suffixIcon: const Icon(Icons.expand_more_rounded),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            itemName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (_selectedItem.code.trim().isNotEmpty)
+                            Text(
+                              _selectedItem.code.trim(),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    key: const ValueKey('raw-stock-edit-qty'),
+                    controller: _qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _save(),
+                    onChanged: (_) {
+                      if (_errorText != null) {
+                        setState(() => _errorText = null);
+                      }
+                    },
+                    decoration: appSurfaceInputDecoration(
+                      context,
+                      labelText: 'Kirim miqdori',
+                      prefixIcon: const Icon(Icons.scale_outlined),
+                    ).copyWith(
+                      suffixText: widget.stock.uom.trim(),
+                      errorText: _errorText,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.verified_user_outlined,
+                            size: 20,
+                            color: scheme.onSecondaryContainer,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Shtrix-kod ${widget.stock.barcode} va kirim raqami '
+                              '${widget.stock.sourceReceiptId} o‘zgarmaydi.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    key: const ValueKey('raw-stock-edit-save'),
+                    onPressed: _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Saqlash'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2069,6 +2466,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.details,
+    this.expandedFooter,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -2078,6 +2476,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<_WarehouseDetailEntry> details;
+  final Widget? expandedFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -2175,6 +2574,7 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
                                   label: detail.label,
                                   value: detail.value,
                                 ),
+                              if (expandedFooter != null) expandedFooter!,
                             ],
                           ),
                         )
@@ -2270,6 +2670,22 @@ bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {
     'reserved' || 'band' => true,
     _ => false,
   };
+}
+
+bool _canEditRawMaterialStock(
+  AdminRawMaterialStockEntry stock,
+  List<AdminRawMaterialAssignment> reservations,
+) {
+  final barcode = stock.barcode.trim();
+  if (barcode.isEmpty ||
+      stock.status.trim().toLowerCase() != 'available' ||
+      stock.reservedOrderId.trim().isNotEmpty) {
+    return false;
+  }
+  return !reservations.any(
+    (reservation) =>
+        reservation.barcode.trim().toLowerCase() == barcode.toLowerCase(),
+  );
 }
 
 String _warehouseStockStatusLabel(String rawStatus) {

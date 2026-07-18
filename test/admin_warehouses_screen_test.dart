@@ -62,6 +62,21 @@ void main() {
     );
   });
 
+  test('raw material correction preserves barcode and receipt identity',
+      () async {
+    final updated = await MobileApi.instance.adminUpdateRawMaterialStock(
+      barcode: '30AA',
+      itemCode: 'DEMO-INK',
+      qty: 10.5,
+    );
+
+    expect(updated.itemCode, 'DEMO-INK');
+    expect(updated.itemName, 'Demo kraska');
+    expect(updated.qty, 10.5);
+    expect(updated.barcode, '30AA');
+    expect(updated.sourceReceiptId, 'GSR-30AA');
+  });
+
   testWidgets('admin warehouses page groups catalog items by warehouse', (
     tester,
   ) async {
@@ -126,6 +141,7 @@ void main() {
     expect(find.text('Mavjud'), findsOneWidget);
     expect(find.text('Kirim raqami'), findsOneWidget);
     expect(find.text('GSR-30AA'), findsOneWidget);
+    expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsNothing);
   });
 
   testWidgets('admin warehouses page has list and create tabs with detail', (
@@ -447,6 +463,8 @@ void main() {
       (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.materialTaminotchi,
       displayName: 'Materialchi',
@@ -486,7 +504,7 @@ void main() {
       }
     }
 
-    expect(find.text('Omborlarim'), findsOneWidget);
+    expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
     expect(find.text('Ombor yaratish'), findsNothing);
 
     await _openWarehouseFilter(tester);
@@ -499,6 +517,18 @@ void main() {
 
     expect(find.text('Demo kraska'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
+
+    await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('raw-stock-edit-30AA')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Homashyoni tahrirlash'), findsOneWidget);
+    expect(find.textContaining('Shtrix-kod 30AA'), findsOneWidget);
+    expect(find.byKey(const ValueKey('raw-stock-edit-qty')), findsOneWidget);
+    expect(find.byKey(const ValueKey('raw-stock-edit-save')), findsOneWidget);
   });
 
   test('admin warehouse live url uses websocket scheme and session token', () {
