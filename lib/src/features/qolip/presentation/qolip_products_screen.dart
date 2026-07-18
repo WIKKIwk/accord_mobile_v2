@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/print_service.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -294,7 +295,6 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return AppShell(
       title: '',
       subtitle: '',
@@ -326,7 +326,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       bottom: const QolipDock(activeTab: QolipDockTab.products),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
-        color: scheme.surfaceContainerHighest,
+        color: AppTheme.shellStart(context),
         child: FutureBuilder<List<QolipProductContainer>>(
           future: _future,
           builder: (context, snapshot) {
