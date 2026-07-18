@@ -400,6 +400,92 @@ extension MobileApiAdminItems on MobileApi {
     );
   }
 
+  Future<AdminRawMaterialStockReprintPreparation>
+      adminPrepareRawMaterialStockReprint({required String barcode}) async {
+    final normalizedBarcode = barcode.trim();
+    if (normalizedBarcode.isEmpty) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_reprint_invalid',
+        message: 'QR kodi topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final matches = TestModeDemoData.rawMaterialStock.where(
+        (item) =>
+            item.barcode.trim().toLowerCase() ==
+            normalizedBarcode.toLowerCase(),
+      );
+      if (matches.isEmpty) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_not_found',
+          message: 'Homashyo omborda topilmadi',
+        );
+      }
+      final stock = matches.first;
+      if (stock.status.trim().toLowerCase() != 'available' ||
+          stock.reservedOrderId.trim().isNotEmpty) {
+        throw const MobileApiException(
+          code: 'raw_material_stock_locked',
+          message: 'Band qilingan homashyo QR kodini qayta chop etib bo‘lmaydi',
+        );
+      }
+      return AdminRawMaterialStockReprintPreparation(
+        reprintId: 'test-${stock.barcode}',
+        stock: stock,
+        printRequest: UsbRpsPrintRequest(
+          epc: stock.barcode,
+          itemCode: stock.itemCode,
+          itemName: stock.itemName,
+          warehouse: stock.warehouse,
+          printer: 'godex',
+          printMode: 'label',
+          grossQty: stock.qty,
+          unit: stock.uom,
+        ),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock/reprint/prepare',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'barcode': normalizedBarcode}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _rawMaterialStockReprintException(response);
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminRawMaterialStockReprintPreparation.fromJson(payload);
+  }
+
+  Future<void> adminConfirmRawMaterialStockReprint({
+    required String barcode,
+    required String reprintId,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-stock/reprint/confirm',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'barcode': barcode.trim(),
+          'reprint_id': reprintId.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _rawMaterialStockReprintException(response);
+    }
+  }
+
   Future<AdminWarehouse> adminCreateWarehouse(String warehouse) async {
     final name = warehouse.trim();
     if (name.isEmpty) {
@@ -783,6 +869,56 @@ MobileApiException _rawMaterialStockUpdateException(http.Response response) {
       'item group is not assigned to material taminotchi' =>
         'Bu mahsulot guruhi sizga biriktirilmagan',
       _ => 'Homashyo ma’lumotlarini o‘zgartirib bo‘lmadi',
+    },
+  );
+}
+
+class AdminRawMaterialStockReprintPreparation {
+  const AdminRawMaterialStockReprintPreparation({
+    required this.reprintId,
+    required this.stock,
+    required this.printRequest,
+  });
+
+  factory AdminRawMaterialStockReprintPreparation.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final stockJson =
+        (json['stock'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final printJson =
+        (json['print'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return AdminRawMaterialStockReprintPreparation(
+      reprintId: json['reprint_id']?.toString() ?? '',
+      stock: AdminRawMaterialStockEntry.fromJson(stockJson),
+      printRequest: UsbRpsPrintRequest.fromPrintJson(printJson),
+    );
+  }
+
+  final String reprintId;
+  final AdminRawMaterialStockEntry stock;
+  final UsbRpsPrintRequest printRequest;
+}
+
+MobileApiException _rawMaterialStockReprintException(http.Response response) {
+  var code = 'raw_material_stock_reprint_failed';
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    statusCode: response.statusCode,
+    message: switch (code) {
+      'raw_material_stock_locked' =>
+        'Bu homashyo zakazga to‘liq yoki qisman band qilingan. QR kodini qayta chop etib bo‘lmaydi',
+      'raw_material_stock_not_found' => 'Homashyo omborda topilmadi',
+      'forbidden' => 'Bu homashyo sizga biriktirilgan omborda emas',
+      _ => 'QR kodini qayta chop etib bo‘lmadi',
     },
   );
 }

@@ -77,6 +77,19 @@ void main() {
     expect(updated.sourceReceiptId, 'GSR-30AA');
   });
 
+  test('raw material reprint preparation reuses barcode and receipt identity',
+      () async {
+    final prepared = await MobileApi.instance
+        .adminPrepareRawMaterialStockReprint(barcode: '30AA');
+
+    expect(prepared.stock.barcode, '30AA');
+    expect(prepared.stock.sourceReceiptId, 'GSR-30AA');
+    expect(prepared.printRequest.epc, '30AA');
+    expect(prepared.printRequest.itemCode, 'DEMO-RAW-001');
+    expect(prepared.printRequest.grossQty, 12);
+    expect(prepared.printRequest.printCount, 1);
+  });
+
   testWidgets('admin warehouses page groups catalog items by warehouse', (
     tester,
   ) async {
@@ -142,6 +155,7 @@ void main() {
     expect(find.text('Kirim raqami'), findsOneWidget);
     expect(find.text('GSR-30AA'), findsOneWidget);
     expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsNothing);
+    expect(find.byKey(const ValueKey('raw-stock-qr-30AA')), findsNothing);
   });
 
   testWidgets('admin warehouses page has list and create tabs with detail', (
@@ -519,6 +533,27 @@ void main() {
     expect(find.text('Hotlunch'), findsNothing);
 
     await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.pumpAndSettle();
+
+    final qrButton = find.byKey(const ValueKey('raw-stock-qr-30AA'));
+    final editButton = find.byKey(const ValueKey('raw-stock-edit-30AA'));
+    expect(qrButton, findsOneWidget);
+    expect(editButton, findsOneWidget);
+    expect(tester.getCenter(qrButton).dx,
+        lessThan(tester.getCenter(editButton).dx));
+
+    await tester.tap(qrButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chop etilgan QR'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('raw-stock-qr-preview-30AA')),
+      findsOneWidget,
+    );
+    expect(find.text('GSR-30AA'), findsWidgets);
+    expect(find.byKey(const ValueKey('raw-stock-qr-reprint')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Yopish'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsOneWidget);

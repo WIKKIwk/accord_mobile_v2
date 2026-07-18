@@ -12,6 +12,22 @@ import 'native_usb_printer.dart';
 class GodexRpsRenderer {
   const GodexRpsRenderer._();
 
+  static QrCodeMatrix qrMatrix(String payload) {
+    final normalized = _uppercaseClean(payload);
+    if (normalized.isEmpty) {
+      throw StateError('qr payload is empty');
+    }
+    final qr = _QrCode.encodeText(normalized);
+    return QrCodeMatrix._(
+      qr.size,
+      List<bool>.generate(
+        qr.size * qr.size,
+        (index) => qr.getModule(index % qr.size, index ~/ qr.size),
+        growable: false,
+      ),
+    );
+  }
+
   static Uint8List render(UsbRpsPrintRequest request) {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
@@ -459,6 +475,15 @@ class GodexRpsRenderer {
 
   static Uint8List _ascii(String value) =>
       Uint8List.fromList(value.codeUnits.map((unit) => unit & 0xff).toList());
+}
+
+class QrCodeMatrix {
+  const QrCodeMatrix._(this.size, this._modules);
+
+  final int size;
+  final List<bool> _modules;
+
+  bool isDark(int x, int y) => _modules[y * size + x];
 }
 
 class _PackLabelContent {
