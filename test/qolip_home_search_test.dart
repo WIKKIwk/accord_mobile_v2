@@ -51,4 +51,37 @@ void main() {
     expect(qolipContainerSearchMatchCount(items, 'loafer'), 0);
     expect(qolipContainerSearchMatchCount(items, ''), 0);
   });
+
+  test('cell placement excludes qolips that already have a cell', () {
+    final products = const [
+      QolipProduct(
+        code: 'ITEM-001',
+        name: 'Joylashgan qolip',
+        itemGroup: 'Qolip',
+        qolipCode: 'Q-001',
+        qolipSize: 40,
+        hasQolipSpec: true,
+      ),
+      QolipProduct(
+        code: 'ITEM-002',
+        name: 'Bo‘sh qolip',
+        itemGroup: 'Qolip',
+        qolipCode: 'Q-002',
+        qolipSize: 41,
+        hasQolipSpec: true,
+      ),
+      QolipProduct(
+        code: 'ITEM-003',
+        name: 'Qolip ma’lumoti yo‘q',
+        itemGroup: 'Qolip',
+      ),
+    ];
+
+    final result = qolipProductsAvailableForCellPlacement(
+      products,
+      {' q-001 '},
+    );
+
+    expect(result.map((product) => product.qolipCode), ['Q-002']);
+  });
 }

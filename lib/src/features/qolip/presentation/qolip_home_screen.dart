@@ -2739,6 +2739,23 @@ List<QolipProduct> _qolipProductsWithSavedCodeOnly(
       .toList(growable: false);
 }
 
+List<QolipProduct> qolipProductsAvailableForCellPlacement(
+  List<QolipProduct> products,
+  Set<String> placedQolipCodes,
+) {
+  final normalizedPlacedCodes = placedQolipCodes
+      .map((code) => code.trim().toLowerCase())
+      .where((code) => code.isNotEmpty)
+      .toSet();
+  return _qolipProductsWithSavedCodeOnly(products)
+      .where(
+        (product) => !normalizedPlacedCodes.contains(
+          product.qolipCode.trim().toLowerCase(),
+        ),
+      )
+      .toList(growable: false);
+}
+
 int qolipContainerSearchMatchCount(
   Iterable<QolipLocationEntry> items,
   String query,
@@ -2922,6 +2939,7 @@ class _QolipAttachSheet extends StatefulWidget {
 class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
+  late final Future<Set<String>> _placedQolipCodesFuture;
   QolipBlock? _block;
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
@@ -2937,6 +2955,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     _block = _initialBlock();
     _rowLetter = widget.initialRowLetter;
     _columnNumber = widget.initialColumnNumber;
+    _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
+        ? _loadPlacedQolipCodes()
+        : Future.value(const <String>{});
   }
 
   @override
@@ -2965,6 +2986,26 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     return widget.blocks.first;
   }
 
+  Future<Set<String>> _loadPlacedQolipCodes() async {
+    final blockNames = widget.blocks
+        .map((block) => block.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    final locationsByBlock = await Future.wait(
+      blockNames.map(MobileApi.instance.qolipLocations),
+    );
+    return locationsByBlock
+        .expand((locations) => locations)
+        .where(
+          (location) =>
+              location.rowLetter.trim().isNotEmpty &&
+              location.columnNumber != null,
+        )
+        .map((location) => location.qolipCode.trim().toLowerCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+  }
+
   Future<void> _pickProduct() async {
     final picked = await showModalBottomSheet<_QolipProductSelection>(
       context: context,
@@ -2986,19 +3027,25 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
               ? null
               : 'qolip:products',
-          loadPage: (query, offset, limit) {
-            if (offset > 0) {
+          loadPage: (query, offset, limit) async {
+            if (!isCellPlacement && offset > 0) {
               return Future.value(const <QolipProduct>[]);
             }
-            final future = MobileApi.instance.qolipProducts(
+            final productsFuture = MobileApi.instance.qolipProducts(
               query: query,
-              limit: limit,
-              withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
+              limit: isCellPlacement ? 20000 : limit,
+              withQolipOnly: isCellPlacement,
             );
-            if (widget.mode != _QolipAttachMode.cellPlacement) {
-              return future;
+            if (!isCellPlacement) {
+              return productsFuture;
             }
-            return future.then(_qolipProductsWithSavedCodeOnly);
+            final products = await productsFuture;
+            final placedQolipCodes = await _placedQolipCodesFuture;
+            final available = qolipProductsAvailableForCellPlacement(
+              products,
+              placedQolipCodes,
+            );
+            return available.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (item) {
             final name = item.name.trim();
