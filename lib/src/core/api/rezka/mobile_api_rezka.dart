@@ -10,7 +10,7 @@ extension MobileApiRezka on MobileApi {
         headers: _headers(requireToken()),
       ),
     );
-    final payload = _rezkaDecodeObject(response.body);
+    final payload = await _rezkaDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _rezkaText(payload['error'], fallback: 'rezka_source_failed'),
@@ -61,7 +61,7 @@ extension MobileApiRezka on MobileApi {
         body: jsonEncode(request.toJson()),
       ),
     );
-    final payload = _rezkaDecodeObject(response.body);
+    final payload = await _rezkaDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _rezkaText(payload['error'], fallback: 'rezka_split_failed'),
@@ -304,9 +304,9 @@ class RezkaOutputLabel {
   final bool printQr;
 }
 
-Map<String, dynamic> _rezkaDecodeObject(String body) {
+Future<Map<String, dynamic>> _rezkaDecodeObject(String body) async {
   try {
-    return (jsonDecode(body) as Map?)?.cast<String, dynamic>() ?? const {};
+    return await decodeJsonMapPayload(body);
   } catch (_) {
     return const {};
   }

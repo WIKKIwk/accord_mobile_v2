@@ -1952,7 +1952,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin activity failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -2218,7 +2218,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin apparatus groups failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return _normalizeDefaultAdminApparatusGroups(
       json
           .map(
@@ -2271,7 +2271,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin capabilities failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminCapability.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -2290,7 +2290,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin roles failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => AdminRoleDefinition.fromJson(item as Map<String, dynamic>),
@@ -2314,7 +2314,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin production maps failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>),
@@ -3068,7 +3068,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'raw_material_rules');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => AdminRawMaterialRule.fromJson(item as Map<String, dynamic>),
@@ -3137,7 +3137,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'raw_material_assignments');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => AdminRawMaterialAssignment.fromJson(
@@ -3177,7 +3177,7 @@ extension MobileApiAdmin on MobileApi {
       }
       throw _adminProductionMapException(response, 'raw_material_history');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>
@@ -4109,7 +4109,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin role assignments failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => AdminRoleAssignment.fromJson(item as Map<String, dynamic>),
@@ -4146,7 +4146,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin workers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminWorker.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
@@ -4627,7 +4627,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin worker groups failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminWorkerGroup.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
@@ -4772,7 +4772,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin suppliers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminSupplier.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -4882,7 +4882,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin inactive suppliers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminSupplier.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -5138,7 +5138,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin customers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>
@@ -5242,7 +5242,7 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin assigned supplier items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();

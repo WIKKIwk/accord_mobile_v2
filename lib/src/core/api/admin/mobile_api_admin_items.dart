@@ -155,7 +155,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -197,7 +197,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin warehouse items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => AdminWarehouseStockItem.fromJson(
@@ -248,7 +248,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin warehouses failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminWarehouse.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -276,7 +276,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin warehouse summaries failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) =>
             AdminWarehouseSummary.fromJson(item as Map<String, dynamic>))
@@ -313,7 +313,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin raw material stock failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) =>
             AdminRawMaterialStockEntry.fromJson(item as Map<String, dynamic>))
@@ -634,7 +634,7 @@ extension MobileApiAdminItems on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin warehouse assignments failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>

@@ -42,7 +42,7 @@ extension MobileApiChat on MobileApi {
     );
     _requireChatSuccess(response, 'chat_directory_failed');
     return ChatDirectoryPage.fromJson(
-      (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+      await decodeJsonMapPayload(response.body),
     );
   }
 
@@ -57,7 +57,7 @@ extension MobileApiChat on MobileApi {
     );
     _requireChatSuccess(response, 'chat_conversations_failed');
     return ChatConversationPage.fromJson(
-      (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+      await decodeJsonMapPayload(response.body),
     );
   }
 
@@ -99,7 +99,7 @@ extension MobileApiChat on MobileApi {
     );
     _requireChatSuccess(response, 'chat_messages_failed');
     return ChatMessagePage.fromJson(
-      (jsonDecode(response.body) as Map).cast<String, dynamic>(),
+      await decodeJsonMapPayload(response.body),
     );
   }
 

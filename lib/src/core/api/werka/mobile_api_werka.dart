@@ -93,7 +93,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka pending failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -119,7 +119,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka suppliers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>
@@ -225,7 +225,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka customers failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>
@@ -263,7 +263,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka supplier items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     final items = json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -296,7 +296,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka customer items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     final items = json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -337,7 +337,7 @@ extension MobileApiWerka on MobileApi {
       ),
     );
     if (response.statusCode == 200) {
-      final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+      final json = await decodeJsonListPayload(response.body);
       final options = json
           .map(
             (item) => CustomerItemOption.fromJson(item as Map<String, dynamic>),
@@ -496,7 +496,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka status breakdown failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>
@@ -520,7 +520,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka status details failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -536,7 +536,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka history failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -552,7 +552,7 @@ extension MobileApiWerka on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Werka notifications failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();

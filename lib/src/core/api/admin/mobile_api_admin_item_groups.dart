@@ -14,7 +14,7 @@ extension MobileApiAdminItemGroups on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin item groups failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json.map((item) => item.toString()).toList();
   }
 
@@ -31,7 +31,7 @@ extension MobileApiAdminItemGroups on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin item group tree failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) =>

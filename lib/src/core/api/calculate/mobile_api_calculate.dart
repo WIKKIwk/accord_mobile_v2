@@ -17,7 +17,7 @@ extension MobileApiCalculate on MobileApi {
         body: jsonEncode(request.toJson()),
       ),
     );
-    final payload = _calculateDecodeObject(response.body);
+    final payload = await _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _calculateText(payload['error'], fallback: 'calculate_failed'),
@@ -46,7 +46,7 @@ extension MobileApiCalculate on MobileApi {
         headers: _headers(requireToken()),
       ),
     );
-    final payload = _calculateDecodeObject(response.body);
+    final payload = await _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _calculateText(payload['error'], fallback: 'calculate_orders'),
@@ -80,7 +80,7 @@ extension MobileApiCalculate on MobileApi {
         body: jsonEncode(template.toJson()),
       ),
     );
-    final payload = _calculateDecodeObject(response.body);
+    final payload = await _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _calculateText(
@@ -115,7 +115,7 @@ extension MobileApiCalculate on MobileApi {
         body: jsonEncode({'id': id}),
       ),
     );
-    final payload = _calculateDecodeObject(response.body);
+    final payload = await _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _calculateText(
@@ -144,7 +144,7 @@ extension MobileApiCalculate on MobileApi {
         body: bytes,
       ),
     );
-    final payload = _calculateDecodeObject(response.body);
+    final payload = await _calculateDecodeObject(response.body);
     if (response.statusCode != 200) {
       throw MobileApiException(
         code: _calculateText(
@@ -727,9 +727,9 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
   return saved;
 }
 
-Map<String, dynamic> _calculateDecodeObject(String body) {
+Future<Map<String, dynamic>> _calculateDecodeObject(String body) async {
   try {
-    return (jsonDecode(body) as Map?)?.cast<String, dynamic>() ?? const {};
+    return await decodeJsonMapPayload(body);
   } catch (_) {
     return const {};
   }

@@ -75,7 +75,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip blocks failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipBlocksResult.fromJson(data);
   }
 
@@ -100,7 +100,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip block create failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipBlock.fromJson((data['block'] as Map).cast<String, dynamic>());
   }
 
@@ -183,7 +183,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip products failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     final raw = data['products'];
     return [
       if (raw is List)
@@ -234,7 +234,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip locations failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     final raw = data['locations'];
     return [
       if (raw is List)
@@ -331,7 +331,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip location save failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipLocationEntry.fromJson(
       (data['location'] as Map).cast<String, dynamic>(),
     );
@@ -371,7 +371,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip product spec save failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipProduct.fromJson(
       (data['product'] as Map).cast<String, dynamic>(),
     );
@@ -422,7 +422,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Qoliplar o‘chirilmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return (data['deleted_count'] as num?)?.toInt() ?? 0;
   }
 
@@ -454,7 +454,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Qolipchilar yuklanmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return [
       for (final item in (data['workers'] as List<dynamic>? ?? const []))
         QolipWorkerOption.fromJson((item as Map).cast<String, dynamic>()),
@@ -539,7 +539,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Qolip olish amalga oshmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipCheckoutEntry.fromJson(
       (data['checkout'] as Map).cast<String, dynamic>(),
     );
@@ -586,7 +586,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Qarz daftari yuklanmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return [
       for (final item in (data['checkouts'] as List<dynamic>? ?? const []))
         QolipCheckoutEntry.fromJson((item as Map).cast<String, dynamic>()),
@@ -709,7 +709,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Qolip qaytarilmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipCheckoutEntry.fromJson(
       (data['checkout'] as Map).cast<String, dynamic>(),
     );
@@ -827,7 +827,7 @@ extension MobileApiQolip on MobileApi {
         fallbackMessage: 'Ko‘chirish amalga oshmadi.',
       );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipLocationEntry.fromJson(
       (data['location'] as Map).cast<String, dynamic>(),
     );
@@ -886,7 +886,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip cell QR print failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     final cellQr = QolipCellQr.fromJson(
       (data['cell_qr'] as Map).cast<String, dynamic>(),
     );
@@ -948,7 +948,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Qolip code QR print failed');
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     final qolipQr = QolipCodeQr.fromJson(
       (data['qolip_qr'] as Map).cast<String, dynamic>(),
     );
@@ -1021,7 +1021,7 @@ extension MobileApiQolip on MobileApi {
     if (response.statusCode != 200) {
       throw _qolipCellQrException(response);
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await decodeJsonMapPayload(response.body);
     return QolipCellQr.fromJson(
       (data['cell_qr'] as Map).cast<String, dynamic>(),
     );

@@ -13,7 +13,7 @@ extension MobileApiSupplierNotifications on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Supplier history failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -48,7 +48,7 @@ extension MobileApiSupplierNotifications on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Supplier status breakdown failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map(
           (item) => SupplierStatusBreakdownEntry.fromJson(
@@ -73,7 +73,7 @@ extension MobileApiSupplierNotifications on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Supplier status details failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => DispatchRecord.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -131,7 +131,7 @@ extension MobileApiSupplierNotifications on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Supplier items failed');
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();

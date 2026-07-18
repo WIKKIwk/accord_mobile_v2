@@ -35,7 +35,7 @@ extension MobileApiGScale on MobileApi {
         statusCode: response.statusCode,
       );
     }
-    final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
+    final json = await decodeJsonListPayload(response.body);
     final items = json
         .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
         .toList();
