@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_controller.dart';
@@ -349,7 +348,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     TextAlign? textAlign,
     TextOverflow? overflow,
   }) {
-    return _SoftBlurMotionText(
+    return _SoftFadeMotionText(
       phase: _headlinePhase,
       progress: _headlineController.value,
       child: Text(
@@ -595,27 +594,18 @@ class _HeadlineMotionText extends StatelessWidget {
         : isEntering
             ? -24 * (1 - t)
             : 0;
-    final double sigma = phase == 'idle'
-        ? 0.01
-        : isExiting
-            ? 2.8 * t
-            : 2.8 * (1 - t);
-
     return Opacity(
       opacity: opacity.clamp(0.0, 1.0),
       child: Transform.translate(
         offset: Offset(dx, 0),
-        child: ImageFiltered(
-          imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma * 0.2),
-          child: child,
-        ),
+        child: child,
       ),
     );
   }
 }
 
-class _SoftBlurMotionText extends StatelessWidget {
-  const _SoftBlurMotionText({
+class _SoftFadeMotionText extends StatelessWidget {
+  const _SoftFadeMotionText({
     required this.phase,
     required this.progress,
     required this.child,
@@ -634,18 +624,9 @@ class _SoftBlurMotionText extends StatelessWidget {
         : isExiting
             ? 1 - t
             : t;
-    final double sigma = phase == 'idle'
-        ? 0.01
-        : isExiting
-            ? 3.2 * t
-            : 3.2 * (1 - t);
-
     return Opacity(
       opacity: opacity.clamp(0.0, 1.0),
-      child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma * 0.22),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

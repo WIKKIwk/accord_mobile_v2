@@ -4,8 +4,63 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 
-class AdminFactoryMapScreen extends StatelessWidget {
+class AdminFactoryMapScreen extends StatefulWidget {
   const AdminFactoryMapScreen({super.key});
+
+  @override
+  State<AdminFactoryMapScreen> createState() => _AdminFactoryMapScreenState();
+}
+
+class _AdminFactoryMapScreenState extends State<AdminFactoryMapScreen> {
+  Animation<double>? _routeAnimation;
+  bool _modelLoadScheduled = false;
+  bool _showModel = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, _routeAnimation)) {
+      _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+      _routeAnimation = animation;
+      _routeAnimation?.addStatusListener(_handleRouteAnimationStatus);
+    }
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      _scheduleModelLoad();
+    }
+  }
+
+  @override
+  void dispose() {
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    super.dispose();
+  }
+
+  void _handleRouteAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _scheduleModelLoad();
+    }
+  }
+
+  void _scheduleModelLoad() {
+    if (_modelLoadScheduled) {
+      return;
+    }
+    _modelLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final animation = _routeAnimation;
+      if (animation != null && animation.status != AnimationStatus.completed) {
+        _modelLoadScheduled = false;
+        return;
+      }
+      setState(() {
+        _showModel = true;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +84,11 @@ class AdminFactoryMapScreen extends StatelessWidget {
                 border: Border.all(color: scheme.outlineVariant),
               ),
               clipBehavior: Clip.antiAlias,
-              child: const ModelViewer(
-                src: 'assets/models/zavod6-phone.glb',
-                alt: 'Zavod 3D kartasi',
-                customHtml: '''
+              child: _showModel
+                  ? const ModelViewer(
+                      src: 'assets/models/zavod6-phone.glb',
+                      alt: 'Zavod 3D kartasi',
+                      customHtml: '''
                   <style>
                     html, body { background: #202426; }
                     #factory-map-canvas {
@@ -67,20 +123,48 @@ class AdminFactoryMapScreen extends StatelessWidget {
                   <div id="factory-map-status">Zavod modeli yuklanmoqda...</div>
                   <script type="module" src="./factory-map-renderer.js"></script>
                 ''',
-                cameraControls: true,
-                cameraTarget: '0m 0m 0m',
-                cameraOrbit: '45deg 65deg 150m',
-                minCameraOrbit: 'auto auto 5m',
-                maxCameraOrbit: 'auto auto 250m',
-                fieldOfView: '35deg',
-                autoRotate: false,
-                disableZoom: false,
-                interactionPrompt: InteractionPrompt.none,
-                loading: Loading.eager,
-                backgroundColor: Colors.transparent,
-              ),
+                      cameraControls: true,
+                      cameraTarget: '0m 0m 0m',
+                      cameraOrbit: '45deg 65deg 150m',
+                      minCameraOrbit: 'auto auto 5m',
+                      maxCameraOrbit: 'auto auto 250m',
+                      fieldOfView: '35deg',
+                      autoRotate: false,
+                      disableZoom: false,
+                      interactionPrompt: InteractionPrompt.none,
+                      loading: Loading.eager,
+                      backgroundColor: Colors.transparent,
+                    )
+                  : const _FactoryMapPlaceholder(),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FactoryMapPlaceholder extends StatelessWidget {
+  const _FactoryMapPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF202426),
+      child: Semantics(
+        label: 'Zavod 3D kartasi tayyorlanmoqda',
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.factory_outlined, color: Colors.white70, size: 34),
+              SizedBox(height: 12),
+              Text(
+                'Zavod kartasi tayyorlanmoqda…',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
         ),
       ),
     );
