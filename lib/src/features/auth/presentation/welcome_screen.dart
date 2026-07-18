@@ -652,7 +652,10 @@ class AuthAmbientOutlineBackground extends StatefulWidget {
 
 class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     with SingleTickerProviderStateMixin {
+  static const Duration _minimumFrameInterval = Duration(milliseconds: 32);
+
   late final Ticker _ticker = createTicker(_handleTick);
+  final _AmbientPaintState _paintState = _AmbientPaintState();
 
   Size _sceneSize = Size.zero;
   Duration? _lastTick;
@@ -672,6 +675,9 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
 
   void _handleTick(Duration elapsed) {
     final Duration? lastTick = _lastTick;
+    if (lastTick != null && elapsed - lastTick < _minimumFrameInterval) {
+      return;
+    }
     _lastTick = elapsed;
     if (!_seeded || _sceneSize.isEmpty || !mounted) {
       return;
@@ -685,7 +691,12 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
 
     _phase += dt;
     _stepSimulation(dt);
-    setState(() {});
+    _paintState.setFrame(
+      phase: _phase,
+      impactEnergy: _impactEnergy,
+      ovalCenter: _oval.position,
+      cookieCenter: _cookie.position,
+    );
   }
 
   void _ensureSimulation(Size size) {
@@ -716,6 +727,13 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     _ovalBounceLift = 0;
     _cookieBounceLift = 0;
     _seeded = true;
+    _paintState.setFrame(
+      phase: _phase,
+      impactEnergy: _impactEnergy,
+      ovalCenter: _oval.position,
+      cookieCenter: _cookie.position,
+      repaint: false,
+    );
   }
 
   void _stepSimulation(double dt) {
@@ -941,6 +959,7 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
   @override
   void dispose() {
     _ticker.dispose();
+    _paintState.dispose();
     super.dispose();
   }
 
@@ -956,10 +975,7 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
           isComplex: true,
           willChange: true,
           painter: _AmbientOutlinePainter(
-            phase: _phase,
-            impactEnergy: _impactEnergy,
-            ovalCenter: _oval.position,
-            cookieCenter: _cookie.position,
+            frame: _paintState,
             outlineColor: widget.outlineColor,
             accentColor: widget.accentColor,
             backgroundColor: widget.backgroundColor,
@@ -972,21 +988,15 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
 }
 
 class _AmbientOutlinePainter extends CustomPainter {
-  const _AmbientOutlinePainter({
-    required this.phase,
-    required this.impactEnergy,
-    required this.ovalCenter,
-    required this.cookieCenter,
+  _AmbientOutlinePainter({
+    required this.frame,
     required this.outlineColor,
     required this.accentColor,
     required this.backgroundColor,
     required this.isDarkBackground,
-  });
+  }) : super(repaint: frame);
 
-  final double phase;
-  final double impactEnergy;
-  final Offset ovalCenter;
-  final Offset cookieCenter;
+  final _AmbientPaintState frame;
   final Color outlineColor;
   final Color accentColor;
   final Color backgroundColor;
@@ -996,7 +1006,7 @@ class _AmbientOutlinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final _AmbientSceneMetrics metrics = _AmbientSceneMetrics.fromSize(size);
     final double impact = Curves.easeOut.transform(
-      impactEnergy.clamp(0.0, 1.0).toDouble(),
+      frame.impactEnergy.clamp(0.0, 1.0).toDouble(),
     );
     final double ovalStrokeWidth = isDarkBackground ? 2.0 : 2.35;
     final double ovalAlpha = isDarkBackground ? 0.28 : 0.46;
@@ -1018,16 +1028,16 @@ class _AmbientOutlinePainter extends CustomPainter {
       ..color = backgroundColor.withValues(alpha: 0.96);
 
     final Path ovalPath = _buildOfficialOvalPath(
-      center: ovalCenter,
+      center: frame.ovalCenter,
       width: metrics.ovalWidth,
       height: metrics.ovalHeight,
-      rotation: _ambientOvalRotation(phase),
+      rotation: _ambientOvalRotation(frame.phase),
     );
     canvas.drawPath(ovalPath, ovalPaint);
 
-    final double cookieSpin = _ambientCookieRotation(phase);
+    final double cookieSpin = _ambientCookieRotation(frame.phase);
     final Path cookiePath = _buildOfficialCookie12Path(
-      center: cookieCenter,
+      center: frame.cookieCenter,
       radius: metrics.cookieRadius * (1 + (impact * 0.02)),
       rotation: cookieSpin,
     );
@@ -1094,13 +1104,34 @@ class _AmbientOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AmbientOutlinePainter oldDelegate) {
-    return oldDelegate.phase != phase ||
-        oldDelegate.impactEnergy != impactEnergy ||
-        oldDelegate.ovalCenter != ovalCenter ||
-        oldDelegate.cookieCenter != cookieCenter ||
+    return oldDelegate.frame != frame ||
         oldDelegate.outlineColor != outlineColor ||
         oldDelegate.accentColor != accentColor ||
-        oldDelegate.backgroundColor != backgroundColor;
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.isDarkBackground != isDarkBackground;
+  }
+}
+
+class _AmbientPaintState extends ChangeNotifier {
+  double phase = 0;
+  double impactEnergy = 0;
+  Offset ovalCenter = Offset.zero;
+  Offset cookieCenter = Offset.zero;
+
+  void setFrame({
+    required double phase,
+    required double impactEnergy,
+    required Offset ovalCenter,
+    required Offset cookieCenter,
+    bool repaint = true,
+  }) {
+    this.phase = phase;
+    this.impactEnergy = impactEnergy;
+    this.ovalCenter = ovalCenter;
+    this.cookieCenter = cookieCenter;
+    if (repaint) {
+      notifyListeners();
+    }
   }
 }
 
