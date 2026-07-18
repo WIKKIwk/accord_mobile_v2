@@ -1211,7 +1211,27 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
     setState(() => _assigning = true);
     late final List<AdminUserListEntry> users;
     try {
-      users = await _loadWarehouseAssigneeUsers();
+      final results = await Future.wait<Object>([
+        _loadWarehouseAssigneeUsers(),
+        MobileApi.instance.adminWarehouseAssignments(warehouse: _warehouse),
+      ]);
+      final candidates = results[0] as List<AdminUserListEntry>;
+      final assignments = results[1] as List<AdminWarehouseAssignment>;
+      final assignedPrincipalKeys = assignments
+          .map(
+            (assignment) => _warehousePrincipalKey(
+              assignment.principalRole,
+              assignment.principalRef,
+            ),
+          )
+          .toSet();
+      users = candidates
+          .where(
+            (user) => !assignedPrincipalKeys.contains(
+              _warehousePrincipalKey(_roleForUser(user), user.id),
+            ),
+          )
+          .toList(growable: false);
     } catch (_) {
       if (mounted) {
         _showWarehouseNotice(context, 'Foydalanuvchilar yuklanmadi');
@@ -1222,7 +1242,12 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
         setState(() => _assigning = false);
       }
     }
-    if (!mounted || users.isEmpty) {
+    if (!mounted) {
+      return;
+    }
+    if (users.isEmpty) {
+      _showWarehouseNotice(
+          context, 'Barcha mos foydalanuvchilar assign qilingan');
       return;
     }
     final picked = await showModalBottomSheet<AdminUserListEntry>(
@@ -1640,6 +1665,10 @@ String _warehouseAssignmentKey(AdminWarehouseAssignment assignment) {
   return '${assignment.warehouse.trim().toLowerCase()}-'
       '${userRoleToJson(assignment.principalRole)}-'
       '${assignment.principalRef.trim().toLowerCase()}';
+}
+
+String _warehousePrincipalKey(UserRole role, String principalRef) {
+  return '${userRoleToJson(role)}:${principalRef.trim().toLowerCase()}';
 }
 
 class _WarehouseSettingCount extends StatelessWidget {

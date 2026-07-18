@@ -273,6 +273,66 @@ void main() {
     expect(find.text('Demo haridor'), findsNothing);
   });
 
+  testWidgets('warehouse assignee picker hides already assigned users', (
+    tester,
+  ) async {
+    final assigned = await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.materialTaminotchi,
+      name: 'Already Assigned Material',
+      phone: '+998110000014',
+    );
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.qolipchi,
+      name: 'Available Qolipchi',
+      phone: '+998110000015',
+    );
+    await MobileApi.instance.adminAssignWarehouse(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      principalRole: assigned.role,
+      principalRef: assigned.id,
+      displayName: assigned.name,
+    );
+
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('warehouse-assign-user')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byType(BottomSheet);
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)),
+      'Already Assigned Material',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Text && widget.data == 'Already Assigned Material',
+        ),
+      ),
+      findsNothing,
+    );
+
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)),
+      'Available Qolipchi',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Text && widget.data == 'Available Qolipchi',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('warehouse page separates products and settings tabs', (
     tester,
   ) async {
