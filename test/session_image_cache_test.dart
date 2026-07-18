@@ -47,6 +47,21 @@ void main() {
     expect(refreshed, [7, 8, 9]);
     expect(client.requests, 1);
   });
+
+  test('ensureCached shares an in-flight avatar download', () async {
+    final client = _FakeImageClient([7, 8, 9]);
+    ProfileAvatarCache.debugHttpClient = client;
+    addTearDown(() => ProfileAvatarCache.debugHttpClient = null);
+
+    final results = await Future.wait([
+      ProfileAvatarCache.ensureCached(profile),
+      ProfileAvatarCache.ensureCached(profile),
+    ]);
+
+    expect(results[0], [7, 8, 9]);
+    expect(results[1], [7, 8, 9]);
+    expect(client.requests, 1);
+  });
 }
 
 class _FakeImageClient extends Object implements http.Client {

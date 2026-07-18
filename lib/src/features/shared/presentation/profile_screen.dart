@@ -14,9 +14,9 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/display/motion_widgets.dart';
+import '../../../core/widgets/display/image_fade.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../data/profile_avatar_cache.dart';
-import '../data/profile_cover_cache.dart';
 import '../models/app_models.dart';
 import 'widgets/profile_info_chip.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
@@ -35,20 +35,15 @@ import '../../boyoqchi/presentation/widgets/boyoqchi_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 const double _profilePanelGap = 4;
 const String _profileAvatarHeroTag = 'profile-avatar-preview';
-const int _profileCoverArtCacheLimit = 8;
-final Map<int, _ProfileCoverArt?> _profileCoverArtCache = {};
-final Map<int, Future<_ProfileCoverArt?>> _profileCoverArtInflight = {};
-final Expando<int> _profileCoverArtKeys = Expando<int>('profileCoverArtKey');
-int _nextProfileCoverArtKey = 0;
+const String _profileDefaultCoverAsset =
+    'assets/images/profile_default_cover.webp';
 
 Widget _profileAvatarFlightShuttleBuilder(
   BuildContext flightContext,
@@ -98,11 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   Uint8List? cachedAvatarBytes;
   Uint8List? pendingAvatarBytes;
   String? pendingAvatarName;
-  Uint8List? cachedCoverBytes;
-  Uint8List? pendingCoverBytes;
-  _ProfileCoverArt? coverArt;
-  int? _coverArtKey;
-  int _coverArtGeneration = 0;
 
   SessionProfile get profile => AppSession.instance.profile!;
 
@@ -125,8 +115,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     nicknameController.text = _normalizedDisplayName(profile);
-    unawaited(_loadCachedAvatar());
-    unawaited(_loadCachedCover());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadCachedAvatar());
+    });
   }
 
   Future<void> _loadCachedAvatar() async {
@@ -137,18 +131,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() {
       cachedAvatarBytes = bytes;
     });
-    unawaited(_refreshCoverArt());
-  }
-
-  Future<void> _loadCachedCover() async {
-    final bytes = await ProfileCoverCache.getCached(profile);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      cachedCoverBytes = bytes;
-    });
-    unawaited(_refreshCoverArt());
   }
 
   Future<void> _refreshProfile() async {
@@ -161,11 +143,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() {
       nicknameController.text = _normalizedDisplayName(updated);
       cachedAvatarBytes = bytes;
-      pendingCoverBytes = null;
       errorMessage = null;
     });
-    await _loadCachedCover();
-    unawaited(_refreshCoverArt());
   }
 
   Future<void> _saveNickname() async {
@@ -220,7 +199,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         pendingAvatarBytes = bytes;
         pendingAvatarName = picked.name;
       });
-      unawaited(_refreshCoverArt());
     } catch (_) {
       if (!mounted) {
         return;
@@ -264,7 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         pendingAvatarBytes = null;
         pendingAvatarName = null;
       });
-      unawaited(_refreshCoverArt());
     } catch (_) {
       if (!mounted) {
         return;
@@ -322,66 +299,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (pendingAvatarBytes != null) {
       await _saveAvatar();
     }
-    if (pendingCoverBytes != null) {
-      final cached = await ProfileCoverCache.cacheFromBytes(
-        profile,
-        pendingCoverBytes!,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        cachedCoverBytes = cached ?? pendingCoverBytes;
-        pendingCoverBytes = null;
-      });
-      unawaited(_refreshCoverArt());
-    }
-  }
-
-  Future<void> _refreshCoverArt() async {
-    final source = pendingCoverBytes ??
-        cachedCoverBytes ??
-        pendingAvatarBytes ??
-        cachedAvatarBytes;
-    if (source == null || source.isEmpty) {
-      _coverArtGeneration++;
-      if (coverArt != null || _coverArtKey != null) {
-        setState(() {
-          coverArt = null;
-          _coverArtKey = null;
-        });
-      }
-      return;
-    }
-    final key = _profileCoverArtKey(source);
-    if (_coverArtKey == key && coverArt != null) {
-      return;
-    }
-    final generation = ++_coverArtGeneration;
-    if (_profileCoverArtCache.containsKey(key)) {
-      final cached = _profileCoverArtCache[key];
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        coverArt = cached;
-        _coverArtKey = key;
-      });
-      return;
-    }
-    final art = await _profileCoverArtInflight.putIfAbsent(
-      key,
-      () => _extractProfileCoverArt(source),
-    );
-    _profileCoverArtInflight.remove(key);
-    _cacheProfileCoverArt(key, art);
-    if (!mounted || generation != _coverArtGeneration) {
-      return;
-    }
-    setState(() {
-      coverArt = art;
-      _coverArtKey = key;
-    });
   }
 
   Future<void> _openProfileEditor() async {
@@ -390,7 +307,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
     final previousPendingAvatarBytes = pendingAvatarBytes;
     final previousPendingAvatarName = pendingAvatarName;
-    final previousPendingCoverBytes = pendingCoverBytes;
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -459,9 +375,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       setState(() {
         pendingAvatarBytes = previousPendingAvatarBytes;
         pendingAvatarName = previousPendingAvatarName;
-        pendingCoverBytes = previousPendingCoverBytes;
       });
-      unawaited(_refreshCoverArt());
       return;
     }
     if (next.isNotEmpty) {
@@ -770,9 +684,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         legalName: effectiveLegalName,
                         cachedAvatarBytes: cachedAvatarBytes,
                         pendingAvatarBytes: pendingAvatarBytes,
-                        cachedCoverBytes: cachedCoverBytes,
-                        pendingCoverBytes: pendingCoverBytes,
-                        coverArt: coverArt,
                         savingAvatar: savingAvatar,
                         savingProfileChanges: savingProfileChanges,
                         hasPendingAvatar: pendingAvatarBytes != null,
@@ -879,319 +790,6 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
   };
 }
 
-int _profileCoverArtKey(Uint8List bytes) {
-  // Keep this O(1): hashing every image byte blocks profile route frames.
-  return _profileCoverArtKeys[bytes] ??= ++_nextProfileCoverArtKey;
-}
-
-void _cacheProfileCoverArt(int key, _ProfileCoverArt? art) {
-  _profileCoverArtCache[key] = art;
-  if (_profileCoverArtCache.length <= _profileCoverArtCacheLimit) {
-    return;
-  }
-  _profileCoverArtCache.remove(_profileCoverArtCache.keys.first);
-}
-
-Future<_ProfileCoverArt?> _extractProfileCoverArt(Uint8List? bytes) async {
-  if (bytes == null || bytes.isEmpty) {
-    return null;
-  }
-  try {
-    final codec = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: 64,
-      targetHeight: 64,
-    );
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    image.dispose();
-    codec.dispose();
-    if (byteData == null) {
-      return null;
-    }
-    final pixels = byteData.buffer.asUint8List();
-    const sampleWidth = 64;
-    const sampleHeight = 64;
-    final buckets = <int, _PaletteBucket>{};
-    final imageShape = _extractImageShape(pixels, sampleWidth, sampleHeight);
-    for (var i = 0; i + 3 < pixels.length; i += 16) {
-      final r = pixels[i];
-      final g = pixels[i + 1];
-      final b = pixels[i + 2];
-      final a = pixels[i + 3];
-      if (a < 180) {
-        continue;
-      }
-      final key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
-      buckets.putIfAbsent(key, () => _PaletteBucket()).add(r, g, b);
-    }
-    if (buckets.isEmpty) {
-      return null;
-    }
-    final ranked = buckets.values.toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
-    final colors = <Color>[];
-    for (final bucket in ranked) {
-      final color = bucket.color;
-      if (colors.every((picked) => _colorDistance(picked, color) > 1764)) {
-        colors.add(_coverColor(color));
-      }
-      if (colors.length == 3) {
-        break;
-      }
-    }
-    if (colors.isEmpty) {
-      return null;
-    }
-    while (colors.length < 3) {
-      final hsl = HSLColor.fromColor(colors.first);
-      if (_isNeutralColor(colors.first)) {
-        colors.add(
-          hsl
-              .withSaturation(0.03)
-              .withLightness(
-                (hsl.lightness + (colors.length * 0.08)).clamp(0.34, 0.82),
-              )
-              .toColor(),
-        );
-      } else {
-        colors.add(
-          hsl
-              .withHue((hsl.hue + (colors.length * 42)) % 360)
-              .withLightness((hsl.lightness + 0.08).clamp(0.35, 0.78))
-              .toColor(),
-        );
-      }
-    }
-    return _ProfileCoverArt(
-      colors: colors,
-      contourPoints: imageShape.contourPoints,
-      edgePoints: imageShape.edgePoints,
-      contrast: imageShape.contrast,
-    );
-  } catch (_) {
-    return null;
-  }
-}
-
-_ImageShape _extractImageShape(Uint8List pixels, int width, int height) {
-  final luminance = List<double>.filled(width * height, 0);
-  var count = 0;
-  var sum = 0.0;
-  for (var i = 0, pixel = 0; i + 3 < pixels.length; i += 4, pixel++) {
-    if (pixel >= luminance.length) {
-      break;
-    }
-    final a = pixels[i + 3];
-    if (a < 80) {
-      continue;
-    }
-    final value =
-        (pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722) /
-            255;
-    luminance[pixel] = value;
-    sum += value;
-    count += 1;
-  }
-  if (count == 0) {
-    return const _ImageShape(
-      contourPoints: [],
-      edgePoints: [],
-      contrast: 0,
-    );
-  }
-
-  final mean = sum / count;
-  var variance = 0.0;
-  for (final value in luminance) {
-    if (value == 0) {
-      continue;
-    }
-    final delta = value - mean;
-    variance += delta * delta;
-  }
-  final contrast = math.sqrt(variance / count).clamp(0.0, 1.0);
-  final mask = List<bool>.filled(width * height, false);
-  final edges = <_EdgePoint>[];
-  for (var y = 1; y < height - 1; y++) {
-    for (var x = 1; x < width - 1; x++) {
-      final i = y * width + x;
-      final gx = -luminance[i - width - 1] -
-          2 * luminance[i - 1] -
-          luminance[i + width - 1] +
-          luminance[i - width + 1] +
-          2 * luminance[i + 1] +
-          luminance[i + width + 1];
-      final gy = -luminance[i - width - 1] -
-          2 * luminance[i - width] -
-          luminance[i - width + 1] +
-          luminance[i + width - 1] +
-          2 * luminance[i + width] +
-          luminance[i + width + 1];
-      final strength = gx * gx + gy * gy;
-      final tonalDelta = (luminance[i] - mean).abs();
-      final isShapePixel =
-          tonalDelta > math.max(0.055, contrast * 0.58) || strength > 0.018;
-      if (isShapePixel) {
-        mask[i] = true;
-      }
-      if (strength > 0.014) {
-        edges.add(_EdgePoint(x / (width - 1), y / (height - 1), strength));
-      }
-    }
-  }
-
-  final contour = <Offset>[];
-  for (var y = 2; y < height - 2; y += 3) {
-    var minX = width;
-    var maxX = -1;
-    for (var x = 2; x < width - 2; x++) {
-      if (!mask[y * width + x]) {
-        continue;
-      }
-      minX = math.min(minX, x);
-      maxX = math.max(maxX, x);
-    }
-    if (maxX >= minX) {
-      contour.add(Offset(minX / (width - 1), y / (height - 1)));
-      if (maxX != minX) {
-        contour.add(Offset(maxX / (width - 1), y / (height - 1)));
-      }
-    }
-  }
-  for (var x = 2; x < width - 2; x += 4) {
-    var minY = height;
-    var maxY = -1;
-    for (var y = 2; y < height - 2; y++) {
-      if (!mask[y * width + x]) {
-        continue;
-      }
-      minY = math.min(minY, y);
-      maxY = math.max(maxY, y);
-    }
-    if (maxY >= minY) {
-      contour.add(Offset(x / (width - 1), minY / (height - 1)));
-      if (maxY != minY) {
-        contour.add(Offset(x / (width - 1), maxY / (height - 1)));
-      }
-    }
-  }
-
-  edges.sort((a, b) => b.strength.compareTo(a.strength));
-  final edgePoints = <Offset>[];
-  for (final edge in edges) {
-    final point = Offset(edge.x, edge.y);
-    if (edgePoints.every((picked) => (picked - point).distance > 0.075)) {
-      edgePoints.add(point);
-    }
-    if (edgePoints.length == 28) {
-      break;
-    }
-  }
-
-  final contourPoints = _dedupeShapePoints(contour, maxCount: 56);
-  return _ImageShape(
-    contourPoints: contourPoints.length >= 6 ? contourPoints : edgePoints,
-    edgePoints: edgePoints,
-    contrast: contrast.toDouble(),
-  );
-}
-
-List<Offset> _dedupeShapePoints(List<Offset> points, {required int maxCount}) {
-  final result = <Offset>[];
-  for (final point in points) {
-    if (result.every((picked) => (picked - point).distance > 0.045)) {
-      result.add(point);
-    }
-    if (result.length == maxCount) {
-      break;
-    }
-  }
-  return result;
-}
-
-class _ProfileCoverArt {
-  const _ProfileCoverArt({
-    required this.colors,
-    required this.contourPoints,
-    required this.edgePoints,
-    required this.contrast,
-  });
-
-  final List<Color> colors;
-  final List<Offset> contourPoints;
-  final List<Offset> edgePoints;
-  final double contrast;
-}
-
-class _ImageShape {
-  const _ImageShape({
-    required this.contourPoints,
-    required this.edgePoints,
-    required this.contrast,
-  });
-
-  final List<Offset> contourPoints;
-  final List<Offset> edgePoints;
-  final double contrast;
-}
-
-class _EdgePoint {
-  const _EdgePoint(this.x, this.y, this.strength);
-
-  final double x;
-  final double y;
-  final double strength;
-}
-
-double _colorDistance(Color a, Color b) {
-  final dr = (a.r - b.r) * 255;
-  final dg = (a.g - b.g) * 255;
-  final db = (a.b - b.b) * 255;
-  return (dr * dr + dg * dg + db * db).abs().toDouble();
-}
-
-Color _coverColor(Color color) {
-  final hsl = HSLColor.fromColor(color);
-  if (hsl.saturation < 0.12) {
-    return hsl
-        .withSaturation(0.03)
-        .withLightness(hsl.lightness.clamp(0.36, 0.76))
-        .toColor();
-  }
-  return hsl
-      .withSaturation(hsl.saturation.clamp(0.22, 0.72))
-      .withLightness(hsl.lightness.clamp(0.46, 0.72))
-      .toColor();
-}
-
-bool _isNeutralColor(Color color) {
-  return HSLColor.fromColor(color).saturation < 0.12;
-}
-
-class _PaletteBucket {
-  int r = 0;
-  int g = 0;
-  int b = 0;
-  int count = 0;
-
-  void add(int red, int green, int blue) {
-    r += red;
-    g += green;
-    b += blue;
-    count += 1;
-  }
-
-  Color get color => Color.fromARGB(255, r ~/ count, g ~/ count, b ~/ count);
-
-  double get score {
-    final hsl = HSLColor.fromColor(color);
-    final balancedLightness = 1 - (hsl.lightness - 0.56).abs();
-    return count * (0.36 + hsl.saturation) * balancedLightness.clamp(0.2, 1.0);
-  }
-}
-
 class _ProfilePanel extends StatelessWidget {
   const _ProfilePanel({required this.child});
 
@@ -1288,9 +886,6 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.legalName,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
-    required this.cachedCoverBytes,
-    required this.pendingCoverBytes,
-    required this.coverArt,
     required this.savingAvatar,
     required this.savingProfileChanges,
     required this.hasPendingAvatar,
@@ -1306,9 +901,6 @@ class _ProfileHeroCard extends StatelessWidget {
   final String legalName;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
-  final Uint8List? cachedCoverBytes;
-  final Uint8List? pendingCoverBytes;
-  final _ProfileCoverArt? coverArt;
   final bool savingAvatar;
   final bool savingProfileChanges;
   final bool hasPendingAvatar;
@@ -1336,19 +928,12 @@ class _ProfileHeroCard extends StatelessWidget {
                 top: 112,
                 child: ColoredBox(color: scheme.surface),
               ),
-              Positioned(
+              const Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
                 height: 112,
-                child: _ProfileCoverPreview(
-                  displayName: displayName,
-                  cachedAvatarBytes: cachedAvatarBytes,
-                  pendingAvatarBytes: pendingAvatarBytes,
-                  cachedCoverBytes: cachedCoverBytes,
-                  pendingCoverBytes: pendingCoverBytes,
-                  art: coverArt,
-                ),
+                child: _ProfileCoverPreview(),
               ),
               Positioned(
                 right: 14,
@@ -1457,467 +1042,24 @@ class _ProfileHeroCard extends StatelessWidget {
 }
 
 class _ProfileCoverPreview extends StatelessWidget {
-  const _ProfileCoverPreview({
-    required this.displayName,
-    required this.cachedAvatarBytes,
-    required this.pendingAvatarBytes,
-    required this.cachedCoverBytes,
-    required this.pendingCoverBytes,
-    required this.art,
-  });
-
-  final String displayName;
-  final Uint8List? cachedAvatarBytes;
-  final Uint8List? pendingAvatarBytes;
-  final Uint8List? cachedCoverBytes;
-  final Uint8List? pendingCoverBytes;
-  final _ProfileCoverArt? art;
-
-  Uint8List? get _previewBytes {
-    if (pendingCoverBytes != null && pendingCoverBytes!.isNotEmpty) {
-      return pendingCoverBytes;
-    }
-    if (cachedCoverBytes != null && cachedCoverBytes!.isNotEmpty) {
-      return cachedCoverBytes;
-    }
-    if (pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty) {
-      return pendingAvatarBytes;
-    }
-    if (cachedAvatarBytes != null && cachedAvatarBytes!.isNotEmpty) {
-      return cachedAvatarBytes;
-    }
-    return null;
-  }
+  const _ProfileCoverPreview();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final bytes = _previewBytes;
-    final colors = art?.colors ??
-        [
-          scheme.primaryContainer,
-          scheme.secondaryContainer,
-          scheme.tertiaryContainer,
-        ];
-    final fallbackLetter =
-        (displayName.isNotEmpty ? displayName[0] : 'U').toUpperCase();
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _ProfileAbstractGradientPainter(
-              colors: colors,
-              contourPoints: art?.contourPoints ?? const [],
-              edgePoints: art?.edgePoints ?? const [],
-              imageContrast: art?.contrast ?? 0,
-              seed: _stableCoverSeed(displayName, bytes),
-              surface: scheme.surface,
-            ),
-          ),
-        ),
-        if (bytes != null)
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.30,
-              child: ImageFiltered(
-                imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Transform.scale(
-                  scale: 1.34,
-                  child: Image.memory(
-                    bytes,
-                    fit: BoxFit.cover,
-                    cacheWidth: 360,
-                    filterQuality: FilterQuality.low,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (bytes == null)
-          Positioned(
-            right: 18,
-            bottom: 14,
-            child: Text(
-              fallbackLetter,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: scheme.onPrimaryContainer.withValues(alpha: 0.16),
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-          ),
-      ],
+    return const ImageFade(
+      image: AssetImage(_profileDefaultCoverAsset),
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      cacheWidth: 360,
+      placeholder: ColoredBox(color: Colors.black),
+      errorBuilder: _profileCoverErrorBuilder,
     );
   }
 }
 
-int _stableCoverSeed(String displayName, Uint8List? bytes) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in displayName.codeUnits) {
-    hash = (hash ^ codeUnit) * 0x01000193;
-  }
-  if (bytes != null && bytes.isNotEmpty) {
-    final step = math.max(1, bytes.length ~/ 48);
-    for (var i = 0; i < bytes.length; i += step) {
-      hash = (hash ^ bytes[i]) * 0x01000193;
-    }
-  }
-  return hash & 0x7fffffff;
-}
-
-class _ProfileAbstractGradientPainter extends CustomPainter {
-  const _ProfileAbstractGradientPainter({
-    required this.colors,
-    required this.contourPoints,
-    required this.edgePoints,
-    required this.imageContrast,
-    required this.seed,
-    required this.surface,
-  });
-
-  final List<Color> colors;
-  final List<Offset> contourPoints;
-  final List<Offset> edgePoints;
-  final double imageContrast;
-  final int seed;
-  final Color surface;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rng = math.Random(seed);
-    final rect = Offset.zero & size;
-    final artColors = _artDirectedColors(colors, surface);
-    final c0 = artColors[0];
-    final c1 = artColors[1];
-    final c2 = artColors[2];
-    final c3 = artColors[3];
-    final basePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment(
-          -0.9 + rng.nextDouble() * 0.35,
-          -1,
-        ),
-        end: Alignment(
-          0.65 + rng.nextDouble() * 0.35,
-          1,
-        ),
-        colors: [
-          c0.withValues(alpha: 0.98),
-          c1.withValues(alpha: 0.88),
-          c2.withValues(alpha: 0.86),
-          c3.withValues(alpha: 0.76),
-        ],
-        stops: const [0.0, 0.42, 0.72, 1.0],
-      ).createShader(rect);
-    canvas.drawRect(rect, basePaint);
-
-    if (contourPoints.length >= 3) {
-      _drawContourShadows(canvas, size, artColors, rng);
-    }
-    if (edgePoints.length >= 4) {
-      _drawEdgeStreaks(canvas, size, artColors, rng);
-    }
-    for (var i = 0; i < 5; i++) {
-      _drawPetalVeil(
-        canvas,
-        size,
-        rng: rng,
-        color: artColors[i % artColors.length],
-        index: i,
-      );
-    }
-
-    _drawFlowBlob(
-      canvas,
-      size,
-      center: Offset(size.width * 0.18, size.height * 0.08),
-      radius: size.width * (0.52 + rng.nextDouble() * 0.18),
-      color: c1.withValues(alpha: 0.30),
-    );
-    _drawFlowBlob(
-      canvas,
-      size,
-      center: Offset(size.width * (0.72 + rng.nextDouble() * 0.16), -8),
-      radius: size.width * (0.46 + rng.nextDouble() * 0.20),
-      color: c2.withValues(alpha: 0.28),
-    );
-    _drawFlowBlob(
-      canvas,
-      size,
-      center: Offset(size.width * (0.22 + rng.nextDouble() * 0.20),
-          size.height * (0.82 + rng.nextDouble() * 0.12)),
-      radius: size.width * 0.48,
-      color: c3.withValues(alpha: 0.22),
-    );
-
-    for (var i = 0; i < 5; i++) {
-      final path = Path();
-      final startY = size.height * (0.18 + rng.nextDouble() * 0.52);
-      path.moveTo(-size.width * 0.18, startY);
-      path.cubicTo(
-        size.width * (0.18 + rng.nextDouble() * 0.20),
-        startY - size.height * (0.38 + rng.nextDouble() * 0.28),
-        size.width * (0.52 + rng.nextDouble() * 0.20),
-        startY + size.height * (0.24 + rng.nextDouble() * 0.34),
-        size.width * 1.18,
-        size.height * (0.20 + rng.nextDouble() * 0.62),
-      );
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * (0.16 + rng.nextDouble() * 0.22)
-        ..strokeCap = StrokeCap.round
-        ..color = (i.isEven ? surface : artColors[i % artColors.length])
-            .withValues(alpha: i.isEven ? 0.22 : 0.18)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22);
-      canvas.drawPath(path, paint);
-    }
-
-    final washPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0.12, -0.18),
-        radius: 1.0,
-        colors: [
-          surface.withValues(alpha: 0.08),
-          surface.withValues(alpha: 0.02),
-        ],
-      ).createShader(rect);
-    canvas.drawRect(rect, washPaint);
-  }
-
-  void _drawContourShadows(
-    Canvas canvas,
-    Size size,
-    List<Color> artColors,
-    math.Random rng,
-  ) {
-    final centroid = contourPoints.fold<Offset>(
-          Offset.zero,
-          (sum, point) => sum + point,
-        ) /
-        contourPoints.length.toDouble();
-    final sorted = [...contourPoints]..sort((a, b) {
-        final aa = math.atan2(a.dy - centroid.dy, a.dx - centroid.dx);
-        final bb = math.atan2(b.dy - centroid.dy, b.dx - centroid.dx);
-        return aa.compareTo(bb);
-      });
-    for (var layer = 0; layer < 5; layer++) {
-      final scale = 1.18 + layer * 0.23 + imageContrast * 0.34;
-      final offset = Offset(
-        size.width * (-0.12 + rng.nextDouble() * 0.18 + layer * 0.032),
-        size.height * (-0.14 + rng.nextDouble() * 0.22 - layer * 0.010),
-      );
-      final path = Path();
-      for (var i = 0; i < sorted.length; i++) {
-        final p = _growPoint(sorted[i], centroid, scale, size, offset);
-        if (i == 0) {
-          path.moveTo(p.dx, p.dy);
-          continue;
-        }
-        final prev = _growPoint(sorted[i - 1], centroid, scale, size, offset);
-        final mid = Offset((prev.dx + p.dx) / 2, (prev.dy + p.dy) / 2);
-        path.quadraticBezierTo(prev.dx, prev.dy, mid.dx, mid.dy);
-      }
-      final first = _growPoint(sorted.first, centroid, scale, size, offset);
-      path.quadraticBezierTo(first.dx, first.dy, first.dx, first.dy);
-      path.close();
-      final bounds = path.getBounds().inflate(size.width * 0.12);
-      final paint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = RadialGradient(
-          center: Alignment(
-            -0.35 + layer * 0.22,
-            -0.38 + rng.nextDouble() * 0.44,
-          ),
-          radius: 1.0,
-          colors: [
-            artColors[layer % artColors.length]
-                .withValues(alpha: 0.26 + imageContrast * 0.28),
-            surface.withValues(alpha: 0.04 + imageContrast * 0.06),
-            artColors[(layer + 1) % artColors.length]
-                .withValues(alpha: 0.08 + imageContrast * 0.10),
-          ],
-        ).createShader(bounds)
-        ..maskFilter = MaskFilter.blur(
-          BlurStyle.normal,
-          18 + layer * 6 + imageContrast * 14,
-        );
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  void _drawEdgeStreaks(
-    Canvas canvas,
-    Size size,
-    List<Color> artColors,
-    math.Random rng,
-  ) {
-    final sorted = [...edgePoints]
-      ..sort((a, b) => (a.dx + a.dy).compareTo(b.dx + b.dy));
-    final count = math.min(sorted.length - 1, 12);
-    for (var i = 0; i < count; i++) {
-      final a = sorted[i];
-      final b = sorted[(i + 3).clamp(0, sorted.length - 1)];
-      final start = Offset(a.dx * size.width, a.dy * size.height);
-      final end = Offset(b.dx * size.width, b.dy * size.height);
-      final lift = Offset(
-        size.width * (-0.12 + rng.nextDouble() * 0.24),
-        size.height * (-0.22 + rng.nextDouble() * 0.18),
-      );
-      final path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..cubicTo(
-          start.dx + size.width * (0.10 + rng.nextDouble() * 0.24),
-          start.dy - size.height * (0.18 + rng.nextDouble() * 0.20),
-          end.dx + lift.dx,
-          end.dy + lift.dy,
-          end.dx + size.width * (0.10 + rng.nextDouble() * 0.22),
-          end.dy - size.height * (0.04 + rng.nextDouble() * 0.18),
-        );
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * (0.055 + rng.nextDouble() * 0.075)
-        ..strokeCap = StrokeCap.round
-        ..color = artColors[(i + 1) % artColors.length]
-            .withValues(alpha: 0.18 + imageContrast * 0.20)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13);
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  Offset _growPoint(
-    Offset point,
-    Offset centroid,
-    double scale,
-    Size size,
-    Offset offset,
-  ) {
-    final grown = centroid + (point - centroid) * scale;
-    return Offset(grown.dx * size.width, grown.dy * size.height) + offset;
-  }
-
-  List<Color> _artDirectedColors(List<Color> source, Color surface) {
-    if (source.every(_isNeutralColor)) {
-      final hsl = HSLColor.fromColor(source.first);
-      final base = hsl.withSaturation(0.02);
-      return [
-        base.withLightness(0.30).toColor(),
-        base.withLightness(0.48).toColor(),
-        base.withLightness(0.72).toColor(),
-        base.withLightness(0.88).toColor(),
-      ];
-    }
-    return [
-      source[0],
-      source[1],
-      source[2],
-      HSLColor.fromColor(source[1])
-          .withHue((HSLColor.fromColor(source[1]).hue + 24) % 360)
-          .withLightness(
-            (HSLColor.fromColor(source[1]).lightness + 0.16).clamp(0.54, 0.86),
-          )
-          .toColor(),
-    ];
-  }
-
-  void _drawPetalVeil(
-    Canvas canvas,
-    Size size, {
-    required math.Random rng,
-    required Color color,
-    required int index,
-  }) {
-    final startX = size.width * (-0.16 + rng.nextDouble() * 0.34);
-    final startY = size.height * (0.18 + rng.nextDouble() * 0.58);
-    final endX = size.width * (0.82 + rng.nextDouble() * 0.36);
-    final endY = size.height * (-0.04 + rng.nextDouble() * 0.86);
-    final lift = size.height * (0.32 + rng.nextDouble() * 0.36);
-    final thickness = size.height * (0.28 + rng.nextDouble() * 0.30);
-    final path = Path()
-      ..moveTo(startX, startY)
-      ..cubicTo(
-        size.width * (0.20 + rng.nextDouble() * 0.18),
-        startY - lift,
-        size.width * (0.42 + rng.nextDouble() * 0.24),
-        endY + lift * 0.22,
-        endX,
-        endY,
-      )
-      ..cubicTo(
-        size.width * (0.54 + rng.nextDouble() * 0.24),
-        endY + thickness,
-        size.width * (0.18 + rng.nextDouble() * 0.20),
-        startY + thickness * 0.72,
-        startX - size.width * 0.10,
-        startY + thickness * 0.28,
-      )
-      ..close();
-
-    final bounds = path.getBounds().inflate(size.width * 0.08);
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          color.withValues(alpha: index.isEven ? 0.26 : 0.18),
-          surface.withValues(alpha: index.isEven ? 0.08 : 0.05),
-          color.withValues(alpha: 0.06),
-        ],
-      ).createShader(bounds)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawFlowBlob(
-    Canvas canvas,
-    Size size, {
-    required Offset center,
-    required double radius,
-    required Color color,
-  }) {
-    final paint = Paint()
-      ..shader = RadialGradient(
-        colors: [color, color.withValues(alpha: 0)],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProfileAbstractGradientPainter oldDelegate) {
-    return oldDelegate.seed != seed ||
-        oldDelegate.surface != surface ||
-        oldDelegate.colors.length != colors.length ||
-        oldDelegate.contourPoints.length != contourPoints.length ||
-        oldDelegate.edgePoints.length != edgePoints.length ||
-        oldDelegate.imageContrast != imageContrast ||
-        !_sameColors(oldDelegate.colors, colors) ||
-        !_samePoints(oldDelegate.contourPoints, contourPoints) ||
-        !_samePoints(oldDelegate.edgePoints, edgePoints);
-  }
-
-  bool _sameColors(List<Color> a, List<Color> b) {
-    if (a.length != b.length) {
-      return false;
-    }
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _samePoints(List<Offset> a, List<Offset> b) {
-    if (a.length != b.length) {
-      return false;
-    }
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+Widget _profileCoverErrorBuilder(BuildContext context, Object error) {
+  return const ColoredBox(color: Colors.black);
 }
 
 class _ProfileCoverActionButton extends StatelessWidget {
@@ -2970,31 +2112,22 @@ class _AvatarPreview extends StatelessWidget {
       ),
     );
 
-    Widget avatar;
-    if (pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty) {
-      avatar = ClipOval(
-        child: Image.memory(
-          pendingAvatarBytes!,
-          height: 96,
-          width: 96,
-          fit: BoxFit.cover,
-          cacheWidth: avatarCacheWidth,
-          filterQuality: FilterQuality.low,
-          errorBuilder: (context, error, stackTrace) => fallback,
-        ),
-      );
-    } else if (cachedAvatarBytes == null || cachedAvatarBytes!.isEmpty) {
+    final bytes = pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty
+        ? pendingAvatarBytes
+        : cachedAvatarBytes;
+    final Widget avatar;
+    if (bytes == null || bytes.isEmpty) {
       avatar = fallback;
     } else {
       avatar = ClipOval(
-        child: Image.memory(
-          cachedAvatarBytes!,
+        child: ImageFade(
+          image: MemoryImage(bytes),
           height: 96,
           width: 96,
           fit: BoxFit.cover,
           cacheWidth: avatarCacheWidth,
-          filterQuality: FilterQuality.low,
-          errorBuilder: (context, error, stackTrace) => fallback,
+          placeholder: fallback,
+          errorBuilder: (context, error) => fallback,
         ),
       );
     }

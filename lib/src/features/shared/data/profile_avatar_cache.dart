@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../shared/models/app_models.dart';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ class ProfileAvatarCache {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
   static http.Client? debugHttpClient;
   static final Map<String, _CachedAvatar> _memory = {};
+  static final Map<String, Future<Uint8List?>> _inflight = {};
 
   static String _profileKey(SessionProfile profile) =>
       '${profile.role.name}_${_safePart(profile.ref)}';
@@ -24,12 +26,13 @@ class ProfileAvatarCache {
     if (profile.ref.trim().isEmpty || bytes.isEmpty) {
       return null;
     }
+    final cachedBytes = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
     _memory[_profileKey(profile)] = _CachedAvatar(
       url: profile.avatarUrl,
-      bytes: Uint8List.fromList(bytes),
+      bytes: cachedBytes,
     );
     _bumpRevision();
-    return Uint8List.fromList(bytes);
+    return cachedBytes;
   }
 
   static Future<Uint8List?> ensureCached(SessionProfile profile) async {
@@ -41,7 +44,19 @@ class ProfileAvatarCache {
       return cached;
     }
 
-    return refreshFromUrl(profile);
+    final requestKey = '${_profileKey(profile)}|${profile.avatarUrl}';
+    final current = _inflight[requestKey];
+    if (current != null) {
+      return current;
+    }
+    final future = refreshFromUrl(profile);
+    _inflight[requestKey] = future;
+    future.whenComplete(() {
+      if (identical(_inflight[requestKey], future)) {
+        _inflight.remove(requestKey);
+      }
+    });
+    return future;
   }
 
   static Future<Uint8List?> refreshFromUrl(SessionProfile profile) async {
@@ -75,6 +90,7 @@ class ProfileAvatarCache {
       return;
     }
     _memory.clear();
+    _inflight.clear();
     _bumpRevision();
   }
 
