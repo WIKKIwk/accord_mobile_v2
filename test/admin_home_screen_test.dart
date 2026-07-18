@@ -199,6 +199,8 @@ void main() {
     expect(find.text('Ish xaritasi'), findsOneWidget);
     expect(find.text('Yarim tayyor mahsulotlar'), findsOneWidget);
     expect(find.text('Aparatlar'), findsOneWidget);
+    expect(find.text('USB printer test'), findsNothing);
+    expect(find.text('Iroh transport test'), findsNothing);
   });
 
   testWidgets('admin drawer labels follow selected language', (tester) async {
