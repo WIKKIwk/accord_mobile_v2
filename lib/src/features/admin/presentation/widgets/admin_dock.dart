@@ -47,9 +47,11 @@ class AdminDock extends StatelessWidget {
         final effectiveShowPrimaryFab = showPrimaryFab &&
             !ProfileRouteOverlayNotifier.instance.obscuresDockPrimaryFab &&
             destinations.any((destination) => destination.primary);
-        final selectedIndex = destinations.indexWhere(
-          (destination) => destination.tab == activeTab,
-        );
+        final selectedIndex = activeTab == null
+            ? -1
+            : destinations.indexWhere(
+                (destination) => destination.tab == activeTab,
+              );
         final bool selectionVisible = selectedIndex >= 0;
         final effectiveSelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
 

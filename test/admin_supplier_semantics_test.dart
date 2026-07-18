@@ -129,6 +129,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('admin dock keeps primary FAB unselected without active tab', (
+    tester,
+  ) async {
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: const Scaffold(
+          bottomNavigationBar: AdminDock(activeTab: null),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(
+      const ValueKey('app-primary-navigation-button'),
+    );
+    final material = tester.widget<Material>(
+      find.descendant(of: button, matching: find.byType(Material)).first,
+    );
+    expect(material.color, theme.colorScheme.primaryContainer);
+  });
+
   testWidgets('admin user dock opens the users page', (tester) async {
     final observer = _RecordingNavigatorObserver();
 
