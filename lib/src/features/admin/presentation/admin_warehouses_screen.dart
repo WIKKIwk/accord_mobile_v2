@@ -28,6 +28,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 const Duration _warehouseLiveReconnectInterval = Duration(seconds: 5);
+const Duration _warehouseLiveRefreshDebounce = Duration(milliseconds: 250);
 
 class AdminWarehousesScreen extends StatefulWidget {
   const AdminWarehousesScreen({super.key});
@@ -42,10 +43,12 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   late final TabController _pageTabController;
   StreamSubscription<Map<String, dynamic>>? _warehouseLiveSub;
   Timer? _warehouseLiveReconnectTimer;
+  Timer? _warehouseLiveRefreshTimer;
   Future<_WarehouseInventorySection?>? _detailFuture;
   String? _selectedWarehouse;
   bool _warehouseFilterExpanded = false;
   bool _refreshing = false;
+  bool _warehouseRefreshPending = false;
   bool _disposed = false;
   final TextEditingController _materialItemsSearchController =
       TextEditingController();
@@ -103,6 +106,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   void dispose() {
     _disposed = true;
     _warehouseLiveReconnectTimer?.cancel();
+    _warehouseLiveRefreshTimer?.cancel();
     _warehouseLiveSub?.cancel();
     _materialItemsSearchController.dispose();
     _materialItemsSearchFocusNode.dispose();
@@ -187,17 +191,36 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       return;
     }
     _refreshing = true;
-    final nextFuture = _load();
-    setState(() {
-      _future = nextFuture;
-    });
     try {
-      await nextFuture;
-    } catch (_) {
-      // FutureBuilder ko‘rsatadi; background refresh exceptioni UI threadni yiqitmasin.
+      while (_warehouseRefreshPending && mounted) {
+        _warehouseRefreshPending = false;
+        _warehouseLiveRefreshTimer?.cancel();
+        _warehouseLiveRefreshTimer = null;
+        final nextFuture = _load();
+        setState(() {
+          _future = nextFuture;
+        });
+        try {
+          await nextFuture;
+        } catch (_) {
+          // FutureBuilder ko‘rsatadi; background refresh exceptioni UI threadni yiqitmasin.
+        }
+      }
     } finally {
       _refreshing = false;
     }
+  }
+
+  void _scheduleWarehouseRefresh() {
+    if (_disposed || !mounted) {
+      return;
+    }
+    _warehouseRefreshPending = true;
+    _warehouseLiveRefreshTimer?.cancel();
+    _warehouseLiveRefreshTimer = Timer(_warehouseLiveRefreshDebounce, () {
+      _warehouseLiveRefreshTimer = null;
+      unawaited(_refreshInPlace());
+    });
   }
 
   Future<void> _connectWarehouseLive() async {
@@ -211,7 +234,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     _warehouseLiveSub = MobileApi.instance.adminWarehouseLiveEvents().listen(
       (event) {
         if (event['event'] == 'warehouse.updated') {
-          _refreshInPlace();
+          _scheduleWarehouseRefresh();
         }
       },
       onError: (_) => _scheduleWarehouseLiveReconnect(),

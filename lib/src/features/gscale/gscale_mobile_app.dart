@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
@@ -477,6 +478,7 @@ class OperatorDashboardPage extends StatefulWidget {
 
 class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   final http.Client _client = http.Client();
+  final ValueNotifier<int> _latencyListenable = ValueNotifier<int>(0);
   final TextEditingController _defaultWarehouseController =
       TextEditingController();
   final TextEditingController _babinaWeightController = TextEditingController();
@@ -511,6 +513,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Timer? _pingTimer;
   Timer? _printerStatusTimer;
   Timer? _controlPrefsDebounce;
+  int _latencyGeneration = 0;
+  bool _latencyRequestInFlight = false;
+  int? _scheduledLiveRebuildGeneration;
+  String _lastLivePayload = '';
   int _latencyFailureCount = 0;
   String _printerStatusOverride = '';
   String _lastAutoBatchPrintKey = '';
@@ -526,6 +532,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final server = widget.server;
     if (server != null) {
       _snapshot = MonitorSnapshot.empty().copyWithLatency(server.latencyMs);
+      _latencyListenable.value = server.latencyMs;
     }
     _loadControlDraftPreferences();
     if (server != null) {
@@ -545,8 +552,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       return;
     }
     _stopLiveStream();
-    _pingTimer?.cancel();
+    _stopPingLoop();
     final server = widget.server;
+    _latencyListenable.value = server?.latencyMs ?? 0;
     setState(() {
       _snapshot = server == null
           ? MonitorSnapshot.empty()
@@ -566,7 +574,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   @override
   void dispose() {
-    _pingTimer?.cancel();
+    _stopPingLoop();
     _printerStatusTimer?.cancel();
     _controlPrefsDebounce?.cancel();
     _defaultWarehouseController.dispose();
@@ -574,6 +582,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     _manualQtyController.dispose();
     _manualDuplicateController.dispose();
     _stopLiveStream();
+    _latencyListenable.dispose();
     _client.close();
     super.dispose();
   }
@@ -585,17 +594,27 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   void _startPingLoop() {
-    _pingTimer?.cancel();
+    _stopPingLoop();
+    final generation = _latencyGeneration;
     _pingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      unawaited(_refreshLatency());
+      unawaited(_refreshLatency(generation));
     });
-    unawaited(_refreshLatency());
+    unawaited(_refreshLatency(generation));
+  }
+
+  void _stopPingLoop() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _latencyGeneration++;
+    _latencyRequestInFlight = false;
   }
 
   void _stopLiveStream() {
     _streamGeneration++;
     unawaited(_streamSubscription?.cancel());
     _streamSubscription = null;
+    _scheduledLiveRebuildGeneration = null;
+    _lastLivePayload = '';
   }
 
   void _runWithoutSavingControlPrefs(void Function() action) {
@@ -712,8 +731,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     await saveOperatorControlDraft(draft);
   }
 
-  Future<void> _refreshLatency() async {
-    if (!mounted) {
+  Future<void> _refreshLatency(int generation) async {
+    if (!mounted ||
+        generation != _latencyGeneration ||
+        _latencyRequestInFlight) {
       return;
     }
 
@@ -721,6 +742,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (server == null) {
       return;
     }
+    _latencyRequestInFlight = true;
     final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
@@ -730,24 +752,32 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         throw Exception('healthz ${response.statusCode}');
       }
       stopwatch.stop();
-      if (!mounted) {
+      if (!mounted || generation != _latencyGeneration) {
         return;
       }
-      setState(() {
-        _latencyFailureCount = 0;
-        _snapshot = _snapshot.copyWithLatency(stopwatch.elapsedMilliseconds);
-      });
+      final latencyMs = stopwatch.elapsedMilliseconds;
+      _latencyFailureCount = 0;
+      _snapshot = _snapshot.copyWithLatency(latencyMs);
+      _latencyListenable.value = latencyMs;
     } catch (error) {
+      if (!mounted || generation != _latencyGeneration) {
+        return;
+      }
       _latencyFailureCount += 1;
       if (_latencyFailureCount >= 2) {
         _markServerUnavailable(error);
+      }
+    } finally {
+      if (generation == _latencyGeneration) {
+        _latencyRequestInFlight = false;
       }
     }
   }
 
   void _markServerUnavailable(Object error) {
-    _pingTimer?.cancel();
+    _stopPingLoop();
     _stopLiveStream();
+    _latencyListenable.value = 0;
     if (mounted) {
       setState(() {
         _snapshot = MonitorSnapshot.empty();
@@ -794,6 +824,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (response.statusCode < 200 || response.statusCode > 299) {
       throw Exception('stream ${response.statusCode}');
     }
+    _lastLivePayload = '';
 
     final completer = Completer<void>();
     final dataLines = <String>[];
@@ -813,17 +844,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           }
           final payloadText = dataLines.join('\n');
           dataLines.clear();
-          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
-          if (payload.containsKey('error') && payload['ok'] != true) {
-            setState(() {
-              _errorText = payload['error'].toString();
-            });
+          if (payloadText == _lastLivePayload) {
             return;
           }
-          setState(() {
-            _applySnapshot(MonitorSnapshot.fromJson(payload));
-            _errorText = '';
-          });
+          _lastLivePayload = payloadText;
+          final payload = jsonDecode(payloadText) as Map<String, dynamic>;
+          if (payload.containsKey('error') && payload['ok'] != true) {
+            _errorText = payload['error'].toString();
+            _scheduleLiveRebuild(generation);
+            return;
+          }
+          _applySnapshot(MonitorSnapshot.fromJson(payload));
+          _errorText = '';
+          _scheduleLiveRebuild(generation);
           return;
         }
         if (line.startsWith(':')) {
@@ -847,6 +880,23 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     );
 
     await completer.future;
+  }
+
+  void _scheduleLiveRebuild(int generation) {
+    if (_scheduledLiveRebuildGeneration == generation) {
+      return;
+    }
+    _scheduledLiveRebuildGeneration = generation;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      if (_scheduledLiveRebuildGeneration != generation) {
+        return;
+      }
+      _scheduledLiveRebuildGeneration = null;
+      if (!mounted || generation != _streamGeneration) {
+        return;
+      }
+      setState(() {});
+    });
   }
 
   Future<void> _refresh({bool manual = false}) async {
@@ -2019,10 +2069,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 children: [
                   Icon(Icons.speed_outlined, size: 18, color: scheme.primary),
                   const SizedBox(width: 8),
-                  Text(
-                    _snapshot.latencyMs > 0 ? '${_snapshot.latencyMs} ms' : '—',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurface,
+                  ValueListenableBuilder<int>(
+                    valueListenable: _latencyListenable,
+                    builder: (context, latencyMs, _) => Text(
+                      latencyMs > 0 ? '$latencyMs ms' : '—',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurface,
+                      ),
                     ),
                   ),
                 ],
