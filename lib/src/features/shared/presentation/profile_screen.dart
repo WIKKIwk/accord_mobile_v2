@@ -19,6 +19,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../data/profile_avatar_cache.dart';
 import '../models/app_models.dart';
 import 'widgets/profile_info_chip.dart';
+import 'widgets/profile_avatar_preview.dart';
 import '../../admin/presentation/widgets/admin_dock.dart';
 import '../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../supplier/presentation/widgets/supplier_navigation_drawer.dart';
@@ -41,38 +42,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 const double _profilePanelGap = 4;
-const String _profileAvatarHeroTag = 'profile-avatar-preview';
 const String _profileDefaultCoverAsset =
     'assets/images/profile_default_cover.webp';
-
-Widget _profileAvatarFlightShuttleBuilder(
-  BuildContext flightContext,
-  Animation<double> animation,
-  HeroFlightDirection flightDirection,
-  BuildContext fromHeroContext,
-  BuildContext toHeroContext,
-) {
-  final curved = CurvedAnimation(
-    parent: animation,
-    curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
-  );
-  final radiusTween = flightDirection == HeroFlightDirection.push
-      ? Tween<double>(begin: 48, end: 28)
-      : Tween<double>(begin: 28, end: 48);
-  final child = flightDirection == HeroFlightDirection.push
-      ? toHeroContext.widget
-      : fromHeroContext.widget;
-  return AnimatedBuilder(
-    animation: curved,
-    builder: (context, _) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(radiusTween.evaluate(curved)),
-        child: child,
-      );
-    },
-  );
-}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -260,37 +231,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   bool get _hasNicknameChanges =>
       nicknameController.text.trim() != _normalizedDisplayName(profile).trim();
-
-  void _showAvatarPreview(String displayName) {
-    final bytes = pendingAvatarBytes != null && pendingAvatarBytes!.isNotEmpty
-        ? pendingAvatarBytes
-        : cachedAvatarBytes;
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierDismissible: true,
-        barrierColor: Colors.black.withValues(alpha: 0.72),
-        barrierLabel:
-            MaterialLocalizations.of(context).modalBarrierDismissLabel,
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return _AvatarPreviewOverlay(
-            displayName: displayName,
-            avatarBytes: bytes,
-          );
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final fade = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-          return FadeTransition(opacity: fade, child: child);
-        },
-      ),
-    );
-  }
 
   Future<void> _saveProfileChanges() async {
     if (_hasNicknameChanges) {
@@ -687,7 +627,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         savingAvatar: savingAvatar,
                         savingProfileChanges: savingProfileChanges,
                         hasPendingAvatar: pendingAvatarBytes != null,
-                        onAvatarTap: () => _showAvatarPreview(displayName),
                         onPickAvatar: _pickAvatar,
                         onEditProfile: _openProfileEditor,
                         onSaveProfileChanges: _saveProfileChanges,
@@ -889,7 +828,6 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.savingAvatar,
     required this.savingProfileChanges,
     required this.hasPendingAvatar,
-    required this.onAvatarTap,
     required this.onPickAvatar,
     required this.onEditProfile,
     required this.onSaveProfileChanges,
@@ -904,7 +842,6 @@ class _ProfileHeroCard extends StatelessWidget {
   final bool savingAvatar;
   final bool savingProfileChanges;
   final bool hasPendingAvatar;
-  final VoidCallback onAvatarTap;
   final VoidCallback onPickAvatar;
   final VoidCallback onEditProfile;
   final VoidCallback onSaveProfileChanges;
@@ -951,7 +888,6 @@ class _ProfileHeroCard extends StatelessWidget {
                   cachedAvatarBytes: cachedAvatarBytes,
                   pendingAvatarBytes: pendingAvatarBytes,
                   savingAvatar: savingAvatar,
-                  onAvatarTap: onAvatarTap,
                   onPickAvatar: onPickAvatar,
                 ),
               ),
@@ -1094,7 +1030,6 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
     required this.savingAvatar,
-    required this.onAvatarTap,
     required this.onPickAvatar,
   });
 
@@ -1102,7 +1037,6 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
   final bool savingAvatar;
-  final VoidCallback onAvatarTap;
   final VoidCallback onPickAvatar;
 
   @override
@@ -1120,7 +1054,6 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
               displayName: displayName,
               cachedAvatarBytes: cachedAvatarBytes,
               pendingAvatarBytes: pendingAvatarBytes,
-              onTap: onAvatarTap,
             ),
           ),
         ),
@@ -2085,13 +2018,11 @@ class _AvatarPreview extends StatelessWidget {
     required this.displayName,
     required this.cachedAvatarBytes,
     required this.pendingAvatarBytes,
-    required this.onTap,
   });
 
   final String displayName;
   final Uint8List? cachedAvatarBytes;
   final Uint8List? pendingAvatarBytes;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2132,132 +2063,11 @@ class _AvatarPreview extends StatelessWidget {
       );
     }
 
-    return Semantics(
-      button: true,
-      label: l10n.profileAvatarZoomLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Hero(
-          tag: _profileAvatarHeroTag,
-          createRectTween: (begin, end) {
-            return MaterialRectCenterArcTween(begin: begin, end: end);
-          },
-          flightShuttleBuilder: _profileAvatarFlightShuttleBuilder,
-          child: avatar,
-        ),
-      ),
-    );
-  }
-}
-
-class _AvatarPreviewOverlay extends StatelessWidget {
-  const _AvatarPreviewOverlay({
-    required this.displayName,
-    required this.avatarBytes,
-  });
-
-  final String displayName;
-  final Uint8List? avatarBytes;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final previewWidth = (size.width - 32).clamp(260.0, 420.0);
-    final previewHeight =
-        (previewWidth * 1.25).clamp(280.0, size.height * 0.72);
-    return Material(
-      color: Colors.transparent,
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).pop(),
-              ),
-            ),
-            Center(
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 3,
-                child: Hero(
-                  tag: _profileAvatarHeroTag,
-                  createRectTween: (begin, end) {
-                    return MaterialRectCenterArcTween(
-                      begin: begin,
-                      end: end,
-                    );
-                  },
-                  flightShuttleBuilder: _profileAvatarFlightShuttleBuilder,
-                  child: _LargeAvatarPreview(
-                    displayName: displayName,
-                    avatarBytes: avatarBytes,
-                    width: previewWidth,
-                    height: previewHeight,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: IconButton.filledTonal(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LargeAvatarPreview extends StatelessWidget {
-  const _LargeAvatarPreview({
-    required this.displayName,
-    required this.avatarBytes,
-    required this.width,
-    required this.height,
-  });
-
-  final String displayName;
-  final Uint8List? avatarBytes;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final fallback = Container(
-      height: height,
-      width: width,
-      decoration: BoxDecoration(
-        color: AppTheme.actionSurface(context),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        (displayName.isNotEmpty ? displayName[0] : 'U').toUpperCase(),
-        style: Theme.of(context).textTheme.displayMedium,
-      ),
-    );
-
-    final bytes = avatarBytes;
-    if (bytes == null || bytes.isEmpty) {
-      return fallback;
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: Image.memory(
-        bytes,
-        height: height,
-        width: width,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => fallback,
-      ),
+    return ProfileAvatarPreview(
+      displayName: displayName,
+      avatarImage: bytes == null || bytes.isEmpty ? null : MemoryImage(bytes),
+      semanticLabel: l10n.profileAvatarZoomLabel,
+      child: avatar,
     );
   }
 }

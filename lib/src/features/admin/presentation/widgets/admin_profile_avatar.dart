@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/display/image_fade.dart';
+import '../../../shared/presentation/widgets/profile_avatar_preview.dart';
 
 class AdminProfileAvatar extends StatelessWidget {
   const AdminProfileAvatar({
@@ -8,11 +9,13 @@ class AdminProfileAvatar extends StatelessWidget {
     required this.avatarUrl,
     required this.fallbackText,
     this.size = 92,
+    this.previewDisplayName = '',
   });
 
   final String avatarUrl;
   final String fallbackText;
   final double size;
+  final String previewDisplayName;
 
   bool get _canLoadAvatar {
     final value = avatarUrl.trim().toLowerCase();
@@ -36,7 +39,8 @@ class AdminProfileAvatar extends StatelessWidget {
       ),
     );
 
-    return Container(
+    final image = _canLoadAvatar ? NetworkImage(avatarUrl.trim()) : null;
+    final avatar = Container(
       height: size,
       width: size,
       padding: EdgeInsets.all(padding),
@@ -47,9 +51,9 @@ class AdminProfileAvatar extends StatelessWidget {
       child: ClipOval(
         child: DecoratedBox(
           decoration: BoxDecoration(color: scheme.primaryContainer),
-          child: _canLoadAvatar
+          child: image != null
               ? ImageFade(
-                  image: NetworkImage(avatarUrl.trim()),
+                  image: image,
                   height: innerSize,
                   width: innerSize,
                   fit: BoxFit.cover,
@@ -59,6 +63,13 @@ class AdminProfileAvatar extends StatelessWidget {
               : fallback,
         ),
       ),
+    );
+    return ProfileAvatarPreview(
+      displayName: previewDisplayName.trim().isEmpty
+          ? fallbackText
+          : previewDisplayName.trim(),
+      avatarImage: image,
+      child: avatar,
     );
   }
 }

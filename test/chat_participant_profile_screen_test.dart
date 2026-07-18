@@ -31,5 +31,15 @@ void main() {
     expect(find.text('Telefon kiritilmagan'), findsOneWidget);
     expect(find.byType(AdminProfileAvatar), findsOneWidget);
     expect(find.byType(ChatRoleDock), findsOneWidget);
+
+    await tester.tap(find.byType(AdminProfileAvatar));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsNothing);
   });
 }
