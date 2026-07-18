@@ -299,6 +299,184 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     }
   }
 
+  Future<void> _openIssueQolips(List<QolipBlock> blocks) async {
+    if (blocks.isEmpty) {
+      return;
+    }
+    List<QolipLocationEntry> locations;
+    try {
+      final locationsByBlock = await Future.wait(
+        blocks.map((block) => _locationsFor(block.name)),
+      );
+      locations = locationsByBlock
+          .expand((items) => items)
+          .where((item) => item.quantity > 0)
+          .toList(growable: false)
+        ..sort((left, right) {
+          final byName = left.itemName.toLowerCase().compareTo(
+                right.itemName.toLowerCase(),
+              );
+          if (byName != 0) {
+            return byName;
+          }
+          return left.qolipCode.toLowerCase().compareTo(
+                right.qolipCode.toLowerCase(),
+              );
+        });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(error, fallback: 'Qoliplar yuklanmadi'),
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (locations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Berish uchun joylashtirilgan qolip yo‘q')),
+      );
+      return;
+    }
+    final selection = await showModalBottomSheet<_QolipLocationSelection>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (sheetContext) {
+        return M3AsyncPickerSheet<QolipLocationEntry>(
+          title: 'Beriladigan qolipni tanlang',
+          hintText: 'Qolip code yoki mahsulot nomi',
+          pageSize: 80,
+          loadPage: (query, offset, limit) async {
+            final filtered = locations.where((item) {
+              return searchMatches(query, [
+                item.itemName,
+                item.itemCode,
+                item.qolipCode,
+                '${item.size}',
+                item.block,
+                item.locationLabel,
+              ]);
+            }).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (item) =>
+              item.itemName.trim().isEmpty ? item.qolipCode : item.itemName,
+          itemSubtitle: (item) => [
+            item.qolipCode,
+            '${item.size}',
+            item.block,
+            item.locationLabel,
+            '${item.quantity} ta',
+          ].where((value) => value.trim().isNotEmpty).join(' • '),
+          itemKey: (item) => item.id,
+          onSelected: (item) => Navigator.of(sheetContext).pop(
+            _QolipLocationSelection(
+              locations: <QolipLocationEntry>[item],
+              isMultiSelection: false,
+            ),
+          ),
+          onMultiSelected: (items) => Navigator.of(sheetContext).pop(
+            _QolipLocationSelection(
+              locations: items,
+              isMultiSelection: true,
+            ),
+          ),
+          selectedCountLabel: (count) => '$count ta qolip tanlandi',
+          confirmSelectionTooltip: 'Tanlangan qoliplarni tasdiqlash',
+        );
+      },
+    );
+    if (!mounted || selection == null || selection.locations.isEmpty) {
+      return;
+    }
+    if (!selection.isMultiSelection) {
+      await _takeQolip(selection.locations.single);
+      return;
+    }
+    await _issueSelectedQolips(selection.locations);
+  }
+
+  Future<void> _issueSelectedQolips(
+    List<QolipLocationEntry> locations,
+  ) async {
+    final worker = await _showQolipWorkerPicker(context);
+    if (!mounted || worker == null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Qoliplarni berasizmi?'),
+        content: Text(
+          '${locations.length} ta tanlangan qolipni ${worker.name}ga '
+          'qarzga berasizmi? Har biridan 1 tadan beriladi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Berish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    var issuedCount = 0;
+    Object? firstError;
+    for (final location in locations) {
+      try {
+        await MobileApi.instance.qolipIssueCheckout(
+          locationId: location.id,
+          quantity: 1,
+          workerId: worker.id,
+        );
+        issuedCount++;
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    for (final block in locations.map((item) => item.block).toSet()) {
+      _refreshBlock(block);
+    }
+    final failedCount = locations.length - issuedCount;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failedCount == 0
+              ? '$issuedCount ta qolip ${worker.name}ga berildi'
+              : issuedCount == 0
+                  ? qolipErrorMessage(
+                      firstError ?? Exception('Qoliplar berilmadi'),
+                      fallback: 'Qoliplar berilmadi',
+                    )
+                  : '$issuedCount ta qolip berildi, $failedCount tasi berilmadi',
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFabAction(QolipBlocksResult data) async {
     if (data.warehouses.isEmpty) {
       return;
@@ -1026,6 +1204,17 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                     label: const Text('QR Scan'),
                   ),
                 ),
+              if (data.blocks.isNotEmpty)
+                Positioned(
+                  right: 16,
+                  bottom: MediaQuery.viewPaddingOf(context).bottom + 240,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'qolip-issue-fab',
+                    onPressed: () => _openIssueQolips(data.blocks),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('Qolip berish'),
+                  ),
+                ),
             ],
           );
         },
@@ -1051,6 +1240,16 @@ class _QolipProductSelection {
   });
 
   final List<QolipProduct> products;
+  final bool isMultiSelection;
+}
+
+class _QolipLocationSelection {
+  const _QolipLocationSelection({
+    required this.locations,
+    required this.isMultiSelection,
+  });
+
+  final List<QolipLocationEntry> locations;
   final bool isMultiSelection;
 }
 
@@ -1972,6 +2171,35 @@ class _QolipUnplacedTile extends StatelessWidget {
   }
 }
 
+Future<QolipWorkerOption?> _showQolipWorkerPicker(BuildContext context) {
+  return showModalBottomSheet<QolipWorkerOption>(
+    context: context,
+    isDismissible: true,
+    enableDrag: true,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.32),
+    sheetAnimationStyle: kM3PickerSheetAnimation,
+    builder: (sheetContext) {
+      return M3AsyncPickerSheet<QolipWorkerOption>(
+        title: 'Ishchini tanlang',
+        hintText: 'Ishchi nomi bilan qidiring',
+        pageSize: 80,
+        loadPage: (query, offset, limit) {
+          if (offset > 0) {
+            return Future.value(const <QolipWorkerOption>[]);
+          }
+          return MobileApi.instance.qolipWorkers(query: query);
+        },
+        itemTitle: (worker) => worker.name,
+        itemSubtitle: (worker) => worker.level,
+        onSelected: (worker) => Navigator.of(sheetContext).pop(worker),
+      );
+    },
+  );
+}
+
 class _QolipTakeSheet extends StatefulWidget {
   const _QolipTakeSheet({required this.item});
 
@@ -2003,32 +2231,7 @@ class _QolipTakeSheetState extends State<_QolipTakeSheet> {
     if (_submitting) {
       return;
     }
-    final picked = await showModalBottomSheet<QolipWorkerOption>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (sheetContext) {
-        return M3AsyncPickerSheet<QolipWorkerOption>(
-          title: 'Ishchini tanlang',
-          hintText: 'Ishchi nomi bilan qidiring',
-          pageSize: 80,
-          loadPage: (query, offset, limit) {
-            if (offset > 0) {
-              return Future.value(const <QolipWorkerOption>[]);
-            }
-            return MobileApi.instance.qolipWorkers(query: query);
-          },
-          itemTitle: (worker) => worker.name,
-          itemSubtitle: (worker) => worker.level,
-          onSelected: (worker) => Navigator.of(sheetContext).pop(worker),
-        );
-      },
-    );
+    final picked = await _showQolipWorkerPicker(context);
     if (picked != null && mounted) {
       setState(() {
         _worker = picked;
