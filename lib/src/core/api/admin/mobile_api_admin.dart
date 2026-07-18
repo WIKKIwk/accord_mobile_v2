@@ -4187,10 +4187,12 @@ extension MobileApiAdmin on MobileApi {
     required String name,
     required String phone,
   }) async {
-    if (role != UserRole.qolipchi && role != UserRole.boyoqchi) {
-      throw Exception('Unsupported system user role');
-    }
     if (await TestModeController.instance.isEnabled()) {
+      if (role != UserRole.qolipchi &&
+          role != UserRole.boyoqchi &&
+          role != UserRole.materialTaminotchi) {
+        throw Exception('Unsupported system user role');
+      }
       final user = AdminSystemUser(
         id: '${userRoleToJson(role)}-${DateTime.now().microsecondsSinceEpoch}',
         role: role,
@@ -4199,6 +4201,9 @@ extension MobileApiAdmin on MobileApi {
       );
       _testModeSystemUsers.add(user);
       return user;
+    }
+    if (role != UserRole.qolipchi && role != UserRole.boyoqchi) {
+      throw Exception('Unsupported system user role');
     }
     final response = await _sendAuthorized(
       () => _post(
@@ -4803,9 +4808,12 @@ extension MobileApiAdmin on MobileApi {
                 id: user.id,
                 name: user.name,
                 phone: user.phone,
-                kind: systemRole == UserRole.qolipchi
-                    ? AdminUserKind.qolipchi
-                    : AdminUserKind.boyoqchi,
+                kind: switch (systemRole) {
+                  UserRole.qolipchi => AdminUserKind.qolipchi,
+                  UserRole.materialTaminotchi =>
+                    AdminUserKind.materialTaminotchi,
+                  _ => AdminUserKind.boyoqchi,
+                },
                 principalRole: systemRole,
                 roleLabelOverride: userRoleLabel(systemRole),
               ),

@@ -225,6 +225,54 @@ void main() {
     expect(find.text('Tanlash uchun bosing'), findsNothing);
   });
 
+  testWidgets('warehouse assignee picker shows only allowed user types', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminCreateWorker(
+      name: 'Brigader Candidate',
+      level: 'Brigader',
+    );
+    await MobileApi.instance.adminCreateWorker(
+      name: 'Master Candidate',
+      level: 'Master',
+    );
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.materialTaminotchi,
+      name: 'Material Candidate',
+      phone: '+998110000012',
+    );
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.qolipchi,
+      name: 'Qolipchi Candidate',
+      phone: '+998110000013',
+    );
+
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('warehouse-assign-user')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'Werka');
+    await tester.pumpAndSettle();
+    expect(find.text('Werka'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField).last, 'Candidate');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Brigader Candidate'), findsOneWidget);
+    expect(find.text('Brigader'), findsOneWidget);
+    expect(find.text('Material Candidate'), findsOneWidget);
+    expect(find.text('Qolipchi Candidate'), findsOneWidget);
+    expect(find.text('Master Candidate'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).last, 'Demo');
+    await tester.pumpAndSettle();
+    expect(find.text('Demo ta’minotchi'), findsNothing);
+    expect(find.text('Demo haridor'), findsNothing);
+  });
+
   testWidgets('warehouse page separates products and settings tabs', (
     tester,
   ) async {
@@ -265,6 +313,33 @@ void main() {
 
     expect(find.text('Jumaniyoz qolipchi'), findsOneWidget);
     expect(find.text('Qolipchi'), findsOneWidget);
+  });
+
+  testWidgets('warehouse settings removes one assignment after confirmation', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminAssignWarehouse(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      principalRole: UserRole.werka,
+      principalRef: 'werka',
+      displayName: 'Werka',
+    );
+    await _pumpWarehousesScreen(tester);
+    await _selectWarehouse(tester, 'Tayyor mahsulot ombori - DEMO');
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Werka'), findsWidgets);
+    await tester.tap(find.byTooltip('Assigndan chiqarish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Assigndan chiqarish'), findsOneWidget);
+    expect(find.textContaining('omboridan chiqarasizmi'), findsOneWidget);
+    await tester.tap(find.text('Olib tashlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hech kim assign qilinmagan'), findsOneWidget);
+    expect(find.text('Werka assigndan chiqarildi'), findsOneWidget);
   });
 
   testWidgets('warehouse deletion warns when products will be deleted', (

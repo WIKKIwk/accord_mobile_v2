@@ -6,6 +6,7 @@ import '../../../core/session/session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -404,7 +405,8 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
   final materialPage = results[2] as AdminUserListPage;
   final workers = results[3] as List<AdminWorker>;
   final assignments = results[4] as List<AdminRoleAssignment>;
-  final workerEntries = workers.map((worker) {
+  final workerEntries = <AdminUserListEntry>[];
+  for (final worker in workers) {
     final assignment = assignments
         .where((item) => item.principalRef.trim() == worker.id.trim())
         .where((item) =>
@@ -412,11 +414,14 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
             item.roleId.trim() == 'qolipchi')
         .cast<AdminRoleAssignment?>()
         .firstWhere((item) => item != null, orElse: () => null);
-    final role = assignment?.principalRole == UserRole.qolipchi ||
-            assignment?.roleId.trim() == 'qolipchi'
-        ? UserRole.qolipchi
-        : UserRole.aparatchi;
-    return AdminUserListEntry(
+    final isQolipchi = assignment?.principalRole == UserRole.qolipchi ||
+        assignment?.roleId.trim() == 'qolipchi';
+    final isBrigader = worker.level.trim().toLowerCase() == 'brigader';
+    if (!isQolipchi && !isBrigader) {
+      continue;
+    }
+    final role = isQolipchi ? UserRole.qolipchi : UserRole.aparatchi;
+    workerEntries.add(AdminUserListEntry(
       id: worker.id,
       name: worker.name,
       phone: worker.phone,
@@ -424,16 +429,16 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
           ? AdminUserKind.qolipchi
           : AdminUserKind.worker,
       principalRole: role,
-      roleLabelOverride: userRoleLabel(role),
-    );
-  });
+      roleLabelOverride: isQolipchi ? userRoleLabel(role) : 'Brigader',
+    ));
+  }
   final byKey = <String, AdminUserListEntry>{};
   for (final item in [
     ...page.items,
     ...qolipchiPage.items,
     ...materialPage.items,
     ...workerEntries,
-  ].where((item) => !item.blocked)) {
+  ].where((item) => !item.blocked).where(_isWarehouseAssigneeCandidate)) {
     final key = '${item.kind.name}:${item.id.trim().toLowerCase()}';
     byKey[key] = item;
   }
@@ -443,6 +448,17 @@ Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
             right.name.toLowerCase(),
           ),
     );
+}
+
+bool _isWarehouseAssigneeCandidate(AdminUserListEntry user) {
+  return user.kind == AdminUserKind.werka ||
+      user.kind == AdminUserKind.materialTaminotchi ||
+      user.kind == AdminUserKind.qolipchi ||
+      user.principalRole == UserRole.werka ||
+      user.principalRole == UserRole.materialTaminotchi ||
+      user.principalRole == UserRole.qolipchi ||
+      (user.kind == AdminUserKind.worker &&
+          user.roleLabel.trim().toLowerCase() == 'brigader');
 }
 
 class _WarehouseCreateCard extends StatefulWidget {
@@ -1142,6 +1158,7 @@ class _WarehouseSettingsTab extends StatefulWidget {
 class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
   Future<List<AdminWarehouseAssignment>>? _assignmentsFuture;
   bool _assigning = false;
+  String? _removingAssignmentKey;
   bool _deleting = false;
 
   String get _warehouse => widget.warehouse?.trim() ?? '';
@@ -1258,6 +1275,52 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
     } finally {
       if (mounted) {
         setState(() => _assigning = false);
+      }
+    }
+  }
+
+  Future<void> _unassignUser(AdminWarehouseAssignment assignment) async {
+    final assignmentKey = _warehouseAssignmentKey(assignment);
+    if (_removingAssignmentKey != null) {
+      return;
+    }
+    final displayName = assignment.displayName.trim().isEmpty
+        ? assignment.principalRef.trim()
+        : assignment.displayName.trim();
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Assigndan chiqarish',
+      message:
+          '$displayName foydalanuvchisini “$_warehouse” omboridan chiqarasizmi?',
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'Olib tashlash',
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _removingAssignmentKey = assignmentKey);
+    try {
+      await MobileApi.instance.adminUnassignWarehouse(
+        warehouse: assignment.warehouse,
+        principalRole: assignment.principalRole,
+        principalRef: assignment.principalRef,
+      );
+      await _refreshAssignments();
+      await widget.onChanged();
+      if (mounted) {
+        _showWarehouseNotice(context, '$displayName assigndan chiqarildi');
+      }
+    } catch (error) {
+      if (mounted) {
+        final message = error is MobileApiException
+            ? error.message
+            : 'Foydalanuvchi assigndan chiqarilmadi';
+        _showWarehouseNotice(context, message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _removingAssignmentKey = null);
       }
     }
   }
@@ -1470,17 +1533,44 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                         return Column(
                           children: [
                             for (final assignment in assignments)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(Icons.person_outline),
-                                title: Text(
-                                  assignment.displayName.trim().isEmpty
-                                      ? assignment.principalRef
-                                      : assignment.displayName,
-                                ),
-                                subtitle: Text(
-                                  userRoleLabel(assignment.principalRole),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  final assignmentKey =
+                                      _warehouseAssignmentKey(assignment);
+                                  final removing =
+                                      _removingAssignmentKey == assignmentKey;
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.person_outline),
+                                    title: Text(
+                                      assignment.displayName.trim().isEmpty
+                                          ? assignment.principalRef
+                                          : assignment.displayName,
+                                    ),
+                                    subtitle: Text(
+                                      userRoleLabel(assignment.principalRole),
+                                    ),
+                                    trailing: removing
+                                        ? const SizedBox.square(
+                                            dimension: 24,
+                                            child: AppLoadingIndicator(),
+                                          )
+                                        : IconButton(
+                                            key: ValueKey(
+                                              'warehouse-unassign-$assignmentKey',
+                                            ),
+                                            tooltip: 'Assigndan chiqarish',
+                                            onPressed: _removingAssignmentKey ==
+                                                    null
+                                                ? () =>
+                                                    _unassignUser(assignment)
+                                                : null,
+                                            icon: const Icon(
+                                              Icons.person_remove_outlined,
+                                            ),
+                                          ),
+                                  );
+                                },
                               ),
                           ],
                         );
@@ -1544,6 +1634,12 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
       ),
     );
   }
+}
+
+String _warehouseAssignmentKey(AdminWarehouseAssignment assignment) {
+  return '${assignment.warehouse.trim().toLowerCase()}-'
+      '${userRoleToJson(assignment.principalRole)}-'
+      '${assignment.principalRef.trim().toLowerCase()}';
 }
 
 class _WarehouseSettingCount extends StatelessWidget {

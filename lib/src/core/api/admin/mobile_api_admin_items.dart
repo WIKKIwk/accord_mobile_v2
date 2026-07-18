@@ -524,6 +524,63 @@ extension MobileApiAdminItems on MobileApi {
     );
   }
 
+  Future<AdminWarehouseAssignment> adminUnassignWarehouse({
+    required String warehouse,
+    required UserRole principalRole,
+    required String principalRef,
+  }) async {
+    final normalizedWarehouse = warehouse.trim();
+    final normalizedRef = principalRef.trim();
+    if (normalizedWarehouse.isEmpty || normalizedRef.isEmpty) {
+      throw const MobileApiException(
+        code: 'warehouse_assignment_input_required',
+        message: 'Ombor assignment ma’lumoti to‘liq emas',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeWarehouseAssignments.indexWhere(
+        (item) =>
+            item.warehouse.trim().toLowerCase() ==
+                normalizedWarehouse.toLowerCase() &&
+            item.principalRole == principalRole &&
+            item.principalRef.trim().toLowerCase() ==
+                normalizedRef.toLowerCase(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'warehouse_assignment_not_found',
+          message: 'Ombor assignmenti topilmadi',
+        );
+      }
+      return _testModeWarehouseAssignments.removeAt(index);
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/warehouses/assignments',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': normalizedWarehouse,
+          'principal_role': _adminWarehouseRoleToJson(principalRole),
+          'principal_ref': normalizedRef,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'warehouse_assignment_remove_failed',
+        fallbackMessage: 'Ombor assignmenti olib tashlanmadi',
+      );
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminWarehouseAssignment.fromJson(
+      (payload['assignment'] as Map).cast<String, dynamic>(),
+    );
+  }
+
   Future<AdminWarehouse> adminCreateApparatus(String warehouse) async {
     final name = warehouse.trim();
     if (name.isEmpty) {
