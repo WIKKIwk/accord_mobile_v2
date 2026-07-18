@@ -5,9 +5,7 @@ const int _mediaStatusPollLimit = 3600;
 
 extension ChatStoreMedia on ChatStore {
   List<ChatPendingMedia> pendingMediaFor(String conversationId) {
-    return List<ChatPendingMedia>.unmodifiable(
-      _pendingMedia[conversationId] ?? const <ChatPendingMedia>[],
-    );
+    return _pendingMedia[conversationId] ?? const <ChatPendingMedia>[];
   }
 
   Future<void> queueMedia({
@@ -577,7 +575,8 @@ extension ChatStoreMedia on ChatStore {
       ...current.where((item) => item.localId != pending.localId),
       pending
     ]..sort((left, right) => left.createdAtUnix.compareTo(right.createdAtUnix));
-    _pendingMedia[pending.conversationId] = next;
+    _pendingMedia[pending.conversationId] =
+        List<ChatPendingMedia>.unmodifiable(next);
     if (notify) notifyListeners();
   }
 
@@ -605,7 +604,8 @@ extension ChatStoreMedia on ChatStore {
     final index = items.indexWhere((item) => item.localId == localId);
     if (index < 0) return null;
     items[index] = next;
-    _pendingMedia[current.conversationId] = items;
+    _pendingMedia[current.conversationId] =
+        List<ChatPendingMedia>.unmodifiable(items);
     notifyListeners();
     await _persistPendingMedia(key, next);
     return next;
@@ -627,7 +627,8 @@ extension ChatStoreMedia on ChatStore {
     final index = items.indexWhere((item) => item.localId == localId);
     if (index < 0) return;
     items[index] = next;
-    _pendingMedia[current.conversationId] = items;
+    _pendingMedia[current.conversationId] =
+        List<ChatPendingMedia>.unmodifiable(items);
     notifyListeners();
   }
 
@@ -647,7 +648,8 @@ extension ChatStoreMedia on ChatStore {
     if (items.isEmpty) {
       _pendingMedia.remove(pending.conversationId);
     } else {
-      _pendingMedia[pending.conversationId] = items;
+      _pendingMedia[pending.conversationId] =
+          List<ChatPendingMedia>.unmodifiable(items);
     }
     notifyListeners();
     try {

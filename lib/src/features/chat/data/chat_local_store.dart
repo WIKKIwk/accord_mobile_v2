@@ -9,6 +9,7 @@ class ChatLocalStore {
   ChatLocalStore._();
 
   static final ChatLocalStore instance = ChatLocalStore._();
+  static const int _initialCacheLimit = 100;
 
   Database? _database;
 
@@ -62,6 +63,7 @@ class ChatLocalStore {
       where: 'profile_key = ?',
       whereArgs: [profileKey],
       orderBy: 'updated_at_unix DESC',
+      limit: _initialCacheLimit,
     );
     return rows
         .map((row) => ChatConversation.fromJson(
@@ -103,9 +105,10 @@ class ChatLocalStore {
       'chat_messages',
       where: 'profile_key = ? AND conversation_id = ?',
       whereArgs: [profileKey, conversationId],
-      orderBy: 'message_sequence ASC',
+      orderBy: 'message_sequence DESC',
+      limit: _initialCacheLimit,
     );
-    return rows
+    return rows.reversed
         .map((row) => ChatMessage.fromJson(
               (jsonDecode(row['payload_json']! as String) as Map)
                   .cast<String, dynamic>(),

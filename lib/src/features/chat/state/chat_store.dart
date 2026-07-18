@@ -68,9 +68,7 @@ class ChatStore extends ChangeNotifier {
   }
 
   List<ChatMessage> messagesFor(String conversationId) =>
-      List<ChatMessage>.unmodifiable(
-        _messages[conversationId] ?? const <ChatMessage>[],
-      );
+      _messages[conversationId] ?? const <ChatMessage>[];
 
   bool hasMoreMessages(String conversationId) =>
       _hasMoreMessages[conversationId] ?? false;
@@ -227,7 +225,7 @@ class ChatStore extends ChangeNotifier {
           conversationId,
         );
         if (profileKey == key) {
-          _messages[conversationId] = cached;
+          _messages[conversationId] = List<ChatMessage>.unmodifiable(cached);
           notifyListeners();
         }
       } catch (_) {}
@@ -532,7 +530,7 @@ class ChatStore extends ChangeNotifier {
     }
     final result = byId.values.toList();
     result.sort((left, right) => left.sequence.compareTo(right.sequence));
-    return result;
+    return List<ChatMessage>.unmodifiable(result);
   }
 
   static String _keyFor(SessionProfile profile) {

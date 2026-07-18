@@ -242,19 +242,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       );
     }
     final profile = AppSession.instance.profile;
-    final children = <Widget>[];
+    final timeline = <_ChatTimelineItem>[];
     if (store.hasMoreMessages(widget.conversation.conversationId)) {
-      children.add(
-        Center(
-          child: TextButton.icon(
-            onPressed: () => store.loadOlderMessages(
-              widget.conversation.conversationId,
-            ),
-            icon: const Icon(Icons.expand_less_rounded),
-            label: const Text('Oldingi xabarlar'),
-          ),
-        ),
-      );
+      timeline.add(const _ChatTimelineItem.loadOlder());
     }
     for (var index = 0; index < messages.length; index++) {
       final message = messages[index];
@@ -290,11 +280,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           createdAt.month != previousCreatedAt.month ||
           createdAt.day != previousCreatedAt.day;
       if (newDay) {
-        children.add(ChatDateDivider(date: createdAt));
+        timeline.add(_ChatTimelineItem.dateDivider(createdAt));
       }
-      children.add(
-        ChatMessageBubble(
-          message: message,
+      timeline.add(
+        _ChatTimelineItem.message(
+          message,
           mine: profile != null && message.isMine(profile),
           compactTop: groupedWithPrevious,
           isLastInGroup: !groupedWithNext,
@@ -302,14 +292,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       );
     }
     for (final pending in pendingMedia) {
-      children.add(
-        ChatPendingMediaBubble(
-          key: ValueKey(pending.localId),
-          pending: pending,
-          onRetry: () => store.retryMedia(pending.localId),
-          onCancel: () => store.cancelMedia(pending.localId),
-        ),
-      );
+      timeline.add(_ChatTimelineItem.pendingMedia(pending));
     }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
@@ -317,11 +300,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         onNotification: _handleScrollMetricsNotification,
         child: NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
-          child: ListView(
+          child: ListView.builder(
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: children,
+            itemCount: timeline.length,
+            itemBuilder: (context, index) {
+              final item = timeline[index];
+              switch (item.kind) {
+                case _ChatTimelineItemKind.loadOlder:
+                  return Center(
+                    child: TextButton.icon(
+                      onPressed: () => store.loadOlderMessages(
+                        widget.conversation.conversationId,
+                      ),
+                      icon: const Icon(Icons.expand_less_rounded),
+                      label: const Text('Oldingi xabarlar'),
+                    ),
+                  );
+                case _ChatTimelineItemKind.dateDivider:
+                  return ChatDateDivider(date: item.date!);
+                case _ChatTimelineItemKind.message:
+                  final message = item.message!;
+                  return ChatMessageBubble(
+                    key: ValueKey(message.messageId),
+                    message: message,
+                    mine: item.mine,
+                    compactTop: item.compactTop,
+                    isLastInGroup: item.isLastInGroup,
+                  );
+                case _ChatTimelineItemKind.pendingMedia:
+                  final pending = item.pendingMedia!;
+                  return ChatPendingMediaBubble(
+                    key: ValueKey(pending.localId),
+                    pending: pending,
+                    onRetry: () => store.retryMedia(pending.localId),
+                    onCancel: () => store.cancelMedia(pending.localId),
+                  );
+              }
+            },
           ),
         ),
       ),
@@ -436,6 +453,60 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       arguments: participant,
     );
   }
+}
+
+enum _ChatTimelineItemKind {
+  loadOlder,
+  dateDivider,
+  message,
+  pendingMedia,
+}
+
+class _ChatTimelineItem {
+  const _ChatTimelineItem.loadOlder()
+      : kind = _ChatTimelineItemKind.loadOlder,
+        date = null,
+        message = null,
+        pendingMedia = null,
+        mine = false,
+        compactTop = false,
+        isLastInGroup = false;
+
+  const _ChatTimelineItem.dateDivider(DateTime value)
+      : kind = _ChatTimelineItemKind.dateDivider,
+        date = value,
+        message = null,
+        pendingMedia = null,
+        mine = false,
+        compactTop = false,
+        isLastInGroup = false;
+
+  const _ChatTimelineItem.message(
+    ChatMessage value, {
+    required this.mine,
+    required this.compactTop,
+    required this.isLastInGroup,
+  })  : kind = _ChatTimelineItemKind.message,
+        date = null,
+        message = value,
+        pendingMedia = null;
+
+  const _ChatTimelineItem.pendingMedia(ChatPendingMedia value)
+      : kind = _ChatTimelineItemKind.pendingMedia,
+        date = null,
+        message = null,
+        pendingMedia = value,
+        mine = false,
+        compactTop = false,
+        isLastInGroup = false;
+
+  final _ChatTimelineItemKind kind;
+  final DateTime? date;
+  final ChatMessage? message;
+  final ChatPendingMedia? pendingMedia;
+  final bool mine;
+  final bool compactTop;
+  final bool isLastInGroup;
 }
 
 class _MediaPickerSelection {
