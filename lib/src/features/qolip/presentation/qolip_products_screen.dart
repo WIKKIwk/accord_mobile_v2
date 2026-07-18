@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../shared/models/app_models.dart';
+import '../state/qolip_data_revision.dart';
 import 'qolip_home_screen.dart'
     show qolipPrinterChoiceForDriver, showQolipPrinterPicker;
 import 'widgets/qolip_dock.dart';
@@ -176,6 +177,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       if (!mounted) {
         return;
       }
+      QolipDataRevision.notifyLocationsChanged();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$deleted ta qolip o‘chirildi')),
       );

@@ -25,6 +25,7 @@ import '../../gscale/gscale_mobile_app.dart'
         printTargetLabel;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
@@ -48,13 +49,22 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
   void initState() {
     super.initState();
     _blocksFuture = _loadBlocks();
+    QolipDataRevision.locations.addListener(_handleLocationsChanged);
   }
 
   @override
   void dispose() {
+    QolipDataRevision.locations.removeListener(_handleLocationsChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleLocationsChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(_locations.clear);
   }
 
   Future<QolipBlocksResult> _loadBlocks() async {
