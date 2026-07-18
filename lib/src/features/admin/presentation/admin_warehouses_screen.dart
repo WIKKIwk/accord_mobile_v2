@@ -273,13 +273,15 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     });
   }
 
-  void _goBackFromMaterialSearch() {
+  void _goBackFromSearch() {
     final nav = Navigator.of(context);
     if (nav.canPop()) {
       nav.pop();
       return;
     }
-    nav.pushReplacementNamed(AppRoutes.materialHome);
+    nav.pushReplacementNamed(
+      _materialScoped ? AppRoutes.materialHome : AppRoutes.adminHome,
+    );
   }
 
   Future<void> _openWarehouseCreateDialog() async {
@@ -313,29 +315,25 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               selectedRouteName: AppRoutes.adminWarehouses,
               onNavigate: _openDrawerRoute,
             ),
-      title: materialScoped ? '' : 'Ombor',
+      title: 'Ombor',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      automaticallyImplyNativeLeading: !materialScoped,
-      profileActionListenable:
-          materialScoped ? _materialItemsSearchFocusNode : null,
-      showProfileActionResolver:
-          materialScoped ? () => !_materialItemsSearchFocusNode.hasFocus : null,
-      titleWidget: materialScoped
-          ? AdminCatalogSearchField(
-              controller: _materialItemsSearchController,
-              focusNode: _materialItemsSearchFocusNode,
-              hintText: 'Ombordagi mahsulotni qidirish',
-              onChanged: (value) => _warehouseDetailsKey.currentState
-                  ?.handleItemsSearchChanged(value),
-              onClear: () {
-                _materialItemsSearchController.clear();
-                _warehouseDetailsKey.currentState?.handleItemsSearchChanged('');
-              },
-              onBack: _goBackFromMaterialSearch,
-            )
-          : null,
+      automaticallyImplyNativeLeading: false,
+      profileActionListenable: _materialItemsSearchFocusNode,
+      showProfileActionResolver: () => !_materialItemsSearchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: _materialItemsSearchController,
+        focusNode: _materialItemsSearchFocusNode,
+        hintText: 'Ombordagi mahsulotni qidirish',
+        onChanged: (value) =>
+            _warehouseDetailsKey.currentState?.handleItemsSearchChanged(value),
+        onClear: () {
+          _materialItemsSearchController.clear();
+          _warehouseDetailsKey.currentState?.handleItemsSearchChanged('');
+        },
+        onBack: _goBackFromSearch,
+      ),
       bottom: materialScoped
           ? const MaterialTaminotchiDock()
           : AdminDock(
@@ -362,14 +360,13 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           final data = snapshot.data ?? _WarehouseSummaryData.empty;
           final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
           final productsTab = _WarehouseDetailsTab(
-            key: materialScoped ? _warehouseDetailsKey : null,
+            key: _warehouseDetailsKey,
             summaries: data.sections,
             warehouse: _selectedWarehouse,
             detailFuture: _detailFuture,
             bottomPadding: bottomPadding,
             filterExpanded: _warehouseFilterExpanded,
-            searchController:
-                materialScoped ? _materialItemsSearchController : null,
+            searchController: _materialItemsSearchController,
             onFilterToggle: () {
               setState(() {
                 _warehouseFilterExpanded = !_warehouseFilterExpanded;

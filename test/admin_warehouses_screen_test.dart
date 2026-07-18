@@ -126,8 +126,12 @@ void main() {
       }
     }
 
-    expect(find.text('Ombor'), findsOneWidget);
+    expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
     expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Ombordagi mahsulotni qidirish')).dy,
+      lessThan(tester.getTopLeft(find.byKey(_warehouseFilterKey)).dy),
+    );
 
     await _openWarehouseFilter(tester);
     expect(find.text('Tayyor mahsulot ombori - DEMO'), findsOneWidget);
@@ -191,7 +195,7 @@ void main() {
       }
     }
 
-    expect(find.text('Ombor'), findsOneWidget);
+    expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
     expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
     expect(find.byKey(_primaryNavigationButtonKey), findsOneWidget);
 
