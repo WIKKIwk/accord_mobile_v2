@@ -1,16 +1,17 @@
 import '../../../core/search/search_normalizer.dart';
 import '../../shared/models/app_models.dart';
 
-typedef CalculateAllProductPageLoader =
-    Future<List<SupplierItem>> Function({
-      String query,
-      String group,
-      int limit,
-      int offset,
-    });
+typedef CalculateAllProductPageLoader = Future<List<SupplierItem>> Function({
+  String query,
+  String group,
+  int limit,
+  int offset,
+});
 
-typedef CalculateCustomerDetailLoader =
-    Future<AdminCustomerDetail> Function(String customerRef);
+typedef CalculateCustomerDetailLoader = Future<AdminCustomerDetail> Function(
+    String customerRef);
+
+const String kCalculateFinishedProductGroup = 'Tayyor mahsulot';
 
 Future<List<SupplierItem>> loadCalculateProductPickerPage({
   required String customerRef,
@@ -27,13 +28,14 @@ Future<List<SupplierItem>> loadCalculateProductPickerPage({
     final filtered = detail.assignedItems
         .where(
           (item) =>
-              normalizedQuery.isEmpty ||
-              searchMatches(normalizedQuery, [
-                item.name,
-                item.code,
-                item.uom,
-                item.warehouse,
-              ]),
+              _isCalculateFinishedProduct(item) &&
+              (normalizedQuery.isEmpty ||
+                  searchMatches(normalizedQuery, [
+                    item.name,
+                    item.code,
+                    item.uom,
+                    item.warehouse,
+                  ])),
         )
         .toList(growable: false);
     if (offset >= filtered.length) {
@@ -44,5 +46,15 @@ Future<List<SupplierItem>> loadCalculateProductPickerPage({
         : offset + limit;
     return filtered.sublist(offset, end);
   }
-  return allItems(query: query, offset: offset, limit: limit);
+  final items = await allItems(
+    query: query,
+    group: kCalculateFinishedProductGroup,
+    offset: offset,
+    limit: limit,
+  );
+  return items.where(_isCalculateFinishedProduct).toList(growable: false);
 }
+
+bool _isCalculateFinishedProduct(SupplierItem item) =>
+    item.itemGroup.trim().toLowerCase() ==
+    kCalculateFinishedProductGroup.toLowerCase();

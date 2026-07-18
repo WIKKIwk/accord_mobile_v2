@@ -29,18 +29,21 @@ void main() {
               name: 'Customer first',
               uom: 'Kg',
               warehouse: '',
+              itemGroup: 'Tayyor mahsulot',
             ),
             SupplierItem(
               code: 'ITEM-2',
               name: 'Customer second',
               uom: 'Kg',
               warehouse: '',
+              itemGroup: 'Tayyor mahsulot',
             ),
             SupplierItem(
               code: 'NOPE',
-              name: 'Other item',
+              name: 'Customer raw material',
               uom: 'Kg',
               warehouse: '',
+              itemGroup: 'Homashyo',
             ),
           ],
         );
@@ -89,6 +92,7 @@ void main() {
                 name: 'Customer item',
                 uom: 'Kg',
                 warehouse: '',
+                itemGroup: 'Tayyor mahsulot',
               ),
             ],
           );
@@ -125,6 +129,7 @@ void main() {
       allItems: ({query = '', group = '', limit = 80, offset = 0}) async {
         allCalls++;
         expect(query, 'cpp');
+        expect(group, 'Tayyor mahsulot');
         expect(offset, 0);
         expect(limit, 80);
         return const [
@@ -133,6 +138,14 @@ void main() {
             name: 'All item',
             uom: 'Kg',
             warehouse: '',
+            itemGroup: 'Tayyor mahsulot',
+          ),
+          SupplierItem(
+            code: 'ITEM-RAW',
+            name: 'Raw item',
+            uom: 'Kg',
+            warehouse: '',
+            itemGroup: 'Homashyo',
           ),
         ];
       },

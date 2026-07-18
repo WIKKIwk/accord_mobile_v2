@@ -26,7 +26,7 @@ class TestModeDemoData {
       name: 'Hotlunch',
       uom: 'Dona',
       warehouse: 'Tayyor mahsulot ombori - DEMO',
-      itemGroup: 'Demo tayyor mahsulotlar',
+      itemGroup: 'Tayyor mahsulot',
     ),
     SupplierItem(
       code: 'DEMO-CPP',
@@ -54,7 +54,7 @@ class TestModeDemoData {
       name: 'Salat set',
       uom: 'Dona',
       warehouse: 'Tayyor mahsulot ombori - DEMO',
-      itemGroup: 'Demo tayyor mahsulotlar',
+      itemGroup: 'Tayyor mahsulot',
     ),
     SupplierItem(
       code: 'DEMO-DRINK',

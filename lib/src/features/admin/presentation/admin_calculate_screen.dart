@@ -550,8 +550,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           supportingText:
               _customer.text.trim().isEmpty ? null : _customer.text.trim(),
           cacheKey: _customerRef.trim().isEmpty
-              ? 'calculate:items'
-              : 'calculate:customer-items:${_customerRef.trim()}',
+              ? 'calculate:finished-items:v1'
+              : 'calculate:customer-finished-items:v1:${_customerRef.trim()}',
           loadPage: (query, offset, limit) {
             return loadCalculateProductPickerPage(
               customerRef: _customerRef,
@@ -559,7 +559,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               offset: offset,
               limit: limit,
               customerDetail: MobileApi.instance.adminCustomerDetail,
-              allItems: MobileApi.instance.gscaleItemsPage,
+              allItems: MobileApi.instance.adminItemsPage,
             );
           },
           itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,

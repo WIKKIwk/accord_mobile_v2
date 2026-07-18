@@ -89,6 +89,8 @@ void main() {
 
     await tester.tap(find.text('Mahsulot'));
     await tester.pumpAndSettle();
+    expect(find.text('CPP sous'), findsNothing);
+    expect(find.text('Demo kraska'), findsNothing);
     await tester.tap(find.text('Hotlunch').last);
     await tester.pumpAndSettle();
 
