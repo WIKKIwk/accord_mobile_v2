@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import '../../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -100,13 +98,11 @@ class _SharedHeaderFlight extends StatelessWidget {
                 title: from.title,
                 shiftX: _lerpDouble(0, leavingShift, t),
                 opacity: _lerpDouble(1, 0, Curves.easeOut.transform(t)),
-                blurSigma: _lerpDouble(0, 6, Curves.easeOut.transform(t)),
               ),
               _AnimatedFlightTitle(
                 title: to.title,
                 shiftX: _lerpDouble(enteringStartShift, 0, t),
                 opacity: _lerpDouble(0, 1, Curves.easeIn.transform(t)),
-                blurSigma: _lerpDouble(6, 0, Curves.easeOut.transform(t)),
               ),
             ],
           ),
@@ -121,39 +117,29 @@ class _AnimatedFlightTitle extends StatelessWidget {
     required this.title,
     required this.shiftX,
     required this.opacity,
-    required this.blurSigma,
   });
 
   final String title;
   final double shiftX;
   final double opacity;
-  final double blurSigma;
 
   @override
   Widget build(BuildContext context) {
-    Widget child = ClipRect(
-      child: Transform.translate(
-        offset: Offset(shiftX, 0),
-        child: Text(
-          title,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.visible,
-          style: AppTheme.pageTitleStyle(context),
+    return Opacity(
+      opacity: opacity.clamp(0.0, 1.0),
+      child: ClipRect(
+        child: Transform.translate(
+          offset: Offset(shiftX, 0),
+          child: Text(
+            title,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+            style: AppTheme.pageTitleStyle(context),
+          ),
         ),
       ),
     );
-
-    if (blurSigma > 0.01) {
-      child = ClipRect(
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-          child: child,
-        ),
-      );
-    }
-
-    return Opacity(opacity: opacity.clamp(0.0, 1.0), child: child);
   }
 }
 
