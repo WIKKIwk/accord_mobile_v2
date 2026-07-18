@@ -24,8 +24,19 @@ import 'package:flutter/material.dart';
 
 const double _rawMaterialAssignmentPanelGap = 4;
 
+class AdminRawMaterialAssignmentArgs {
+  const AdminRawMaterialAssignmentArgs({required this.initialBarcode});
+
+  final String initialBarcode;
+}
+
 class AdminRawMaterialAssignmentScreen extends StatelessWidget {
-  const AdminRawMaterialAssignmentScreen({super.key});
+  const AdminRawMaterialAssignmentScreen({
+    super.key,
+    this.initialBarcode = '',
+  });
+
+  final String initialBarcode;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +79,7 @@ class AdminRawMaterialAssignmentScreen extends StatelessWidget {
       child: AdminRawMaterialAssignmentPanel(
         bottomPadding: bottomPadding,
         groupScopeReady: hasMaterialGroupScope,
+        initialBarcode: initialBarcode,
       ),
     );
   }
@@ -78,10 +90,12 @@ class AdminRawMaterialAssignmentPanel extends StatefulWidget {
     super.key,
     required this.bottomPadding,
     this.groupScopeReady = true,
+    this.initialBarcode = '',
   });
 
   final double bottomPadding;
   final bool groupScopeReady;
+  final String initialBarcode;
 
   @override
   State<AdminRawMaterialAssignmentPanel> createState() =>
@@ -100,6 +114,7 @@ class _AdminRawMaterialAssignmentPanelState
   bool _saving = false;
   String? _expandedAssignmentKey;
   String _unlinkingAssignmentKey = '';
+  bool _initialBarcodeHandled = false;
 
   @override
   void initState() {
@@ -107,14 +122,32 @@ class _AdminRawMaterialAssignmentPanelState
     _future = widget.groupScopeReady
         ? _load()
         : Future.value(const _RawMaterialAssignmentData.empty());
+    _scheduleInitialBarcodeLookup();
   }
 
   @override
   void didUpdateWidget(covariant AdminRawMaterialAssignmentPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialBarcode.trim() != widget.initialBarcode.trim()) {
+      _initialBarcodeHandled = false;
+    }
     if (!oldWidget.groupScopeReady && widget.groupScopeReady) {
       _future = _load();
     }
+    _scheduleInitialBarcodeLookup();
+  }
+
+  void _scheduleInitialBarcodeLookup() {
+    final barcode = widget.initialBarcode.trim();
+    if (_initialBarcodeHandled || !widget.groupScopeReady || barcode.isEmpty) {
+      return;
+    }
+    _initialBarcodeHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _lookupScannedBarcode(barcode);
+      }
+    });
   }
 
   Future<_RawMaterialAssignmentData> _load() async {
@@ -195,7 +228,14 @@ class _AdminRawMaterialAssignmentPanelState
     if (!mounted || barcode == null || barcode.trim().isEmpty) {
       return;
     }
+    await _lookupScannedBarcode(barcode);
+  }
+
+  Future<void> _lookupScannedBarcode(String barcode) async {
     final normalized = rawMaterialBarcodeFromQr(barcode);
+    if (normalized.isEmpty) {
+      return;
+    }
     setState(() {
       _scannedBarcode = normalized;
       _scannedMaterial = null;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
@@ -117,6 +118,71 @@ void main() {
       expect(find.text('Miqdori'), findsOneWidget);
       expect(find.text('12 Kg'), findsOneWidget);
       expect(find.text('Item code'), findsOneWidget);
+      expect(find.text('INK-BLACK'), findsOneWidget);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
+
+  testWidgets('assignment screen looks up route-prefilled barcode', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-PREFILL',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+      assignedItemGroups: ['Kraska'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          onGenerateInitialRoutes: (_) => [
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: '/test-assignment-entry'),
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      AppRoutes.adminRawMaterialAssignments,
+                      arguments: const AdminRawMaterialAssignmentArgs(
+                        initialBarcode: '30AA',
+                      ),
+                    ),
+                    child: const Text('Open assignment'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          onGenerateRoute: AppRouter.onGenerateRoute,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open assignment'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA',
+        ),
+      );
+      expect(find.text('Homashyo ma’lumoti'), findsOneWidget);
+      expect(find.text('Black ink'), findsOneWidget);
+      expect(find.text('12 Kg'), findsOneWidget);
       expect(find.text('INK-BLACK'), findsOneWidget);
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });

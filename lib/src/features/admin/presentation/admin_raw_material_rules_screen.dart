@@ -36,9 +36,11 @@ class AdminRawMaterialSettingsScreen extends StatefulWidget {
   const AdminRawMaterialSettingsScreen({
     super.key,
     this.initialTab = AdminRawMaterialSettingsTab.assignments,
+    this.initialBarcode = '',
   });
 
   final AdminRawMaterialSettingsTab initialTab;
+  final String initialBarcode;
 
   @override
   State<AdminRawMaterialSettingsScreen> createState() =>
@@ -302,6 +304,7 @@ class _AdminRawMaterialSettingsScreenState
         child: AdminRawMaterialAssignmentPanel(
           bottomPadding: bottomPadding,
           groupScopeReady: hasMaterialGroupScope,
+          initialBarcode: widget.initialBarcode,
         ),
       );
     }
@@ -347,6 +350,7 @@ class _AdminRawMaterialSettingsScreenState
                   children: [
                     AdminRawMaterialAssignmentPanel(
                       bottomPadding: bottomPadding,
+                      initialBarcode: widget.initialBarcode,
                     ),
                     ColoredBox(
                       color: AppTheme.shellStart(context),

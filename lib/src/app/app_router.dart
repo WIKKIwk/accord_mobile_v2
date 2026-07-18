@@ -26,6 +26,7 @@ import '../features/admin/presentation/admin_notifications_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_progress_qr_scan_screen.dart';
+import '../features/admin/presentation/admin_raw_material_assignment_screen.dart';
 import '../features/admin/presentation/admin_production_map_test_screen.dart';
 import '../features/admin/presentation/admin_production_map_orders_screen.dart';
 import '../features/admin/presentation/admin_raw_material_rules_screen.dart';
@@ -535,10 +536,14 @@ class AppRouter {
       case AppRoutes.adminRawMaterialRules:
         return _buildRoute(settings, const AdminRawMaterialSettingsScreen());
       case AppRoutes.adminRawMaterialAssignments:
+        final args = settings.arguments;
         return _buildRoute(
           settings,
-          const AdminRawMaterialSettingsScreen(
+          AdminRawMaterialSettingsScreen(
             initialTab: AdminRawMaterialSettingsTab.assignments,
+            initialBarcode: args is AdminRawMaterialAssignmentArgs
+                ? args.initialBarcode
+                : '',
           ),
         );
       case AppRoutes.adminApparatusCreate:

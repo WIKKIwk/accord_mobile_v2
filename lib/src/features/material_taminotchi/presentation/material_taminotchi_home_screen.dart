@@ -6,6 +6,8 @@ import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/admin_raw_material_assignment_screen.dart';
+import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'widgets/material_taminotchi_dock.dart';
 import 'widgets/material_taminotchi_navigation_drawer.dart';
 import 'package:flutter/material.dart';
@@ -140,6 +142,27 @@ class _MaterialTaminotchiHomeScreenState
     Navigator.of(context).pushNamed(route);
   }
 
+  Future<void> _scanRawMaterial(bool hasMaterialGroupScope) async {
+    if (!hasMaterialGroupScope) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Avval material guruhlari biriktirilishi kerak'),
+        ),
+      );
+      return;
+    }
+    final barcode = await showRawMaterialScanDialog(context);
+    if (!mounted || barcode == null || barcode.trim().isEmpty) {
+      return;
+    }
+    Navigator.of(context).pushNamed(
+      AppRoutes.adminRawMaterialAssignments,
+      arguments: AdminRawMaterialAssignmentArgs(
+        initialBarcode: rawMaterialBarcodeFromQr(barcode),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = AppSession.instance.profile;
@@ -161,29 +184,45 @@ class _MaterialTaminotchiHomeScreenState
       bottom: const MaterialTaminotchiDock(
         activeTab: MaterialTaminotchiDockTab.home,
       ),
-      child: AppRefreshIndicator(
-        onRefresh: _refreshProfile,
-        allowRefreshOnShortContent: true,
-        child: ListView(
-          physics: const TopRefreshScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
-          children: [
-            if (!hasMaterialGroupScope) ...[
-              const SmoothAppear(
-                delay: Duration(milliseconds: 20),
-                child: _MaterialScopeNotice(),
-              ),
-              const SizedBox(height: 14),
-            ],
-            SmoothAppear(
-              delay: const Duration(milliseconds: 40),
-              child: _MaterialActionPanel(
-                hasMaterialGroupScope: hasMaterialGroupScope,
-                onOpenRoute: _openRoute,
+      child: Stack(
+        children: [
+          AppRefreshIndicator(
+            onRefresh: _refreshProfile,
+            allowRefreshOnShortContent: true,
+            child: ListView(
+              physics: const TopRefreshScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPadding),
+              children: [
+                if (!hasMaterialGroupScope) ...[
+                  const SmoothAppear(
+                    delay: Duration(milliseconds: 20),
+                    child: _MaterialScopeNotice(),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                SmoothAppear(
+                  delay: const Duration(milliseconds: 40),
+                  child: _MaterialActionPanel(
+                    hasMaterialGroupScope: hasMaterialGroupScope,
+                    onOpenRoute: _openRoute,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments))
+            PositionedDirectional(
+              end: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                key: const ValueKey('material-raw-material-scan-fab'),
+                heroTag: 'material-raw-material-scan',
+                tooltip: 'Homashyo QR scan',
+                onPressed: () => _scanRawMaterial(hasMaterialGroupScope),
+                child: const Icon(Icons.qr_code_scanner_rounded),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
