@@ -17,7 +17,12 @@ class QolipRawQrScanScreen extends _QolipQrScanScreen {
   const QolipRawQrScanScreen({super.key}) : super._(mode: _QolipQrScanMode.raw);
 }
 
-enum _QolipQrScanMode { cell, raw }
+class QolipUniversalQrScanScreen extends _QolipQrScanScreen {
+  const QolipUniversalQrScanScreen({super.key})
+      : super._(mode: _QolipQrScanMode.universal);
+}
+
+enum _QolipQrScanMode { cell, raw, universal }
 
 class _QolipQrScanScreen extends StatefulWidget {
   const _QolipQrScanScreen._({super.key, required this.mode});
@@ -35,21 +40,28 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
   late String _statusText = _initialStatusText;
 
   String get _initialStatusText {
-    return widget.mode == _QolipQrScanMode.cell
-        ? 'Yachayka QR kodini ramkaga keltiring'
-        : 'Qolip QR kodini ramkaga keltiring';
+    return switch (widget.mode) {
+      _QolipQrScanMode.cell => 'Yachayka QR kodini ramkaga keltiring',
+      _QolipQrScanMode.raw => 'Qolip QR kodini ramkaga keltiring',
+      _QolipQrScanMode.universal =>
+        'Qolip yoki yachayka QR kodini ramkaga keltiring',
+    };
   }
 
   String get _checkingStatusText {
-    return widget.mode == _QolipQrScanMode.cell
-        ? 'Yachayka tekshirilmoqda...'
-        : 'Qolip QR o‘qilmoqda...';
+    return switch (widget.mode) {
+      _QolipQrScanMode.cell => 'Yachayka tekshirilmoqda...',
+      _QolipQrScanMode.raw => 'Qolip QR o‘qilmoqda...',
+      _QolipQrScanMode.universal => 'QR o‘qilmoqda...',
+    };
   }
 
   String get _title {
-    return widget.mode == _QolipQrScanMode.cell
-        ? 'Yachayka scan'
-        : 'Qolip scan';
+    return switch (widget.mode) {
+      _QolipQrScanMode.cell => 'Yachayka scan',
+      _QolipQrScanMode.raw => 'Qolip scan',
+      _QolipQrScanMode.universal => 'QR scan',
+    };
   }
 
   @override
@@ -139,7 +151,7 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
     await _stopScanner();
 
     try {
-      if (widget.mode == _QolipQrScanMode.raw) {
+      if (widget.mode != _QolipQrScanMode.cell) {
         if (!mounted) {
           return;
         }
@@ -344,6 +356,9 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
                 ],
               )
             : _UnsupportedScannerView(
+                message: widget.mode == _QolipQrScanMode.universal
+                    ? 'Bu qurilmada QR scanner qo‘llab-quvvatlanmadi.'
+                    : 'Bu qurilmada yachayka QR scanner qo‘llab-quvvatlanmadi.',
                 onBack: () => Navigator.of(context).maybePop(),
               ),
       ),
@@ -483,8 +498,9 @@ class _ScannerErrorView extends StatelessWidget {
 }
 
 class _UnsupportedScannerView extends StatelessWidget {
-  const _UnsupportedScannerView({required this.onBack});
+  const _UnsupportedScannerView({required this.message, required this.onBack});
 
+  final String message;
   final VoidCallback onBack;
 
   @override
@@ -492,7 +508,7 @@ class _UnsupportedScannerView extends StatelessWidget {
     return _ScannerFallbackPanel(
       icon: Icons.qr_code_scanner_rounded,
       title: 'Scanner mavjud emas',
-      message: 'Bu qurilmada yachayka QR scanner qo‘llab-quvvatlanmadi.',
+      message: message,
       actionLabel: 'Orqaga',
       onAction: onBack,
     );

@@ -931,6 +931,94 @@ extension MobileApiQolip on MobileApi {
       (data['cell_qr'] as Map).cast<String, dynamic>(),
     );
   }
+
+  Future<QolipScanResult> qolipScanQr(String qrPayload) async {
+    final qr = qrPayload.trim();
+    if (qr.isEmpty) {
+      throw const MobileApiException(
+        code: 'qolip_qr_required',
+        message: 'QR bo‘sh.',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      try {
+        final cell = await qolipCellQrLookup(qr);
+        return QolipScanResult.fromJson({
+          'kind': 'cell',
+          'cell_qr': {
+            'id': cell.id,
+            'block': cell.block,
+            'warehouse': cell.warehouse,
+            'row_letter': cell.rowLetter,
+            'column_number': cell.columnNumber,
+            'location_label': cell.locationLabel,
+            'qr_payload': cell.qrPayload,
+          },
+        });
+      } on MobileApiException catch (error) {
+        if (error.code != 'qolip_cell_qr_not_found') {
+          rethrow;
+        }
+      }
+      final product = await qolipProductByQr(qr);
+      QolipLocationEntry? location;
+      for (final block in await qolipBlocks()) {
+        for (final item in await qolipLocations(block.name)) {
+          if (item.qolipCode.trim().toLowerCase() == qr.toLowerCase()) {
+            location = item;
+            break;
+          }
+        }
+        if (location != null) {
+          break;
+        }
+      }
+      return QolipScanResult.fromJson({
+        'kind': 'qolip',
+        'product': {
+          'code': product.code,
+          'name': product.name,
+          'item_group': product.itemGroup,
+          'qolip_code': product.qolipCode,
+          'size': product.qolipSize,
+          'has_qolip_spec': product.hasQolipSpec,
+        },
+        if (location != null)
+          'location': {
+            'id': location.id,
+            'block': location.block,
+            'warehouse': location.warehouse,
+            'item_code': location.itemCode,
+            'item_name': location.itemName,
+            'qolip_code': location.qolipCode,
+            'size': location.size,
+            'quantity': location.quantity,
+            'row_letter': location.rowLetter,
+            'column_number': location.columnNumber,
+            'location_label': location.locationLabel,
+          },
+      });
+    }
+
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/scan').replace(
+          queryParameters: {'qr': qr},
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_scan_failed',
+        fallbackMessage: 'QR bo‘yicha qolip yoki yacheyka topilmadi.',
+      );
+    }
+    return QolipScanResult.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
 }
 
 class QolipCellQrPrintResult {

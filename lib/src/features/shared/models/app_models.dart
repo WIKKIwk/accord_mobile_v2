@@ -404,6 +404,45 @@ class QolipCellQr {
   }
 }
 
+enum QolipScanKind { cell, qolip }
+
+class QolipScanResult {
+  const QolipScanResult._({
+    required this.kind,
+    this.cellQr,
+    this.product,
+    this.location,
+  });
+
+  factory QolipScanResult.fromJson(Map<String, dynamic> json) {
+    final kind = json['kind']?.toString().trim().toLowerCase();
+    if (kind == 'cell') {
+      return QolipScanResult._(
+        kind: QolipScanKind.cell,
+        cellQr: QolipCellQr.fromJson(
+          (json['cell_qr'] as Map).cast<String, dynamic>(),
+        ),
+      );
+    }
+    return QolipScanResult._(
+      kind: QolipScanKind.qolip,
+      product: QolipProduct.fromJson(
+        (json['product'] as Map).cast<String, dynamic>(),
+      ),
+      location: json['location'] is Map
+          ? QolipLocationEntry.fromJson(
+              (json['location'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+
+  final QolipScanKind kind;
+  final QolipCellQr? cellQr;
+  final QolipProduct? product;
+  final QolipLocationEntry? location;
+}
+
 class QolipWorkerOption {
   const QolipWorkerOption({
     required this.id,

@@ -399,39 +399,432 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
     }
   }
 
-  Future<void> _scanCellAndAttach(List<QolipBlock> blocks) async {
+  Future<void> _scanQolipOrCell(List<QolipBlock> blocks) async {
     if (blocks.isEmpty) {
       return;
     }
-    final cell = await Navigator.of(context).push<QolipCellQr>(
+    final qr = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (context) => const QolipCellQrScanScreen(),
+        builder: (context) => const QolipUniversalQrScanScreen(),
       ),
     );
-    if (cell == null || !mounted) {
+    if (qr == null || !mounted) {
       return;
     }
-    QolipBlock? matchedBlock;
+    try {
+      final result = await MobileApi.instance.qolipScanQr(qr);
+      if (!mounted) {
+        return;
+      }
+      switch (result.kind) {
+        case QolipScanKind.cell:
+          final cell = result.cellQr;
+          if (cell != null) {
+            await _openScannedCellActions(blocks, cell);
+          }
+        case QolipScanKind.qolip:
+          final product = result.product;
+          if (product != null) {
+            await _openScannedQolipActions(
+              blocks,
+              product,
+              result.location,
+            );
+          }
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message =
+          error is MobileApiException && error.code == 'qolip_code_not_found'
+              ? 'QR bo‘yicha qolip yoki yachayka topilmadi'
+              : qolipErrorMessage(
+                  error,
+                  fallback: 'QR tekshirish amalga oshmadi',
+                );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+  QolipBlock? _blockForCell(
+    List<QolipBlock> blocks,
+    QolipCellQr cell,
+  ) {
     for (final block in blocks) {
       if (block.name.trim().toLowerCase() == cell.block.trim().toLowerCase() &&
           block.warehouse.trim().toLowerCase() ==
               cell.warehouse.trim().toLowerCase()) {
-        matchedBlock = block;
-        break;
+        return block;
       }
     }
-    if (matchedBlock == null) {
+    return null;
+  }
+
+  Future<void> _openScannedCellActions(
+    List<QolipBlock> blocks,
+    QolipCellQr cell,
+  ) async {
+    final block = _blockForCell(blocks, cell);
+    if (block == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bu yachayka sizga biriktirilmagan')),
       );
       return;
     }
-    await _openAttachSheet(
-      blocks,
-      mode: _QolipAttachMode.cellPlacement,
-      initialBlock: matchedBlock,
-      rowLetter: cell.rowLetter,
-      columnNumber: cell.columnNumber,
+    final locations = await MobileApi.instance.qolipLocations(block.name);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _locations[block.name.trim().toLowerCase()] = Future.value(locations);
+    });
+    final cellItems = locations.where((item) {
+      return item.rowLetter.trim().toLowerCase() ==
+              cell.rowLetter.trim().toLowerCase() &&
+          item.columnNumber == cell.columnNumber;
+    }).toList(growable: false);
+    final action = await showModalBottomSheet<_ScannedCellAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Yachayka ${cell.locationLabel}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${block.name} • ${block.warehouse}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pop(_ScannedCellAction.placeQolip),
+                icon: const Icon(Icons.add_location_alt_rounded),
+                label: const Text('Qolip kiritish'),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: cellItems.isEmpty
+                    ? null
+                    : () =>
+                        Navigator.of(context).pop(_ScannedCellAction.takeQolip),
+                icon: const Icon(Icons.assignment_returned_rounded),
+                label: Text(
+                  cellItems.isEmpty
+                      ? 'Qolip olish — yachayka bo‘sh'
+                      : 'Qolip olish (${cellItems.length})',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+    if (action == _ScannedCellAction.placeQolip) {
+      await _openAttachSheet(
+        blocks,
+        mode: _QolipAttachMode.cellPlacement,
+        initialBlock: block,
+        rowLetter: cell.rowLetter,
+        columnNumber: cell.columnNumber,
+      );
+      return;
+    }
+    final selected = cellItems.length == 1
+        ? cellItems.single
+        : await _QolipBlockGrid._pickQolipLocation(
+            context,
+            title: '${cell.locationLabel} dan qolip tanlang',
+            options: cellItems,
+          );
+    if (selected != null && mounted) {
+      await _takeQolip(selected);
+    }
+  }
+
+  Future<void> _openScannedQolipActions(
+    List<QolipBlock> blocks,
+    QolipProduct product,
+    QolipLocationEntry? location,
+  ) async {
+    final action = await showModalBottomSheet<_ScannedQolipAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        final title =
+            product.name.trim().isEmpty ? product.qolipCode : product.name;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${product.qolipCode} • ${product.qolipSize}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Card.filled(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        location == null
+                            ? Icons.location_off_rounded
+                            : Icons.location_on_rounded,
+                        color: location == null ? scheme.error : scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          location == null
+                              ? 'Hozir yachaykaga joylashtirilmagan'
+                              : '${location.block} • ${location.locationLabel} • ${location.quantity} ta',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pop(_ScannedQolipAction.placeInCell),
+                icon: const Icon(Icons.add_location_alt_rounded),
+                label: Text(
+                  location == null
+                      ? 'Yachaykaga joylash'
+                      : 'Boshqa yachaykaga joylash',
+                ),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: location == null
+                    ? null
+                    : () => Navigator.of(context)
+                        .pop(_ScannedQolipAction.issueToWorker),
+                icon: const Icon(Icons.person_add_alt_1_rounded),
+                label: const Text('Ishchiga berish'),
+              ),
+              if (location == null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Ishchiga berishdan oldin qolipni yachaykaga joylang.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+    switch (action) {
+      case _ScannedQolipAction.placeInCell:
+        await _placeScannedQolip(blocks, product, location);
+      case _ScannedQolipAction.issueToWorker:
+        if (location != null) {
+          await _takeQolip(location);
+        }
+    }
+  }
+
+  Future<void> _placeScannedQolip(
+    List<QolipBlock> blocks,
+    QolipProduct product,
+    QolipLocationEntry? currentLocation,
+  ) async {
+    final method = await showModalBottomSheet<_QolipPlacementMethod>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Yachaykani qanday tanlaysiz?',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pop(_QolipPlacementMethod.scanCell),
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Yachayka QR scan'),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: () =>
+                    Navigator.of(context).pop(_QolipPlacementMethod.selectCell),
+                icon: const Icon(Icons.grid_view_rounded),
+                label: const Text('Ro‘yxatdan tanlash'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || method == null) {
+      return;
+    }
+
+    _QolipTargetCell? target;
+    if (method == _QolipPlacementMethod.scanCell) {
+      final cell = await Navigator.of(context).push<QolipCellQr>(
+        MaterialPageRoute(
+          builder: (context) => const QolipCellQrScanScreen(),
+        ),
+      );
+      if (cell != null && mounted) {
+        final block = _blockForCell(blocks, cell);
+        if (block == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bu yachayka sizga biriktirilmagan'),
+            ),
+          );
+          return;
+        }
+        target = _QolipTargetCell(
+          block: block,
+          rowLetter: cell.rowLetter,
+          columnNumber: cell.columnNumber,
+        );
+      }
+    } else {
+      final block = await _pickQolipBlock(blocks);
+      if (block != null && mounted) {
+        final label = await showQolipCellPickerSheet(
+          context,
+          title: '${block.name}: yachaykani tanlang',
+        );
+        final normalized = normalizeQolipCellLabel(label ?? '');
+        final columnNumber =
+            normalized == null ? null : int.tryParse(normalized.substring(1));
+        if (normalized != null && columnNumber != null) {
+          target = _QolipTargetCell(
+            block: block,
+            rowLetter: normalized.substring(0, 1),
+            columnNumber: columnNumber,
+          );
+        }
+      }
+    }
+    if (target == null || !mounted) {
+      return;
+    }
+    try {
+      await MobileApi.instance.qolipSaveLocation(
+        block: target.block,
+        product: product,
+        quantity: currentLocation?.quantity ?? 1,
+        rowLetter: target.rowLetter,
+        columnNumber: target.columnNumber,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (currentLocation != null) {
+        _refreshBlock(currentLocation.block);
+      }
+      _refreshBlock(target.block.name);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${product.qolipCode} ${target.block.name} • ${target.rowLetter}${target.columnNumber} ga joylandi',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(error, fallback: 'Qolip joylashtirilmadi'),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<QolipBlock?> _pickQolipBlock(List<QolipBlock> blocks) async {
+    if (blocks.length == 1) {
+      return blocks.single;
+    }
+    return showModalBottomSheet<QolipBlock>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        return ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          children: [
+            Text(
+              'Blokni tanlang',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            for (final block in blocks)
+              ListTile(
+                leading: const Icon(Icons.view_module_rounded),
+                title: Text(block.name),
+                subtitle: Text(block.warehouse),
+                onTap: () => Navigator.of(context).pop(block),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -628,9 +1021,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                   bottom: MediaQuery.viewPaddingOf(context).bottom + 176,
                   child: FloatingActionButton.extended(
                     heroTag: 'qolip-scan-cell-fab',
-                    onPressed: () => _scanCellAndAttach(data.blocks),
+                    onPressed: () => _scanQolipOrCell(data.blocks),
                     icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('Scan'),
+                    label: const Text('QR Scan'),
                   ),
                 ),
             ],
@@ -644,6 +1037,34 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
 enum _QolipFabAction { createBlock, attachQolip }
 
 enum _QolipAttachMode { productSpec, cellPlacement }
+
+enum _ScannedCellAction { placeQolip, takeQolip }
+
+enum _ScannedQolipAction { placeInCell, issueToWorker }
+
+enum _QolipPlacementMethod { scanCell, selectCell }
+
+class _QolipProductSelection {
+  const _QolipProductSelection({
+    required this.products,
+    required this.isMultiSelection,
+  });
+
+  final List<QolipProduct> products;
+  final bool isMultiSelection;
+}
+
+class _QolipTargetCell {
+  const _QolipTargetCell({
+    required this.block,
+    required this.rowLetter,
+    required this.columnNumber,
+  });
+
+  final QolipBlock block;
+  final String rowLetter;
+  final int columnNumber;
+}
 
 class _QolipBlockGrid extends StatelessWidget {
   const _QolipBlockGrid({
@@ -2300,6 +2721,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _size = TextEditingController();
   QolipBlock? _block;
   QolipProduct? _product;
+  List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   QolipProduct? _savedProductSpec;
   String? _rowLetter;
   int? _columnNumber;
@@ -2341,7 +2763,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   Future<void> _pickProduct() async {
-    final picked = await showModalBottomSheet<QolipProduct>(
+    final picked = await showModalBottomSheet<_QolipProductSelection>(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -2350,7 +2772,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (context) {
+      builder: (sheetContext) {
         final isCellPlacement = widget.mode == _QolipAttachMode.cellPlacement;
         return M3AsyncPickerSheet<QolipProduct>(
           title: isCellPlacement ? 'Qolip tanlang' : 'Tayyor mahsulot tanlang',
@@ -2397,17 +2819,38 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 .toList(growable: false);
             return filtered.join(' • ');
           },
-          onSelected: (item) => Navigator.of(context).pop(item),
+          onSelected: (item) => Navigator.of(sheetContext).pop(
+            _QolipProductSelection(
+              products: <QolipProduct>[item],
+              isMultiSelection: false,
+            ),
+          ),
+          onMultiSelected: isCellPlacement
+              ? (items) => Navigator.of(sheetContext).pop(
+                    _QolipProductSelection(
+                      products: items,
+                      isMultiSelection: true,
+                    ),
+                  )
+              : null,
+          itemKey: (item) => item.qolipCode.trim().toLowerCase(),
+          selectedCountLabel: (count) => '$count ta qolip tanlandi',
+          confirmSelectionTooltip: 'Tanlangan qoliplarni tasdiqlash',
         );
       },
     );
     if (picked != null && mounted) {
+      if (picked.isMultiSelection) {
+        await _confirmAndSaveSelectedProducts(picked.products);
+        return;
+      }
       setState(() {
-        _product = picked;
+        _product = picked.products.isEmpty ? null : picked.products.first;
+        _selectedProducts = picked.products;
         if (widget.mode == _QolipAttachMode.productSpec &&
-            picked.hasQolipSpec) {
-          _qolipCode.text = picked.qolipCode;
-          _size.text = picked.qolipSize > 0 ? '${picked.qolipSize}' : '';
+            _product?.hasQolipSpec == true) {
+          _qolipCode.text = _product!.qolipCode;
+          _size.text = _product!.qolipSize > 0 ? '${_product!.qolipSize}' : '';
         }
       });
     }
@@ -2427,7 +2870,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       if (!mounted) {
         return;
       }
-      setState(() => _product = product);
+      setState(() {
+        _product = product;
+        _selectedProducts = <QolipProduct>[product];
+      });
     } catch (_) {
       if (!mounted) {
         return;
@@ -2444,46 +2890,132 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     if (_saving || product == null) {
       return;
     }
+    if (widget.mode == _QolipAttachMode.cellPlacement) {
+      await _saveCellProducts(_selectedProducts);
+      return;
+    }
     setState(() => _saving = true);
     try {
-      if (widget.mode == _QolipAttachMode.productSpec) {
-        if (_qolipCode.text.trim().isEmpty || size == null || size <= 0) {
-          return;
-        }
-        final saved = await MobileApi.instance.qolipSaveProductSpec(
-          product: product,
-          qolipCode: _qolipCode.text,
-          size: size,
-        );
-        if (mounted) {
-          setState(() {
-            _product = saved;
-            _savedProductSpec = saved;
-            _qolipCode.text = saved.qolipCode;
-            _size.text = saved.qolipSize > 0 ? '${saved.qolipSize}' : '';
-          });
-        }
+      if (_qolipCode.text.trim().isEmpty || size == null || size <= 0) {
         return;
-      } else {
-        final block = _block;
-        final hasPartialLocation =
-            (_rowLetter == null) != (_columnNumber == null);
-        if (block == null || !product.hasQolipSpec || hasPartialLocation) {
-          return;
-        }
-        await MobileApi.instance.qolipSaveLocation(
-          block: block,
-          product: product,
-          quantity: 1,
-          rowLetter: _rowLetter ?? '',
-          columnNumber: _columnNumber,
-        );
       }
+      final saved = await MobileApi.instance.qolipSaveProductSpec(
+        product: product,
+        qolipCode: _qolipCode.text,
+        size: size,
+      );
       if (mounted) {
-        Navigator.of(context).pop(
-          widget.mode == _QolipAttachMode.cellPlacement ? _block : null,
-        );
+        setState(() {
+          _product = saved;
+          _selectedProducts = <QolipProduct>[saved];
+          _savedProductSpec = saved;
+          _qolipCode.text = saved.qolipCode;
+          _size.text = saved.qolipSize > 0 ? '${saved.qolipSize}' : '';
+        });
       }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _confirmAndSaveSelectedProducts(
+    List<QolipProduct> products,
+  ) async {
+    final block = _block;
+    final rowLetter = _rowLetter;
+    final columnNumber = _columnNumber;
+    if (block == null || rowLetter == null || columnNumber == null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Qoliplarni joylaysizmi?'),
+        content: Text(
+          '${products.length} ta tanlangan qolipni '
+          '${block.name} • $rowLetter$columnNumber yachaykaga joylaysizmi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Joylash'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _saveCellProducts(products);
+    }
+  }
+
+  Future<void> _saveCellProducts(List<QolipProduct> products) async {
+    final block = _block;
+    final rowLetter = _rowLetter;
+    final columnNumber = _columnNumber;
+    final validProducts = products
+        .where((product) => product.hasQolipSpec)
+        .toList(growable: false);
+    if (_saving ||
+        block == null ||
+        rowLetter == null ||
+        columnNumber == null ||
+        validProducts.isEmpty) {
+      return;
+    }
+    setState(() => _saving = true);
+    var savedCount = 0;
+    Object? firstError;
+    try {
+      for (final product in validProducts) {
+        try {
+          await MobileApi.instance.qolipSaveLocation(
+            block: block,
+            product: product,
+            quantity: 1,
+            rowLetter: rowLetter,
+            columnNumber: columnNumber,
+          );
+          savedCount++;
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      if (savedCount == validProducts.length) {
+        Navigator.of(context).pop(block);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              savedCount == 1
+                  ? '${validProducts.single.qolipCode} $rowLetter$columnNumber ga joylandi'
+                  : '$savedCount ta qolip $rowLetter$columnNumber ga joylandi',
+            ),
+          ),
+        );
+        return;
+      }
+      final failedCount = validProducts.length - savedCount;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            savedCount == 0
+                ? qolipErrorMessage(
+                    firstError ?? Exception('Qolip joylashtirilmadi'),
+                    fallback: 'Qoliplar joylashtirilmadi',
+                  )
+                : '$savedCount ta qolip joylandi, $failedCount tasi joylanmadi',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -2557,8 +3089,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           size > 0;
     }
     return _block != null &&
-        _product != null &&
-        _product!.hasQolipSpec &&
+        _selectedProducts.isNotEmpty &&
+        _selectedProducts.every((product) => product.hasQolipSpec) &&
         _rowLetter != null &&
         _columnNumber != null;
   }
@@ -2647,11 +3179,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     suffixIcon: const Icon(Icons.search_rounded),
                   ),
                   child: Text(
-                    _product == null
-                        ? widget.mode == _QolipAttachMode.cellPlacement
-                            ? 'Qolip code yoki mahsulot nomi'
-                            : 'Mahsulot nomi bilan qidirish'
-                        : _productLabel(_product!),
+                    _selectedProducts.length > 1
+                        ? '${_selectedProducts.length} ta qolip tanlandi'
+                        : _product == null
+                            ? widget.mode == _QolipAttachMode.cellPlacement
+                                ? 'Qolip code yoki mahsulot nomi'
+                                : 'Mahsulot nomi bilan qidirish'
+                            : _productLabel(_product!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2677,11 +3211,16 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   onChanged: (_) => setState(() {}),
                 ),
               ] else ...[
-                if (_product != null && _product!.hasQolipSpec) ...[
+                if (_selectedProducts.isNotEmpty &&
+                    _selectedProducts.every(
+                      (product) => product.hasQolipSpec,
+                    )) ...[
                   InputDecorator(
                     decoration: const InputDecoration(labelText: 'Qolip'),
                     child: Text(
-                      '${_product!.qolipCode} • ${_product!.qolipSize}',
+                      _selectedProducts.length == 1
+                          ? '${_selectedProducts.single.qolipCode} • ${_selectedProducts.single.qolipSize}'
+                          : '${_selectedProducts.length} ta qolip tanlandi',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

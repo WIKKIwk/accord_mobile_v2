@@ -94,6 +94,30 @@ void main() {
     }, createHttpClient: (_) => _QolipCellQrHttpClient(seenRequests));
   });
 
+  test('universal qolip scan resolves both qolip location and cell', () async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      final qolip = await MobileApi.instance.qolipScanQr('QOLIP-0007');
+      expect(qolip.kind, QolipScanKind.qolip);
+      expect(qolip.product?.qolipCode, 'QOLIP-0007');
+      expect(qolip.location?.locationLabel, 'C4');
+
+      final cell = await MobileApi.instance.qolipScanQr('CELL-QR-A3');
+      expect(cell.kind, QolipScanKind.cell);
+      expect(cell.cellQr?.locationLabel, 'A3');
+
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/qolip/scan?qr=QOLIP-0007'),
+      );
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/qolip/scan?qr=CELL-QR-A3'),
+      );
+    }, createHttpClient: (_) => _QolipCellQrHttpClient(seenRequests));
+  });
+
   test('qolip location save sends selected child qolip code and size',
       () async {
     final seenRequests = <String>[];
@@ -174,6 +198,60 @@ class _QolipCellQrHttpClient implements HttpClient {
                 'has_qolip_spec': true,
               },
             ],
+          }),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+
+    if (method == 'GET' && url.path == '/v1/mobile/qolip/scan') {
+      final qr = url.queryParameters['qr'];
+      if (qr == 'CELL-QR-A3') {
+        return _FakeHttpClientRequest(
+          response: _FakeHttpClientResponse(
+            body: jsonEncode({
+              'ok': true,
+              'kind': 'cell',
+              'cell_qr': {
+                'id': 'qolip-cell:qolip_ombor:a_blok:a:3',
+                'block': 'A blok',
+                'warehouse': 'Qolip ombor',
+                'row_letter': 'A',
+                'column_number': 3,
+                'location_label': 'A3',
+                'qr_payload': 'CELL-QR-A3',
+              },
+            }),
+            statusCode: HttpStatus.ok,
+          ),
+        );
+      }
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode({
+            'ok': true,
+            'kind': 'qolip',
+            'product': {
+              'code': 'ITEM-001',
+              'name': 'Kross qolip',
+              'item_group': 'Qolip',
+              'qolip_code': 'QOLIP-0007',
+              'size': 42,
+              'has_qolip_spec': true,
+            },
+            'location': {
+              'id': 'qolip:a:ITEM-001:QOLIP-0007:42:C:4',
+              'block': 'A blok',
+              'warehouse': 'Qolip ombor',
+              'item_code': 'ITEM-001',
+              'item_name': 'Kross qolip',
+              'qolip_code': 'QOLIP-0007',
+              'size': 42,
+              'quantity': 1,
+              'row_letter': 'C',
+              'column_number': 4,
+              'location_label': 'C4',
+            },
           }),
           statusCode: HttpStatus.ok,
         ),

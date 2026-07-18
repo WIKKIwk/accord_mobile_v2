@@ -202,6 +202,55 @@ void main() {
     expect(selected?.title, 'Yangi mahsulot');
     expect(selected?.subtitle, 'Yangi mahsulot');
   });
+
+  testWidgets('long press enables multi-select and check confirms selection', (
+    tester,
+  ) async {
+    final selected = <_PickerItem>[];
+    _PickerItem? singleSelection;
+
+    await tester.pumpWidget(
+      _wrap(
+        M3AsyncPickerSheet<_PickerItem>(
+          title: 'Qolip tanlang',
+          hintText: 'Qolip qidiring',
+          loadPage: (query, offset, limit) async => const [
+            _PickerItem('Abrazes', 'Q-1'),
+            _PickerItem('Abrazesla', 'Q-2'),
+            _PickerItem('Botinka', 'Q-3'),
+          ],
+          itemTitle: (item) => item.title,
+          itemSubtitle: (item) => item.subtitle,
+          itemKey: (item) => item.subtitle,
+          onSelected: (item) => singleSelection = item,
+          onMultiSelected: selected.addAll,
+          selectedCountLabel: (count) => '$count ta qolip tanlandi',
+          confirmSelectionTooltip: 'Tanlangan qoliplarni tasdiqlash',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Abrazes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 ta qolip tanlandi'), findsOneWidget);
+    expect(singleSelection, isNull);
+
+    await tester.tap(find.text('Abrazesla'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 ta qolip tanlandi'), findsOneWidget);
+    expect(find.byType(Checkbox), findsNWidgets(3));
+
+    await tester.tap(
+      find.byTooltip('Tanlangan qoliplarni tasdiqlash'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(selected.map((item) => item.subtitle), ['Q-1', 'Q-2']);
+    expect(singleSelection, isNull);
+  });
 }
 
 Widget _wrap(Widget child) {

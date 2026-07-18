@@ -134,8 +134,8 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
     }
     setState(() => _scanning = true);
     try {
-      final suggestion = await WerkaAiSearchService.instance
-          .pickAndInferSuggestion(context);
+      final suggestion =
+          await WerkaAiSearchService.instance.pickAndInferSuggestion(context);
       if (!mounted || suggestion == null) {
         return;
       }
@@ -326,22 +326,21 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                               itemCount: visibleItems.length,
                               separatorBuilder: (context, index) =>
                                   const SizedBox(
-                                    height: M3SegmentedListGeometry.gap,
-                                  ),
+                                height: M3SegmentedListGeometry.gap,
+                              ),
                               itemBuilder: (context, index) {
                                 final item = visibleItems[index];
-                                final subtitle = widget
-                                    .itemSubtitle(item)
-                                    .trim();
-                                final slot =
-                                    M3SegmentedListGeometry.standaloneListSlotForIndex(
-                                      index,
-                                      visibleItems.length,
-                                    );
+                                final subtitle =
+                                    widget.itemSubtitle(item).trim();
+                                final slot = M3SegmentedListGeometry
+                                    .standaloneListSlotForIndex(
+                                  index,
+                                  visibleItems.length,
+                                );
                                 final cornerRadius =
                                     M3SegmentedListGeometry.cornerRadiusForSlot(
-                                      slot,
-                                    );
+                                  slot,
+                                );
 
                                 return M3SegmentFilledSurface(
                                   slot: slot,
@@ -361,8 +360,8 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                                           widget.itemTitle(item),
                                           style: theme.textTheme.titleLarge
                                               ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                         if (subtitle.isNotEmpty) ...[
                                           const SizedBox(height: 6),
@@ -370,9 +369,8 @@ class _M3PickerSheetState<T> extends State<M3PickerSheet<T>> {
                                             subtitle,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                  color:
-                                                      scheme.onSurfaceVariant,
-                                                ),
+                                              color: scheme.onSurfaceVariant,
+                                            ),
                                           ),
                                         ],
                                       ],
@@ -408,6 +406,10 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.cacheKey,
     this.emptyActionLabel,
     this.onEmptyAction,
+    this.onMultiSelected,
+    this.itemKey,
+    this.selectedCountLabel,
+    this.confirmSelectionTooltip,
   });
 
   static final Map<String, _AsyncPickerMemoryCache<dynamic>> _memoryCache =
@@ -429,6 +431,10 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final String? cacheKey;
   final String Function(String query)? emptyActionLabel;
   final Future<T?> Function(String query)? onEmptyAction;
+  final ValueChanged<List<T>>? onMultiSelected;
+  final Object Function(T item)? itemKey;
+  final String Function(int count)? selectedCountLabel;
+  final String? confirmSelectionTooltip;
 
   @override
   State<M3AsyncPickerSheet<T>> createState() => _M3AsyncPickerSheetState<T>();
@@ -449,6 +455,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   List<T> _items = <T>[];
   Map<String, int> _queryRankByItem = <String, int>{};
   Map<String, int> _queryMatchCountByItem = <String, int>{};
+  final Map<Object, T> _selectedItems = <Object, T>{};
   int _requestVersion = 0;
 
   @override
@@ -767,14 +774,48 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
         .trim();
   }
 
+  Object _selectionKey(T item) {
+    return widget.itemKey?.call(item) ?? _itemIdentity(item);
+  }
+
+  void _toggleSelection(T item) {
+    if (widget.onMultiSelected == null) {
+      return;
+    }
+    final key = _selectionKey(item);
+    setState(() {
+      if (_selectedItems.containsKey(key)) {
+        _selectedItems.remove(key);
+      } else {
+        _selectedItems[key] = item;
+      }
+    });
+  }
+
+  void _handleItemTap(T item) {
+    if (_selectedItems.isNotEmpty) {
+      _toggleSelection(item);
+      return;
+    }
+    widget.onSelected(item);
+  }
+
+  void _confirmMultiSelection() {
+    final callback = widget.onMultiSelected;
+    if (callback == null || _selectedItems.isEmpty) {
+      return;
+    }
+    callback(List<T>.unmodifiable(_selectedItems.values));
+  }
+
   Future<void> _handleScanSearch() async {
     if (_scanning) {
       return;
     }
     setState(() => _scanning = true);
     try {
-      final suggestion = await WerkaAiSearchService.instance
-          .pickAndInferSuggestion(context);
+      final suggestion =
+          await WerkaAiSearchService.instance.pickAndInferSuggestion(context);
       if (!mounted || suggestion == null) {
         return;
       }
@@ -958,8 +999,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     } else if (_items.isEmpty) {
       final emptyQuery = _query.trim();
       final emptyActionLabel = widget.emptyActionLabel;
-      final canRunEmptyAction =
-          emptyQuery.isNotEmpty &&
+      final canRunEmptyAction = emptyQuery.isNotEmpty &&
           emptyActionLabel != null &&
           widget.onEmptyAction != null;
       body = Center(
@@ -1010,6 +1050,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
             );
           }
           final item = sortedItems[index];
+          final selected = _selectedItems.containsKey(_selectionKey(item));
           final subtitle = widget.itemSubtitle(item).trim();
           final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
             index,
@@ -1022,26 +1063,45 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
           return M3SegmentFilledSurface(
             slot: slot,
             cornerRadius: cornerRadius,
-            backgroundColor: itemBackgroundColor,
-            onTap: () => widget.onSelected(item),
+            backgroundColor:
+                selected ? scheme.secondaryContainer : itemBackgroundColor,
+            onTap: () => _handleItemTap(item),
+            onLongPress: widget.onMultiSelected == null
+                ? null
+                : () => _toggleSelection(item),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    widget.itemTitle(item),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.itemTitle(item),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: selected
+                                  ? scheme.onSecondaryContainer
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                  if (_selectedItems.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Checkbox(
+                      value: selected,
+                      onChanged: (_) => _toggleSelection(item),
                     ),
                   ],
                 ],
@@ -1086,10 +1146,21 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.title,
+                            _selectedItems.isEmpty
+                                ? widget.title
+                                : widget.selectedCountLabel?.call(
+                                      _selectedItems.length,
+                                    ) ??
+                                    '${_selectedItems.length}',
                             style: theme.textTheme.titleLarge,
                           ),
                         ),
+                        if (_selectedItems.isNotEmpty)
+                          IconButton.filled(
+                            onPressed: _confirmMultiSelection,
+                            tooltip: widget.confirmSelectionTooltip,
+                            icon: const Icon(Icons.check_rounded),
+                          ),
                         IconButton(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close_rounded),

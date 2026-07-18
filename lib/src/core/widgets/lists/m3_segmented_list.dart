@@ -120,6 +120,7 @@ class M3SegmentFilledSurface extends StatelessWidget {
     required this.cornerRadius,
     required this.child,
     this.onTap,
+    this.onLongPress,
     this.backgroundColor,
     this.borderRadiusOverride,
   });
@@ -128,6 +129,7 @@ class M3SegmentFilledSurface extends StatelessWidget {
   final double cornerRadius;
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// `null` — standart [ColorScheme.surfaceContainerLowest].
   final Color? backgroundColor;
@@ -152,8 +154,13 @@ class M3SegmentFilledSurface extends StatelessWidget {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: onTap != null
-          ? InkWell(onTap: onTap, borderRadius: radius, child: ink)
+      child: onTap != null || onLongPress != null
+          ? InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              borderRadius: radius,
+              child: ink,
+            )
           : ink,
     );
   }
