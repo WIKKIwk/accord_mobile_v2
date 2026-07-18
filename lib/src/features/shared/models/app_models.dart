@@ -143,6 +143,38 @@ class SupplierItem {
   }
 }
 
+class AdminWarehouseStockItem {
+  const AdminWarehouseStockItem({
+    required this.code,
+    required this.name,
+    required this.uom,
+    required this.warehouse,
+    required this.onHandQty,
+    required this.packageCount,
+    this.itemGroup = '',
+  });
+
+  final String code;
+  final String name;
+  final String uom;
+  final String warehouse;
+  final String itemGroup;
+  final double onHandQty;
+  final int packageCount;
+
+  factory AdminWarehouseStockItem.fromJson(Map<String, dynamic> json) {
+    return AdminWarehouseStockItem(
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      uom: json['uom'] as String? ?? '',
+      warehouse: json['warehouse'] as String? ?? '',
+      itemGroup: json['item_group'] as String? ?? '',
+      onHandQty: (json['on_hand_qty'] as num?)?.toDouble() ?? 0,
+      packageCount: (json['package_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AdminWarehouse {
   const AdminWarehouse({
     required this.warehouse,

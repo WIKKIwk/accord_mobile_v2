@@ -34,7 +34,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  test('warehouse item pages filter, search, and paginate server-style',
+  test('warehouse stock pages filter, search, and paginate server-style',
       () async {
     final first = await MobileApi.instance.adminWarehouseItemsPage(
       warehouse: 'Tayyor mahsulot ombori - DEMO',
@@ -47,6 +47,11 @@ void main() {
     );
     final searched = await MobileApi.instance.adminWarehouseItemsPage(
       warehouse: 'Tayyor mahsulot ombori - DEMO',
+      query: 'salat',
+      limit: 80,
+    );
+    final catalogOnly = await MobileApi.instance.adminWarehouseItemsPage(
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
       query: 'ichimlik',
       limit: 80,
     );
@@ -54,7 +59,10 @@ void main() {
     expect(first, hasLength(1));
     expect(second, hasLength(1));
     expect(first.single.code, isNot(second.single.code));
-    expect(searched.map((item) => item.code), ['DEMO-DRINK']);
+    expect(searched.map((item) => item.code), ['DEMO-SALAD']);
+    expect(searched.single.onHandQty, 10);
+    expect(searched.single.packageCount, 1);
+    expect(catalogOnly, isEmpty);
     expect(
       [...first, ...second]
           .every((item) => item.warehouse.contains('Tayyor mahsulot')),
@@ -90,7 +98,7 @@ void main() {
     expect(prepared.printRequest.printCount, 1);
   });
 
-  testWidgets('admin warehouses page groups catalog items by warehouse', (
+  testWidgets('admin warehouses page shows only real warehouse stock', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
@@ -131,16 +139,16 @@ void main() {
     expect(find.text('Hotlunch'), findsOneWidget);
     expect(find.text('DEMO-HOTLUNCH'), findsNothing);
     expect(find.textContaining('DEMO-HOTLUNCH'), findsWidgets);
-    expect(find.text('Demo ichimlik'), findsOneWidget);
-    expect(find.textContaining('Dona'), findsWidgets);
+    expect(find.text('Demo ichimlik'), findsNothing);
+    expect(find.textContaining('24 Dona'), findsOneWidget);
 
     await _openWarehouseFilter(tester);
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Mahsulotlar'), findsWidgets);
-    expect(find.textContaining('(3)'), findsOneWidget);
-    expect(find.text('Demo kraska'), findsOneWidget);
+    expect(find.textContaining('(1)'), findsOneWidget);
+    expect(find.text('Demo kraska'), findsNothing);
     expect(find.text('Demo xomashyo rulon'), findsOneWidget);
 
     await tester.tap(find.text('Demo xomashyo rulon'));
@@ -529,7 +537,8 @@ void main() {
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Demo kraska'), findsOneWidget);
+    expect(find.text('Demo kraska'), findsNothing);
+    expect(find.text('Demo xomashyo rulon'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
 
     await tester.tap(find.text('Demo xomashyo rulon'));

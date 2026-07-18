@@ -807,7 +807,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
   late final TextEditingController _itemsSearchController;
   late final bool _ownsItemsSearchController;
   Timer? _itemsSearchDebounce;
-  List<SupplierItem> _items = const <SupplierItem>[];
+  List<AdminWarehouseStockItem> _items = const <AdminWarehouseStockItem>[];
   String _itemsQuery = '';
   bool _initialItemsLoading = false;
   bool _loadingMoreItems = false;
@@ -958,7 +958,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     }
     if (mounted) {
       setState(() {
-        _items = const <SupplierItem>[];
+        _items = const <AdminWarehouseStockItem>[];
         _initialItemsLoading = warehouse.isNotEmpty;
         _loadingMoreItems = false;
         _hasMoreItems = false;
@@ -1018,7 +1018,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
         return;
       }
       setState(() {
-        _items = replace ? page : <SupplierItem>[..._items, ...page];
+        _items = replace ? page : <AdminWarehouseStockItem>[..._items, ...page];
         _initialItemsLoading = false;
         _loadingMoreItems = false;
         _hasMoreItems = page.length == _pageSize;
@@ -1915,7 +1915,7 @@ class _WarehouseItemListModule extends StatelessWidget {
     required this.onExpandedChanged,
   });
 
-  final List<SupplierItem> items;
+  final List<AdminWarehouseStockItem> items;
   final String? expandedKey;
   final void Function(String key, bool expanded) onExpandedChanged;
 
@@ -1942,7 +1942,8 @@ class _WarehouseItemListModule extends StatelessWidget {
   }
 }
 
-String _warehouseItemCardKey(SupplierItem item) => 'item:${item.code}';
+String _warehouseItemCardKey(AdminWarehouseStockItem item) =>
+    'item:${item.code}:${item.uom}';
 
 class _WarehouseItemRow extends StatelessWidget {
   const _WarehouseItemRow({
@@ -1953,7 +1954,7 @@ class _WarehouseItemRow extends StatelessWidget {
   });
 
   final M3SegmentVerticalSlot slot;
-  final SupplierItem item;
+  final AdminWarehouseStockItem item;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
 
@@ -1963,7 +1964,7 @@ class _WarehouseItemRow extends StatelessWidget {
     final title = item.name.trim().isEmpty ? item.code : item.name;
     final subtitle = <String>[
       if (item.code.trim().isNotEmpty) item.code.trim(),
-      if (item.uom.trim().isNotEmpty) item.uom.trim(),
+      '${_formatQty(item.onHandQty)} ${item.uom}'.trim(),
       if (item.itemGroup.trim().isNotEmpty) item.itemGroup.trim(),
     ].join(' • ');
 
@@ -1989,7 +1990,11 @@ class _WarehouseItemRow extends StatelessWidget {
       subtitle: subtitle,
       details: [
         _WarehouseDetailEntry('Kod', item.code),
-        _WarehouseDetailEntry('Birlik', item.uom),
+        _WarehouseDetailEntry(
+          'Mavjud miqdor',
+          '${_formatQty(item.onHandQty)} ${item.uom}'.trim(),
+        ),
+        _WarehouseDetailEntry('Qadoqlar', '${item.packageCount}'),
         if (item.itemGroup.trim().isNotEmpty)
           _WarehouseDetailEntry('Guruh', item.itemGroup),
         _WarehouseDetailEntry('Ombor', item.warehouse),

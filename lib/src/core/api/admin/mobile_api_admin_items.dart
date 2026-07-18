@@ -161,7 +161,7 @@ extension MobileApiAdminItems on MobileApi {
         .toList();
   }
 
-  Future<List<SupplierItem>> adminWarehouseItemsPage({
+  Future<List<AdminWarehouseStockItem>> adminWarehouseItemsPage({
     required String warehouse,
     String query = '',
     int limit = 80,
@@ -169,7 +169,7 @@ extension MobileApiAdminItems on MobileApi {
   }) async {
     final normalizedWarehouse = warehouse.trim().toLowerCase();
     if (normalizedWarehouse.isEmpty) {
-      return const <SupplierItem>[];
+      return const <AdminWarehouseStockItem>[];
     }
     if (await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.warehouseItemPage(
@@ -199,7 +199,11 @@ extension MobileApiAdminItems on MobileApi {
     }
     final List<dynamic> json = jsonDecode(response.body) as List<dynamic>;
     return json
-        .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => AdminWarehouseStockItem.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
@@ -939,13 +943,6 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
             warehouse.parentWarehouse.trim().isEmpty,
       )
       .toList();
-  final rawWarehouse = _findNamedWarehouse(warehouses, _isRawWarehouseName);
-  final finishedWarehouse =
-      _findNamedWarehouse(warehouses, _isFinishedWarehouseName);
-  final parentByGroup = {
-    for (final group in TestModeDemoData.itemGroupTree)
-      group.name.trim().toLowerCase(): group.parentItemGroup.trim(),
-  };
   final productCounts = <String, int>{};
   final stockWarehouseByBarcode = <String, String>{};
 
@@ -957,19 +954,15 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
     productCounts[normalized] = (productCounts[normalized] ?? 0) + 1;
   }
 
-  for (final item in TestModeDemoData.items) {
-    addProduct(
-      item.warehouse.trim().isNotEmpty
-          ? item.warehouse
-          : _warehouseForGroup(
-              item.itemGroup,
-              parentByGroup,
-              rawWarehouse,
-              finishedWarehouse,
-            ),
-    );
+  for (final stock in TestModeDemoData.warehouseStockItems) {
+    if (stock.onHandQty > 0) {
+      addProduct(stock.warehouse);
+    }
   }
   for (final stock in TestModeDemoData.rawMaterialStock) {
+    if (stock.status.trim().toLowerCase() != 'available' || stock.qty <= 0) {
+      continue;
+    }
     addProduct(stock.warehouse);
     stockWarehouseByBarcode[stock.barcode.trim().toLowerCase()] =
         stock.warehouse.trim();
@@ -1024,51 +1017,4 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
           left.warehouse.toLowerCase().compareTo(right.warehouse.toLowerCase()),
     );
   return summaries.take(limit).toList(growable: false);
-}
-
-String _findNamedWarehouse(
-  List<AdminWarehouse> warehouses,
-  bool Function(String) matcher,
-) {
-  for (final warehouse in warehouses) {
-    final name = warehouse.warehouse.trim();
-    if (matcher(name.toLowerCase())) {
-      return name;
-    }
-  }
-  return '';
-}
-
-String _warehouseForGroup(
-  String group,
-  Map<String, String> parentByGroup,
-  String rawWarehouse,
-  String finishedWarehouse,
-) {
-  var current = group.trim();
-  final visited = <String>{};
-  while (current.isNotEmpty) {
-    final normalized = current.toLowerCase();
-    if (!visited.add(normalized)) {
-      return '';
-    }
-    if (rawWarehouse.isNotEmpty && _isRawWarehouseName(normalized)) {
-      return rawWarehouse;
-    }
-    if (finishedWarehouse.isNotEmpty && _isFinishedWarehouseName(normalized)) {
-      return finishedWarehouse;
-    }
-    current = parentByGroup[normalized] ?? '';
-  }
-  return '';
-}
-
-bool _isRawWarehouseName(String value) {
-  final normalized = value.toLowerCase();
-  return normalized.contains('homashyo') || normalized.contains('xomashyo');
-}
-
-bool _isFinishedWarehouseName(String value) {
-  final normalized = value.toLowerCase();
-  return normalized.contains('tayyor') && normalized.contains('mahsulot');
 }

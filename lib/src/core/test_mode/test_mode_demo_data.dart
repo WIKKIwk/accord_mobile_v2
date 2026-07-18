@@ -65,6 +65,27 @@ class TestModeDemoData {
     ),
   ];
 
+  static const List<AdminWarehouseStockItem> warehouseStockItems = [
+    AdminWarehouseStockItem(
+      code: 'DEMO-HOTLUNCH',
+      name: 'Hotlunch',
+      uom: 'Dona',
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      itemGroup: 'Demo tayyor mahsulotlar',
+      onHandQty: 24,
+      packageCount: 2,
+    ),
+    AdminWarehouseStockItem(
+      code: 'DEMO-SALAD',
+      name: 'Salat set',
+      uom: 'Dona',
+      warehouse: 'Tayyor mahsulot ombori - DEMO',
+      itemGroup: 'Demo tayyor mahsulotlar',
+      onHandQty: 10,
+      packageCount: 1,
+    ),
+  ];
+
   static const List<AdminWarehouse> warehouses = [
     AdminWarehouse(warehouse: 'Xomashyo ombori - DEMO'),
     AdminWarehouse(warehouse: 'Qadoqlash ombori - DEMO'),
@@ -257,7 +278,7 @@ class TestModeDemoData {
     ),
   ];
 
-  static List<SupplierItem> warehouseItemPage({
+  static List<AdminWarehouseStockItem> warehouseItemPage({
     required String warehouse,
     String query = '',
     int limit = 80,
@@ -265,51 +286,15 @@ class TestModeDemoData {
   }) {
     final normalizedWarehouse = warehouse.trim().toLowerCase();
     final normalizedQuery = query.trim().toLowerCase();
-    final filtered = items.where((item) {
-      final effectiveWarehouse = _effectiveWarehouse(item).toLowerCase();
+    final filtered = warehouseStockItems.where((item) {
       final matchesQuery = normalizedQuery.isEmpty ||
           item.code.toLowerCase().contains(normalizedQuery) ||
           item.name.toLowerCase().contains(normalizedQuery) ||
           item.itemGroup.toLowerCase().contains(normalizedQuery);
-      return effectiveWarehouse == normalizedWarehouse && matchesQuery;
+      return item.warehouse.toLowerCase() == normalizedWarehouse &&
+          matchesQuery;
     }).toList(growable: false);
     return _page(filtered, limit: limit, offset: offset);
-  }
-
-  static String _effectiveWarehouse(SupplierItem item) {
-    final direct = item.warehouse.trim();
-    if (direct.isNotEmpty) {
-      return direct;
-    }
-    final parentByGroup = <String, String>{
-      for (final entry in itemGroupTree)
-        entry.itemGroupName.trim().toLowerCase():
-            entry.parentItemGroup.trim().toLowerCase(),
-    };
-    var group = item.itemGroup.trim().toLowerCase();
-    final visited = <String>{};
-    while (group.isNotEmpty && visited.add(group)) {
-      if (group.contains('xomashyo') || group.contains('homashyo')) {
-        return warehouses.map((item) => item.warehouse).firstWhere(
-          (name) {
-            final value = name.toLowerCase();
-            return value.contains('xomashyo') || value.contains('homashyo');
-          },
-          orElse: () => '',
-        );
-      }
-      if (group.contains('tayyor') && group.contains('mahsulot')) {
-        return warehouses.map((item) => item.warehouse).firstWhere(
-          (name) {
-            final value = name.toLowerCase();
-            return value.contains('tayyor') && value.contains('mahsulot');
-          },
-          orElse: () => '',
-        );
-      }
-      group = parentByGroup[group] ?? '';
-    }
-    return '';
   }
 
   static AdminSupplierSummary get supplierSummary {
