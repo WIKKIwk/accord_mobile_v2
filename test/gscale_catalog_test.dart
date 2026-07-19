@@ -1,8 +1,24 @@
 import 'package:accord_mobile_v2/src/features/gscale/gscale_catalog.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.profile = null;
+    AppSession.instance.token = null;
+  });
+
+  tearDown(() {
+    AppSession.instance.profile = null;
+    AppSession.instance.token = null;
+  });
+
   test('customer options expose exact item warehouses only', () {
     final warehouses = gscaleWarehousesFromCustomerOptions(
       [
@@ -103,7 +119,7 @@ void main() {
     expect(gscaleMergesDefaultWarehousesForProfile(profile), isTrue);
   });
 
-  test('werka receipt keeps item warehouses only when they exist', () {
+  test('werka receipt uses its assigned admin warehouse scope', () {
     const profile = SessionProfile(
       role: UserRole.werka,
       displayName: 'Werka',
@@ -112,10 +128,103 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['gscale.catalog.read'],
+      assignedWarehouses: ['Kalidor'],
     );
 
-    expect(gscaleUsesScopedAdminWarehousesForProfile(profile), isFalse);
-    expect(gscaleMergesDefaultWarehousesForProfile(profile), isFalse);
+    expect(gscaleUsesScopedAdminWarehousesForProfile(profile), isTrue);
+    expect(gscaleMergesDefaultWarehousesForProfile(profile), isTrue);
+  });
+
+  test('werka warehouse catalog keeps only profile assignments', () {
+    const profile = SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'WERKA-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['gscale.catalog.read'],
+      assignedWarehouses: ['Kalidor', 'Tayyor mahsulot'],
+    );
+
+    final warehouses = gscaleScopeWarehousesForProfile(
+      const [
+        GScaleCatalogWarehouse(warehouse: 'Kalidor'),
+        GScaleCatalogWarehouse(warehouse: 'Boshqa ombor'),
+        GScaleCatalogWarehouse(warehouse: 'Tayyor mahsulot'),
+      ],
+      profile,
+    );
+
+    expect(
+      warehouses.map((warehouse) => warehouse.warehouse),
+      ['Kalidor', 'Tayyor mahsulot'],
+    );
+  });
+
+  test('werka item picker ignores the legacy item warehouse', () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'WERKA-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['gscale.catalog.read'],
+      assignedWarehouses: ['Xomashyo ombori - DEMO'],
+    );
+
+    final warehouses = await fetchGScaleItemWarehouses(
+      itemCode: 'DEMO-HOTLUNCH',
+    );
+
+    expect(
+      warehouses.map((warehouse) => warehouse.warehouse),
+      ['Xomashyo ombori - DEMO'],
+    );
+    expect(
+      warehouses.map((warehouse) => warehouse.warehouse),
+      isNot(contains('Tayyor mahsulot ombori - DEMO')),
+    );
+  });
+
+  test('werka assigned warehouse fallback is searchable and unique', () {
+    const profile = SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'WERKA-001',
+      phone: '',
+      avatarUrl: '',
+      assignedWarehouses: ['Kalidor', ' kalidor ', 'Tayyor mahsulot'],
+    );
+
+    final warehouses = gscaleAssignedWarehousesForProfile(
+      profile,
+      query: 'kal',
+    );
+
+    expect(warehouses, hasLength(1));
+    expect(warehouses.single.warehouse, 'Kalidor');
+  });
+
+  test('werka without assignments fails closed', () {
+    const profile = SessionProfile(
+      role: UserRole.werka,
+      displayName: 'Werka',
+      legalName: '',
+      ref: 'WERKA-001',
+      phone: '',
+      avatarUrl: '',
+    );
+
+    final warehouses = gscaleScopeWarehousesForProfile(
+      const [GScaleCatalogWarehouse(warehouse: 'Boshqa ombor')],
+      profile,
+    );
+
+    expect(warehouses, isEmpty);
   });
 
   test('non material create item group keeps default catalog group', () {

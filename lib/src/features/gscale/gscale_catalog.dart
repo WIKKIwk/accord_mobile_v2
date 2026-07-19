@@ -45,7 +45,9 @@ bool gscaleUsesScopedAdminWarehousesForProfile(
   SessionProfile? profile, {
   UserRole? role,
 }) {
-  if (role == UserRole.admin || role == UserRole.materialTaminotchi) {
+  if (role == UserRole.admin ||
+      role == UserRole.werka ||
+      role == UserRole.materialTaminotchi) {
     return true;
   }
   if (role != null) {
@@ -54,6 +56,8 @@ bool gscaleUsesScopedAdminWarehousesForProfile(
   return profile?.hasCapability('admin.access') == true ||
       profile?.hasCapability('production.map.manage') == true ||
       profile?.hasCapability('catalog.item.read') == true ||
+      (profile?.role == UserRole.werka &&
+          profile?.hasCapability('gscale.catalog.read') == true) ||
       (profile?.role == UserRole.materialTaminotchi &&
           profile?.hasCapability('raw_material.assign') == true);
 }
@@ -63,9 +67,54 @@ bool gscaleMergesDefaultWarehousesForProfile(
   UserRole? role,
 }) {
   if (role != null) {
-    return role == UserRole.materialTaminotchi;
+    return role == UserRole.werka || role == UserRole.materialTaminotchi;
   }
-  return profile?.role == UserRole.materialTaminotchi;
+  return profile?.role == UserRole.werka ||
+      profile?.role == UserRole.materialTaminotchi;
+}
+
+bool _gscaleIsWerkaProfile(
+  SessionProfile? profile, {
+  UserRole? role,
+}) {
+  if (role != null) {
+    return role == UserRole.werka;
+  }
+  return profile?.role == UserRole.werka;
+}
+
+List<GScaleCatalogWarehouse> gscaleAssignedWarehousesForProfile(
+  SessionProfile? profile, {
+  String query = '',
+}) {
+  return _uniqueWarehouses(
+    profile?.assignedWarehouses ?? const <String>[],
+    query: query,
+  );
+}
+
+List<GScaleCatalogWarehouse> gscaleScopeWarehousesForProfile(
+  Iterable<GScaleCatalogWarehouse> warehouses,
+  SessionProfile? profile, {
+  UserRole? role,
+}) {
+  final values = warehouses.toList(growable: false);
+  if (!_gscaleIsWerkaProfile(profile, role: role)) {
+    return values;
+  }
+  final allowed = (profile?.assignedWarehouses ?? const <String>[])
+      .map((warehouse) => warehouse.trim().toLowerCase())
+      .where((warehouse) => warehouse.isNotEmpty)
+      .toSet();
+  if (allowed.isEmpty) {
+    return const [];
+  }
+  return values
+      .where(
+        (warehouse) =>
+            allowed.contains(warehouse.warehouse.trim().toLowerCase()),
+      )
+      .toList(growable: false);
 }
 
 Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
@@ -100,9 +149,11 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
       api: client,
       role: role,
     );
-    return mergeGScaleCatalogWarehouses(warehouses, defaults)
-        .take(limit)
-        .toList();
+    return gscaleScopeWarehousesForProfile(
+      mergeGScaleCatalogWarehouses(warehouses, defaults),
+      profile,
+      role: role,
+    ).take(limit).toList();
   }
   if (canReadGScaleCatalog) {
     final items = await client.gscaleItemsPage(query: itemCode, limit: 50);
@@ -121,9 +172,11 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
       api: client,
       role: role,
     );
-    return mergeGScaleCatalogWarehouses(warehouses, defaults)
-        .take(limit)
-        .toList();
+    return gscaleScopeWarehousesForProfile(
+      mergeGScaleCatalogWarehouses(warehouses, defaults),
+      profile,
+      role: role,
+    ).take(limit).toList();
   }
   throw Exception('GScale omborlari faqat admin yoki werka uchun mavjud');
 }
@@ -159,18 +212,38 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleDefaultWarehouses({
   final canReadGScaleCatalog = role == UserRole.werka ||
       (role == null && profile?.hasCapability('gscale.catalog.read') == true);
   if (canReadAdminWarehouses) {
-    final warehouses = await client.adminWarehouses(query: query, limit: limit);
-    return warehouses
-        .map(
-          (warehouse) => GScaleCatalogWarehouse(
-            warehouse: warehouse.warehouse,
-            company:
-                warehouse.company.trim().isEmpty ? null : warehouse.company,
-          ),
-        )
-        .where((warehouse) => warehouse.warehouse.trim().isNotEmpty)
-        .take(limit)
-        .toList(growable: false);
+    try {
+      final warehouses = await client.adminWarehouses(
+        query: query,
+        limit: limit,
+      );
+      final mapped = warehouses
+          .map(
+            (warehouse) => GScaleCatalogWarehouse(
+              warehouse: warehouse.warehouse,
+              company:
+                  warehouse.company.trim().isEmpty ? null : warehouse.company,
+            ),
+          )
+          .where((warehouse) => warehouse.warehouse.trim().isNotEmpty);
+      return gscaleScopeWarehousesForProfile(
+        mapped,
+        profile,
+        role: role,
+      ).take(limit).toList(growable: false);
+    } catch (_) {
+      if (!_gscaleIsWerkaProfile(profile, role: role)) {
+        rethrow;
+      }
+      final fallback = gscaleAssignedWarehousesForProfile(
+        profile,
+        query: query,
+      ).take(limit).toList(growable: false);
+      if (fallback.isEmpty) {
+        rethrow;
+      }
+      return fallback;
+    }
   }
   if (canReadGScaleCatalog) {
     final items = await client.gscaleItemsPage(limit: 200);
