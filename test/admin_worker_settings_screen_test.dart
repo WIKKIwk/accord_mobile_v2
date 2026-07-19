@@ -322,7 +322,7 @@ void main() {
         find.widgetWithText(CheckboxListTile, 'Yangi ishchi'), findsOneWidget);
   });
 
-  testWidgets('worker without dependencies is deleted after confirmation', (
+  testWidgets('worker without dependencies is deactivated after confirmation', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1000));
@@ -350,13 +350,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('O‘chiriladigan ishchi'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+    await tester.tap(find.byIcon(Icons.person_off_outlined).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Ishchini o‘chirish'), findsOneWidget);
+    expect(find.text('Ishchini faolsizlantirish'), findsOneWidget);
     expect(
       find.text(
-        '“O‘chiriladigan ishchi” ishchisida faol ish yoki bog‘lanish topilmadi. Uni o‘chirishni tasdiqlaysizmi?',
+        '“O‘chiriladigan ishchi” ishchisi faolsizlantiriladi. U tizimga kira olmaydi, ammo oldingi ish tarixi saqlanadi. Tasdiqlaysizmi?',
       ),
       findsOneWidget,
     );
@@ -364,21 +364,21 @@ void main() {
     final cancelRect = tester.getRect(
       find.widgetWithText(OutlinedButton, 'Bekor qilish'),
     );
-    final deleteRect = tester.getRect(
-      find.widgetWithText(FilledButton, 'O‘chirish'),
+    final deactivateRect = tester.getRect(
+      find.widgetWithText(FilledButton, 'Faolsizlantirish'),
     );
-    expect(cancelRect.width, closeTo(deleteRect.width, 0.1));
-    expect(cancelRect.bottom, lessThan(deleteRect.top));
-    await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
+    expect(cancelRect.width, closeTo(deactivateRect.width, 0.1));
+    expect(cancelRect.bottom, lessThan(deactivateRect.top));
+    await tester.tap(find.widgetWithText(FilledButton, 'Faolsizlantirish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ishchi o‘chirildi'), findsOneWidget);
+    expect(find.text('Ishchi faolsizlantirildi'), findsOneWidget);
     expect(find.text('O‘chiriladigan ishchi'), findsNothing);
     expect(await MobileApi.instance.adminWorkers(), isEmpty);
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('worker connections are listed before confirmed deletion', (
+  testWidgets('worker connections are listed before deactivation', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1000));
@@ -414,12 +414,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Guruhdagi ishchi'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+    await tester.tap(find.byIcon(Icons.person_off_outlined).first);
     await tester.pumpAndSettle();
 
     expect(find.text('Guruh: AB • Laminatsiya 1'), findsOneWidget);
     expect(find.text('Apparat: Laminatsiya 1'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Faolsizlantirish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Guruhdagi ishchi'), findsNothing);

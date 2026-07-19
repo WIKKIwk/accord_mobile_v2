@@ -86,6 +86,7 @@ void main() {
           epc: 'QOLIP-0007',
           itemCode: 'QOLIP-0007',
           itemName: 'Kross qolip',
+          warehouse: '',
           printer: 'zebra',
           printMode: 'label',
           grossQty: 1,

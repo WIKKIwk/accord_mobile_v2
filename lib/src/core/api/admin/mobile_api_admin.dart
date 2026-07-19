@@ -4,9 +4,10 @@ final List<ProductionMapSaved> _testModeProductionMaps = [];
 final List<AdminApparatusGroup> _testModeApparatusGroups = [
   ...TestModeDemoData.apparatusGroups,
 ];
-final List<AdminWarehouse> _testModeApparatusWarehouses = [];
+final List<AdminApparatus> _testModeApparatus = [];
 final List<AdminWarehouse> _testModeWarehouses = [];
 final List<AdminWarehouseAssignment> _testModeWarehouseAssignments = [];
+final Map<String, List<String>> _testModeMaterialItemGroups = {};
 final Set<String> _testModeDeletedWarehouseNames = {};
 final List<AdminServerMonitorBackupSnapshot> _testModeBackupSnapshots = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
@@ -92,12 +93,14 @@ void setMobileApiTestModeForceProductionMapMenuLoadFailure(bool value) {
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
   _testModeAdminItemDetailOverrides.clear();
+  _testModeDeletedAdminItemCodes.clear();
   _testModeApparatusGroups
     ..clear()
     ..addAll(TestModeDemoData.apparatusGroups);
-  _testModeApparatusWarehouses.clear();
+  _testModeApparatus.clear();
   _testModeWarehouses.clear();
   _testModeWarehouseAssignments.clear();
+  _testModeMaterialItemGroups.clear();
   _testModeDeletedWarehouseNames.clear();
   _testModeBackupSnapshots.clear();
   _testModeApparatusSequences.clear();
@@ -185,6 +188,30 @@ String _adminWarehouseRoleToJson(UserRole role) {
     case UserRole.materialTaminotchi:
       return 'material_taminotchi';
   }
+}
+
+List<String> _normalizedAdminScopeValues(Iterable<String> values) {
+  final byKey = <String, String>{};
+  for (final value in values) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      continue;
+    }
+    byKey.putIfAbsent(normalized.toLowerCase(), () => normalized);
+  }
+  final result = byKey.values.toList(growable: false);
+  result.sort(
+    (left, right) => left.toLowerCase().compareTo(right.toLowerCase()),
+  );
+  return result;
+}
+
+bool _isMaterialRoleAssignmentForRef(
+  AdminRoleAssignment assignment,
+  String normalizedRef,
+) {
+  return assignment.principalRole == UserRole.materialTaminotchi &&
+      assignment.principalRef.trim().toLowerCase() == normalizedRef;
 }
 
 class ProductionMapSaveWithOrderResult {
@@ -677,7 +704,7 @@ class AdminProgressBatchStatusDetail {
         batchStatus == 'completed' &&
         nextApparatus.isEmpty;
     final flowStatus = switch (wipStatus) {
-      'waiting' when isFinalOutput => 'finished_pending_acceptance',
+      'waiting' when isFinalOutput => 'free_wip',
       'waiting' => 'waiting_next_stage',
       'in_use' => 'in_progress',
       'processed' when processedBy.toLowerCase().startsWith('warehouse:') =>
@@ -686,7 +713,6 @@ class AdminProgressBatchStatusDetail {
       _ => '',
     };
     final stockStatus = switch (flowStatus) {
-      'finished_pending_acceptance' => 'pending_acceptance',
       'accepted_to_stock' => 'accepted',
       _ => '',
     };
@@ -711,7 +737,7 @@ class AdminProductionOrderStatusDetail {
     this.processedWipCount = 0,
     this.waitingNextStageCount = 0,
     this.consumedByNextStageCount = 0,
-    this.finishedPendingAcceptanceCount = 0,
+    this.freeWipCount = 0,
     this.acceptedWipCount = 0,
     this.activeSessionCount = 0,
     this.pausedSessionCount = 0,
@@ -729,7 +755,7 @@ class AdminProductionOrderStatusDetail {
   final int processedWipCount;
   final int waitingNextStageCount;
   final int consumedByNextStageCount;
-  final int finishedPendingAcceptanceCount;
+  final int freeWipCount;
   final int acceptedWipCount;
   final int activeSessionCount;
   final int pausedSessionCount;
@@ -754,8 +780,9 @@ class AdminProductionOrderStatusDetail {
           (json['waiting_next_stage_count'] as num?)?.toInt() ?? 0,
       consumedByNextStageCount:
           (json['consumed_by_next_stage_count'] as num?)?.toInt() ?? 0,
-      finishedPendingAcceptanceCount:
-          (json['finished_pending_acceptance_count'] as num?)?.toInt() ?? 0,
+      freeWipCount: (json['free_wip_count'] as num?)?.toInt() ??
+          (json['finished_pending_acceptance_count'] as num?)?.toInt() ??
+          0,
       acceptedWipCount: (json['accepted_wip_count'] as num?)?.toInt() ?? 0,
       activeSessionCount: (json['active_session_count'] as num?)?.toInt() ?? 0,
       pausedSessionCount: (json['paused_session_count'] as num?)?.toInt() ?? 0,
@@ -4514,7 +4541,7 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
-  Future<void> adminDeleteWorker({
+  Future<void> adminDeactivateWorker({
     required String id,
     required bool confirmConnections,
   }) async {
@@ -4561,7 +4588,7 @@ extension MobileApiAdmin on MobileApi {
       throw _adminApiException(
         response,
         fallbackCode: 'worker_delete_failed',
-        fallbackMessage: 'Ishchi o‘chirilmadi',
+        fallbackMessage: 'Ishchi faolsizlantirilmadi',
       );
     }
   }
@@ -4931,7 +4958,24 @@ extension MobileApiAdmin on MobileApi {
 
   Future<AdminCustomerDetail> adminMaterialTaminotchiDetail(String ref) async {
     if (await TestModeController.instance.isEnabled()) {
-      return TestModeDemoData.customerDetail(ref);
+      final normalizedRef = ref.trim().toLowerCase();
+      final assignedWarehouses = _testModeWarehouseAssignments
+          .where(
+            (assignment) =>
+                assignment.principalRole == UserRole.materialTaminotchi &&
+                assignment.principalRef.trim().toLowerCase() == normalizedRef,
+          )
+          .map((assignment) => assignment.warehouse.trim())
+          .where((warehouse) => warehouse.isNotEmpty)
+          .toSet()
+          .toList(growable: false)
+        ..sort();
+      return TestModeDemoData.customerDetail(ref).copyWith(
+        ref: ref.trim(),
+        assignedItemGroups:
+            _testModeMaterialItemGroups[normalizedRef] ?? const [],
+        assignedWarehouses: assignedWarehouses,
+      );
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -4944,9 +4988,52 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin material taminotchi detail failed');
     }
-    return AdminCustomerDetail.fromJson(
+    return _adminMaterialTaminotchiDetailFromPayload(
+      ref,
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<AdminCustomerDetail> _adminMaterialTaminotchiDetailFromPayload(
+    String ref,
+    Map<String, dynamic> payload,
+  ) async {
+    var detail = AdminCustomerDetail.fromJson(payload);
+    final normalizedRef = ref.trim().toLowerCase();
+
+    // Older test backends do not expose scopes on the profile detail DTO.
+    // Hydrate them through the stable assignment APIs until every runtime is
+    // upgraded to the richer response contract.
+    if (!payload.containsKey('assigned_item_groups')) {
+      final assignments = await adminRoleAssignments();
+      final assignedGroups = <String>[];
+      for (final assignment in assignments) {
+        if (_isMaterialRoleAssignmentForRef(assignment, normalizedRef)) {
+          assignedGroups.addAll(assignment.assignedItemGroups);
+          break;
+        }
+      }
+      detail = detail.copyWith(
+        assignedItemGroups: _normalizedAdminScopeValues(assignedGroups),
+      );
+    }
+
+    if (!payload.containsKey('assigned_warehouses')) {
+      final assignments = await adminWarehouseAssignments();
+      detail = detail.copyWith(
+        assignedWarehouses: _normalizedAdminScopeValues(
+          assignments
+              .where(
+                (assignment) =>
+                    assignment.principalRole == UserRole.materialTaminotchi &&
+                    assignment.principalRef.trim().toLowerCase() ==
+                        normalizedRef,
+              )
+              .map((assignment) => assignment.warehouse),
+        ),
+      );
+    }
+    return detail;
   }
 
   Future<AdminCustomerDetail> adminUpdateMaterialTaminotchiPhone({
@@ -4966,7 +5053,8 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin material taminotchi phone update failed');
     }
-    return AdminCustomerDetail.fromJson(
+    return _adminMaterialTaminotchiDetailFromPayload(
+      ref,
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
@@ -4985,7 +5073,70 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw Exception('Admin material taminotchi code regenerate failed');
     }
-    return AdminCustomerDetail.fromJson(
+    return _adminMaterialTaminotchiDetailFromPayload(
+      ref,
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminCustomerDetail> adminUpdateMaterialTaminotchiItemGroups({
+    required String ref,
+    required List<String> assignedItemGroups,
+  }) async {
+    final normalizedGroups = _normalizedAdminScopeValues(assignedItemGroups);
+    if (normalizedGroups.isEmpty) {
+      throw const MobileApiException(
+        code: 'material_item_groups_required',
+        message: 'Kamida bitta mahsulot guruhini tanlang',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeMaterialItemGroups[ref.trim().toLowerCase()] = normalizedGroups;
+      return (await adminMaterialTaminotchiDetail(ref)).copyWith(
+        assignedItemGroups: normalizedGroups,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/material-taminotchilar/item-groups',
+        ).replace(queryParameters: {'ref': ref.trim()}),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'assigned_item_groups': normalizedGroups}),
+      ),
+    );
+    if (response.statusCode == 404) {
+      final normalizedRef = ref.trim().toLowerCase();
+      AdminRoleAssignment? existing;
+      for (final assignment in await adminRoleAssignments()) {
+        if (_isMaterialRoleAssignmentForRef(assignment, normalizedRef)) {
+          existing = assignment;
+          break;
+        }
+      }
+      await adminUpsertRoleAssignment(
+        AdminRoleAssignment(
+          principalRole: UserRole.materialTaminotchi,
+          principalRef: ref.trim(),
+          roleId: existing == null || existing.roleId.trim().isEmpty
+              ? 'material_taminotchi'
+              : existing.roleId,
+          assignedApparatus: existing?.assignedApparatus ?? const [],
+          assignedItemGroups: normalizedGroups,
+        ),
+      );
+      return adminMaterialTaminotchiDetail(ref);
+    }
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_material_item_groups_update_failed',
+        fallbackMessage: 'Mahsulot guruhlari saqlanmadi',
+      );
+    }
+    return _adminMaterialTaminotchiDetailFromPayload(
+      ref,
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

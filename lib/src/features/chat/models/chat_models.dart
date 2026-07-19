@@ -97,6 +97,7 @@ class ChatMessage {
     return switch (attachment?.kind) {
       ChatMediaKind.image => 'Rasm',
       ChatMediaKind.video => 'Video',
+      ChatMediaKind.audio => 'Ovozli xabar',
       null => 'Xabar',
     };
   }
@@ -256,6 +257,63 @@ class ChatMessagePage {
           .whereType<Map>()
           .map((item) => ChatMessage.fromJson(item.cast<String, dynamic>()))
           .toList(growable: false),
+      hasMore: json['has_more'] == true,
+    );
+  }
+}
+
+class ChatRealtimeEvent {
+  const ChatRealtimeEvent({
+    required this.eventId,
+    required this.cursor,
+    required this.event,
+    required this.conversationId,
+    required this.sequence,
+    required this.message,
+  });
+
+  final String eventId;
+  final int cursor;
+  final String event;
+  final String conversationId;
+  final int sequence;
+  final ChatMessage? message;
+
+  factory ChatRealtimeEvent.fromJson(Map<String, dynamic> json) {
+    final rawMessage = json['message'];
+    return ChatRealtimeEvent(
+      eventId: json['event_id']?.toString() ?? '',
+      cursor: (json['cursor'] as num?)?.toInt() ?? 0,
+      event: json['event']?.toString() ?? '',
+      conversationId: json['conversation_id']?.toString() ?? '',
+      sequence: (json['sequence'] as num?)?.toInt() ?? 0,
+      message: rawMessage is Map
+          ? ChatMessage.fromJson(rawMessage.cast<String, dynamic>())
+          : null,
+    );
+  }
+}
+
+class ChatSyncPage {
+  const ChatSyncPage({
+    required this.events,
+    required this.nextCursor,
+    required this.hasMore,
+  });
+
+  final List<ChatRealtimeEvent> events;
+  final int nextCursor;
+  final bool hasMore;
+
+  factory ChatSyncPage.fromJson(Map<String, dynamic> json) {
+    return ChatSyncPage(
+      events: ((json['events'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((item) => ChatRealtimeEvent.fromJson(
+                item.cast<String, dynamic>(),
+              ))
+          .toList(growable: false),
+      nextCursor: (json['next_cursor'] as num?)?.toInt() ?? 0,
       hasMore: json['has_more'] == true,
     );
   }

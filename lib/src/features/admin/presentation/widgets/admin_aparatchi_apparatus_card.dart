@@ -26,7 +26,7 @@ class _AdminAparatchiApparatusCardState
   bool _loading = true;
   bool _saving = false;
   Object? _error;
-  List<AdminWarehouse> _apparatus = const [];
+  List<AdminApparatus> _apparatus = const [];
   AdminRoleAssignment? _assignment;
   late Set<String> _selected;
 
@@ -45,10 +45,10 @@ class _AdminAparatchiApparatusCardState
     try {
       final results = await Future.wait<Object>([
         MobileApi.instance.adminRoleAssignments(),
-        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
+        MobileApi.instance.adminApparatus(limit: 200),
       ]);
       final assignments = results[0] as List<AdminRoleAssignment>;
-      final apparatus = results[1] as List<AdminWarehouse>;
+      final apparatus = results[1] as List<AdminApparatus>;
       final assignment = adminAssignmentForCustomerRef(
         assignments,
         widget.customerRef,
@@ -165,12 +165,12 @@ class _AdminAparatchiApparatusCardState
             AdminApparatusScopePicker(
               apparatus: _apparatus,
               selected: _selected,
-              onChanged: (warehouse, checked) {
+              onChanged: (apparatusName, checked) {
                 setState(() {
                   if (checked) {
-                    _selected.add(warehouse);
+                    _selected.add(apparatusName);
                   } else {
-                    _selected.remove(warehouse);
+                    _selected.remove(apparatusName);
                   }
                 });
               },

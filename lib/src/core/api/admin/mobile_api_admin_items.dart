@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 final Map<String, AdminItemDetail> _testModeAdminItemDetailOverrides = {};
+final Set<String> _testModeDeletedAdminItemCodes = {};
 
 extension MobileApiAdminItems on MobileApi {
   Future<List<CustomerDirectoryEntry>> adminCustomersForItem({
@@ -142,12 +143,25 @@ extension MobileApiAdminItems on MobileApi {
     int offset = 0,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      return TestModeDemoData.itemPage(
+      final items = TestModeDemoData.itemPage(
         query: query,
         group: group,
-        limit: limit,
-        offset: offset,
-      );
+        limit: 0,
+        offset: 0,
+      )
+          .where(
+            (item) => !_testModeDeletedAdminItemCodes.contains(
+              item.code.trim().toLowerCase(),
+            ),
+          )
+          .toList(growable: false);
+      if (offset >= items.length) {
+        return const <SupplierItem>[];
+      }
+      final end = limit <= 0 || offset + limit > items.length
+          ? items.length
+          : offset + limit;
+      return items.sublist(offset, end);
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -225,10 +239,23 @@ extension MobileApiAdminItems on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
       final normalizedParent = parent.trim().toLowerCase();
+      final includeLegacyApparatus = const {
+        'aparat',
+        'aparat - a',
+        'apparat',
+        'apparat - a',
+      }.contains(normalizedParent);
+      // Mirrors the backend compatibility path used by already released builds.
+      final seenWarehouseNames = <String>{};
       return [
         ...TestModeDemoData.warehouses,
         ..._testModeWarehouses,
-        ..._testModeApparatusWarehouses,
+        if (includeLegacyApparatus)
+          for (final apparatus in _testModeApparatusCatalog())
+            AdminWarehouse(
+              warehouse: apparatus.name,
+              parentWarehouse: 'aparat - A',
+            ),
       ]
           .where(
             (warehouse) =>
@@ -239,6 +266,11 @@ extension MobileApiAdminItems on MobileApi {
                 (normalizedParent.isEmpty ||
                     warehouse.parentWarehouse.toLowerCase() ==
                         normalizedParent),
+          )
+          .where(
+            (warehouse) => seenWarehouseNames.add(
+              warehouse.warehouse.trim().toLowerCase(),
+            ),
           )
           .take(limit)
           .toList(growable: false);
@@ -262,6 +294,46 @@ extension MobileApiAdminItems on MobileApi {
     return json
         .map((item) => AdminWarehouse.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<List<AdminApparatus>> adminApparatus({
+    String query = '',
+    int limit = 50,
+  }) async {
+    final normalized = query.trim().toLowerCase();
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeApparatusCatalog()
+          .where(
+            (apparatus) =>
+                normalized.isEmpty ||
+                apparatus.name.toLowerCase().contains(normalized),
+          )
+          .take(limit)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus').replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (limit > 0) 'limit': '$limit',
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin apparatus failed');
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return json
+        .map(
+          (item) => AdminApparatus.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .where((item) => item.name.trim().isNotEmpty)
+        .toList(growable: false);
   }
 
   Future<List<AdminWarehouseSummary>> adminWarehouseSummaries({
@@ -765,29 +837,24 @@ extension MobileApiAdminItems on MobileApi {
     );
   }
 
-  Future<AdminWarehouse> adminCreateApparatus(String warehouse) async {
-    final name = warehouse.trim();
+  Future<AdminApparatus> adminCreateApparatus(String apparatusName) async {
+    final name = apparatusName.trim();
     if (name.isEmpty) {
       throw Exception('Admin apparatus name required');
     }
     if (await TestModeController.instance.isEnabled()) {
-      final item = AdminWarehouse(
-        warehouse: name,
-        company: '',
-        isGroup: false,
-        parentWarehouse: 'aparat - A',
-      );
-      final index = _testModeApparatusWarehouses.indexWhere(
-        (existing) => existing.warehouse.toLowerCase() == name.toLowerCase(),
+      final item = AdminApparatus(name: name);
+      final index = _testModeApparatus.indexWhere(
+        (existing) => existing.name.toLowerCase() == name.toLowerCase(),
       );
       if (index >= 0) {
-        _testModeApparatusWarehouses[index] = item;
+        _testModeApparatus[index] = item;
       } else {
-        _testModeApparatusWarehouses.add(item);
+        _testModeApparatus.add(item);
       }
-      _testModeApparatusWarehouses.sort(
-        (left, right) => left.warehouse.toLowerCase().compareTo(
-              right.warehouse.toLowerCase(),
+      _testModeApparatus.sort(
+        (left, right) => left.name.toLowerCase().compareTo(
+              right.name.toLowerCase(),
             ),
       );
       return item;
@@ -797,13 +864,13 @@ extension MobileApiAdminItems on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'warehouse': name}),
+        body: jsonEncode({'name': name}),
       ),
     );
     if (response.statusCode != 200) {
       throw Exception('Admin apparatus create failed');
     }
-    return AdminWarehouse.fromJson(
+    return AdminApparatus.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
@@ -864,6 +931,13 @@ extension MobileApiAdminItems on MobileApi {
   Future<AdminItemDetail> adminItemDetail(String itemCode) async {
     final code = itemCode.trim();
     if (await TestModeController.instance.isEnabled()) {
+      if (_testModeDeletedAdminItemCodes.contains(code.toLowerCase())) {
+        throw const MobileApiException(
+          code: 'item_not_found',
+          message: 'Item topilmadi',
+          statusCode: 404,
+        );
+      }
       final override = _testModeAdminItemDetailOverrides[code.toLowerCase()];
       if (override != null) {
         return override;
@@ -927,9 +1001,15 @@ extension MobileApiAdminItems on MobileApi {
         name: name.trim(),
         updatedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
+      final originalKey = originalCode.trim().toLowerCase();
+      final updatedKey = updated.code.toLowerCase();
       _testModeAdminItemDetailOverrides
-        ..remove(originalCode.trim().toLowerCase())
-        ..[updated.code.toLowerCase()] = updated;
+        ..remove(originalKey)
+        ..[updatedKey] = updated;
+      if (originalKey != updatedKey) {
+        _testModeDeletedAdminItemCodes.add(originalKey);
+      }
+      _testModeDeletedAdminItemCodes.remove(updatedKey);
       return updated;
     }
     final response = await _sendAuthorized(
@@ -1051,6 +1131,46 @@ extension MobileApiAdminItems on MobileApi {
     }
     return adminItemDetail(code);
   }
+
+  Future<void> adminDeleteItem(String itemCode) async {
+    final code = itemCode.trim();
+    if (code.isEmpty) {
+      throw const MobileApiException(
+        code: 'item code is required',
+        message: 'Item code kiriting',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final current = await adminItemDetail(code);
+      final key = current.code.trim().toLowerCase();
+      _testModeAdminItemDetailOverrides.remove(key);
+      _testModeDeletedAdminItemCodes.add(key);
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/detail')
+            .replace(queryParameters: {'code': code}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminItemDeleteException(response);
+    }
+  }
+}
+
+List<AdminApparatus> _testModeApparatusCatalog() {
+  final seen = <String>{};
+  return [
+    ...TestModeDemoData.apparatus,
+    ..._testModeApparatus,
+  ].where(
+    (apparatus) {
+      final key = apparatus.name.trim().toLowerCase();
+      return key.isNotEmpty && seen.add(key);
+    },
+  ).toList(growable: false);
 }
 
 MobileApiException _adminItemCreateException(http.Response response) {
@@ -1058,6 +1178,14 @@ MobileApiException _adminItemCreateException(http.Response response) {
     response,
     fallbackCode: 'item_create_failed',
     fallbackMessage: 'Item yaratilmadi',
+  );
+}
+
+MobileApiException _adminItemDeleteException(http.Response response) {
+  return _adminItemMutationException(
+    response,
+    fallbackCode: 'item_delete_failed',
+    fallbackMessage: 'Item o‘chirilmadi',
   );
 }
 
@@ -1088,6 +1216,21 @@ MobileApiException _adminItemMutationException(
         'Tayyor mahsulot uchun customer tanlang',
       'customer not found' => 'Customer topilmadi',
       'item not found' => 'Item topilmadi',
+      'item is used by active order' =>
+        'Item faol buyurtmada ishlatilgan. Avval buyurtmani yakunlang yoki bekor qiling',
+      'item has active stock' =>
+        'Item bo‘yicha faol ombor qoldig‘i bor. Avval qoldiqni yakunlang',
+      'item has pending receipt' => 'Item uchun yakunlanmagan qabul mavjud',
+      'item is used by active rps batch' =>
+        'Item faol RPS partiyasida ishlatilgan',
+      'item is used by active qolip operation' =>
+        'Item faol qolip jarayonida ishlatilgan',
+      'item is used by quick order template' =>
+        'Item tezkor buyurtma shablonida ishlatilgan',
+      'item is used by unresolved material assignment' =>
+        'Item yakunlanmagan material biriktirishda ishlatilgan',
+      'item is still referenced' =>
+        'Item boshqa ma’lumotlarga bog‘langanligi sababli o‘chirilmadi',
       _ => response.statusCode == 403
           ? 'Bu amal uchun admin huquqi kerak'
           : fallbackMessage,

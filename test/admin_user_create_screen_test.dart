@@ -671,11 +671,10 @@ class _AdminUserCreateHttpClient implements HttpClient {
         ];
       case 'GET /v1/mobile/admin/item-groups':
         body = const ['Kraska', 'Kley', 'Products'];
-      case 'GET /v1/mobile/admin/warehouses?parent=aparat+-+A&limit=200':
+      case 'GET /v1/mobile/admin/apparatus?limit=200':
         body = const [
           {
-            'warehouse': '7 ta rangli pechat',
-            'parent_warehouse': 'aparat - A',
+            'name': '7 ta rangli pechat',
           },
         ];
       case 'POST /v1/mobile/admin/workers':

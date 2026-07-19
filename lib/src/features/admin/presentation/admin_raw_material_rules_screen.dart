@@ -87,17 +87,17 @@ class _AdminRawMaterialSettingsScreenState
 
   Future<_RawMaterialRulesData> _load() async {
     final results = await Future.wait<Object>([
-      MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 300),
+      MobileApi.instance.adminApparatus(limit: 300),
       MobileApi.instance.adminRawMaterialRules(),
       MobileApi.instance.adminItemGroupTree(),
     ]);
-    final apparatus = results[0] as List<AdminWarehouse>;
+    final apparatus = results[0] as List<AdminApparatus>;
     final rules = results[1] as List<AdminRawMaterialRule>;
     final itemGroups = results[2] as List<AdminItemGroupTreeEntry>;
     final rawMaterialGroups = _rawMaterialGroupsFrom(itemGroups);
     _rules = rules;
     if (_selectedApparatus.isEmpty && apparatus.isNotEmpty) {
-      _selectedApparatus = apparatus.first.warehouse.trim();
+      _selectedApparatus = apparatus.first.name.trim();
       _fillGroupsFor(_selectedApparatus);
     }
     return _RawMaterialRulesData(
@@ -232,10 +232,10 @@ class _AdminRawMaterialSettingsScreenState
   }
 
   Future<void> _setRequiresMaterial(
-    AdminWarehouse apparatus,
+    AdminApparatus apparatus,
     bool requiresMaterial,
   ) async {
-    final apparatusName = apparatus.warehouse.trim();
+    final apparatusName = apparatus.name.trim();
     final rule = _ruleFor(apparatusName);
     if (rule == null || rule.itemGroups.isEmpty || _saving) {
       showAdminTopNotice(context, 'Avval homashyo qoidasi saqlang');
@@ -442,7 +442,7 @@ class _RawMaterialRulesData {
         rules = const [],
         rawMaterialGroups = const [];
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final List<AdminRawMaterialRule> rules;
   final List<String> rawMaterialGroups;
 }
@@ -545,7 +545,7 @@ class _RuleEditor extends StatelessWidget {
     required this.onSave,
   });
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final String selectedApparatus;
   final List<String> rawMaterialGroups;
   final TextEditingController groupsController;
@@ -580,8 +580,8 @@ class _RuleEditor extends StatelessWidget {
               items: [
                 for (final item in apparatus)
                   DropdownMenuItem(
-                    value: item.warehouse.trim(),
-                    child: Text(item.warehouse.trim()),
+                    value: item.name.trim(),
+                    child: Text(item.name.trim()),
                   ),
               ],
               onChanged: saving || apparatus.isEmpty
@@ -1011,15 +1011,15 @@ class _RequiredMaterialsTab extends StatelessWidget {
     required this.onChanged,
   });
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final List<AdminRawMaterialRule> rules;
   final bool saving;
   final double bottomPadding;
-  final void Function(AdminWarehouse apparatus, bool requiresMaterial)
+  final void Function(AdminApparatus apparatus, bool requiresMaterial)
       onChanged;
 
-  AdminRawMaterialRule? _ruleFor(AdminWarehouse apparatus) {
-    final normalized = apparatus.warehouse.trim();
+  AdminRawMaterialRule? _ruleFor(AdminApparatus apparatus) {
+    final normalized = apparatus.name.trim();
     for (final rule in rules) {
       if (rule.apparatus.trim() == normalized) {
         return rule;
@@ -1059,10 +1059,10 @@ class _RequiredMaterialTile extends StatelessWidget {
     required this.onChanged,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final AdminRawMaterialRule? rule;
   final bool enabled;
-  final void Function(AdminWarehouse apparatus, bool requiresMaterial)
+  final void Function(AdminApparatus apparatus, bool requiresMaterial)
       onChanged;
 
   @override
@@ -1083,7 +1083,7 @@ class _RequiredMaterialTile extends StatelessWidget {
         value: rule?.requiresMaterial ?? false,
         onChanged: enabled ? (value) => onChanged(apparatus, value) : null,
         secondary: const Icon(Icons.fact_check_rounded),
-        title: Text(apparatus.warehouse.trim()),
+        title: Text(apparatus.name.trim()),
         subtitle: Text(
           groups.isEmpty ? 'Avval homashyo guruhi tanlang' : groups,
         ),

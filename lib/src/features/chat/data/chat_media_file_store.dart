@@ -14,3 +14,11 @@ Future<bool> chatMediaFileExists(String path) {
 Future<void> deleteChatMediaFile(String path) {
   return implementation.deleteChatMediaFile(path);
 }
+
+Future<String> promoteChatMediaFile(String path, String mediaId) {
+  return implementation.promoteChatMediaFile(path, mediaId);
+}
+
+Future<String?> cachedChatMediaFile(String mediaId) {
+  return implementation.cachedChatMediaFile(mediaId);
+}

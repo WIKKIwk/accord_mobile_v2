@@ -35,7 +35,7 @@ class _ReadOnlyQueueActionRequest {
     this.returnedPaintImageId = '',
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final ProductionMapSaved order;
   final String action;
   final List<String> materialBarcodes;
@@ -69,7 +69,7 @@ class _WorkerWatchTab {
       : apparatus = null,
         isCompleted = true;
 
-  final AdminWarehouse? apparatus;
+  final AdminApparatus? apparatus;
   final bool isCompleted;
 }
 
@@ -80,7 +80,7 @@ class _WorkerCompletedOrderEntry {
   });
 
   final ProductionMapSaved order;
-  final AdminWarehouse? apparatus;
+  final AdminApparatus? apparatus;
 }
 
 class _MoveApparatusDefaults {
@@ -89,8 +89,8 @@ class _MoveApparatusDefaults {
     required this.bottom,
   });
 
-  final AdminWarehouse? top;
-  final AdminWarehouse? bottom;
+  final AdminApparatus? top;
+  final AdminApparatus? bottom;
 }
 
 class _ProductionMapOrdersAndApparatus {
@@ -100,7 +100,7 @@ class _ProductionMapOrdersAndApparatus {
   });
 
   final List<ProductionMapSaved> orders;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
 }
 
 class _ProductionMapOrderMetrics {
@@ -158,7 +158,7 @@ class _PreparedReadOnlyQueueAction {
     this.blockReason,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final _ReadOnlyQueueActionCallback onQueueAction;
   final List<AdminRawMaterialAssignment> materialAssignments;
   final AdminProgressBatch? startInputProgressBatch;
@@ -171,11 +171,12 @@ class _MaterialScanResult {
   final AdminRawMaterialAssignment? assignment;
 }
 
-const _moveUnassignedWarehouse = AdminWarehouse(
-  warehouse: 'Tanlanmagan',
-  parentWarehouse: 'production-map-unassigned',
-);
+class _MoveUnassignedApparatus extends AdminApparatus {
+  const _MoveUnassignedApparatus() : super(name: 'Tanlanmagan');
+}
 
-bool _isMoveUnassignedApparatus(AdminWarehouse? apparatus) {
-  return apparatus?.parentWarehouse == _moveUnassignedWarehouse.parentWarehouse;
+const _moveUnassignedApparatus = _MoveUnassignedApparatus();
+
+bool _isMoveUnassignedApparatus(AdminApparatus? apparatus) {
+  return apparatus is _MoveUnassignedApparatus;
 }

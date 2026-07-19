@@ -75,15 +75,15 @@ bool productionMapCanCreateEdge(ProductionMapNode from, ProductionMapNode to) {
 }
 
 bool productionMapApparatusMatchesOrder(
-  AdminWarehouse apparatus,
+  AdminApparatus apparatus,
   ProductionMapOrderContext? orderContext,
 ) {
-  if (productionMapIsLaminatsiyaApparatus(apparatus.warehouse) &&
+  if (productionMapIsLaminatsiyaApparatus(apparatus.name) &&
       !_productionMapLaminatsiyaMatchesOrder(orderContext)) {
     return false;
   }
   final apparatusColorCount = productionMapPechatColorCount(
-    apparatus.warehouse,
+    apparatus.name,
   );
   if (apparatusColorCount == null) {
     return true;

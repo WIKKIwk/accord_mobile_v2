@@ -1314,7 +1314,7 @@ String _stateLabel(String value) {
     'waiting' => 'Keyingi ishni kutmoqda',
     'in_use' => 'Ish jarayonida',
     'processed' => 'Keyingi bosqichda ishlatilgan',
-    'finished_pending_acceptance' => 'Ombor qabulini kutmoqda',
+    'free_wip' || 'finished_pending_acceptance' => 'Erkin WIP',
     'accepted_to_stock' => 'Omborga qabul qilingan',
     'waiting_next_stage' => 'Keyingi bosqichni kutmoqda',
     'consumed_by_next_stage' => 'Keyingi bosqichda ishlatilgan',
@@ -1334,7 +1334,7 @@ String _stateDescription(String value) {
     'stopped' || 'cancelled' => 'ish to‘xtatilgan',
     'in_use' => 'ish jarayonida',
     'processed' => 'keyingi bosqichda ishlatilgan',
-    'finished_pending_acceptance' => 'ombor qabulini kutmoqda',
+    'free_wip' || 'finished_pending_acceptance' => 'erkin WIP holatida',
     'accepted_to_stock' => 'omborga qabul qilingan',
     'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
     'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',
@@ -1397,10 +1397,10 @@ String progressQrHumanStatusLabel({
   final work = workStatus.trim();
   final flow = flowStatus.trim();
   final product = wipStatus.trim();
-  if (flow == 'finished_pending_acceptance') {
+  if (flow == 'free_wip' || flow == 'finished_pending_acceptance') {
     return work == 'completed'
-        ? 'Ishi tugagan, ombor qabulini kutmoqda'
-        : 'Ombor qabulini kutmoqda';
+        ? 'Ishlab chiqarish bosqichi tugagan, erkin WIP holatida'
+        : 'Erkin WIP holatida';
   }
   if (flow == 'accepted_to_stock') {
     return 'Omborga qabul qilingan';
@@ -1439,7 +1439,7 @@ String progressQrTechnicalProductStatusLabel({
 }) {
   final flow = flowStatus.trim();
   final status = switch (flow) {
-    'finished_pending_acceptance' => 'ombor qabulini kutmoqda',
+    'free_wip' || 'finished_pending_acceptance' => 'erkin WIP holatida',
     'accepted_to_stock' => 'omborga qabul qilingan',
     'waiting_next_stage' => 'keyingi bosqichni kutmoqda',
     'consumed_by_next_stage' => 'keyingi bosqichda ishlatilgan',

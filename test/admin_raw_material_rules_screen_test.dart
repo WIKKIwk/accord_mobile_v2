@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
@@ -34,6 +35,28 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  test('apparatus API uses its own typed list and name payload', () async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      final apparatus = await MobileApi.instance.adminApparatus(query: 'pech');
+      final created = await MobileApi.instance.adminCreateApparatus('Bobst 1');
+
+      expect(apparatus.map((item) => item.name), ['Pechat']);
+      expect(created.name, 'Bobst 1');
+      expect(
+        AdminApparatus.fromJson(const {'warehouse': 'Legacy Bobst'}).name,
+        'Legacy Bobst',
+      );
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/apparatus {"name":"Bobst 1"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialRulesHttpClient(seenRequests));
   });
 
   testWidgets('raw material group field lists homashyo child groups', (
@@ -243,14 +266,18 @@ class _RawMaterialRulesHttpClient implements HttpClient {
 
     Object body;
     switch (key) {
-      case 'GET /v1/mobile/admin/warehouses':
+      case 'GET /v1/mobile/admin/apparatus':
         body = const [
           {
-            'warehouse': 'Pechat',
-            'parent_warehouse': 'aparat - A',
-            'is_group': false,
+            'name': 'Pechat',
           },
         ];
+      case 'POST /v1/mobile/admin/apparatus':
+        body = const {
+          'name': 'Bobst 1',
+          'warehouse': 'Bobst 1',
+          'parent_warehouse': 'aparat - A',
+        };
       case 'GET /v1/mobile/admin/raw-material-rules':
         body = initialRules;
       case 'PUT /v1/mobile/admin/raw-material-rules':
@@ -314,6 +341,9 @@ class _RawMaterialRulesHttpClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> putUrl(Uri url) => openUrl('PUT', url);
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) => openUrl('POST', url);
 
   @override
   void close({bool force = false}) {}

@@ -11,6 +11,8 @@ class ChatRealtimeService {
   bool _running = false;
   int _retry = 0;
 
+  bool get isRunning => _running;
+
   void start({
     required Future<Uri> Function() liveUri,
     required void Function(Map<String, dynamic>) onEvent,

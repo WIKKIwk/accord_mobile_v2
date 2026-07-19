@@ -60,10 +60,10 @@ String _workerDeletionDependencyLabel(
     case 'item_group':
       return 'Mahsulot guruhi: ${dependency.label}';
     case 'qolip_checkout':
-      final warehouse = dependency.apparatus.trim();
-      return warehouse.isEmpty
+      final apparatusName = dependency.apparatus.trim();
+      return apparatusName.isEmpty
           ? 'Qolip: ${dependency.label}'
-          : 'Qolip: ${dependency.label} • $warehouse';
+          : 'Qolip: ${dependency.label} • $apparatusName';
     default:
       return dependency.label;
   }
@@ -100,7 +100,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
   int _workersVersion = 0;
   int _groupsVersion = 0;
   String? _selectedWorkerId;
-  String? _deletingWorkerId;
+  String? _deactivatingWorkerId;
 
   @override
   void initState() {
@@ -239,25 +239,25 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     );
   }
 
-  Future<void> _deleteWorker(
+  Future<void> _deactivateWorker(
     AdminWorker worker,
     List<AdminWorker> currentWorkers,
   ) async {
-    if (_deletingWorkerId != null) {
+    if (_deactivatingWorkerId != null) {
       return;
     }
-    setState(() => _deletingWorkerId = worker.id);
+    setState(() => _deactivatingWorkerId = worker.id);
     try {
       final check =
           await MobileApi.instance.adminWorkerDeletionCheck(worker.id);
       if (!mounted) {
         return;
       }
-      final confirmed = await _showWorkerDeletionDialog(worker, check);
+      final confirmed = await _showWorkerDeactivationDialog(worker, check);
       if (!confirmed || !mounted) {
         return;
       }
-      await MobileApi.instance.adminDeleteWorker(
+      await MobileApi.instance.adminDeactivateWorker(
         id: worker.id,
         confirmConnections: check.requiresConfirmation,
       );
@@ -273,13 +273,13 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         _workersVersion++;
         _groupsVersion++;
       });
-      showAdminTopNotice(context, 'Ishchi o‘chirildi');
+      showAdminTopNotice(context, 'Ishchi faolsizlantirildi');
     } on AdminWorkerDeletionRejected catch (error) {
       if (!mounted) {
         return;
       }
       if (error.check.blocked) {
-        await _showWorkerDeletionDialog(worker, error.check);
+        await _showWorkerDeactivationDialog(worker, error.check);
       } else {
         showAdminTopNotice(
           context,
@@ -295,18 +295,18 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
       if (mounted) {
         showAdminTopNotice(
           context,
-          'Ishchi o‘chirilmadi',
+          'Ishchi faolsizlantirilmadi',
           icon: Icons.error,
         );
       }
     } finally {
-      if (mounted && _deletingWorkerId == worker.id) {
-        setState(() => _deletingWorkerId = null);
+      if (mounted && _deactivatingWorkerId == worker.id) {
+        setState(() => _deactivatingWorkerId = null);
       }
     }
   }
 
-  Future<bool> _showWorkerDeletionDialog(
+  Future<bool> _showWorkerDeactivationDialog(
     AdminWorker worker,
     AdminWorkerDeletionCheck check,
   ) async {
@@ -319,11 +319,13 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
         final scheme = Theme.of(dialogContext).colorScheme;
         return AlertDialog(
           icon: Icon(
-            blocked ? Icons.block_rounded : Icons.delete_outline_rounded,
+            blocked ? Icons.block_rounded : Icons.person_off_outlined,
             color: blocked ? scheme.error : scheme.onSurface,
           ),
           title: Text(
-            blocked ? 'Ishchini o‘chirib bo‘lmaydi' : 'Ishchini o‘chirish',
+            blocked
+                ? 'Ishchini faolsizlantirib bo‘lmaydi'
+                : 'Ishchini faolsizlantirish',
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
@@ -334,10 +336,10 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                 children: [
                   Text(
                     blocked
-                        ? '${worker.name} quyidagi faol ishni tugatmaguncha o‘chirib bo‘lmaydi.'
+                        ? '${worker.name} quyidagi faol ishni tugatmaguncha faolsizlantirib bo‘lmaydi.'
                         : dependencies.isEmpty
-                            ? '“${worker.name}” ishchisida faol ish yoki bog‘lanish topilmadi. Uni o‘chirishni tasdiqlaysizmi?'
-                            : '${worker.name} quyidagi ulanishlarga ega. Tasdiqlasangiz, ular ishchi bilan birga olib tashlanadi.',
+                            ? '“${worker.name}” ishchisi faolsizlantiriladi. U tizimga kira olmaydi, ammo oldingi ish tarixi saqlanadi. Tasdiqlaysizmi?'
+                            : '${worker.name} quyidagi ulanishlarga ega. Tasdiqlasangiz, ulanishlar olib tashlanadi va ishchi faolsizlantiriladi. Oldingi ish tarixi saqlanadi.',
                   ),
                   if (dependencies.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -395,7 +397,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                         style: FilledButton.styleFrom(
                           backgroundColor: scheme.error,
                         ),
-                        child: const Text('O‘chirish'),
+                        child: const Text('Faolsizlantirish'),
                       ),
                     ),
                   ],
@@ -518,9 +520,9 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                         },
                         onEditLevel: () =>
                             unawaited(_openWorkerLevelPicker(workers[index])),
-                        deleting: _deletingWorkerId == workers[index].id,
+                        deleting: _deactivatingWorkerId == workers[index].id,
                         onDelete: () => unawaited(
-                          _deleteWorker(workers[index], workers),
+                          _deactivateWorker(workers[index], workers),
                         ),
                       ),
                   ],
@@ -859,7 +861,7 @@ class _WorkerGroupsTab extends StatefulWidget {
 
 class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     with AutomaticKeepAliveClientMixin<_WorkerGroupsTab> {
-  List<AdminWarehouse> _apparatus = const [];
+  List<AdminApparatus> _apparatus = const [];
   List<AdminWorker> _workers = const [];
   Map<String, AdminWorkerGroup> _groupsByCode = const {};
   bool _loading = true;
@@ -895,14 +897,14 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 300),
+        MobileApi.instance.adminApparatus(limit: 300),
         MobileApi.instance.adminWorkers(),
         MobileApi.instance.adminWorkerGroups(),
       ]).timeout(const Duration(seconds: 12));
       if (!mounted) {
         return;
       }
-      final apparatus = results[0] as List<AdminWarehouse>;
+      final apparatus = results[0] as List<AdminApparatus>;
       final workers = results[1] as List<AdminWorker>;
       final groups = results[2] as List<AdminWorkerGroup>;
       setState(() {
@@ -1155,7 +1157,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
   });
 
   final AdminWorkerGroup group;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
   final bool expanded;
@@ -1296,7 +1298,7 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
   });
 
   final AdminWorkerGroup group;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
   final bool editing;
@@ -1508,13 +1510,13 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
   });
 
   final AdminWorkerGroup group;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final ValueChanged<AdminWorkerGroup> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final selectedApparatus = apparatus.any(
-      (item) => item.warehouse.trim() == group.apparatus.trim(),
+      (item) => item.name.trim() == group.apparatus.trim(),
     )
         ? group.apparatus.trim()
         : null;
@@ -1533,8 +1535,8 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
           items: [
             for (final item in apparatus)
               DropdownMenuItem(
-                value: item.warehouse,
-                child: Text(item.warehouse, overflow: TextOverflow.ellipsis),
+                value: item.name,
+                child: Text(item.name, overflow: TextOverflow.ellipsis),
               ),
           ],
           onChanged: apparatus.isEmpty
@@ -1833,14 +1835,14 @@ class _WorkerSettingsCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              tooltip: 'Ishchini o‘chirish',
+                              tooltip: 'Ishchini faolsizlantirish',
                               onPressed: deleting ? null : onDelete,
                               style: IconButton.styleFrom(
                                 foregroundColor: scheme.error,
                               ),
                               icon: deleting
                                   ? const Icon(Icons.hourglass_top_rounded)
-                                  : const Icon(Icons.delete_outline_rounded),
+                                  : const Icon(Icons.person_off_outlined),
                             ),
                           ],
                         ),

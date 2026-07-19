@@ -17,6 +17,7 @@ import '../realtime/chat_realtime_service.dart';
 import 'chat_failure.dart';
 
 part 'chat_store_media.dart';
+part 'chat_store_sync.dart';
 
 class ChatStore extends ChangeNotifier {
   ChatStore._();
@@ -33,6 +34,23 @@ class ChatStore extends ChangeNotifier {
   final Map<String, http.Client> _mediaUploadClients = {};
   final Set<String> _runningMedia = {};
   final Set<String> _clearingMediaProfiles = {};
+  final Map<String, Future<ChatMessage>> _pendingSends = {};
+  Timer? _pendingRetryTimer;
+  DateTime? _pendingRetryAt;
+  Timer? _periodicSyncTimer;
+  Timer? _mediaRetryTimer;
+  DateTime? _mediaRetryAt;
+  Future<void>? _syncOperation;
+  Future<void>? _conversationRefreshOperation;
+  bool _conversationRefreshRequested = false;
+  bool _pendingDrainRunning = false;
+  bool _pendingDrainRequested = false;
+  bool _receiptFlushRunning = false;
+  bool _receiptFlushRequested = false;
+  int _syncCursor = 0;
+  String _retryClientMessageId = '';
+  String _retryConversationId = '';
+  String _retryBody = '';
 
   List<ChatConversation> conversations = const [];
   List<ChatDirectoryEntry> directory = const [];
@@ -63,6 +81,7 @@ class ChatStore extends ChangeNotifier {
   @override
   void dispose() {
     _realtime.stop();
+    _cancelReliabilityTimers();
     unreadCountListenable.dispose();
     super.dispose();
   }
@@ -84,10 +103,17 @@ class ChatStore extends ChangeNotifier {
     }
     final nextKey = _keyFor(profile);
     if (nextKey == profileKey) {
+      _ensureRealtimeStarted();
+      _startReliabilityTimers();
+      unawaited(_recoverChatState());
       if (conversations.isEmpty) await refreshConversations();
       return;
     }
     _realtime.stop();
+    _syncOperation = null;
+    _conversationRefreshOperation = null;
+    _conversationRefreshRequested = false;
+    loadingConversations = false;
     profileKey = nextKey;
     conversations = const [];
     directory = const [];
@@ -104,22 +130,22 @@ class ChatStore extends ChangeNotifier {
           .toList(growable: false);
       notifyListeners();
     } catch (_) {}
+    try {
+      _syncCursor = await ChatLocalStore.instance.loadSyncCursor(nextKey);
+    } catch (_) {
+      _syncCursor = 0;
+    }
     await _restorePendingMedia(nextKey);
-    await refreshConversations();
     if (profileKey != nextKey) return;
-    _realtime.start(
-      liveUri: MobileApi.instance.chatLiveUri,
-      onEvent: _handleRealtimeEvent,
-      onConnectionChanged: (value) {
-        if (connected == value) return;
-        connected = value;
-        notifyListeners();
-      },
-    );
+    _ensureRealtimeStarted();
+    _startReliabilityTimers();
+    unawaited(_recoverChatState());
+    await refreshConversations();
   }
 
   void clearMemory() {
     _realtime.stop();
+    _cancelReliabilityTimers();
     for (final client in _mediaUploadClients.values) {
       client.close();
     }
@@ -127,6 +153,18 @@ class ChatStore extends ChangeNotifier {
     _runningMedia.clear();
     _clearingMediaProfiles.clear();
     _pendingMedia.clear();
+    _pendingSends.clear();
+    _syncOperation = null;
+    _conversationRefreshOperation = null;
+    _conversationRefreshRequested = false;
+    _pendingDrainRunning = false;
+    _pendingDrainRequested = false;
+    _receiptFlushRunning = false;
+    _receiptFlushRequested = false;
+    _syncCursor = 0;
+    _pendingRetryAt = null;
+    _mediaRetryAt = null;
+    _clearRetryIdentity();
     profileKey = '';
     conversations = const [];
     directory = const [];
@@ -145,28 +183,54 @@ class ChatStore extends ChangeNotifier {
 
   void pauseRealtime() {
     _realtime.stop();
+    _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = null;
     if (!connected) return;
     connected = false;
     notifyListeners();
   }
 
-  Future<void> refreshConversations() async {
+  Future<void> refreshConversations() {
     final key = profileKey;
-    if (key.isEmpty || loadingConversations) return;
+    if (key.isEmpty) return Future<void>.value();
+    final existing = _conversationRefreshOperation;
+    if (existing != null) {
+      _conversationRefreshRequested = true;
+      return existing;
+    }
+    late final Future<void> operation;
+    operation = _runConversationRefresh(key).whenComplete(() {
+      if (identical(_conversationRefreshOperation, operation)) {
+        _conversationRefreshOperation = null;
+      }
+    });
+    _conversationRefreshOperation = operation;
+    return operation;
+  }
+
+  Future<void> _runConversationRefresh(String key) async {
     loadingConversations = true;
     error = '';
     notifyListeners();
     try {
-      final page = await MobileApi.instance.chatConversations();
-      if (profileKey != key) return;
-      conversations = page.items
-          .where((conversation) => conversation.hasMessages)
-          .toList(growable: false);
-      try {
-        await ChatLocalStore.instance.saveConversations(key, conversations);
-      } catch (_) {}
-    } catch (exception) {
-      if (profileKey == key) error = exception.toString();
+      do {
+        _conversationRefreshRequested = false;
+        try {
+          final page = await MobileApi.instance.chatConversations();
+          if (profileKey != key) return;
+          conversations = page.items
+              .where((conversation) => conversation.hasMessages)
+              .toList(growable: false);
+          try {
+            await ChatLocalStore.instance.saveConversations(
+              key,
+              conversations,
+            );
+          } catch (_) {}
+        } catch (exception) {
+          if (profileKey == key) error = exception.toString();
+        }
+      } while (_conversationRefreshRequested && profileKey == key);
     } finally {
       if (profileKey == key) {
         loadingConversations = false;
@@ -196,12 +260,14 @@ class ChatStore extends ChangeNotifier {
 
   Future<ChatConversation> openConversation(ChatDirectoryEntry target) async {
     await startForCurrentSession();
+    final key = profileKey;
+    if (key.isEmpty) throw StateError('chat_profile_changed');
     final conversation = await MobileApi.instance.chatCreateDm(target);
+    if (profileKey != key) throw StateError('chat_profile_changed');
     _upsertConversation(conversation);
-    if (profileKey.isNotEmpty) {
+    if (profileKey == key) {
       try {
-        await ChatLocalStore.instance
-            .saveConversations(profileKey, [conversation]);
+        await ChatLocalStore.instance.saveConversations(key, [conversation]);
       } catch (_) {}
     }
     notifyListeners();
@@ -244,8 +310,9 @@ class ChatStore extends ChangeNotifier {
           _messages[conversationId]!,
         );
       } catch (_) {}
+      if (profileKey != key) return;
       await markRead(conversationId);
-      unawaited(_flushPendingMessages(conversationId));
+      unawaited(_drainPendingMessages());
     } catch (exception) {
       if (profileKey == key) error = exception.toString();
     } finally {
@@ -255,6 +322,8 @@ class ChatStore extends ChangeNotifier {
   }
 
   Future<void> loadOlderMessages(String conversationId) async {
+    final key = profileKey;
+    if (key.isEmpty) return;
     if (!hasMoreMessages(conversationId)) return;
     final existing = _messages[conversationId] ?? const <ChatMessage>[];
     if (existing.isEmpty) return;
@@ -262,13 +331,15 @@ class ChatStore extends ChangeNotifier {
       conversationId,
       beforeSequence: existing.first.sequence,
     );
+    if (profileKey != key) return;
     _messages[conversationId] = _mergeMessages(page.items, existing);
     _hasMoreMessages[conversationId] = page.hasMore;
-    if (profileKey.isNotEmpty) {
+    if (profileKey == key) {
       try {
-        await ChatLocalStore.instance.saveMessages(profileKey, page.items);
+        await ChatLocalStore.instance.saveMessages(key, page.items);
       } catch (_) {}
     }
+    if (profileKey != key) return;
     notifyListeners();
   }
 
@@ -279,6 +350,8 @@ class ChatStore extends ChangeNotifier {
     error = '';
     sendError = '';
     notifyListeners();
+    var attemptedClientMessageId = '';
+    var attemptedProfileKey = '';
     try {
       if (profileKey.isEmpty) {
         await startForCurrentSession().timeout(_sendTimeout);
@@ -291,48 +364,38 @@ class ChatStore extends ChangeNotifier {
         );
       }
       final key = profileKey;
-      var clientMessageId = _newClientMessageId();
-      try {
-        final pending = await ChatLocalStore.instance.loadPendingMessages(
-          key,
-          conversationId: conversationId,
-        );
-        final matching = pending.where((message) => message.body == body);
-        if (matching.isNotEmpty) {
-          clientMessageId = matching.first.clientMessageId;
-        }
-        await ChatLocalStore.instance.savePendingMessage(
-          key,
-          ChatPendingMessage(
-            conversationId: conversationId,
-            clientMessageId: clientMessageId,
-            body: body,
-          ),
-        );
-      } catch (_) {}
-      final message = await _sendWithRetry(
+      attemptedProfileKey = key;
+      final retrying = _retryClientMessageId.isNotEmpty &&
+          _retryConversationId == conversationId &&
+          _retryBody == body;
+      final clientMessageId =
+          retrying ? _retryClientMessageId : _newClientMessageId();
+      attemptedClientMessageId = clientMessageId;
+      var pending = retrying
+          ? await ChatLocalStore.instance
+              .loadPendingMessage(key, clientMessageId)
+          : null;
+      pending ??= ChatPendingMessage(
         conversationId: conversationId,
         clientMessageId: clientMessageId,
         body: body,
+        createdAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
-      try {
-        await _acceptMessage(message);
-      } catch (stateError) {
-        debugPrint(
-          'chat message accepted by server but local state update failed: '
-          '${stateError.runtimeType}: $stateError',
-        );
-      }
-      try {
-        await ChatLocalStore.instance.removePendingMessage(
-          key,
-          clientMessageId,
-        );
-      } catch (_) {}
+      await ChatLocalStore.instance.savePendingMessage(key, pending);
+      await _sendPendingMessage(key, pending);
+      _clearRetryIdentity();
       unawaited(refreshConversations());
     } catch (exception) {
-      error = exception.toString();
-      sendError = chatFailureMessage(exception);
+      if (attemptedProfileKey.isNotEmpty && profileKey == attemptedProfileKey) {
+        error = exception.toString();
+        sendError = chatFailureMessage(exception);
+      }
+      if (attemptedClientMessageId.isNotEmpty &&
+          profileKey == attemptedProfileKey) {
+        _retryClientMessageId = attemptedClientMessageId;
+        _retryConversationId = conversationId;
+        _retryBody = body;
+      }
       rethrow;
     } finally {
       sending = false;
@@ -341,6 +404,7 @@ class ChatStore extends ChangeNotifier {
   }
 
   void clearSendError() {
+    _clearRetryIdentity();
     if (sendError.isEmpty) return;
     sendError = '';
     notifyListeners();
@@ -350,9 +414,13 @@ class ChatStore extends ChangeNotifier {
     required String conversationId,
     required String clientMessageId,
     required String body,
+    required String expectedProfileKey,
   }) async {
     Object? lastError;
     for (var attempt = 0; attempt < 2; attempt++) {
+      if (profileKey != expectedProfileKey) {
+        throw StateError('chat_profile_changed');
+      }
       try {
         return await MobileApi.instance
             .chatSendMessage(
@@ -367,12 +435,17 @@ class ChatStore extends ChangeNotifier {
           rethrow;
         }
         await Future<void>.delayed(const Duration(milliseconds: 350));
+        if (profileKey != expectedProfileKey) {
+          throw StateError('chat_profile_changed');
+        }
       }
     }
     throw lastError ?? StateError('chat_send_failed');
   }
 
   Future<void> markRead(String conversationId) async {
+    final key = profileKey;
+    if (key.isEmpty) return;
     final messages = _messages[conversationId] ?? const <ChatMessage>[];
     final sequence = messages.isEmpty ? 0 : messages.last.sequence;
     final index = conversations.indexWhere(
@@ -384,20 +457,20 @@ class ChatStore extends ChangeNotifier {
       next[index] = updated;
       conversations = next;
       notifyListeners();
-      if (profileKey.isNotEmpty) {
+      if (profileKey == key) {
         unawaited(
-          ChatLocalStore.instance.saveConversations(profileKey, [updated]),
+          ChatLocalStore.instance.saveConversations(key, [updated]),
         );
       }
     }
     if (sequence <= 0) return;
-    try {
-      await MobileApi.instance.chatMarkRead(
-        conversationId: conversationId,
-        sequence: sequence,
-        deviceId: await _deviceId(),
-      );
-    } catch (_) {}
+    await _queueReceipt(
+      conversationId,
+      deliveredSequence: sequence,
+      readSequence: sequence,
+      expectedProfileKey: key,
+    );
+    unawaited(_flushPendingReceipts());
   }
 
   void setActiveConversation(String conversationId) {
@@ -408,39 +481,72 @@ class ChatStore extends ChangeNotifier {
   Future<void> handlePush(Map<String, dynamic> data) async {
     if (data['event_type'] != 'chat.message.created') return;
     await startForCurrentSession();
-    await refreshConversations();
+    try {
+      await _synchronizeChat();
+    } catch (exception) {
+      debugPrint(
+        'chat push synchronization failed: '
+        '${exception.runtimeType}: $exception',
+      );
+    }
     final conversationId = data['conversation_id']?.toString() ?? '';
     if (conversationId == activeConversationId && conversationId.isNotEmpty) {
-      await loadMessages(conversationId);
+      try {
+        await _syncConversationAfterKnown(conversationId);
+      } catch (exception) {
+        debugPrint(
+          'chat push conversation recovery failed: '
+          '${exception.runtimeType}: $exception',
+        );
+      }
     }
+  }
+
+  bool shouldPresentChatNotification(String conversationId) {
+    return conversationId.isEmpty || conversationId != activeConversationId;
   }
 
   void _handleRealtimeEvent(Map<String, dynamic> payload) {
-    if (payload['event'] != 'chat.message.created') return;
+    final eventType = payload['event']?.toString() ?? '';
+    if (eventType == 'chat.ready' || eventType == 'chat.resync_required') {
+      unawaited(_recoverChatState());
+      return;
+    }
+    if (eventType != 'chat.message.created') return;
     final rawMessage = payload['message'];
     if (rawMessage is! Map) return;
     final message = ChatMessage.fromJson(rawMessage.cast<String, dynamic>());
-    unawaited(_acceptMessage(message));
-    unawaited(refreshConversations());
-    if (message.conversationId == activeConversationId) {
-      unawaited(markRead(message.conversationId));
-    }
+    unawaited(_acceptRealtimeMessage(message));
   }
 
-  Future<void> _acceptMessage(ChatMessage message) async {
+  Future<bool> _acceptMessage(
+    ChatMessage message, {
+    String? expectedProfileKey,
+    bool requirePersistence = false,
+  }) async {
+    final key = expectedProfileKey ?? profileKey;
+    if (key.isEmpty || profileKey != key) return false;
     final current = _messages[message.conversationId] ?? const <ChatMessage>[];
+    final alreadyKnown =
+        current.any((item) => item.messageId == message.messageId);
     _messages[message.conversationId] = _mergeMessages(current, [message]);
     final conversationIndex = conversations.indexWhere(
       (conversation) => conversation.conversationId == message.conversationId,
     );
     if (conversationIndex >= 0) {
+      final profile = AppSession.instance.profile;
+      final mine = profile != null &&
+          message.senderRole == profile.role &&
+          message.senderRef == profile.ref;
       final next = [...conversations];
       next[conversationIndex] = next[conversationIndex].copyWith(
         lastMessage: message,
         lastMessageSequence: message.sequence,
         unreadCount: message.conversationId == activeConversationId
             ? 0
-            : next[conversationIndex].unreadCount,
+            : !alreadyKnown && !mine
+                ? next[conversationIndex].unreadCount + 1
+                : next[conversationIndex].unreadCount,
         updatedAtUnix: message.createdAtUnix,
       );
       next.sort(
@@ -448,61 +554,24 @@ class ChatStore extends ChangeNotifier {
       );
       conversations = next;
     }
-    if (profileKey.isNotEmpty) {
+    if (key.isNotEmpty) {
       try {
-        await ChatLocalStore.instance.saveMessages(profileKey, [message]);
+        await ChatLocalStore.instance.saveMessages(key, [message]);
         if (conversationIndex >= 0) {
           final updated = conversations.firstWhere(
             (conversation) =>
                 conversation.conversationId == message.conversationId,
           );
-          await ChatLocalStore.instance
-              .saveConversations(profileKey, [updated]);
+          await ChatLocalStore.instance.saveConversations(key, [updated]);
         }
-      } catch (_) {}
-    }
-    notifyListeners();
-  }
-
-  Future<void> _flushPendingMessages(String conversationId) async {
-    final key = profileKey;
-    if (key.isEmpty || sending) return;
-    List<ChatPendingMessage> pending;
-    try {
-      pending = await ChatLocalStore.instance.loadPendingMessages(
-        key,
-        conversationId: conversationId,
-      );
-    } catch (_) {
-      return;
-    }
-    if (pending.isEmpty) return;
-    sending = true;
-    sendError = '';
-    notifyListeners();
-    var sentAny = false;
-    for (final item in pending) {
-      if (profileKey != key) break;
-      try {
-        final message = await _sendWithRetry(
-          conversationId: item.conversationId,
-          clientMessageId: item.clientMessageId,
-          body: item.body,
-        );
-        await _acceptMessage(message);
-        await ChatLocalStore.instance.removePendingMessage(
-          key,
-          item.clientMessageId,
-        );
-        sentAny = true;
-      } catch (error) {
-        sendError = chatFailureMessage(error);
-        break;
+      } catch (persistenceError, stackTrace) {
+        if (requirePersistence) {
+          Error.throwWithStackTrace(persistenceError, stackTrace);
+        }
       }
     }
-    sending = false;
-    notifyListeners();
-    if (sentAny) await refreshConversations();
+    if (profileKey == key) notifyListeners();
+    return !alreadyKnown;
   }
 
   void _upsertConversation(ChatConversation conversation) {

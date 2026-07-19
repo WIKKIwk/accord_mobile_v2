@@ -2,7 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminProductionMapOrdersMoveState
     on _AdminProductionMapOrdersScreenState {
-  void _syncMoveApparatusDefaults(List<AdminWarehouse> source) {
+  void _syncMoveApparatusDefaults(List<AdminApparatus> source) {
     final defaults = _moveApparatusDefaults(
       source: source,
       currentTop: _moveTopApparatus,
@@ -13,8 +13,8 @@ extension _AdminProductionMapOrdersMoveState
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({
-    required AdminWarehouse source,
-    required AdminWarehouse target,
+    required AdminApparatus source,
+    required AdminApparatus target,
   }) {
     if (_isMoveUnassignedApparatus(source)) {
       if (_isMoveUnassignedApparatus(target)) {
@@ -62,7 +62,7 @@ extension _AdminProductionMapOrdersMoveState
         orders.map((order) => order.map.id).toList(growable: false);
     final moved = orders.removeAt(oldIndex);
     orders.insert(newIndex, moved);
-    final apparatusKey = apparatus.warehouse.trim();
+    final apparatusKey = apparatus.name.trim();
     final orderIds =
         orders.map((order) => order.map.id).toList(growable: false);
     _updateScreenState(() {
@@ -115,7 +115,7 @@ extension _AdminProductionMapOrdersMoveState
 
   _MoveDragPayload _buildMoveDragPayload({
     required ProductionMapSaved order,
-    required AdminWarehouse source,
+    required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) {
     return _moveDragPayload(
@@ -159,8 +159,8 @@ extension _AdminProductionMapOrdersMoveState
 
   Future<void> _moveOrdersBetweenApparatus({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse from,
-    required AdminWarehouse to,
+    required AdminApparatus from,
+    required AdminApparatus to,
   }) async {
     if (_isMoveUnassignedApparatus(from) && !_isMoveUnassignedApparatus(to)) {
       await _assignAlternativeOrdersToApparatus(orders: orders, apparatus: to);
@@ -171,7 +171,7 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
     if (widget.readOnly ||
-        from.warehouse.trim() == to.warehouse.trim() ||
+        from.name.trim() == to.name.trim() ||
         _isMoveUnassignedApparatus(from) ||
         _isMoveUnassignedApparatus(to) ||
         orders.isEmpty) {
@@ -189,8 +189,8 @@ extension _AdminProductionMapOrdersMoveState
     try {
       final saved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
         mapIds: orders.map((order) => order.map.id).toList(growable: false),
-        fromApparatus: from.warehouse,
-        toApparatus: to.warehouse,
+        fromApparatus: from.name,
+        toApparatus: to.name,
       );
       if (!mounted) {
         return;
@@ -209,7 +209,7 @@ extension _AdminProductionMapOrdersMoveState
 
   Future<void> _returnOrdersToUnassigned({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse source,
+    required AdminApparatus source,
   }) async {
     if (widget.readOnly || orders.isEmpty) {
       return;
@@ -249,7 +249,7 @@ extension _AdminProductionMapOrdersMoveState
 
   Future<void> _assignAlternativeOrdersToApparatus({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse apparatus,
+    required AdminApparatus apparatus,
   }) async {
     if (widget.readOnly || orders.isEmpty) {
       return;
@@ -294,7 +294,7 @@ extension _AdminProductionMapOrdersMoveState
         anchor == null || _isMoveUnassignedApparatus(anchor)
             ? 0
             : _alternativeOrdersForApparatus(anchor).length;
-    final picked = await showModalBottomSheet<AdminWarehouse>(
+    final picked = await showModalBottomSheet<AdminApparatus>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
@@ -318,8 +318,8 @@ extension _AdminProductionMapOrdersMoveState
     });
   }
 
-  List<AdminWarehouse> _movePickerApparatusOptions(
-    AdminWarehouse? oppositeApparatus,
+  List<AdminApparatus> _movePickerApparatusOptions(
+    AdminApparatus? oppositeApparatus,
   ) {
     return _movePickerApparatusOptionsForList(
       apparatus: _apparatus,
@@ -328,7 +328,7 @@ extension _AdminProductionMapOrdersMoveState
   }
 
   List<ProductionMapSaved> _alternativeOrdersForApparatus(
-    AdminWarehouse apparatus,
+    AdminApparatus apparatus,
   ) {
     return _alternativeOrdersForApparatusList(
       orders: _orders,

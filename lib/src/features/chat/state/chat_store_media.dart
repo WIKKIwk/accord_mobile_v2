@@ -14,6 +14,7 @@ extension ChatStoreMedia on ChatStore {
     required ChatMediaKind kind,
     String caption = '',
     int durationMs = 0,
+    bool deleteSourceAfterPersist = false,
   }) async {
     await startForCurrentSession();
     final key = profileKey;
@@ -25,15 +26,22 @@ extension ChatStoreMedia on ChatStore {
       );
     }
     final sizeBytes = await source.length();
-    final maximum = kind == ChatMediaKind.image
-        ? chatMediaImageMaxBytes
-        : chatMediaVideoMaxBytes;
+    if (profileKey != key) throw StateError('chat_profile_changed');
+    final maximum = switch (kind) {
+      ChatMediaKind.image => chatMediaImageMaxBytes,
+      ChatMediaKind.video => chatMediaVideoMaxBytes,
+      ChatMediaKind.audio => chatMediaAudioMaxBytes,
+    };
     if (sizeBytes <= 0 || sizeBytes > maximum) {
       throw MobileApiException(
         code: 'chat_media_too_large',
-        message: kind == ChatMediaKind.image
-            ? 'Rasm 15 MiB dan oshmasligi kerak.'
-            : 'Video 2 GiB va 10 daqiqadan oshmasligi kerak.',
+        message: switch (kind) {
+          ChatMediaKind.image => 'Rasm 15 MiB dan oshmasligi kerak.',
+          ChatMediaKind.video =>
+            'Video 2 GiB va 10 daqiqadan oshmasligi kerak.',
+          ChatMediaKind.audio =>
+            'Ovozli xabar 64 MiB va 10 daqiqadan oshmasligi kerak.',
+        },
         statusCode: 413,
       );
     }
@@ -42,6 +50,21 @@ extension ChatStoreMedia on ChatStore {
       throw const MobileApiException(
         code: 'video_duration_too_long',
         message: 'Video 10 daqiqa (600 soniya)dan oshmasligi kerak.',
+        statusCode: 422,
+      );
+    }
+    if (kind == ChatMediaKind.audio && durationMs <= 0) {
+      throw const MobileApiException(
+        code: 'chat_media_input_invalid',
+        message: 'Ovozli xabar davomiyligi aniqlanmadi.',
+        statusCode: 400,
+      );
+    }
+    if (kind == ChatMediaKind.audio &&
+        durationMs > chatMediaAudioMaxDuration.inMilliseconds) {
+      throw const MobileApiException(
+        code: 'audio_duration_too_long',
+        message: 'Ovozli xabar 10 daqiqadan oshmasligi kerak.',
         statusCode: 422,
       );
     }
@@ -55,9 +78,13 @@ extension ChatStoreMedia on ChatStore {
     if (contentType.isEmpty) {
       throw MobileApiException(
         code: 'chat_media_input_invalid',
-        message: kind == ChatMediaKind.image
-            ? 'Faqat JPEG, PNG yoki WebP rasm yuborish mumkin.'
-            : 'Faqat MP4, MOV yoki WebM video yuborish mumkin.',
+        message: switch (kind) {
+          ChatMediaKind.image =>
+            'Faqat JPEG, PNG yoki WebP rasm yuborish mumkin.',
+          ChatMediaKind.video =>
+            'Faqat MP4, MOV yoki WebM video yuborish mumkin.',
+          ChatMediaKind.audio => 'Ovozli xabar formati qo‘llab-quvvatlanmaydi.',
+        },
         statusCode: 400,
       );
     }
@@ -75,10 +102,15 @@ extension ChatStoreMedia on ChatStore {
       status: ChatPendingMediaStatus.preparing,
       progress: 0,
       createdAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      durationMs: kind == ChatMediaKind.video ? durationMs : 0,
+      durationMs: kind == ChatMediaKind.image ? 0 : durationMs,
     );
     _insertPendingMedia(pending);
-    unawaited(_preparePendingMedia(key, pending, source));
+    await _preparePendingMedia(
+      key,
+      pending,
+      source,
+      deleteSourceAfterPersist: deleteSourceAfterPersist,
+    );
   }
 
   Future<void> retryMedia(String localId) async {
@@ -87,15 +119,19 @@ extension ChatStoreMedia on ChatStore {
     if (key.isEmpty || pending == null || _runningMedia.contains(localId)) {
       return;
     }
-    await _replacePendingMedia(
+    final updated = await _replacePendingMedia(
       key,
       localId,
       (current) => current.copyWith(
         status: ChatPendingMediaStatus.preparing,
         progress: 0,
         error: '',
+        retryAttempts: 0,
+        nextRetryAtUnix: 0,
+        autoRetry: false,
       ),
     );
+    if (updated == null || profileKey != key) return;
     unawaited(_runPendingMedia(key, localId, allowRestart: true));
   }
 
@@ -107,7 +143,7 @@ extension ChatStoreMedia on ChatStore {
         pending.status == ChatPendingMediaStatus.sent) {
       return;
     }
-    await _replacePendingMedia(
+    final updated = await _replacePendingMedia(
       key,
       localId,
       (current) => current.copyWith(
@@ -115,6 +151,7 @@ extension ChatStoreMedia on ChatStore {
         error: '',
       ),
     );
+    if (updated == null || profileKey != key) return;
     _mediaUploadClients.remove(localId)?.close();
     if (pending.uploadId.isNotEmpty) {
       try {
@@ -182,16 +219,23 @@ extension ChatStoreMedia on ChatStore {
         unawaited(_runPendingMedia(key, item.localId));
       }
     }
+    unawaited(_drainPendingMediaRetries());
   }
 
   Future<void> _preparePendingMedia(
     String key,
     ChatPendingMedia pending,
-    XFile source,
-  ) async {
+    XFile source, {
+    required bool deleteSourceAfterPersist,
+  }) async {
     String persistedPath = '';
     try {
       persistedPath = await persistChatMediaFile(source, pending.localId);
+      if (deleteSourceAfterPersist && source.path != persistedPath) {
+        try {
+          await deleteChatMediaFile(source.path);
+        } catch (_) {}
+      }
       if (profileKey != key || _clearingMediaProfiles.contains(key)) {
         await deleteChatMediaFile(persistedPath);
         return;
@@ -205,8 +249,13 @@ extension ChatStoreMedia on ChatStore {
         await deleteChatMediaFile(persistedPath);
         return;
       }
-      await _runPendingMedia(key, pending.localId);
+      unawaited(_runPendingMedia(key, pending.localId));
     } catch (error) {
+      if (deleteSourceAfterPersist && source.path != persistedPath) {
+        try {
+          await deleteChatMediaFile(source.path);
+        } catch (_) {}
+      }
       if (persistedPath.isNotEmpty && profileKey != key) {
         try {
           await deleteChatMediaFile(persistedPath);
@@ -238,6 +287,7 @@ extension ChatStoreMedia on ChatStore {
         ChatMediaUploadInstruction? instruction;
         if (pending.uploadId.isEmpty) {
           final initialized = await _initializePendingMedia(pending);
+          _throwIfMediaProfileChanged(key);
           serverMedia = initialized.media;
           instruction = initialized.upload;
           pending = (await _replacePendingMedia(
@@ -255,6 +305,7 @@ extension ChatStoreMedia on ChatStore {
               conversationId: pending.conversationId,
               uploadId: pending.uploadId,
             );
+            _throwIfMediaProfileChanged(key);
           } catch (error) {
             if (mayRestart &&
                 error is MobileApiException &&
@@ -285,6 +336,7 @@ extension ChatStoreMedia on ChatStore {
         if (serverMedia.status == 'pending') {
           if (instruction == null) {
             final initialized = await _initializePendingMedia(pending);
+            _throwIfMediaProfileChanged(key);
             serverMedia = initialized.media;
             instruction = initialized.upload;
           }
@@ -318,6 +370,7 @@ extension ChatStoreMedia on ChatStore {
                   instruction: instruction,
                   client: client,
                 );
+                _throwIfMediaProfileChanged(key);
               } else {
                 await MobileApi.instance.chatUploadMedia(
                   instruction: instruction,
@@ -327,6 +380,7 @@ extension ChatStoreMedia on ChatStore {
                   onProgress: (progress) =>
                       _updatePendingMediaProgress(key, localId, progress),
                 );
+                _throwIfMediaProfileChanged(key);
               }
             } finally {
               if (identical(_mediaUploadClients[localId], client)) {
@@ -340,12 +394,14 @@ extension ChatStoreMedia on ChatStore {
               conversationId: pending.conversationId,
               uploadId: pending.uploadId,
             );
+            _throwIfMediaProfileChanged(key);
           }
         } else if (serverMedia.status == 'uploaded') {
           serverMedia = await MobileApi.instance.chatCompleteMedia(
             conversationId: pending.conversationId,
             uploadId: pending.uploadId,
           );
+          _throwIfMediaProfileChanged(key);
         }
 
         if (serverMedia.status == 'processing') {
@@ -359,6 +415,7 @@ extension ChatStoreMedia on ChatStore {
             ),
           );
           serverMedia = await _waitForReadyMedia(key, localId, serverMedia);
+          _throwIfMediaProfileChanged(key);
         }
         if (!serverMedia.ready) {
           throw StateError(
@@ -382,7 +439,16 @@ extension ChatStoreMedia on ChatStore {
           body: pending.caption,
           mediaId: serverMedia.mediaId,
         );
-        await _acceptMessage(message);
+        _throwIfMediaProfileChanged(key);
+        await _acceptMessage(message, expectedProfileKey: key);
+        if (pending.kind != ChatMediaKind.image &&
+            pending.localPath.isNotEmpty) {
+          try {
+            await promoteChatMediaFile(pending.localPath, serverMedia.mediaId);
+          } catch (_) {
+            // Network playback remains available when local cache promotion fails.
+          }
+        }
         final sent = await _replacePendingMedia(
           key,
           localId,
@@ -390,6 +456,9 @@ extension ChatStoreMedia on ChatStore {
             status: ChatPendingMediaStatus.sent,
             progress: 1,
             error: '',
+            retryAttempts: 0,
+            nextRetryAtUnix: 0,
+            autoRetry: false,
           ),
         );
         if (sent != null) {
@@ -492,6 +561,7 @@ extension ChatStoreMedia on ChatStore {
           );
         },
       );
+      _throwIfMediaProfileChanged(key);
       uploadedBytes += bounds.sizeBytes;
       uploaded.add(index);
     }
@@ -516,6 +586,7 @@ extension ChatStoreMedia on ChatStore {
         conversationId: pending.conversationId,
         uploadId: pending.uploadId,
       );
+      _throwIfMediaProfileChanged(key);
     }
     if (media.terminalFailure) {
       throw MobileApiException(
@@ -529,6 +600,7 @@ extension ChatStoreMedia on ChatStore {
     if (!media.ready) {
       throw TimeoutException('chat_media_processing_timeout');
     }
+    _throwIfMediaProfileChanged(key);
     return media;
   }
 
@@ -559,14 +631,94 @@ extension ChatStoreMedia on ChatStore {
         _clearingMediaProfiles.contains(key)) {
       return;
     }
+    final transient = isTransientChatFailure(error);
+    final attempts = current.retryAttempts + 1;
+    final delaySeconds =
+        (1 << attempts.clamp(1, 8).toInt()).clamp(2, 300).toInt();
     await _replacePendingMedia(
       key,
       localId,
       (pending) => pending.copyWith(
         status: ChatPendingMediaStatus.failed,
         error: chatMediaFailureMessage(error),
+        retryAttempts: attempts,
+        nextRetryAtUnix: transient
+            ? DateTime.now().millisecondsSinceEpoch ~/ 1000 + delaySeconds
+            : 0,
+        autoRetry: transient,
       ),
     );
+    if (transient) {
+      _scheduleMediaRetry(Duration(seconds: delaySeconds));
+    }
+  }
+
+  Future<void> _drainPendingMediaRetries() async {
+    final key = profileKey;
+    if (key.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final retryable = _pendingMedia.values
+        .expand((items) => items)
+        .where(
+          (item) =>
+              item.status == ChatPendingMediaStatus.failed && item.autoRetry,
+        )
+        .toList(growable: false);
+    for (final item in retryable) {
+      if (profileKey != key) return;
+      if (item.nextRetryAtUnix > now) continue;
+      final updated = await _replacePendingMedia(
+        key,
+        item.localId,
+        (current) => current.copyWith(
+          status: ChatPendingMediaStatus.preparing,
+          error: '',
+          nextRetryAtUnix: 0,
+          autoRetry: false,
+        ),
+      );
+      if (updated != null) {
+        await _runPendingMedia(key, item.localId, allowRestart: true);
+      }
+    }
+    if (profileKey != key) return;
+    final nextRetry = _pendingMedia.values
+        .expand((items) => items)
+        .where(
+          (item) =>
+              item.status == ChatPendingMediaStatus.failed &&
+              item.autoRetry &&
+              item.nextRetryAtUnix > 0,
+        )
+        .map((item) => item.nextRetryAtUnix)
+        .fold<int?>(null, (current, value) {
+      if (current == null || value < current) return value;
+      return current;
+    });
+    if (nextRetry != null) {
+      final currentUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      _scheduleMediaRetry(
+        Duration(seconds: (nextRetry - currentUnix).clamp(0, 300).toInt()),
+      );
+    }
+  }
+
+  void _scheduleMediaRetry(Duration delay) {
+    if (profileKey.isEmpty) return;
+    final target = DateTime.now().add(delay);
+    final current = _mediaRetryAt;
+    if (_mediaRetryTimer?.isActive == true &&
+        current != null &&
+        !target.isBefore(current)) {
+      return;
+    }
+    _mediaRetryTimer?.cancel();
+    _mediaRetryAt = target;
+    _mediaRetryTimer = Timer(delay, () {
+      _mediaRetryTimer = null;
+      _mediaRetryAt = null;
+      unawaited(_drainPendingMediaRetries());
+    });
   }
 
   void _insertPendingMedia(ChatPendingMedia pending, {bool notify = true}) {
@@ -608,6 +760,7 @@ extension ChatStoreMedia on ChatStore {
         List<ChatPendingMedia>.unmodifiable(items);
     notifyListeners();
     await _persistPendingMedia(key, next);
+    if (profileKey != key || _clearingMediaProfiles.contains(key)) return null;
     return next;
   }
 
@@ -642,16 +795,19 @@ extension ChatStoreMedia on ChatStore {
   }
 
   Future<void> _removePendingMedia(String key, ChatPendingMedia pending) async {
-    final items = <ChatPendingMedia>[
-      ...(_pendingMedia[pending.conversationId] ?? const <ChatPendingMedia>[]),
-    ]..removeWhere((item) => item.localId == pending.localId);
-    if (items.isEmpty) {
-      _pendingMedia.remove(pending.conversationId);
-    } else {
-      _pendingMedia[pending.conversationId] =
-          List<ChatPendingMedia>.unmodifiable(items);
+    if (profileKey == key) {
+      final items = <ChatPendingMedia>[
+        ...(_pendingMedia[pending.conversationId] ??
+            const <ChatPendingMedia>[]),
+      ]..removeWhere((item) => item.localId == pending.localId);
+      if (items.isEmpty) {
+        _pendingMedia.remove(pending.conversationId);
+      } else {
+        _pendingMedia[pending.conversationId] =
+            List<ChatPendingMedia>.unmodifiable(items);
+      }
+      notifyListeners();
     }
-    notifyListeners();
     try {
       await ChatLocalStore.instance.removePendingMedia(key, pending.localId);
     } catch (_) {}
@@ -664,6 +820,12 @@ extension ChatStoreMedia on ChatStore {
 
   void _throwIfMediaCancelled(ChatPendingMedia pending) {
     if (pending.status == ChatPendingMediaStatus.cancelled) {
+      throw const _ChatMediaCancelled();
+    }
+  }
+
+  void _throwIfMediaProfileChanged(String key) {
+    if (profileKey != key || _clearingMediaProfiles.contains(key)) {
       throw const _ChatMediaCancelled();
     }
   }
@@ -681,7 +843,11 @@ String _newMediaId(String prefix) {
 String _safeMediaFilename(String raw, String localId, ChatMediaKind kind) {
   var value = raw.trim().replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '_');
   if (value.isEmpty) {
-    value = kind == ChatMediaKind.image ? '$localId.jpg' : '$localId.mp4';
+    value = switch (kind) {
+      ChatMediaKind.image => '$localId.jpg',
+      ChatMediaKind.video => '$localId.mp4',
+      ChatMediaKind.audio => '$localId.m4a',
+    };
   }
   if (value.length > 240) value = value.substring(value.length - 240);
   return value;
@@ -693,19 +859,41 @@ String _mediaContentType({
   required ChatMediaKind kind,
 }) {
   final normalized = declared?.trim().toLowerCase() ?? '';
-  final allowed = kind == ChatMediaKind.image
-      ? const {'image/jpeg', 'image/png', 'image/webp'}
-      : const {'video/mp4', 'video/quicktime', 'video/webm'};
+  final allowed = switch (kind) {
+    ChatMediaKind.image => const {'image/jpeg', 'image/png', 'image/webp'},
+    ChatMediaKind.video => const {
+        'video/mp4',
+        'video/quicktime',
+        'video/webm',
+      },
+    ChatMediaKind.audio => const {
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/aac',
+        'audio/mpeg',
+        'audio/ogg',
+        'audio/webm',
+        'audio/wav',
+        'audio/x-wav',
+      },
+  };
   if (allowed.contains(normalized)) return normalized;
   final lower = filename.toLowerCase();
   if (kind == ChatMediaKind.image) {
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.webp')) return 'image/webp';
-  } else {
+  } else if (kind == ChatMediaKind.video) {
     if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
     if (lower.endsWith('.mov')) return 'video/quicktime';
     if (lower.endsWith('.webm')) return 'video/webm';
+  } else {
+    if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
+    if (lower.endsWith('.aac')) return 'audio/aac';
+    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+    if (lower.endsWith('.webm')) return 'audio/webm';
+    if (lower.endsWith('.wav')) return 'audio/wav';
   }
   return '';
 }

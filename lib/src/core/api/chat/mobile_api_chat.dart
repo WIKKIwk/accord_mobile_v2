@@ -82,6 +82,7 @@ extension MobileApiChat on MobileApi {
   Future<ChatMessagePage> chatMessages(
     String conversationId, {
     int? beforeSequence,
+    int? afterSequence,
   }) async {
     final response = await _sendAuthorized(
       () => _get(
@@ -92,6 +93,8 @@ extension MobileApiChat on MobileApi {
             'limit': '100',
             if (beforeSequence != null)
               'before_sequence': beforeSequence.toString(),
+            if (afterSequence != null)
+              'after_sequence': afterSequence.toString(),
           },
         ),
         headers: _headers(requireToken()),
@@ -317,6 +320,65 @@ extension MobileApiChat on MobileApi {
       ),
     );
     _requireChatSuccess(response, 'chat_read_failed');
+  }
+
+  Future<void> chatMarkDelivered({
+    required String conversationId,
+    required int sequence,
+    required String deviceId,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/chat/conversations/${Uri.encodeComponent(conversationId)}/delivered',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'sequence': sequence, 'device_id': deviceId}),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_delivered_failed');
+  }
+
+  Future<ChatSyncPage> chatSync({
+    required int cursor,
+    int limit = 200,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/chat/sync').replace(
+          queryParameters: {
+            'cursor': cursor.toString(),
+            'limit': limit.clamp(1, 500).toString(),
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_sync_failed');
+    return ChatSyncPage.fromJson(await decodeJsonMapPayload(response.body));
+  }
+
+  Future<Uri> chatMediaPlaybackUri(String mediaId) async {
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/chat/media/${Uri.encodeComponent(mediaId)}/playback-ticket',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    _requireChatSuccess(response, 'chat_media_playback_ticket_failed');
+    final payload = await decodeJsonMapPayload(response.body);
+    final path = payload['url']?.toString() ?? '';
+    if (path.isEmpty) {
+      throw const MobileApiException(
+        code: 'chat_media_playback_ticket_invalid',
+        message: 'Media manzili olinmadi',
+        statusCode: 502,
+      );
+    }
+    return chatMediaUri(path);
   }
 
   Future<Uri> chatLiveUri() async {

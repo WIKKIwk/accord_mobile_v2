@@ -347,6 +347,8 @@ class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
                         canSubmit: canSubmit,
                         onChooseGroup: _chooseGroup,
                         onSelectGroup: _selectGroup,
+                        searchController:
+                            _ownsSearchController ? _searchController : null,
                         onSubmit: _moveSelected,
                       );
                     }
@@ -830,6 +832,7 @@ class _BulkMoveHeader extends StatelessWidget {
     required this.canSubmit,
     required this.onChooseGroup,
     required this.onSelectGroup,
+    required this.searchController,
     required this.onSubmit,
   });
 
@@ -841,6 +844,7 @@ class _BulkMoveHeader extends StatelessWidget {
   final bool canSubmit;
   final VoidCallback onChooseGroup;
   final ValueChanged<String> onSelectGroup;
+  final TextEditingController? searchController;
   final VoidCallback onSubmit;
 
   @override
@@ -1014,6 +1018,30 @@ class _BulkMoveHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (searchController != null) ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: searchController,
+              enabled: !submitting,
+              decoration: InputDecoration(
+                hintText: 'Mahsulot qidirish',
+                isDense: true,
+                filled: true,
+                fillColor: fieldSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: scheme.outlineVariant),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: scheme.primary, width: 1.4),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Text(
             'Tanlangan: $selectedCount ta',

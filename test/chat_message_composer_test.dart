@@ -105,6 +105,48 @@ void main() {
     expect(sends, 1);
   });
 
+  testWidgets('empty composer records, sends, and cancels a voice message', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    var voiceActions = 0;
+    var cancellations = 0;
+
+    Future<void> pump({bool recording = false}) {
+      return tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: ChatMessageComposer(
+              controller: controller,
+              sending: false,
+              errorText: '',
+              onSend: () {},
+              onDraftChanged: () {},
+              onVoiceAction: () => voiceActions++,
+              onCancelVoice: () => cancellations++,
+              recordingVoice: recording,
+              voiceDuration: const Duration(seconds: 12),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pump();
+    expect(find.byTooltip('Ovozli xabar yozish'), findsOneWidget);
+    await tester.tap(find.byTooltip('Ovozli xabar yozish'));
+    expect(voiceActions, 1);
+
+    await pump(recording: true);
+    expect(find.text('Ovoz yozilmoqda  0:12'), findsOneWidget);
+    await tester.tap(find.byTooltip('Ovozli xabarni yuborish'));
+    await tester.tap(find.byTooltip('Yozuvni bekor qilish'));
+    expect(voiceActions, 2);
+    expect(cancellations, 1);
+  });
+
   testWidgets('embedded composer fits the shared navigation dock', (
     tester,
   ) async {

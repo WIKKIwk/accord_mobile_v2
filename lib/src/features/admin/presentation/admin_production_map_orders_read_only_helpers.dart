@@ -348,7 +348,7 @@ bool _queueActionShouldClearQolipScan(Object error) {
 
 _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required String action,
-  required AdminWarehouse? apparatus,
+  required AdminApparatus? apparatus,
   required _ReadOnlyQueueActionCallback? onQueueAction,
   required bool actionInFlight,
   required List<AdminRawMaterialAssignment> materialAssignments,
@@ -361,7 +361,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
     return null;
   }
   final orderId = order.map.id.trim();
-  final station = apparatus.warehouse.trim();
+  final station = apparatus.name.trim();
   final stationMaterialAssignments = _stationMaterialAssignments(
     assignments: materialAssignments,
     orderId: orderId,
@@ -389,7 +389,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
 
 _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required ProductionMapSaved order,
-  required AdminWarehouse? apparatus,
+  required AdminApparatus? apparatus,
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
@@ -402,7 +402,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
 }) {
   final map = order.map;
   final orderId = map.id.trim();
-  final station = apparatus?.warehouse.trim() ?? '';
+  final station = apparatus?.name.trim() ?? '';
   final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
   final stationMaterialAssignments = _stationMaterialAssignments(
     assignments: materialAssignments,

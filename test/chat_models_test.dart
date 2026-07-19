@@ -1,3 +1,4 @@
+import 'package:accord_mobile_v2/src/features/chat/models/chat_media_models.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +99,40 @@ void main() {
     expect(message.previewText, 'Bugungi natija');
   });
 
+  test('voice message parses audio metadata and uses its preview label', () {
+    final message = ChatMessage.fromJson({
+      'message_id': 'message_audio_1',
+      'conversation_id': 'conversation_1',
+      'sender_principal_id': 'principal_1',
+      'sender_role': 'customer',
+      'sender_ref': 'customer_1',
+      'sender_display_name': 'Customer',
+      'client_message_id': 'client_audio_1',
+      'sequence': 10,
+      'type': 'audio',
+      'body': '',
+      'created_at_unix': 103,
+      'attachment': {
+        'attachment_id': 'attachment_audio_1',
+        'media_id': 'media_audio_1',
+        'kind': 'audio',
+        'content_type': 'audio/mp4',
+        'size_bytes': 4096,
+        'width_pixels': 480,
+        'height_pixels': 120,
+        'duration_ms': 12345,
+        'content_url': '/v1/mobile/chat/media/media_audio_1/content',
+        'thumbnail_url': '/v1/mobile/chat/media/media_audio_1/thumbnail',
+      },
+    });
+
+    expect(message.type, 'audio');
+    expect(message.attachment?.kind, ChatMediaKind.audio);
+    expect(message.attachment?.durationMs, 12345);
+    expect(message.previewText, 'Ovozli xabar');
+    expect(ChatMessage.fromJson(message.toJson()).previewText, 'Ovozli xabar');
+  });
+
   test('conversation page keeps peer, last message and unread count', () {
     final page = ChatConversationPage.fromJson({
       'items': [
@@ -126,5 +161,39 @@ void main() {
     expect(page.items.single.peer?.role, UserRole.qolipchi);
     expect(page.items.single.hasMessages, isFalse);
     expect(page.hasMore, isFalse);
+  });
+
+  test('sync page preserves durable event cursor and message payload', () {
+    final page = ChatSyncPage.fromJson({
+      'events': [
+        {
+          'event_id': 'event_1',
+          'cursor': 42,
+          'event': 'chat.message.created',
+          'conversation_id': 'conversation_1',
+          'sequence': 7,
+          'message': {
+            'message_id': 'message_1',
+            'conversation_id': 'conversation_1',
+            'sender_principal_id': 'principal_1',
+            'sender_role': 'customer',
+            'sender_ref': 'customer_1',
+            'sender_display_name': 'Customer',
+            'client_message_id': 'client_1',
+            'sequence': 7,
+            'type': 'text',
+            'body': 'Offline xabar',
+            'created_at_unix': 100,
+          },
+        },
+      ],
+      'next_cursor': 42,
+      'has_more': false,
+    });
+
+    expect(page.nextCursor, 42);
+    expect(page.hasMore, isFalse);
+    expect(page.events.single.cursor, 42);
+    expect(page.events.single.message?.body, 'Offline xabar');
   });
 }

@@ -109,6 +109,9 @@ void main() {
       mediaId: 'media_1',
       uploadId: 'upload_1',
       durationMs: 600000,
+      retryAttempts: 4,
+      nextRetryAtUnix: 900,
+      autoRetry: true,
     );
 
     final restored = ChatPendingMedia.fromJson(pending.toJson());
@@ -120,6 +123,9 @@ void main() {
     expect(restored.mediaId, 'media_1');
     expect(restored.uploadId, 'upload_1');
     expect(restored.durationMs, 600000);
+    expect(restored.retryAttempts, 4);
+    expect(restored.nextRetryAtUnix, 900);
+    expect(restored.autoRetry, isTrue);
   });
 
   test('pending media state can restart without changing message identity', () {
@@ -153,11 +159,43 @@ void main() {
     expect(retry.error, isEmpty);
   });
 
+  test('voice media kind and durable retry metadata survive JSON storage', () {
+    const pending = ChatPendingMedia(
+      localId: 'voice_local_1',
+      conversationId: 'conversation_1',
+      clientMessageId: 'voice_message_1',
+      clientUploadId: 'voice_upload_1',
+      kind: ChatMediaKind.audio,
+      localPath: '/private/voice_local_1.m4a',
+      filename: 'voice.m4a',
+      contentType: 'audio/mp4',
+      sizeBytes: 4096,
+      caption: '',
+      status: ChatPendingMediaStatus.failed,
+      progress: 1,
+      createdAtUnix: 100,
+      durationMs: 12345,
+      retryAttempts: 2,
+      nextRetryAtUnix: 200,
+      autoRetry: true,
+    );
+
+    final restored = ChatPendingMedia.fromJson(pending.toJson());
+
+    expect(chatMediaKindFromJson('audio'), ChatMediaKind.audio);
+    expect(restored.kind, ChatMediaKind.audio);
+    expect(restored.durationMs, 12345);
+    expect(restored.clientMessageId, 'voice_message_1');
+    expect(restored.autoRetry, isTrue);
+  });
+
   test('V1 media limits match the approved contract', () {
     expect(chatMediaImageMaxBytes, 15 * 1024 * 1024);
     expect(chatMediaVideoMaxBytes, 2 * 1024 * 1024 * 1024);
     expect(chatMediaProcessedVideoMaxBytes, 1024 * 1024 * 1024);
     expect(chatMediaVideoMaxDuration, const Duration(seconds: 600));
+    expect(chatMediaAudioMaxBytes, 64 * 1024 * 1024);
+    expect(chatMediaAudioMaxDuration, const Duration(seconds: 600));
     expect(chatMediaVideoMaxLongEdge, 1920);
     expect(chatMediaVideoMaxShortEdge, 1080);
     expect(chatMediaVideoMaxFramesPerSecond, 60);

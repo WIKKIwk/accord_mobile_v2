@@ -19,6 +19,26 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      isTransientChatFailure(
+        const MobileApiException(
+          code: 'processor_unavailable',
+          message: 'failed',
+          statusCode: 422,
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      isTransientChatFailure(
+        const MobileApiException(
+          code: 'chat_media_unavailable',
+          message: 'failed',
+          statusCode: 422,
+        ),
+      ),
+      isTrue,
+    );
   });
 
   test('authorization failure has a useful message and is not retried', () {
@@ -40,6 +60,7 @@ void main() {
     );
 
     expect(chatMediaFailureMessage(durationFailure), contains('600'));
+    expect(isTransientChatFailure(durationFailure), isFalse);
     expect(
       chatMediaFailureMessage(
         const MobileApiException(

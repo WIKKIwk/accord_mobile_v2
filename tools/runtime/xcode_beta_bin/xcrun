@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEVELOPER_DIR="${DEVELOPER_DIR:-}"
-if [[ -z "$DEVELOPER_DIR" || "$DEVELOPER_DIR" == "/Library/Developer/CommandLineTools" ]]; then
-  DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
+developer_dir="${DEVELOPER_DIR:-}"
+if [[ -z "$developer_dir" || ! -d "$developer_dir" || "$developer_dir" == "/Library/Developer/CommandLineTools" ]]; then
+  selected_developer_dir="$(/usr/bin/xcode-select -p 2>/dev/null || true)"
+  if [[ -d "$selected_developer_dir" && "$selected_developer_dir" != "/Library/Developer/CommandLineTools" ]]; then
+    developer_dir="$selected_developer_dir"
+  elif [[ -d "/Applications/Xcode-beta.app/Contents/Developer" ]]; then
+    developer_dir="/Applications/Xcode-beta.app/Contents/Developer"
+  elif [[ -d "/Applications/Xcode.app/Contents/Developer" ]]; then
+    developer_dir="/Applications/Xcode.app/Contents/Developer"
+  else
+    echo "xcrun: no full Xcode developer directory is available" >&2
+    exit 1
+  fi
 fi
-exec env DEVELOPER_DIR="$DEVELOPER_DIR" /usr/bin/xcrun "$@"
+exec env DEVELOPER_DIR="$developer_dir" /usr/bin/xcrun "$@"

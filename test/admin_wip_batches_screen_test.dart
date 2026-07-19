@@ -45,20 +45,37 @@ void main() {
 
     expect(canonicalWaitingLocation(batch), '7 ta rangli pechat chiqim');
   });
+
+  test('completed final output with no next apparatus stays free WIP', () {
+    final batch = _batch(
+      'final',
+      'Laminatsiya 1 chiqim',
+      action: 'complete',
+      status: 'completed',
+      flowStatus: 'free_wip',
+    );
+
+    expect(isFinalFreeWip(batch), isTrue);
+    expect(batch.wipStatus, 'waiting');
+    expect(batch.nextApparatus, isEmpty);
+  });
 }
 
 AdminProgressBatch _batch(
   String id,
   String currentLocation, {
   String wipStatus = 'waiting',
+  String action = 'pause',
+  String status = 'paused',
+  String flowStatus = '',
 }) {
   return AdminProgressBatch(
     batchId: id,
     sessionId: 'session-$id',
     apparatus: '7 ta rangli pechat',
     orderId: 'zakaz-$id',
-    action: 'pause',
-    status: 'paused',
+    action: action,
+    status: status,
     producedQty: 1,
     uom: 'm',
     qrPayload: 'qr-$id',
@@ -66,6 +83,11 @@ AdminProgressBatch _batch(
     labelItemName: 'Paynet',
     executorName: 'Operator',
     wipStatus: wipStatus,
+    statusDetail: AdminProgressBatchStatusDetail(
+      workStatus: status == 'completed' ? 'completed' : status,
+      wipStatus: wipStatus,
+      flowStatus: flowStatus,
+    ),
     currentApparatus: '7 ta rangli pechat',
     currentLocation: currentLocation,
   );

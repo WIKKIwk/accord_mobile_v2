@@ -4,7 +4,7 @@ class _MoveDragPayload {
   const _MoveDragPayload({required this.orders, required this.source});
 
   final List<ProductionMapSaved> orders;
-  final AdminWarehouse source;
+  final AdminApparatus source;
 }
 
 class _MoveOrderCard extends StatelessWidget {
@@ -64,14 +64,14 @@ class _MoveDragHandle extends StatelessWidget {
 class _MoveEmptyZone extends StatelessWidget {
   const _MoveEmptyZone({required this.apparatus});
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final message = _isMoveUnassignedApparatus(apparatus)
         ? 'Tanlanmagan zakaz yo‘q'
-        : '${apparatus.warehouse} uchun zakaz yo‘q';
+        : '${apparatus.name} uchun zakaz yo‘q';
     return Center(
       child: Text(
         message,
@@ -99,28 +99,28 @@ class _MoveDropZone extends StatelessWidget {
     required this.onMove,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final List<ProductionMapSaved> orders;
   final Set<String> selectedOrderIds;
   final List<ProductionMapSaved> draggingOrders;
-  final AdminWarehouse? draggingSource;
+  final AdminApparatus? draggingSource;
   final bool Function(
     ProductionMapSaved order,
-    AdminWarehouse target,
-    AdminWarehouse source,
+    AdminApparatus target,
+    AdminApparatus source,
   ) canMoveTo;
   final ValueChanged<String> onToggleSelect;
   final _MoveDragPayload Function({
     required ProductionMapSaved order,
-    required AdminWarehouse source,
+    required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) buildDragPayload;
   final ValueChanged<_MoveDragPayload> onDragStarted;
   final VoidCallback onDragEnded;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse from,
-    required AdminWarehouse to,
+    required AdminApparatus from,
+    required AdminApparatus to,
   }) onMove;
 
   @override
@@ -129,16 +129,15 @@ class _MoveDropZone extends StatelessWidget {
       for (final order in draggingOrders) order.map.id.trim(),
     };
     final dragSource = draggingSource;
-    final isDropTarget = dragSource != null &&
-        dragSource.warehouse.trim() != apparatus.warehouse.trim();
+    final isDropTarget =
+        dragSource != null && dragSource.name.trim() != apparatus.name.trim();
     final blocked = isDropTarget &&
         draggingOrders.isNotEmpty &&
         draggingOrders.any((order) => !canMoveTo(order, apparatus, dragSource));
     return DragTarget<_MoveDragPayload>(
       hitTestBehavior: HitTestBehavior.translucent,
       onWillAcceptWithDetails: (details) {
-        if (details.data.source.warehouse.trim() ==
-            apparatus.warehouse.trim()) {
+        if (details.data.source.name.trim() == apparatus.name.trim()) {
           return false;
         }
         return details.data.orders.every(
@@ -190,7 +189,7 @@ class _MoveDropZone extends StatelessWidget {
                   return Padding(
                     key: ValueKey(
                       '${disabled ? 'move-order-disabled' : 'move-order'}-'
-                      '${apparatus.warehouse}-${order.map.id}',
+                      '${apparatus.name}-${order.map.id}',
                     ),
                     padding: EdgeInsets.only(
                       bottom: index < orders.length - 1
@@ -246,7 +245,7 @@ class _MoveApparatusHeader extends StatelessWidget {
     required this.onTap,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final Alignment alignment;
   final VoidCallback onTap;
 
@@ -275,7 +274,7 @@ class _MoveApparatusHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    apparatus.warehouse,
+                    apparatus.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -306,7 +305,7 @@ class _MoveBoundary extends StatelessWidget {
     required this.onVerticalDragUpdate,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final VoidCallback onTap;
   final ValueChanged<double> onVerticalDragUpdate;
 
@@ -355,7 +354,7 @@ class _MoveOrderTile extends StatelessWidget {
   });
 
   final ProductionMapSaved order;
-  final AdminWarehouse source;
+  final AdminApparatus source;
   final int index;
   final M3SegmentVerticalSlot slot;
   final bool selected;

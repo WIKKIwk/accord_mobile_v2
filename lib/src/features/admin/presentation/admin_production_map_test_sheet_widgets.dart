@@ -132,7 +132,7 @@ class _ProductionMapOrderNumberDialog extends StatefulWidget {
 class _ApparatusGroupPickResult {
   const _ApparatusGroupPickResult({this.apparatus, this.skip = false});
 
-  final AdminWarehouse? apparatus;
+  final AdminApparatus? apparatus;
   final bool skip;
 }
 
@@ -143,7 +143,7 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
   });
 
   final AdminApparatusGroup group;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +187,7 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
                 ),
                 child: ListTile(
                   leading: const Icon(Icons.precision_manufacturing_rounded),
-                  title: Text(item.warehouse),
+                  title: Text(item.name),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(
                     context,

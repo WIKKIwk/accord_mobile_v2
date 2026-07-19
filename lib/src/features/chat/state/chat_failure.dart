@@ -11,6 +11,10 @@ bool isTransientChatFailure(Object error) {
   if (error is! MobileApiException) {
     return false;
   }
+  if (error.code == 'processor_unavailable' ||
+      error.code == 'chat_media_unavailable') {
+    return true;
+  }
   final status = error.statusCode;
   return status == 408 || status == 429 || (status != null && status >= 500);
 }
@@ -35,12 +39,16 @@ String chatFailureMessage(Object error) {
         'Media fayl formati yaroqsiz yoki qo‘llab-quvvatlanmaydi.',
       'video_duration_too_long' =>
         'Video 10 daqiqa (600 soniya)dan oshmasligi kerak.',
+      'audio_duration_too_long' =>
+        'Ovozli xabar 10 daqiqa (600 soniya)dan oshmasligi kerak.',
       'video_resolution_too_large' =>
         'Video o‘lchami 1920×1080 dan oshmasligi kerak.',
       'video_frame_rate_too_high' =>
         'Video tezligi 60 FPS dan oshmasligi kerak.',
       'processed_video_too_large' =>
         'Qayta ishlangan video 1 GiB dan oshib ketdi.',
+      'processed_audio_too_large' =>
+        'Qayta ishlangan ovozli xabar 64 MiB dan oshib ketdi.',
       'chat_media_forbidden' => 'Bu suhbatga media yuborish ruxsati yo‘q.',
       'chat_media_state_conflict' =>
         'Media yuklash holati o‘zgargan. Qayta urinib ko‘ring.',

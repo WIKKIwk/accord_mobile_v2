@@ -31,6 +31,7 @@ typedef AdminItemCustomerUpdater = Future<AdminItemDetail> Function({
   required CustomerDirectoryEntry customer,
   required bool assigned,
 });
+typedef AdminItemDeleter = Future<void> Function(String itemCode);
 
 class AdminItemDetailScreen extends StatefulWidget {
   const AdminItemDetailScreen({
@@ -42,6 +43,7 @@ class AdminItemDetailScreen extends StatefulWidget {
     this.updateItemGroup,
     this.loadCustomers,
     this.updateItemCustomer,
+    this.deleteItem,
   });
 
   final String itemCode;
@@ -51,6 +53,7 @@ class AdminItemDetailScreen extends StatefulWidget {
   final AdminItemGroupUpdater? updateItemGroup;
   final AdminCustomersLoader? loadCustomers;
   final AdminItemCustomerUpdater? updateItemCustomer;
+  final AdminItemDeleter? deleteItem;
 
   @override
   State<AdminItemDetailScreen> createState() => _AdminItemDetailScreenState();
@@ -61,6 +64,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
   late Future<AdminItemDetail> _detailFuture;
   bool _saving = false;
   bool _changingGroup = false;
+  bool _deleting = false;
   bool _changed = false;
 
   @override
@@ -82,6 +86,9 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
   }
 
   Future<void> _edit(AdminItemDetail detail) async {
+    if (_saving || _changingGroup || _deleting) {
+      return;
+    }
     final draft = await showDialog<_AdminItemEditDraft>(
       context: context,
       barrierDismissible: !_saving,
@@ -136,8 +143,75 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
     );
   }
 
+  Future<void> _delete(AdminItemDetail detail) async {
+    if (_saving || _changingGroup || _deleting) {
+      return;
+    }
+    final itemName =
+        detail.name.trim().isEmpty ? detail.code.trim() : detail.name.trim();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
+          title: const Text('Itemni o‘chirish'),
+          content: Text(
+            '“$itemName” (${detail.code}) itemini tizimdan o‘chirmoqchimisiz?\n\n'
+            'Faol buyurtma, WIP, ombor qoldig‘i yoki boshqa jarayonga '
+            'bog‘langan item o‘chirilmaydi. Bog‘langan customer va supplier '
+            'katalog aloqalari ham uziladi.',
+          ),
+          actions: [
+            TextButton(
+              key: const ValueKey('admin-item-delete-cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton.icon(
+              key: const ValueKey('admin-item-delete-confirm'),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.delete_forever_rounded),
+              label: const Text('O‘chirish'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _deleting = true);
+    try {
+      final deleter = widget.deleteItem ?? MobileApi.instance.adminDeleteItem;
+      await deleter(detail.code);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _deleting = false);
+      }
+      _showError('Item o‘chirilmadi', error);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _deleting = false;
+      _changed = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Item o‘chirildi')),
+    );
+    Navigator.of(context).pop(true);
+  }
+
   Future<void> _changeGroup(AdminItemDetail detail) async {
-    if (_changingGroup) {
+    if (_saving || _changingGroup || _deleting) {
       return;
     }
     setState(() => _changingGroup = true);
@@ -213,6 +287,9 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
   }
 
   Future<void> _manageCustomers(AdminItemDetail detail) async {
+    if (_saving || _changingGroup || _deleting) {
+      return;
+    }
     final loader = widget.loadCustomers ?? MobileApi.instance.adminCustomers;
     final updated = await showModalBottomSheet<AdminItemDetail>(
       context: context,
@@ -280,12 +357,14 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                   );
                 }
                 final detail = snapshot.data!;
+                final mutationBusy = _saving || _changingGroup || _deleting;
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
                   children: [
                     _ItemDetailHeader(
                       detail: detail,
                       saving: _saving,
+                      disabled: _changingGroup || _deleting,
                       onEdit: () => _edit(detail),
                     ),
                     const SizedBox(height: 10),
@@ -306,7 +385,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                               key: const ValueKey(
                                 'admin-item-detail-change-group',
                               ),
-                              onPressed: _changingGroup || _saving
+                              onPressed: mutationBusy
                                   ? null
                                   : () => _changeGroup(detail),
                               icon: _changingGroup
@@ -353,9 +432,16 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                       const SizedBox(height: 10),
                       _ItemCustomersSection(
                         customers: detail.customers,
+                        enabled: !mutationBusy,
                         onManage: () => _manageCustomers(detail),
                       ),
                     ],
+                    const SizedBox(height: 10),
+                    _ItemDeleteSection(
+                      deleting: _deleting,
+                      enabled: !_saving && !_changingGroup,
+                      onDelete: () => _delete(detail),
+                    ),
                   ],
                 );
               },
@@ -371,11 +457,13 @@ class _ItemDetailHeader extends StatelessWidget {
   const _ItemDetailHeader({
     required this.detail,
     required this.saving,
+    required this.disabled,
     required this.onEdit,
   });
 
   final AdminItemDetail detail;
   final bool saving;
+  final bool disabled;
   final VoidCallback onEdit;
 
   @override
@@ -442,7 +530,7 @@ class _ItemDetailHeader extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 key: const ValueKey('admin-item-detail-edit'),
-                onPressed: saving ? null : onEdit,
+                onPressed: saving || disabled ? null : onEdit,
                 icon: saving
                     ? const SizedBox.square(
                         dimension: 18,
@@ -543,10 +631,12 @@ class _ItemDetailRow extends StatelessWidget {
 class _ItemCustomersSection extends StatelessWidget {
   const _ItemCustomersSection({
     required this.customers,
+    required this.enabled,
     required this.onManage,
   });
 
   final List<CustomerDirectoryEntry> customers;
+  final bool enabled;
   final VoidCallback onManage;
 
   @override
@@ -560,7 +650,7 @@ class _ItemCustomersSection extends StatelessWidget {
                 value: '',
                 emptyText: 'Biriktirilmagan',
               ),
-              _CustomerManageButton(onPressed: onManage),
+              _CustomerManageButton(onPressed: enabled ? onManage : null),
             ]
           : [
               for (final customer in customers)
@@ -579,8 +669,60 @@ class _ItemCustomersSection extends StatelessWidget {
                     ),
                   ),
                 ),
-              _CustomerManageButton(onPressed: onManage),
+              _CustomerManageButton(onPressed: enabled ? onManage : null),
             ],
+    );
+  }
+}
+
+class _ItemDeleteSection extends StatelessWidget {
+  const _ItemDeleteSection({
+    required this.deleting,
+    required this.enabled,
+    required this.onDelete,
+  });
+
+  final bool deleting;
+  final bool enabled;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _ItemDetailSection(
+      title: 'Itemni o‘chirish',
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Faqat faol jarayonlar va qoldiqlarga bog‘lanmagan item o‘chadi.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('admin-item-detail-delete'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: scheme.error,
+                side: BorderSide(color: scheme.error),
+              ),
+              onPressed: enabled && !deleting ? onDelete : null,
+              icon: deleting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_rounded),
+              label: Text(deleting ? 'O‘chirilmoqda...' : 'Itemni o‘chirish'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -96,46 +96,46 @@ class _AdminModulesBody extends StatelessWidget {
   final double bottomPadding;
   final List<ProductionMapSaved> orders;
   final String searchQuery;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
-  final AdminWarehouse? selectedApparatus;
+  final AdminApparatus? selectedApparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
   final bool readOnly;
-  final AdminWarehouse? moveTopApparatus;
-  final AdminWarehouse? moveBottomApparatus;
+  final AdminApparatus? moveTopApparatus;
+  final AdminApparatus? moveBottomApparatus;
   final Set<String> selectedMoveOrderIds;
   final List<ProductionMapSaved> draggingMoveOrders;
-  final AdminWarehouse? draggingMoveSource;
+  final AdminApparatus? draggingMoveSource;
   final List<AdminClosedProductionOrder> closedOrders;
   final ValueChanged<_OpenedOrderModule> onSetModule;
-  final List<ProductionMapSaved> Function(AdminWarehouse apparatus)
+  final List<ProductionMapSaved> Function(AdminApparatus apparatus)
       ordersForApparatus;
   final List<ProductionMapSaved> Function({
-    required AdminWarehouse source,
-    required AdminWarehouse target,
+    required AdminApparatus source,
+    required AdminApparatus target,
   }) moveOrdersForApparatus;
   final bool Function(
     ProductionMapSaved order,
-    AdminWarehouse target, {
-    required AdminWarehouse source,
+    AdminApparatus target, {
+    required AdminApparatus source,
   }) canMoveTo;
-  final ValueChanged<AdminWarehouse> onSelectSequenceApparatus;
+  final ValueChanged<AdminApparatus> onSelectSequenceApparatus;
   final ReorderCallback onReorder;
   final VoidCallback onPickMoveTop;
   final VoidCallback onPickMoveBottom;
   final ValueChanged<String> onToggleMoveSelection;
   final _MoveDragPayload Function({
     required ProductionMapSaved order,
-    required AdminWarehouse source,
+    required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) buildMoveDragPayload;
   final ValueChanged<_MoveDragPayload> onMoveDragStarted;
   final VoidCallback onMoveDragEnded;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse from,
-    required AdminWarehouse to,
+    required AdminApparatus from,
+    required AdminApparatus to,
   }) onMove;
 
   String _moduleLabel(_OpenedOrderModule module) {
@@ -259,7 +259,7 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.onTapWatchOrder,
   });
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final List<String> assignedApparatus;
   final List<ProductionMapSaved> orders;
   final List<AdminCompletedQueueOrder> completedOrders;
@@ -271,7 +271,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final TabController tabController;
   final ValueChanged<_WorkerCompletedOrderEntry> onTapCompletedOrder;
   final void Function({
-    required AdminWarehouse apparatus,
+    required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) onTapWatchOrder;
 
@@ -279,10 +279,10 @@ class _WorkerWatchBody extends StatelessWidget {
     if (tab.isCompleted) {
       return 'Tugallangan';
     }
-    return productionMapPechatTabLabel(tab.apparatus!.warehouse);
+    return productionMapPechatTabLabel(tab.apparatus!.name);
   }
 
-  List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse item) {
+  List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
     return _productionMapOrdersForApparatus(
       orders: orders,
       apparatus: item,
@@ -372,7 +372,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.onTapOrder,
   });
 
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final List<ProductionMapSaved> orders;
   final double bottomPadding;
   final bool isAssigned;
@@ -414,8 +414,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               ),
             ),
           if (orders.isEmpty)
-            _EmptyOpenedOrders(
-                message: '${apparatus.warehouse} uchun zakaz yo‘q')
+            _EmptyOpenedOrders(message: '${apparatus.name} uchun zakaz yo‘q')
           else
             M3SegmentSpacedColumn(
               padding: EdgeInsets.zero,

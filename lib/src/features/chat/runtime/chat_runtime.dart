@@ -43,6 +43,9 @@ class _ChatRuntimeState extends State<ChatRuntime> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(ChatStore.instance.startForCurrentSession());
       unawaited(ChatStore.instance.refreshConversations());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      ChatStore.instance.pauseRealtime();
     }
   }
 

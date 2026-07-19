@@ -58,6 +58,22 @@ void main() {
     expect(find.text('Yuborildi'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
+
+  testWidgets('voice upload uses an audio-specific pending indicator', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        pending: _pending(
+          status: ChatPendingMediaStatus.processing,
+          kind: ChatMediaKind.audio,
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.graphic_eq_rounded), findsOneWidget);
+    expect(find.text('Qayta ishlanmoqda…'), findsOneWidget);
+  });
 }
 
 Widget _host({
@@ -81,16 +97,17 @@ ChatPendingMedia _pending({
   required ChatPendingMediaStatus status,
   double progress = 0,
   String error = '',
+  ChatMediaKind kind = ChatMediaKind.video,
 }) {
   return ChatPendingMedia(
     localId: 'local_1',
     conversationId: 'conversation_1',
     clientMessageId: 'client_message_1',
     clientUploadId: 'client_upload_1',
-    kind: ChatMediaKind.video,
+    kind: kind,
     localPath: '',
-    filename: 'clip.mp4',
-    contentType: 'video/mp4',
+    filename: kind == ChatMediaKind.audio ? 'voice.m4a' : 'clip.mp4',
+    contentType: kind == ChatMediaKind.audio ? 'audio/mp4' : 'video/mp4',
     sizeBytes: 100,
     caption: 'Sinov',
     status: status,

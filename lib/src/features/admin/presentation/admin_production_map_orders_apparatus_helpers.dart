@@ -2,7 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 bool _isAlternativeOrderForApparatus(
   ProductionMapSaved order,
-  AdminWarehouse apparatus,
+  AdminApparatus apparatus,
 ) {
   if (_isFlexoOrderBlockedForColorPechat(order.map, apparatus)) {
     return false;
@@ -10,13 +10,13 @@ bool _isAlternativeOrderForApparatus(
   return order.map.nodes.any((node) {
     return node.kind == 'apparatus' &&
         node.alternativeGroupId.trim().isNotEmpty &&
-        productionMapWarehouseTitlesMatch(node.title, apparatus.warehouse);
+        productionMapWarehouseTitlesMatch(node.title, apparatus.name);
   });
 }
 
 bool _hasUnassignedAlternativeGroupForApparatus(
   ProductionMapDefinition map,
-  AdminWarehouse apparatus,
+  AdminApparatus apparatus,
 ) {
   final matchingGroups = <String>{};
   final assignedGroups = <String>{};
@@ -28,7 +28,7 @@ bool _hasUnassignedAlternativeGroupForApparatus(
     if (groupId.isEmpty) {
       continue;
     }
-    if (productionMapWarehouseTitlesMatch(node.title, apparatus.warehouse)) {
+    if (productionMapWarehouseTitlesMatch(node.title, apparatus.name)) {
       matchingGroups.add(groupId);
     }
     if (node.alternativeAssignedTitle.trim().isNotEmpty) {
@@ -40,7 +40,7 @@ bool _hasUnassignedAlternativeGroupForApparatus(
 
 bool _isUnassignedAlternativeCandidateForApparatus({
   required ProductionMapSaved order,
-  required AdminWarehouse apparatus,
+  required AdminApparatus apparatus,
 }) {
   if (_isMoveUnassignedApparatus(apparatus)) {
     return false;
@@ -50,10 +50,10 @@ bool _isUnassignedAlternativeCandidateForApparatus({
 
 bool _isFlexoOrderBlockedForColorPechat(
   ProductionMapDefinition map,
-  AdminWarehouse apparatus,
+  AdminApparatus apparatus,
 ) {
   return productionMapIsFlexoOrder(map) &&
-      productionMapPechatColorCount(apparatus.warehouse) != null;
+      productionMapPechatColorCount(apparatus.name) != null;
 }
 
 String? _assignedAlternativeGroupIdForApparatus(
@@ -75,10 +75,10 @@ String? _assignedAlternativeGroupIdForApparatus(
 
 List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
   required List<ProductionMapSaved> orders,
-  required AdminWarehouse apparatus,
+  required AdminApparatus apparatus,
   required Map<String, List<String>> visibleOrderIdsByApparatus,
 }) {
-  final title = apparatus.warehouse.trim();
+  final title = apparatus.name.trim();
   return productionMapOrdersVisibleByBackendIds(
     orders: orders,
     visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
@@ -88,7 +88,7 @@ List<ProductionMapSaved> _productionMapBaseOrdersForApparatus({
 
 List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required List<ProductionMapSaved> orders,
-  required AdminWarehouse apparatus,
+  required AdminApparatus apparatus,
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,

@@ -15,14 +15,14 @@ class _SequenceModulePage extends StatefulWidget {
   });
 
   final double bottomPadding;
-  final List<AdminWarehouse> availableApparatus;
-  final AdminWarehouse? apparatus;
+  final List<AdminApparatus> availableApparatus;
+  final AdminApparatus? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
-  final ValueChanged<AdminWarehouse> onSelectApparatus;
+  final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
 
   @override
@@ -125,7 +125,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             Expanded(
               child: ReorderableListView.builder(
                 key: ValueKey(
-                  'sequence-list-${selected.warehouse}-'
+                  'sequence-list-${selected.name}-'
                   '${orders.map((order) => order.map.id).join(',')}',
                 ),
                 padding: EdgeInsets.fromLTRB(
@@ -141,7 +141,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   final order = orders[index];
                   return Padding(
                     key: ValueKey(
-                      'sequence-${selected.warehouse}-${order.map.id}',
+                      'sequence-${selected.name}-${order.map.id}',
                     ),
                     padding: EdgeInsets.only(
                       bottom: index < orders.length - 1
@@ -152,7 +152,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                       index: index,
                       order: order,
                       key: ValueKey(
-                        'sequence-row-${selected.warehouse}-${order.map.id}',
+                        'sequence-row-${selected.name}-${order.map.id}',
                       ),
                     ),
                   );
@@ -197,7 +197,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             const _EmptyOpenedOrders(message: 'Avval aparat tanlang')
           else if (orders.isEmpty)
             _EmptyOpenedOrders(
-              message: '${selected.warehouse} uchun zakaz yo‘q',
+              message: '${selected.name} uchun zakaz yo‘q',
             )
           else
             M3SegmentSpacedColumn(
@@ -208,7 +208,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                     index: index,
                     order: orders[index],
                     key: ValueKey(
-                      'sequence-static-${selected.warehouse}-'
+                      'sequence-static-${selected.name}-'
                       '${orders[index].map.id}',
                     ),
                   ),
@@ -230,17 +230,17 @@ class _SequenceHeaderSelectors extends StatelessWidget {
     required this.onSelectApparatus,
   });
 
-  final List<AdminWarehouse> availableApparatus;
-  final AdminWarehouse? apparatus;
+  final List<AdminApparatus> availableApparatus;
+  final AdminApparatus? apparatus;
   final int orderCount;
   final bool expanded;
   final VoidCallback onToggleExpanded;
-  final ValueChanged<AdminWarehouse> onSelectApparatus;
+  final ValueChanged<AdminApparatus> onSelectApparatus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final selectedValue = apparatus?.warehouse.trim();
+    final selectedValue = apparatus?.name.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -251,17 +251,17 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           selectedValue: selectedValue?.isEmpty == true ? null : selectedValue,
           options: [
             for (final item in availableApparatus)
-              if (item.warehouse.trim().isNotEmpty)
+              if (item.name.trim().isNotEmpty)
                 AdminFilterChipOption(
-                  value: item.warehouse.trim(),
-                  label: item.warehouse.trim(),
+                  value: item.name.trim(),
+                  label: item.name.trim(),
                 ),
           ],
           expanded: expanded,
           onToggle: onToggleExpanded,
           onSelect: (value) {
             for (final item in availableApparatus) {
-              if (item.warehouse.trim() == value) {
+              if (item.name.trim() == value) {
                 onSelectApparatus(item);
                 return;
               }

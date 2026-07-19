@@ -8,6 +8,12 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
+    resetMobileApiTestModeData();
+  });
+
+  tearDown(() async {
+    resetMobileApiTestModeData();
+    await TestModeController.instance.setEnabled(false);
   });
 
   test('test mode returns demo admin users without server', () async {
@@ -41,6 +47,25 @@ void main() {
     expect(filtered.single.code, 'DEMO-CPP');
   });
 
+  test('test mode item deletion removes it from detail and list', () async {
+    await TestModeController.instance.setEnabled(true);
+
+    expect((await MobileApi.instance.adminItemDetail('DEMO-INK')).code,
+        'DEMO-INK');
+    await MobileApi.instance.adminDeleteItem('DEMO-INK');
+
+    final items = await MobileApi.instance.adminItemsPage();
+    expect(items.map((item) => item.code), isNot(contains('DEMO-INK')));
+    await expectLater(
+      MobileApi.instance.adminItemDetail('DEMO-INK'),
+      throwsA(
+        isA<MobileApiException>()
+            .having((error) => error.statusCode, 'statusCode', 404)
+            .having((error) => error.message, 'message', 'Item topilmadi'),
+      ),
+    );
+  });
+
   test('test mode returns demo warehouses without server', () async {
     await TestModeController.instance.setEnabled(true);
 
@@ -64,6 +89,36 @@ void main() {
       '9 ta rangli bosma aparat',
       'Laminatsiya 1',
       'Laminatsiya 2',
+    ]);
+  });
+
+  test('test mode exposes apparatus through its own typed catalog', () async {
+    await TestModeController.instance.setEnabled(true);
+
+    final apparatus = await MobileApi.instance.adminApparatus(query: 'laminat');
+
+    expect(
+      apparatus.map((item) => item.name),
+      ['Laminatsiya 1', 'Laminatsiya 2'],
+    );
+  });
+
+  test('warehouse and apparatus can safely have the same name', () async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminCreateApparatus('Xomashyo ombori - DEMO');
+
+    final warehouses = await MobileApi.instance.adminWarehouses(
+      query: 'Xomashyo ombori - DEMO',
+    );
+    final apparatus = await MobileApi.instance.adminApparatus(
+      query: 'Xomashyo ombori - DEMO',
+    );
+
+    expect(warehouses.map((item) => item.warehouse), [
+      'Xomashyo ombori - DEMO',
+    ]);
+    expect(apparatus.map((item) => item.name), [
+      'Xomashyo ombori - DEMO',
     ]);
   });
 }

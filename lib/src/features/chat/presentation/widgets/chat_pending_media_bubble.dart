@@ -152,6 +152,13 @@ class _ChatPendingMediaBubbleState extends State<ChatPendingMediaBubble> {
   }
 
   Widget _preview(ColorScheme scheme) {
+    if (widget.pending.kind == ChatMediaKind.audio) {
+      return Icon(
+        Icons.graphic_eq_rounded,
+        size: 62,
+        color: scheme.onSurfaceVariant,
+      );
+    }
     if (widget.pending.kind == ChatMediaKind.video) {
       return Icon(
         Icons.videocam_rounded,

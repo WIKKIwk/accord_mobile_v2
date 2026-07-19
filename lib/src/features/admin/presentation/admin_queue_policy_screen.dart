@@ -91,14 +91,14 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
     }
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 300),
+        MobileApi.instance.adminApparatus(limit: 300),
         MobileApi.instance.adminApparatusQueuePolicies(),
       ]);
       if (!mounted) {
         return;
       }
       final data = _QueuePolicyData(
-        apparatus: results[0] as List<AdminWarehouse>,
+        apparatus: results[0] as List<AdminApparatus>,
         policies: results[1] as Map<String, AdminApparatusQueuePolicy>,
       );
       setState(() {
@@ -126,10 +126,10 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
   }
 
   Future<void> _updatePolicy(
-    AdminWarehouse apparatus,
+    AdminApparatus apparatus,
     ApparatusQueuePolicy policy,
   ) async {
-    final title = apparatus.warehouse.trim();
+    final title = apparatus.name.trim();
     if (title.isEmpty || _saving.contains(title)) {
       return;
     }
@@ -170,8 +170,8 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
     }
   }
 
-  AdminApparatusQueuePolicy _effectivePolicy(AdminWarehouse apparatus) {
-    final title = apparatus.warehouse.trim();
+  AdminApparatusQueuePolicy _effectivePolicy(AdminApparatus apparatus) {
+    final title = apparatus.name.trim();
     final pechatLocked = productionMapPechatColorCount(title) != null;
     if (pechatLocked) {
       return AdminApparatusQueuePolicy(
@@ -244,10 +244,10 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
                   index,
                   apparatus.length,
                 ),
-                title: apparatus[index].warehouse.trim(),
+                title: apparatus[index].name.trim(),
                 policy: _effectivePolicy(apparatus[index]),
                 saving: _saving.contains(
-                  apparatus[index].warehouse.trim(),
+                  apparatus[index].name.trim(),
                 ),
                 onChanged: _effectivePolicy(apparatus[index]).locked
                     ? null
@@ -282,7 +282,7 @@ class _QueuePolicyIntro extends StatelessWidget {
 class _QueuePolicyData {
   const _QueuePolicyData({required this.apparatus, required this.policies});
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final Map<String, AdminApparatusQueuePolicy> policies;
 }
 

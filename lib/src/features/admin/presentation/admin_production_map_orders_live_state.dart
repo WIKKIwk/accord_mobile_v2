@@ -350,7 +350,7 @@ extension _AdminProductionMapOrdersLiveState
 
   void _applyLoadedProductionMapOrdersAndApparatus({
     required List<ProductionMapSaved> orders,
-    required List<AdminWarehouse> apparatus,
+    required List<AdminApparatus> apparatus,
     required bool initial,
   }) {
     _updateScreenState(() {

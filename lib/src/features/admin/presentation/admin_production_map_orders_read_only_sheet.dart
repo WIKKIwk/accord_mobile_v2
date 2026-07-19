@@ -15,7 +15,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   });
 
   final ProductionMapSaved order;
-  final AdminWarehouse? apparatus;
+  final AdminApparatus? apparatus;
   final bool canManageQueue;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
@@ -58,8 +58,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   @override
   void didUpdateWidget(covariant _ReadOnlyOrderDetailSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldStation = oldWidget.apparatus?.warehouse.trim() ?? '';
-    final station = widget.apparatus?.warehouse.trim() ?? '';
+    final oldStation = oldWidget.apparatus?.name.trim() ?? '';
+    final station = widget.apparatus?.name.trim() ?? '';
     if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
@@ -228,7 +228,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     _PreparedReadOnlyQueueAction prepared,
   ) async {
     if (action != 'start' ||
-        !_apparatusRequiresQolipScan(prepared.apparatus.warehouse)) {
+        !_apparatusRequiresQolipScan(prepared.apparatus.name)) {
       return '';
     }
     if (_scannedQolipCode.trim().isNotEmpty) {
@@ -253,7 +253,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     try {
       await MobileApi.instance.adminValidateProductionMapQolip(
-        apparatus: widget.apparatus?.warehouse ?? '',
+        apparatus: widget.apparatus?.name ?? '',
         orderId: widget.order.map.id,
         qolipCode: code,
       );
@@ -274,7 +274,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final scope = returnedPaintWorkerDraftScope(
       actorRef: AppSession.instance.profile?.ref ?? '',
       orderId: widget.order.map.id,
-      apparatus: widget.apparatus?.warehouse ?? '',
+      apparatus: widget.apparatus?.name ?? '',
     );
     if (_returnedPaintDraft == null || _returnedPaintDraftScope != scope) {
       _returnedPaintDraft = await ReturnedPaintDraftStore.instance.load(
@@ -331,7 +331,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final materialAssignments = _stationMaterialAssignments(
       assignments: _materialAssignments,
       orderId: orderId,
-      station: widget.apparatus?.warehouse.trim() ?? '',
+      station: widget.apparatus?.name.trim() ?? '',
     );
     if (materialAssignments.isEmpty) {
       return;
@@ -387,7 +387,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       if (match == null) {
         _showSheetNotice(
-          'Bu QR ushbu orderning ${widget.apparatus?.warehouse.trim() ?? ''} WIP listida topilmadi',
+          'Bu QR ushbu orderning ${widget.apparatus?.name.trim() ?? ''} WIP listida topilmadi',
         );
         setState(() {
           _availableInputProgressBatches = latest;
@@ -412,7 +412,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   }
 
   Future<void> _loadInputProgressBatches() async {
-    final station = widget.apparatus?.warehouse.trim() ?? '';
+    final station = widget.apparatus?.name.trim() ?? '';
     if (station.isEmpty) {
       return;
     }
@@ -458,7 +458,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<List<AdminProgressBatch>> _fetchInputProgressBatches(
     String previousStage,
   ) async {
-    final station = widget.apparatus?.warehouse.trim() ?? '';
+    final station = widget.apparatus?.name.trim() ?? '';
     final batches = await MobileApi.instance.adminWipBatches(
       status: 'all',
       apparatus: previousStage,

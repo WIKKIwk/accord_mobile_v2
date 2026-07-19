@@ -22,23 +22,23 @@ void main() {
     );
   });
 
-  test('finished output explains warehouse acceptance without WIP wording', () {
+  test('finished output remains free WIP without assuming a warehouse', () {
     expect(
       progressQrHumanStatusLabel(
         workStatus: 'completed',
-        flowStatus: 'finished_pending_acceptance',
+        flowStatus: 'free_wip',
         wipStatus: 'waiting',
       ),
-      'Ishi tugagan, ombor qabulini kutmoqda',
+      'Ishlab chiqarish bosqichi tugagan, erkin WIP holatida',
     );
 
     expect(
       progressQrTechnicalProductStatusLabel(
         workStatus: 'completed',
-        flowStatus: 'finished_pending_acceptance',
+        flowStatus: 'free_wip',
         wipStatus: 'waiting',
       ),
-      'Yarim tayyor mahsulot holati: ombor qabulini kutmoqda',
+      'Yarim tayyor mahsulot holati: erkin WIP holatida',
     );
   });
 

@@ -31,6 +31,10 @@ void main() {
     expect(find.text('Telefon kiritilmagan'), findsOneWidget);
     expect(find.byType(AdminProfileAvatar), findsOneWidget);
     expect(find.byType(ChatRoleDock), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-customer-detail-admin-toggle')),
+      findsNothing,
+    );
 
     await tester.tap(find.byType(AdminProfileAvatar));
     await tester.pumpAndSettle();
@@ -41,5 +45,32 @@ void main() {
     await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsNothing);
+  });
+
+  testWidgets('ordinary user sees only material participant summary card', (
+    tester,
+  ) async {
+    const participant = ChatPrincipal(
+      principalId: 'principal-material',
+      role: UserRole.materialTaminotchi,
+      ref: 'MAT-READ',
+      displayName: 'Materialchi',
+      avatarUrl: '',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ChatParticipantProfileScreen(participant: participant),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Materialchi'), findsWidgets);
+    expect(find.text("Material ta'minotchisi profili"), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-customer-detail-admin-toggle')),
+      findsNothing,
+    );
+    expect(find.text('Admin boshqaruv'), findsNothing);
   });
 }

@@ -90,24 +90,15 @@ class TestModeDemoData {
     AdminWarehouse(warehouse: 'Xomashyo ombori - DEMO'),
     AdminWarehouse(warehouse: 'Qadoqlash ombori - DEMO'),
     AdminWarehouse(warehouse: 'Tayyor mahsulot ombori - DEMO'),
-    AdminWarehouse(
-      warehouse: 'Godex aparat - DEMO',
-      parentWarehouse: 'aparat - A',
-    ),
-    AdminWarehouse(
-      warehouse: '7 ta rangli bosma aparat',
-      parentWarehouse: 'aparat - A',
-    ),
-    AdminWarehouse(
-      warehouse: '8 ta rangli bosma aparat',
-      parentWarehouse: 'aparat - A',
-    ),
-    AdminWarehouse(
-      warehouse: '9 ta rangli bosma aparat',
-      parentWarehouse: 'aparat - A',
-    ),
-    AdminWarehouse(warehouse: 'Laminatsiya 1', parentWarehouse: 'aparat - A'),
-    AdminWarehouse(warehouse: 'Laminatsiya 2', parentWarehouse: 'aparat - A'),
+  ];
+
+  static const List<AdminApparatus> apparatus = [
+    AdminApparatus(name: 'Godex aparat - DEMO'),
+    AdminApparatus(name: '7 ta rangli bosma aparat'),
+    AdminApparatus(name: '8 ta rangli bosma aparat'),
+    AdminApparatus(name: '9 ta rangli bosma aparat'),
+    AdminApparatus(name: 'Laminatsiya 1'),
+    AdminApparatus(name: 'Laminatsiya 2'),
   ];
 
   static const List<AdminRawMaterialStockEntry> rawMaterialStock = [

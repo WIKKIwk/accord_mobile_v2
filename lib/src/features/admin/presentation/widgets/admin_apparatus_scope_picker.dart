@@ -9,9 +9,9 @@ class AdminApparatusScopePicker extends StatelessWidget {
     required this.onChanged,
   });
 
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final Set<String> selected;
-  final void Function(String warehouse, bool checked) onChanged;
+  final void Function(String apparatusName, bool checked) onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +35,10 @@ class AdminApparatusScopePicker extends StatelessWidget {
             child: CheckboxListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              value: selected.contains(item.warehouse),
-              title: Text(item.warehouse),
+              value: selected.contains(item.name),
+              title: Text(item.name),
               controlAffinity: ListTileControlAffinity.leading,
-              onChanged: (value) => onChanged(item.warehouse, value == true),
+              onChanged: (value) => onChanged(item.name, value == true),
             ),
           ),
       ],

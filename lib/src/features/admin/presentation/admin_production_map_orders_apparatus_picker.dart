@@ -9,9 +9,9 @@ class _ApparatusPickerSheet extends StatelessWidget {
     this.unassignedOrderCount = 0,
   });
 
-  final List<AdminWarehouse> apparatus;
-  final AdminWarehouse? selected;
-  final int Function(AdminWarehouse apparatus)? orderCountFor;
+  final List<AdminApparatus> apparatus;
+  final AdminApparatus? selected;
+  final int Function(AdminApparatus apparatus)? orderCountFor;
   final bool showUnassigned;
   final int unassignedOrderCount;
 
@@ -62,9 +62,9 @@ class _ApparatusPickerList extends StatelessWidget {
     this.unassignedOrderCount = 0,
   });
 
-  final List<AdminWarehouse> apparatus;
-  final AdminWarehouse? selected;
-  final int Function(AdminWarehouse apparatus)? orderCountFor;
+  final List<AdminApparatus> apparatus;
+  final AdminApparatus? selected;
+  final int Function(AdminApparatus apparatus)? orderCountFor;
   final bool showUnassigned;
   final int unassignedOrderCount;
 
@@ -82,11 +82,11 @@ class _ApparatusPickerList extends StatelessWidget {
                   0,
                   itemCount,
                 ),
-                apparatus: _moveUnassignedWarehouse,
+                apparatus: _moveUnassignedApparatus,
                 selected: _isMoveUnassignedApparatus(selected),
                 orderCount: unassignedOrderCount,
                 onTap: () =>
-                    Navigator.of(context).pop(_moveUnassignedWarehouse),
+                    Navigator.of(context).pop(_moveUnassignedApparatus),
               ),
             for (var index = 0; index < apparatus.length; index++)
               _ApparatusRow(
@@ -95,7 +95,7 @@ class _ApparatusPickerList extends StatelessWidget {
                   itemCount,
                 ),
                 apparatus: apparatus[index],
-                selected: selected?.warehouse == apparatus[index].warehouse,
+                selected: selected?.name == apparatus[index].name,
                 orderCount: orderCountFor?.call(apparatus[index]) ?? 0,
                 onTap: () => Navigator.of(context).pop(apparatus[index]),
               ),
@@ -116,7 +116,7 @@ class _ApparatusRow extends StatelessWidget {
   });
 
   final M3SegmentVerticalSlot slot;
-  final AdminWarehouse apparatus;
+  final AdminApparatus apparatus;
   final bool selected;
   final int orderCount;
   final VoidCallback onTap;
@@ -164,7 +164,7 @@ class _ApparatusRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      apparatus.warehouse,
+                      apparatus.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(

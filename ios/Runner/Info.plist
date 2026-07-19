@@ -33,7 +33,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>The app needs camera access to capture photos and videos for operational workflows and chat.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>The app needs microphone access when recording a video for chat.</string>
+	<string>The app needs microphone access to record voice messages and videos for chat.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_gscale-mobileapi._tcp</string>

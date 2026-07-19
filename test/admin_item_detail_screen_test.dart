@@ -1,3 +1,4 @@
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
@@ -304,6 +305,133 @@ void main() {
       find.text('Biriktirilmagan', skipOffstage: false),
       findsWidgets,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('asks for confirmation and deletes an unused item',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const item = AdminItemDetail(
+      code: 'ITEM-DELETE',
+      name: 'Unused item',
+      uom: 'Kg',
+      itemGroup: 'Hom ashyo',
+      isFinishedGoods: false,
+      createdAtUnix: 1720000000,
+      updatedAtUnix: 1720000000,
+    );
+    var deleteCalls = 0;
+    String? deletedCode;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        initialRoute: '/detail',
+        routes: {
+          '/': (_) => const Scaffold(body: Text('Itemlar ro‘yxati')),
+          '/detail': (_) => AdminItemDetailScreen(
+                itemCode: item.code,
+                loadDetail: (_) async => item,
+                deleteItem: (code) async {
+                  deleteCalls += 1;
+                  deletedCode = code;
+                },
+              ),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const ValueKey('admin-item-detail-delete'));
+    await Scrollable.ensureVisible(
+      tester.element(deleteButton),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Itemni o‘chirish'), findsWidgets);
+    expect(find.textContaining('ITEM-DELETE) itemini'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('admin-item-delete-cancel')));
+    await tester.pumpAndSettle();
+    expect(deleteCalls, 0);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-item-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(deleteCalls, 1);
+    expect(deletedCode, 'ITEM-DELETE');
+    expect(find.text('Itemlar ro‘yxati'), findsOneWidget);
+    expect(find.text('Item o‘chirildi'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps item detail open when backend blocks deletion',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const item = AdminItemDetail(
+      code: 'ITEM-ACTIVE',
+      name: 'Active item',
+      uom: 'Kg',
+      itemGroup: 'Hom ashyo',
+      isFinishedGoods: false,
+      createdAtUnix: 1720000000,
+      updatedAtUnix: 1720000000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminItemDetailScreen(
+          itemCode: item.code,
+          loadDetail: (_) async => item,
+          deleteItem: (_) async {
+            throw const MobileApiException(
+              code: 'item is used by active order',
+              message: 'Item faol buyurtmada ishlatilgan',
+              statusCode: 409,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const ValueKey('admin-item-detail-delete'));
+    await Scrollable.ensureVisible(
+      tester.element(deleteButton),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-item-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Item faol buyurtmada ishlatilgan'), findsOneWidget);
+    expect(find.text('Active item'), findsWidgets);
+    expect(deleteButton, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

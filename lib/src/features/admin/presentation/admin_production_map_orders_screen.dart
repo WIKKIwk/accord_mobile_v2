@@ -116,14 +116,14 @@ class _AdminProductionMapOrdersScreenState
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
-  AdminWarehouse? _selectedApparatus;
-  AdminWarehouse? _moveTopApparatus;
-  AdminWarehouse? _moveBottomApparatus;
+  AdminApparatus? _selectedApparatus;
+  AdminApparatus? _moveTopApparatus;
+  AdminApparatus? _moveBottomApparatus;
   final Set<String> _selectedMoveOrderIds = {};
   List<ProductionMapSaved> _draggingMoveOrders = const [];
-  AdminWarehouse? _draggingMoveSource;
+  AdminApparatus? _draggingMoveSource;
   List<ProductionMapSaved> _orders = const [];
-  List<AdminWarehouse> _apparatus = const [];
+  List<AdminApparatus> _apparatus = const [];
   final Map<String, List<String>> _sequenceByApparatus = {};
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
@@ -189,7 +189,7 @@ class _AdminProductionMapOrdersScreenState
         : _OpenedOrderModule.values;
   }
 
-  void _recreateWorkerTabController(List<AdminWarehouse> apparatus) {
+  void _recreateWorkerTabController(List<AdminApparatus> apparatus) {
     final length = _workerWatchTabCount(apparatus);
     if (_tabController.length == length) {
       return;
@@ -208,7 +208,7 @@ class _AdminProductionMapOrdersScreenState
     if (_queueActionInFlight) {
       return null;
     }
-    final apparatusKey = request.apparatus.warehouse.trim();
+    final apparatusKey = request.apparatus.name.trim();
     _setQueueActionInFlight(true);
     try {
       final result = await _submitAdminApparatusQueueAction(
@@ -272,7 +272,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showWatchOrderDetail({
-    required AdminWarehouse apparatus,
+    required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) {
     showModalBottomSheet<void>(
@@ -343,7 +343,7 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  List<ProductionMapSaved> _ordersForApparatus(AdminWarehouse apparatus) {
+  List<ProductionMapSaved> _ordersForApparatus(AdminApparatus apparatus) {
     return _productionMapOrdersForApparatus(
       orders: _orders,
       apparatus: apparatus,

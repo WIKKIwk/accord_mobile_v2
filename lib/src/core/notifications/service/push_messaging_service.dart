@@ -62,10 +62,13 @@ class PushMessagingService {
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission();
     if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // Foreground notifications are surfaced below through the local
+      // notification service so active chats can suppress them and every other
+      // event is shown exactly once.
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
+        alert: false,
+        badge: false,
+        sound: false,
       );
       final apnsToken = await messaging.getAPNSToken();
       debugPrint(
@@ -107,12 +110,15 @@ class PushMessagingService {
       }
       if ((data['event_type'] ?? '').trim() == 'chat.message.created') {
         await ChatStore.instance.handlePush(data);
-        await LocalNotificationService.instance.showChatNotification(
-          id: data['message_id'] ??
-              DateTime.now().millisecondsSinceEpoch.toString(),
-          title: message.notification?.title ?? 'Yangi xabar',
-          body: message.notification?.body ?? 'Chatda yangi xabar',
-        );
+        final conversationId = data['conversation_id']?.toString() ?? '';
+        if (ChatStore.instance.shouldPresentChatNotification(conversationId)) {
+          await LocalNotificationService.instance.showChatNotification(
+            id: data['message_id'] ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            title: message.notification?.title ?? 'Yangi xabar',
+            body: message.notification?.body ?? 'Chatda yangi xabar',
+          );
+        }
         return;
       }
       final record = DispatchRecord(
@@ -217,20 +223,11 @@ class PushMessagingService {
     try {
       await MobileApi.instance.unregisterPushToken(token);
     } catch (_) {}
-    try {
-      await MobileApi.instance.chatUnregisterDeviceToken(token);
-    } catch (_) {}
   }
 
   Future<void> _registerToken(String token) async {
     try {
       await MobileApi.instance.registerPushToken(
-        tokenValue: token,
-        platform: _platformName,
-      );
-    } catch (_) {}
-    try {
-      await MobileApi.instance.chatRegisterDeviceToken(
         tokenValue: token,
         platform: _platformName,
       );

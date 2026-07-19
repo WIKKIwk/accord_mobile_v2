@@ -51,7 +51,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       MobileApi.instance.adminSettings(),
       MobileApi.instance.adminSuppliers(limit: 100),
       MobileApi.instance.adminCustomers(limit: 100),
-      MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
+      MobileApi.instance.adminApparatus(limit: 200),
     ]);
     return _AdminRolesData(
       capabilities: results[0] as List<AdminCapability>,
@@ -60,7 +60,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen>
       settings: results[3] as AdminSettings,
       suppliers: results[4] as List<AdminSupplier>,
       customers: results[5] as List<CustomerDirectoryEntry>,
-      apparatus: results[6] as List<AdminWarehouse>,
+      apparatus: results[6] as List<AdminApparatus>,
     );
   }
 
@@ -731,7 +731,7 @@ class _RoleAssignmentSheet extends StatelessWidget {
 
   final _RolePrincipal principal;
   final List<AdminRoleDefinition> roles;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final AdminRoleAssignment? existingAssignment;
 
   @override
@@ -755,7 +755,7 @@ class _RoleAssignmentSheetBody extends StatefulWidget {
 
   final _RolePrincipal principal;
   final List<AdminRoleDefinition> roles;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
   final AdminRoleAssignment? existingAssignment;
 
   @override
@@ -804,12 +804,12 @@ class _RoleAssignmentSheetBodyState extends State<_RoleAssignmentSheetBody> {
                     AdminApparatusScopePicker(
                       apparatus: widget.apparatus,
                       selected: _assignedApparatus,
-                      onChanged: (warehouse, checked) {
+                      onChanged: (apparatusName, checked) {
                         setState(() {
                           if (checked) {
-                            _assignedApparatus.add(warehouse);
+                            _assignedApparatus.add(apparatusName);
                           } else {
-                            _assignedApparatus.remove(warehouse);
+                            _assignedApparatus.remove(apparatusName);
                           }
                         });
                       },
@@ -878,7 +878,7 @@ class _AdminRolesData {
   final AdminSettings settings;
   final List<AdminSupplier> suppliers;
   final List<CustomerDirectoryEntry> customers;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
 
   List<_RolePrincipal> get _principals {
     return <_RolePrincipal>[

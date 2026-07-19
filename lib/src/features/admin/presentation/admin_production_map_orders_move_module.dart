@@ -19,32 +19,32 @@ class _MoveModulePage extends StatefulWidget {
     required this.onMove,
   });
 
-  final AdminWarehouse? topApparatus;
-  final AdminWarehouse? bottomApparatus;
+  final AdminApparatus? topApparatus;
+  final AdminApparatus? bottomApparatus;
   final List<ProductionMapSaved> topOrders;
   final List<ProductionMapSaved> bottomOrders;
   final Set<String> selectedOrderIds;
   final List<ProductionMapSaved> draggingOrders;
-  final AdminWarehouse? draggingSource;
+  final AdminApparatus? draggingSource;
   final bool Function(
     ProductionMapSaved order,
-    AdminWarehouse target,
-    AdminWarehouse source,
+    AdminApparatus target,
+    AdminApparatus source,
   ) canMoveTo;
   final VoidCallback onPickTop;
   final VoidCallback onPickBottom;
   final ValueChanged<String> onToggleSelect;
   final _MoveDragPayload Function({
     required ProductionMapSaved order,
-    required AdminWarehouse source,
+    required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) buildDragPayload;
   final ValueChanged<_MoveDragPayload> onDragStarted;
   final VoidCallback onDragEnded;
   final Future<void> Function({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse from,
-    required AdminWarehouse to,
+    required AdminApparatus from,
+    required AdminApparatus to,
   }) onMove;
 
   @override
@@ -54,32 +54,32 @@ class _MoveModulePage extends StatefulWidget {
 class _MoveModulePageState extends State<_MoveModulePage> {
   double _topZoneRatio = 0.5;
 
-  AdminWarehouse? get topApparatus => widget.topApparatus;
-  AdminWarehouse? get bottomApparatus => widget.bottomApparatus;
+  AdminApparatus? get topApparatus => widget.topApparatus;
+  AdminApparatus? get bottomApparatus => widget.bottomApparatus;
   List<ProductionMapSaved> get topOrders => widget.topOrders;
   List<ProductionMapSaved> get bottomOrders => widget.bottomOrders;
   Set<String> get selectedOrderIds => widget.selectedOrderIds;
   List<ProductionMapSaved> get draggingOrders => widget.draggingOrders;
-  AdminWarehouse? get draggingSource => widget.draggingSource;
+  AdminApparatus? get draggingSource => widget.draggingSource;
   bool Function(
     ProductionMapSaved order,
-    AdminWarehouse target,
-    AdminWarehouse source,
+    AdminApparatus target,
+    AdminApparatus source,
   ) get canMoveTo => widget.canMoveTo;
   VoidCallback get onPickTop => widget.onPickTop;
   VoidCallback get onPickBottom => widget.onPickBottom;
   ValueChanged<String> get onToggleSelect => widget.onToggleSelect;
   _MoveDragPayload Function({
     required ProductionMapSaved order,
-    required AdminWarehouse source,
+    required AdminApparatus source,
     required List<ProductionMapSaved> zoneOrders,
   }) get buildDragPayload => widget.buildDragPayload;
   ValueChanged<_MoveDragPayload> get onDragStarted => widget.onDragStarted;
   VoidCallback get onDragEnded => widget.onDragEnded;
   Future<void> Function({
     required List<ProductionMapSaved> orders,
-    required AdminWarehouse from,
-    required AdminWarehouse to,
+    required AdminApparatus from,
+    required AdminApparatus to,
   }) get onMove => widget.onMove;
 
   void _resizeMoveZones(double delta, double availableHeight) {

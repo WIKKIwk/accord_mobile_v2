@@ -556,7 +556,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool saving = false;
   bool loadingApparatus = false;
   bool loadingItemGroups = false;
-  List<AdminWarehouse> apparatus = const [];
+  List<AdminApparatus> apparatus = const [];
   final Set<String> selectedApparatus = <String>{};
   List<String> itemGroups = const [];
   final Set<String> selectedItemGroups = <String>{};
@@ -581,10 +581,7 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   Future<void> _loadApparatus() async {
     setState(() => loadingApparatus = true);
     try {
-      final items = await MobileApi.instance.adminWarehouses(
-        parent: 'aparat - A',
-        limit: 200,
-      );
+      final items = await MobileApi.instance.adminApparatus(limit: 200);
       if (!mounted) {
         return;
       }
@@ -772,12 +769,12 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
                   AdminApparatusScopePicker(
                     apparatus: apparatus,
                     selected: selectedApparatus,
-                    onChanged: (warehouse, checked) {
+                    onChanged: (apparatusName, checked) {
                       setState(() {
                         if (checked) {
-                          selectedApparatus.add(warehouse);
+                          selectedApparatus.add(apparatusName);
                         } else {
-                          selectedApparatus.remove(warehouse);
+                          selectedApparatus.remove(apparatusName);
                         }
                       });
                     },

@@ -30,14 +30,13 @@ String _completionRejectedNoticeText(
   return message.isNotEmpty ? message : "Sizni so'rovingiz rad etildi";
 }
 
-bool _apparatusListsSameByWarehouse(
-  List<AdminWarehouse> current,
-  List<AdminWarehouse> next,
+bool _apparatusListsHaveSameNames(
+  List<AdminApparatus> current,
+  List<AdminApparatus> next,
 ) {
   return current.length == next.length &&
       current.every(
-        (item) =>
-            next.any((candidate) => candidate.warehouse == item.warehouse),
+        (item) => next.any((candidate) => candidate.name == item.name),
       );
 }
 
@@ -59,8 +58,8 @@ Future<List<AdminCompletionRequestNotification>>
   return MobileApi.instance.adminProductionMapCompletionRequests();
 }
 
-Future<List<AdminWarehouse>> _loadProductionMapApparatus() {
-  return MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200);
+Future<List<AdminApparatus>> _loadProductionMapApparatus() {
+  return MobileApi.instance.adminApparatus(limit: 200);
 }
 
 Future<_ProductionMapOrdersAndApparatus>
@@ -70,7 +69,7 @@ Future<_ProductionMapOrdersAndApparatus>
     _loadProductionMapApparatus(),
   ]);
   final maps = results[0] as List<ProductionMapSaved>;
-  final apparatus = results[1] as List<AdminWarehouse>;
+  final apparatus = results[1] as List<AdminApparatus>;
   return _ProductionMapOrdersAndApparatus(
     orders: _productionMapZakazOrders(maps),
     apparatus: apparatus,
@@ -80,11 +79,11 @@ Future<_ProductionMapOrdersAndApparatus>
 bool _productionMapOrdersOrApparatusChanged({
   required List<ProductionMapSaved> currentOrders,
   required List<ProductionMapSaved> nextOrders,
-  required List<AdminWarehouse> currentApparatus,
-  required List<AdminWarehouse> nextApparatus,
+  required List<AdminApparatus> currentApparatus,
+  required List<AdminApparatus> nextApparatus,
 }) {
   return _ordersRevision(nextOrders) != _ordersRevision(currentOrders) ||
-      !_apparatusListsSameByWarehouse(currentApparatus, nextApparatus);
+      !_apparatusListsHaveSameNames(currentApparatus, nextApparatus);
 }
 
 bool _shouldRefreshWorkerOnlyData(bool workerMode) {

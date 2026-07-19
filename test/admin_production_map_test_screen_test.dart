@@ -1038,9 +1038,8 @@ void main() {
 
       expect(
         productionMapApparatusMatchesOrder(
-          const AdminWarehouse(
-            warehouse: '7 ta rangli bosma aparat',
-            parentWarehouse: 'aparat - A',
+          const AdminApparatus(
+            name: '7 ta rangli bosma aparat',
           ),
           context,
         ),
@@ -1048,9 +1047,8 @@ void main() {
       );
       expect(
         productionMapApparatusMatchesOrder(
-          const AdminWarehouse(
-            warehouse: '8 ta rangli bosma aparat',
-            parentWarehouse: 'aparat - A',
+          const AdminApparatus(
+            name: '8 ta rangli bosma aparat',
           ),
           context,
         ),
@@ -1058,9 +1056,8 @@ void main() {
       );
       expect(
         productionMapApparatusMatchesOrder(
-          const AdminWarehouse(
-            warehouse: '9 ta rangli bosma aparat',
-            parentWarehouse: 'aparat - A',
+          const AdminApparatus(
+            name: '9 ta rangli bosma aparat',
           ),
           context,
         ),
@@ -1068,9 +1065,8 @@ void main() {
       );
       expect(
         productionMapApparatusMatchesOrder(
-          const AdminWarehouse(
-            warehouse: 'Godex aparat - DEMO',
-            parentWarehouse: 'aparat - A',
+          const AdminApparatus(
+            name: 'Godex aparat - DEMO',
           ),
           context,
         ),
@@ -1087,9 +1083,8 @@ void main() {
 
       expect(
         productionMapApparatusMatchesOrder(
-          const AdminWarehouse(
-            warehouse: '8 ta rangli bosma aparat',
-            parentWarehouse: 'aparat - A',
+          const AdminApparatus(
+            name: '8 ta rangli bosma aparat',
           ),
           smallRubberContext,
         ),
@@ -1118,9 +1113,8 @@ void main() {
 
         expect(
           productionMapApparatusMatchesOrder(
-            const AdminWarehouse(
-              warehouse: '7 ta rangli bosma aparat',
-              parentWarehouse: 'aparat - A',
+            const AdminApparatus(
+              name: '7 ta rangli bosma aparat',
             ),
             context,
           ),
@@ -1128,9 +1122,8 @@ void main() {
         );
         expect(
           productionMapApparatusMatchesOrder(
-            const AdminWarehouse(
-              warehouse: '8 ta rangli bosma aparat',
-              parentWarehouse: 'aparat - A',
+            const AdminApparatus(
+              name: '8 ta rangli bosma aparat',
             ),
             context,
           ),
@@ -1138,9 +1131,8 @@ void main() {
         );
         expect(
           productionMapApparatusMatchesOrder(
-            const AdminWarehouse(
-              warehouse: 'Flexo pechat',
-              parentWarehouse: 'aparat - A',
+            const AdminApparatus(
+              name: 'Flexo pechat',
             ),
             context,
           ),
@@ -1148,9 +1140,8 @@ void main() {
         );
         expect(
           productionMapApparatusMatchesOrder(
-            const AdminWarehouse(
-              warehouse: 'Laminatsiya - A',
-              parentWarehouse: 'aparat - A',
+            const AdminApparatus(
+              name: 'Laminatsiya - A',
             ),
             context,
           ),
@@ -1163,9 +1154,8 @@ void main() {
   test(
     'production map apparatus filter blocks laminatsiya above 1050 rubber',
     () {
-      const laminatsiya = AdminWarehouse(
-        warehouse: 'Laminatsiya - A',
-        parentWarehouse: 'aparat - A',
+      const laminatsiya = AdminApparatus(
+        name: 'Laminatsiya - A',
       );
       const allowedContext = ProductionMapOrderContext(
         orderName: 'Allowed order',
@@ -2893,6 +2883,19 @@ void main() {
     await tester.enterText(completedOrderReturnedPaintFields.at(0), '1');
     await tester.enterText(completedOrderReturnedPaintFields.at(1), '2');
     await tester.enterText(completedOrderReturnedPaintFields.at(2), '3');
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Astatka'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Oq'));
+    await tester.pumpAndSettle();
+    final completedOrderAstatkaFields = find.descendant(
+      of: find.byKey(const ValueKey('returned-paint-fields')),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(completedOrderAstatkaFields.at(0), '1');
+    await tester.enterText(completedOrderAstatkaFields.at(1), '2');
+    await tester.enterText(completedOrderAstatkaFields.at(2), '3');
     await tester.tap(find.byTooltip('Orqaga'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Orqaga'));

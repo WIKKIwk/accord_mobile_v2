@@ -1,17 +1,21 @@
-enum ChatMediaKind { image, video }
+enum ChatMediaKind { image, video, audio }
 
 const int chatMediaImageMaxBytes = 15 * 1024 * 1024;
 const int chatMediaVideoMaxBytes = 2 * 1024 * 1024 * 1024;
 const int chatMediaProcessedVideoMaxBytes = 1024 * 1024 * 1024;
 const Duration chatMediaVideoMaxDuration = Duration(seconds: 600);
+const int chatMediaAudioMaxBytes = 64 * 1024 * 1024;
+const Duration chatMediaAudioMaxDuration = Duration(seconds: 600);
 const int chatMediaVideoMaxLongEdge = 1920;
 const int chatMediaVideoMaxShortEdge = 1080;
 const int chatMediaVideoMaxFramesPerSecond = 60;
 
 ChatMediaKind chatMediaKindFromJson(Object? value) {
-  return value?.toString() == 'video'
-      ? ChatMediaKind.video
-      : ChatMediaKind.image;
+  return switch (value?.toString()) {
+    'video' => ChatMediaKind.video,
+    'audio' => ChatMediaKind.audio,
+    _ => ChatMediaKind.image,
+  };
 }
 
 String chatMediaKindToJson(ChatMediaKind kind) => kind.name;
@@ -308,6 +312,9 @@ class ChatPendingMedia {
     this.uploadId = '',
     this.error = '',
     this.durationMs = 0,
+    this.retryAttempts = 0,
+    this.nextRetryAtUnix = 0,
+    this.autoRetry = false,
   });
 
   final String localId;
@@ -327,6 +334,9 @@ class ChatPendingMedia {
   final String uploadId;
   final String error;
   final int durationMs;
+  final int retryAttempts;
+  final int nextRetryAtUnix;
+  final bool autoRetry;
 
   ChatPendingMedia copyWith({
     String? clientUploadId,
@@ -336,6 +346,9 @@ class ChatPendingMedia {
     String? mediaId,
     String? uploadId,
     String? error,
+    int? retryAttempts,
+    int? nextRetryAtUnix,
+    bool? autoRetry,
   }) {
     return ChatPendingMedia(
       localId: localId,
@@ -355,6 +368,9 @@ class ChatPendingMedia {
       uploadId: uploadId ?? this.uploadId,
       error: error ?? this.error,
       durationMs: durationMs,
+      retryAttempts: retryAttempts ?? this.retryAttempts,
+      nextRetryAtUnix: nextRetryAtUnix ?? this.nextRetryAtUnix,
+      autoRetry: autoRetry ?? this.autoRetry,
     );
   }
 
@@ -380,6 +396,9 @@ class ChatPendingMedia {
       uploadId: json['upload_id']?.toString() ?? '',
       error: json['error']?.toString() ?? '',
       durationMs: (json['duration_ms'] as num?)?.toInt() ?? 0,
+      retryAttempts: (json['retry_attempts'] as num?)?.toInt() ?? 0,
+      nextRetryAtUnix: (json['next_retry_at_unix'] as num?)?.toInt() ?? 0,
+      autoRetry: json['auto_retry'] == true,
     );
   }
 
@@ -400,6 +419,9 @@ class ChatPendingMedia {
         'media_id': mediaId,
         'upload_id': uploadId,
         'error': error,
+        'retry_attempts': retryAttempts,
+        'next_retry_at_unix': nextRetryAtUnix,
+        'auto_retry': autoRetry,
         if (durationMs > 0) 'duration_ms': durationMs,
       };
 }

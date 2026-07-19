@@ -58,7 +58,7 @@ class _AdminApparatusSettingsScreenState
   final ScrollController _createScrollController = ScrollController();
   final ScrollController _groupsScrollController = ScrollController();
   late final TabController _tabController;
-  List<AdminWarehouse> _apparatus = const [];
+  List<AdminApparatus> _apparatus = const [];
   List<AdminApparatusGroup> _groups = const [];
   final Set<String> _selected = {};
   bool _loading = true;
@@ -131,14 +131,14 @@ class _AdminApparatusSettingsScreenState
     try {
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatusGroups(),
-        MobileApi.instance.adminWarehouses(parent: 'aparat - A', limit: 200),
+        MobileApi.instance.adminApparatus(limit: 200),
       ]);
       if (!mounted) {
         return;
       }
       setState(() {
         _groups = results[0] as List<AdminApparatusGroup>;
-        _apparatus = results[1] as List<AdminWarehouse>;
+        _apparatus = results[1] as List<AdminApparatus>;
         _loading = false;
         _loadError = null;
       });
@@ -196,8 +196,8 @@ class _AdminApparatusSettingsScreenState
         continue;
       }
       for (final item in _apparatus) {
-        if (item.warehouse.trim().toLowerCase() == normalized) {
-          yield item.warehouse;
+        if (item.name.trim().toLowerCase() == normalized) {
+          yield item.name;
           break;
         }
       }
@@ -223,10 +223,10 @@ class _AdminApparatusSettingsScreenState
     });
   }
 
-  String? _groupOwningApparatus(String warehouseTitle) {
+  String? _groupOwningApparatus(String apparatusTitle) {
     for (final group in _groups) {
       for (final name in group.apparatus) {
-        if (productionMapWarehouseTitlesMatch(name, warehouseTitle)) {
+        if (productionMapWarehouseTitlesMatch(name, apparatusTitle)) {
           return group.name;
         }
       }
@@ -234,10 +234,10 @@ class _AdminApparatusSettingsScreenState
     return null;
   }
 
-  List<AdminWarehouse> _selectableApparatusForEditor() {
+  List<AdminApparatus> _selectableApparatusForEditor() {
     final editingKey = _editingGroupName?.trim().toLowerCase() ?? '';
     return _apparatus.where((item) {
-      final owner = _groupOwningApparatus(item.warehouse);
+      final owner = _groupOwningApparatus(item.name);
       if (owner == null) {
         return true;
       }
@@ -299,18 +299,18 @@ class _AdminApparatusSettingsScreenState
         return;
       }
       setState(() {
-        final key = created.warehouse.toLowerCase();
+        final key = created.name.toLowerCase();
         final next = [
           for (final item in _apparatus)
-            if (item.warehouse.toLowerCase() != key) item,
+            if (item.name.toLowerCase() != key) item,
           created,
         ]..sort(
-            (left, right) => left.warehouse.toLowerCase().compareTo(
-                  right.warehouse.toLowerCase(),
+            (left, right) => left.name.toLowerCase().compareTo(
+                  right.name.toLowerCase(),
                 ),
           );
         _apparatus = next;
-        _selected.add(created.warehouse);
+        _selected.add(created.name);
         _apparatusName.clear();
       });
       _saveCache();
@@ -387,7 +387,7 @@ class _AdminApparatusSettingsScreenState
                       index,
                       _apparatus.length,
                     ),
-                    title: _apparatus[index].warehouse,
+                    title: _apparatus[index].name,
                   ),
               ],
             ),
@@ -491,17 +491,17 @@ class _AdminApparatusSettingsScreenState
                       index,
                       selectableApparatus.length,
                     ),
-                    title: selectableApparatus[index].warehouse,
+                    title: selectableApparatus[index].name,
                     selected: _selected.contains(
-                      selectableApparatus[index].warehouse,
+                      selectableApparatus[index].name,
                     ),
                     onToggle: () {
-                      final warehouse = selectableApparatus[index].warehouse;
+                      final apparatusName = selectableApparatus[index].name;
                       setState(() {
-                        if (_selected.contains(warehouse)) {
-                          _selected.remove(warehouse);
+                        if (_selected.contains(apparatusName)) {
+                          _selected.remove(apparatusName);
                         } else {
-                          _selected.add(warehouse);
+                          _selected.add(apparatusName);
                         }
                       });
                     },
@@ -755,7 +755,7 @@ class _AdminApparatusSettingsCache {
   });
 
   final List<AdminApparatusGroup> groups;
-  final List<AdminWarehouse> apparatus;
+  final List<AdminApparatus> apparatus;
 }
 
 class _ApparatusGroupListTile extends StatelessWidget {

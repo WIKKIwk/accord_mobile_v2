@@ -288,8 +288,9 @@ class _WipIntroText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        'Bu yerda bir aparatdan chiqqan, lekin keyingi aparat hali '
-        'boshlamagan mahsulotlar ko‘rinadi.',
+        'Bu yerda aparatdan chiqqan, lekin keyingi qabul yoki ish hali '
+        'tasdiqlanmagan WIP mahsulotlar ko‘rinadi. Oxirgi bosqichdan '
+        'chiqqan mahsulot ham boshqa tomon qabul qilmaguncha WIP bo‘lib qoladi.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.3,
@@ -353,6 +354,7 @@ class _WipBatchTile extends StatelessWidget {
       batch.apparatus,
     ]);
     final sourceApparatus = _valueOrDash(batch.apparatus);
+    final finalFreeWip = isFinalFreeWip(batch);
     final worker = _firstNotEmpty([
       batch.workerDisplayName,
       batch.executorName,
@@ -423,16 +425,24 @@ class _WipBatchTile extends StatelessWidget {
               label: 'Hozir qayerda',
               value: _valueOrDash(currentPlace),
             ),
-            _WipInfoLine(
-              icon: Icons.call_split_rounded,
-              label: 'Keyingi aparat',
-              value: _nextApparatusText(batch.nextApparatus, status),
-            ),
-            _WipInfoLine(
-              icon: Icons.alt_route_rounded,
-              label: 'Keyingi bosqich',
-              value: _nextStepText(batch.nextApparatus, status),
-            ),
+            if (finalFreeWip)
+              const _WipInfoLine(
+                icon: Icons.inventory_2_outlined,
+                label: 'Mahsulot holati',
+                value: 'Erkin WIP',
+              )
+            else ...[
+              _WipInfoLine(
+                icon: Icons.call_split_rounded,
+                label: 'Keyingi aparat',
+                value: _nextApparatusText(batch.nextApparatus),
+              ),
+              _WipInfoLine(
+                icon: Icons.alt_route_rounded,
+                label: 'Keyingi bosqich',
+                value: _nextStepText(batch.nextApparatus),
+              ),
+            ],
             _WipInfoLine(
               icon: Icons.badge_outlined,
               label: 'Ishchi',
@@ -585,6 +595,17 @@ List<AdminProgressBatch> filterWipBatchesForWaitingDisplay(
   ];
 }
 
+bool isFinalFreeWip(AdminProgressBatch batch) {
+  final flowStatus = batch.statusDetail.flowStatus.trim();
+  if (flowStatus == 'free_wip' || flowStatus == 'finished_pending_acceptance') {
+    return true;
+  }
+  return batch.action.trim() == 'complete' &&
+      batch.status.trim() == 'completed' &&
+      batch.wipStatus.trim() == _WipBatchStatus.waiting.apiValue &&
+      batch.nextApparatus.trim().isEmpty;
+}
+
 String canonicalWaitingLocation(AdminProgressBatch batch) {
   final location = batch.currentLocation.trim();
   final apparatus = batch.currentApparatus.trim().isNotEmpty
@@ -620,28 +641,20 @@ String _headlineForBatch(String rawTitle) {
   return '$shortTitle mahsuloti';
 }
 
-String _nextApparatusText(String nextApparatus, _WipBatchStatus status) {
+String _nextApparatusText(String nextApparatus) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
     return trimmed;
   }
-  return switch (status) {
-    _WipBatchStatus.waiting => 'Aniqlanmagan',
-    _WipBatchStatus.inUse => 'Aniqlanmagan',
-    _WipBatchStatus.processed => 'Ombor',
-  };
+  return 'Belgilanmagan';
 }
 
-String _nextStepText(String nextApparatus, _WipBatchStatus status) {
+String _nextStepText(String nextApparatus) {
   final trimmed = nextApparatus.trim();
   if (trimmed.isNotEmpty) {
     return trimmed;
   }
-  return switch (status) {
-    _WipBatchStatus.waiting => 'Keyingi aparat topilmadi',
-    _WipBatchStatus.inUse => 'Keyingi aparat topilmadi',
-    _WipBatchStatus.processed => 'Omborga ketadi',
-  };
+  return 'Belgilanmagan';
 }
 
 String _buildFriendlySummary({
@@ -666,19 +679,24 @@ String _buildFriendlySummary({
   final processedPlace =
       currentPlace == '-' ? 'noma’lum joyda' : '${currentPlace}da';
   final workerText = worker == '-' ? '' : ' Ishchi: $worker.';
+  if (isFinalFreeWip(batch)) {
+    return '$product $sourceText chiqdi. Hozir $waitingPlace erkin WIP '
+        'holatida turibdi. Ombor yoki boshqa manzil biriktirilmagan. '
+        'Miqdor: $quantity.$workerText';
+  }
   return switch (status) {
     _WipBatchStatus.waiting =>
       '$product $sourceText chiqdi. Hozir $waitingPlace turibdi. '
-          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
-          'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus, status)}. '
+          'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
+          'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
           'Miqdor: $quantity.$workerText',
     _WipBatchStatus.inUse => '$product hozir ishlanmoqda. Hozir $inUsePlace. '
-        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
-        'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus, status)}. '
+        'Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
+        'Keyingi aparat: ${_nextApparatusText(batch.nextApparatus)}. '
         'Miqdor: $quantity.$workerText',
     _WipBatchStatus.processed =>
       '$product tugagan. Qayerdan chiqdi: $sourceApparatus. '
-          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus, status)}. '
+          'Hozir: $processedPlace. Keyingi bosqich: ${_nextStepText(batch.nextApparatus)}. '
           'Miqdor: $quantity.$workerText',
   };
 }

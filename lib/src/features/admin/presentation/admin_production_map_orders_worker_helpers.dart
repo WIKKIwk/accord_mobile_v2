@@ -3,7 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   required List<ProductionMapSaved> orders,
   required List<AdminCompletedQueueOrder> completedOrders,
-  required List<AdminWarehouse> apparatus,
+  required List<AdminApparatus> apparatus,
   required String query,
 }) {
   final byId = {for (final order in orders) order.map.id.trim(): order};
@@ -37,31 +37,31 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
       .toList(growable: false);
 }
 
-AdminWarehouse? _completedOrderApparatus({
+AdminApparatus? _completedOrderApparatus({
   required AdminCompletedQueueOrder completed,
-  required List<AdminWarehouse> apparatus,
+  required List<AdminApparatus> apparatus,
 }) {
   final title = completed.apparatus.trim();
   if (title.isEmpty) {
     return null;
   }
   for (final item in apparatus) {
-    if (_apparatusTitlesMatch(item.warehouse, title)) {
+    if (_apparatusTitlesMatch(item.name, title)) {
       return item;
     }
   }
-  return AdminWarehouse(warehouse: title, parentWarehouse: 'aparat - A');
+  return AdminApparatus(name: title);
 }
 
-int _workerWatchTabCount(List<AdminWarehouse> apparatus) {
+int _workerWatchTabCount(List<AdminApparatus> apparatus) {
   return apparatus.isEmpty ? 1 : apparatus.length + 1;
 }
 
-List<AdminWarehouse> _workerWatchApparatusOrder({
-  required List<AdminWarehouse> apparatus,
+List<AdminApparatus> _workerWatchApparatusOrder({
+  required List<AdminApparatus> apparatus,
   required Iterable<String> assignedApparatus,
 }) {
-  final ordered = List<AdminWarehouse>.from(apparatus);
+  final ordered = List<AdminApparatus>.from(apparatus);
   final index = _initialWatchApparatusIndex(
     apparatus: ordered,
     assignedApparatus: assignedApparatus,
@@ -74,7 +74,7 @@ List<AdminWarehouse> _workerWatchApparatusOrder({
 }
 
 List<_WorkerWatchTab> _workerWatchTabs({
-  required List<AdminWarehouse> apparatus,
+  required List<AdminApparatus> apparatus,
   required Iterable<String> assignedApparatus,
 }) {
   final ordered = _workerWatchApparatusOrder(
@@ -92,7 +92,7 @@ List<_WorkerWatchTab> _workerWatchTabs({
 }
 
 int _initialWatchApparatusIndex({
-  required List<AdminWarehouse> apparatus,
+  required List<AdminApparatus> apparatus,
   required Iterable<String> assignedApparatus,
 }) {
   final assigned = assignedApparatus
@@ -100,7 +100,7 @@ int _initialWatchApparatusIndex({
       .where((item) => item.isNotEmpty);
   for (final item in assigned) {
     final index = apparatus.indexWhere(
-      (entry) => _apparatusTitlesMatch(entry.warehouse, item),
+      (entry) => _apparatusTitlesMatch(entry.name, item),
     );
     if (index >= 0) {
       return index;
@@ -110,9 +110,9 @@ int _initialWatchApparatusIndex({
 }
 
 bool _isAssignedWatchApparatus(
-  AdminWarehouse apparatus, {
+  AdminApparatus apparatus, {
   required Iterable<String> assignedApparatus,
 }) {
-  final title = apparatus.warehouse.trim();
+  final title = apparatus.name.trim();
   return assignedApparatus.any((item) => _apparatusTitlesMatch(title, item));
 }

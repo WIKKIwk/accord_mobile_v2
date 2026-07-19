@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/widgets/display/image_fade.dart';
+import '../../../core/api/mobile_api.dart';
+import '../data/chat_media_file_store.dart';
 import '../models/chat_media_models.dart';
+import 'chat_local_video_controller.dart';
 
 Route<void> chatMediaViewerRoute({
   required ChatMediaKind kind,
+  required String mediaId,
   required Uri contentUri,
   required Uri previewUri,
   required Map<String, String> headers,
@@ -28,6 +32,7 @@ Route<void> chatMediaViewerRoute({
             )
           : ChatVideoViewerScreen(
               uri: contentUri,
+              mediaId: mediaId,
               previewUri: previewUri,
               headers: headers,
               heroTag: heroTag,
@@ -142,12 +147,14 @@ class ChatVideoViewerScreen extends StatefulWidget {
   const ChatVideoViewerScreen({
     super.key,
     required this.uri,
+    required this.mediaId,
     required this.headers,
     this.previewUri,
     this.heroTag = 'chat-media-viewer',
   });
 
   final Uri uri;
+  final String mediaId;
   final Map<String, String> headers;
   final Uri? previewUri;
   final String heroTag;
@@ -157,25 +164,59 @@ class ChatVideoViewerScreen extends StatefulWidget {
 }
 
 class _ChatVideoViewerScreenState extends State<ChatVideoViewerScreen> {
-  late final VideoPlayerController controller;
+  VideoPlayerController? controller;
   late final Future<void> initialization;
 
   @override
   void initState() {
     super.initState();
-    controller = VideoPlayerController.networkUrl(
-      widget.uri,
-      httpHeaders: widget.headers,
-    );
-    initialization = controller.initialize().then((_) {
-      controller.play();
-      if (mounted) setState(() {});
-    });
+    initialization = _initializePlayer();
+  }
+
+  Future<void> _initializePlayer() async {
+    String? cachedPath;
+    try {
+      cachedPath = await cachedChatMediaFile(widget.mediaId);
+    } catch (_) {
+      // A damaged or unavailable cache must never block authenticated network
+      // playback.
+    }
+    if (!mounted) return;
+    if (cachedPath != null && cachedPath.isNotEmpty) {
+      VideoPlayerController? local;
+      try {
+        local = createLocalChatVideoController(cachedPath);
+        controller = local;
+        await local.initialize();
+        if (!mounted) {
+          await local.dispose();
+          return;
+        }
+        await local.play();
+        return;
+      } catch (_) {
+        if (identical(controller, local)) controller = null;
+        await local?.dispose();
+      }
+    }
+    if (!mounted) return;
+
+    final playbackUri =
+        await MobileApi.instance.chatMediaPlaybackUri(widget.mediaId);
+    if (!mounted) return;
+    final network = VideoPlayerController.networkUrl(playbackUri);
+    controller = network;
+    await network.initialize();
+    if (!mounted) {
+      await network.dispose();
+      return;
+    }
+    await network.play();
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    controller?.dispose();
     super.dispose();
   }
 
@@ -204,6 +245,15 @@ class _ChatVideoViewerScreenState extends State<ChatVideoViewerScreen> {
                   uri: widget.previewUri,
                   headers: widget.headers,
                 ),
+              ),
+            );
+          }
+          final controller = this.controller;
+          if (controller == null) {
+            return const Center(
+              child: _MediaViewerError(
+                icon: Icons.video_file_outlined,
+                label: 'Video ochilmadi',
               ),
             );
           }

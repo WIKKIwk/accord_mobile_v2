@@ -347,10 +347,10 @@ class _AdminRolesHttpClient implements HttpClient {
 
     Object body;
     var statusCode = HttpStatus.ok;
-    if (key.startsWith('GET /v1/mobile/admin/warehouses')) {
+    if (key.startsWith('GET /v1/mobile/admin/apparatus')) {
       body = const [
-        {'warehouse': 'Godex aparat - DEMO'},
-        {'warehouse': 'Paket aparat'},
+        {'name': 'Godex aparat - DEMO'},
+        {'name': 'Paket aparat'},
       ];
     } else {
       switch (key) {

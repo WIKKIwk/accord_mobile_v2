@@ -84,12 +84,95 @@ void main() {
 
     expect(seenRequests, contains('GET /v1/mobile/profile'));
   });
+
+  test('admin material detail hydrates scopes from legacy assignment APIs',
+      () async {
+    final seenRequests = <String>[];
+    await AppSession.instance.setSession(
+      token: 'admin-token',
+      profile: _adminProfile(),
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final detail =
+          await MobileApi.instance.adminMaterialTaminotchiDetail('MAT-LEGACY');
+
+      expect(detail.assignedItemGroups, ['Rulon']);
+      expect(detail.assignedWarehouses, ['Kalidor']);
+    }, createHttpClient: (_) => _AuthProfileHttpClient(seenRequests));
+
+    expect(
+      seenRequests,
+      contains('GET /v1/mobile/admin/role-assignments'),
+    );
+    expect(
+      seenRequests,
+      contains('GET /v1/mobile/admin/warehouses/assignments'),
+    );
+  });
+
+  test('admin material groups fall back when dedicated endpoint is missing',
+      () async {
+    final seenRequests = <String>[];
+    final client = _AuthProfileHttpClient(seenRequests);
+    await AppSession.instance.setSession(
+      token: 'admin-token',
+      profile: _adminProfile(),
+    );
+
+    await HttpOverrides.runZoned(() async {
+      final detail =
+          await MobileApi.instance.adminUpdateMaterialTaminotchiItemGroups(
+        ref: 'MAT-LEGACY',
+        assignedItemGroups: const ['Rulon', 'Kley', 'Rulon'],
+      );
+
+      expect(detail.assignedItemGroups, ['Kley', 'Rulon']);
+      expect(detail.assignedWarehouses, ['Kalidor']);
+    }, createHttpClient: (_) => client);
+
+    expect(
+      seenRequests,
+      contains(
+        'PUT /v1/mobile/admin/material-taminotchilar/item-groups?ref=MAT-LEGACY',
+      ),
+    );
+    expect(
+      seenRequests,
+      contains('PUT /v1/mobile/admin/role-assignments'),
+    );
+    expect(
+      seenRequests,
+      contains(
+        'BODY PUT /v1/mobile/admin/role-assignments '
+        '{"principal_role":"material_taminotchi","principal_ref":"MAT-LEGACY",'
+        '"role_id":"material_taminotchi","assigned_item_groups":["Kley","Rulon"]}',
+      ),
+    );
+  });
+}
+
+SessionProfile _adminProfile() {
+  return const SessionProfile(
+    role: UserRole.admin,
+    displayName: 'Admin',
+    legalName: 'Admin',
+    ref: 'admin',
+    phone: '+998900000000',
+    avatarUrl: '',
+    capabilities: [
+      'admin.access',
+      'role.capability.read',
+      'role.capability.manage',
+    ],
+  );
 }
 
 class _AuthProfileHttpClient implements HttpClient {
   _AuthProfileHttpClient(this.seenRequests);
 
   final List<String> seenRequests;
+  List<String> materialGroups = ['Rulon'];
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -131,12 +214,53 @@ class _AuthProfileHttpClient implements HttpClient {
           'assigned_item_groups': ['Kraska', 'Kley'],
           'assigned_warehouses': ['Xomashyo ombori - DEMO'],
         },
+      'GET /v1/mobile/admin/material-taminotchilar/detail?ref=MAT-LEGACY' =>
+        const {
+          'ref': 'MAT-LEGACY',
+          'name': 'Materialchi',
+          'phone': '+998901112233',
+          'avatar_url': '',
+          'code': '70ABCDEF1234',
+          'code_locked': false,
+          'code_retry_after_sec': 0,
+          'assigned_items': [],
+        },
+      'GET /v1/mobile/admin/role-assignments' => [
+          {
+            'principal_role': 'material_taminotchi',
+            'principal_ref': 'MAT-LEGACY',
+            'role_id': 'material_taminotchi',
+            'assigned_item_groups': materialGroups,
+          },
+        ],
+      'GET /v1/mobile/admin/warehouses/assignments' => const [
+          {
+            'warehouse': 'Kalidor',
+            'principal_role': 'material_taminotchi',
+            'principal_ref': 'MAT-LEGACY',
+            'display_name': 'Materialchi',
+          },
+        ],
+      'PUT /v1/mobile/admin/material-taminotchilar/item-groups?ref=MAT-LEGACY' =>
+        const {'error': 'not found'},
+      'PUT /v1/mobile/admin/role-assignments' => const {
+          'principal_role': 'material_taminotchi',
+          'principal_ref': 'MAT-LEGACY',
+          'role_id': 'material_taminotchi',
+          'assigned_item_groups': ['Kley', 'Rulon'],
+        },
       _ => {'error': 'Unhandled request: $key'},
     };
-    final statusCode =
-        key == 'POST /v1/mobile/auth/login' || key == 'GET /v1/mobile/profile'
-            ? HttpStatus.ok
-            : HttpStatus.notFound;
+    final statusCode = switch (key) {
+      'POST /v1/mobile/auth/login' ||
+      'GET /v1/mobile/profile' ||
+      'GET /v1/mobile/admin/material-taminotchilar/detail?ref=MAT-LEGACY' ||
+      'GET /v1/mobile/admin/role-assignments' ||
+      'GET /v1/mobile/admin/warehouses/assignments' ||
+      'PUT /v1/mobile/admin/role-assignments' =>
+        HttpStatus.ok,
+      _ => HttpStatus.notFound,
+    };
     return _FakeHttpClientRequest(
       response: _FakeHttpClientResponse(
         body: jsonEncode(body),
@@ -144,6 +268,14 @@ class _AuthProfileHttpClient implements HttpClient {
         requestKey: key,
         seenRequests: seenRequests,
       ),
+      onBody: key == 'PUT /v1/mobile/admin/role-assignments'
+          ? (raw) {
+              final payload = jsonDecode(raw) as Map<String, dynamic>;
+              materialGroups = (payload['assigned_item_groups'] as List)
+                  .map((item) => item.toString())
+                  .toList(growable: false);
+            }
+          : null,
     );
   }
 
@@ -158,9 +290,10 @@ class _AuthProfileHttpClient implements HttpClient {
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
-  _FakeHttpClientRequest({required this.response});
+  _FakeHttpClientRequest({required this.response, this.onBody});
 
   final _FakeHttpClientResponse response;
+  final void Function(String body)? onBody;
   final BytesBuilder _body = BytesBuilder();
   final _headers = _FakeHttpHeaders();
 
@@ -206,6 +339,7 @@ class _FakeHttpClientRequest implements HttpClientRequest {
     final body = utf8.decode(_body.takeBytes());
     if (body.isNotEmpty) {
       response.seenRequests.add('BODY ${response.requestKey} $body');
+      onBody?.call(body);
     }
     return response;
   }

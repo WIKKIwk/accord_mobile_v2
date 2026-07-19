@@ -17,8 +17,7 @@ import 'widgets/chat_role_dock.dart';
 /// instead of a request that would be rejected by the admin API.
 Widget _buildParticipantProfile(
     BuildContext context, ChatPrincipal participant) {
-  final hasAdminAccess =
-      AppSession.instance.profile?.accessRole == UserRole.admin;
+  final hasAdminAccess = AppSession.instance.can('admin.access');
   if (!hasAdminAccess) {
     return _ChatParticipantSummaryProfile(participant: participant);
   }
@@ -31,9 +30,9 @@ Widget _buildParticipantProfile(
         profileSubtitle: 'Haridor profili',
         emptyName: 'Customer',
         namelessLabel: 'Nomsiz haridor',
-        customerManagementEnabled: false,
-        itemManagementEnabled: false,
-        removeEnabled: false,
+        customerManagementEnabled: true,
+        itemManagementEnabled: true,
+        removeEnabled: true,
       ),
     UserRole.materialTaminotchi => AdminCustomerDetailScreen(
         customerRef: participant.ref,
@@ -42,9 +41,13 @@ Widget _buildParticipantProfile(
         profileSubtitle: 'Material ta’minotchisi profili',
         emptyName: 'Material taminotchisi',
         namelessLabel: 'Nomsiz material ta’minotchisi',
-        customerManagementEnabled: false,
+        customerManagementEnabled: true,
         itemManagementEnabled: false,
         removeEnabled: false,
+        isMaterialTaminotchi: true,
+        phoneUpdater: MobileApi.instance.adminUpdateMaterialTaminotchiPhone,
+        codeRegenerator:
+            MobileApi.instance.adminRegenerateMaterialTaminotchiCode,
       ),
     UserRole.supplier => AdminSupplierDetailScreen(
         supplierRef: participant.ref,

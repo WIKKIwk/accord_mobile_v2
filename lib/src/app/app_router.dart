@@ -578,6 +578,7 @@ class AppRouter {
         final isMaterialTaminotchi =
             entry?.kind == AdminUserKind.materialTaminotchi ||
                 entry?.principalRole == UserRole.materialTaminotchi;
+        final canManageCustomer = AppSession.instance.can('admin.access');
         return _buildRoute(
           settings,
           AdminCustomerDetailScreen(
@@ -595,9 +596,10 @@ class AppRouter {
             namelessLabel: isMaterialTaminotchi
                 ? 'Nomsiz material ta’minotchisi'
                 : 'Nomsiz haridor',
-            customerManagementEnabled: true,
-            itemManagementEnabled: !isMaterialTaminotchi,
-            removeEnabled: !isMaterialTaminotchi,
+            customerManagementEnabled: canManageCustomer,
+            itemManagementEnabled: canManageCustomer && !isMaterialTaminotchi,
+            removeEnabled: canManageCustomer && !isMaterialTaminotchi,
+            isMaterialTaminotchi: isMaterialTaminotchi,
             phoneUpdater: isMaterialTaminotchi
                 ? MobileApi.instance.adminUpdateMaterialTaminotchiPhone
                 : null,

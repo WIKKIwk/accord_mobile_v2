@@ -38,16 +38,13 @@ extension _AdminProductionMapTestGraphState
   Future<void> _addApparatusGroup(AdminApparatusGroup group) async {
     final groupNames =
         group.apparatus.map((item) => item.trim().toLowerCase()).toSet();
-    final warehouses = await MobileApi.instance.adminWarehouses(
-      parent: 'aparat - A',
-      limit: 200,
-    );
-    final compatible = warehouses
+    final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+    final compatible = apparatus
         .where(
-          (warehouse) => _warehouseBelongsToApparatusGroup(
+          (apparatus) => _apparatusBelongsToGroup(
             group,
             groupNames,
-            warehouse,
+            apparatus,
           ),
         )
         .where(_apparatusMatchesCurrentMap)
@@ -83,7 +80,7 @@ extension _AdminProductionMapTestGraphState
           _newNode(
             id,
             'apparatus',
-          ).copyWith(title: picked.apparatus!.warehouse),
+          ).copyWith(title: picked.apparatus!.name),
         );
       }
     });
@@ -91,7 +88,7 @@ extension _AdminProductionMapTestGraphState
 
   void _insertAlternativeApparatusNodes(
     AdminApparatusGroup group,
-    List<AdminWarehouse> apparatus,
+    List<AdminApparatus> apparatus,
   ) {
     final endIndex = nodes.indexWhere((item) => item.kind == 'end');
     if (endIndex <= 0 || apparatus.isEmpty) {
@@ -129,7 +126,7 @@ extension _AdminProductionMapTestGraphState
         ProductionMapNode(
           id: id,
           kind: 'apparatus',
-          title: apparatus[index].warehouse,
+          title: apparatus[index].name,
           alternativeGroupId: groupId,
           alternativeGroupLabel: group.name,
           x: firstX + index * _ProductionMapCanvas._nodeSize.width,
@@ -148,22 +145,22 @@ extension _AdminProductionMapTestGraphState
     _pushEndDown();
   }
 
-  bool _warehouseBelongsToApparatusGroup(
+  bool _apparatusBelongsToGroup(
     AdminApparatusGroup group,
     Set<String> groupNames,
-    AdminWarehouse warehouse,
+    AdminApparatus apparatus,
   ) {
-    final warehouseName = warehouse.warehouse.trim();
-    if (groupNames.contains(warehouseName.toLowerCase())) {
+    final apparatusName = apparatus.name.trim();
+    if (groupNames.contains(apparatusName.toLowerCase())) {
       return true;
     }
-    final warehouseColorCount = productionMapPechatColorCount(warehouseName);
-    if (warehouseColorCount == null) {
+    final apparatusColorCount = productionMapPechatColorCount(apparatusName);
+    if (apparatusColorCount == null) {
       return false;
     }
     return group.apparatus.any(
       (apparatus) =>
-          productionMapPechatColorCount(apparatus) == warehouseColorCount,
+          productionMapPechatColorCount(apparatus) == apparatusColorCount,
     );
   }
 
@@ -554,8 +551,8 @@ extension _AdminProductionMapTestGraphState
     return node.kind == 'task' && !_isOrderProductTask(node);
   }
 
-  Future<AdminWarehouse?> _pickStationWarehouse({String? title}) async {
-    return showModalBottomSheet<AdminWarehouse>(
+  Future<AdminApparatus?> _pickStationApparatus({String? title}) async {
+    return showModalBottomSheet<AdminApparatus>(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -565,22 +562,21 @@ extension _AdminProductionMapTestGraphState
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
-        return M3AsyncPickerSheet<AdminWarehouse>(
+        return M3AsyncPickerSheet<AdminApparatus>(
           title: title ?? 'Stansiya tanlang',
           hintText: 'Aparat qidiring',
           pageSize: 50,
-          cacheKey: 'production-map:station-warehouses'
+          cacheKey: 'production-map:station-apparatus'
               ':${_apparatusFilterCacheSuffix()}',
           loadPage: (query, offset, limit) async {
-            final warehouses = await MobileApi.instance.adminWarehouses(
+            final apparatus = await MobileApi.instance.adminApparatus(
               query: query,
-              parent: 'aparat - A',
               limit: 200,
             );
-            return warehouses
+            return apparatus
                 .where(
-                  (warehouse) => productionMapApparatusMatchesOrder(
-                    warehouse,
+                  (apparatus) => productionMapApparatusMatchesOrder(
+                    apparatus,
                     widget.orderContext,
                   ),
                 )
@@ -588,9 +584,8 @@ extension _AdminProductionMapTestGraphState
                 .take(limit)
                 .toList(growable: false);
           },
-          itemTitle: (item) => item.warehouse,
-          itemSubtitle: (item) =>
-              item.company.trim().isEmpty ? 'Aparat' : item.company,
+          itemTitle: (item) => item.name,
+          itemSubtitle: (_) => 'Aparat',
           onSelected: (item) => Navigator.of(context).pop(item),
         );
       },
@@ -611,7 +606,7 @@ extension _AdminProductionMapTestGraphState
       return;
     }
     if (node.kind == 'apparatus') {
-      final picked = await showModalBottomSheet<AdminWarehouse>(
+      final picked = await showModalBottomSheet<AdminApparatus>(
         context: context,
         isDismissible: true,
         enableDrag: true,
@@ -621,19 +616,18 @@ extension _AdminProductionMapTestGraphState
         barrierColor: Colors.black.withValues(alpha: 0.32),
         sheetAnimationStyle: kM3PickerSheetAnimation,
         builder: (context) {
-          return M3AsyncPickerSheet<AdminWarehouse>(
+          return M3AsyncPickerSheet<AdminApparatus>(
             title: 'Aparat tanlang',
             hintText: 'Aparat qidiring',
             pageSize: 50,
-            cacheKey: 'production-map:apparatus-warehouses'
+            cacheKey: 'production-map:apparatus'
                 ':${_apparatusFilterCacheSuffix()}',
             loadPage: (query, offset, limit) async {
-              final warehouses = await MobileApi.instance.adminWarehouses(
+              final apparatus = await MobileApi.instance.adminApparatus(
                 query: query,
-                parent: 'aparat - A',
                 limit: 200,
               );
-              return warehouses
+              return apparatus
                   .where(
                     _apparatusMatchesCurrentMap,
                   )
@@ -641,9 +635,8 @@ extension _AdminProductionMapTestGraphState
                   .take(limit)
                   .toList(growable: false);
             },
-            itemTitle: (item) => item.warehouse,
-            itemSubtitle: (item) =>
-                item.company.trim().isEmpty ? 'Aparat' : item.company,
+            itemTitle: (item) => item.name,
+            itemSubtitle: (_) => 'Aparat',
             onSelected: (item) => Navigator.of(context).pop(item),
           );
         },
@@ -652,17 +645,17 @@ extension _AdminProductionMapTestGraphState
         return;
       }
       _updateScreenState(
-        () => nodes[index] = node.copyWith(title: picked.warehouse),
+        () => nodes[index] = node.copyWith(title: picked.name),
       );
       return;
     }
     if (_isStationTask(node)) {
-      final picked = await _pickStationWarehouse(title: 'Ishlov stansiyasi');
+      final picked = await _pickStationApparatus(title: 'Ishlov stansiyasi');
       if (picked == null || !mounted) {
         return;
       }
       _updateScreenState(
-        () => nodes[index] = node.copyWith(title: picked.warehouse),
+        () => nodes[index] = node.copyWith(title: picked.name),
       );
       return;
     }
@@ -790,7 +783,7 @@ extension _AdminProductionMapTestGraphState
     }
     return group.apparatus.any(
       (apparatus) => productionMapApparatusMatchesOrder(
-        AdminWarehouse(warehouse: apparatus, parentWarehouse: 'aparat - A'),
+        AdminApparatus(name: apparatus),
         widget.orderContext,
       ),
     );
@@ -809,14 +802,14 @@ extension _AdminProductionMapTestGraphState
         );
   }
 
-  bool _apparatusMatchesCurrentMap(AdminWarehouse warehouse) {
-    if (productionMapIsLaminatsiyaApparatus(warehouse.warehouse)) {
+  bool _apparatusMatchesCurrentMap(AdminApparatus apparatus) {
+    if (productionMapIsLaminatsiyaApparatus(apparatus.name)) {
       return _productionMapLaminatsiyaMatchesCurrentMap(
         widget.orderContext,
         nodes,
       );
     }
-    return productionMapApparatusMatchesOrder(warehouse, widget.orderContext);
+    return productionMapApparatusMatchesOrder(apparatus, widget.orderContext);
   }
 
   Future<ProductionMapNode?> _showRezkaEditSheet(ProductionMapNode node) {

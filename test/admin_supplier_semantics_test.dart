@@ -168,8 +168,8 @@ void main() {
           }
           return MaterialPageRoute<void>(
             settings: settings,
-            builder: (_) => Scaffold(
-              bottomNavigationBar: const AdminDock(
+            builder: (_) => const Scaffold(
+              bottomNavigationBar: AdminDock(
                 activeTab: AdminDockTab.user,
                 showPrimaryFab: false,
               ),

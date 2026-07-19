@@ -242,6 +242,18 @@ class AdminWarehouseStockItem {
   }
 }
 
+class AdminApparatus {
+  const AdminApparatus({required this.name});
+
+  final String name;
+
+  factory AdminApparatus.fromJson(Map<String, dynamic> json) {
+    return AdminApparatus(
+      name: (json['name'] as String?) ?? (json['warehouse'] as String?) ?? '',
+    );
+  }
+}
+
 class AdminWarehouse {
   const AdminWarehouse({
     required this.warehouse,
@@ -2263,6 +2275,8 @@ class AdminCustomerDetail {
     required this.codeLocked,
     required this.codeRetryAfterSec,
     required this.assignedItems,
+    this.assignedItemGroups = const [],
+    this.assignedWarehouses = const [],
   });
 
   final String ref;
@@ -2273,6 +2287,8 @@ class AdminCustomerDetail {
   final bool codeLocked;
   final int codeRetryAfterSec;
   final List<SupplierItem> assignedItems;
+  final List<String> assignedItemGroups;
+  final List<String> assignedWarehouses;
 
   factory AdminCustomerDetail.fromJson(Map<String, dynamic> json) {
     return AdminCustomerDetail(
@@ -2286,6 +2302,40 @@ class AdminCustomerDetail {
       assignedItems: (json['assigned_items'] as List<dynamic>? ?? const [])
           .map((item) => SupplierItem.fromJson(item as Map<String, dynamic>))
           .toList(),
+      assignedItemGroups:
+          (json['assigned_item_groups'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .toList(growable: false),
+      assignedWarehouses:
+          (json['assigned_warehouses'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .toList(growable: false),
+    );
+  }
+
+  AdminCustomerDetail copyWith({
+    String? ref,
+    String? name,
+    String? phone,
+    String? avatarUrl,
+    String? code,
+    bool? codeLocked,
+    int? codeRetryAfterSec,
+    List<SupplierItem>? assignedItems,
+    List<String>? assignedItemGroups,
+    List<String>? assignedWarehouses,
+  }) {
+    return AdminCustomerDetail(
+      ref: ref ?? this.ref,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      code: code ?? this.code,
+      codeLocked: codeLocked ?? this.codeLocked,
+      codeRetryAfterSec: codeRetryAfterSec ?? this.codeRetryAfterSec,
+      assignedItems: assignedItems ?? this.assignedItems,
+      assignedItemGroups: assignedItemGroups ?? this.assignedItemGroups,
+      assignedWarehouses: assignedWarehouses ?? this.assignedWarehouses,
     );
   }
 }

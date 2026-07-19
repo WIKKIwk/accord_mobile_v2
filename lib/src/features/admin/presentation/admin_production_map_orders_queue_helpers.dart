@@ -109,10 +109,10 @@ bool _apparatusTitlesMatch(String left, String right) {
 }
 
 Map<String, String> _queueStatesForApparatus(
-  AdminWarehouse apparatus, {
+  AdminApparatus apparatus, {
   required Map<String, Map<String, String>> queueStatesByApparatus,
 }) {
-  final title = apparatus.warehouse.trim();
+  final title = apparatus.name.trim();
   final direct = queueStatesByApparatus[title];
   if (direct != null) {
     return direct;
@@ -129,10 +129,10 @@ Map<String, String> _queueStatesForApparatus(
 }
 
 List<String> _sequenceOrderIdsForApparatus(
-  AdminWarehouse apparatus, {
+  AdminApparatus apparatus, {
   required Map<String, List<String>> sequenceByApparatus,
 }) {
-  final title = apparatus.warehouse.trim();
+  final title = apparatus.name.trim();
   final direct = sequenceByApparatus[title];
   if (direct != null) {
     return direct;
@@ -149,10 +149,10 @@ List<String> _sequenceOrderIdsForApparatus(
 }
 
 ApparatusQueuePolicy _queuePolicyForApparatus(
-  AdminWarehouse apparatus, {
+  AdminApparatus apparatus, {
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
 }) {
-  final title = apparatus.warehouse.trim();
+  final title = apparatus.name.trim();
   if (productionMapPechatColorCount(title) != null) {
     return ApparatusQueuePolicy.strictSequence;
   }

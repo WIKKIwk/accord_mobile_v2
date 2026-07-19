@@ -257,13 +257,13 @@ void main() {
       expect(report.currentBatch?.statusDetail.workStatus, 'completed');
       expect(
         report.currentBatch?.statusDetail.flowStatus,
-        'finished_pending_acceptance',
+        'free_wip',
       );
-      expect(
-          report.currentBatch?.statusDetail.stockStatus, 'pending_acceptance');
-      expect(report.orderStatus.orderStatus, 'finished_pending_acceptance');
-      expect(report.orderStatus.stockStatus, 'pending_acceptance');
-      expect(report.orderStatus.finishedPendingAcceptanceCount, 1);
+      expect(report.currentBatch?.statusDetail.stockStatus, isEmpty);
+      expect(report.orderStatus.orderStatus, 'completed');
+      expect(report.orderStatus.flowStatus, 'free_wip');
+      expect(report.orderStatus.stockStatus, isEmpty);
+      expect(report.orderStatus.freeWipCount, 1);
       expect(report.orderStatus.completedQueueCount, 1);
       expect(report.orderStatus.completedWithIssueCount, 0);
       expect(report.isStale, isTrue);
@@ -1165,8 +1165,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'status_detail': {
               'work_status': 'completed',
               'wip_status': 'waiting',
-              'flow_status': 'finished_pending_acceptance',
-              'stock_status': 'pending_acceptance',
+              'flow_status': 'free_wip',
             },
           },
           'is_stale': true,
@@ -1180,17 +1179,16 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'edges': [],
           },
           'order_status': {
-            'order_status': 'finished_pending_acceptance',
+            'order_status': 'completed',
             'work_status': 'completed',
-            'flow_status': 'finished_pending_acceptance',
-            'stock_status': 'pending_acceptance',
+            'flow_status': 'free_wip',
             'total_wip_count': 2,
             'waiting_wip_count': 1,
             'in_use_wip_count': 0,
             'processed_wip_count': 1,
             'waiting_next_stage_count': 0,
             'consumed_by_next_stage_count': 1,
-            'finished_pending_acceptance_count': 1,
+            'free_wip_count': 1,
             'accepted_wip_count': 0,
             'active_session_count': 0,
             'paused_session_count': 0,

@@ -3,7 +3,7 @@ part of 'admin_item_detail_screen.dart';
 class _CustomerManageButton extends StatelessWidget {
   const _CustomerManageButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

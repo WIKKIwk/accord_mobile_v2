@@ -13,12 +13,16 @@ import '../models/chat_models.dart';
 import '../models/chat_media_models.dart';
 import '../state/chat_store.dart';
 import '../state/chat_failure.dart';
+import '../data/chat_media_file_store.dart';
 import 'chat_media_preview_screen.dart';
+import 'chat_voice_recorder.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_message_composer.dart';
 import 'widgets/chat_pending_media_bubble.dart';
 import 'widgets/chat_role_dock.dart';
+
+const Duration _voiceAutoStopMargin = Duration(seconds: 1);
 
 class ChatDetailScreen extends StatefulWidget {
   const ChatDetailScreen({super.key, required this.conversation});
@@ -37,6 +41,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   final composerHeight = ValueNotifier<double>(
     ChatRoleDock.messageComposerHeight,
   );
+  final voiceRecorder = ChatVoiceRecorder();
+  Timer? _voiceTimer;
+  bool _recordingVoice = false;
+  bool _voiceBusy = false;
+  Duration _voiceDuration = Duration.zero;
   int previousMessageCount = 0;
   bool _keepPinnedToBottom = true;
   bool _bottomCorrectionScheduled = false;
@@ -64,7 +73,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     composerHeight.dispose();
     controller.dispose();
     scrollController.dispose();
+    _voiceTimer?.cancel();
+    unawaited(voiceRecorder.dispose());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_recordingVoice && state != AppLifecycleState.resumed && !_voiceBusy) {
+      unawaited(_cancelVoiceRecording(showMessage: false));
+    }
   }
 
   Future<void> _send() async {
@@ -206,6 +224,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   onSend: _send,
                   onDraftChanged: _draftChanged,
                   onAttach: _attachMedia,
+                  onVoiceAction: _recordingVoice
+                      ? _finishVoiceRecording
+                      : _startVoiceRecording,
+                  onCancelVoice: _cancelVoiceRecording,
+                  recordingVoice: _recordingVoice,
+                  voiceBusy: _voiceBusy,
+                  voiceDuration: _voiceDuration,
                   embeddedInDock: true,
                 ),
               ),
@@ -366,6 +391,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 
   Future<void> _attachMedia() async {
+    if (_recordingVoice || _voiceBusy) return;
     final selection = await showModalBottomSheet<_MediaPickerSelection>(
       context: context,
       showDragHandle: true,
@@ -392,6 +418,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             preferredCameraDevice: CameraDevice.rear,
             maxDuration: chatMediaVideoMaxDuration,
           ),
+        (ChatMediaKind.audio, _) => null,
       };
       if (source == null || !mounted) return;
       final size = await source.length();
@@ -433,6 +460,112 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       );
     } catch (error) {
       _showMediaError(chatMediaFailureMessage(error));
+    }
+  }
+
+  Future<void> _startVoiceRecording() async {
+    if (_recordingVoice || _voiceBusy || store.sending) return;
+    setState(() => _voiceBusy = true);
+    try {
+      await voiceRecorder.start();
+      if (!mounted) {
+        await voiceRecorder.cancel();
+        return;
+      }
+      setState(() {
+        _recordingVoice = true;
+        _voiceDuration = Duration.zero;
+      });
+      _voiceTimer?.cancel();
+      _voiceTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (!mounted || !_recordingVoice) return;
+        final elapsed = voiceRecorder.elapsed;
+        if (elapsed >= chatMediaAudioMaxDuration - _voiceAutoStopMargin) {
+          unawaited(_finishVoiceRecording());
+          return;
+        }
+        setState(() => _voiceDuration = elapsed);
+      });
+    } on ChatVoiceRecorderException catch (error) {
+      _showMediaError(
+        error.code == 'microphone_access_denied'
+            ? 'Mikrofonga ruxsat berilmagan.'
+            : 'Bu qurilmada ovoz yozib bo‘lmadi.',
+      );
+    } catch (_) {
+      _showMediaError('Ovoz yozishni boshlab bo‘lmadi.');
+    } finally {
+      if (mounted) setState(() => _voiceBusy = false);
+    }
+  }
+
+  Future<void> _finishVoiceRecording() async {
+    if (!_recordingVoice || _voiceBusy) return;
+    setState(() => _voiceBusy = true);
+    _voiceTimer?.cancel();
+    ChatVoiceRecording? recording;
+    var queued = false;
+    try {
+      recording = await voiceRecorder.stop();
+      if (!mounted) {
+        if (recording != null) {
+          await deleteChatMediaFile(recording.source.path);
+        }
+        return;
+      }
+      setState(() {
+        _recordingVoice = false;
+        _voiceDuration = Duration.zero;
+      });
+      if (recording == null || recording.durationMs < 500) {
+        if (recording != null) {
+          await deleteChatMediaFile(recording.source.path);
+        }
+        _showMediaError('Ovozli xabar juda qisqa.');
+        return;
+      }
+      await store.queueMedia(
+        conversationId: widget.conversation.conversationId,
+        source: recording.source,
+        kind: ChatMediaKind.audio,
+        durationMs: recording.durationMs,
+        deleteSourceAfterPersist: true,
+      );
+      queued = true;
+      _scrollToBottom();
+    } catch (error) {
+      if (!queued && recording != null) {
+        try {
+          await deleteChatMediaFile(recording.source.path);
+        } catch (_) {}
+      }
+      _showMediaError(chatMediaFailureMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _recordingVoice = false;
+          _voiceBusy = false;
+          _voiceDuration = Duration.zero;
+        });
+      }
+    }
+  }
+
+  Future<void> _cancelVoiceRecording({bool showMessage = true}) async {
+    if (!_recordingVoice || _voiceBusy) return;
+    setState(() => _voiceBusy = true);
+    _voiceTimer?.cancel();
+    try {
+      await voiceRecorder.cancel();
+      if (showMessage) _showMediaError('Ovoz yozish bekor qilindi.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _recordingVoice = false;
+          _voiceBusy = false;
+          _voiceDuration = Duration.zero;
+        });
+      }
     }
   }
 

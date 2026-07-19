@@ -73,11 +73,11 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
 Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   BuildContext context, {
   required String action,
-  required AdminWarehouse? apparatus,
+  required AdminApparatus? apparatus,
   required ProductionMapSaved order,
   ReturnedPaintDraft? returnedPaintDraft,
 }) {
-  final title = apparatus?.warehouse ?? '';
+  final title = apparatus?.name ?? '';
   return _showProgressQtyDialog(
     context,
     action,

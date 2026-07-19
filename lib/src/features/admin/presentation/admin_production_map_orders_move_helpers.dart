@@ -1,12 +1,12 @@
 part of 'admin_production_map_orders_screen.dart';
 
 _MoveApparatusDefaults _moveApparatusDefaults({
-  required List<AdminWarehouse> source,
-  required AdminWarehouse? currentTop,
-  required AdminWarehouse? currentBottom,
+  required List<AdminApparatus> source,
+  required AdminApparatus? currentTop,
+  required AdminApparatus? currentBottom,
 }) {
   final pechat = source
-      .where((item) => productionMapPechatColorCount(item.warehouse) != null)
+      .where((item) => productionMapPechatColorCount(item.name) != null)
       .toList(growable: false);
   final candidates = pechat.isEmpty ? source : pechat;
   if (candidates.isEmpty) {
@@ -20,7 +20,7 @@ _MoveApparatusDefaults _moveApparatusDefaults({
       bottom = candidates[1];
     } else {
       for (final item in source) {
-        if (item.warehouse != candidates.first.warehouse) {
+        if (item.name != candidates.first.name) {
           bottom = item;
           break;
         }
@@ -32,9 +32,9 @@ _MoveApparatusDefaults _moveApparatusDefaults({
 
 ProductionMapDefinition? _returnAssignedMapToAlternatives(
   ProductionMapDefinition map,
-  AdminWarehouse source,
+  AdminApparatus source,
 ) {
-  final sourceTitle = source.warehouse.trim();
+  final sourceTitle = source.name.trim();
   final assignedGroupId = _assignedAlternativeGroupIdForApparatus(
     map,
     sourceTitle,
@@ -54,7 +54,7 @@ ProductionMapDefinition? _returnAssignedMapToAlternatives(
 
 List<ProductionMapDefinition>? _returnAssignedMapsToAlternatives({
   required List<ProductionMapSaved> orders,
-  required AdminWarehouse source,
+  required AdminApparatus source,
 }) {
   final converted = <ProductionMapDefinition>[];
   for (final order in orders) {
@@ -69,9 +69,9 @@ List<ProductionMapDefinition>? _returnAssignedMapsToAlternatives({
 
 ProductionMapDefinition _assignAlternativeMapToApparatus(
   ProductionMapDefinition map,
-  AdminWarehouse apparatus,
+  AdminApparatus apparatus,
 ) {
-  final targetTitle = apparatus.warehouse.trim();
+  final targetTitle = apparatus.name.trim();
   final targetNode = map.nodes
       .where((node) {
         return node.kind == 'apparatus' &&
@@ -96,7 +96,7 @@ ProductionMapDefinition _assignAlternativeMapToApparatus(
 
 List<ProductionMapDefinition> _assignAlternativeMapsToApparatus({
   required List<ProductionMapSaved> orders,
-  required AdminWarehouse apparatus,
+  required AdminApparatus apparatus,
 }) {
   return [
     for (final order in orders)
@@ -106,8 +106,8 @@ List<ProductionMapDefinition> _assignAlternativeMapsToApparatus({
 
 bool _canMoveOrderToApparatus(
   ProductionMapSaved order,
-  AdminWarehouse target, {
-  required AdminWarehouse source,
+  AdminApparatus target, {
+  required AdminApparatus source,
 }) {
   if (_isMoveUnassignedApparatus(source)) {
     return !_isMoveUnassignedApparatus(target) &&
@@ -118,8 +118,8 @@ bool _canMoveOrderToApparatus(
   }
   return productionMapCanMoveOrderToApparatus(
     nodes: order.map.nodes,
-    fromApparatus: source.warehouse,
-    toApparatus: target.warehouse,
+    fromApparatus: source.name,
+    toApparatus: target.name,
     rollCount: order.map.rollCount,
     widthMm: order.map.widthMm,
     isFlexoOrder: productionMapIsFlexoOrder(order.map),
@@ -128,7 +128,7 @@ bool _canMoveOrderToApparatus(
 
 _MoveDragPayload _moveDragPayload({
   required ProductionMapSaved order,
-  required AdminWarehouse source,
+  required AdminApparatus source,
   required List<ProductionMapSaved> zoneOrders,
   required Set<String> selectedOrderIds,
 }) {
@@ -146,19 +146,19 @@ _MoveDragPayload _moveDragPayload({
   return _MoveDragPayload(orders: orders, source: source);
 }
 
-List<AdminWarehouse> _movePickerApparatusOptionsForList({
-  required List<AdminWarehouse> apparatus,
-  required AdminWarehouse? oppositeApparatus,
+List<AdminApparatus> _movePickerApparatusOptionsForList({
+  required List<AdminApparatus> apparatus,
+  required AdminApparatus? oppositeApparatus,
 }) {
   if (oppositeApparatus == null ||
       _isMoveUnassignedApparatus(oppositeApparatus)) {
     return apparatus;
   }
-  final oppositeTitle = oppositeApparatus.warehouse.trim();
+  final oppositeTitle = oppositeApparatus.name.trim();
   return apparatus
       .where(
         (item) => !productionMapWarehouseTitlesMatch(
-          item.warehouse,
+          item.name,
           oppositeTitle,
         ),
       )
@@ -167,7 +167,7 @@ List<AdminWarehouse> _movePickerApparatusOptionsForList({
 
 List<ProductionMapSaved> _alternativeOrdersForApparatusList({
   required List<ProductionMapSaved> orders,
-  required AdminWarehouse apparatus,
+  required AdminApparatus apparatus,
 }) {
   return orders
       .where(

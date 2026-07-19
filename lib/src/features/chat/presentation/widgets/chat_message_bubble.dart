@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/widgets/display/image_fade.dart';
+import '../../data/chat_media_file_store.dart';
 import '../../models/chat_media_models.dart';
 import '../../models/chat_models.dart';
 import '../chat_media_viewer.dart';
@@ -132,6 +135,14 @@ class _MediaMessageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    if (attachment.kind == ChatMediaKind.audio) {
+      return _AudioMessageContent(
+        attachment: attachment,
+        caption: caption,
+        timeText: timeText,
+        mine: mine,
+      );
+    }
     final width = math.min(MediaQuery.sizeOf(context).width * 0.7, 320.0);
     final rawRatio = attachment.widthPixels > 0 && attachment.heightPixels > 0
         ? attachment.widthPixels / attachment.heightPixels
@@ -270,12 +281,278 @@ class _MediaMessageContent extends StatelessWidget {
     Navigator.of(context).push<void>(
       chatMediaViewerRoute(
         kind: attachment.kind,
+        mediaId: attachment.mediaId,
         contentUri: contentUri,
         previewUri: previewUri,
         headers: headers,
         heroTag: heroTag,
       ),
     );
+  }
+}
+
+class _AudioMessageContent extends StatefulWidget {
+  const _AudioMessageContent({
+    required this.attachment,
+    required this.caption,
+    required this.timeText,
+    required this.mine,
+  });
+
+  final ChatMessageAttachment attachment;
+  final String caption;
+  final String timeText;
+  final bool mine;
+
+  @override
+  State<_AudioMessageContent> createState() => _AudioMessageContentState();
+}
+
+class _AudioMessageContentState extends State<_AudioMessageContent> {
+  AudioPlayer? player;
+  StreamSubscription<PlayerState>? stateSubscription;
+  StreamSubscription<PlayerException>? errorSubscription;
+  bool loading = false;
+  String error = '';
+
+  @override
+  void dispose() {
+    _ChatAudioPlaybackCoordinator.release(this);
+    stateSubscription?.cancel();
+    errorSubscription?.cancel();
+    player?.dispose();
+    super.dispose();
+  }
+
+  Future<AudioPlayer> _initializePlayer() async {
+    final existing = player;
+    if (existing != null) return existing;
+    String? cachedPath;
+    try {
+      cachedPath = await cachedChatMediaFile(widget.attachment.mediaId);
+    } catch (_) {}
+    if (!mounted) throw StateError('audio_player_disposed');
+
+    AudioPlayer? next;
+    if (cachedPath != null && cachedPath.isNotEmpty) {
+      next = AudioPlayer();
+      try {
+        await next.setFilePath(cachedPath);
+      } catch (_) {
+        await next.dispose();
+        next = null;
+      }
+    }
+    if (next == null) {
+      final playbackUri = await MobileApi.instance.chatMediaPlaybackUri(
+        widget.attachment.mediaId,
+      );
+      if (!mounted) throw StateError('audio_player_disposed');
+      next = AudioPlayer();
+      await next.setUrl(playbackUri.toString());
+    }
+    if (!mounted) {
+      await next.dispose();
+      throw StateError('audio_player_disposed');
+    }
+    player = next;
+    stateSubscription = next.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        _ChatAudioPlaybackCoordinator.release(this);
+      }
+    });
+    errorSubscription = next.errorStream.listen((exception) {
+      if (!mounted) return;
+      setState(() => error = 'Ovozli xabarni ochib bo‘lmadi');
+    });
+    return next;
+  }
+
+  Future<void> _togglePlayback() async {
+    if (loading) return;
+    final current = player;
+    if (current?.playing == true) {
+      await current!.pause();
+      _ChatAudioPlaybackCoordinator.release(this);
+      return;
+    }
+    setState(() {
+      loading = true;
+      error = '';
+    });
+    try {
+      final active = await _initializePlayer();
+      if (active.processingState == ProcessingState.completed) {
+        await active.seek(Duration.zero);
+      }
+      await _ChatAudioPlaybackCoordinator.claim(this);
+      unawaited(active.play());
+    } catch (_) {
+      if (mounted) setState(() => error = 'Ovozli xabarni ochib bo‘lmadi');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> pauseForCoordinator() async {
+    final current = player;
+    if (current?.playing == true) await current!.pause();
+  }
+
+  Future<void> _seek(double milliseconds) async {
+    final current = player;
+    if (current == null) return;
+    await current.seek(Duration(milliseconds: milliseconds.round()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final current = player;
+    return SizedBox(
+      width: math.min(MediaQuery.sizeOf(context).width * 0.7, 320),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 3, 4, 2),
+        child: Column(
+          crossAxisAlignment:
+              widget.mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                StreamBuilder<PlayerState>(
+                  stream: current?.playerStateStream,
+                  builder: (context, snapshot) {
+                    final playing = snapshot.data?.playing ?? false;
+                    return IconButton.filledTonal(
+                      tooltip: playing ? 'Pauza' : 'Eshitish',
+                      onPressed: loading ? null : _togglePlayback,
+                      icon: loading
+                          ? const SizedBox.square(
+                              dimension: 19,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                            ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: StreamBuilder<Duration?>(
+                    stream: current?.durationStream,
+                    builder: (context, durationSnapshot) {
+                      final fallback = Duration(
+                        milliseconds: widget.attachment.durationMs ?? 0,
+                      );
+                      final duration = durationSnapshot.data ?? fallback;
+                      final maximum = math
+                          .max(
+                            duration.inMilliseconds.toDouble(),
+                            1,
+                          )
+                          .toDouble();
+                      return StreamBuilder<Duration>(
+                        stream: current?.positionStream,
+                        builder: (context, positionSnapshot) {
+                          final position =
+                              positionSnapshot.data ?? Duration.zero;
+                          final value = position.inMilliseconds
+                              .clamp(0, maximum.round())
+                              .toDouble();
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Slider(
+                                value: value,
+                                max: maximum,
+                                onChanged: current == null ? null : _seek,
+                              ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _mediaDuration(position.inMilliseconds),
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall,
+                                  ),
+                                  Text(
+                                    _mediaDuration(duration.inMilliseconds),
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  error,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: scheme.error),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 3, 4, 2),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    if (widget.caption.trim().isNotEmpty)
+                      TextSpan(
+                        text: widget.caption.trim(),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(height: 1.25),
+                      ),
+                    TextSpan(
+                      text: widget.caption.trim().isEmpty
+                          ? widget.timeText
+                          : '  ${widget.timeText}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                    if (widget.mine) _deliveryStatus(scheme),
+                  ],
+                ),
+                textAlign: widget.mine ? TextAlign.right : TextAlign.left,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatAudioPlaybackCoordinator {
+  static _AudioMessageContentState? active;
+
+  static Future<void> claim(_AudioMessageContentState owner) async {
+    final previous = active;
+    active = owner;
+    if (previous != null && !identical(previous, owner)) {
+      await previous.pauseForCoordinator();
+    }
+  }
+
+  static void release(_AudioMessageContentState owner) {
+    if (identical(active, owner)) active = null;
   }
 }
 
