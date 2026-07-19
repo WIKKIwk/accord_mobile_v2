@@ -143,6 +143,73 @@ class SupplierItem {
   }
 }
 
+class AdminItemDetail {
+  const AdminItemDetail({
+    required this.code,
+    required this.name,
+    required this.uom,
+    required this.itemGroup,
+    required this.isFinishedGoods,
+    required this.createdAtUnix,
+    required this.updatedAtUnix,
+    this.customers = const <CustomerDirectoryEntry>[],
+  });
+
+  final String code;
+  final String name;
+  final String uom;
+  final String itemGroup;
+  final bool isFinishedGoods;
+  final int createdAtUnix;
+  final int updatedAtUnix;
+  final List<CustomerDirectoryEntry> customers;
+
+  factory AdminItemDetail.fromJson(Map<String, dynamic> json) {
+    final customers = json['customers'];
+    return AdminItemDetail(
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      uom: json['uom'] as String? ?? '',
+      itemGroup: json['item_group'] as String? ?? '',
+      isFinishedGoods: json['is_finished_goods'] as bool? ?? false,
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+      updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
+      customers: customers is List
+          ? customers
+              .whereType<Map>()
+              .map(
+                (customer) => CustomerDirectoryEntry.fromJson(
+                  Map<String, dynamic>.from(customer),
+                ),
+              )
+              .toList(growable: false)
+          : const <CustomerDirectoryEntry>[],
+    );
+  }
+
+  AdminItemDetail copyWith({
+    String? code,
+    String? name,
+    String? uom,
+    String? itemGroup,
+    bool? isFinishedGoods,
+    int? createdAtUnix,
+    int? updatedAtUnix,
+    List<CustomerDirectoryEntry>? customers,
+  }) {
+    return AdminItemDetail(
+      code: code ?? this.code,
+      name: name ?? this.name,
+      uom: uom ?? this.uom,
+      itemGroup: itemGroup ?? this.itemGroup,
+      isFinishedGoods: isFinishedGoods ?? this.isFinishedGoods,
+      createdAtUnix: createdAtUnix ?? this.createdAtUnix,
+      updatedAtUnix: updatedAtUnix ?? this.updatedAtUnix,
+      customers: customers ?? this.customers,
+    );
+  }
+}
+
 class AdminWarehouseStockItem {
   const AdminWarehouseStockItem({
     required this.code,

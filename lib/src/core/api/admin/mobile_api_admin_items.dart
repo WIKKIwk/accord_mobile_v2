@@ -1,5 +1,7 @@
 part of '../mobile_api.dart';
 
+final Map<String, AdminItemDetail> _testModeAdminItemDetailOverrides = {};
+
 extension MobileApiAdminItems on MobileApi {
   Future<List<CustomerDirectoryEntry>> adminCustomersForItem({
     required String itemCode,
@@ -74,7 +76,11 @@ extension MobileApiAdminItems on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin customer item add failed');
+      throw _adminItemMutationException(
+        response,
+        fallbackCode: 'item_customer_add_failed',
+        fallbackMessage: 'Customer itemga ulanmadi',
+      );
     }
     return AdminCustomerDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -94,7 +100,11 @@ extension MobileApiAdminItems on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin customer item remove failed');
+      throw _adminItemMutationException(
+        response,
+        fallbackCode: 'item_customer_remove_failed',
+        fallbackMessage: 'Customer itemdan uzilmadi',
+      );
     }
     return AdminCustomerDetail.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -811,7 +821,11 @@ extension MobileApiAdminItems on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin item group bulk move failed');
+      throw _adminItemMutationException(
+        response,
+        fallbackCode: 'item_group_bulk_move_failed',
+        fallbackMessage: 'Mahsulotlar groupga ko‘chirilmadi',
+      );
     }
     return AdminItemGroupBulkMoveResult.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -840,12 +854,268 @@ extension MobileApiAdminItems on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin item create failed');
+      throw _adminItemCreateException(response);
     }
     return SupplierItem.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+
+  Future<AdminItemDetail> adminItemDetail(String itemCode) async {
+    final code = itemCode.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final override = _testModeAdminItemDetailOverrides[code.toLowerCase()];
+      if (override != null) {
+        return override;
+      }
+      final items = TestModeDemoData.itemPage(query: code, limit: 0);
+      SupplierItem? matched;
+      for (final item in items) {
+        if (item.code.trim().toLowerCase() == code.toLowerCase()) {
+          matched = item;
+          break;
+        }
+      }
+      if (matched == null) {
+        throw const MobileApiException(
+          code: 'item_not_found',
+          message: 'Item topilmadi',
+          statusCode: 404,
+        );
+      }
+      final customers = await adminCustomersForItem(
+        itemCode: matched.code,
+        itemName: matched.name,
+      );
+      final normalizedGroup = matched.itemGroup.toLowerCase();
+      return AdminItemDetail(
+        code: matched.code,
+        name: matched.name,
+        uom: matched.uom,
+        itemGroup: matched.itemGroup,
+        isFinishedGoods: normalizedGroup.contains('tayyor') &&
+            normalizedGroup.contains('mahsulot'),
+        createdAtUnix: 0,
+        updatedAtUnix: 0,
+        customers: customers,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/detail')
+            .replace(queryParameters: {'code': code}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminItemDetailException(response);
+    }
+    return AdminItemDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminItemDetail> adminUpdateItem({
+    required String originalCode,
+    required String code,
+    required String name,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final current = await adminItemDetail(originalCode);
+      final updated = current.copyWith(
+        code: code.trim(),
+        name: name.trim(),
+        updatedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      _testModeAdminItemDetailOverrides
+        ..remove(originalCode.trim().toLowerCase())
+        ..[updated.code.toLowerCase()] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/detail'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'original_code': originalCode.trim(),
+          'code': code.trim(),
+          'name': name.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminItemDetailException(response);
+    }
+    return AdminItemDetail.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminItemDetail> adminUpdateItemGroup({
+    required String itemCode,
+    required String itemGroup,
+  }) async {
+    final code = itemCode.trim();
+    final group = itemGroup.trim();
+    if (code.isEmpty || group.isEmpty) {
+      throw const MobileApiException(
+        code: 'item_group_update_invalid',
+        message: 'Item va groupni tanlang',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final current = await adminItemDetail(code);
+      final tree = await adminItemGroupTree();
+      final requiresCustomer = adminItemGroupRequiresCustomer(group, tree);
+      if (requiresCustomer && current.customers.isEmpty) {
+        throw const MobileApiException(
+          code: 'tayyor mahsulot uchun kamida bitta customer kerak',
+          message: 'Tayyor mahsulot uchun kamida bitta customer kerak',
+        );
+      }
+      final updated = current.copyWith(
+        itemGroup: group,
+        isFinishedGoods: requiresCustomer,
+        updatedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      _testModeAdminItemDetailOverrides[code.toLowerCase()] = updated;
+      return updated;
+    }
+    final result = await adminMoveItemsToGroup(
+      itemCodes: <String>[code],
+      itemGroup: group,
+    );
+    final updated = result.failedCount == 0 &&
+        result.updatedItemCodes.any(
+          (itemCode) => itemCode.trim().toLowerCase() == code.toLowerCase(),
+        );
+    if (!updated) {
+      throw const MobileApiException(
+        code: 'item_group_update_failed',
+        message: 'Item group o‘zgartirilmadi',
+      );
+    }
+    return adminItemDetail(code);
+  }
+
+  Future<AdminItemDetail> adminSetItemCustomerAssigned({
+    required String itemCode,
+    required CustomerDirectoryEntry customer,
+    required bool assigned,
+  }) async {
+    final code = itemCode.trim();
+    final customerRef = customer.ref.trim();
+    if (code.isEmpty || customerRef.isEmpty) {
+      throw const MobileApiException(
+        code: 'item_customer_update_invalid',
+        message: 'Item va customerni tanlang',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final current = await adminItemDetail(code);
+      final removesExistingCustomer = !assigned &&
+          current.customers.any(
+            (existing) =>
+                existing.ref.trim().toLowerCase() == customerRef.toLowerCase(),
+          );
+      if (current.isFinishedGoods &&
+          removesExistingCustomer &&
+          current.customers.length <= 1) {
+        throw const MobileApiException(
+          code: 'tayyor mahsulot uchun kamida bitta customer kerak',
+          message: 'Tayyor mahsulot uchun kamida bitta customer kerak',
+        );
+      }
+      final customers = <CustomerDirectoryEntry>[
+        for (final existing in current.customers)
+          if (existing.ref.trim().toLowerCase() != customerRef.toLowerCase())
+            existing,
+        if (assigned) customer,
+      ]..sort(
+          (left, right) => left.name.toLowerCase().compareTo(
+                right.name.toLowerCase(),
+              ),
+        );
+      final updated = current.copyWith(
+        customers: List<CustomerDirectoryEntry>.unmodifiable(customers),
+        updatedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      _testModeAdminItemDetailOverrides[code.toLowerCase()] = updated;
+      return updated;
+    }
+    if (assigned) {
+      await adminAssignCustomerItem(ref: customerRef, itemCode: code);
+    } else {
+      await adminRemoveCustomerItem(ref: customerRef, itemCode: code);
+    }
+    return adminItemDetail(code);
+  }
+}
+
+MobileApiException _adminItemCreateException(http.Response response) {
+  return _adminItemMutationException(
+    response,
+    fallbackCode: 'item_create_failed',
+    fallbackMessage: 'Item yaratilmadi',
+  );
+}
+
+MobileApiException _adminItemMutationException(
+  http.Response response, {
+  required String fallbackCode,
+  required String fallbackMessage,
+}) {
+  var code = fallbackCode;
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      final error = (payload['error'] as String).trim();
+      if (error.isNotEmpty) {
+        code = error;
+      }
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    statusCode: response.statusCode,
+    message: switch (code) {
+      'item code already exists' => 'Bu item code allaqachon mavjud',
+      'item code is required' => 'Item code kiriting',
+      'tayyor mahsulot uchun kamida bitta customer kerak' =>
+        'Tayyor mahsulot uchun kamida bitta customer kerak',
+      'customer_ref is required for tayyor mahsulot' =>
+        'Tayyor mahsulot uchun customer tanlang',
+      'customer not found' => 'Customer topilmadi',
+      'item not found' => 'Item topilmadi',
+      _ => response.statusCode == 403
+          ? 'Bu amal uchun admin huquqi kerak'
+          : fallbackMessage,
+    },
+  );
+}
+
+MobileApiException _adminItemDetailException(http.Response response) {
+  var code = 'item_update_failed';
+  try {
+    final payload = jsonDecode(response.body);
+    if (payload is Map && payload['error'] is String) {
+      code = (payload['error'] as String).trim();
+    }
+  } catch (_) {}
+  return MobileApiException(
+    code: code,
+    statusCode: response.statusCode,
+    message: switch (code) {
+      'item not found' => 'Item topilmadi',
+      'item code already exists' => 'Bu item code allaqachon mavjud',
+      'item code is required' => 'Item code kiriting',
+      'item name is required' => 'Item nomini kiriting',
+      _ => response.statusCode == 403
+          ? 'Itemni tahrirlash uchun admin huquqi kerak'
+          : 'Item ma’lumotlari saqlanmadi',
+    },
+  );
 }
 
 MobileApiException _rawMaterialStockUpdateException(http.Response response) {

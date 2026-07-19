@@ -74,7 +74,11 @@ extension MobileApiAdminItemGroups on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin item group parent move failed');
+      throw _adminItemMutationException(
+        response,
+        fallbackCode: 'item_group_parent_move_failed',
+        fallbackMessage: 'Item group parenti o‘zgartirilmadi',
+      );
     }
     return AdminItemGroup.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

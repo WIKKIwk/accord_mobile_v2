@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -151,6 +152,175 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Item allaqachon yaratilgan'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('same item name with a different code is allowed', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminItemCreateHttpClient(
+      seenRequests,
+      sameNameDifferentCode: true,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminItemCreateScreen(),
+        ),
+      );
+
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.enterText(_createTabTextFieldAt(0), 'ITEM-UNIQUE');
+      await tester.enterText(_createTabTextFieldAt(1), 'Shared name');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('Item yaratildi: ITEM-UNIQUE').evaluate().isNotEmpty) {
+          break;
+        }
+      }
+
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/items?q=ITEM-UNIQUE&limit=5'),
+      );
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/items'),
+      );
+      expect(find.text('Item yaratildi: ITEM-UNIQUE'), findsOneWidget);
+      expect(find.text('Item allaqachon yaratilgan'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('server duplicate conflict wins after an empty pre-check', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminItemCreateHttpClient(
+      seenRequests,
+      duplicateOnPost: true,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminItemCreateScreen(),
+        ),
+      );
+
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.enterText(_createTabTextFieldAt(0), 'ITEM-RACE');
+      await tester.enterText(_createTabTextFieldAt(1), 'Race item');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('Bu item code allaqachon mavjud').evaluate().isNotEmpty) {
+          break;
+        }
+      }
+
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/items?q=ITEM-RACE&limit=5'),
+      );
+      expect(
+        seenRequests,
+        contains('POST /v1/mobile/admin/items'),
+      );
+      expect(find.text('Bu item code allaqachon mavjud'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, createHttpClient: (_) => client);
+  });
+
+  testWidgets('shows finished-goods customer invariant from backend', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminItemCreateHttpClient(
+      seenRequests,
+      customerRequiredOnPost: true,
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminItemCreateScreen(),
+        ),
+      );
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      await tester.enterText(_createTabTextFieldAt(0), 'ITEM-FG-RACE');
+      await tester.enterText(_createTabTextFieldAt(1), 'Finished item');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-item-create-submit')).first,
+      );
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find
+            .text('Tayyor mahsulot uchun kamida bitta customer kerak')
+            .evaluate()
+            .isNotEmpty) {
+          break;
+        }
+      }
+
+      expect(
+        find.text('Tayyor mahsulot uchun kamida bitta customer kerak'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }, createHttpClient: (_) => client);
   });
@@ -394,6 +564,50 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('admin can open an item from the item list', (tester) async {
+    RouteSettings? openedRoute;
+    var loadCalls = 0;
+    final item = SupplierItem.fromJson(_itemsPage(1, 1).single);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        onGenerateRoute: (settings) {
+          openedRoute = settings;
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const Scaffold(body: Text('Item detail route')),
+          );
+        },
+        home: Scaffold(
+          body: AdminItemsListTab(
+            loadItemsPage: ({required query, required limit, required offset}) {
+              loadCalls += 1;
+              return Future<List<SupplierItem>>.value([item]);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.widgetWithText(AdminSummaryCard, 'Item 001');
+    expect(row, findsOneWidget);
+    expect(tester.widget<AdminSummaryCard>(row).showChevron, isTrue);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+
+    expect(openedRoute?.name, AppRoutes.adminItemDetail);
+    expect(openedRoute?.arguments, 'ITEM-001');
+    expect(find.text('Item detail route'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('Item detail route'))).pop(true);
+    await tester.pumpAndSettle();
+
+    expect(loadCalls, 2);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('item group picker orders parent groups before children', (
     tester,
   ) async {
@@ -497,12 +711,55 @@ void main() {
       ]);
     },
   );
+
+  test('finished-goods customer rule follows exact parent path', () {
+    const groups = [
+      AdminItemGroupTreeEntry(
+        name: 'All Item Groups',
+        itemGroupName: 'All Item Groups',
+        parentItemGroup: '',
+        isGroup: true,
+      ),
+      AdminItemGroupTreeEntry(
+        name: 'Tayyor mahsulot',
+        itemGroupName: 'Tayyor mahsulot',
+        parentItemGroup: 'All Item Groups',
+        isGroup: true,
+      ),
+      AdminItemGroupTreeEntry(
+        name: 'Paketlar',
+        itemGroupName: 'Paketlar',
+        parentItemGroup: 'Tayyor mahsulot',
+        isGroup: false,
+      ),
+      AdminItemGroupTreeEntry(
+        name: 'Yarim tayyor mahsulot',
+        itemGroupName: 'Yarim tayyor mahsulot',
+        parentItemGroup: 'All Item Groups',
+        isGroup: false,
+      ),
+    ];
+
+    expect(adminItemGroupRequiresCustomer('Paketlar', groups), isTrue);
+    expect(
+      adminItemGroupRequiresCustomer('Yarim tayyor mahsulot', groups),
+      isFalse,
+    );
+  });
 }
 
 class _AdminItemCreateHttpClient implements HttpClient {
-  _AdminItemCreateHttpClient(this.seenRequests);
+  _AdminItemCreateHttpClient(
+    this.seenRequests, {
+    this.sameNameDifferentCode = false,
+    this.duplicateOnPost = false,
+    this.customerRequiredOnPost = false,
+  });
 
   final List<String> seenRequests;
+  final bool sameNameDifferentCode;
+  final bool duplicateOnPost;
+  final bool customerRequiredOnPost;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
@@ -523,6 +780,69 @@ class _AdminItemCreateHttpClient implements HttpClient {
         response: _FakeHttpClientResponse(
           body: jsonEncode(_itemsPage(81, 5)),
           statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+    if (sameNameDifferentCode &&
+        key == 'GET /v1/mobile/admin/items?q=ITEM-UNIQUE&limit=5') {
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(const [
+            {
+              'code': 'ITEM-OTHER',
+              'name': 'Shared name',
+              'uom': 'Kg',
+              'item_group': 'All Item Groups',
+            },
+          ]),
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+    if (duplicateOnPost &&
+        key == 'GET /v1/mobile/admin/items?q=ITEM-RACE&limit=5') {
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: '[]',
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+    if (customerRequiredOnPost &&
+        key == 'GET /v1/mobile/admin/items?q=ITEM-FG-RACE&limit=5') {
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: '[]',
+          statusCode: HttpStatus.ok,
+        ),
+      );
+    }
+    if (key == 'POST /v1/mobile/admin/items') {
+      final statusCode = sameNameDifferentCode
+          ? HttpStatus.ok
+          : customerRequiredOnPost
+              ? HttpStatus.badRequest
+              : duplicateOnPost
+                  ? HttpStatus.conflict
+                  : HttpStatus.internalServerError;
+      final body = sameNameDifferentCode
+          ? const {
+              'code': 'ITEM-UNIQUE',
+              'name': 'Shared name',
+              'uom': 'Kg',
+              'item_group': 'All Item Groups',
+            }
+          : customerRequiredOnPost
+              ? const {
+                  'error': 'tayyor mahsulot uchun kamida bitta customer kerak',
+                }
+              : duplicateOnPost
+                  ? const {'error': 'item code already exists'}
+                  : const {'error': 'admin item create failed'};
+      return _FakeHttpClientRequest(
+        response: _FakeHttpClientResponse(
+          body: jsonEncode(body),
+          statusCode: statusCode,
         ),
       );
     }
@@ -575,16 +895,13 @@ class _AdminItemCreateHttpClient implements HttpClient {
             'item_group': 'All Item Groups',
           },
         ],
-      'POST /v1/mobile/admin/items' => {'error': 'admin item create failed'},
       _ => throw StateError('Unhandled request: $key'),
     };
 
     return _FakeHttpClientRequest(
       response: _FakeHttpClientResponse(
         body: jsonEncode(body),
-        statusCode: key == 'POST /v1/mobile/admin/items'
-            ? HttpStatus.internalServerError
-            : HttpStatus.ok,
+        statusCode: HttpStatus.ok,
       ),
     );
   }

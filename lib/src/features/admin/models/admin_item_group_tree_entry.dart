@@ -20,3 +20,33 @@ class AdminItemGroupTreeEntry {
     );
   }
 }
+
+bool adminItemGroupRequiresCustomer(
+  String itemGroup,
+  List<AdminItemGroupTreeEntry> groups,
+) {
+  const finishedGoodsGroup = 'tayyor mahsulot';
+  var current = itemGroup.trim();
+  final seen = <String>{};
+  while (current.isNotEmpty && seen.add(current.toLowerCase())) {
+    if (current.toLowerCase() == finishedGoodsGroup) {
+      return true;
+    }
+    AdminItemGroupTreeEntry? matched;
+    for (final group in groups) {
+      final name = group.itemGroupName.trim().isNotEmpty
+          ? group.itemGroupName.trim()
+          : group.name.trim();
+      if (name.toLowerCase() == current.toLowerCase() ||
+          group.name.trim().toLowerCase() == current.toLowerCase()) {
+        matched = group;
+        break;
+      }
+    }
+    if (matched == null) {
+      break;
+    }
+    current = matched.parentItemGroup.trim();
+  }
+  return false;
+}

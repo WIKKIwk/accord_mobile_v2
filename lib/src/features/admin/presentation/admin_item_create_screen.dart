@@ -1,4 +1,6 @@
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -43,6 +45,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       GlobalKey<_AdminItemsListTabState>();
   late final Future<List<String>> itemGroupsFuture;
   late final TabController _tabController;
+  List<AdminItemGroupTreeEntry> _itemGroupTree = const [];
   CustomerDirectoryEntry? selectedCustomer;
   bool saving = false;
 
@@ -103,6 +106,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   Future<List<String>> _loadItemGroups() async {
     try {
       final tree = await MobileApi.instance.adminItemGroupTree();
+      _itemGroupTree = tree;
       final ordered = orderAdminItemGroupsByParent(tree);
       if (ordered.isNotEmpty) {
         return ordered;
@@ -126,13 +130,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
 
   Future<bool> _save() async {
     final group = itemGroup.text.trim();
-    if (_isFinishedGoodsGroup(group) && selectedCustomer == null) {
+    if (_requiresCustomer(group) && selectedCustomer == null) {
       showAdminTopNotice(context, 'Tayyor mahsulot uchun customer tanlang');
       return false;
     }
     setState(() => saving = true);
     try {
-      if (await _itemAlreadyExists()) {
+      if (await _itemCodeAlreadyExists()) {
         if (mounted) {
           showAdminTopNotice(context, 'Item allaqachon yaratilgan');
         }
@@ -143,9 +147,8 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
         name: name.text.trim(),
         uom: uom.text.trim(),
         itemGroup: group,
-        customerRef: _isFinishedGoodsGroup(group)
-            ? selectedCustomer?.ref.trim() ?? ''
-            : '',
+        customerRef:
+            _requiresCustomer(group) ? selectedCustomer?.ref.trim() ?? '' : '',
       );
       if (!mounted) {
         return false;
@@ -162,7 +165,10 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       return true;
     } catch (error) {
       if (mounted) {
-        showAdminTopNotice(context, 'Item yaratilmadi');
+        showAdminTopNotice(
+          context,
+          error is MobileApiException ? error.message : 'Item yaratilmadi',
+        );
       }
       return false;
     } finally {
@@ -172,26 +178,19 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
   }
 
-  Future<bool> _itemAlreadyExists() async {
+  Future<bool> _itemCodeAlreadyExists() async {
     final itemCode = code.text.trim();
-    final itemName = name.text.trim();
-    final query = itemCode.isNotEmpty ? itemCode : itemName;
-    if (query.isEmpty) {
+    if (itemCode.isEmpty) {
       return false;
     }
     final items = await MobileApi.instance.adminItemsPage(
-      query: query,
+      query: itemCode,
       limit: 5,
     );
     final normalizedCode = itemCode.toLowerCase();
-    final normalizedName = itemName.toLowerCase();
-    return items.any((item) {
-      final codeMatches = normalizedCode.isNotEmpty &&
-          item.code.trim().toLowerCase() == normalizedCode;
-      final nameMatches = normalizedName.isNotEmpty &&
-          item.name.trim().toLowerCase() == normalizedName;
-      return codeMatches || nameMatches;
-    });
+    return items.any(
+      (item) => item.code.trim().toLowerCase() == normalizedCode,
+    );
   }
 
   Future<void> _openItemGroupPicker(List<String> groups) async {
@@ -230,7 +229,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
     setState(() {
       itemGroup.text = picked;
-      if (!_isFinishedGoodsGroup(picked)) {
+      if (!_requiresCustomer(picked)) {
         selectedCustomer = null;
       }
     });
@@ -293,6 +292,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                 selectedCustomer: selectedCustomer,
                 itemGroupsFuture: itemGroupsFuture,
                 saving: saving,
+                requiresCustomer: _requiresCustomer,
                 onSyncItemGroup: _syncItemGroupSelection,
                 onOpenItemGroupPicker: (groups) async {
                   await _openItemGroupPicker(groups);
@@ -414,6 +414,10 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
       ),
     );
   }
+
+  bool _requiresCustomer(String group) {
+    return adminItemGroupRequiresCustomer(group, _itemGroupTree);
+  }
 }
 
 class _ItemCreateDialogCard extends StatelessWidget {
@@ -425,6 +429,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
     required this.selectedCustomer,
     required this.itemGroupsFuture,
     required this.saving,
+    required this.requiresCustomer,
     required this.onSyncItemGroup,
     required this.onOpenItemGroupPicker,
     required this.onOpenCustomerPicker,
@@ -440,6 +445,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
   final CustomerDirectoryEntry? selectedCustomer;
   final Future<List<String>> itemGroupsFuture;
   final bool saving;
+  final bool Function(String group) requiresCustomer;
   final ValueChanged<List<String>> onSyncItemGroup;
   final ValueChanged<List<String>> onOpenItemGroupPicker;
   final VoidCallback onOpenCustomerPicker;
@@ -502,7 +508,7 @@ class _ItemCreateDialogCard extends StatelessWidget {
                       final selectedGroup = itemGroup.text.trim().isEmpty
                           ? null
                           : itemGroup.text.trim();
-                      final requiresCustomer = _isFinishedGoodsGroup(
+                      final requiresCustomer = this.requiresCustomer(
                         selectedGroup ?? '',
                       );
                       return Column(
@@ -679,15 +685,12 @@ class _ItemCreateDialogCard extends StatelessWidget {
   }
 }
 
-bool _isFinishedGoodsGroup(String group) {
-  return group.trim().toLowerCase() == 'tayyor mahsulot';
-}
-
 typedef AdminItemsPageLoader = Future<List<SupplierItem>> Function({
   required String query,
   required int limit,
   required int offset,
 });
+typedef AdminItemTapHandler = Future<void> Function(SupplierItem item);
 
 class AdminItemsListTab extends StatefulWidget {
   const AdminItemsListTab({
@@ -695,11 +698,13 @@ class AdminItemsListTab extends StatefulWidget {
     required this.loadItemsPage,
     this.searchController,
     this.embeddedSearchInAppBar = false,
+    this.onItemTap,
   });
 
   final AdminItemsPageLoader loadItemsPage;
   final TextEditingController? searchController;
   final bool embeddedSearchInAppBar;
+  final AdminItemTapHandler? onItemTap;
 
   static void clearMemoryCache() {
     _AdminItemsListTabState._memoryCache = null;
@@ -853,6 +858,23 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
     }
   }
 
+  Future<void> _openItem(SupplierItem item) async {
+    final customHandler = widget.onItemTap;
+    if (customHandler != null) {
+      await customHandler(item);
+    } else {
+      await Navigator.of(context).pushNamed(
+        AppRoutes.adminItemDetail,
+        arguments: item.code,
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    AdminItemsListTab.clearMemoryCache();
+    await _loadFirstPage(forceRefresh: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -892,6 +914,10 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
               hasMore: _hasMore,
               error: _error,
               onRetry: () => _loadFirstPage(forceRefresh: true),
+              onItemTap: widget.onItemTap != null ||
+                      AppSession.instance.can('admin.access')
+                  ? _openItem
+                  : null,
             ),
           ],
         ),
@@ -920,6 +946,7 @@ class _AdminItemsListBody extends StatelessWidget {
     required this.hasMore,
     required this.error,
     required this.onRetry,
+    required this.onItemTap,
   });
 
   final List<SupplierItem> items;
@@ -928,6 +955,7 @@ class _AdminItemsListBody extends StatelessWidget {
   final bool hasMore;
   final Object? error;
   final VoidCallback onRetry;
+  final AdminItemTapHandler? onItemTap;
 
   @override
   Widget build(BuildContext context) {
@@ -950,6 +978,7 @@ class _AdminItemsListBody extends StatelessWidget {
       hasMore: hasMore,
       pageError: error,
       onRetry: onRetry,
+      onItemTap: onItemTap,
     );
   }
 }
@@ -961,6 +990,7 @@ class _AdminItemsList extends StatelessWidget {
     required this.hasMore,
     required this.pageError,
     required this.onRetry,
+    required this.onItemTap,
   });
 
   final List<SupplierItem> items;
@@ -968,6 +998,7 @@ class _AdminItemsList extends StatelessWidget {
   final bool hasMore;
   final Object? pageError;
   final VoidCallback onRetry;
+  final AdminItemTapHandler? onItemTap;
 
   @override
   Widget build(BuildContext context) {
@@ -987,6 +1018,8 @@ class _AdminItemsList extends StatelessWidget {
                   items.length,
                 ),
                 item: items[index],
+                onTap:
+                    onItemTap == null ? null : () => onItemTap!(items[index]),
               ),
           ],
         ),
@@ -1020,10 +1053,11 @@ class _AdminItemsList extends StatelessWidget {
 }
 
 class _AdminItemRow extends StatelessWidget {
-  const _AdminItemRow({required this.slot, required this.item});
+  const _AdminItemRow({required this.slot, required this.item, this.onTap});
 
   final M3SegmentVerticalSlot slot;
   final SupplierItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1042,7 +1076,8 @@ class _AdminItemRow extends StatelessWidget {
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',
-      showChevron: false,
+      onTap: onTap,
+      showChevron: onTap != null,
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(

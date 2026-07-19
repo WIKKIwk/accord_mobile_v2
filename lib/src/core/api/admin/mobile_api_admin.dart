@@ -91,6 +91,7 @@ void setMobileApiTestModeForceProductionMapMenuLoadFailure(bool value) {
 
 void resetMobileApiTestModeData() {
   _testModeProductionMaps.clear();
+  _testModeAdminItemDetailOverrides.clear();
   _testModeApparatusGroups
     ..clear()
     ..addAll(TestModeDemoData.apparatusGroups);
