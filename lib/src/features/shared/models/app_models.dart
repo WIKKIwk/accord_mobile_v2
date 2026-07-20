@@ -124,6 +124,7 @@ class SupplierItem {
     required this.uom,
     required this.warehouse,
     this.itemGroup = '',
+    this.customerNames = const [],
   });
 
   final String code;
@@ -131,6 +132,7 @@ class SupplierItem {
   final String uom;
   final String warehouse;
   final String itemGroup;
+  final List<String> customerNames;
 
   factory SupplierItem.fromJson(Map<String, dynamic> json) {
     return SupplierItem(
@@ -139,6 +141,10 @@ class SupplierItem {
       uom: json['uom'] as String? ?? '',
       warehouse: json['warehouse'] as String? ?? '',
       itemGroup: json['item_group'] as String? ?? '',
+      customerNames: (json['customer_names'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
     );
   }
 }

@@ -560,7 +560,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
               limit: limit,
               customerDetail: MobileApi.instance.adminCustomerDetail,
               allItems: MobileApi.instance.adminItemsPage,
-              customersForItem: MobileApi.instance.adminCustomersForItem,
             );
           },
           itemTitle: (option) => option.item.name.trim().isEmpty

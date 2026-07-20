@@ -11,15 +11,6 @@ typedef CalculateAllProductPageLoader = Future<List<SupplierItem>> Function({
 typedef CalculateCustomerDetailLoader = Future<AdminCustomerDetail> Function(
     String customerRef);
 
-typedef CalculateCustomersForItemLoader = Future<List<CustomerDirectoryEntry>>
-    Function({
-  required String itemCode,
-  String itemName,
-  String query,
-  int limit,
-  int offset,
-});
-
 const String kCalculateFinishedProductGroup = 'Tayyor mahsulot';
 
 class CalculateProductPickerOption {
@@ -87,7 +78,6 @@ Future<List<CalculateProductPickerOption>>
   required int limit,
   required CalculateCustomerDetailLoader customerDetail,
   required CalculateAllProductPageLoader allItems,
-  required CalculateCustomersForItemLoader customersForItem,
 }) async {
   final items = await loadCalculateProductPickerPage(
     customerRef: customerRef,
@@ -113,27 +103,14 @@ Future<List<CalculateProductPickerOption>>
         .toList(growable: false);
   }
 
-  return Future.wait(
-    items.map((item) async {
-      final customers = await customersForItem(
-        itemCode: item.code,
-        itemName: item.name,
-        limit: 200,
-        offset: 0,
-      );
-      final customerNames = customers
-          .map((customer) => customer.name.trim().isEmpty
-              ? customer.ref.trim()
-              : customer.name.trim())
-          .where((name) => name.isNotEmpty)
-          .toSet()
-          .toList(growable: false);
-      return CalculateProductPickerOption(
-        item: item,
-        customerName: customerNames.isEmpty
-            ? 'Mijoz biriktirilmagan'
-            : customerNames.join(', '),
-      );
-    }),
-  );
+  return items
+      .map(
+        (item) => CalculateProductPickerOption(
+          item: item,
+          customerName: item.customerNames.isEmpty
+              ? 'Mijoz biriktirilmagan'
+              : item.customerNames.join(', '),
+        ),
+      )
+      .toList(growable: false);
 }

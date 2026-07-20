@@ -27,6 +27,7 @@ class TestModeDemoData {
       uom: 'Dona',
       warehouse: 'Tayyor mahsulot ombori - DEMO',
       itemGroup: 'Tayyor mahsulot',
+      customerNames: ['Demo haridor'],
     ),
     SupplierItem(
       code: 'DEMO-CPP',
@@ -55,6 +56,7 @@ class TestModeDemoData {
       uom: 'Dona',
       warehouse: 'Tayyor mahsulot ombori - DEMO',
       itemGroup: 'Tayyor mahsulot',
+      customerNames: ['Demo filial'],
     ),
     SupplierItem(
       code: 'DEMO-DRINK',

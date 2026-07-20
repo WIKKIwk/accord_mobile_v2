@@ -157,7 +157,6 @@ void main() {
   });
 
   test('enriches product picker items with customer names', () async {
-    var customerCalls = 0;
     final result = await loadCalculateProductPickerOptionsPage(
       customerRef: '',
       customerName: '',
@@ -173,31 +172,17 @@ void main() {
             uom: 'Kg',
             warehouse: '',
             itemGroup: 'Tayyor mahsulot',
+            customerNames: ['Customer'],
           ),
-        ];
-      },
-      customersForItem: ({
-        required itemCode,
-        itemName = '',
-        query = '',
-        limit = 200,
-        offset = 0,
-      }) async {
-        customerCalls++;
-        expect(itemCode, 'ITEM-ALL');
-        return const [
-          CustomerDirectoryEntry(ref: 'CUST-001', name: 'Customer', phone: ''),
         ];
       },
     );
 
     expect(result.single.item.code, 'ITEM-ALL');
     expect(result.single.customerName, 'Customer');
-    expect(customerCalls, 1);
   });
 
   test('uses selected customer name without extra customer lookups', () async {
-    var customerCalls = 0;
     final result = await loadCalculateProductPickerOptionsPage(
       customerRef: 'CUST-001',
       customerName: 'Selected customer',
@@ -227,19 +212,8 @@ void main() {
       allItems: ({query = '', group = '', limit = 80, offset = 0}) async {
         throw StateError('all items should not load');
       },
-      customersForItem: ({
-        required itemCode,
-        itemName = '',
-        query = '',
-        limit = 200,
-        offset = 0,
-      }) async {
-        customerCalls++;
-        return const [];
-      },
     );
 
     expect(result.single.customerName, 'Selected customer');
-    expect(customerCalls, 0);
   });
 }
