@@ -533,6 +533,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   Future<void> _openProductPicker() async {
+    final pickerCustomerName = _customer.text.trim();
     final picked = await showModalBottomSheet<SupplierItem>(
       context: context,
       isDismissible: true,
@@ -543,28 +544,31 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
-        return M3AsyncPickerSheet<SupplierItem>(
+        return M3AsyncPickerSheet<CalculateProductPickerOption>(
           title: 'Mahsulot tanlang',
           hintText: 'Mahsulot qidiring',
           pageSize: 80,
-          supportingText:
-              _customer.text.trim().isEmpty ? null : _customer.text.trim(),
           cacheKey: _customerRef.trim().isEmpty
-              ? 'calculate:finished-items:v1'
-              : 'calculate:customer-finished-items:v1:${_customerRef.trim()}',
+              ? 'calculate:finished-items:v2:customer-names'
+              : 'calculate:customer-finished-items:v2:${_customerRef.trim()}',
           loadPage: (query, offset, limit) {
-            return loadCalculateProductPickerPage(
+            return loadCalculateProductPickerOptionsPage(
               customerRef: _customerRef,
+              customerName: pickerCustomerName,
               query: query,
               offset: offset,
               limit: limit,
               customerDetail: MobileApi.instance.adminCustomerDetail,
               allItems: MobileApi.instance.adminItemsPage,
+              customersForItem: MobileApi.instance.adminCustomersForItem,
             );
           },
-          itemTitle: (item) => item.name.trim().isEmpty ? item.code : item.name,
-          itemSubtitle: (item) => item.code,
-          onSelected: (item) => Navigator.of(context).pop(item),
+          itemTitle: (option) => option.item.name.trim().isEmpty
+              ? option.item.code
+              : option.item.name,
+          itemSubtitle: (option) => option.customerName,
+          itemKey: (option) => option.item.code,
+          onSelected: (option) => Navigator.of(context).pop(option.item),
         );
       },
     );
