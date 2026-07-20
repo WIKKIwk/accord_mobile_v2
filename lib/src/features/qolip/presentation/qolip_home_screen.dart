@@ -39,7 +39,8 @@ class QolipHomeScreen extends StatefulWidget {
   State<QolipHomeScreen> createState() => _QolipHomeScreenState();
 }
 
-class _QolipHomeScreenState extends State<QolipHomeScreen> {
+class _QolipHomeScreenState extends State<QolipHomeScreen>
+    with SingleTickerProviderStateMixin {
   static const _blockOrderPreferenceKey = 'qolip.home.block_order';
 
   late Future<QolipBlocksResult> _blocksFuture;
@@ -48,6 +49,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   List<QolipBlock> _orderedBlocks = const <QolipBlock>[];
   String _searchQuery = '';
+  TabController? _blockTabController;
 
   @override
   void initState() {
@@ -59,9 +61,32 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
   @override
   void dispose() {
     QolipDataRevision.locations.removeListener(_handleLocationsChanged);
+    _blockTabController?.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  TabController _ensureBlockTabController(int length) {
+    final existing = _blockTabController;
+    if (existing != null && existing.length == length) {
+      return existing;
+    }
+    final previousIndex = existing?.index ?? 0;
+    final initialIndex = previousIndex < 0
+        ? 0
+        : previousIndex >= length
+            ? length - 1
+            : previousIndex;
+    existing?.dispose();
+    final controller = TabController(
+      length: length,
+      initialIndex: initialIndex,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 220),
+    );
+    _blockTabController = controller;
+    return controller;
   }
 
   void _handleLocationsChanged() {
@@ -1175,91 +1200,85 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
               ],
             );
           }
+          final tabController =
+              _ensureBlockTabController(blocks.length + 1);
+          var lastBlockIndex = tabController.index.clamp(
+            0,
+            blocks.length - 1,
+          );
           return Stack(
             children: [
-              DefaultTabController(
-                length: blocks.length + 1,
-                animationDuration: const Duration(milliseconds: 220),
-                child: Builder(
-                  builder: (context) {
-                    final tabController = DefaultTabController.of(context);
-                    var lastBlockIndex = tabController.index.clamp(
-                      0,
-                      blocks.length - 1,
-                    );
-                    return Column(
+              Column(
+                children: [
+                  _QolipBlockTabBar(
+                    controller: tabController,
+                    blocks: blocks,
+                    onTap: (index) {
+                      lastBlockIndex = index;
+                    },
+                    onReorder: (oldIndex, newIndex) => _reorderBlocks(
+                      tabController,
+                      oldIndex,
+                      newIndex,
+                    ),
+                    onAdd: () {
+                      final selectedBlock = blocks[lastBlockIndex];
+                      tabController.index = lastBlockIndex;
+                      unawaited(
+                        _openBlockCreateSheet(
+                          warehouses: data.warehouses,
+                          initialWarehouse: selectedBlock.warehouse,
+                        ),
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: tabController,
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
-                        _QolipBlockTabBar(
-                          controller: tabController,
-                          blocks: blocks,
-                          onTap: (index) {
-                            lastBlockIndex = index;
-                          },
-                          onReorder: (oldIndex, newIndex) => _reorderBlocks(
-                            tabController,
-                            oldIndex,
-                            newIndex,
+                        for (final block in blocks)
+                          _QolipBlockGrid(
+                            block: block,
+                            future: _locationsFor(block.name),
+                            searchQuery: _searchQuery,
+                            onRefresh: () async {
+                              _refreshBlock(block.name);
+                              await _locationsFor(block.name);
+                            },
+                            onAttachAt: (
+                              block,
+                              rowLetter,
+                              columnNumber,
+                            ) =>
+                                _openAttachSheet(
+                              blocks,
+                              mode: _QolipAttachMode.cellPlacement,
+                              initialBlock: block,
+                              rowLetter: rowLetter,
+                              columnNumber: columnNumber,
+                            ),
+                            onPrintCellQr: _printCellQr,
+                            onMove: _moveQolip,
+                            onMoveToCell: (
+                              item,
+                              rowLetter,
+                              columnNumber,
+                              cellLabel,
+                            ) =>
+                                _moveQolipToCell(
+                              item,
+                              rowLetter: rowLetter,
+                              columnNumber: columnNumber,
+                              cellLabel: cellLabel,
+                            ),
+                            onTake: _takeQolip,
                           ),
-                          onAdd: () {
-                            final selectedBlock = blocks[lastBlockIndex];
-                            tabController.index = lastBlockIndex;
-                            unawaited(
-                              _openBlockCreateSheet(
-                                warehouses: data.warehouses,
-                                initialWarehouse: selectedBlock.warehouse,
-                              ),
-                            );
-                          },
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: [
-                              for (final block in blocks)
-                                _QolipBlockGrid(
-                                  block: block,
-                                  future: _locationsFor(block.name),
-                                  searchQuery: _searchQuery,
-                                  onRefresh: () async {
-                                    _refreshBlock(block.name);
-                                    await _locationsFor(block.name);
-                                  },
-                                  onAttachAt: (
-                                    block,
-                                    rowLetter,
-                                    columnNumber,
-                                  ) =>
-                                      _openAttachSheet(
-                                    blocks,
-                                    mode: _QolipAttachMode.cellPlacement,
-                                    initialBlock: block,
-                                    rowLetter: rowLetter,
-                                    columnNumber: columnNumber,
-                                  ),
-                                  onPrintCellQr: _printCellQr,
-                                  onMove: _moveQolip,
-                                  onMoveToCell: (
-                                    item,
-                                    rowLetter,
-                                    columnNumber,
-                                    cellLabel,
-                                  ) =>
-                                      _moveQolipToCell(
-                                    item,
-                                    rowLetter: rowLetter,
-                                    columnNumber: columnNumber,
-                                    cellLabel: cellLabel,
-                                  ),
-                                  onTake: _takeQolip,
-                                ),
-                              const SizedBox.shrink(),
-                            ],
-                          ),
-                        ),
+                        const SizedBox.shrink(),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
               Positioned(
                 right: 16,
