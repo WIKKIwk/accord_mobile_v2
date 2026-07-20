@@ -1344,15 +1344,19 @@ class _QolipBlockTabBar extends StatelessWidget {
               child: AnimatedBuilder(
                 animation: controller,
                 builder: (context, _) {
-                  return ReorderableListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.zero,
-                    buildDefaultDragHandles: false,
-                    onReorderItem: onReorder,
-                    children: [
-                      for (var index = 0; index < blocks.length; index++)
-                        _buildTab(context, blocks[index], index),
-                    ],
+                  return DragBoundary(
+                    child: ReorderableListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.zero,
+                      buildDefaultDragHandles: false,
+                      dragBoundaryProvider: (context) =>
+                          DragBoundary.forRectOf(context),
+                      onReorderItem: onReorder,
+                      children: [
+                        for (var index = 0; index < blocks.length; index++)
+                          _buildTab(context, blocks[index], index),
+                      ],
+                    ),
                   );
                 },
               ),
