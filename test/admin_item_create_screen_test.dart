@@ -372,6 +372,51 @@ void main() {
     }, createHttpClient: (_) => client);
   });
 
+  testWidgets('UOM is selected from catalog instead of free text', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+    final client = _AdminItemCreateHttpClient(seenRequests);
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminItemCreateScreen(),
+        ),
+      );
+
+      await _pumpAdminItemCreateScreen(tester, waitForItems: true);
+      await _openCreateItemTab(tester);
+      final picker = find.byKey(
+        const ValueKey('admin-item-create-uom-picker'),
+      );
+      await tester.ensureVisible(picker);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+
+      expect(find.text('O‘lchov birligini tanlang'), findsOneWidget);
+      expect(find.text('O‘lchov birligini qidiring'), findsOneWidget);
+      await tester.tap(find.text('Dona'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dona'), findsOneWidget);
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/items/uoms'),
+      );
+      expect(tester.takeException(), isNull);
+    }, createHttpClient: (_) => client);
+  });
+
   testWidgets('item screen has create and paged item list modules', (
     tester,
   ) async {
@@ -849,6 +894,7 @@ class _AdminItemCreateHttpClient implements HttpClient {
 
     final Object body = switch (key) {
       'GET /v1/mobile/admin/settings' => {'default_uom': 'Kg'},
+      'GET /v1/mobile/admin/items/uoms' => const ['Kg', 'Dona'],
       'GET /v1/mobile/admin/item-groups' => const [
           'All Item Groups',
           'Group A',

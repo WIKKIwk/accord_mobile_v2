@@ -38,12 +38,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
   final TextEditingController itemGroup = TextEditingController();
-  final TextEditingController uom = TextEditingController(text: 'Kg');
+  final TextEditingController uom = TextEditingController();
   final TextEditingController _itemsSearchController = TextEditingController();
   final FocusNode _itemsSearchFocusNode = FocusNode();
   final GlobalKey<_AdminItemsListTabState> _itemsListTabKey =
       GlobalKey<_AdminItemsListTabState>();
   late final Future<List<String>> itemGroupsFuture;
+  late final Future<List<String>> itemUomsFuture;
   late final TabController _tabController;
   List<AdminItemGroupTreeEntry> _itemGroupTree = const [];
   CustomerDirectoryEntry? selectedCustomer;
@@ -60,7 +61,7 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     );
     _itemsSearchFocusNode.addListener(_handleItemsSearchFocus);
     itemGroupsFuture = _loadItemGroups();
-    _hydrateDefaultUom();
+    itemUomsFuture = _loadItemUoms();
   }
 
   int _resolveInitialTabIndex(int requestedIndex) {
@@ -89,18 +90,13 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
   }
 
-  Future<void> _hydrateDefaultUom() async {
-    try {
-      final settings = await MobileApi.instance.adminSettings();
-      if (!mounted) {
-        return;
-      }
-      final currentValue = uom.text.trim();
-      if (currentValue.isEmpty || currentValue == 'Kg') {
-        final defaultUom = settings.defaultUom.trim();
-        uom.text = defaultUom.isEmpty ? 'Kg' : defaultUom;
-      }
-    } catch (_) {}
+  Future<List<String>> _loadItemUoms() async {
+    final values = await MobileApi.instance.adminItemUoms();
+    if (values.isEmpty) {
+      throw StateError('UOM katalogi bo‘sh');
+    }
+    _syncUomSelection(values);
+    return values;
   }
 
   Future<List<String>> _loadItemGroups() async {
@@ -128,7 +124,42 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     }
   }
 
+  void _syncUomSelection(List<String> values) {
+    final current = uom.text.trim().toLowerCase();
+    for (final value in values) {
+      if (value.trim().toLowerCase() == current) {
+        uom.text = value.trim();
+        return;
+      }
+    }
+    uom.text = values.first.trim();
+  }
+
   Future<bool> _save() async {
+    List<String> availableUoms;
+    try {
+      availableUoms = await itemUomsFuture;
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'O‘lchov birliklari yuklanmadi');
+      }
+      return false;
+    }
+    if (!mounted) {
+      return false;
+    }
+    String? selectedUom;
+    for (final value in availableUoms) {
+      if (value.trim().toLowerCase() == uom.text.trim().toLowerCase()) {
+        selectedUom = value;
+        break;
+      }
+    }
+    if (selectedUom == null) {
+      showAdminTopNotice(context, 'O‘lchov birligini tanlang');
+      return false;
+    }
+    uom.text = selectedUom.trim();
     final group = itemGroup.text.trim();
     if (_requiresCustomer(group) && selectedCustomer == null) {
       showAdminTopNotice(context, 'Tayyor mahsulot uchun customer tanlang');
@@ -235,6 +266,43 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
     });
   }
 
+  Future<void> _openUomPicker(List<String> values) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<String>(
+          title: 'O‘lchov birligini tanlang',
+          hintText: 'O‘lchov birligini qidiring',
+          pageSize: 50,
+          loadPage: (query, offset, limit) async {
+            final normalizedQuery = query.trim().toLowerCase();
+            final filtered = normalizedQuery.isEmpty
+                ? values
+                : values.where((value) {
+                    return value.toLowerCase().contains(normalizedQuery);
+                  }).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (value) => value,
+          itemSubtitle: (_) => '',
+          onSelected: (value) => Navigator.of(context).pop(value),
+        );
+      },
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => uom.text = picked);
+  }
+
   Future<void> _openCustomerPicker() async {
     final picked = await showModalBottomSheet<CustomerDirectoryEntry>(
       context: context,
@@ -291,9 +359,11 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                 uom: uom,
                 selectedCustomer: selectedCustomer,
                 itemGroupsFuture: itemGroupsFuture,
+                itemUomsFuture: itemUomsFuture,
                 saving: saving,
                 requiresCustomer: _requiresCustomer,
                 onSyncItemGroup: _syncItemGroupSelection,
+                onSyncUom: _syncUomSelection,
                 onOpenItemGroupPicker: (groups) async {
                   await _openItemGroupPicker(groups);
                   if (context.mounted) {
@@ -302,6 +372,12 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen>
                 },
                 onOpenCustomerPicker: () async {
                   await _openCustomerPicker();
+                  if (context.mounted) {
+                    setDialogState(() {});
+                  }
+                },
+                onOpenUomPicker: (values) async {
+                  await _openUomPicker(values);
                   if (context.mounted) {
                     setDialogState(() {});
                   }
@@ -428,11 +504,14 @@ class _ItemCreateDialogCard extends StatelessWidget {
     required this.uom,
     required this.selectedCustomer,
     required this.itemGroupsFuture,
+    required this.itemUomsFuture,
     required this.saving,
     required this.requiresCustomer,
     required this.onSyncItemGroup,
+    required this.onSyncUom,
     required this.onOpenItemGroupPicker,
     required this.onOpenCustomerPicker,
+    required this.onOpenUomPicker,
     required this.onClearCustomer,
     required this.onSave,
     required this.onClose,
@@ -444,11 +523,14 @@ class _ItemCreateDialogCard extends StatelessWidget {
   final TextEditingController uom;
   final CustomerDirectoryEntry? selectedCustomer;
   final Future<List<String>> itemGroupsFuture;
+  final Future<List<String>> itemUomsFuture;
   final bool saving;
   final bool Function(String group) requiresCustomer;
   final ValueChanged<List<String>> onSyncItemGroup;
+  final ValueChanged<List<String>> onSyncUom;
   final ValueChanged<List<String>> onOpenItemGroupPicker;
   final VoidCallback onOpenCustomerPicker;
+  final ValueChanged<List<String>> onOpenUomPicker;
   final VoidCallback onClearCustomer;
   final VoidCallback? onSave;
   final VoidCallback onClose;
@@ -648,12 +730,86 @@ class _ItemCreateDialogCard extends StatelessWidget {
                       );
                     },
                   ),
-                  TextField(
-                    controller: uom,
-                    decoration: appSoftInputDecoration(
-                      context,
-                      labelText: 'O‘lchov birligi',
-                    ),
+                  FutureBuilder<List<String>>(
+                    future: itemUomsFuture,
+                    builder: (context, snapshot) {
+                      final values = snapshot.data ?? const <String>[];
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          !snapshot.hasError &&
+                          values.isNotEmpty) {
+                        onSyncUom(values);
+                      }
+                      final selectedUom = uom.text.trim();
+                      final enabled =
+                          snapshot.connectionState == ConnectionState.done &&
+                              !snapshot.hasError &&
+                              values.isNotEmpty &&
+                              !saving;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'O‘lchov birligi',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          _TapBox(
+                            key: const ValueKey(
+                              'admin-item-create-uom-picker',
+                            ),
+                            onTap:
+                                enabled ? () => onOpenUomPicker(values) : null,
+                            borderRadius: _itemCreateFieldRadius,
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 58),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: fieldSurface,
+                                borderRadius: BorderRadius.circular(
+                                  _itemCreateFieldRadius,
+                                ),
+                                border: Border.all(
+                                  color: scheme.outlineVariant,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      snapshot.hasError
+                                          ? 'O‘lchov birliklari yuklanmadi'
+                                          : selectedUom.isEmpty
+                                              ? 'O‘lchov birligini tanlang'
+                                              : selectedUom,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.bodyLarge?.copyWith(
+                                        color: selectedUom.isEmpty
+                                            ? scheme.onSurfaceVariant
+                                            : scheme.onSurface,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Icon(
+                                    Icons.expand_more_rounded,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 18),
                   SizedBox(

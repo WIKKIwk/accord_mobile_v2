@@ -4,6 +4,39 @@ final Map<String, AdminItemDetail> _testModeAdminItemDetailOverrides = {};
 final Set<String> _testModeDeletedAdminItemCodes = {};
 
 extension MobileApiAdminItems on MobileApi {
+  Future<List<String>> adminItemUoms() async {
+    if (await TestModeController.instance.isEnabled()) {
+      final settings = await adminSettings();
+      final values = <String>[
+        settings.defaultUom,
+        ...TestModeDemoData.itemPage(limit: 0).map((item) => item.uom),
+      ];
+      final seen = <String>{};
+      return values
+          .where((value) {
+            final normalized = value.trim().toLowerCase();
+            return normalized.isNotEmpty && seen.add(normalized);
+          })
+          .map((value) => value.trim())
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/items/uoms'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin item UOMs failed');
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return json
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<List<CustomerDirectoryEntry>> adminCustomersForItem({
     required String itemCode,
     String itemName = '',
