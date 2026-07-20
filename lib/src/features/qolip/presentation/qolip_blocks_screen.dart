@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -107,13 +108,12 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Saqlash'),
+          AppDialogActionRow(
+            cancelLabel: 'Bekor qilish',
+            confirmLabel: 'Saqlash',
+            onCancel: () => Navigator.of(dialogContext).pop(),
+            onConfirm: () =>
+                Navigator.of(dialogContext).pop(controller.text),
           ),
         ],
       ),
@@ -140,13 +140,11 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
         title: const Text('Blokni o‘chirasizmi?'),
         content: Text('${block.name} bloki butunlay o‘chiriladi.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('O‘chirish'),
+          AppDialogActionRow(
+            cancelLabel: 'Bekor qilish',
+            confirmLabel: 'O‘chirish',
+            onCancel: () => Navigator.of(dialogContext).pop(false),
+            onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

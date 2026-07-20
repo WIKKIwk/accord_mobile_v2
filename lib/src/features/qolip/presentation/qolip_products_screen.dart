@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -159,13 +160,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
               : '${codes.length} ta tanlangan qolip o‘chiriladi.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('O‘chirish'),
+          AppDialogActionRow(
+            cancelLabel: 'Bekor qilish',
+            confirmLabel: 'O‘chirish',
+            onCancel: () => Navigator.of(dialogContext).pop(false),
+            onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

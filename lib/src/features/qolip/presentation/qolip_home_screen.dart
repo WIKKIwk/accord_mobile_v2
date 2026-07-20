@@ -11,6 +11,7 @@ import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/search/search_normalizer.dart';
+import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -266,12 +267,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Bekor'),
-                ),
-                FilledButton(
-                  onPressed: () {
+                AppDialogActionRow(
+                  cancelLabel: 'Bekor',
+                  confirmLabel: 'Davom',
+                  onCancel: () => Navigator.of(context).pop(),
+                  onConfirm: () {
                     final qty = int.tryParse(controller.text.trim()) ?? 0;
                     if (qty <= 0) {
                       setDialogState(() => errorText = 'Son noto‘g‘ri');
@@ -285,7 +285,6 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                     }
                     Navigator.of(context).pop(qty);
                   },
-                  child: const Text('Davom'),
                 ),
               ],
             );
@@ -506,13 +505,11 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
           'qarzga berasizmi? Har biridan 1 tadan beriladi.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Berish'),
+          AppDialogActionRow(
+            cancelLabel: 'Bekor qilish',
+            confirmLabel: 'Berish',
+            onCancel: () => Navigator.of(dialogContext).pop(false),
+            onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -3607,13 +3604,11 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           '${block.name} • $rowLetter$columnNumber yachaykaga joylaysizmi?',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Joylash'),
+          AppDialogActionRow(
+            cancelLabel: 'Bekor qilish',
+            confirmLabel: 'Joylash',
+            onCancel: () => Navigator.of(dialogContext).pop(false),
+            onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
