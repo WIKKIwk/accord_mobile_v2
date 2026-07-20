@@ -1179,7 +1179,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
             children: [
               DefaultTabController(
                 length: blocks.length + 1,
-                animationDuration: const Duration(milliseconds: 180),
+                animationDuration: const Duration(milliseconds: 220),
                 child: Builder(
                   builder: (context) {
                     final tabController = DefaultTabController.of(context);
@@ -1216,43 +1216,41 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             children: [
                               for (final block in blocks)
-                                RepaintBoundary(
-                                  child: _QolipBlockGrid(
-                                    block: block,
-                                    future: _locationsFor(block.name),
-                                    searchQuery: _searchQuery,
-                                    onRefresh: () async {
-                                      _refreshBlock(block.name);
-                                      await _locationsFor(block.name);
-                                    },
-                                    onAttachAt: (
-                                      block,
-                                      rowLetter,
-                                      columnNumber,
-                                    ) =>
-                                        _openAttachSheet(
-                                      blocks,
-                                      mode: _QolipAttachMode.cellPlacement,
-                                      initialBlock: block,
-                                      rowLetter: rowLetter,
-                                      columnNumber: columnNumber,
-                                    ),
-                                    onPrintCellQr: _printCellQr,
-                                    onMove: _moveQolip,
-                                    onMoveToCell: (
-                                      item,
-                                      rowLetter,
-                                      columnNumber,
-                                      cellLabel,
-                                    ) =>
-                                        _moveQolipToCell(
-                                      item,
-                                      rowLetter: rowLetter,
-                                      columnNumber: columnNumber,
-                                      cellLabel: cellLabel,
-                                    ),
-                                    onTake: _takeQolip,
+                                _QolipBlockGrid(
+                                  block: block,
+                                  future: _locationsFor(block.name),
+                                  searchQuery: _searchQuery,
+                                  onRefresh: () async {
+                                    _refreshBlock(block.name);
+                                    await _locationsFor(block.name);
+                                  },
+                                  onAttachAt: (
+                                    block,
+                                    rowLetter,
+                                    columnNumber,
+                                  ) =>
+                                      _openAttachSheet(
+                                    blocks,
+                                    mode: _QolipAttachMode.cellPlacement,
+                                    initialBlock: block,
+                                    rowLetter: rowLetter,
+                                    columnNumber: columnNumber,
                                   ),
+                                  onPrintCellQr: _printCellQr,
+                                  onMove: _moveQolip,
+                                  onMoveToCell: (
+                                    item,
+                                    rowLetter,
+                                    columnNumber,
+                                    cellLabel,
+                                  ) =>
+                                      _moveQolipToCell(
+                                    item,
+                                    rowLetter: rowLetter,
+                                    columnNumber: columnNumber,
+                                    cellLabel: cellLabel,
+                                  ),
+                                  onTake: _takeQolip,
                                 ),
                               const SizedBox.shrink(),
                             ],
@@ -1343,18 +1341,45 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
   final Map<String, GlobalKey> _tabKeys = <String, GlobalKey>{};
   final Map<String, double> _dragTabCenters = <String, double>{};
 
+  late int _selectedIndex;
   String? _draggingBlockKey;
   List<QolipBlock>? _dragOrder;
   int? _dragTargetIndex;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.controller.index;
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant _QolipBlockTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      _selectedIndex = widget.controller.index;
+      widget.controller.addListener(_handleControllerChanged);
+    }
     final activeKeys = widget.blocks.map(_blockKey).toSet();
     _tabKeys.removeWhere((key, _) => !activeKeys.contains(key));
     if (_draggingBlockKey != null && !activeKeys.contains(_draggingBlockKey)) {
       _resetDrag();
     }
+  }
+
+  void _handleControllerChanged() {
+    final nextIndex = widget.controller.index;
+    if (!mounted || nextIndex == _selectedIndex) {
+      return;
+    }
+    setState(() => _selectedIndex = nextIndex);
   }
 
   String _blockKey(QolipBlock block) => block.name.trim().toLowerCase();
@@ -1487,41 +1512,34 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
         child: Row(
           children: [
             Expanded(
-              child: AnimatedBuilder(
-                animation: widget.controller,
-                builder: (context, _) {
-                  return SizedBox(
+              child: SizedBox(
+                height: 38,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: _draggingBlockKey == null
+                      ? null
+                      : const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: totalTabWidth,
                     height: 38,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: _draggingBlockKey == null
-                          ? null
-                          : const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: totalTabWidth,
-                        height: 38,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            for (final block in displayedBlocks)
-                              AnimatedPositioned(
-                                key: ValueKey('qolip-tab-${_blockKey(block)}'),
-                                left: tabOffsets[_blockKey(block)] ?? 0,
-                                top: _draggingBlockKey == _blockKey(block)
-                                    ? -1
-                                    : 0,
-                                width: tabWidths[_blockKey(block)] ?? 72,
-                                height: 38,
-                                duration: const Duration(milliseconds: 220),
-                                curve: Curves.easeOutCubic,
-                                child: _buildTab(context, block),
-                              ),
-                          ],
-                        ),
-                      ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        for (final block in displayedBlocks)
+                          AnimatedPositioned(
+                            key: ValueKey('qolip-tab-${_blockKey(block)}'),
+                            left: tabOffsets[_blockKey(block)] ?? 0,
+                            top: _draggingBlockKey == _blockKey(block) ? -1 : 0,
+                            width: tabWidths[_blockKey(block)] ?? 72,
+                            height: 38,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            child: _buildTab(context, block),
+                          ),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
             SizedBox(
@@ -1549,7 +1567,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
     final index = widget.blocks.indexWhere(
       (candidate) => _blockKey(candidate) == blockKey,
     );
-    final selected = index >= 0 && widget.controller.index == index;
+    final selected = index >= 0 && _selectedIndex == index;
     return GestureDetector(
       key: _tabKeyFor(block),
       behavior: HitTestBehavior.opaque,
