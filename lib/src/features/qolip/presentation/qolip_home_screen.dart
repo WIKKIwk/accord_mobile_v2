@@ -270,6 +270,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                 AppDialogActionRow(
                   cancelLabel: 'Bekor',
                   confirmLabel: 'Davom',
+                  vertical: true,
                   onCancel: () => Navigator.of(context).pop(),
                   onConfirm: () {
                     final qty = int.tryParse(controller.text.trim()) ?? 0;
@@ -508,6 +509,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
           AppDialogActionRow(
             cancelLabel: 'Bekor qilish',
             confirmLabel: 'Berish',
+            vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
             onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
@@ -3607,6 +3609,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           AppDialogActionRow(
             cancelLabel: 'Bekor qilish',
             confirmLabel: 'Joylash',
+            vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
             onConfirm: () => Navigator.of(dialogContext).pop(true),
           ),
