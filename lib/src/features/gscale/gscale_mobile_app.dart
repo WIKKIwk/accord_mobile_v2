@@ -507,6 +507,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   String _quantitySource = 'scale';
   bool _babinaEnabled = false;
   MonitorSnapshot _snapshot = MonitorSnapshot.empty();
+  List<GScaleRpsBatchPrintEntry> _batchPrints = const [];
   List<MobileArchiveSession> _archiveSessions = const [];
   MobileItem? _selectedItem;
   MobileWarehouse? _selectedWarehouse;
@@ -1121,6 +1122,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
 
   void _applyRsBatchSession(GScaleRpsBatchSession batch) {
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
+    _batchPrints = batch.prints;
     if (!batch.active) {
       _lastAutoBatchPrintKey = '';
     }
@@ -1534,14 +1536,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     return _selectedWarehouse?.warehouse;
   }
 
-  Future<GScaleMaterialReceiptPrintResponse> _submitMaterialReceiptPrint({
-    required double grossQtyKg,
-    required int printCount,
-  }) async {
-    await _startRsBatchFromSelection(grossQtyKg: grossQtyKg);
-    return _printActiveRsBatch(grossQtyKg: grossQtyKg, printCount: printCount);
-  }
-
   Future<GScaleRpsBatchResponse> _startRsBatchFromSelection({
     required double grossQtyKg,
   }) async {
@@ -1659,7 +1653,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     return response;
   }
 
-  Future<void> _startScaleBatch() async {
+  Future<void> _startBatch({required bool autoPrintStable}) async {
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
       return;
     }
@@ -1677,7 +1671,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         _batchActionLoading = false;
       });
       _scheduleSaveControlPrefs();
-      _maybeAutoPrintStableBatch();
+      if (autoPrintStable) {
+        _maybeAutoPrintStableBatch();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -1690,6 +1686,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   }
 
   void _maybeAutoPrintStableBatch() {
+    if (normalizeQuantitySource(_snapshot.batchQuantitySource) != 'scale') {
+      _lastAutoBatchPrintKey = '';
+      return;
+    }
     final key = autoBatchPrintKey(
       grossKg: parseScaleDisplayKg(_snapshot.scaleValue),
       scaleStable: _snapshot.scaleStable,
@@ -1768,8 +1768,67 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     );
   }
 
+  Widget _buildCurrentBatchPrints(ThemeData theme, ColorScheme scheme) {
+    return ExpansionTile(
+      key: const PageStorageKey<String>('current_batch_prints'),
+      initiallyExpanded: true,
+      maintainState: true,
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      leading: Icon(Icons.qr_code_2_rounded, color: scheme.primary),
+      title: Text(
+        'Batch QRlari (${_batchPrints.length})',
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle:
+          Text(_snapshot.batchActive ? 'Faol batch' : 'Yakunlangan batch'),
+      children: _batchPrints.reversed
+          .map(
+            (entry) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.qr_code_rounded,
+                size: 20,
+                color: scheme.primary,
+              ),
+              title: Text(
+                entry.epc.isEmpty ? entry.draftName : entry.epc,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                [
+                  'B ${formatCompactKg(entry.grossQty)} / N ${formatCompactKg(entry.netQty)} ${entry.unit}',
+                  if (entry.printCount > 1) '${entry.printCount} nusxa',
+                  if (entry.draftName.isNotEmpty) entry.draftName,
+                  if (entry.printedAt.isNotEmpty)
+                    formatArchiveTimestamp(entry.printedAt),
+                ].join(' • '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   Future<void> _printManualBatch() async {
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
+      return;
+    }
+    if (!_snapshot.batchActive ||
+        normalizeQuantitySource(_snapshot.batchQuantitySource) != 'manual') {
+      setState(() {
+        _errorText = "Avval qo‘lda print uchun Batch start ni bosing";
+      });
       return;
     }
     final manualQtyKg = parsePositiveKg(_manualQtyController.text);
@@ -1795,7 +1854,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
       _errorText = '';
     });
     try {
-      final response = await _submitMaterialReceiptPrint(
+      final response = await _printActiveRsBatch(
         grossQtyKg: manualQtyKg ?? 0,
         printCount: duplicateCount,
       );
@@ -2560,10 +2619,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final selectedWarehouse = _selectedWarehouse;
     final defaultWarehouse = _currentDefaultWarehouse;
     final defaultMode = _warehouseMode == 'default';
-    final modeLocked = _batchActionLoading || _manualPrintLoading;
+    final modeLocked =
+        _snapshot.batchActive || _batchActionLoading || _manualPrintLoading;
     final printerLocked = modeLocked;
     final selectedPrinter = normalizePrinterChoice(_batchPrinter);
-    final selectedQuantitySource = normalizeQuantitySource(_quantitySource);
+    final selectedQuantitySource = normalizeQuantitySource(
+      _snapshot.batchActive ? _snapshot.batchQuantitySource : _quantitySource,
+    );
     final manualQtyKg = selectedQuantitySource == 'manual'
         ? parsePositiveKg(_manualQtyController.text)
         : null;
@@ -2601,6 +2663,17 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           batchActionLoading: _batchActionLoading,
         ) &&
         hasScaleDevice;
+    final manualBatchStartEnabled = hasPrintSelection &&
+        hasPrintDevice &&
+        !_snapshot.batchActive &&
+        !_manualPrintLoading &&
+        !_batchActionLoading &&
+        !_requestInFlight;
+    final manualBatchStopEnabled = _snapshot.batchActive &&
+        selectedQuantitySource == 'manual' &&
+        !_manualPrintLoading &&
+        !_batchActionLoading &&
+        !_requestInFlight;
     final printerStatusText = widget.printTransport.isOffline
         ? 'USB printer • Offline'
         : _printerStatusOverride.isNotEmpty
@@ -2676,32 +2749,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
           const SizedBox(height: 12),
         ],
         if (_snapshot.batchActive) ...[
-          Row(
-            children: [
-              Expanded(
-                child: _MiniIconRow(
-                  icon: Icons.playlist_add_check_rounded,
-                  text: [
-                    _snapshot.batchItemName.isEmpty
-                        ? _snapshot.batchItemCode
-                        : _snapshot.batchItemName,
-                    if (_snapshot.batchWarehouse.isNotEmpty)
-                      _snapshot.batchWarehouse,
-                  ].where((part) => part.trim().isNotEmpty).join(' • '),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: modeLocked ? null : () => unawaited(_stopRsBatch()),
-                icon: _batchActionLoading
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.stop_circle_outlined),
-                label: const Text("To'xtatish"),
-              ),
-            ],
+          _MiniIconRow(
+            icon: Icons.playlist_add_check_rounded,
+            text: [
+              _snapshot.batchItemName.isEmpty
+                  ? _snapshot.batchItemCode
+                  : _snapshot.batchItemName,
+              if (_snapshot.batchWarehouse.isNotEmpty) _snapshot.batchWarehouse,
+            ].where((part) => part.trim().isNotEmpty).join(' • '),
           ),
           const SizedBox(height: 16),
         ],
@@ -2852,6 +2907,41 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         if (selectedQuantitySource == 'manual') ...[
           const SizedBox(height: 10),
           Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: manualBatchStartEnabled
+                      ? () => unawaited(
+                            _startBatch(autoPrintStable: false),
+                          )
+                      : null,
+                  icon: const Icon(Icons.play_circle_outline_rounded),
+                  label: const Text('Batch start'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: manualBatchStopEnabled
+                      ? () => unawaited(_stopRsBatch())
+                      : null,
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('Batch stop'),
+                ),
+              ),
+            ],
+          ),
+          if (!_snapshot.batchActive) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Play orqali chop etishdan oldin Batch start ni bosing.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -2887,8 +2977,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                   width: 56,
                   child: IconButton.filled(
                     tooltip: 'Chop etish',
-                    onPressed: hasPrintSelection &&
-                            hasPrintDevice &&
+                    onPressed: hasPrintDevice &&
+                            _snapshot.batchActive &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
@@ -2946,7 +3036,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
             onPressed: scaleBatchActionEnabled
                 ? (_snapshot.batchActive
                     ? () => unawaited(_stopRsBatch())
-                    : _startScaleBatch)
+                    : () => unawaited(_startBatch(autoPrintStable: true)))
                 : null,
             icon: _batchActionLoading
                 ? const SizedBox(
@@ -2985,6 +3075,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               ),
             ),
           ],
+          const SizedBox(height: 14),
+        ],
+        if (_batchPrints.isNotEmpty) ...[
+          _buildCurrentBatchPrints(theme, scheme),
           const SizedBox(height: 14),
         ],
         ExpansionTile(

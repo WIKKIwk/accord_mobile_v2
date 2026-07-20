@@ -299,6 +299,7 @@ class GScaleRpsBatchSession {
     required this.tareKg,
     this.lastError = '',
     this.lastErrorAt = '',
+    this.prints = const [],
   });
 
   factory GScaleRpsBatchSession.fromJson(Map<String, dynamic> json) {
@@ -317,6 +318,15 @@ class GScaleRpsBatchSession {
       tareKg: _gscaleNumber(json['tare_kg']),
       lastError: _gscaleText(json['last_error']),
       lastErrorAt: _gscaleText(json['last_error_at']),
+      prints: (json['prints'] as List?)
+              ?.whereType<Map>()
+              .map(
+                (entry) => GScaleRpsBatchPrintEntry.fromJson(
+                  entry.cast<String, dynamic>(),
+                ),
+              )
+              .toList(growable: false) ??
+          const [],
     );
   }
 
@@ -334,8 +344,53 @@ class GScaleRpsBatchSession {
   final double tareKg;
   final String lastError;
   final String lastErrorAt;
+  final List<GScaleRpsBatchPrintEntry> prints;
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;
+}
+
+class GScaleRpsBatchPrintEntry {
+  const GScaleRpsBatchPrintEntry({
+    required this.epc,
+    required this.draftName,
+    required this.status,
+    required this.qty,
+    required this.netQty,
+    required this.grossQty,
+    required this.unit,
+    required this.printer,
+    required this.printMode,
+    required this.printCount,
+    required this.printedAt,
+  });
+
+  factory GScaleRpsBatchPrintEntry.fromJson(Map<String, dynamic> json) {
+    return GScaleRpsBatchPrintEntry(
+      epc: _gscaleText(json['epc']),
+      draftName: _gscaleText(json['draft_name']),
+      status: _gscaleText(json['status']),
+      qty: _gscaleNumber(json['qty']),
+      netQty: _gscaleNumber(json['net_qty']),
+      grossQty: _gscaleNumber(json['gross_qty']),
+      unit: _gscaleText(json['unit'], fallback: 'kg'),
+      printer: _gscaleText(json['printer']),
+      printMode: _gscaleText(json['print_mode']),
+      printCount: (json['print_count'] as num?)?.toInt() ?? 1,
+      printedAt: _gscaleText(json['printed_at']),
+    );
+  }
+
+  final String epc;
+  final String draftName;
+  final String status;
+  final double qty;
+  final double netQty;
+  final double grossQty;
+  final String unit;
+  final String printer;
+  final String printMode;
+  final int printCount;
+  final String printedAt;
 }
 
 class GScaleMaterialReceiptPrintResponse {

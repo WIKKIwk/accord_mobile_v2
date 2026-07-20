@@ -137,6 +137,21 @@ void main() {
         'tare_kg': 0.78,
         'last_error': 'submit failed',
         'last_error_at': '2026-05-19T05:00:00Z',
+        'prints': [
+          {
+            'epc': '303132333435363738394142',
+            'draft_name': 'MAT-STE-0001',
+            'status': 'printed',
+            'qty': 1.72,
+            'net_qty': 1.72,
+            'gross_qty': 2.5,
+            'unit': 'kg',
+            'printer': 'zebra',
+            'print_mode': 'rfid',
+            'print_count': 2,
+            'printed_at': '2026-05-19T05:01:00Z',
+          },
+        ],
       },
     });
 
@@ -149,6 +164,10 @@ void main() {
     expect(response.batch.tareEnabled, isTrue);
     expect(response.batch.lastError, 'submit failed');
     expect(response.batch.lastErrorAt, '2026-05-19T05:00:00Z');
+    expect(response.batch.prints, hasLength(1));
+    expect(response.batch.prints.single.epc, '303132333435363738394142');
+    expect(response.batch.prints.single.grossQty, 2.5);
+    expect(response.batch.prints.single.printCount, 2);
   });
 
   test('mobile batch state accepts RS batch session shape', () {
