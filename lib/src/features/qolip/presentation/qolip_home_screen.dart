@@ -46,6 +46,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
   final Map<String, Future<List<QolipLocationEntry>>> _locations = {};
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _blockTabBoundaryKey = GlobalKey();
   List<QolipBlock> _orderedBlocks = const <QolipBlock>[];
   String _searchQuery = '';
 
@@ -1191,6 +1192,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                         _QolipBlockTabBar(
                           controller: tabController,
                           blocks: blocks,
+                          boundaryKey: _blockTabBoundaryKey,
                           onTap: (index) {
                             lastBlockIndex = index;
                           },
@@ -1321,6 +1323,7 @@ class _QolipBlockTabBar extends StatelessWidget {
   const _QolipBlockTabBar({
     required this.controller,
     required this.blocks,
+    required this.boundaryKey,
     required this.onTap,
     required this.onReorder,
     required this.onAdd,
@@ -1328,6 +1331,7 @@ class _QolipBlockTabBar extends StatelessWidget {
 
   final TabController controller;
   final List<QolipBlock> blocks;
+  final GlobalKey boundaryKey;
   final ValueChanged<int> onTap;
   final void Function(int oldIndex, int newIndex) onReorder;
   final VoidCallback onAdd;
@@ -1346,33 +1350,28 @@ class _QolipBlockTabBar extends StatelessWidget {
                 animation: controller,
                 builder: (context, _) {
                   return SizedBox(
+                    key: boundaryKey,
                     height: 38,
-                    child: Builder(
-                      builder: (boundaryContext) {
-                        return ReorderableListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.zero,
-                          buildDefaultDragHandles: false,
-                          dragBoundaryProvider: (_) {
-                            final renderObject =
-                                boundaryContext.findRenderObject();
-                            if (renderObject is! RenderBox ||
-                                !renderObject.hasSize) {
-                              return null;
-                            }
-                            final origin =
-                                renderObject.localToGlobal(Offset.zero);
-                            return _QolipTabDragBoundary(
-                              origin & renderObject.size,
-                            );
-                          },
-                          onReorderItem: onReorder,
-                          children: [
-                            for (var index = 0; index < blocks.length; index++)
-                              _buildTab(context, blocks[index], index),
-                          ],
-                        );
+                    child: ReorderableListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.zero,
+                      buildDefaultDragHandles: false,
+                      dragBoundaryProvider: (_) {
+                        final renderObject =
+                            boundaryKey.currentContext?.findRenderObject();
+                        if (renderObject is! RenderBox ||
+                            !renderObject.hasSize) {
+                          return null;
+                        }
+                        final origin = renderObject.localToGlobal(Offset.zero);
+                        return _QolipTabDragBoundary(
+                            origin & renderObject.size);
                       },
+                      onReorderItem: onReorder,
+                      children: [
+                        for (var index = 0; index < blocks.length; index++)
+                          _buildTab(context, blocks[index], index),
+                      ],
                     ),
                   );
                 },
