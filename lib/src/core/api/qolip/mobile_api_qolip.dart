@@ -31,6 +31,7 @@ String qolipErrorMessage(
     'block_in_use' =>
       'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘zgartirib bo‘lmaydi',
     'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
+    'block_not_found' => 'Blok topilmadi',
     'forbidden' => 'Bu amal uchun ruxsat yo‘q',
     'unauthorized' => 'Sessiya tugagan. Qayta kiring',
     _ when code.contains('insufficient_stock') => 'Joyda yetarli qolip qolmadi',

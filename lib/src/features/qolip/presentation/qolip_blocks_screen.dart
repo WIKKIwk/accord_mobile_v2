@@ -138,7 +138,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Blokni o‘chirasizmi?'),
-        content: Text('${block.name} blokini o‘chirib bo‘lmaydigan qilasiz.'),
+        content: Text('${block.name} bloki butunlay o‘chiriladi.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
