@@ -559,6 +559,111 @@ void main() {
     },
   );
 
+  testWidgets(
+    'receipt long press opens its EPC instead of the batch QR action',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      AppSession.instance.token = 'token';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.materialTaminotchi,
+        displayName: 'Materialchi',
+        legalName: '',
+        ref: 'MAT-HISTORY',
+        phone: '+998900000002',
+        avatarUrl: '',
+        capabilities: ['rps.batch.manage', 'gscale.print'],
+        assignedItemGroups: ['Rulon'],
+      );
+      const receiptEpc = '303132333435363738394142';
+      const historyBatch = GScaleRpsBatchSession(
+        id: 'batch-history-receipt-1',
+        batchCode: '421234567890ABCDEF123456',
+        active: false,
+        driverUrl: 'usb://local',
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        warehouse: 'Kalidor',
+        printer: 'godex',
+        printMode: 'label',
+        quantitySource: 'manual',
+        manualQtyKg: 23,
+        tareEnabled: false,
+        tareKg: 0,
+        createdAt: '2026-07-20T07:00:00Z',
+        updatedAt: '2026-07-20T07:01:00Z',
+        prints: [
+          GScaleRpsBatchPrintEntry(
+            epc: receiptEpc,
+            draftName: 'MAT-STE-001',
+            status: 'submitted',
+            qty: 23,
+            netQty: 23,
+            grossQty: 23,
+            unit: 'kg',
+            printer: 'godex',
+            printMode: 'label',
+            printCount: 1,
+            printedAt: '2026-07-20T07:00:30Z',
+          ),
+        ],
+      );
+      const offlinePrinter = UsbPrinterProfile(
+        kind: UsbPrinterKind.godex,
+        deviceName: 'usb:test',
+        vendorId: 1,
+        productId: 2,
+        manufacturerName: 'GoDEX',
+        productName: 'G500',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OperatorDashboardPage(
+              server: null,
+              printTransport: PrintTransport.offline,
+              offlinePrinter: offlinePrinter,
+              controlOnly: true,
+              onExitMode: () async {},
+              onChangeServer: () async {},
+              rpsBatchStateLoader: () async => const GScaleRpsBatchResponse(
+                ok: true,
+                batch: historyBatch,
+              ),
+              rpsBatchHistoryLoader: () async => const [historyBatch],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(Tab, 'Print tarixi'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('batch-qr-print-batch-history-receipt-1')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('batch-history-batch-history-receipt-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final receipt = find.byKey(
+        const ValueKey('batch-receipt-303132333435363738394142'),
+      );
+      expect(receipt, findsOneWidget);
+
+      await tester.longPress(receipt);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chop etilgan QR'), findsOneWidget);
+      expect(find.text(receiptEpc), findsOneWidget);
+      expect(find.text('Partiya QR chop etish'), findsNothing);
+    },
+  );
+
   test('batch already active API error is recognized for state recovery', () {
     const error = MobileApiException(
       code: 'batch_already_active',

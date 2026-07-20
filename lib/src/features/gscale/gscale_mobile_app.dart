@@ -464,6 +464,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.controlOnly = false,
     this.onServerUnavailable,
     this.rpsBatchStateLoader,
+    this.rpsBatchHistoryLoader,
     super.key,
   });
 
@@ -475,6 +476,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final bool controlOnly;
   final VoidCallback? onServerUnavailable;
   final Future<GScaleRpsBatchResponse> Function()? rpsBatchStateLoader;
+  final Future<List<GScaleRpsBatchSession>> Function()? rpsBatchHistoryLoader;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
@@ -1956,8 +1958,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
     try {
       if (widget.controlOnly) {
-        final batches = await MobileApi.instance
-            .gscaleRpsBatchHistory(limit: 50)
+        final batches = await (widget.rpsBatchHistoryLoader?.call() ??
+                MobileApi.instance.gscaleRpsBatchHistory(limit: 50))
             .timeout(const Duration(seconds: 15));
         final sessions = batches
             .map(MobileArchiveSession.fromRpsBatch)
@@ -2715,6 +2717,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
     final expanded = _expandedArchiveSessionIds.contains(session.sessionId);
     return M3ExpandableFilledSurface(
+      key: ValueKey('batch-history-${session.sessionId}'),
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       expanded: expanded,
@@ -2727,9 +2730,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           }
         });
       },
-      onLongPress: _archivePrintLoadingSessionId.isNotEmpty
-          ? null
-          : () => unawaited(_confirmArchivePrint(session)),
       headerPadding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       collapsedMinHeight: 70,
       header: Row(
@@ -2786,6 +2786,16 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             ],
           ),
           const SizedBox(width: 4),
+          IconButton(
+            key: ValueKey('batch-qr-print-${session.sessionId}'),
+            onPressed: _archivePrintLoadingSessionId.isNotEmpty
+                ? null
+                : () => unawaited(_confirmArchivePrint(session)),
+            tooltip: 'Partiya QR chop etish',
+            visualDensity: VisualDensity.compact,
+            iconSize: 20,
+            icon: const Icon(Icons.qr_code_2_rounded),
+          ),
           AnimatedRotation(
             turns: expanded ? 0.5 : 0,
             duration: const Duration(milliseconds: 180),
@@ -2817,6 +2827,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                           : () => unawaited(
                                 _showArchiveReceiptQr(session, entry),
                               ),
+                      onLongPress: entry.epc.trim().isEmpty
+                          ? null
+                          : () => unawaited(
+                                _showArchiveReceiptQr(session, entry),
+                              ),
                       leading: Icon(
                         Icons.playlist_add_check_rounded,
                         size: 18,
@@ -2840,7 +2855,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                       ),
                       trailing: entry.epc.trim().isEmpty
                           ? null
-                          : const Icon(Icons.print_rounded, size: 20),
+                          : IconButton(
+                              key: ValueKey(
+                                'batch-receipt-print-${entry.epc}',
+                              ),
+                              onPressed: () => unawaited(
+                                _showArchiveReceiptQr(session, entry),
+                              ),
+                              tooltip: 'Receipt QR chop etish',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 20,
+                              icon: const Icon(Icons.print_rounded),
+                            ),
                     ),
                 ],
               ),
