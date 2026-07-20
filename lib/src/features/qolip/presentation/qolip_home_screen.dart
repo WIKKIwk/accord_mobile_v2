@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/native_usb_printer.dart';
@@ -14,7 +15,6 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
-import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
         DiscoveredServer,
@@ -39,10 +39,13 @@ class QolipHomeScreen extends StatefulWidget {
 }
 
 class _QolipHomeScreenState extends State<QolipHomeScreen> {
+  static const _blockOrderPreferenceKey = 'qolip.home.block_order';
+
   late Future<QolipBlocksResult> _blocksFuture;
   final Map<String, Future<List<QolipLocationEntry>>> _locations = {};
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  List<QolipBlock> _orderedBlocks = const <QolipBlock>[];
   String _searchQuery = '';
 
   @override
@@ -69,22 +72,89 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
 
   Future<QolipBlocksResult> _loadBlocks() async {
     final result = await MobileApi.instance.qolipBlocksData();
+    final blocks = result.blocks
+        .where((block) => block.name.trim().isNotEmpty)
+        .toList(growable: false);
+    final orderedBlocks = await _applySavedBlockOrder(blocks);
+    _orderedBlocks = orderedBlocks;
     return QolipBlocksResult(
       warehouses: result.warehouses
           .where((warehouse) => warehouse.trim().isNotEmpty)
           .toList(growable: false),
-      blocks: result.blocks
-          .where((block) => block.name.trim().isNotEmpty)
-          .toList(growable: false),
+      blocks: orderedBlocks,
     );
   }
 
   Future<void> _reloadBlocks() async {
     setState(() {
       _locations.clear();
+      _orderedBlocks = const <QolipBlock>[];
       _blocksFuture = _loadBlocks();
     });
     await _blocksFuture;
+  }
+
+  Future<List<QolipBlock>> _applySavedBlockOrder(
+    List<QolipBlock> blocks,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    final savedKeys =
+        preferences.getStringList(_blockOrderPreferenceKey) ?? const <String>[];
+    final byKey = <String, QolipBlock>{
+      for (final block in blocks) _blockKey(block): block,
+    };
+    final ordered = <QolipBlock>[];
+    for (final key in savedKeys) {
+      final block = byKey.remove(key);
+      if (block != null) {
+        ordered.add(block);
+      }
+    }
+    ordered.addAll(byKey.values);
+    return ordered;
+  }
+
+  Future<void> _saveBlockOrder(List<QolipBlock> blocks) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(
+      _blockOrderPreferenceKey,
+      blocks.map(_blockKey).toList(growable: false),
+    );
+  }
+
+  String _blockKey(QolipBlock block) => block.name.trim().toLowerCase();
+
+  void _reorderBlocks(
+    TabController controller,
+    int oldIndex,
+    int newIndex,
+  ) {
+    if (oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= _orderedBlocks.length ||
+        newIndex >= _orderedBlocks.length) {
+      return;
+    }
+    final insertionIndex = newIndex;
+    if (oldIndex == insertionIndex || insertionIndex < 0) {
+      return;
+    }
+    final currentIndex = controller.index;
+    final nextIndex = reorderedTabIndex(
+      currentIndex,
+      oldIndex: oldIndex,
+      newIndex: insertionIndex,
+    );
+    final reordered = [..._orderedBlocks];
+    final block = reordered.removeAt(oldIndex);
+    reordered.insert(insertionIndex, block);
+    setState(() => _orderedBlocks = reordered);
+    unawaited(_saveBlockOrder(reordered));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && controller.index != nextIndex) {
+        controller.index = nextIndex;
+      }
+    });
   }
 
   Future<List<QolipLocationEntry>> _locationsFor(String block) {
@@ -1078,7 +1148,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
           }
           final data = snapshot.data ??
               const QolipBlocksResult(warehouses: [], blocks: []);
-          final blocks = data.blocks;
+          final blocks = _orderedBlocks.isEmpty && data.blocks.isNotEmpty
+              ? data.blocks
+              : _orderedBlocks;
           if (blocks.isEmpty) {
             return Stack(
               children: [
@@ -1115,15 +1187,18 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                     );
                     return Column(
                       children: [
-                        AdminSurfaceTabBar(
+                        _QolipBlockTabBar(
                           controller: tabController,
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
+                          blocks: blocks,
                           onTap: (index) {
-                            if (index != blocks.length) {
-                              lastBlockIndex = index;
-                              return;
-                            }
+                            lastBlockIndex = index;
+                          },
+                          onReorder: (oldIndex, newIndex) => _reorderBlocks(
+                            tabController,
+                            oldIndex,
+                            newIndex,
+                          ),
+                          onAdd: () {
                             final selectedBlock = blocks[lastBlockIndex];
                             tabController.index = lastBlockIndex;
                             unawaited(
@@ -1133,15 +1208,6 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                               ),
                             );
                           },
-                          tabs: [
-                            for (final block in blocks)
-                              Tab(height: 38, text: block.name),
-                            const Tab(
-                              height: 38,
-                              iconMargin: EdgeInsets.zero,
-                              icon: Icon(Icons.add_rounded, size: 20),
-                            ),
-                          ],
                         ),
                         Expanded(
                           child: TabBarView(
@@ -1228,6 +1294,128 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+int reorderedTabIndex(
+  int currentIndex, {
+  required int oldIndex,
+  required int newIndex,
+}) {
+  if (currentIndex == oldIndex) {
+    return newIndex;
+  }
+  if (oldIndex < currentIndex && currentIndex <= newIndex) {
+    return currentIndex - 1;
+  }
+  if (newIndex <= currentIndex && currentIndex < oldIndex) {
+    return currentIndex + 1;
+  }
+  return currentIndex;
+}
+
+class _QolipBlockTabBar extends StatelessWidget {
+  const _QolipBlockTabBar({
+    required this.controller,
+    required this.blocks,
+    required this.onTap,
+    required this.onReorder,
+    required this.onAdd,
+  });
+
+  final TabController controller;
+  final List<QolipBlock> blocks;
+  final ValueChanged<int> onTap;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      child: SizedBox(
+        height: 38,
+        child: Row(
+          children: [
+            Expanded(
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  return ReorderableListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.zero,
+                    buildDefaultDragHandles: false,
+                    onReorderItem: onReorder,
+                    children: [
+                      for (var index = 0; index < blocks.length; index++)
+                        _buildTab(context, blocks[index], index),
+                    ],
+                  );
+                },
+              ),
+            ),
+            SizedBox(
+              width: 42,
+              child: Tooltip(
+                message: 'Blok qo‘shish',
+                child: InkWell(
+                  onTap: onAdd,
+                  child: const Center(
+                    child: Icon(Icons.add_rounded, size: 20),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(BuildContext context, QolipBlock block, int index) {
+    final theme = Theme.of(context);
+    final selected = controller.index == index;
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey('qolip-block-${block.name.trim().toLowerCase()}'),
+      index: index,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: block.name,
+        child: InkWell(
+          onTap: () {
+            controller.animateTo(index);
+            onTap(index);
+          },
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 72),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color:
+                      selected ? theme.colorScheme.primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Text(
+              block.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

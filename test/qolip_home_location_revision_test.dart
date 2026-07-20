@@ -13,6 +13,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('selected tab follows its block after reorder', () {
+    expect(
+      reorderedTabIndex(0, oldIndex: 0, newIndex: 2),
+      2,
+    );
+    expect(
+      reorderedTabIndex(2, oldIndex: 0, newIndex: 2),
+      1,
+    );
+    expect(
+      reorderedTabIndex(0, oldIndex: 2, newIndex: 0),
+      1,
+    );
+  });
+
   setUp(() async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     await TestModeController.instance.setEnabled(true);
