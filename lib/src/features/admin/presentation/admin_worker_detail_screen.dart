@@ -16,19 +16,35 @@ import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
+import 'widgets/admin_warehouse_assignment_editor.dart';
 
 const double _workerDetailPanelGap = 4;
 const double _workerDetailFieldRadius = 14;
+
+typedef AdminWorkerDetailLoader = Future<AdminWorkerDetail> Function(
+  AdminUserListEntry entry,
+);
 
 class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({
     super.key,
     required this.entry,
     this.readOnly = false,
+    this.detailLoader,
+    this.warehousesLoader,
+    this.warehouseAssignmentsLoader,
+    this.warehouseAssigner,
+    this.warehouseUnassigner,
   });
 
   final AdminUserListEntry entry;
   final bool readOnly;
+  final AdminWorkerDetailLoader? detailLoader;
+  final Future<List<AdminWarehouse>> Function()? warehousesLoader;
+  final Future<List<AdminWarehouseAssignment>> Function()?
+      warehouseAssignmentsLoader;
+  final AdminWarehouseEditorAssigner? warehouseAssigner;
+  final AdminWarehouseEditorUnassigner? warehouseUnassigner;
 
   @override
   State<AdminWorkerDetailScreen> createState() =>
@@ -43,13 +59,18 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   bool _regeneratingCode = false;
   bool _adminPanelExpanded = false;
   bool _changed = false;
+  List<String> _assignedWarehouses = const <String>[];
   late final RetryAfterCountdown _retryAfter;
   int get _retryAfterSec => _retryAfter.seconds;
 
   String get _workerId => widget.entry.id.trim();
+  bool get _isQolipchi =>
+      widget.entry.kind == AdminUserKind.qolipchi ||
+      widget.entry.principalRole == UserRole.qolipchi;
   bool get _isSystemUser =>
       widget.entry.kind == AdminUserKind.qolipchi ||
       widget.entry.kind == AdminUserKind.boyoqchi;
+  bool get _warehouseManagementEnabled => _isQolipchi && !widget.readOnly;
 
   @override
   void initState() {
@@ -72,36 +93,67 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 
   void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
+  Future<AdminWorkerDetail> _loadDetail() async {
+    final loadDetail = widget.detailLoader;
+    if (loadDetail != null) {
+      return loadDetail(widget.entry);
+    }
+    if (_isSystemUser) {
+      final user = await MobileApi.instance.adminSystemUserDetail(_workerId);
+      return AdminWorkerDetail(
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl,
+        level: widget.entry.roleLabel,
+        code: user.code,
+        codeLocked: user.codeLocked,
+        codeRetryAfterSec: user.codeRetryAfterSec,
+      );
+    }
+    return MobileApi.instance.adminWorkerDetail(_workerId);
+  }
+
+  Future<List<String>> _loadAssignedWarehouses() async {
+    final loadAssignments = widget.warehouseAssignmentsLoader;
+    final assignments = loadAssignments == null
+        ? await MobileApi.instance.adminWarehouseAssignments()
+        : await loadAssignments();
+    final normalizedRef = _workerId.toLowerCase();
+    return normalizeAdminWarehouseNames(
+      assignments
+          .where(
+            (assignment) =>
+                assignment.principalRole == UserRole.qolipchi &&
+                assignment.principalRef.trim().toLowerCase() == normalizedRef,
+          )
+          .map((assignment) => assignment.warehouse),
+    );
+  }
+
   Future<void> _reload() async {
     setState(() {
       _loading = true;
       _loadError = null;
     });
     try {
-      final detail = await (_isSystemUser
-              ? MobileApi.instance.adminSystemUserDetail(_workerId).then(
-                    (user) => AdminWorkerDetail(
-                      id: user.id,
-                      name: user.name,
-                      phone: user.phone,
-                      avatarUrl: user.avatarUrl,
-                      level: widget.entry.roleLabel,
-                      code: user.code,
-                      codeLocked: user.codeLocked,
-                      codeRetryAfterSec: user.codeRetryAfterSec,
-                    ),
-                  )
-              : MobileApi.instance.adminWorkerDetail(_workerId))
-          .timeout(
+      final detail = await _loadDetail().timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Profil yuklash vaqti tugadi'),
       );
+      final assignedWarehouses = _warehouseManagementEnabled
+          ? await _loadAssignedWarehouses().timeout(
+              const Duration(seconds: 15),
+              onTimeout: () => throw Exception('Omborlar yuklash vaqti tugadi'),
+            )
+          : const <String>[];
       if (!mounted) {
         return;
       }
       _setRetryAfter(detail.codeRetryAfterSec);
       setState(() {
         _detail = detail;
+        _assignedWarehouses = assignedWarehouses;
         _loadError = null;
         _loading = false;
       });
@@ -219,6 +271,28 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
           codeLocked: false,
           codeRetryAfterSec: _retryAfterSec,
         );
+    final warehouseEditor = _warehouseManagementEnabled
+        ? AdminWarehouseAssignmentEditor(
+            assignedWarehouses: _assignedWarehouses,
+            principalRole: UserRole.qolipchi,
+            principalRef: _workerId,
+            displayName: detail.name,
+            reloadAssignedWarehouses: _loadAssignedWarehouses,
+            onChanged: (warehouses) {
+              _changed = true;
+              if (mounted) {
+                setState(() => _assignedWarehouses = warehouses);
+              }
+            },
+            assignedMessage: 'Qolipchi faqat shu omborlar bilan ishlaydi.',
+            chipKeyPrefix: 'admin-qolipchi-detail-warehouse-',
+            addButtonKey: 'admin-qolipchi-detail-add-warehouse',
+            warehousesLoader: widget.warehousesLoader,
+            warehouseAssigner: widget.warehouseAssigner,
+            warehouseUnassigner: widget.warehouseUnassigner,
+            buttonRadius: _workerDetailFieldRadius,
+          )
+        : null;
 
     return PopScope(
       canPop: false,
@@ -238,6 +312,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         child: ColoredBox(
           color: AppTheme.shellStart(context),
           child: ListView(
+            key: const ValueKey('admin-worker-detail-scroll'),
             padding: const EdgeInsets.fromLTRB(
               _workerDetailPanelGap,
               _workerDetailPanelGap,
@@ -250,6 +325,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 child: _WorkerProfileExpandableCard(
                   detail: detail,
                   readOnly: widget.readOnly,
+                  warehouseManagementEnabled: _warehouseManagementEnabled,
+                  assignedWarehouses: _assignedWarehouses,
+                  warehouseEditor: warehouseEditor,
                   statusLabel: _loading
                       ? 'Yuklanmoqda'
                       : _loadError != null
@@ -301,6 +379,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   const _WorkerProfileExpandableCard({
     required this.detail,
     required this.readOnly,
+    required this.warehouseManagementEnabled,
+    required this.assignedWarehouses,
+    required this.warehouseEditor,
     required this.statusLabel,
     required this.expanded,
     required this.savingPhone,
@@ -313,6 +394,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
 
   final AdminWorkerDetail detail;
   final bool readOnly;
+  final bool warehouseManagementEnabled;
+  final List<String> assignedWarehouses;
+  final Widget? warehouseEditor;
   final String statusLabel;
   final bool expanded;
   final bool savingPhone;
@@ -411,6 +495,11 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                       icon: Icons.badge_rounded,
                       label: level.isEmpty ? 'Daraja belgilanmagan' : level,
                     ),
+                    if (warehouseManagementEnabled)
+                      ProfileInfoChip(
+                        icon: Icons.warehouse_outlined,
+                        label: '${assignedWarehouses.length} ta ombor',
+                      ),
                   ],
                 ),
               ),
@@ -446,6 +535,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                     detail: detail,
                     savingPhone: savingPhone,
                     regeneratingCode: regeneratingCode,
+                    warehouseEditor: warehouseEditor,
                     onSavePhone: onSavePhone,
                     onRegenerateCode: onRegenerateCode,
                     onCopyCode: onCopyCode,
@@ -463,6 +553,7 @@ class _WorkerAdminPanel extends StatelessWidget {
     required this.detail,
     required this.savingPhone,
     required this.regeneratingCode,
+    required this.warehouseEditor,
     required this.onSavePhone,
     required this.onRegenerateCode,
     required this.onCopyCode,
@@ -471,6 +562,7 @@ class _WorkerAdminPanel extends StatelessWidget {
   final AdminWorkerDetail detail;
   final bool savingPhone;
   final bool regeneratingCode;
+  final Widget? warehouseEditor;
   final Future<void> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onRegenerateCode;
@@ -544,6 +636,10 @@ class _WorkerAdminPanel extends StatelessWidget {
               color: scheme.onSurfaceVariant,
             ),
           ),
+        ],
+        if (warehouseEditor != null) ...[
+          const SizedBox(height: 18),
+          warehouseEditor!,
         ],
       ],
     );

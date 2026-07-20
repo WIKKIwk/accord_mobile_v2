@@ -15,6 +15,7 @@ import 'dart:async';
 import 'widgets/admin_aparatchi_apparatus_card.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
+import 'widgets/admin_warehouse_assignment_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -96,8 +97,6 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
   bool _removing = false;
   bool _addingItem = false;
   bool _editingMaterialItemGroups = false;
-  bool _addingMaterialWarehouse = false;
-  String? _removingMaterialWarehouse;
   bool _adminPanelExpanded = false;
   String? _removingItemCode;
   bool _changed = false;
@@ -441,148 +440,6 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
     }
   }
 
-  Future<void> _addMaterialWarehouse() async {
-    final detail = _detail;
-    if (detail == null || _addingMaterialWarehouse) {
-      return;
-    }
-    setState(() => _addingMaterialWarehouse = true);
-    try {
-      final warehouses = widget.materialWarehousesLoader == null
-          ? await MobileApi.instance.adminWarehouses(limit: 500)
-          : await widget.materialWarehousesLoader!();
-      final assignedKeys = detail.assignedWarehouses
-          .map((warehouse) => warehouse.trim().toLowerCase())
-          .toSet();
-      final available = _normalizedScopeValues(
-        warehouses
-            .where((warehouse) => !warehouse.isGroup)
-            .map((warehouse) => warehouse.warehouse)
-            .where(
-              (warehouse) =>
-                  !assignedKeys.contains(warehouse.trim().toLowerCase()),
-            ),
-      );
-      if (!mounted) {
-        return;
-      }
-      if (available.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biriktirilmagan ombor topilmadi')),
-        );
-        return;
-      }
-      final warehouse = await _showMaterialWarehousePicker(
-        context,
-        available: available,
-      );
-      if (!mounted || warehouse == null) {
-        return;
-      }
-      final assignWarehouse = widget.materialWarehouseAssigner ??
-          MobileApi.instance.adminAssignWarehouse;
-      final assignment = await assignWarehouse(
-        warehouse: warehouse,
-        principalRole: UserRole.materialTaminotchi,
-        principalRef: detail.ref,
-        displayName: detail.name,
-      );
-      final updated = await _loadDetail();
-      final assignmentConfirmed = updated.assignedWarehouses.any(
-        (item) =>
-            item.trim().toLowerCase() ==
-            assignment.warehouse.trim().toLowerCase(),
-      );
-      if (!assignmentConfirmed) {
-        throw const MobileApiException(
-          code: 'warehouse_assignment_not_confirmed',
-          message: 'Server ombor biriktirilganini tasdiqlamadi',
-        );
-      }
-      _changed = true;
-      if (mounted) {
-        setState(() => _detail = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${assignment.warehouse} biriktirildi'),
-          ),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _operationErrorMessage('Ombor biriktirilmadi', error),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _addingMaterialWarehouse = false);
-      }
-    }
-  }
-
-  Future<void> _removeMaterialWarehouse(String warehouse) async {
-    final detail = _detail;
-    if (detail == null || _removingMaterialWarehouse != null) {
-      return;
-    }
-    final confirmed = await showM3ConfirmDialog(
-      context: context,
-      title: 'Omborni uzish',
-      message: '$warehouse omborini ${detail.name} profilidan uzaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-    setState(() => _removingMaterialWarehouse = warehouse);
-    try {
-      final unassignWarehouse = widget.materialWarehouseUnassigner ??
-          MobileApi.instance.adminUnassignWarehouse;
-      await unassignWarehouse(
-        warehouse: warehouse,
-        principalRole: UserRole.materialTaminotchi,
-        principalRef: detail.ref,
-      );
-      final updated = await _loadDetail();
-      final assignmentStillExists = updated.assignedWarehouses.any(
-        (item) => item.trim().toLowerCase() == warehouse.trim().toLowerCase(),
-      );
-      if (assignmentStillExists) {
-        throw const MobileApiException(
-          code: 'warehouse_unassignment_not_confirmed',
-          message: 'Server ombor uzilganini tasdiqlamadi',
-        );
-      }
-      _changed = true;
-      if (mounted) {
-        setState(() => _detail = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$warehouse profildan uzildi'),
-          ),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_operationErrorMessage('Ombor uzilmadi', error)),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _removingMaterialWarehouse = null);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final AdminCustomerDetail detail = _detail ??
@@ -596,6 +453,35 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
           codeRetryAfterSec: _retryAfterSec,
           assignedItems: const [],
         );
+    final materialWarehouseEditor =
+        widget.isMaterialTaminotchi && _detail != null
+            ? AdminWarehouseAssignmentEditor(
+                assignedWarehouses: detail.assignedWarehouses,
+                principalRole: UserRole.materialTaminotchi,
+                principalRef: detail.ref,
+                displayName: detail.name,
+                reloadAssignedWarehouses: () async =>
+                    (await _loadDetail()).assignedWarehouses,
+                onChanged: (warehouses) {
+                  _changed = true;
+                  if (mounted) {
+                    setState(() {
+                      _detail = _detail?.copyWith(
+                        assignedWarehouses: warehouses,
+                      );
+                    });
+                  }
+                },
+                assignedMessage:
+                    'Material faqat shu omborlarda qabul qilinadi va boshqariladi.',
+                chipKeyPrefix: 'admin-material-detail-warehouse-',
+                addButtonKey: 'admin-material-detail-add-warehouse',
+                warehousesLoader: widget.materialWarehousesLoader,
+                warehouseAssigner: widget.materialWarehouseAssigner,
+                warehouseUnassigner: widget.materialWarehouseUnassigner,
+                buttonRadius: _customerDetailButtonRadius,
+              )
+            : null;
 
     return PopScope(
       canPop: false,
@@ -638,6 +524,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 itemManagementEnabled: widget.itemManagementEnabled,
                 removeEnabled: widget.removeEnabled,
                 isMaterialTaminotchi: widget.isMaterialTaminotchi,
+                warehouseEditor: materialWarehouseEditor,
                 expanded:
                     widget.customerManagementEnabled && _adminPanelExpanded,
                 savingPhone: _savingPhone,
@@ -645,8 +532,6 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 removing: _removing,
                 addingItem: _addingItem,
                 editingMaterialItemGroups: _editingMaterialItemGroups,
-                addingMaterialWarehouse: _addingMaterialWarehouse,
-                removingMaterialWarehouse: _removingMaterialWarehouse,
                 removingItemCode: _removingItemCode,
                 onExpandedChanged: (expanded) {
                   setState(() => _adminPanelExpanded = expanded);
@@ -655,8 +540,6 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 onAddItem: _addItem,
                 onRemoveItem: _removeItem,
                 onEditMaterialItemGroups: _editMaterialItemGroups,
-                onAddMaterialWarehouse: _addMaterialWarehouse,
-                onRemoveMaterialWarehouse: _removeMaterialWarehouse,
                 onRegenerateCode: _regenerateCode,
                 onCopyCode: _copyCode,
                 onRemove: _removeCustomer,
@@ -733,19 +616,6 @@ Future<Set<String>?> _showMaterialItemGroupPicker(
       available: available,
       selected: selected,
     ),
-  );
-}
-
-Future<String?> _showMaterialWarehousePicker(
-  BuildContext context, {
-  required List<String> available,
-}) {
-  return showModalBottomSheet<String>(
-    context: context,
-    useSafeArea: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _MaterialWarehousePickerSheet(available: available),
   );
 }
 
@@ -895,140 +765,6 @@ class _MaterialItemGroupPickerSheetState
   }
 }
 
-class _MaterialWarehousePickerSheet extends StatefulWidget {
-  const _MaterialWarehousePickerSheet({required this.available});
-
-  final List<String> available;
-
-  @override
-  State<_MaterialWarehousePickerSheet> createState() =>
-      _MaterialWarehousePickerSheetState();
-}
-
-class _MaterialWarehousePickerSheetState
-    extends State<_MaterialWarehousePickerSheet> {
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
-  String? _selectedWarehouse;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final visible = widget.available.where((warehouse) {
-      return _query.isEmpty || warehouse.toLowerCase().contains(_query);
-    }).toList(growable: false);
-    return FractionallySizedBox(
-      heightFactor: 0.72,
-      child: Material(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Ombor biriktirish',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                key: const ValueKey('admin-material-warehouses-search'),
-                controller: _searchController,
-                onChanged: (value) =>
-                    setState(() => _query = value.trim().toLowerCase()),
-                decoration: const InputDecoration(
-                  hintText: 'Ombor qidiring',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: visible.isEmpty
-                  ? const Center(child: Text('Ombor topilmadi'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 6),
-                      itemBuilder: (context, index) {
-                        final warehouse = visible[index];
-                        final selected = _selectedWarehouse == warehouse;
-                        return ListTile(
-                          key: ValueKey(
-                            'admin-material-warehouse-${warehouse.toLowerCase()}',
-                          ),
-                          leading: const Icon(Icons.warehouse_outlined),
-                          title: Text(warehouse),
-                          selected: selected,
-                          trailing: Icon(
-                            selected
-                                ? Icons.check_circle_rounded
-                                : Icons.radio_button_unchecked_rounded,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          tileColor: scheme.surfaceContainerHighest,
-                          selectedTileColor: scheme.primaryContainer,
-                          onTap: () {
-                            setState(() => _selectedWarehouse = warehouse);
-                          },
-                        );
-                      },
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: const ValueKey('admin-material-warehouse-confirm'),
-                  onPressed: _selectedWarehouse == null
-                      ? null
-                      : () => Navigator.of(context).pop(_selectedWarehouse),
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Tasdiqlash'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 Future<void> _showAvailableItemsSheet(
   BuildContext context,
   AdminCustomerDetail detail,
@@ -1168,22 +904,19 @@ class _AdminCustomerDetailCard extends StatelessWidget {
     required this.itemManagementEnabled,
     required this.removeEnabled,
     required this.isMaterialTaminotchi,
+    required this.warehouseEditor,
     required this.expanded,
     required this.savingPhone,
     required this.regeneratingCode,
     required this.removing,
     required this.addingItem,
     required this.editingMaterialItemGroups,
-    required this.addingMaterialWarehouse,
-    required this.removingMaterialWarehouse,
     required this.removingItemCode,
     required this.onExpandedChanged,
     required this.onSavePhone,
     required this.onAddItem,
     required this.onRemoveItem,
     required this.onEditMaterialItemGroups,
-    required this.onAddMaterialWarehouse,
-    required this.onRemoveMaterialWarehouse,
     required this.onRegenerateCode,
     required this.onCopyCode,
     required this.onRemove,
@@ -1197,14 +930,13 @@ class _AdminCustomerDetailCard extends StatelessWidget {
   final bool itemManagementEnabled;
   final bool removeEnabled;
   final bool isMaterialTaminotchi;
+  final Widget? warehouseEditor;
   final bool expanded;
   final bool savingPhone;
   final bool regeneratingCode;
   final bool removing;
   final bool addingItem;
   final bool editingMaterialItemGroups;
-  final bool addingMaterialWarehouse;
-  final String? removingMaterialWarehouse;
   final String? removingItemCode;
   final ValueChanged<bool> onExpandedChanged;
   final Future<void> Function(AdminCustomerDetail detail, String phone)
@@ -1212,8 +944,6 @@ class _AdminCustomerDetailCard extends StatelessWidget {
   final Future<void> Function() onAddItem;
   final Future<bool> Function(SupplierItem item) onRemoveItem;
   final Future<void> Function() onEditMaterialItemGroups;
-  final Future<void> Function() onAddMaterialWarehouse;
-  final Future<void> Function(String warehouse) onRemoveMaterialWarehouse;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
   final Future<void> Function() onRemove;
@@ -1352,20 +1082,17 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                     itemManagementEnabled: itemManagementEnabled,
                     removeEnabled: removeEnabled,
                     isMaterialTaminotchi: isMaterialTaminotchi,
+                    warehouseEditor: warehouseEditor,
                     savingPhone: savingPhone,
                     regeneratingCode: regeneratingCode,
                     removing: removing,
                     addingItem: addingItem,
                     editingMaterialItemGroups: editingMaterialItemGroups,
-                    addingMaterialWarehouse: addingMaterialWarehouse,
-                    removingMaterialWarehouse: removingMaterialWarehouse,
                     removingItemCode: removingItemCode,
                     onSavePhone: onSavePhone,
                     onAddItem: onAddItem,
                     onRemoveItem: onRemoveItem,
                     onEditMaterialItemGroups: onEditMaterialItemGroups,
-                    onAddMaterialWarehouse: onAddMaterialWarehouse,
-                    onRemoveMaterialWarehouse: onRemoveMaterialWarehouse,
                     onRegenerateCode: onRegenerateCode,
                     onCopyCode: onCopyCode,
                     onRemove: onRemove,
@@ -1384,20 +1111,17 @@ class _AdminCustomerPanel extends StatelessWidget {
     required this.itemManagementEnabled,
     required this.removeEnabled,
     required this.isMaterialTaminotchi,
+    required this.warehouseEditor,
     required this.savingPhone,
     required this.regeneratingCode,
     required this.removing,
     required this.addingItem,
     required this.editingMaterialItemGroups,
-    required this.addingMaterialWarehouse,
-    required this.removingMaterialWarehouse,
     required this.removingItemCode,
     required this.onSavePhone,
     required this.onAddItem,
     required this.onRemoveItem,
     required this.onEditMaterialItemGroups,
-    required this.onAddMaterialWarehouse,
-    required this.onRemoveMaterialWarehouse,
     required this.onRegenerateCode,
     required this.onCopyCode,
     required this.onRemove,
@@ -1407,21 +1131,18 @@ class _AdminCustomerPanel extends StatelessWidget {
   final bool itemManagementEnabled;
   final bool removeEnabled;
   final bool isMaterialTaminotchi;
+  final Widget? warehouseEditor;
   final bool savingPhone;
   final bool regeneratingCode;
   final bool removing;
   final bool addingItem;
   final bool editingMaterialItemGroups;
-  final bool addingMaterialWarehouse;
-  final String? removingMaterialWarehouse;
   final String? removingItemCode;
   final Future<void> Function(AdminCustomerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onAddItem;
   final Future<bool> Function(SupplierItem item) onRemoveItem;
   final Future<void> Function() onEditMaterialItemGroups;
-  final Future<void> Function() onAddMaterialWarehouse;
-  final Future<void> Function(String warehouse) onRemoveMaterialWarehouse;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
   final Future<void> Function() onRemove;
@@ -1553,70 +1274,7 @@ class _AdminCustomerPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            'Biriktirilgan omborlar',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            detail.assignedWarehouses.isEmpty
-                ? 'Ombor biriktirilmagan.'
-                : 'Material faqat shu omborlarda qabul qilinadi va boshqariladi.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: detail.assignedWarehouses.isEmpty
-                  ? scheme.error
-                  : scheme.onSurfaceVariant,
-            ),
-          ),
-          if (detail.assignedWarehouses.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final warehouse in detail.assignedWarehouses)
-                  InputChip(
-                    key: ValueKey(
-                      'admin-material-detail-warehouse-$warehouse',
-                    ),
-                    avatar: const Icon(Icons.warehouse_outlined, size: 17),
-                    label: Text(warehouse),
-                    deleteIcon: removingMaterialWarehouse == warehouse
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.close_rounded, size: 18),
-                    onDeleted: removingMaterialWarehouse == null
-                        ? () => onRemoveMaterialWarehouse(warehouse)
-                        : null,
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const ValueKey('admin-material-detail-add-warehouse'),
-              style: appOutlinedActionButtonStyle(
-                borderRadius: _customerDetailButtonRadius,
-              ),
-              onPressed:
-                  addingMaterialWarehouse ? null : onAddMaterialWarehouse,
-              icon: addingMaterialWarehouse
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_rounded),
-              label: Text(
-                addingMaterialWarehouse
-                    ? 'Yuklanmoqda...'
-                    : 'Ombor biriktirish',
-              ),
-            ),
-          ),
+          if (warehouseEditor != null) warehouseEditor!,
         ],
         if (itemManagementEnabled) ...[
           const SizedBox(height: 18),
