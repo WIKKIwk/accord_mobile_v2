@@ -1336,15 +1336,12 @@ class _QolipBlockTabBar extends StatefulWidget {
 }
 
 class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
-  final GlobalKey _tabStripKey = GlobalKey();
   final Map<String, GlobalKey> _tabKeys = <String, GlobalKey>{};
   final Map<String, double> _dragTabCenters = <String, double>{};
 
   String? _draggingBlockKey;
-  double _dragStartX = 0;
-  double _dragOffsetX = 0;
-  double? _minimumDragOffsetX;
-  double? _maximumDragOffsetX;
+  List<QolipBlock>? _dragOrder;
+  int? _dragTargetIndex;
 
   @override
   void didUpdateWidget(covariant _QolipBlockTabBar oldWidget) {
@@ -1371,10 +1368,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
     return null;
   }
 
-  void _startDrag(String blockKey, LongPressStartDetails details) {
-    final draggedTabKey = _tabKeys[blockKey];
-    final tabBox = draggedTabKey == null ? null : _renderBoxFor(draggedTabKey);
-    final stripBox = _renderBoxFor(_tabStripKey);
+  void _startDrag(String blockKey, LongPressStartDetails _) {
     final centers = <String, double>{};
     for (final block in widget.blocks) {
       final key = _blockKey(block);
@@ -1386,46 +1380,40 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       final origin = box.localToGlobal(Offset.zero);
       centers[key] = origin.dx + box.size.width / 2;
     }
-    final tabOrigin = tabBox?.localToGlobal(Offset.zero);
-    final stripOrigin = stripBox?.localToGlobal(Offset.zero);
     setState(() {
       _draggingBlockKey = blockKey;
-      _dragStartX = details.globalPosition.dx;
-      _dragOffsetX = 0;
+      _dragOrder = List<QolipBlock>.of(widget.blocks);
+      _dragTargetIndex = widget.blocks.indexWhere(
+        (block) => _blockKey(block) == blockKey,
+      );
       _dragTabCenters
         ..clear()
         ..addAll(centers);
-      _minimumDragOffsetX = tabBox != null &&
-              stripBox != null &&
-              tabOrigin != null &&
-              stripOrigin != null
-          ? stripOrigin.dx - tabOrigin.dx
-          : null;
-      _maximumDragOffsetX = tabBox != null &&
-              stripBox != null &&
-              tabOrigin != null &&
-              stripOrigin != null
-          ? stripOrigin.dx +
-              stripBox.size.width -
-              (tabOrigin.dx + tabBox.size.width)
-          : null;
     });
   }
 
   void _updateDrag(LongPressMoveUpdateDetails details) {
-    if (_draggingBlockKey == null) {
+    final blockKey = _draggingBlockKey;
+    if (blockKey == null) {
       return;
     }
-    var offset = details.globalPosition.dx - _dragStartX;
-    final minimum = _minimumDragOffsetX;
-    final maximum = _maximumDragOffsetX;
-    if (minimum != null && maximum != null) {
-      offset = offset.clamp(minimum, maximum).toDouble();
-    }
-    if (offset == _dragOffsetX) {
+    final targetIndex = _targetIndexFor(details.globalPosition.dx);
+    if (targetIndex < 0 || targetIndex == _dragTargetIndex) {
       return;
     }
-    setState(() => _dragOffsetX = offset);
+    final oldIndex = widget.blocks.indexWhere(
+      (block) => _blockKey(block) == blockKey,
+    );
+    if (oldIndex < 0) {
+      return;
+    }
+    final reordered = List<QolipBlock>.of(widget.blocks);
+    final draggedBlock = reordered.removeAt(oldIndex);
+    reordered.insert(targetIndex, draggedBlock);
+    setState(() {
+      _dragTargetIndex = targetIndex;
+      _dragOrder = reordered;
+    });
   }
 
   void _finishDrag(LongPressEndDetails details) {
@@ -1437,9 +1425,10 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       (block) => _blockKey(block) == blockKey,
     );
     final newIndex = _targetIndexFor(details.globalPosition.dx);
+    final targetIndex = newIndex < 0 ? _dragTargetIndex ?? -1 : newIndex;
     _resetDrag();
-    if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex) {
-      widget.onReorder(oldIndex, newIndex);
+    if (oldIndex >= 0 && targetIndex >= 0 && oldIndex != targetIndex) {
+      widget.onReorder(oldIndex, targetIndex);
     }
   }
 
@@ -1466,9 +1455,8 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
     }
     setState(() {
       _draggingBlockKey = null;
-      _dragOffsetX = 0;
-      _minimumDragOffsetX = null;
-      _maximumDragOffsetX = null;
+      _dragOrder = null;
+      _dragTargetIndex = null;
       _dragTabCenters.clear();
     });
   }
@@ -1486,10 +1474,10 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
               child: AnimatedBuilder(
                 animation: widget.controller,
                 builder: (context, _) {
+                  final displayedBlocks = _dragOrder ?? widget.blocks;
                   return SizedBox(
                     height: 38,
                     child: SingleChildScrollView(
-                      key: _tabStripKey,
                       scrollDirection: Axis.horizontal,
                       physics: _draggingBlockKey == null
                           ? null
@@ -1498,9 +1486,9 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           for (var index = 0;
-                              index < widget.blocks.length;
+                              index < displayedBlocks.length;
                               index++)
-                            _buildTab(context, widget.blocks[index], index),
+                            _buildTab(context, displayedBlocks[index]),
                         ],
                       ),
                     ),
@@ -1526,11 +1514,14 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
     );
   }
 
-  Widget _buildTab(BuildContext context, QolipBlock block, int index) {
+  Widget _buildTab(BuildContext context, QolipBlock block) {
     final theme = Theme.of(context);
     final blockKey = _blockKey(block);
     final dragging = _draggingBlockKey == blockKey;
-    final selected = widget.controller.index == index;
+    final index = widget.blocks.indexWhere(
+      (candidate) => _blockKey(candidate) == blockKey,
+    );
+    final selected = index >= 0 && widget.controller.index == index;
     return GestureDetector(
       key: _tabKeyFor(block),
       behavior: HitTestBehavior.opaque,
@@ -1543,8 +1534,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
         selected: selected,
         label: block.name,
         child: Transform.translate(
-          offset: Offset(_draggingBlockKey == blockKey ? _dragOffsetX : 0,
-              dragging ? -2 : 0),
+          offset: Offset(0, dragging ? -2 : 0),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             constraints: const BoxConstraints(minWidth: 72),
@@ -1571,6 +1561,9 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
             ),
             child: InkWell(
               onTap: () {
+                if (index < 0) {
+                  return;
+                }
                 widget.controller.animateTo(index);
                 widget.onTap(index);
               },
