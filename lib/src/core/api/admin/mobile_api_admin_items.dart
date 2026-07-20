@@ -527,6 +527,7 @@ extension MobileApiAdminItems on MobileApi {
           printMode: 'label',
           grossQty: stock.qty,
           unit: stock.uom,
+          labelKind: 'material_product',
         ),
       );
     }

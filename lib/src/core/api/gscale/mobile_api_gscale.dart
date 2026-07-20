@@ -295,6 +295,15 @@ class GScaleRpsBatchPrintRequest {
   final String unit;
   final int printCount;
 
+  GScaleRpsBatchPrintRequest singlePrint() {
+    return GScaleRpsBatchPrintRequest(
+      grossQty: grossQty,
+      driverUrl: driverUrl,
+      unit: unit,
+      printCount: 1,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'gross_qty': grossQty,
@@ -495,6 +504,26 @@ class GScaleMaterialReceiptPrintResponse {
   final String printMode;
   final String printerStatus;
   final int printCount;
+
+  GScaleMaterialReceiptPrintResponse withPrintCount(int value) {
+    return GScaleMaterialReceiptPrintResponse(
+      ok: ok,
+      status: status,
+      draftName: draftName,
+      epc: epc,
+      itemCode: itemCode,
+      itemName: itemName,
+      warehouse: warehouse,
+      qty: qty,
+      netQty: netQty,
+      grossQty: grossQty,
+      unit: unit,
+      printer: printer,
+      printMode: printMode,
+      printerStatus: printerStatus,
+      printCount: value,
+    );
+  }
 
   UsbRpsPrintRequest toUsbPrintRequest({String labelKind = ''}) {
     final tareKg = (grossQty - netQty).clamp(0, double.infinity).toDouble();

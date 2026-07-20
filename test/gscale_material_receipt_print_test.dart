@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
+import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
@@ -72,6 +73,76 @@ void main() {
       request.largeQrLabelFooter(request.epc),
       'EPC: 303132333435363738394142',
     );
+  });
+
+  test('receipt reprint preserves the existing EPC and prints one label', () {
+    const stock = AdminRawMaterialStockEntry(
+      id: 'stock-1',
+      warehouse: 'Kalidor',
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      barcode: '303132333435363738394142',
+      qty: 23,
+      uom: 'kg',
+      status: 'available',
+      reservedOrderId: '',
+      sourceReceiptId: 'MAT-STE-001',
+    );
+    const prepared = AdminRawMaterialStockReprintPreparation(
+      reprintId: 'raw_label_123',
+      stock: stock,
+      printRequest: UsbRpsPrintRequest(
+        epc: '303132333435363738394142',
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        warehouse: 'Kalidor',
+        printer: 'godex',
+        printMode: 'label',
+        grossQty: 23,
+      ),
+    );
+    const history = MobileArchivePrintEntry(
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      qty: 23,
+      grossQty: 25,
+      netQty: 23,
+      unit: 'kg',
+      printedAt: '2026-07-20T05:00:00Z',
+      draftName: 'MAT-STE-001',
+      epc: '303132333435363738394142',
+      printMode: 'rfid',
+    );
+
+    final request = buildMaterialReceiptReprintRequest(
+      prepared: prepared,
+      historyEntry: history,
+      printer: 'zebra',
+    );
+
+    expect(request.epc, stock.barcode);
+    expect(request.printCount, 1);
+    expect(request.labelKind, 'material_product');
+    expect(request.grossQty, 25);
+    expect(request.netQty, 23);
+    expect(request.printMode, 'rfid');
+  });
+
+  test('USB print refuses repeated material labels with the same EPC',
+      () async {
+    const request = UsbRpsPrintRequest(
+      epc: '303132333435363738394142',
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      warehouse: 'Kalidor',
+      printer: 'godex',
+      printMode: 'label',
+      grossQty: 23,
+      printCount: 2,
+      labelKind: 'material_product',
+    );
+
+    await expectLater(PrintService.printRps(request), throwsStateError);
   });
 
   test('print success message distinguishes fast printed status', () {
@@ -776,6 +847,7 @@ void main() {
       expect(parseManualDuplicateCount(' 5 '), 5);
       expect(parseManualDuplicateCount('0'), isNull);
       expect(parseManualDuplicateCount('1.5'), isNull);
+      expect(parseManualDuplicateCount('101'), isNull);
     },
   );
 

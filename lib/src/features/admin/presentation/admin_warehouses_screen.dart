@@ -1,7 +1,6 @@
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
-import '../../../core/godex_rps_renderer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/session/session.dart';
@@ -9,6 +8,7 @@ import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -2172,246 +2172,59 @@ class _RawMaterialStockQrSheet extends StatefulWidget {
 }
 
 class _RawMaterialStockQrSheetState extends State<_RawMaterialStockQrSheet> {
-  bool _printing = false;
-  String? _errorText;
-
-  Future<void> _reprint() async {
-    if (_printing) {
-      return;
-    }
-    setState(() {
-      _printing = true;
-      _errorText = null;
-    });
-    try {
-      final prepared = await MobileApi.instance
-          .adminPrepareRawMaterialStockReprint(barcode: widget.stock.barcode);
-      final expectedBarcode = widget.stock.barcode.trim().toUpperCase();
-      if (prepared.reprintId.trim().isEmpty ||
-          prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
-          prepared.stock.sourceReceiptId.trim() !=
-              widget.stock.sourceReceiptId.trim() ||
-          prepared.printRequest.epc.trim().toUpperCase() != expectedBarcode) {
-        throw const MobileApiException(
-          code: 'raw_material_stock_reprint_identity_mismatch',
-          message: 'Serverdagi QR identifikatori mos kelmadi',
-        );
-      }
-      final result = await PrintService.printRps(prepared.printRequest);
-      if (!result.ok) {
-        throw StateError('Printer QR kodini chop etmadi');
-      }
-      var auditConfirmed = true;
-      try {
-        await MobileApi.instance.adminConfirmRawMaterialStockReprint(
-          barcode: prepared.stock.barcode,
-          reprintId: prepared.reprintId,
-        );
-      } catch (_) {
-        auditConfirmed = false;
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _printing = false;
-        _errorText = auditConfirmed
-            ? null
-            : 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
-      });
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Mavjud QR qayta chop etildi')),
+  Future<String?> _reprint() async {
+    final prepared = await MobileApi.instance
+        .adminPrepareRawMaterialStockReprint(barcode: widget.stock.barcode);
+    final expectedBarcode = widget.stock.barcode.trim().toUpperCase();
+    if (prepared.reprintId.trim().isEmpty ||
+        prepared.stock.barcode.trim().toUpperCase() != expectedBarcode ||
+        prepared.stock.sourceReceiptId.trim() !=
+            widget.stock.sourceReceiptId.trim() ||
+        prepared.printRequest.epc.trim().toUpperCase() != expectedBarcode) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_reprint_identity_mismatch',
+        message: 'Serverdagi QR identifikatori mos kelmadi',
       );
-    } on MobileApiException catch (error) {
-      if (mounted) {
-        setState(() {
-          _printing = false;
-          _errorText = error.message;
-        });
-      }
+    }
+    final result = await PrintService.printRps(prepared.printRequest);
+    if (!result.ok) {
+      throw StateError('Printer QR kodini chop etmadi');
+    }
+    try {
+      await MobileApi.instance.adminConfirmRawMaterialStockReprint(
+        barcode: prepared.stock.barcode,
+        reprintId: prepared.reprintId,
+      );
+      return null;
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _printing = false;
-          _errorText = 'QR kodini qayta chop etib bo‘lmadi';
-        });
-      }
+      return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final stock = widget.stock;
     final itemName = stock.itemName.trim().isEmpty
         ? stock.itemCode.trim()
         : stock.itemName.trim();
-    return Material(
-      color: scheme.surfaceContainer,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Chop etilgan QR',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _printing ? null : () => Navigator.pop(context),
-                    tooltip: 'Yopish',
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: _RawQrPreview(
-                  key: ValueKey('raw-stock-qr-preview-${stock.barcode}'),
-                  payload: stock.barcode,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                itemName,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SelectableText(
-                stock.barcode,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.7,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _WarehouseDetailLine(
-                label: 'Kirim raqami',
-                value: stock.sourceReceiptId,
-              ),
-              _WarehouseDetailLine(
-                label: 'Miqdor',
-                value: '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
-              ),
-              if (_errorText != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _errorText!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                key: const ValueKey('raw-stock-qr-reprint'),
-                onPressed: _printing ? null : _reprint,
-                icon: _printing
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.print_rounded),
-                label: Text(_printing ? 'Chop etilmoqda…' : 'Qayta chop etish'),
-              ),
-            ],
-          ),
+    return RpsQrReprintSheet(
+      payload: stock.barcode,
+      itemName: itemName,
+      previewKey: ValueKey('raw-stock-qr-preview-${stock.barcode}'),
+      reprintButtonKey: const ValueKey('raw-stock-qr-reprint'),
+      details: [
+        RpsQrDetail('Kirim raqami', stock.sourceReceiptId),
+        RpsQrDetail(
+          'Miqdor',
+          '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
         ),
-      ),
+      ],
+      onReprint: _reprint,
+      errorMessage: (error) => error is MobileApiException
+          ? error.message
+          : 'QR kodini qayta chop etib bo‘lmadi',
     );
   }
-}
-
-class _RawQrPreview extends StatelessWidget {
-  const _RawQrPreview({super.key, required this.payload});
-
-  final String payload;
-
-  @override
-  Widget build(BuildContext context) {
-    final matrix = GodexRpsRenderer.qrMatrix(payload);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox.square(
-          dimension: 208,
-          child: CustomPaint(painter: _RawQrPainter(matrix)),
-        ),
-      ),
-    );
-  }
-}
-
-class _RawQrPainter extends CustomPainter {
-  const _RawQrPainter(this.matrix);
-
-  final QrCodeMatrix matrix;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const quietZone = 4;
-    final totalModules = matrix.size + quietZone * 2;
-    final moduleSize = (size.shortestSide ~/ totalModules).toDouble();
-    final drawnSize = moduleSize * totalModules;
-    final offsetX = (size.width - drawnSize) / 2;
-    final offsetY = (size.height - drawnSize) / 2;
-    final paint = Paint()
-      ..color = Colors.black
-      ..isAntiAlias = false;
-    for (var y = 0; y < matrix.size; y++) {
-      for (var x = 0; x < matrix.size; x++) {
-        if (!matrix.isDark(x, y)) {
-          continue;
-        }
-        canvas.drawRect(
-          Rect.fromLTWH(
-            offsetX + (x + quietZone) * moduleSize,
-            offsetY + (y + quietZone) * moduleSize,
-            moduleSize,
-            moduleSize,
-          ),
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RawQrPainter oldDelegate) =>
-      oldDelegate.matrix != matrix;
 }
 
 class _RawMaterialStockEditResult {

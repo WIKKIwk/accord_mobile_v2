@@ -20,6 +20,7 @@ import '../../core/session/session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../core/widgets/lists/m3_segmented_list.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
 import '../shared/models/app_models.dart';
@@ -1661,16 +1662,39 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     );
     late final GScaleMaterialReceiptPrintResponse response;
     if (widget.printTransport.isOffline) {
-      final prepared = await api
-          .gscaleRpsBatchClientPrintPrepare(request)
-          .timeout(const Duration(seconds: 15));
-      await PrintService.printRps(
-        prepared.toUsbPrintRequest(labelKind: 'material_product'),
-        printerProfile: widget.offlinePrinter,
-      );
-      response = await api
-          .gscaleRpsBatchClientPrintConfirm(request, epc: prepared.epc)
-          .timeout(const Duration(seconds: 15));
+      final singleRequest = request.singlePrint();
+      GScaleMaterialReceiptPrintResponse? lastResponse;
+      var completed = 0;
+      for (var index = 0; index < printCount; index++) {
+        try {
+          final prepared = await api
+              .gscaleRpsBatchClientPrintPrepare(singleRequest)
+              .timeout(const Duration(seconds: 15));
+          final printResult = await PrintService.printRps(
+            prepared.toUsbPrintRequest(labelKind: 'material_product'),
+            printerProfile: widget.offlinePrinter,
+          );
+          if (!printResult.ok) {
+            throw StateError('Printer QR kodini chop etmadi');
+          }
+          lastResponse = await api
+              .gscaleRpsBatchClientPrintConfirm(
+                singleRequest,
+                epc: prepared.epc,
+              )
+              .timeout(const Duration(seconds: 15));
+          completed++;
+        } catch (error) {
+          if (completed == 0) {
+            rethrow;
+          }
+          throw StateError(
+            '$completed/$printCount ta mahsulot chop etildi; '
+            'keyingi print to‘xtadi: $error',
+          );
+        }
+      }
+      response = lastResponse!.withPrintCount(printCount);
     } else {
       response = await api
           .gscaleRpsBatchPrint(request)
@@ -1994,6 +2018,115 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       return batchPrinter;
     }
     return '';
+  }
+
+  Future<void> _showArchiveReceiptQr(
+    MobileArchiveSession session,
+    MobileArchivePrintEntry entry,
+  ) async {
+    if (entry.epc.trim().isEmpty || !mounted) {
+      setState(() {
+        _archiveError = 'Receipt EPC kodi topilmadi';
+      });
+      return;
+    }
+    final itemName = entry.itemName.trim().isEmpty
+        ? session.displayItemName
+        : entry.itemName.trim();
+    await showModalBottomSheet<void>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) => RpsQrReprintSheet(
+        payload: entry.epc,
+        itemName: itemName,
+        previewKey: ValueKey('batch-receipt-qr-${entry.epc}'),
+        reprintButtonKey: ValueKey('batch-receipt-reprint-${entry.epc}'),
+        details: [
+          if (entry.draftName.isNotEmpty)
+            RpsQrDetail('Kirim raqami', entry.draftName),
+          RpsQrDetail(
+            'Miqdor',
+            'B ${formatCompactKg(entry.grossQty)} / '
+                'N ${formatCompactKg(entry.netQty)} ${entry.unit}',
+          ),
+          RpsQrDetail('Ombor', session.warehouse),
+        ],
+        onReprint: () => _reprintArchiveReceipt(entry),
+        errorMessage: archiveReceiptReprintErrorMessage,
+      ),
+    );
+  }
+
+  Future<String?> _reprintArchiveReceipt(
+    MobileArchivePrintEntry entry,
+  ) async {
+    final prepared = await MobileApi.instance
+        .adminPrepareRawMaterialStockReprint(barcode: entry.epc);
+    final expectedEpc = entry.epc.trim().toUpperCase();
+    if (prepared.reprintId.trim().isEmpty ||
+        prepared.stock.barcode.trim().toUpperCase() != expectedEpc ||
+        prepared.printRequest.epc.trim().toUpperCase() != expectedEpc) {
+      throw const MobileApiException(
+        code: 'raw_material_stock_reprint_identity_mismatch',
+        message: 'Serverdagi QR identifikatori mos kelmadi',
+      );
+    }
+    final printer = _currentArchivePrinterChoice();
+    if (printer.isEmpty) {
+      throw StateError('Printer ulanmagan');
+    }
+    final request = buildMaterialReceiptReprintRequest(
+      prepared: prepared,
+      historyEntry: entry,
+      printer: printer,
+    );
+    if (widget.printTransport.isOffline) {
+      final result = await PrintService.printRps(
+        request,
+        printerProfile: widget.offlinePrinter,
+      );
+      if (!result.ok) {
+        throw StateError('Printer QR kodini chop etmadi');
+      }
+    } else {
+      final response = await _client
+          .post(
+            _apiUri('/v1/mobile/driver/print'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 15));
+      final payload = _gscaleResponseObject(response.body);
+      if (response.statusCode < 200 ||
+          response.statusCode > 299 ||
+          payload['ok'] != true) {
+        throw StateError(
+          _text(
+            payload['detail'],
+            fallback: _text(
+              payload['error'],
+              fallback: 'Printer QR kodini chop etmadi',
+            ),
+          ),
+        );
+      }
+    }
+    try {
+      await MobileApi.instance.adminConfirmRawMaterialStockReprint(
+        barcode: prepared.stock.barcode,
+        reprintId: prepared.reprintId,
+      );
+      return null;
+    } catch (_) {
+      return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+    }
   }
 
   Future<void> _confirmArchivePrint(MobileArchiveSession session) async {
@@ -2676,8 +2809,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                 children: [
                   for (final entry in session.prints)
                     ListTile(
+                      key: ValueKey('batch-receipt-${entry.epc}'),
                       dense: true,
                       contentPadding: EdgeInsets.zero,
+                      onTap: entry.epc.trim().isEmpty
+                          ? null
+                          : () => unawaited(
+                                _showArchiveReceiptQr(session, entry),
+                              ),
                       leading: Icon(
                         Icons.playlist_add_check_rounded,
                         size: 18,
@@ -2699,6 +2838,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
+                      trailing: entry.epc.trim().isEmpty
+                          ? null
+                          : const Icon(Icons.print_rounded, size: 20),
                     ),
                 ],
               ),
@@ -4946,10 +5088,63 @@ int? parseManualDuplicateCount(String value) {
     return 1;
   }
   final parsed = int.tryParse(text);
-  if (parsed == null || parsed <= 0) {
+  if (parsed == null || parsed <= 0 || parsed > 100) {
     return null;
   }
   return parsed;
+}
+
+UsbRpsPrintRequest buildMaterialReceiptReprintRequest({
+  required AdminRawMaterialStockReprintPreparation prepared,
+  required MobileArchivePrintEntry historyEntry,
+  required String printer,
+}) {
+  final stock = prepared.stock;
+  final netQty = stock.qty;
+  final historyNet =
+      historyEntry.netQty > 0 ? historyEntry.netQty : historyEntry.qty;
+  final historyMatchesCurrent = (historyNet - netQty).abs() <= 0.000001;
+  final historyGross =
+      historyEntry.grossQty > 0 ? historyEntry.grossQty : historyNet;
+  final grossQty =
+      historyMatchesCurrent && historyGross >= netQty ? historyGross : netQty;
+  final tareKg = (grossQty - netQty).clamp(0, double.infinity).toDouble();
+  final normalizedPrinter = normalizePrinterChoice(printer);
+  final historyMode = historyEntry.printMode.trim().toLowerCase();
+  return UsbRpsPrintRequest(
+    epc: stock.barcode,
+    itemCode: stock.itemCode,
+    itemName: stock.itemName.trim().isEmpty ? stock.itemCode : stock.itemName,
+    warehouse: stock.warehouse,
+    printer: normalizedPrinter,
+    printMode: normalizedPrinter == 'godex'
+        ? 'label'
+        : (historyMode == 'label' ? 'label' : 'rfid'),
+    grossQty: grossQty,
+    unit: stock.uom.trim().isEmpty ? historyEntry.unit : stock.uom,
+    tareEnabled: tareKg > 0,
+    tareKg: tareKg,
+    printCount: 1,
+    labelKind: 'material_product',
+  );
+}
+
+String archiveReceiptReprintErrorMessage(Object error) {
+  if (error is MobileApiException) {
+    return error.message;
+  }
+  final message = error.toString().trim();
+  return message
+      .replaceFirst('Bad state: ', '')
+      .replaceFirst('Exception: ', '');
+}
+
+Map<String, dynamic> _gscaleResponseObject(String body) {
+  try {
+    return (jsonDecode(body) as Map?)?.cast<String, dynamic>() ?? const {};
+  } catch (_) {
+    return const {};
+  }
 }
 
 GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({

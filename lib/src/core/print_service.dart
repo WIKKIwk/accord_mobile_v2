@@ -19,6 +19,11 @@ class PrintService {
     UsbRpsPrintRequest request, {
     UsbPrinterProfile? printerProfile,
   }) async {
+    if (request.isMaterialProductLabel && request.printCount > 1) {
+      throw StateError(
+        'Har bir homashyo uchun alohida EPC bilan print request yuborilishi kerak',
+      );
+    }
     final profile = printerProfile ?? await detectOfflinePrinter();
     final effectiveRequest = request.forPrinter(profile);
     final bytes = switch (profile.kind) {
