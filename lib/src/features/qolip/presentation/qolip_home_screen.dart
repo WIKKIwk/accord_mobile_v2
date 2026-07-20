@@ -1475,6 +1475,17 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                 animation: widget.controller,
                 builder: (context, _) {
                   final displayedBlocks = _dragOrder ?? widget.blocks;
+                  final tabWidths = <String, double>{
+                    for (final block in widget.blocks)
+                      _blockKey(block): _tabWidth(context, block),
+                  };
+                  var left = 0.0;
+                  final tabOffsets = <String, double>{};
+                  for (final block in displayedBlocks) {
+                    final key = _blockKey(block);
+                    tabOffsets[key] = left;
+                    left += tabWidths[key] ?? 72;
+                  }
                   return SizedBox(
                     height: 38,
                     child: SingleChildScrollView(
@@ -1482,14 +1493,27 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                       physics: _draggingBlockKey == null
                           ? null
                           : const NeverScrollableScrollPhysics(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var index = 0;
-                              index < displayedBlocks.length;
-                              index++)
-                            _buildTab(context, displayedBlocks[index]),
-                        ],
+                      child: SizedBox(
+                        width: left,
+                        height: 38,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            for (final block in displayedBlocks)
+                              AnimatedPositioned(
+                                key: ValueKey('qolip-tab-${_blockKey(block)}'),
+                                left: tabOffsets[_blockKey(block)] ?? 0,
+                                top: _draggingBlockKey == _blockKey(block)
+                                    ? -1
+                                    : 0,
+                                width: tabWidths[_blockKey(block)] ?? 72,
+                                height: 38,
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                                child: _buildTab(context, block),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -1533,56 +1557,65 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
         button: true,
         selected: selected,
         label: block.name,
-        child: Transform.translate(
-          offset: Offset(0, dragging ? -2 : 0),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            constraints: const BoxConstraints(minWidth: 72),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: dragging ? theme.colorScheme.surfaceContainerHigh : null,
-              boxShadow: dragging
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-              border: Border(
-                bottom: BorderSide(
-                  color:
-                      selected ? theme.colorScheme.primary : Colors.transparent,
-                  width: 2,
-                ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: dragging ? theme.colorScheme.surfaceContainerHigh : null,
+            boxShadow: dragging
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+            border: Border(
+              bottom: BorderSide(
+                color:
+                    selected ? theme.colorScheme.primary : Colors.transparent,
+                width: 2,
               ),
             ),
-            child: InkWell(
-              onTap: () {
-                if (index < 0) {
-                  return;
-                }
-                widget.controller.animateTo(index);
-                widget.onTap(index);
-              },
-              child: Text(
-                block.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: selected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w400,
-                ),
+          ),
+          child: InkWell(
+            onTap: () {
+              if (index < 0) {
+                return;
+              }
+              widget.controller.animateTo(index);
+              widget.onTap(index);
+            },
+            child: Text(
+              block.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  double _tabWidth(BuildContext context, QolipBlock block) {
+    final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w400,
+        );
+    final textPainter = TextPainter(
+      text: TextSpan(text: block.name, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    return (textPainter.width + 28).clamp(72.0, double.infinity).toDouble();
   }
 }
 
