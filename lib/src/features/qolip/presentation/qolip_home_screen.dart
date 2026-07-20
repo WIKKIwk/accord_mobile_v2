@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1346,25 +1347,32 @@ class _QolipBlockTabBar extends StatelessWidget {
                 builder: (context, _) {
                   return SizedBox(
                     height: 38,
-                    child: DragBoundary(
-                      child: Builder(
-                        builder: (boundaryContext) {
-                          return ReorderableListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.zero,
-                            buildDefaultDragHandles: false,
-                            dragBoundaryProvider: (_) =>
-                                DragBoundary.forRectMaybeOf(boundaryContext),
-                            onReorderItem: onReorder,
-                            children: [
-                              for (var index = 0;
-                                  index < blocks.length;
-                                  index++)
-                                _buildTab(context, blocks[index], index),
-                            ],
-                          );
-                        },
-                      ),
+                    child: Builder(
+                      builder: (boundaryContext) {
+                        return ReorderableListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.zero,
+                          buildDefaultDragHandles: false,
+                          dragBoundaryProvider: (_) {
+                            final renderObject =
+                                boundaryContext.findRenderObject();
+                            if (renderObject is! RenderBox ||
+                                !renderObject.hasSize) {
+                              return null;
+                            }
+                            final origin =
+                                renderObject.localToGlobal(Offset.zero);
+                            return _QolipTabDragBoundary(
+                              origin & renderObject.size,
+                            );
+                          },
+                          onReorderItem: onReorder,
+                          children: [
+                            for (var index = 0; index < blocks.length; index++)
+                              _buildTab(context, blocks[index], index),
+                          ],
+                        );
+                      },
                     ),
                   );
                 },
@@ -1430,6 +1438,40 @@ class _QolipBlockTabBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _QolipTabDragBoundary extends DragBoundaryDelegate<ui.Rect> {
+  _QolipTabDragBoundary(this.boundary);
+
+  final ui.Rect boundary;
+
+  @override
+  bool isWithinBoundary(ui.Rect draggedObject) {
+    return boundary.contains(draggedObject.topLeft) &&
+        boundary.contains(draggedObject.bottomRight);
+  }
+
+  @override
+  ui.Rect nearestPositionWithinBoundary(ui.Rect draggedObject) {
+    final maxLeft = boundary.right - draggedObject.width;
+    final maxTop = boundary.bottom - draggedObject.height;
+    if (maxLeft < boundary.left || maxTop < boundary.top) {
+      return ui.Rect.fromLTWH(
+        boundary.left,
+        boundary.top,
+        draggedObject.width,
+        draggedObject.height,
+      );
+    }
+    final left = draggedObject.left.clamp(boundary.left, maxLeft).toDouble();
+    final top = draggedObject.top.clamp(boundary.top, maxTop).toDouble();
+    return ui.Rect.fromLTWH(
+      left,
+      top,
+      draggedObject.width,
+      draggedObject.height,
     );
   }
 }
