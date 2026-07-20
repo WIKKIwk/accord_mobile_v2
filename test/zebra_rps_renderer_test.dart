@@ -100,4 +100,25 @@ void main() {
     expect(zpl, contains('^FO8,352^A0N,18,16^FB784,1,0,C,0'));
     expect(zpl, isNot(contains('^RFW')));
   });
+
+  test('renders material batch as QR-only without RFID or barcode', () {
+    final zpl = String.fromCharCodes(
+      ZebraRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: 'RPS-BATCH:BATCH-HISTORY-92',
+          itemCode: 'CPP 1030/25',
+          itemName: 'CPP 1030/25 B:92 N:92 KG',
+          warehouse: 'Kalidor',
+          printer: 'zebra',
+          printMode: 'label',
+          grossQty: 92,
+          labelKind: 'qolip_code',
+        ),
+      ),
+    );
+
+    expect(zpl, contains('^FDLA,RPS-BATCH:BATCH-HISTORY-92^FS'));
+    expect(zpl, isNot(contains('^RFW')));
+    expect(zpl, isNot(contains('^BCN')));
+  });
 }

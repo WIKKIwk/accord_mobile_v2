@@ -2008,33 +2008,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final batchTime = session.endedAt.isNotEmpty
         ? formatArchiveTimestamp(session.endedAt)
         : formatArchiveTimestamp(session.startedAt);
-    final shouldPrint = await showDialog<bool>(
+    final shouldPrint = await showM3ConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Partiya QR chop etish'),
-          content: Text(
-            [
-              'Shu partiya uchun QR chop etamizmi?',
-              '',
-              'Mahsulot: ${itemName.isEmpty ? '-' : itemName}',
-              'Jami: $qtyText',
-              'Sana: $batchTime',
-            ].join('\n'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Yo\'q'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Ha'),
-            ),
-          ],
-        );
-      },
+      title: 'Partiya QR chop etish',
+      message: [
+        'Shu partiya uchun QR chop etamizmi?',
+        '',
+        'Mahsulot: ${itemName.isEmpty ? '-' : itemName}',
+        'Jami: $qtyText',
+        'Sana: $batchTime',
+      ].join('\n'),
+      cancelLabel: 'Yo‘q',
+      confirmLabel: 'Ha',
     );
     if (shouldPrint == true) {
       await _printArchiveSession(session);
@@ -2058,40 +2043,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _archiveError = '';
     });
     try {
-      MobileArchivePrintEntry? exactPrint;
-      var grossQty = 0.0;
-      var netQty = 0.0;
-      if (widget.controlOnly || widget.printTransport.isOffline) {
-        if (session.prints.isEmpty) {
-          throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
-        }
-        exactPrint = session.prints.last;
-        if (exactPrint.epc.trim().isEmpty) {
-          throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
-        }
-        grossQty = exactPrint.grossQty > 0
-            ? exactPrint.grossQty
-            : session.grossQty > 0
-                ? session.grossQty
-                : exactPrint.netQty;
-        netQty = exactPrint.netQty > 0 ? exactPrint.netQty : exactPrint.qty;
-      }
+      final batchPlan = widget.controlOnly || widget.printTransport.isOffline
+          ? buildMaterialBatchPrintPlan(session)
+          : null;
       if (widget.printTransport.isOffline) {
-        final entry = exactPrint!;
         await PrintService.printRps(
-          UsbRpsPrintRequest(
-            epc: entry.epc,
-            itemCode:
-                entry.itemCode.isEmpty ? session.itemCode : entry.itemCode,
-            itemName:
-                entry.itemName.isEmpty ? session.itemName : entry.itemName,
-            warehouse: session.warehouse,
+          batchPlan!.toUsbRequest(
             printer: widget.offlinePrinter?.printer ?? 'godex',
-            printMode: widget.offlinePrinter?.printMode ?? 'label',
-            grossQty: grossQty,
-            unit: entry.unit.isEmpty ? session.displayUnit : entry.unit,
-            tareEnabled: grossQty > netQty,
-            tareKg: (grossQty - netQty).clamp(0, double.infinity).toDouble(),
           ),
           printerProfile: widget.offlinePrinter,
         );
@@ -2109,26 +2067,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         );
         return;
       }
-      final entry = exactPrint;
       final requestBody = widget.controlOnly
-          ? <String, dynamic>{
-              'epc': entry!.epc,
-              'item_code':
-                  entry.itemCode.isEmpty ? session.itemCode : entry.itemCode,
-              'item_name':
-                  entry.itemName.isEmpty ? session.itemName : entry.itemName,
-              'warehouse': session.warehouse,
-              'printer': printer,
-              'print_mode': printer == 'godex'
-                  ? 'label'
-                  : (entry.printMode.isEmpty ? 'rfid' : entry.printMode),
-              'gross_qty': grossQty,
-              'unit': entry.unit.isEmpty ? session.displayUnit : entry.unit,
-              'tare_enabled': grossQty > netQty,
-              'tare_kg':
-                  (grossQty - netQty).clamp(0, double.infinity).toDouble(),
-              'print_count': 1,
-            }
+          ? batchPlan!.toDriverRequest(printer: printer)
           : <String, dynamic>{
               'session_id': session.sessionId,
               'printer': printer,
@@ -5499,6 +5439,101 @@ class MobileArchiveSession {
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;
   String get displayUnit => unit.isEmpty ? 'kg' : unit;
+}
+
+class MaterialBatchPrintPlan {
+  const MaterialBatchPrintPlan({
+    required this.qrPayload,
+    required this.itemCode,
+    required this.labelTitle,
+    required this.warehouse,
+    required this.grossQty,
+    required this.netQty,
+    required this.unit,
+  });
+
+  final String qrPayload;
+  final String itemCode;
+  final String labelTitle;
+  final String warehouse;
+  final double grossQty;
+  final double netQty;
+  final String unit;
+
+  double get tareKg => (grossQty - netQty).clamp(0, double.infinity).toDouble();
+
+  Map<String, dynamic> toDriverRequest({required String printer}) {
+    return <String, dynamic>{
+      'epc': qrPayload,
+      'item_code': itemCode,
+      'item_name': labelTitle,
+      'warehouse': warehouse,
+      'printer': printer,
+      'print_mode': 'label',
+      'label_kind': 'qolip_code',
+      'gross_qty': grossQty,
+      'unit': unit,
+      'tare_enabled': tareKg > 0,
+      'tare_kg': tareKg,
+      'print_count': 1,
+    };
+  }
+
+  UsbRpsPrintRequest toUsbRequest({required String printer}) {
+    return UsbRpsPrintRequest(
+      epc: qrPayload,
+      itemCode: itemCode,
+      itemName: labelTitle,
+      warehouse: warehouse,
+      printer: printer,
+      printMode: 'label',
+      grossQty: grossQty,
+      unit: unit,
+      tareEnabled: tareKg > 0,
+      tareKg: tareKg,
+      labelKind: 'qolip_code',
+    );
+  }
+}
+
+MaterialBatchPrintPlan buildMaterialBatchPrintPlan(
+  MobileArchiveSession session,
+) {
+  final sessionId = session.sessionId.trim();
+  if (sessionId.isEmpty) {
+    throw StateError('Partiya identifikatori topilmadi');
+  }
+  final firstPrint = session.prints.isEmpty ? null : session.prints.first;
+  final itemCode = session.itemCode.trim().isNotEmpty
+      ? session.itemCode.trim()
+      : firstPrint?.itemCode.trim() ?? '';
+  if (itemCode.isEmpty) {
+    throw StateError('Partiya mahsulot kodi topilmadi');
+  }
+  final warehouse = session.warehouse.trim();
+  if (warehouse.isEmpty) {
+    throw StateError('Partiya ombori topilmadi');
+  }
+  final netQty = session.netQty > 0 ? session.netQty : session.totalQty;
+  final grossQty = session.grossQty > 0 ? session.grossQty : netQty;
+  if (!grossQty.isFinite || !netQty.isFinite || grossQty <= 0 || netQty <= 0) {
+    throw StateError('Partiya miqdori noto‘g‘ri');
+  }
+  final unit = session.displayUnit;
+  final itemName = session.displayItemName.trim().isEmpty
+      ? itemCode
+      : session.displayItemName.trim();
+
+  return MaterialBatchPrintPlan(
+    qrPayload: 'RPS-BATCH:${sessionId.toUpperCase()}',
+    itemCode: itemCode,
+    labelTitle: '$itemName  B:${formatCompactKg(grossQty)} '
+        'N:${formatCompactKg(netQty)} $unit',
+    warehouse: warehouse,
+    grossQty: grossQty,
+    netQty: netQty,
+    unit: unit,
+  );
 }
 
 class DiscoveryResult {

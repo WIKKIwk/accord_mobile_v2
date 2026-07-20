@@ -82,4 +82,25 @@ void main() {
     expect(output, contains('Y56,56,QRLBL'));
     expect(output, isNot(contains('Y224,224,QRLBL')));
   });
+
+  test('renders material batch as QR-only without a product barcode', () {
+    final output = String.fromCharCodes(
+      GodexRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: 'RPS-BATCH:BATCH-HISTORY-92',
+          itemCode: 'CPP 1030/25',
+          itemName: 'CPP 1030/25 B:92 N:92 KG',
+          warehouse: 'Kalidor',
+          printer: 'godex',
+          printMode: 'label',
+          grossQty: 92,
+          labelKind: 'qolip_code',
+        ),
+      ),
+    );
+
+    expect(output, contains('Y56,56,QRLBL'));
+    expect(output, isNot(contains('BA,')));
+    expect(output, isNot(contains('Y224,224,QRLBL')));
+  });
 }

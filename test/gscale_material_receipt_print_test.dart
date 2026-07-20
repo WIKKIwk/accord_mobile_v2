@@ -225,6 +225,84 @@ void main() {
     expect(history.prints.single.status, 'submitted');
   });
 
+  test('material batch reprint uses aggregate weight and a batch QR', () {
+    const prints = [
+      MobileArchivePrintEntry(
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        qty: 23,
+        grossQty: 23,
+        netQty: 23,
+        unit: 'kg',
+        printedAt: '',
+        draftName: 'MAT-STE-1',
+        epc: '400100000000000000000001',
+      ),
+      MobileArchivePrintEntry(
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        qty: 23,
+        grossQty: 23,
+        netQty: 23,
+        unit: 'kg',
+        printedAt: '',
+        draftName: 'MAT-STE-2',
+        epc: '400100000000000000000002',
+      ),
+      MobileArchivePrintEntry(
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        qty: 23,
+        grossQty: 23,
+        netQty: 23,
+        unit: 'kg',
+        printedAt: '',
+        draftName: 'MAT-STE-3',
+        epc: '400100000000000000000003',
+      ),
+      MobileArchivePrintEntry(
+        itemCode: 'CPP 1030/25',
+        itemName: 'CPP 1030/25',
+        qty: 23,
+        grossQty: 23,
+        netQty: 23,
+        unit: 'kg',
+        printedAt: '',
+        draftName: 'MAT-STE-4',
+        epc: '400100000000000000000004',
+      ),
+    ];
+    const session = MobileArchiveSession(
+      sessionId: 'batch-history-92',
+      active: false,
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      warehouse: 'Kalidor',
+      startedAt: '',
+      endedAt: '',
+      totalQty: 92,
+      grossQty: 92,
+      netQty: 92,
+      unit: 'kg',
+      tareEnabled: false,
+      tareKg: 0,
+      printCount: 4,
+      prints: prints,
+    );
+
+    final plan = buildMaterialBatchPrintPlan(session);
+    final request = plan.toDriverRequest(printer: 'zebra');
+
+    expect(plan.grossQty, 92);
+    expect(plan.netQty, 92);
+    expect(plan.qrPayload, 'RPS-BATCH:BATCH-HISTORY-92');
+    expect(prints.map((entry) => entry.epc), isNot(contains(plan.qrPayload)));
+    expect(request['gross_qty'], 92);
+    expect(request['print_mode'], 'label');
+    expect(request['label_kind'], 'qolip_code');
+    expect(request['print_count'], 1);
+  });
+
   testWidgets(
     'material control restores active manual batch without selected device',
     (tester) async {
