@@ -118,7 +118,7 @@ void main() {
     );
 
     expect(zpl, contains('^FDLA,RPS-BATCH:BATCH-HISTORY-92^FS'));
-    expect(zpl, contains('^FDBATCH ID: RPS-BATCH:BATCH-HISTORY-92^FS'));
+    expect(zpl, contains('^FDBATCH ID: BATCH-HISTORY-92^FS'));
     expect(zpl, isNot(contains('^RFW')));
     expect(zpl, isNot(contains('^BCN')));
   });

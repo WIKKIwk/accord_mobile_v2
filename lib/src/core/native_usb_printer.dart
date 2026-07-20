@@ -245,7 +245,7 @@ class UsbRpsPrintRequest {
       return 'EPC: $payload';
     }
     if (isQolipCodeLabel && payload.toUpperCase().startsWith('RPS-BATCH:')) {
-      return 'BATCH ID: $payload';
+      return 'BATCH ID: ${payload.substring('RPS-BATCH:'.length)}';
     }
     return itemCode.trim().isEmpty ? payload : itemCode.trim();
   }

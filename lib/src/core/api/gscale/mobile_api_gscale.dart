@@ -334,6 +334,7 @@ class GScaleRpsBatchSession {
     required this.manualQtyKg,
     required this.tareEnabled,
     required this.tareKg,
+    this.batchCode = '',
     this.lastError = '',
     this.lastErrorAt = '',
     this.createdAt = '',
@@ -344,6 +345,7 @@ class GScaleRpsBatchSession {
   factory GScaleRpsBatchSession.fromJson(Map<String, dynamic> json) {
     return GScaleRpsBatchSession(
       id: _gscaleText(json['id']),
+      batchCode: _gscaleText(json['batch_code']),
       active: json['active'] == true,
       driverUrl: _gscaleText(json['driver_url']),
       itemCode: _gscaleText(json['item_code']),
@@ -372,6 +374,7 @@ class GScaleRpsBatchSession {
   }
 
   final String id;
+  final String batchCode;
   final bool active;
   final String driverUrl;
   final String itemCode;

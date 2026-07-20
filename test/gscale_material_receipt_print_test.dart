@@ -216,6 +216,7 @@ void main() {
   test('completed RS batch maps to device-independent print history', () {
     final batch = GScaleRpsBatchSession.fromJson({
       'id': 'batch-history-1',
+      'batch_code': '421234567890ABCDEF123456',
       'active': false,
       'item_code': 'ITEM-1',
       'item_name': 'Green Tea',
@@ -248,6 +249,7 @@ void main() {
     final history = MobileArchiveSession.fromRpsBatch(batch);
 
     expect(history.sessionId, 'batch-history-1');
+    expect(history.batchCode, '421234567890ABCDEF123456');
     expect(history.startedAt, '2026-07-20T05:00:00Z');
     expect(history.endedAt, '2026-07-20T05:05:00Z');
     expect(history.printCount, 1);
@@ -306,6 +308,7 @@ void main() {
     ];
     const session = MobileArchiveSession(
       sessionId: 'batch-history-92',
+      batchCode: '42A1234567890ABCDEF12345',
       active: false,
       itemCode: 'CPP 1030/25',
       itemName: 'CPP 1030/25',
@@ -327,16 +330,64 @@ void main() {
 
     expect(plan.grossQty, 92);
     expect(plan.netQty, 92);
-    expect(plan.qrPayload, 'RPS-BATCH:BATCH-HISTORY-92');
+    expect(plan.qrPayload, 'RPS-BATCH:42A1234567890ABCDEF12345');
     expect(
       plan.toUsbRequest(printer: 'godex').largeQrLabelFooter(plan.qrPayload),
-      'BATCH ID: RPS-BATCH:BATCH-HISTORY-92',
+      'BATCH ID: 42A1234567890ABCDEF12345',
     );
     expect(prints.map((entry) => entry.epc), isNot(contains(plan.qrPayload)));
     expect(request['gross_qty'], 92);
     expect(request['print_mode'], 'label');
     expect(request['label_kind'], 'qolip_code');
     expect(request['print_count'], 1);
+  });
+
+  test('material batch QR keeps legacy fallback and rejects a corrupt code',
+      () {
+    const legacy = MobileArchiveSession(
+      sessionId: 'legacy-batch-1',
+      active: false,
+      itemCode: 'ITEM-1',
+      itemName: 'Green Tea',
+      warehouse: 'Stores - A',
+      startedAt: '',
+      endedAt: '',
+      totalQty: 1,
+      grossQty: 1,
+      netQty: 1,
+      unit: 'kg',
+      tareEnabled: false,
+      tareKg: 0,
+      printCount: 1,
+      prints: [],
+    );
+    expect(
+      buildMaterialBatchPrintPlan(legacy).qrPayload,
+      'RPS-BATCH:LEGACY-BATCH-1',
+    );
+
+    const corrupt = MobileArchiveSession(
+      sessionId: 'batch-2',
+      batchCode: 'NOT-A-BATCH-CODE',
+      active: false,
+      itemCode: 'ITEM-1',
+      itemName: 'Green Tea',
+      warehouse: 'Stores - A',
+      startedAt: '',
+      endedAt: '',
+      totalQty: 1,
+      grossQty: 1,
+      netQty: 1,
+      unit: 'kg',
+      tareEnabled: false,
+      tareKg: 0,
+      printCount: 1,
+      prints: [],
+    );
+    expect(
+      () => buildMaterialBatchPrintPlan(corrupt),
+      throwsA(isA<StateError>()),
+    );
   });
 
   testWidgets(
@@ -459,6 +510,7 @@ void main() {
   test('mobile batch state accepts RS batch session shape', () {
     final batch = MobileBatchState.fromJson({
       'active': true,
+      'batch_code': '421234567890ABCDEF123456',
       'item_code': 'ITEM-1',
       'item_name': 'Green Tea',
       'warehouse': 'Stores - A',
@@ -471,6 +523,7 @@ void main() {
     });
 
     expect(batch.active, isTrue);
+    expect(batch.batchCode, '421234567890ABCDEF123456');
     expect(batch.displayItemName, 'Green Tea');
     expect(batch.tareEnabled, isTrue);
     expect(batch.tareKg, 0.78);
@@ -479,6 +532,7 @@ void main() {
   test('mobile batch state can be built from RS API model', () {
     const rsBatch = GScaleRpsBatchSession(
       id: 'batch-1',
+      batchCode: '421234567890ABCDEF123456',
       active: true,
       driverUrl: 'http://127.0.0.1:39117',
       itemCode: 'ITEM-1',

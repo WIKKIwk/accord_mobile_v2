@@ -5213,6 +5213,7 @@ class MobileBatchState {
     required this.manualQtyKg,
     required this.tareEnabled,
     required this.tareKg,
+    this.batchCode = '',
     this.lastError = '',
     this.lastErrorAt = '',
   });
@@ -5220,6 +5221,7 @@ class MobileBatchState {
   factory MobileBatchState.fromJson(Map<String, dynamic> json) {
     return MobileBatchState(
       active: json['active'] == true,
+      batchCode: _text(json['batch_code']),
       itemCode: _text(json['item_code']),
       itemName: _text(json['item_name']),
       warehouse: _text(json['warehouse']),
@@ -5237,6 +5239,7 @@ class MobileBatchState {
   factory MobileBatchState.fromRpsBatch(GScaleRpsBatchSession batch) {
     return MobileBatchState(
       active: batch.active,
+      batchCode: batch.batchCode,
       itemCode: batch.itemCode,
       itemName: batch.itemName,
       warehouse: batch.warehouse,
@@ -5252,6 +5255,7 @@ class MobileBatchState {
   }
 
   final bool active;
+  final String batchCode;
   final String itemCode;
   final String itemName;
   final String warehouse;
@@ -5357,6 +5361,7 @@ class MobileArchiveSession {
     required this.tareKg,
     required this.printCount,
     required this.prints,
+    this.batchCode = '',
   });
 
   factory MobileArchiveSession.fromJson(Map<String, dynamic> json) {
@@ -5364,6 +5369,7 @@ class MobileArchiveSession {
         (json['prints'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
     return MobileArchiveSession(
       sessionId: _text(json['session_id']),
+      batchCode: _text(json['batch_code']),
       active: json['active'] == true,
       itemCode: _text(json['item_code']),
       itemName: _text(json['item_name']),
@@ -5404,6 +5410,7 @@ class MobileArchiveSession {
     );
     return MobileArchiveSession(
       sessionId: batch.id,
+      batchCode: batch.batchCode,
       active: batch.active,
       itemCode: batch.itemCode,
       itemName: batch.itemName,
@@ -5422,6 +5429,7 @@ class MobileArchiveSession {
   }
 
   final String sessionId;
+  final String batchCode;
   final bool active;
   final String itemCode;
   final String itemName;
@@ -5523,9 +5531,16 @@ MaterialBatchPrintPlan buildMaterialBatchPrintPlan(
   final itemName = session.displayItemName.trim().isEmpty
       ? itemCode
       : session.displayItemName.trim();
+  final storedBatchCode = session.batchCode.trim().toUpperCase();
+  if (storedBatchCode.isNotEmpty &&
+      !RegExp(r'^42[0-9A-F]{22}$').hasMatch(storedBatchCode)) {
+    throw StateError('Partiya kodi noto‘g‘ri');
+  }
+  final qrBatchId =
+      storedBatchCode.isEmpty ? sessionId.toUpperCase() : storedBatchCode;
 
   return MaterialBatchPrintPlan(
-    qrPayload: 'RPS-BATCH:${sessionId.toUpperCase()}',
+    qrPayload: 'RPS-BATCH:$qrBatchId',
     itemCode: itemCode,
     labelTitle: '$itemName  B:${formatCompactKg(grossQty)} '
         'N:${formatCompactKg(netQty)} $unit',
