@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1317,7 +1316,7 @@ int reorderedTabIndex(
   return currentIndex;
 }
 
-class _QolipBlockTabBar extends StatelessWidget {
+class _QolipBlockTabBar extends StatefulWidget {
   const _QolipBlockTabBar({
     required this.controller,
     required this.blocks,
@@ -1333,6 +1332,148 @@ class _QolipBlockTabBar extends StatelessWidget {
   final VoidCallback onAdd;
 
   @override
+  State<_QolipBlockTabBar> createState() => _QolipBlockTabBarState();
+}
+
+class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
+  final GlobalKey _tabStripKey = GlobalKey();
+  final Map<String, GlobalKey> _tabKeys = <String, GlobalKey>{};
+  final Map<String, double> _dragTabCenters = <String, double>{};
+
+  String? _draggingBlockKey;
+  double _dragStartX = 0;
+  double _dragOffsetX = 0;
+  double? _minimumDragOffsetX;
+  double? _maximumDragOffsetX;
+
+  @override
+  void didUpdateWidget(covariant _QolipBlockTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final activeKeys = widget.blocks.map(_blockKey).toSet();
+    _tabKeys.removeWhere((key, _) => !activeKeys.contains(key));
+    if (_draggingBlockKey != null && !activeKeys.contains(_draggingBlockKey)) {
+      _resetDrag();
+    }
+  }
+
+  String _blockKey(QolipBlock block) => block.name.trim().toLowerCase();
+
+  GlobalKey _tabKeyFor(QolipBlock block) {
+    final blockKey = _blockKey(block);
+    return _tabKeys.putIfAbsent(blockKey, GlobalKey.new);
+  }
+
+  RenderBox? _renderBoxFor(GlobalKey key) {
+    final renderObject = key.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      return renderObject;
+    }
+    return null;
+  }
+
+  void _startDrag(String blockKey, LongPressStartDetails details) {
+    final draggedTabKey = _tabKeys[blockKey];
+    final tabBox = draggedTabKey == null ? null : _renderBoxFor(draggedTabKey);
+    final stripBox = _renderBoxFor(_tabStripKey);
+    final centers = <String, double>{};
+    for (final block in widget.blocks) {
+      final key = _blockKey(block);
+      final tabKey = _tabKeys[key];
+      final box = tabKey == null ? null : _renderBoxFor(tabKey);
+      if (box == null) {
+        continue;
+      }
+      final origin = box.localToGlobal(Offset.zero);
+      centers[key] = origin.dx + box.size.width / 2;
+    }
+    final tabOrigin = tabBox?.localToGlobal(Offset.zero);
+    final stripOrigin = stripBox?.localToGlobal(Offset.zero);
+    setState(() {
+      _draggingBlockKey = blockKey;
+      _dragStartX = details.globalPosition.dx;
+      _dragOffsetX = 0;
+      _dragTabCenters
+        ..clear()
+        ..addAll(centers);
+      _minimumDragOffsetX = tabBox != null &&
+              stripBox != null &&
+              tabOrigin != null &&
+              stripOrigin != null
+          ? stripOrigin.dx - tabOrigin.dx
+          : null;
+      _maximumDragOffsetX = tabBox != null &&
+              stripBox != null &&
+              tabOrigin != null &&
+              stripOrigin != null
+          ? stripOrigin.dx +
+              stripBox.size.width -
+              (tabOrigin.dx + tabBox.size.width)
+          : null;
+    });
+  }
+
+  void _updateDrag(LongPressMoveUpdateDetails details) {
+    if (_draggingBlockKey == null) {
+      return;
+    }
+    var offset = details.globalPosition.dx - _dragStartX;
+    final minimum = _minimumDragOffsetX;
+    final maximum = _maximumDragOffsetX;
+    if (minimum != null && maximum != null) {
+      offset = offset.clamp(minimum, maximum).toDouble();
+    }
+    if (offset == _dragOffsetX) {
+      return;
+    }
+    setState(() => _dragOffsetX = offset);
+  }
+
+  void _finishDrag(LongPressEndDetails details) {
+    final blockKey = _draggingBlockKey;
+    if (blockKey == null) {
+      return;
+    }
+    final oldIndex = widget.blocks.indexWhere(
+      (block) => _blockKey(block) == blockKey,
+    );
+    final newIndex = _targetIndexFor(details.globalPosition.dx);
+    _resetDrag();
+    if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex) {
+      widget.onReorder(oldIndex, newIndex);
+    }
+  }
+
+  int _targetIndexFor(double globalX) {
+    if (_dragTabCenters.isEmpty) {
+      return -1;
+    }
+    var targetIndex = -1;
+    for (var index = 0; index < widget.blocks.length; index++) {
+      final center = _dragTabCenters[_blockKey(widget.blocks[index])];
+      if (center != null && globalX >= center) {
+        targetIndex = index;
+      }
+    }
+    if (targetIndex < 0 && widget.blocks.isNotEmpty) {
+      return 0;
+    }
+    return targetIndex;
+  }
+
+  void _resetDrag() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _draggingBlockKey = null;
+      _dragOffsetX = 0;
+      _minimumDragOffsetX = null;
+      _maximumDragOffsetX = null;
+      _dragTabCenters.clear();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
@@ -1343,36 +1484,25 @@ class _QolipBlockTabBar extends StatelessWidget {
           children: [
             Expanded(
               child: AnimatedBuilder(
-                animation: controller,
+                animation: widget.controller,
                 builder: (context, _) {
                   return SizedBox(
                     height: 38,
-                    child: Builder(
-                      builder: (boundaryContext) {
-                        return ReorderableListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.zero,
-                          buildDefaultDragHandles: false,
-                          dragBoundaryProvider: (_) {
-                            final renderObject =
-                                boundaryContext.findRenderObject();
-                            if (renderObject is! RenderBox ||
-                                !renderObject.hasSize) {
-                              return null;
-                            }
-                            final origin =
-                                renderObject.localToGlobal(Offset.zero);
-                            return _QolipTabDragBoundary(
-                              origin & renderObject.size,
-                            );
-                          },
-                          onReorderItem: onReorder,
-                          children: [
-                            for (var index = 0; index < blocks.length; index++)
-                              _buildTab(context, blocks[index], index),
-                          ],
-                        );
-                      },
+                    child: SingleChildScrollView(
+                      key: _tabStripKey,
+                      scrollDirection: Axis.horizontal,
+                      physics: _draggingBlockKey == null
+                          ? null
+                          : const NeverScrollableScrollPhysics(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var index = 0;
+                              index < widget.blocks.length;
+                              index++)
+                            _buildTab(context, widget.blocks[index], index),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -1383,7 +1513,7 @@ class _QolipBlockTabBar extends StatelessWidget {
               child: Tooltip(
                 message: 'Blok qo‘shish',
                 child: InkWell(
-                  onTap: onAdd,
+                  onTap: widget.onAdd,
                   child: const Center(
                     child: Icon(Icons.add_rounded, size: 20),
                   ),
@@ -1398,24 +1528,39 @@ class _QolipBlockTabBar extends StatelessWidget {
 
   Widget _buildTab(BuildContext context, QolipBlock block, int index) {
     final theme = Theme.of(context);
-    final selected = controller.index == index;
-    return ReorderableDelayedDragStartListener(
-      key: ValueKey('qolip-block-${block.name.trim().toLowerCase()}'),
-      index: index,
+    final blockKey = _blockKey(block);
+    final dragging = _draggingBlockKey == blockKey;
+    final selected = widget.controller.index == index;
+    return GestureDetector(
+      key: _tabKeyFor(block),
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: (details) => _startDrag(blockKey, details),
+      onLongPressMoveUpdate: _updateDrag,
+      onLongPressEnd: _finishDrag,
+      onLongPressCancel: _resetDrag,
       child: Semantics(
         button: true,
         selected: selected,
         label: block.name,
-        child: InkWell(
-          onTap: () {
-            controller.animateTo(index);
-            onTap(index);
-          },
-          child: Container(
+        child: Transform.translate(
+          offset: Offset(_draggingBlockKey == blockKey ? _dragOffsetX : 0,
+              dragging ? -2 : 0),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
             constraints: const BoxConstraints(minWidth: 72),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
+              color: dragging ? theme.colorScheme.surfaceContainerHigh : null,
+              boxShadow: dragging
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
               border: Border(
                 bottom: BorderSide(
                   color:
@@ -1424,54 +1569,26 @@ class _QolipBlockTabBar extends StatelessWidget {
                 ),
               ),
             ),
-            child: Text(
-              block.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: selected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
+            child: InkWell(
+              onTap: () {
+                widget.controller.animateTo(index);
+                widget.onTap(index);
+              },
+              child: Text(
+                block.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _QolipTabDragBoundary extends DragBoundaryDelegate<ui.Rect> {
-  _QolipTabDragBoundary(this.boundary);
-
-  final ui.Rect boundary;
-
-  @override
-  bool isWithinBoundary(ui.Rect draggedObject) {
-    return boundary.contains(draggedObject.topLeft) &&
-        boundary.contains(draggedObject.bottomRight);
-  }
-
-  @override
-  ui.Rect nearestPositionWithinBoundary(ui.Rect draggedObject) {
-    final maxLeft = boundary.right - draggedObject.width;
-    final maxTop = boundary.bottom - draggedObject.height;
-    if (maxLeft < boundary.left || maxTop < boundary.top) {
-      return ui.Rect.fromLTWH(
-        boundary.left,
-        boundary.top,
-        draggedObject.width,
-        draggedObject.height,
-      );
-    }
-    final left = draggedObject.left.clamp(boundary.left, maxLeft).toDouble();
-    final top = draggedObject.top.clamp(boundary.top, maxTop).toDouble();
-    return ui.Rect.fromLTWH(
-      left,
-      top,
-      draggedObject.width,
-      draggedObject.height,
     );
   }
 }
