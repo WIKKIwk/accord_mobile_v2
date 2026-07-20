@@ -68,6 +68,10 @@ void main() {
     expect(request.epc, response.epc);
     expect(request.labelKind, 'material_product');
     expect(request.materialProductLabelTitle, 'CPP 1030/25  23 kg');
+    expect(
+      request.largeQrLabelFooter(request.epc),
+      'EPC: 303132333435363738394142',
+    );
   });
 
   test('print success message distinguishes fast printed status', () {
@@ -324,6 +328,10 @@ void main() {
     expect(plan.grossQty, 92);
     expect(plan.netQty, 92);
     expect(plan.qrPayload, 'RPS-BATCH:BATCH-HISTORY-92');
+    expect(
+      plan.toUsbRequest(printer: 'godex').largeQrLabelFooter(plan.qrPayload),
+      'BATCH ID: RPS-BATCH:BATCH-HISTORY-92',
+    );
     expect(prints.map((entry) => entry.epc), isNot(contains(plan.qrPayload)));
     expect(request['gross_qty'], 92);
     expect(request['print_mode'], 'label');

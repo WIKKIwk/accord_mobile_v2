@@ -239,6 +239,17 @@ class UsbRpsPrintRequest {
     return '$name  $net $normalizedUnit';
   }
 
+  String largeQrLabelFooter(String qrPayload) {
+    final payload = qrPayload.trim();
+    if (isMaterialProductLabel) {
+      return 'EPC: $payload';
+    }
+    if (isQolipCodeLabel && payload.toUpperCase().startsWith('RPS-BATCH:')) {
+      return 'BATCH ID: $payload';
+    }
+    return itemCode.trim().isEmpty ? payload : itemCode.trim();
+  }
+
   double get effectiveProgressQty => progressQty ?? netQty;
 
   UsbRpsPrintRequest forPrinter(UsbPrinterProfile profile) {

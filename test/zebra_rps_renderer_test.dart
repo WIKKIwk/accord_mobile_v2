@@ -118,6 +118,7 @@ void main() {
     );
 
     expect(zpl, contains('^FDLA,RPS-BATCH:BATCH-HISTORY-92^FS'));
+    expect(zpl, contains('^FDBATCH ID: RPS-BATCH:BATCH-HISTORY-92^FS'));
     expect(zpl, isNot(contains('^RFW')));
     expect(zpl, isNot(contains('^BCN')));
   });
@@ -142,6 +143,8 @@ void main() {
     expect(zpl, contains('^RFW,H,,,A^FD$epc^FS'));
     expect(zpl, contains('^FDLA,$epc^FS'));
     expect(zpl, contains('^FDCPP 1030/25  23 kg^FS'));
+    expect(zpl, contains('^FDEPC: $epc^FS'));
+    expect(zpl, isNot(contains('^FDCPP 1030/25^FS')));
     expect(zpl, isNot(contains('^BCN')));
   });
 }

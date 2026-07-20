@@ -79,10 +79,11 @@ class ZebraRpsRenderer {
               : request.itemName,
       fallback: '-',
     );
-    final code = _sanitize(
-      request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
+    final footer = _sanitize(
+      request.largeQrLabelFooter(payload),
       fallback: '-',
     );
+    final footerFont = footer.length > 43 ? '^A0N,14,12' : '^A0N,18,16';
     final rfidBlock = request.isMaterialProductLabel &&
             request.printMode.trim().toLowerCase() == 'rfid'
         ? '^RS8,,,1,N\n^RFW,H,,,A^FD$payload^FS\n'
@@ -94,8 +95,8 @@ class ZebraRpsRenderer {
         '^FO8,2^A0N,24,20^FB784,2,28,C,0\n'
         '^FD$name^FS\n'
         '^FO120,56^BQN,2,11^FDLA,$payload^FS\n'
-        '^FO8,352^A0N,18,16^FB784,1,0,C,0\n'
-        '^FD$code^FS\n'
+        '^FO8,352$footerFont^FB784,1,0,C,0\n'
+        '^FD$footer^FS\n'
         '^PQ1\n'
         '^XZ\n';
     return Uint8List.fromList(utf8.encode(zpl));

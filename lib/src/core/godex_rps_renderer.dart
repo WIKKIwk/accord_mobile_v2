@@ -130,14 +130,12 @@ class GodexRpsRenderer {
               ? request.itemCode
               : request.itemName,
     );
-    final code = _uppercaseClean(
-      request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
-    );
     final payload = _uppercaseClean(request.epc);
     if (payload.isEmpty) {
       throw StateError('qr payload is empty');
     }
-    final textGraphic = _renderQolipCodeTextGraphic(name, code);
+    final footer = _uppercaseClean(request.largeQrLabelFooter(payload));
+    final textGraphic = _renderQolipCodeTextGraphic(name, footer);
     final qrGraphic = _renderQrGraphic(payload, 288);
     final out = BytesBuilder(copy: false);
 
@@ -206,7 +204,7 @@ class GodexRpsRenderer {
       drawCentered(line, lineIndex * 28, scale: 3);
       lineIndex++;
     }
-    drawCentered(code, 352, scale: 2);
+    drawCentered(code, 352, scale: code.length > 33 ? 1 : 2);
     return _encodeMonoBmp(bitmap.cropInk());
   }
 
