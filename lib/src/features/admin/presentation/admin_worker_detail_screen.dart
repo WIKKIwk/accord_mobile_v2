@@ -10,55 +10,25 @@ import '../../../core/timers/retry_after_countdown.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_detail_field.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
-import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
-import 'widgets/admin_warehouse_picker_sheet.dart';
 
 const double _workerDetailPanelGap = 4;
 const double _workerDetailFieldRadius = 14;
-
-typedef AdminWorkerDetailLoader = Future<AdminWorkerDetail> Function(
-  AdminUserListEntry entry,
-);
-typedef AdminWorkerWarehouseAssigner = Future<AdminWarehouseAssignment>
-    Function({
-  required String warehouse,
-  required UserRole principalRole,
-  required String principalRef,
-  required String displayName,
-});
-typedef AdminWorkerWarehouseUnassigner = Future<AdminWarehouseAssignment>
-    Function({
-  required String warehouse,
-  required UserRole principalRole,
-  required String principalRef,
-});
 
 class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({
     super.key,
     required this.entry,
     this.readOnly = false,
-    this.detailLoader,
-    this.warehousesLoader,
-    this.warehouseAssignmentsLoader,
-    this.warehouseAssigner,
-    this.warehouseUnassigner,
   });
 
   final AdminUserListEntry entry;
   final bool readOnly;
-  final AdminWorkerDetailLoader? detailLoader;
-  final Future<List<AdminWarehouse>> Function()? warehousesLoader;
-  final Future<List<AdminWarehouseAssignment>> Function()?
-      warehouseAssignmentsLoader;
-  final AdminWorkerWarehouseAssigner? warehouseAssigner;
-  final AdminWorkerWarehouseUnassigner? warehouseUnassigner;
 
   @override
   State<AdminWorkerDetailScreen> createState() =>
@@ -71,22 +41,15 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   bool _loading = true;
   bool _savingPhone = false;
   bool _regeneratingCode = false;
-  bool _addingWarehouse = false;
-  String? _removingWarehouse;
   bool _adminPanelExpanded = false;
   bool _changed = false;
-  List<String> _assignedWarehouses = const <String>[];
   late final RetryAfterCountdown _retryAfter;
   int get _retryAfterSec => _retryAfter.seconds;
 
   String get _workerId => widget.entry.id.trim();
-  bool get _isQolipchi =>
-      widget.entry.kind == AdminUserKind.qolipchi ||
-      widget.entry.principalRole == UserRole.qolipchi;
   bool get _isSystemUser =>
       widget.entry.kind == AdminUserKind.qolipchi ||
       widget.entry.kind == AdminUserKind.boyoqchi;
-  bool get _warehouseManagementEnabled => _isQolipchi && !widget.readOnly;
 
   @override
   void initState() {
@@ -109,67 +72,36 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
 
   void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
-  Future<AdminWorkerDetail> _loadDetail() async {
-    final loadDetail = widget.detailLoader;
-    if (loadDetail != null) {
-      return loadDetail(widget.entry);
-    }
-    if (_isSystemUser) {
-      final user = await MobileApi.instance.adminSystemUserDetail(_workerId);
-      return AdminWorkerDetail(
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        avatarUrl: user.avatarUrl,
-        level: widget.entry.roleLabel,
-        code: user.code,
-        codeLocked: user.codeLocked,
-        codeRetryAfterSec: user.codeRetryAfterSec,
-      );
-    }
-    return MobileApi.instance.adminWorkerDetail(_workerId);
-  }
-
-  Future<List<String>> _loadAssignedWarehouses() async {
-    final loadAssignments = widget.warehouseAssignmentsLoader;
-    final assignments = loadAssignments == null
-        ? await MobileApi.instance.adminWarehouseAssignments()
-        : await loadAssignments();
-    final normalizedRef = _workerId.toLowerCase();
-    return _normalizedWorkerWarehouseNames(
-      assignments
-          .where(
-            (assignment) =>
-                assignment.principalRole == UserRole.qolipchi &&
-                assignment.principalRef.trim().toLowerCase() == normalizedRef,
-          )
-          .map((assignment) => assignment.warehouse),
-    );
-  }
-
   Future<void> _reload() async {
     setState(() {
       _loading = true;
       _loadError = null;
     });
     try {
-      final detail = await _loadDetail().timeout(
+      final detail = await (_isSystemUser
+              ? MobileApi.instance.adminSystemUserDetail(_workerId).then(
+                    (user) => AdminWorkerDetail(
+                      id: user.id,
+                      name: user.name,
+                      phone: user.phone,
+                      avatarUrl: user.avatarUrl,
+                      level: widget.entry.roleLabel,
+                      code: user.code,
+                      codeLocked: user.codeLocked,
+                      codeRetryAfterSec: user.codeRetryAfterSec,
+                    ),
+                  )
+              : MobileApi.instance.adminWorkerDetail(_workerId))
+          .timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Profil yuklash vaqti tugadi'),
       );
-      final assignedWarehouses = _warehouseManagementEnabled
-          ? await _loadAssignedWarehouses().timeout(
-              const Duration(seconds: 15),
-              onTimeout: () => throw Exception('Omborlar yuklash vaqti tugadi'),
-            )
-          : const <String>[];
       if (!mounted) {
         return;
       }
       _setRetryAfter(detail.codeRetryAfterSec);
       setState(() {
         _detail = detail;
-        _assignedWarehouses = assignedWarehouses;
         _loadError = null;
         _loading = false;
       });
@@ -274,141 +206,6 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     ).showSnackBar(const SnackBar(content: Text('Code nusxalandi')));
   }
 
-  Future<void> _addWarehouse() async {
-    final detail = _detail;
-    if (detail == null || !_warehouseManagementEnabled || _addingWarehouse) {
-      return;
-    }
-    setState(() => _addingWarehouse = true);
-    try {
-      final loadWarehouses = widget.warehousesLoader;
-      final warehouses = loadWarehouses == null
-          ? await MobileApi.instance.adminWarehouses(limit: 500)
-          : await loadWarehouses();
-      final assignedKeys = _assignedWarehouses
-          .map((warehouse) => warehouse.trim().toLowerCase())
-          .toSet();
-      final available = _normalizedWorkerWarehouseNames(
-        warehouses
-            .where((warehouse) => !warehouse.isGroup)
-            .map((warehouse) => warehouse.warehouse)
-            .where(
-              (warehouse) =>
-                  !assignedKeys.contains(warehouse.trim().toLowerCase()),
-            ),
-      );
-      if (!mounted) {
-        return;
-      }
-      if (available.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biriktirilmagan ombor topilmadi')),
-        );
-        return;
-      }
-      final warehouse = await showAdminWarehousePicker(
-        context,
-        available: available,
-      );
-      if (!mounted || warehouse == null) {
-        return;
-      }
-      final assignWarehouse =
-          widget.warehouseAssigner ?? MobileApi.instance.adminAssignWarehouse;
-      final assignment = await assignWarehouse(
-        warehouse: warehouse,
-        principalRole: UserRole.qolipchi,
-        principalRef: _workerId,
-        displayName: detail.name,
-      );
-      final updated = await _loadAssignedWarehouses();
-      final assignmentConfirmed = updated.any(
-        (item) =>
-            item.trim().toLowerCase() ==
-            assignment.warehouse.trim().toLowerCase(),
-      );
-      if (!assignmentConfirmed) {
-        throw const MobileApiException(
-          code: 'warehouse_assignment_not_confirmed',
-          message: 'Server ombor biriktirilganini tasdiqlamadi',
-        );
-      }
-      _changed = true;
-      if (mounted) {
-        setState(() => _assignedWarehouses = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${assignment.warehouse} biriktirildi')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ombor biriktirilmadi: $error')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _addingWarehouse = false);
-      }
-    }
-  }
-
-  Future<void> _removeWarehouse(String warehouse) async {
-    final detail = _detail;
-    if (detail == null ||
-        !_warehouseManagementEnabled ||
-        _removingWarehouse != null) {
-      return;
-    }
-    final confirmed = await showM3ConfirmDialog(
-      context: context,
-      title: 'Omborni uzish',
-      message: '$warehouse omborini ${detail.name} profilidan uzaymi?',
-      cancelLabel: 'Yo‘q',
-      confirmLabel: 'Ha',
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-    setState(() => _removingWarehouse = warehouse);
-    try {
-      final unassignWarehouse = widget.warehouseUnassigner ??
-          MobileApi.instance.adminUnassignWarehouse;
-      await unassignWarehouse(
-        warehouse: warehouse,
-        principalRole: UserRole.qolipchi,
-        principalRef: _workerId,
-      );
-      final updated = await _loadAssignedWarehouses();
-      final assignmentStillExists = updated.any(
-        (item) => item.trim().toLowerCase() == warehouse.trim().toLowerCase(),
-      );
-      if (assignmentStillExists) {
-        throw const MobileApiException(
-          code: 'warehouse_unassignment_not_confirmed',
-          message: 'Server ombor uzilganini tasdiqlamadi',
-        );
-      }
-      _changed = true;
-      if (mounted) {
-        setState(() => _assignedWarehouses = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$warehouse profildan uzildi')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ombor uzilmadi: $error')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _removingWarehouse = null);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final detail = _detail ??
@@ -441,7 +238,6 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         child: ColoredBox(
           color: AppTheme.shellStart(context),
           child: ListView(
-            key: const ValueKey('admin-worker-detail-scroll'),
             padding: const EdgeInsets.fromLTRB(
               _workerDetailPanelGap,
               _workerDetailPanelGap,
@@ -454,8 +250,6 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 child: _WorkerProfileExpandableCard(
                   detail: detail,
                   readOnly: widget.readOnly,
-                  warehouseManagementEnabled: _warehouseManagementEnabled,
-                  assignedWarehouses: _assignedWarehouses,
                   statusLabel: _loading
                       ? 'Yuklanmoqda'
                       : _loadError != null
@@ -464,16 +258,12 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   expanded: _adminPanelExpanded,
                   savingPhone: _savingPhone,
                   regeneratingCode: _regeneratingCode,
-                  addingWarehouse: _addingWarehouse,
-                  removingWarehouse: _removingWarehouse,
                   onExpandedChanged: (expanded) {
                     setState(() => _adminPanelExpanded = expanded);
                   },
                   onSavePhone: _savePhone,
                   onRegenerateCode: _regenerateCode,
                   onCopyCode: _copyCode,
-                  onAddWarehouse: _addWarehouse,
-                  onRemoveWarehouse: _removeWarehouse,
                 ),
               ),
               if (!widget.readOnly && !_isSystemUser) ...[
@@ -511,39 +301,27 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   const _WorkerProfileExpandableCard({
     required this.detail,
     required this.readOnly,
-    required this.warehouseManagementEnabled,
-    required this.assignedWarehouses,
     required this.statusLabel,
     required this.expanded,
     required this.savingPhone,
     required this.regeneratingCode,
-    required this.addingWarehouse,
-    required this.removingWarehouse,
     required this.onExpandedChanged,
     required this.onSavePhone,
     required this.onRegenerateCode,
     required this.onCopyCode,
-    required this.onAddWarehouse,
-    required this.onRemoveWarehouse,
   });
 
   final AdminWorkerDetail detail;
   final bool readOnly;
-  final bool warehouseManagementEnabled;
-  final List<String> assignedWarehouses;
   final String statusLabel;
   final bool expanded;
   final bool savingPhone;
   final bool regeneratingCode;
-  final bool addingWarehouse;
-  final String? removingWarehouse;
   final ValueChanged<bool> onExpandedChanged;
   final Future<void> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
-  final Future<void> Function() onAddWarehouse;
-  final Future<void> Function(String warehouse) onRemoveWarehouse;
 
   @override
   Widget build(BuildContext context) {
@@ -633,11 +411,6 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                       icon: Icons.badge_rounded,
                       label: level.isEmpty ? 'Daraja belgilanmagan' : level,
                     ),
-                    if (warehouseManagementEnabled)
-                      ProfileInfoChip(
-                        icon: Icons.warehouse_outlined,
-                        label: '${assignedWarehouses.length} ta ombor',
-                      ),
                   ],
                 ),
               ),
@@ -673,15 +446,9 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                     detail: detail,
                     savingPhone: savingPhone,
                     regeneratingCode: regeneratingCode,
-                    warehouseManagementEnabled: warehouseManagementEnabled,
-                    assignedWarehouses: assignedWarehouses,
-                    addingWarehouse: addingWarehouse,
-                    removingWarehouse: removingWarehouse,
                     onSavePhone: onSavePhone,
                     onRegenerateCode: onRegenerateCode,
                     onCopyCode: onCopyCode,
-                    onAddWarehouse: onAddWarehouse,
-                    onRemoveWarehouse: onRemoveWarehouse,
                   ),
                 )
               : const SizedBox.shrink(),
@@ -696,30 +463,18 @@ class _WorkerAdminPanel extends StatelessWidget {
     required this.detail,
     required this.savingPhone,
     required this.regeneratingCode,
-    required this.warehouseManagementEnabled,
-    required this.assignedWarehouses,
-    required this.addingWarehouse,
-    required this.removingWarehouse,
     required this.onSavePhone,
     required this.onRegenerateCode,
     required this.onCopyCode,
-    required this.onAddWarehouse,
-    required this.onRemoveWarehouse,
   });
 
   final AdminWorkerDetail detail;
   final bool savingPhone;
   final bool regeneratingCode;
-  final bool warehouseManagementEnabled;
-  final List<String> assignedWarehouses;
-  final bool addingWarehouse;
-  final String? removingWarehouse;
   final Future<void> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
-  final Future<void> Function() onAddWarehouse;
-  final Future<void> Function(String warehouse) onRemoveWarehouse;
 
   @override
   Widget build(BuildContext context) {
@@ -790,84 +545,9 @@ class _WorkerAdminPanel extends StatelessWidget {
             ),
           ),
         ],
-        if (warehouseManagementEnabled) ...[
-          const SizedBox(height: 18),
-          Text('Biriktirilgan omborlar', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text(
-            assignedWarehouses.isEmpty
-                ? 'Ombor biriktirilmagan.'
-                : 'Qolipchi faqat shu omborlar bilan ishlaydi.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: assignedWarehouses.isEmpty
-                  ? scheme.error
-                  : scheme.onSurfaceVariant,
-            ),
-          ),
-          if (assignedWarehouses.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final warehouse in assignedWarehouses)
-                  InputChip(
-                    key: ValueKey(
-                      'admin-qolipchi-detail-warehouse-$warehouse',
-                    ),
-                    avatar: const Icon(Icons.warehouse_outlined, size: 17),
-                    label: Text(warehouse),
-                    deleteIcon: removingWarehouse == warehouse
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.close_rounded, size: 18),
-                    onDeleted: removingWarehouse == null
-                        ? () => onRemoveWarehouse(warehouse)
-                        : null,
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const ValueKey('admin-qolipchi-detail-add-warehouse'),
-              style: appOutlinedActionButtonStyle(
-                borderRadius: _workerDetailFieldRadius,
-              ),
-              onPressed: addingWarehouse ? null : onAddWarehouse,
-              icon: addingWarehouse
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_rounded),
-              label: Text(
-                addingWarehouse ? 'Yuklanmoqda...' : 'Ombor biriktirish',
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
-}
-
-List<String> _normalizedWorkerWarehouseNames(Iterable<String> values) {
-  final byKey = <String, String>{};
-  for (final value in values) {
-    final normalized = value.trim();
-    if (normalized.isNotEmpty) {
-      byKey.putIfAbsent(normalized.toLowerCase(), () => normalized);
-    }
-  }
-  final result = byKey.values.toList(growable: false);
-  result
-      .sort((left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
-  return result;
 }
 
 class _WorkerPhoneInlineField extends StatefulWidget {
