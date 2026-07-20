@@ -26,13 +26,32 @@ class PrintService {
     }
     final profile = printerProfile ?? await detectOfflinePrinter();
     final effectiveRequest = request.forPrinter(profile);
-    final bytes = switch (profile.kind) {
-      UsbPrinterKind.godex => GodexRpsRenderer.renderRepeated(effectiveRequest),
-      UsbPrinterKind.zebra => ZebraRpsRenderer.renderRepeated(effectiveRequest),
-    };
-    final transport = kIsWeb
-        ? await _printThroughMacBridge(bytes, profile)
-        : await NativeUsbPrinter.printRaw(bytes, printerKind: profile.kind);
+    late final Uint8List bytes;
+    late final Map<String, Object?> transport;
+    if (profile.kind == UsbPrinterKind.godex && !kIsWeb) {
+      final job = GodexRpsRenderer.renderAndroidRepeated(effectiveRequest);
+      bytes = job.bytes;
+      transport = await NativeUsbPrinter.printRaw(
+        bytes,
+        printerKind: profile.kind,
+        godexGraphicNames: job.graphicNames,
+        labelCount: job.labelCount,
+      );
+    } else {
+      bytes = switch (profile.kind) {
+        UsbPrinterKind.godex =>
+          GodexRpsRenderer.renderRepeated(effectiveRequest),
+        UsbPrinterKind.zebra =>
+          ZebraRpsRenderer.renderRepeated(effectiveRequest),
+      };
+      transport = kIsWeb
+          ? await _printThroughMacBridge(bytes, profile)
+          : await NativeUsbPrinter.printRaw(
+              bytes,
+              printerKind: profile.kind,
+              labelCount: effectiveRequest.printCount,
+            );
+    }
     return UsbRpsPrintResponse.fromMap({
       ...effectiveRequest.toJson(),
       ...transport,

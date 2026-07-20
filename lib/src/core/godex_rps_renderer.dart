@@ -4,6 +4,18 @@ import 'dart:typed_data';
 
 import 'native_usb_printer.dart';
 
+class GodexRpsPrintJob {
+  const GodexRpsPrintJob({
+    required this.bytes,
+    required this.graphicNames,
+    required this.labelCount,
+  });
+
+  final Uint8List bytes;
+  final List<String> graphicNames;
+  final int labelCount;
+}
+
 /// Produces the raw EZPL stream used by the Android Godex printer path.
 ///
 /// Keep this renderer byte-compatible with GodexRpsRenderer.kt. Transport is
@@ -11,6 +23,12 @@ import 'native_usb_printer.dart';
 /// bytes to different USB transports.
 class GodexRpsRenderer {
   const GodexRpsRenderer._();
+
+  static const _legacyGraphicNames = _GodexGraphicNames(
+    text: 'TEXTLBL',
+    qr: 'QRLBL',
+  );
+  static int _androidGraphicSequence = 0;
 
   static QrCodeMatrix qrMatrix(String payload) {
     final normalized = _uppercaseClean(payload);
@@ -29,11 +47,47 @@ class GodexRpsRenderer {
   }
 
   static Uint8List render(UsbRpsPrintRequest request) {
+    return _renderJob(
+      request,
+      graphicNames: _legacyGraphicNames,
+      deleteExistingGraphics: true,
+      includeFinalStatus: true,
+    ).bytes;
+  }
+
+  static GodexRpsPrintJob renderAndroid(
+    UsbRpsPrintRequest request, {
+    String? graphicToken,
+  }) {
+    return _renderJob(
+      request,
+      graphicNames: _androidGraphicNames(graphicToken),
+      deleteExistingGraphics: false,
+      includeFinalStatus: true,
+    );
+  }
+
+  static GodexRpsPrintJob _renderJob(
+    UsbRpsPrintRequest request, {
+    required _GodexGraphicNames graphicNames,
+    required bool deleteExistingGraphics,
+    required bool includeFinalStatus,
+  }) {
     if (request.isQolipCellLabel) {
-      return _renderQolipCell(request);
+      return _renderQolipCell(
+        request,
+        graphicNames: graphicNames,
+        deleteExistingGraphics: deleteExistingGraphics,
+        includeFinalStatus: includeFinalStatus,
+      );
     }
     if (request.isQolipCodeLabel || request.isMaterialProductLabel) {
-      return _renderQolipCode(request);
+      return _renderQolipCode(
+        request,
+        graphicNames: graphicNames,
+        deleteExistingGraphics: deleteExistingGraphics,
+        includeFinalStatus: includeFinalStatus,
+      );
     }
     final content = _PackLabelContent(
       companyName: _uppercaseClean('Accord'),
@@ -56,30 +110,46 @@ class GodexRpsRenderer {
     }
 
     send('^XSET,BUZZER,0');
-    send('~MDELG,TEXTLBL');
-    send('~EB,TEXTLBL,${textGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.text}');
+    }
+    send('~EB,${graphicNames.text},${textGraphic.length}');
     out.add(textGraphic);
-    send('~MDELG,QRLBL');
-    send('~EB,QRLBL,${qrGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.qr}');
+    }
+    send('~EB,${graphicNames.qr},${qrGraphic.length}');
     out.add(qrGraphic);
     final commands = request.isProgressLabel
         ? _buildProgressCommands(
             content,
+            graphicNames: graphicNames,
             grossQty: request.grossQty,
             progressQty: request.effectiveProgressQty,
             progressUnit: request.progressUnit.trim().isEmpty
                 ? request.unit
                 : request.progressUnit,
           )
-        : _buildPackCommands(content);
+        : _buildPackCommands(content, graphicNames: graphicNames);
     for (final command in commands) {
       send(command);
     }
-    send('~S,STATUS');
-    return out.takeBytes();
+    if (includeFinalStatus) {
+      send('~S,STATUS');
+    }
+    return GodexRpsPrintJob(
+      bytes: out.takeBytes(),
+      graphicNames: graphicNames.values,
+      labelCount: 1,
+    );
   }
 
-  static Uint8List _renderQolipCell(UsbRpsPrintRequest request) {
+  static GodexRpsPrintJob _renderQolipCell(
+    UsbRpsPrintRequest request, {
+    required _GodexGraphicNames graphicNames,
+    required bool deleteExistingGraphics,
+    required bool includeFinalStatus,
+  }) {
     final cellName = _uppercaseClean(
       request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
     );
@@ -98,11 +168,15 @@ class GodexRpsRenderer {
     }
 
     send('^XSET,BUZZER,0');
-    send('~MDELG,TEXTLBL');
-    send('~EB,TEXTLBL,${textGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.text}');
+    }
+    send('~EB,${graphicNames.text},${textGraphic.length}');
     out.add(textGraphic);
-    send('~MDELG,QRLBL');
-    send('~EB,QRLBL,${qrGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.qr}');
+    }
+    send('~EB,${graphicNames.qr},${qrGraphic.length}');
     out.add(qrGraphic);
     send('~S,ESG');
     send('^AD');
@@ -115,14 +189,25 @@ class GodexRpsRenderer {
     send('^H10');
     send('^P1');
     send('^L');
-    send('Y0,0,TEXTLBL');
-    send('Y56,96,QRLBL');
+    send('Y0,0,${graphicNames.text}');
+    send('Y56,96,${graphicNames.qr}');
     send('E');
-    send('~S,STATUS');
-    return out.takeBytes();
+    if (includeFinalStatus) {
+      send('~S,STATUS');
+    }
+    return GodexRpsPrintJob(
+      bytes: out.takeBytes(),
+      graphicNames: graphicNames.values,
+      labelCount: 1,
+    );
   }
 
-  static Uint8List _renderQolipCode(UsbRpsPrintRequest request) {
+  static GodexRpsPrintJob _renderQolipCode(
+    UsbRpsPrintRequest request, {
+    required _GodexGraphicNames graphicNames,
+    required bool deleteExistingGraphics,
+    required bool includeFinalStatus,
+  }) {
     final name = _uppercaseClean(
       request.isMaterialProductLabel
           ? request.materialProductLabelTitle
@@ -146,11 +231,15 @@ class GodexRpsRenderer {
     }
 
     send('^XSET,BUZZER,0');
-    send('~MDELG,TEXTLBL');
-    send('~EB,TEXTLBL,${textGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.text}');
+    }
+    send('~EB,${graphicNames.text},${textGraphic.length}');
     out.add(textGraphic);
-    send('~MDELG,QRLBL');
-    send('~EB,QRLBL,${qrGraphic.length}');
+    if (deleteExistingGraphics) {
+      send('~MDELG,${graphicNames.qr}');
+    }
+    send('~EB,${graphicNames.qr},${qrGraphic.length}');
     out.add(qrGraphic);
     send('~S,ESG');
     send('^AD');
@@ -163,11 +252,17 @@ class GodexRpsRenderer {
     send('^H10');
     send('^P1');
     send('^L');
-    send('Y0,0,TEXTLBL');
-    send('Y56,56,QRLBL');
+    send('Y0,0,${graphicNames.text}');
+    send('Y56,56,${graphicNames.qr}');
     send('E');
-    send('~S,STATUS');
-    return out.takeBytes();
+    if (includeFinalStatus) {
+      send('~S,STATUS');
+    }
+    return GodexRpsPrintJob(
+      bytes: out.takeBytes(),
+      graphicNames: graphicNames.values,
+      labelCount: 1,
+    );
   }
 
   static Uint8List _renderCellNameGraphic(String cellName) {
@@ -218,7 +313,34 @@ class GodexRpsRenderer {
     return output.takeBytes();
   }
 
-  static List<String> _buildPackCommands(_PackLabelContent content) {
+  static GodexRpsPrintJob renderAndroidRepeated(
+    UsbRpsPrintRequest request,
+  ) {
+    final output = BytesBuilder(copy: false);
+    final graphicNames = <String>[];
+    final count = request.printCount > 0 ? request.printCount : 1;
+    for (var index = 0; index < count; index++) {
+      final names = _androidGraphicNames(null);
+      final rendered = _renderJob(
+        request,
+        graphicNames: names,
+        deleteExistingGraphics: false,
+        includeFinalStatus: index == count - 1,
+      );
+      output.add(rendered.bytes);
+      graphicNames.addAll(rendered.graphicNames);
+    }
+    return GodexRpsPrintJob(
+      bytes: output.takeBytes(),
+      graphicNames: List.unmodifiable(graphicNames),
+      labelCount: count,
+    );
+  }
+
+  static List<String> _buildPackCommands(
+    _PackLabelContent content, {
+    required _GodexGraphicNames graphicNames,
+  }) {
     final commands = <String>[
       '~S,ESG',
       '^AD',
@@ -231,7 +353,7 @@ class GodexRpsRenderer {
       '^H10',
       '^P1',
       '^L',
-      'Y0,0,TEXTLBL',
+      'Y0,0,${graphicNames.text}',
       'AB,16,72,1,1,0,0,COMPANY: ${content.companyName}',
     ];
     final lines = _wrapTextForEzpl(
@@ -247,13 +369,14 @@ class GodexRpsRenderer {
     commands.add('AB,16,264,1,1,0,0,NETTO: ${content.kgText} KG');
     commands.add('AB,16,304,1,1,0,0,BRUTTO: ${content.bruttoText} KG');
     commands.add('BA,0,24,1,2,42,0,0,${content.epc}');
-    commands.add('Y224,224,QRLBL');
+    commands.add('Y224,224,${graphicNames.qr}');
     commands.add('E');
     return commands;
   }
 
   static List<String> _buildProgressCommands(
     _PackLabelContent content, {
+    required _GodexGraphicNames graphicNames,
     required double grossQty,
     required double progressQty,
     required String progressUnit,
@@ -270,7 +393,7 @@ class GodexRpsRenderer {
       '^H10',
       '^P1',
       '^L',
-      'Y0,0,TEXTLBL',
+      'Y0,0,${graphicNames.text}',
       'AB,16,72,1,1,0,0,COMPANY: ${content.companyName}',
     ];
     final lines = _wrapTextForEzpl(
@@ -291,9 +414,28 @@ class GodexRpsRenderer {
     );
     commands.add('AB,16,304,1,1,0,0,METRAJ: $qtyText');
     commands.add('BA,0,24,1,2,42,0,0,${content.epc}');
-    commands.add('Y224,224,QRLBL');
+    commands.add('Y224,224,${graphicNames.qr}');
     commands.add('E');
     return commands;
+  }
+
+  static _GodexGraphicNames _androidGraphicNames(String? graphicToken) {
+    final rawToken = graphicToken ?? _nextAndroidGraphicToken();
+    var token = rawToken.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '');
+    if (token.isEmpty) {
+      token = '0';
+    }
+    if (token.length > 18) {
+      token = token.substring(token.length - 18);
+    }
+    return _GodexGraphicNames(text: 'T$token', qr: 'Q$token');
+  }
+
+  static String _nextAndroidGraphicToken() {
+    _androidGraphicSequence = (_androidGraphicSequence + 1) & 0xFFFFF;
+    final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    final sequence = _androidGraphicSequence.toRadixString(36).padLeft(4, '0');
+    return '$micros$sequence';
   }
 
   static Uint8List _renderPackEpcGraphic(_PackLabelContent content) {
@@ -477,6 +619,15 @@ class GodexRpsRenderer {
 
   static Uint8List _ascii(String value) =>
       Uint8List.fromList(value.codeUnits.map((unit) => unit & 0xff).toList());
+}
+
+class _GodexGraphicNames {
+  const _GodexGraphicNames({required this.text, required this.qr});
+
+  final String text;
+  final String qr;
+
+  List<String> get values => List.unmodifiable([text, qr]);
 }
 
 class QrCodeMatrix {

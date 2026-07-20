@@ -124,4 +124,73 @@ void main() {
     expect(output, isNot(contains('BA,')));
     expect(output, isNot(contains('Y224,224,QRLBL')));
   });
+
+  test('renders Android material labels with per-print graphic names', () {
+    const request = UsbRpsPrintRequest(
+      epc: '303132333435363738394142',
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      warehouse: 'Kalidor',
+      printer: 'godex',
+      printMode: 'label',
+      grossQty: 23,
+      labelKind: 'material_product',
+    );
+
+    final first = GodexRpsRenderer.renderAndroid(
+      request,
+      graphicToken: 'print-001',
+    );
+    final second = GodexRpsRenderer.renderAndroid(
+      request,
+      graphicToken: 'print-002',
+    );
+    final firstOutput = String.fromCharCodes(first.bytes);
+    final secondOutput = String.fromCharCodes(second.bytes);
+
+    expect(first.graphicNames, ['TPRINT001', 'QPRINT001']);
+    expect(second.graphicNames, ['TPRINT002', 'QPRINT002']);
+    expect(firstOutput, contains('~EB,TPRINT001,'));
+    expect(firstOutput, contains('~EB,QPRINT001,'));
+    expect(firstOutput, contains('Y0,0,TPRINT001'));
+    expect(firstOutput, contains('Y56,56,QPRINT001'));
+    expect(firstOutput, isNot(contains('~MDELG,')));
+    expect(secondOutput, isNot(contains('TPRINT001')));
+    expect(secondOutput, isNot(contains('QPRINT001')));
+  });
+
+  test('Android repeated jobs use unique names and one final status query', () {
+    const request = UsbRpsPrintRequest(
+      epc: '303132333435363738394142',
+      itemCode: 'ORDER-2',
+      itemName: 'Progress label',
+      warehouse: 'Ijrochi: Ali',
+      printer: 'godex',
+      printMode: 'label',
+      grossQty: 12.5,
+      unit: 'kg',
+      labelKind: 'progress',
+      printCount: 2,
+      executorName: 'Ali',
+      progressQty: 35.75,
+      progressUnit: 'm',
+    );
+
+    final rendered = GodexRpsRenderer.renderAndroidRepeated(request);
+    final output = String.fromCharCodes(rendered.bytes);
+
+    expect(rendered.labelCount, 2);
+    expect(rendered.graphicNames, hasLength(4));
+    expect(rendered.graphicNames.toSet(), hasLength(4));
+    expect(
+      rendered.graphicNames.every(
+        (name) => RegExp(r'^[A-Z0-9]{1,20}$').hasMatch(name),
+      ),
+      isTrue,
+    );
+    expect(RegExp(r'~S,STATUS\r\n').allMatches(output), hasLength(1));
+    expect(output, isNot(contains('~MDELG,')));
+    expect(output, isNot(contains('TEXTLBL')));
+    expect(output, isNot(contains('QRLBL')));
+  });
 }

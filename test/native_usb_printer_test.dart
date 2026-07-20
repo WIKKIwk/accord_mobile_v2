@@ -1,7 +1,10 @@
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('builds rps usb test request like driver print contract', () {
     final request = UsbRpsPrintRequest.test(epc: ' rps-usb-test ');
 
@@ -94,5 +97,37 @@ void main() {
     expect(profile.displayName, 'Zebra • ZT411R');
     expect(request.printer, 'zebra');
     expect(request.printMode, 'rfid');
+  });
+
+  test('forwards GoDEX cleanup metadata to the Android USB channel', () async {
+    const channel = MethodChannel('accord/usb_printer');
+    MethodCall? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      captured = call;
+      return <String, Object?>{'ok': true};
+    });
+    try {
+      await NativeUsbPrinter.printRaw(
+        Uint8List.fromList([1, 2, 3]),
+        printerKind: UsbPrinterKind.godex,
+        godexGraphicNames: const ['TPRINT001', 'QPRINT001'],
+        labelCount: 2,
+      );
+    } finally {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+
+    expect(captured?.method, 'printRaw');
+    expect(captured?.arguments, containsPair('print_count', 1));
+    expect(captured?.arguments, containsPair('label_count', 2));
+    expect(
+      captured?.arguments,
+      containsPair(
+        'godex_graphic_names',
+        const ['TPRINT001', 'QPRINT001'],
+      ),
+    );
   });
 }

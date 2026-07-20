@@ -8,10 +8,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.os.SystemClock
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -19,6 +21,19 @@ import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+
+private const val GODEX_STATUS_INITIAL_TIMEOUT_MS = 1_200L
+private const val GODEX_STATUS_POLL_MS = 150L
+private const val GODEX_STATUS_READ_TIMEOUT_MS = 250
+private const val GODEX_STATUS_BASE_TIMEOUT_MS = 8_000L
+private const val GODEX_STATUS_PER_LABEL_TIMEOUT_MS = 2_000L
+private const val GODEX_STATUS_MAX_TIMEOUT_MS = 30_000L
+private const val GODEX_FALLBACK_PER_LABEL_MS = 1_200L
+private const val GODEX_FALLBACK_MAX_MS = 15_000L
+private val godexStatusPattern = Regex("(?:^|[^0-9])([0-9]{2}),([0-9]{5})(?:[^0-9]|$)")
+private val godexActiveErrorPattern = Regex("ERROR([0-9]{2})")
+private val godexGraphicNamePattern = Regex("[A-Z0-9]{1,20}")
 
 class UsbPrinterChannel(
     private val activity: Activity,
@@ -27,6 +42,10 @@ class UsbPrinterChannel(
     private val channel = MethodChannel(messenger, "accord/usb_printer")
     private val usbManager = activity.getSystemService(Context.USB_SERVICE) as UsbManager
     private val actionUsbPermission = "${activity.packageName}.USB_PRINTER_PERMISSION"
+    private val printExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "accord-usb-printer").apply { isDaemon = true }
+    }
+    private val deferredGodexCleanupNames = linkedSetOf<String>()
     private var pendingPrint: PendingUsbPrint? = null
     private var permissionReceiver: BroadcastReceiver? = null
 
@@ -74,10 +93,10 @@ class UsbPrinterChannel(
         val title = call.argument<String>("title").orEmpty().ifBlank { "ACCORD USB TEST" }
         val payload = call.argument<String>("payload").orEmpty().ifBlank { "ACCORD-USB-TEST" }
         val bytes = buildEscPosTestLabel(title, payload)
-        val request = PendingUsbPrint(printer.device, bytes, result) { device, sent ->
+        val request = PendingUsbPrint(printer.device, bytes, result) { device, write ->
             mapOf(
                 "ok" to true,
-                "bytes" to sent,
+                "bytes" to write.bytes,
                 "deviceName" to device.deviceName,
                 "vendorId" to device.vendorId,
                 "productId" to device.productId,
@@ -97,9 +116,18 @@ class UsbPrinterChannel(
             return
         }
         val requestBody = UsbRpsPrintRequest.fromCall(call)
-        val bytes = repeatBytes(buildGodexRpsTestLabel(requestBody), requestBody.printCount)
-        val request = PendingUsbPrint(printer.device, bytes, result) { device, sent ->
-            requestBody.response(device, sent)
+        val rendered = buildGodexRpsTestJob(requestBody)
+        val request = PendingUsbPrint(
+            device = printer.device,
+            bytes = rendered.bytes,
+            result = result,
+            options = UsbPrintOptions(
+                printerKind = printer.profile.kind,
+                godexGraphicNames = rendered.graphicNames,
+                labelCount = rendered.labelCount,
+            ),
+        ) { device, write ->
+            requestBody.response(device, write)
         }
         startPrint(request)
     }
@@ -143,14 +171,31 @@ class UsbPrinterChannel(
         val printCount = call.argument<Number>("print_count")?.toInt()
             ?.takeIf { it > 0 }
             ?: 1
+        val labelCount = call.argument<Number>("label_count")?.toInt()
+            ?.takeIf { it > 0 }
+            ?: printCount
+        val graphicNames = if (printer.profile.kind == UsbPrinterKind.GODEX) {
+            godexGraphicNames(call)
+        } else {
+            emptyList()
+        }
         val payload = repeatBytes(bytes, printCount)
-        val request = PendingUsbPrint(printer.device, payload, result) { device, sent ->
+        val request = PendingUsbPrint(
+            device = printer.device,
+            bytes = payload,
+            result = result,
+            options = UsbPrintOptions(
+                printerKind = printer.profile.kind,
+                godexGraphicNames = graphicNames,
+                labelCount = labelCount * printCount,
+            ),
+        ) { device, write ->
             mapOf(
                 "ok" to true,
                 "status" to "done",
-                "printer_status" to "USB OK",
+                "printer_status" to write.printerStatus,
                 "print_count" to printCount,
-                "bytes" to sent,
+                "bytes" to write.bytes,
                 "deviceName" to device.deviceName,
                 "vendorId" to device.vendorId,
                 "productId" to device.productId,
@@ -169,6 +214,17 @@ class UsbPrinterChannel(
             is List<*> -> value.mapNotNull { (it as? Number)?.toInt()?.toByte() }.toByteArray()
             else -> null
         }
+    }
+
+    private fun godexGraphicNames(call: MethodCall): List<String> {
+        return call.argument<List<*>>("godex_graphic_names")
+            .orEmpty()
+            .mapNotNull { value ->
+                value?.toString()?.trim()?.uppercase(Locale.US)
+                    ?.takeIf(godexGraphicNamePattern::matches)
+            }
+            .distinct()
+            .take(200)
     }
 
     private fun startPrint(request: PendingUsbPrint) {
@@ -206,6 +262,7 @@ class UsbPrinterChannel(
                 device,
                 usbInterface,
                 endpoint,
+                bulkInEndpoint(usbInterface),
                 UsbPrinterProfile.fromDevice(device),
             )
         }
@@ -218,6 +275,18 @@ class UsbPrinterChannel(
             val isBulk = endpoint.type == UsbConstants.USB_ENDPOINT_XFER_BULK
             val isOut = endpoint.direction == UsbConstants.USB_DIR_OUT
             if (isBulk && isOut) {
+                return endpoint
+            }
+        }
+        return null
+    }
+
+    private fun bulkInEndpoint(usbInterface: UsbInterface): UsbEndpoint? {
+        for (index in 0 until usbInterface.endpointCount) {
+            val endpoint = usbInterface.getEndpoint(index)
+            val isBulk = endpoint.type == UsbConstants.USB_ENDPOINT_XFER_BULK
+            val isIn = endpoint.direction == UsbConstants.USB_DIR_IN
+            if (isBulk && isIn) {
                 return endpoint
             }
         }
@@ -275,21 +344,32 @@ class UsbPrinterChannel(
     }
 
     private fun finishPrint(request: PendingUsbPrint) {
-        try {
-            val candidate = printerCandidate(request.device, requirePrinterClass = false)
-                ?: throw IllegalStateException("USB printer endpoint not found")
-            val sent = writeBytes(candidate, request.bytes)
-            request.result.success(request.response(request.device, sent))
-        } catch (error: Throwable) {
-            request.result.error(
-                "usb_printer_write_failed",
-                error.message ?: "USB printer write failed",
-                null,
-            )
+        printExecutor.execute {
+            try {
+                val candidate = printerCandidate(request.device, requirePrinterClass = false)
+                    ?: throw IllegalStateException("USB printer endpoint not found")
+                val write = writeBytes(candidate, request.bytes, request.options)
+                val response = request.response(request.device, write)
+                activity.runOnUiThread {
+                    request.result.success(response)
+                }
+            } catch (error: Throwable) {
+                activity.runOnUiThread {
+                    request.result.error(
+                        "usb_printer_write_failed",
+                        error.message ?: "USB printer write failed",
+                        null,
+                    )
+                }
+            }
         }
     }
 
-    private fun writeBytes(candidate: UsbPrinterCandidate, bytes: ByteArray): Int {
+    private fun writeBytes(
+        candidate: UsbPrinterCandidate,
+        bytes: ByteArray,
+        options: UsbPrintOptions,
+    ): UsbPrintWriteResult {
         val connection = usbManager.openDevice(candidate.device)
             ?: throw IllegalStateException("USB device open failed")
         var claimed = false
@@ -298,31 +378,239 @@ class UsbPrinterChannel(
                 throw IllegalStateException("USB interface claim failed")
             }
             claimed = true
-            var offset = 0
-            while (offset < bytes.size) {
-                val chunkSize = minOf(
-                    candidate.endpoint.maxPacketSize.coerceAtLeast(64),
-                    bytes.size - offset,
-                )
-                val sent = connection.bulkTransfer(
-                    candidate.endpoint,
-                    bytes,
-                    offset,
-                    chunkSize,
-                    5000,
-                )
-                if (sent <= 0) {
-                    throw IllegalStateException("USB bulk transfer failed at byte $offset")
-                }
-                offset += sent
+            if (options.printerKind == UsbPrinterKind.GODEX) {
+                drainGodexStatus(connection, candidate.statusEndpoint)
             }
-            return offset
+            val sent = writeUsbPayload(connection, candidate.endpoint, bytes)
+            if (options.printerKind != UsbPrinterKind.GODEX) {
+                return UsbPrintWriteResult(sent, "USB OK")
+            }
+            val printerStatus = finishGodexPrint(connection, candidate, options)
+            return UsbPrintWriteResult(sent, printerStatus)
         } finally {
             if (claimed) {
                 connection.releaseInterface(candidate.usbInterface)
             }
             connection.close()
         }
+    }
+
+    private fun writeUsbPayload(
+        connection: UsbDeviceConnection,
+        endpoint: UsbEndpoint,
+        bytes: ByteArray,
+    ): Int {
+        var offset = 0
+        while (offset < bytes.size) {
+            val chunkSize = minOf(
+                endpoint.maxPacketSize.coerceAtLeast(64),
+                bytes.size - offset,
+            )
+            val sent = connection.bulkTransfer(
+                endpoint,
+                bytes,
+                offset,
+                chunkSize,
+                5000,
+            )
+            if (sent <= 0) {
+                throw IllegalStateException("USB bulk transfer failed at byte $offset")
+            }
+            offset += sent
+        }
+        return offset
+    }
+
+    private fun drainGodexStatus(
+        connection: UsbDeviceConnection,
+        endpoint: UsbEndpoint?,
+    ) {
+        endpoint ?: return
+        val buffer = ByteArray(endpoint.maxPacketSize.coerceAtLeast(64))
+        repeat(8) {
+            val received = connection.bulkTransfer(
+                endpoint,
+                buffer,
+                buffer.size,
+                20,
+            )
+            if (received <= 0) {
+                return
+            }
+        }
+    }
+
+    private fun finishGodexPrint(
+        connection: UsbDeviceConnection,
+        candidate: UsbPrinterCandidate,
+        options: UsbPrintOptions,
+    ): String {
+        val currentNames = options.godexGraphicNames
+        val outcome = waitForGodexReady(
+            connection,
+            candidate,
+            options.labelCount.coerceAtLeast(1),
+        )
+        if (outcome.errorCode != null) {
+            deferredGodexCleanupNames.addAll(currentNames)
+            throw IllegalStateException(godexStatusError(outcome.errorCode))
+        }
+        if (outcome.ready) {
+            cleanupGodexGraphics(
+                connection,
+                candidate.endpoint,
+                deferredGodexCleanupNames + currentNames,
+            )
+            return outcome.rawStatus.ifBlank { "00,00000" }
+        }
+        if (outcome.sawStatus) {
+            deferredGodexCleanupNames.addAll(currentNames)
+            return outcome.rawStatus.ifBlank { "USB queued" }
+        }
+
+        val settled = waitForGodexFallback(options.labelCount.coerceAtLeast(1))
+        if (settled) {
+            cleanupGodexGraphics(
+                connection,
+                candidate.endpoint,
+                deferredGodexCleanupNames + currentNames,
+            )
+        } else {
+            deferredGodexCleanupNames.addAll(currentNames)
+        }
+        return "USB OK"
+    }
+
+    private fun waitForGodexReady(
+        connection: UsbDeviceConnection,
+        candidate: UsbPrinterCandidate,
+        labelCount: Int,
+    ): GodexStatusOutcome {
+        val endpoint = candidate.statusEndpoint ?: return GodexStatusOutcome()
+        val startedAt = SystemClock.elapsedRealtime()
+        val timeoutMs = (GODEX_STATUS_BASE_TIMEOUT_MS +
+            labelCount.toLong() * GODEX_STATUS_PER_LABEL_TIMEOUT_MS)
+            .coerceAtMost(GODEX_STATUS_MAX_TIMEOUT_MS)
+        val deadline = startedAt + timeoutMs
+        val noResponseDeadline = startedAt + GODEX_STATUS_INITIAL_TIMEOUT_MS
+        val response = StringBuilder()
+        val readBuffer = ByteArray(endpoint.maxPacketSize.coerceAtLeast(64))
+        var lastPollAt = 0L
+        var sawStatus = false
+        var rawStatus = ""
+
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val received = connection.bulkTransfer(
+                endpoint,
+                readBuffer,
+                readBuffer.size,
+                GODEX_STATUS_READ_TIMEOUT_MS,
+            )
+            if (received > 0) {
+                response.append(String(readBuffer, 0, received, Charsets.US_ASCII))
+                val activeError = godexActiveErrorPattern
+                    .findAll(response)
+                    .lastOrNull()
+                    ?.groupValues
+                    ?.get(1)
+                if (activeError != null) {
+                    return GodexStatusOutcome(
+                        sawStatus = true,
+                        rawStatus = "ERROR$activeError",
+                        errorCode = activeError,
+                    )
+                }
+                val statusMatch = godexStatusPattern.findAll(response).lastOrNull()
+                if (statusMatch != null) {
+                    sawStatus = true
+                    val code = statusMatch.groupValues[1]
+                    val remaining = statusMatch.groupValues[2].toIntOrNull() ?: 0
+                    rawStatus = "$code,${statusMatch.groupValues[2]}"
+                    if (code == "00" && remaining == 0) {
+                        return GodexStatusOutcome(
+                            ready = true,
+                            sawStatus = true,
+                            rawStatus = rawStatus,
+                        )
+                    }
+                    if (code != "00" && code != "50" && code != "60") {
+                        return GodexStatusOutcome(
+                            sawStatus = true,
+                            rawStatus = rawStatus,
+                            errorCode = code,
+                        )
+                    }
+                }
+            }
+
+            val now = SystemClock.elapsedRealtime()
+            if (!sawStatus && now >= noResponseDeadline) {
+                return GodexStatusOutcome()
+            }
+            if (now - lastPollAt >= GODEX_STATUS_POLL_MS) {
+                writeUsbPayload(
+                    connection,
+                    candidate.endpoint,
+                    "~S,STATUS\r\n".toByteArray(Charsets.US_ASCII),
+                )
+                lastPollAt = now
+            }
+        }
+        return GodexStatusOutcome(sawStatus = sawStatus, rawStatus = rawStatus)
+    }
+
+    private fun waitForGodexFallback(labelCount: Int): Boolean {
+        val requiredMs = labelCount.toLong() * GODEX_FALLBACK_PER_LABEL_MS
+        val waitMs = requiredMs.coerceAtMost(GODEX_FALLBACK_MAX_MS)
+        Thread.sleep(waitMs)
+        return requiredMs <= GODEX_FALLBACK_MAX_MS
+    }
+
+    private fun cleanupGodexGraphics(
+        connection: UsbDeviceConnection,
+        endpoint: UsbEndpoint,
+        names: Collection<String>,
+    ) {
+        val validNames = names
+            .map { it.trim().uppercase(Locale.US) }
+            .filter(godexGraphicNamePattern::matches)
+            .distinct()
+        if (validNames.isEmpty()) {
+            return
+        }
+        val cleanup = buildString {
+            for (name in validNames) {
+                append("~MDELG,")
+                append(name)
+                append("\r\n")
+            }
+        }.toByteArray(Charsets.US_ASCII)
+        val cleaned = runCatching {
+            writeUsbPayload(connection, endpoint, cleanup)
+        }.isSuccess
+        if (cleaned) {
+            deferredGodexCleanupNames.removeAll(validNames.toSet())
+        } else {
+            deferredGodexCleanupNames.addAll(validNames)
+        }
+    }
+
+    private fun godexStatusError(code: String): String {
+        val detail = when (code) {
+            "01", "02" -> "Media empty or jammed"
+            "03" -> "Ribbon empty"
+            "04" -> "Print head is open"
+            "05" -> "Rewinder full"
+            "06" -> "File system full"
+            "07" -> "File name not found"
+            "08" -> "Duplicate Name"
+            "09" -> "Syntax error"
+            "10" -> "Cutter jam"
+            "11" -> "Extended memory not found"
+            "20" -> "Printer paused"
+            else -> "Printer error"
+        }
+        return "GoDEX status $code: $detail"
     }
 
     private fun buildEscPosTestLabel(title: String, payload: String): ByteArray {
@@ -356,8 +644,23 @@ class UsbPrinterChannel(
         return output.toByteArray()
     }
 
-    private fun buildGodexRpsTestLabel(request: UsbRpsPrintRequest): ByteArray {
-        return GodexRpsRenderer.render(request)
+    private fun buildGodexRpsTestJob(request: UsbRpsPrintRequest): GodexNativePrintJob {
+        val output = ArrayList<Byte>()
+        val graphicNames = mutableListOf<String>()
+        val count = request.printCount.coerceAtLeast(1)
+        repeat(count) { index ->
+            val rendered = GodexRpsRenderer.renderJob(
+                request,
+                includeFinalStatus = index == count - 1,
+            )
+            output.addAll(rendered.bytes.toList())
+            graphicNames.addAll(rendered.graphicNames)
+        }
+        return GodexNativePrintJob(
+            bytes = output.toByteArray(),
+            graphicNames = graphicNames,
+            labelCount = count,
+        )
     }
 
     private fun repeatBytes(bytes: ByteArray, count: Int): ByteArray {
@@ -377,7 +680,26 @@ private data class UsbPrinterCandidate(
     val device: UsbDevice,
     val usbInterface: UsbInterface,
     val endpoint: UsbEndpoint,
+    val statusEndpoint: UsbEndpoint?,
     val profile: UsbPrinterProfile,
+)
+
+private data class UsbPrintOptions(
+    val printerKind: UsbPrinterKind = UsbPrinterKind.UNKNOWN,
+    val godexGraphicNames: List<String> = emptyList(),
+    val labelCount: Int = 1,
+)
+
+internal data class UsbPrintWriteResult(
+    val bytes: Int,
+    val printerStatus: String,
+)
+
+private data class GodexStatusOutcome(
+    val ready: Boolean = false,
+    val sawStatus: Boolean = false,
+    val rawStatus: String = "",
+    val errorCode: String? = null,
 )
 
 internal enum class UsbPrinterKind(val value: String) {
@@ -455,7 +777,8 @@ private data class PendingUsbPrint(
     val device: UsbDevice,
     val bytes: ByteArray,
     val result: MethodChannel.Result,
-    val response: (UsbDevice, Int) -> Map<String, Any>,
+    val options: UsbPrintOptions = UsbPrintOptions(),
+    val response: (UsbDevice, UsbPrintWriteResult) -> Map<String, Any>,
 )
 
 internal data class UsbRpsPrintRequest(
@@ -472,7 +795,7 @@ internal data class UsbRpsPrintRequest(
     val printCount: Int,
     val labelKind: String = "",
 ) {
-    fun response(device: UsbDevice, bytes: Int): Map<String, Any> {
+    fun response(device: UsbDevice, write: UsbPrintWriteResult): Map<String, Any> {
         val netQty = netQty()
         return mapOf(
             "ok" to true,
@@ -489,9 +812,9 @@ internal data class UsbRpsPrintRequest(
             "unit" to unit,
             "tare" to tareEnabled,
             "tare_kg" to tareKg,
-            "printer_status" to "USB OK",
+            "printer_status" to write.printerStatus,
             "print_count" to printCount,
-            "bytes" to bytes,
+            "bytes" to write.bytes,
             "deviceName" to device.deviceName,
             "vendorId" to device.vendorId,
             "productId" to device.productId,

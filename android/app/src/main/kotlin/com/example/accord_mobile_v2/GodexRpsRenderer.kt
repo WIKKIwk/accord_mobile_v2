@@ -4,16 +4,55 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import java.text.Normalizer
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 
+internal data class GodexNativePrintJob(
+    val bytes: ByteArray,
+    val graphicNames: List<String>,
+    val labelCount: Int = 1,
+)
+
 internal object GodexRpsRenderer {
-    private const val TEXT_GRAPHIC_NAME = "TEXTLBL"
-    private const val QR_GRAPHIC_NAME = "QRLBL"
+    private val legacyGraphicNames = GraphicNames(text = "TEXTLBL", qr = "QRLBL")
+    private val graphicSequence = AtomicInteger()
     private val ascii: Charset = Charset.forName("US-ASCII")
 
     fun render(request: UsbRpsPrintRequest): ByteArray {
+        return renderInternal(
+            request,
+            graphicNames = legacyGraphicNames,
+            deleteExistingGraphics = true,
+            includeFinalStatus = true,
+        ).bytes
+    }
+
+    fun renderJob(
+        request: UsbRpsPrintRequest,
+        graphicToken: String? = null,
+        includeFinalStatus: Boolean = true,
+    ): GodexNativePrintJob {
+        return renderInternal(
+            request,
+            graphicNames = androidGraphicNames(graphicToken),
+            deleteExistingGraphics = false,
+            includeFinalStatus = includeFinalStatus,
+        )
+    }
+
+    private fun renderInternal(
+        request: UsbRpsPrintRequest,
+        graphicNames: GraphicNames,
+        deleteExistingGraphics: Boolean,
+        includeFinalStatus: Boolean,
+    ): GodexNativePrintJob {
         if (request.labelKind == "qolip_code") {
-            return renderQolipCode(request)
+            return renderQolipCode(
+                request,
+                graphicNames = graphicNames,
+                deleteExistingGraphics = deleteExistingGraphics,
+                includeFinalStatus = includeFinalStatus,
+            )
         }
         val content = PackLabelContent(
             companyName = uppercaseClean("Accord"),
@@ -36,18 +75,32 @@ internal object GodexRpsRenderer {
         }
 
         send("^XSET,BUZZER,0")
-        send("~MDELG,$TEXT_GRAPHIC_NAME")
-        send("~EB,$TEXT_GRAPHIC_NAME,${textGraphic.size}")
+        if (deleteExistingGraphics) {
+            send("~MDELG,${graphicNames.text}")
+        }
+        send("~EB,${graphicNames.text},${textGraphic.size}")
         writeRaw(textGraphic)
-        send("~MDELG,$QR_GRAPHIC_NAME")
-        send("~EB,$QR_GRAPHIC_NAME,${qrGraphic.size}")
+        if (deleteExistingGraphics) {
+            send("~MDELG,${graphicNames.qr}")
+        }
+        send("~EB,${graphicNames.qr},${qrGraphic.size}")
         writeRaw(qrGraphic)
-        buildPackCommands(content).forEach(::send)
-        send("~S,STATUS")
-        return out.toByteArray()
+        buildPackCommands(content, graphicNames).forEach(::send)
+        if (includeFinalStatus) {
+            send("~S,STATUS")
+        }
+        return GodexNativePrintJob(
+            bytes = out.toByteArray(),
+            graphicNames = graphicNames.values,
+        )
     }
 
-    private fun renderQolipCode(request: UsbRpsPrintRequest): ByteArray {
+    private fun renderQolipCode(
+        request: UsbRpsPrintRequest,
+        graphicNames: GraphicNames,
+        deleteExistingGraphics: Boolean,
+        includeFinalStatus: Boolean,
+    ): GodexNativePrintJob {
         val name = uppercaseClean(request.itemName.ifBlank { request.itemCode })
         val code = uppercaseClean(request.itemCode.ifBlank { request.epc })
         val payload = uppercaseClean(request.epc)
@@ -62,11 +115,15 @@ internal object GodexRpsRenderer {
         }
 
         send("^XSET,BUZZER,0")
-        send("~MDELG,$TEXT_GRAPHIC_NAME")
-        send("~EB,$TEXT_GRAPHIC_NAME,${textGraphic.size}")
+        if (deleteExistingGraphics) {
+            send("~MDELG,${graphicNames.text}")
+        }
+        send("~EB,${graphicNames.text},${textGraphic.size}")
         out.write(textGraphic)
-        send("~MDELG,$QR_GRAPHIC_NAME")
-        send("~EB,$QR_GRAPHIC_NAME,${qrGraphic.size}")
+        if (deleteExistingGraphics) {
+            send("~MDELG,${graphicNames.qr}")
+        }
+        send("~EB,${graphicNames.qr},${qrGraphic.size}")
         out.write(qrGraphic)
         listOf(
             "~S,ESG",
@@ -80,12 +137,17 @@ internal object GodexRpsRenderer {
             "^H10",
             "^P1",
             "^L",
-            "Y0,0,$TEXT_GRAPHIC_NAME",
-            "Y56,56,$QR_GRAPHIC_NAME",
+            "Y0,0,${graphicNames.text}",
+            "Y56,56,${graphicNames.qr}",
             "E",
         ).forEach(::send)
-        send("~S,STATUS")
-        return out.toByteArray()
+        if (includeFinalStatus) {
+            send("~S,STATUS")
+        }
+        return GodexNativePrintJob(
+            bytes = out.toByteArray(),
+            graphicNames = graphicNames.values,
+        )
     }
 
     private fun renderQolipCodeTextGraphic(name: String, code: String): ByteArray {
@@ -105,7 +167,10 @@ internal object GodexRpsRenderer {
         drawText(canvas, x, y, scale, text)
     }
 
-    private fun buildPackCommands(content: PackLabelContent): List<String> {
+    private fun buildPackCommands(
+        content: PackLabelContent,
+        graphicNames: GraphicNames,
+    ): List<String> {
         val commands = mutableListOf(
             "~S,ESG",
             "^AD",
@@ -118,7 +183,7 @@ internal object GodexRpsRenderer {
             "^H10",
             "^P1",
             "^L",
-            "Y0,0,$TEXT_GRAPHIC_NAME",
+            "Y0,0,${graphicNames.text}",
             "AB,16,72,1,1,0,0,COMPANY: ${content.companyName}",
         )
         wrapTextForEzpl("MAHSULOT NOMI: ${content.productName}", 184, 1, 8, 8)
@@ -129,9 +194,31 @@ internal object GodexRpsRenderer {
         commands.add("AB,16,264,1,1,0,0,NETTO: ${content.kgText} KG")
         commands.add("AB,16,304,1,1,0,0,BRUTTO: ${content.bruttoText} KG")
         commands.add("BA,0,24,1,2,42,0,0,${content.epc}")
-        commands.add("Y224,224,$QR_GRAPHIC_NAME")
+        commands.add("Y224,224,${graphicNames.qr}")
         commands.add("E")
         return commands
+    }
+
+    private fun androidGraphicNames(graphicToken: String?): GraphicNames {
+        var token = (graphicToken ?: nextGraphicToken())
+            .uppercase(Locale.US)
+            .replace(Regex("[^A-Z0-9]"), "")
+        if (token.isEmpty()) {
+            token = "0"
+        }
+        if (token.length > 18) {
+            token = token.takeLast(18)
+        }
+        return GraphicNames(text = "T$token", qr = "Q$token")
+    }
+
+    private fun nextGraphicToken(): String {
+        val sequence = graphicSequence.updateAndGet { current ->
+            if (current >= 0xFFFFF) 1 else current + 1
+        }
+        return System.currentTimeMillis().toString(36) +
+            (System.nanoTime() and 0xFFFFFFL).toString(36) +
+            sequence.toString(36).padStart(4, '0')
     }
 
     private fun renderPackEpcGraphic(content: PackLabelContent): ByteArray {
@@ -371,6 +458,13 @@ internal object GodexRpsRenderer {
         val epc: String,
         val qrPayload: String,
     )
+
+    private data class GraphicNames(
+        val text: String,
+        val qr: String,
+    ) {
+        val values: List<String> = listOf(text, qr)
+    }
 
     private class MonoBitmap private constructor(
         val width: Int,

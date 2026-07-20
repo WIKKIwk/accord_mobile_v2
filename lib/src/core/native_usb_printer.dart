@@ -39,6 +39,8 @@ class NativeUsbPrinter {
   static Future<Map<String, Object?>> printRaw(
     Uint8List bytes, {
     required UsbPrinterKind printerKind,
+    List<String> godexGraphicNames = const [],
+    int labelCount = 1,
   }) async {
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printRaw',
@@ -46,6 +48,8 @@ class NativeUsbPrinter {
         'bytes': bytes,
         'print_count': 1,
         'printer_kind': printerKind.apiValue,
+        'godex_graphic_names': godexGraphicNames,
+        'label_count': labelCount > 0 ? labelCount : 1,
       },
     );
     return raw ?? const {};
