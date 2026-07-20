@@ -3,6 +3,36 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('loads the product customer from admin item detail', () async {
+    var requestedItemCode = '';
+
+    final result = await loadCalculateProductCustomer(
+      itemCode: ' ITEM-001 ',
+      itemDetail: (itemCode) async {
+        requestedItemCode = itemCode;
+        return const AdminItemDetail(
+          code: 'ITEM-001',
+          name: 'Finished product',
+          uom: 'Kg',
+          itemGroup: 'Tayyor mahsulot',
+          isFinishedGoods: true,
+          createdAtUnix: 0,
+          updatedAtUnix: 0,
+          customers: [
+            CustomerDirectoryEntry(
+              ref: 'CUST-001',
+              name: 'Customer',
+              phone: '',
+            ),
+          ],
+        );
+      },
+    );
+
+    expect(requestedItemCode, 'ITEM-001');
+    expect(result?.ref, 'CUST-001');
+  });
+
   test('loads assigned customer items when customer is selected', () async {
     var detailCalls = 0;
     var allCalls = 0;

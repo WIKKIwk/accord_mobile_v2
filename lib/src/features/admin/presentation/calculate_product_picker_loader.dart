@@ -1,3 +1,4 @@
+import '../../../core/customer/customer_priority.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../shared/models/app_models.dart';
 
@@ -11,6 +12,9 @@ typedef CalculateAllProductPageLoader = Future<List<SupplierItem>> Function({
 typedef CalculateCustomerDetailLoader = Future<AdminCustomerDetail> Function(
     String customerRef);
 
+typedef CalculateItemDetailLoader = Future<AdminItemDetail> Function(
+    String itemCode);
+
 const String kCalculateFinishedProductGroup = 'Tayyor mahsulot';
 
 class CalculateProductPickerOption {
@@ -21,6 +25,21 @@ class CalculateProductPickerOption {
 
   final SupplierItem item;
   final String customerName;
+}
+
+Future<CustomerDirectoryEntry?> loadCalculateProductCustomer({
+  required String itemCode,
+  required CalculateItemDetailLoader itemDetail,
+}) async {
+  final code = itemCode.trim();
+  if (code.isEmpty) {
+    return null;
+  }
+  final detail = await itemDetail(code);
+  return preferPrimaryCustomer<CustomerDirectoryEntry>(
+    detail.customers.where((customer) => customer.ref.trim().isNotEmpty),
+    customerName: (customer) => customer.name,
+  );
 }
 
 Future<List<SupplierItem>> loadCalculateProductPickerPage({

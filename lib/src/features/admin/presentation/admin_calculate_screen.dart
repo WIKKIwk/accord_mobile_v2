@@ -3,7 +3,6 @@ import 'dart:io';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
-import '../../../core/customer/customer_priority.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -605,15 +604,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     int generation,
   ) async {
     try {
-      final customers = await MobileApi.instance.adminCustomersForItem(
+      final customer = await loadCalculateProductCustomer(
         itemCode: product.code,
-        itemName: product.name,
-        limit: 200,
-        offset: 0,
-      );
-      final customer = preferPrimaryCustomer<CustomerDirectoryEntry>(
-        customers.where((item) => item.ref.trim().isNotEmpty),
-        customerName: (item) => item.name,
+        itemDetail: MobileApi.instance.adminItemDetail,
       );
       if (!mounted ||
           generation != _productCustomerGeneration ||
