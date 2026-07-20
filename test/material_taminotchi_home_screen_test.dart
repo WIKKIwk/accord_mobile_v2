@@ -234,5 +234,6 @@ void main() {
       find.text("Print tarixi hali bo'sh.").hitTestable(),
       findsOneWidget,
     );
+    expect(find.text('Qurilma tanlash'), findsNothing);
   });
 }

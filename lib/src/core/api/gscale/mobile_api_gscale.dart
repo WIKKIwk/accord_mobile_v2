@@ -98,6 +98,43 @@ extension MobileApiGScale on MobileApi {
     return GScaleRpsBatchResponse.fromJson(payload);
   }
 
+  Future<List<GScaleRpsBatchSession>> gscaleRpsBatchHistory({
+    int limit = 50,
+  }) async {
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/history').replace(
+          queryParameters: {'limit': '${limit.clamp(1, 100)}'},
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    final payload = _gscaleDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code:
+            _gscaleText(payload['error'], fallback: 'rps_batch_history_failed'),
+        message: _gscaleText(
+          payload['detail'],
+          fallback: _gscaleText(
+            payload['message'],
+            fallback: 'RPS batch history failed',
+          ),
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    return (payload['batches'] as List?)
+            ?.whereType<Map>()
+            .map(
+              (batch) => GScaleRpsBatchSession.fromJson(
+                batch.cast<String, dynamic>(),
+              ),
+            )
+            .toList(growable: false) ??
+        const [];
+  }
+
   Future<GScaleRpsBatchResponse> gscaleRpsBatchStop() async {
     final response = await _sendAuthorized(
       () => _post(
@@ -299,6 +336,8 @@ class GScaleRpsBatchSession {
     required this.tareKg,
     this.lastError = '',
     this.lastErrorAt = '',
+    this.createdAt = '',
+    this.updatedAt = '',
     this.prints = const [],
   });
 
@@ -318,6 +357,8 @@ class GScaleRpsBatchSession {
       tareKg: _gscaleNumber(json['tare_kg']),
       lastError: _gscaleText(json['last_error']),
       lastErrorAt: _gscaleText(json['last_error_at']),
+      createdAt: _gscaleText(json['created_at']),
+      updatedAt: _gscaleText(json['updated_at']),
       prints: (json['prints'] as List?)
               ?.whereType<Map>()
               .map(
@@ -344,6 +385,8 @@ class GScaleRpsBatchSession {
   final double tareKg;
   final String lastError;
   final String lastErrorAt;
+  final String createdAt;
+  final String updatedAt;
   final List<GScaleRpsBatchPrintEntry> prints;
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;

@@ -1910,6 +1910,22 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     });
 
     try {
+      if (widget.controlOnly) {
+        final batches = await MobileApi.instance
+            .gscaleRpsBatchHistory(limit: 50)
+            .timeout(const Duration(seconds: 15));
+        final sessions = batches
+            .map(MobileArchiveSession.fromRpsBatch)
+            .toList(growable: false);
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _archiveSessions = sessions;
+          _archiveLoading = false;
+        });
+        return;
+      }
       final response = await _client
           .get(_apiUri('/v1/mobile/archive', {'limit': '50'}))
           .timeout(const Duration(seconds: 4));
@@ -2016,27 +2032,31 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       return;
     }
 
-    final requestBody = {'session_id': session.sessionId, 'printer': printer};
-
     setState(() {
       _archivePrintLoadingSessionId = session.sessionId;
       _archiveError = '';
     });
     try {
-      if (widget.printTransport.isOffline) {
+      MobileArchivePrintEntry? exactPrint;
+      var grossQty = 0.0;
+      var netQty = 0.0;
+      if (widget.controlOnly || widget.printTransport.isOffline) {
         if (session.prints.isEmpty) {
           throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
         }
-        final entry = session.prints.last;
-        if (entry.epc.trim().isEmpty) {
+        exactPrint = session.prints.last;
+        if (exactPrint.epc.trim().isEmpty) {
           throw Exception('Bu partiyada qayta chop etish uchun EPC topilmadi');
         }
-        final grossQty = entry.grossQty > 0
-            ? entry.grossQty
+        grossQty = exactPrint.grossQty > 0
+            ? exactPrint.grossQty
             : session.grossQty > 0
                 ? session.grossQty
-                : entry.netQty;
-        final netQty = entry.netQty > 0 ? entry.netQty : entry.qty;
+                : exactPrint.netQty;
+        netQty = exactPrint.netQty > 0 ? exactPrint.netQty : exactPrint.qty;
+      }
+      if (widget.printTransport.isOffline) {
+        final entry = exactPrint!;
         await PrintService.printRps(
           UsbRpsPrintRequest(
             epc: entry.epc,
@@ -2068,9 +2088,37 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         );
         return;
       }
+      final entry = exactPrint;
+      final requestBody = widget.controlOnly
+          ? <String, dynamic>{
+              'epc': entry!.epc,
+              'item_code':
+                  entry.itemCode.isEmpty ? session.itemCode : entry.itemCode,
+              'item_name':
+                  entry.itemName.isEmpty ? session.itemName : entry.itemName,
+              'warehouse': session.warehouse,
+              'printer': printer,
+              'print_mode': printer == 'godex'
+                  ? 'label'
+                  : (entry.printMode.isEmpty ? 'rfid' : entry.printMode),
+              'gross_qty': grossQty,
+              'unit': entry.unit.isEmpty ? session.displayUnit : entry.unit,
+              'tare_enabled': grossQty > netQty,
+              'tare_kg':
+                  (grossQty - netQty).clamp(0, double.infinity).toDouble(),
+              'print_count': 1,
+            }
+          : <String, dynamic>{
+              'session_id': session.sessionId,
+              'printer': printer,
+            };
       final response = await _client
           .post(
-            _apiUri('/v1/mobile/archive/print'),
+            _apiUri(
+              widget.controlOnly
+                  ? '/v1/mobile/driver/print'
+                  : '/v1/mobile/archive/print',
+            ),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(requestBody),
           )
@@ -2434,7 +2482,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        if (server == null) ...[
+        if (!widget.controlOnly && server == null) ...[
           _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
           const SizedBox(height: 20),
         ],
@@ -2456,7 +2504,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                   Text(
                     [
                       '${sessions.length} ta batch',
-                      if (server != null) server.handshake.serverName,
+                      if (!widget.controlOnly && server != null)
+                        server.handshake.serverName,
                     ].join(' • '),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -2683,6 +2732,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         [
                           formatArchiveTimestamp(entry.printedAt),
                           if (entry.draftName.isNotEmpty) entry.draftName,
+                          if (entry.status.isNotEmpty) entry.status,
                         ].join(' • '),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -5265,6 +5315,9 @@ class MobileArchivePrintEntry {
     required this.printedAt,
     required this.draftName,
     required this.epc,
+    this.status = '',
+    this.printer = '',
+    this.printMode = '',
   });
 
   factory MobileArchivePrintEntry.fromJson(Map<String, dynamic> json) {
@@ -5281,6 +5334,30 @@ class MobileArchivePrintEntry {
       printedAt: _text(json['printed_at']),
       draftName: _text(json['draft_name']),
       epc: _text(json['epc']),
+      status: _text(json['status']),
+      printer: _text(json['printer']),
+      printMode: _text(json['print_mode']),
+    );
+  }
+
+  factory MobileArchivePrintEntry.fromRpsBatch(
+    GScaleRpsBatchPrintEntry entry, {
+    required String itemCode,
+    required String itemName,
+  }) {
+    return MobileArchivePrintEntry(
+      itemCode: itemCode,
+      itemName: itemName,
+      qty: entry.qty,
+      grossQty: entry.grossQty,
+      netQty: entry.netQty,
+      unit: entry.unit,
+      printedAt: entry.printedAt,
+      draftName: entry.draftName,
+      epc: entry.epc,
+      status: entry.status,
+      printer: entry.printer,
+      printMode: entry.printMode,
     );
   }
 
@@ -5293,6 +5370,9 @@ class MobileArchivePrintEntry {
   final String printedAt;
   final String draftName;
   final String epc;
+  final String status;
+  final String printer;
+  final String printMode;
 }
 
 class MobileArchiveSession {
@@ -5335,6 +5415,44 @@ class MobileArchiveSession {
       prints: rawPrints
           .map(MobileArchivePrintEntry.fromJson)
           .toList(growable: false),
+    );
+  }
+
+  factory MobileArchiveSession.fromRpsBatch(GScaleRpsBatchSession batch) {
+    final prints = batch.prints
+        .map(
+          (entry) => MobileArchivePrintEntry.fromRpsBatch(
+            entry,
+            itemCode: batch.itemCode,
+            itemName: batch.itemName,
+          ),
+        )
+        .toList(growable: false);
+    final netQty = prints.fold<double>(
+      0,
+      (total, entry) => total + (entry.netQty > 0 ? entry.netQty : entry.qty),
+    );
+    final grossQty = prints.fold<double>(
+      0,
+      (total, entry) =>
+          total + (entry.grossQty > 0 ? entry.grossQty : entry.netQty),
+    );
+    return MobileArchiveSession(
+      sessionId: batch.id,
+      active: batch.active,
+      itemCode: batch.itemCode,
+      itemName: batch.itemName,
+      warehouse: batch.warehouse,
+      startedAt: batch.createdAt,
+      endedAt: batch.active ? '' : batch.updatedAt,
+      totalQty: netQty,
+      grossQty: grossQty,
+      netQty: netQty,
+      unit: prints.isEmpty ? 'kg' : prints.first.unit,
+      tareEnabled: batch.tareEnabled,
+      tareKg: batch.tareKg,
+      printCount: prints.length,
+      prints: prints,
     );
   }
 

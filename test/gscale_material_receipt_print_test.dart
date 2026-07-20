@@ -170,6 +170,50 @@ void main() {
     expect(response.batch.prints.single.printCount, 2);
   });
 
+  test('completed RS batch maps to device-independent print history', () {
+    final batch = GScaleRpsBatchSession.fromJson({
+      'id': 'batch-history-1',
+      'active': false,
+      'item_code': 'ITEM-1',
+      'item_name': 'Green Tea',
+      'warehouse': 'Stores - A',
+      'printer': 'zebra',
+      'print_mode': 'rfid',
+      'quantity_source': 'manual',
+      'manual_qty_kg': 2.5,
+      'tare_enabled': true,
+      'tare_kg': 0.5,
+      'created_at': '2026-07-20T05:00:00Z',
+      'updated_at': '2026-07-20T05:05:00Z',
+      'prints': [
+        {
+          'epc': '303132333435363738394142',
+          'draft_name': 'MAT-STE-0001',
+          'status': 'submitted',
+          'qty': 2.0,
+          'net_qty': 2.0,
+          'gross_qty': 2.5,
+          'unit': 'kg',
+          'printer': 'zebra',
+          'print_mode': 'rfid',
+          'print_count': 1,
+          'printed_at': '2026-07-20T05:02:00Z',
+        },
+      ],
+    });
+
+    final history = MobileArchiveSession.fromRpsBatch(batch);
+
+    expect(history.sessionId, 'batch-history-1');
+    expect(history.startedAt, '2026-07-20T05:00:00Z');
+    expect(history.endedAt, '2026-07-20T05:05:00Z');
+    expect(history.printCount, 1);
+    expect(history.grossQty, 2.5);
+    expect(history.netQty, 2.0);
+    expect(history.prints.single.epc, '303132333435363738394142');
+    expect(history.prints.single.status, 'submitted');
+  });
+
   test('mobile batch state accepts RS batch session shape', () {
     final batch = MobileBatchState.fromJson({
       'active': true,
