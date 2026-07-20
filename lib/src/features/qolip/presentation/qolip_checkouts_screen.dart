@@ -142,7 +142,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
         selectedIndex: 3,
         onNavigate: _openDrawerRoute,
       ),
-      bottom: const QolipDock(activeTab: QolipDockTab.checkouts),
+      bottom: const QolipDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<List<QolipCheckoutEntry>>(
         future: _checkoutsFuture,

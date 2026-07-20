@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -243,54 +244,73 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     Navigator.of(context).pushReplacementNamed(route);
   }
 
-  Future<void> _printQolipCodeQr(QolipProduct product) async {
+  Future<void> _showQolipCodeQr(QolipProduct product) async {
     final code = product.qolipCode.trim();
     if (code.isEmpty) {
       return;
     }
+    final itemName = product.name.trim().isEmpty ? code : product.name.trim();
+    await showModalBottomSheet<void>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (_) => RpsQrReprintSheet(
+        title: 'Qolip QR',
+        payload: code,
+        itemName: itemName,
+        previewKey: ValueKey('qolip-code-qr-preview-$code'),
+        reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
+        details: [
+          if (product.code.trim().isNotEmpty)
+            RpsQrDetail('Mahsulot kodi', product.code),
+          if (product.qolipSize > 0)
+            RpsQrDetail('Razmer', '${product.qolipSize}'),
+          if (product.customerNames.isNotEmpty)
+            RpsQrDetail('Customer', product.customerNames.join(', ')),
+        ],
+        onReprint: () => _reprintQolipCodeQr(product),
+        errorMessage: (error) => qolipErrorMessage(
+          error,
+          fallback: 'Qolip QR chop etilmadi',
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _reprintQolipCodeQr(QolipProduct product) async {
+    final code = product.qolipCode.trim();
     final option = await showQolipPrinterPicker(context);
     if (!mounted || option == null) {
-      return;
+      throw StateError('Printer tanlanmadi');
     }
-    try {
-      final printer = option.transport.isOffline
-          ? option.offlinePrinter!.printer
-          : qolipPrinterChoiceForDriver(
-              kind: option.printerKind,
-              label: option.printerLabel,
-            );
-      final result = await MobileApi.instance.qolipPrintCodeQr(
-        qolipCode: code,
-        driverUrl: option.driverUrl,
-        printer: printer,
-        printMode: option.transport.isOffline
-            ? option.offlinePrinter!.printMode
-            : printer == 'godex'
-                ? 'label'
-                : 'rfid',
-        printTransport: option.transport,
-      );
-      if (option.transport.isOffline) {
-        await PrintService.printRps(
-          result.printJob,
-          printerProfile: option.offlinePrinter,
-        );
-      }
-      final qr = result.qolipQr;
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${qr.qolipCode} QR chop etildi')),
-      );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Qolip QR chop etilmadi')),
+    final printer = option.transport.isOffline
+        ? option.offlinePrinter!.printer
+        : qolipPrinterChoiceForDriver(
+            kind: option.printerKind,
+            label: option.printerLabel,
+          );
+    final result = await MobileApi.instance.qolipPrintCodeQr(
+      qolipCode: code,
+      driverUrl: option.driverUrl,
+      printer: printer,
+      printMode: option.transport.isOffline
+          ? option.offlinePrinter!.printMode
+          : printer == 'godex'
+              ? 'label'
+              : 'rfid',
+      printTransport: option.transport,
+    );
+    if (option.transport.isOffline) {
+      await PrintService.printRps(
+        result.printJob,
+        printerProfile: option.offlinePrinter,
       );
     }
+    return null;
   }
 
   @override
@@ -381,7 +401,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                     onLongPress: () =>
                         _toggleContainerSelection(containers[index]),
                     onToggleQolip: _toggleQolipSelection,
-                    onPrintCodeQr: _printQolipCodeQr,
+                    onPrintCodeQr: _showQolipCodeQr,
                   );
                 },
               ),

@@ -223,12 +223,16 @@ extension MobileApiQolip on MobileApi {
         if (specs.isEmpty) {
           if (normalized.isEmpty ||
               item.name.toLowerCase().contains(normalized) ||
-              item.code.toLowerCase().contains(normalized)) {
+              item.code.toLowerCase().contains(normalized) ||
+              item.customerNames.any(
+                (customer) => customer.toLowerCase().contains(normalized),
+              )) {
             products.add(
               QolipProduct(
                 code: item.code,
                 name: item.name,
                 itemGroup: item.itemGroup,
+                customerNames: item.customerNames,
               ),
             );
           }
@@ -238,6 +242,9 @@ extension MobileApiQolip on MobileApi {
           if (normalized.isNotEmpty &&
               !item.name.toLowerCase().contains(normalized) &&
               !item.code.toLowerCase().contains(normalized) &&
+              !item.customerNames.any(
+                (customer) => customer.toLowerCase().contains(normalized),
+              ) &&
               !spec.qolipCode.toLowerCase().contains(normalized)) {
             continue;
           }
@@ -252,6 +259,7 @@ extension MobileApiQolip on MobileApi {
               code: spec.code,
               name: spec.name,
               itemGroup: spec.itemGroup,
+              customerNames: item.customerNames,
               qolipCode: spec.qolipCode,
               qolipSize: spec.qolipSize,
               hasQolipSpec: spec.hasQolipSpec,
@@ -443,6 +451,7 @@ extension MobileApiQolip on MobileApi {
       code: product.code.trim(),
       name: product.name.trim(),
       itemGroup: product.itemGroup.trim(),
+      customerNames: product.customerNames,
       qolipCode: qolipCode.trim(),
       qolipSize: size,
       hasQolipSpec: true,

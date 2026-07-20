@@ -93,4 +93,25 @@ void main() {
 
     expect(result.map((product) => product.qolipCode), ['Q-002']);
   });
+
+  test('qolip product subtitle uses assigned customer names', () {
+    const product = QolipProduct(
+      code: 'ITEM-001',
+      name: 'Kross',
+      itemGroup: 'Tayyor mahsulot',
+      customerNames: ['Customer One', 'Customer Two'],
+    );
+
+    expect(qolipProductCustomerLabel(product), 'Customer One, Customer Two');
+  });
+
+  test('qolip product subtitle has a fallback when customer is missing', () {
+    const product = QolipProduct(
+      code: 'ITEM-001',
+      name: 'Kross',
+      itemGroup: 'Tayyor mahsulot',
+    );
+
+    expect(qolipProductCustomerLabel(product), 'Mijoz biriktirilmagan');
+  });
 }

@@ -1962,9 +1962,13 @@ class _QolipBlockGrid extends StatelessWidget {
     final action = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: scheme.surface,
       builder: (context) {
-        return SafeArea(
+        final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             child: Column(
@@ -1978,24 +1982,33 @@ class _QolipBlockGrid extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 12),
-                for (final item in items) ...[
-                  _QolipCellActionTile(
-                    item: item,
-                    onTake: () => Navigator.of(context).pop(
-                      _QolipCellItemSelection(
-                        item: item,
-                        action: _QolipCellItemAction.take,
-                      ),
-                    ),
-                    onMove: () => Navigator.of(context).pop(
-                      _QolipCellItemSelection(
-                        item: item,
-                        action: _QolipCellItemAction.moveOut,
-                      ),
-                    ),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (final item in items) ...[
+                        _QolipCellActionTile(
+                          item: item,
+                          onTake: () => Navigator.of(context).pop(
+                            _QolipCellItemSelection(
+                              item: item,
+                              action: _QolipCellItemAction.take,
+                            ),
+                          ),
+                          onMove: () => Navigator.of(context).pop(
+                            _QolipCellItemSelection(
+                              item: item,
+                              action: _QolipCellItemAction.moveOut,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                ],
+                ),
                 const SizedBox(height: 10),
                 if (unplaced.isNotEmpty) ...[
                   SizedBox(
@@ -3154,6 +3167,14 @@ List<QolipProduct> qolipProductsAvailableForCellPlacement(
       .toList(growable: false);
 }
 
+String qolipProductCustomerLabel(QolipProduct product) {
+  final customers = product.customerNames
+      .map((customer) => customer.trim())
+      .where((customer) => customer.isNotEmpty)
+      .join(', ');
+  return customers.isEmpty ? 'Mijoz biriktirilmagan' : customers;
+}
+
 int qolipContainerSearchMatchCount(
   Iterable<QolipLocationEntry> items,
   String query,
@@ -3419,8 +3440,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         return M3AsyncPickerSheet<QolipProduct>(
           title: isCellPlacement ? 'Qolip tanlang' : 'Tayyor mahsulot tanlang',
           hintText: isCellPlacement
-              ? 'Qolip code yoki mahsulot nomi'
-              : 'Mahsulot nomi bilan qidiring',
+              ? 'Qolip code, mahsulot yoki customer nomi'
+              : 'Mahsulot yoki customer nomi bilan qidiring',
           pageSize: 80,
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
               ? null
@@ -3457,7 +3478,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     item.code.trim(),
                   ]
                 : [
-                    item.code.trim(),
+                    qolipProductCustomerLabel(item),
                     item.itemGroup.trim(),
                     if (item.hasQolipSpec)
                       '${item.qolipCode.trim()} • ${item.qolipSize}',

@@ -29,11 +29,13 @@ void main() {
       code: 'DEMO-HOTLUNCH',
       name: 'Hotlunch',
       itemGroup: 'Demo tayyor mahsulotlar',
+      customerNames: ['Demo haridor'],
     );
     const salad = QolipProduct(
       code: 'DEMO-SALAD',
       name: 'Salat set',
       itemGroup: 'Demo tayyor mahsulotlar',
+      customerNames: ['Demo filial'],
     );
     final locked = await MobileApi.instance.qolipSaveProductSpec(
       product: hotlunch,
@@ -112,8 +114,13 @@ void main() {
 
     await tester.tap(find.text('Q-FREE'));
     await tester.pump();
-    expect(find.text('Printerni tanlang'), findsOneWidget);
-    Navigator.of(tester.element(find.text('Printerni tanlang'))).pop();
+    expect(
+      find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
+      findsOneWidget,
+    );
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE'))),
+    ).pop();
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('Q-FREE'));
@@ -137,5 +144,15 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
     expect(find.text('Salat set'), findsNothing);
+  });
+
+  test('qolip product search matches customer name', () async {
+    final products = await MobileApi.instance.qolipProducts(
+      query: 'Demo haridor',
+      withQolipOnly: true,
+    );
+
+    expect(products, isNotEmpty);
+    expect(products.every((product) => product.name == 'Hotlunch'), isTrue);
   });
 }
