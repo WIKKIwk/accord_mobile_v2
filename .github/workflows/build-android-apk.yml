@@ -105,7 +105,10 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS app without codesign
-        run: flutter build ios --release --no-codesign --dart-define=MOBILE_API_BASE_URL="${MOBILE_API_BASE_URL}"
+        run: flutter build ios --release --no-codesign --build-number="${GITHUB_RUN_ID}" --dart-define=MOBILE_API_BASE_URL="${MOBILE_API_BASE_URL}"
+
+      - name: Verify iOS chat runtime
+        run: tools/runtime/verify_ios_chat_runtime.sh build/ios/iphoneos/Runner.app
 
       - name: Create unsigned IPA artifact
         run: |

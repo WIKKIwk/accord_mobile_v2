@@ -105,7 +105,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   List<ChatConversation> get _visibleConversations {
     final normalized = searchController.text.trim().toLowerCase();
     final started = store.conversations.where(
-      (conversation) => conversation.hasMessages,
+      (conversation) =>
+          conversation.hasMessages && !conversation.isCustomerConversation,
     );
     if (normalized.isEmpty) return started.toList(growable: false);
     return started.where((conversation) {

@@ -25,6 +25,13 @@ extension ChatStoreMedia on ChatStore {
         statusCode: 401,
       );
     }
+    if (_isCustomerConversation(conversationId)) {
+      throw const MobileApiException(
+        code: 'chat_forbidden',
+        message: 'Customerlar bilan chatlashish mumkin emas',
+        statusCode: 403,
+      );
+    }
     final sizeBytes = await source.length();
     if (profileKey != key) throw StateError('chat_profile_changed');
     final maximum = switch (kind) {

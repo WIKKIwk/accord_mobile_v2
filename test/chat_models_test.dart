@@ -163,6 +163,50 @@ void main() {
     expect(page.hasMore, isFalse);
   });
 
+  test('chat directory and conversations exclude customers', () {
+    final directory = ChatDirectoryPage.fromJson({
+      'items': [
+        {
+          'role': 'customer',
+          'ref': 'customer_1',
+          'display_name': 'Customer',
+          'avatar_url': '',
+        },
+        {
+          'role': 'admin',
+          'ref': 'admin',
+          'display_name': 'Admin',
+          'avatar_url': '',
+        },
+      ],
+      'has_more': false,
+    });
+    final conversations = ChatConversationPage.fromJson({
+      'items': [
+        {
+          'conversation_id': 'customer_conversation',
+          'kind': 'dm',
+          'title': '',
+          'peer': {
+            'principal_id': 'customer_principal',
+            'role': 'customer',
+            'ref': 'customer_1',
+            'display_name': 'Customer',
+            'avatar_url': '',
+          },
+          'last_message': null,
+          'last_message_sequence': 0,
+          'unread_count': 0,
+          'updated_at_unix': 0,
+        },
+      ],
+      'has_more': false,
+    });
+
+    expect(directory.items.map((item) => item.role), [UserRole.admin]);
+    expect(conversations.items, isEmpty);
+  });
+
   test('sync page preserves durable event cursor and message payload', () {
     final page = ChatSyncPage.fromJson({
       'events': [

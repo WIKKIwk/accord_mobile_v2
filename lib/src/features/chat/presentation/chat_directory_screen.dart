@@ -116,16 +116,19 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         ),
       );
     }
-    if (store.directory.isEmpty) {
+    final entries = store.directory
+        .where((entry) => entry.role != UserRole.customer)
+        .toList(growable: false);
+    if (entries.isEmpty) {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
     return ProgressiveFade(
       topFade: false,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(4, 12, 4, 24),
-        itemCount: store.directory.length,
+        itemCount: entries.length,
         itemBuilder: (context, index) {
-          final entry = store.directory[index];
+          final entry = entries[index];
           return Padding(
             padding: EdgeInsets.only(
               top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
@@ -133,7 +136,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
             child: _ChatDirectoryRow(
               slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                 index,
-                store.directory.length,
+                entries.length,
               ),
               entry: entry,
               opening: openingRef == entry.ref,

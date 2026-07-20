@@ -27,6 +27,11 @@ modules = {
   'WebViewFlutterPlugin' => 'webview_flutter_wkwebview',
 }
 
+generated_modules = text.scan(
+  /#if __has_include\(<[^>]+\/([A-Za-z0-9_]+)\.h>\)\s*#import[^\n]*\s*#else\s*@import\s+([A-Za-z0-9_]+);\s*#endif/m,
+).to_h
+modules.merge!(generated_modules)
+
 text = text.sub(
   '@implementation GeneratedPluginRegistrant',
   "static void RegisterFlutterPlugin(NSObject<FlutterPluginRegistry>* registry, NSString* className, NSString* moduleName);\n\n@implementation GeneratedPluginRegistrant",

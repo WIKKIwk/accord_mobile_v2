@@ -170,6 +170,10 @@ class ChatConversation {
 
   bool get hasMessages => lastMessageSequence > 0 && lastMessage != null;
 
+  bool get isCustomerConversation =>
+      peer?.role == UserRole.customer ||
+      lastMessage?.senderRole == UserRole.customer;
+
   String get displayTitle {
     final peerName = peer?.displayName.trim() ?? '';
     if (peerName.isNotEmpty) return peerName;
@@ -239,6 +243,7 @@ class ChatConversationPage {
           .whereType<Map>()
           .map(
               (item) => ChatConversation.fromJson(item.cast<String, dynamic>()))
+          .where((item) => !item.isCustomerConversation)
           .toList(growable: false),
       hasMore: json['has_more'] == true,
     );
@@ -331,6 +336,7 @@ class ChatDirectoryPage {
           .whereType<Map>()
           .map((item) =>
               ChatDirectoryEntry.fromJson(item.cast<String, dynamic>()))
+          .where((item) => item.role != UserRole.customer)
           .toList(growable: false),
       hasMore: json['has_more'] == true,
     );

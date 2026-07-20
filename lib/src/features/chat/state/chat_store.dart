@@ -101,6 +101,10 @@ class ChatStore extends ChangeNotifier {
       clearMemory();
       return;
     }
+    if (profile.role == UserRole.customer) {
+      clearMemory();
+      return;
+    }
     final nextKey = _keyFor(profile);
     if (nextKey == profileKey) {
       _ensureRealtimeStarted();
@@ -126,7 +130,11 @@ class ChatStore extends ChangeNotifier {
 
     try {
       conversations = (await ChatLocalStore.instance.loadConversations(nextKey))
-          .where((conversation) => conversation.hasMessages)
+          .where(
+            (conversation) =>
+                conversation.hasMessages &&
+                !conversation.isCustomerConversation,
+          )
           .toList(growable: false);
       notifyListeners();
     } catch (_) {}
@@ -219,7 +227,11 @@ class ChatStore extends ChangeNotifier {
           final page = await MobileApi.instance.chatConversations();
           if (profileKey != key) return;
           conversations = page.items
-              .where((conversation) => conversation.hasMessages)
+              .where(
+                (conversation) =>
+                    conversation.hasMessages &&
+                    !conversation.isCustomerConversation,
+              )
               .toList(growable: false);
           try {
             await ChatLocalStore.instance.saveConversations(
@@ -247,7 +259,11 @@ class ChatStore extends ChangeNotifier {
     notifyListeners();
     try {
       final page = await MobileApi.instance.chatDirectory(query: query);
-      if (profileKey == key) directory = page.items;
+      if (profileKey == key) {
+        directory = page.items
+            .where((entry) => entry.role != UserRole.customer)
+            .toList(growable: false);
+      }
     } catch (exception) {
       if (profileKey == key) error = exception.toString();
     } finally {
@@ -259,6 +275,13 @@ class ChatStore extends ChangeNotifier {
   }
 
   Future<ChatConversation> openConversation(ChatDirectoryEntry target) async {
+    if (target.role == UserRole.customer) {
+      throw const MobileApiException(
+        code: 'chat_forbidden',
+        message: 'Customerlar bilan chatlashish mumkin emas',
+        statusCode: 403,
+      );
+    }
     await startForCurrentSession();
     final key = profileKey;
     if (key.isEmpty) throw StateError('chat_profile_changed');
@@ -361,6 +384,13 @@ class ChatStore extends ChangeNotifier {
           code: 'authentication_required',
           message: 'Chat sessiyasi tayyor emas',
           statusCode: 401,
+        );
+      }
+      if (_isCustomerConversation(conversationId)) {
+        throw const MobileApiException(
+          code: 'chat_forbidden',
+          message: 'Customerlar bilan chatlashish mumkin emas',
+          statusCode: 403,
         );
       }
       final key = profileKey;
@@ -524,6 +554,7 @@ class ChatStore extends ChangeNotifier {
     String? expectedProfileKey,
     bool requirePersistence = false,
   }) async {
+    if (message.senderRole == UserRole.customer) return false;
     final key = expectedProfileKey ?? profileKey;
     if (key.isEmpty || profileKey != key) return false;
     final current = _messages[message.conversationId] ?? const <ChatMessage>[];
@@ -575,6 +606,7 @@ class ChatStore extends ChangeNotifier {
   }
 
   void _upsertConversation(ChatConversation conversation) {
+    if (conversation.isCustomerConversation) return;
     final next = [...conversations];
     final index = next.indexWhere(
       (item) => item.conversationId == conversation.conversationId,
@@ -604,6 +636,14 @@ class ChatStore extends ChangeNotifier {
 
   static String _keyFor(SessionProfile profile) {
     return '${userRoleToJson(profile.role)}:${profile.ref}';
+  }
+
+  bool _isCustomerConversation(String conversationId) {
+    return conversations.any(
+      (conversation) =>
+          conversation.conversationId == conversationId &&
+          conversation.isCustomerConversation,
+    );
   }
 
   static String _newClientMessageId() {
