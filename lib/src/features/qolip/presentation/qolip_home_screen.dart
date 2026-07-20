@@ -1179,6 +1179,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
             children: [
               DefaultTabController(
                 length: blocks.length + 1,
+                animationDuration: const Duration(milliseconds: 180),
                 child: Builder(
                   builder: (context) {
                     final tabController = DefaultTabController.of(context);
@@ -1215,41 +1216,43 @@ class _QolipHomeScreenState extends State<QolipHomeScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             children: [
                               for (final block in blocks)
-                                _QolipBlockGrid(
-                                  block: block,
-                                  future: _locationsFor(block.name),
-                                  searchQuery: _searchQuery,
-                                  onRefresh: () async {
-                                    _refreshBlock(block.name);
-                                    await _locationsFor(block.name);
-                                  },
-                                  onAttachAt: (
-                                    block,
-                                    rowLetter,
-                                    columnNumber,
-                                  ) =>
-                                      _openAttachSheet(
-                                    blocks,
-                                    mode: _QolipAttachMode.cellPlacement,
-                                    initialBlock: block,
-                                    rowLetter: rowLetter,
-                                    columnNumber: columnNumber,
+                                RepaintBoundary(
+                                  child: _QolipBlockGrid(
+                                    block: block,
+                                    future: _locationsFor(block.name),
+                                    searchQuery: _searchQuery,
+                                    onRefresh: () async {
+                                      _refreshBlock(block.name);
+                                      await _locationsFor(block.name);
+                                    },
+                                    onAttachAt: (
+                                      block,
+                                      rowLetter,
+                                      columnNumber,
+                                    ) =>
+                                        _openAttachSheet(
+                                      blocks,
+                                      mode: _QolipAttachMode.cellPlacement,
+                                      initialBlock: block,
+                                      rowLetter: rowLetter,
+                                      columnNumber: columnNumber,
+                                    ),
+                                    onPrintCellQr: _printCellQr,
+                                    onMove: _moveQolip,
+                                    onMoveToCell: (
+                                      item,
+                                      rowLetter,
+                                      columnNumber,
+                                      cellLabel,
+                                    ) =>
+                                        _moveQolipToCell(
+                                      item,
+                                      rowLetter: rowLetter,
+                                      columnNumber: columnNumber,
+                                      cellLabel: cellLabel,
+                                    ),
+                                    onTake: _takeQolip,
                                   ),
-                                  onPrintCellQr: _printCellQr,
-                                  onMove: _moveQolip,
-                                  onMoveToCell: (
-                                    item,
-                                    rowLetter,
-                                    columnNumber,
-                                    cellLabel,
-                                  ) =>
-                                      _moveQolipToCell(
-                                    item,
-                                    rowLetter: rowLetter,
-                                    columnNumber: columnNumber,
-                                    cellLabel: cellLabel,
-                                  ),
-                                  onTake: _takeQolip,
                                 ),
                               const SizedBox.shrink(),
                             ],
@@ -1465,6 +1468,18 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final displayedBlocks = _dragOrder ?? widget.blocks;
+    final tabWidths = <String, double>{
+      for (final block in widget.blocks)
+        _blockKey(block): _tabWidth(context, block),
+    };
+    var totalTabWidth = 0.0;
+    final tabOffsets = <String, double>{};
+    for (final block in displayedBlocks) {
+      final key = _blockKey(block);
+      tabOffsets[key] = totalTabWidth;
+      totalTabWidth += tabWidths[key] ?? 72;
+    }
     return Material(
       color: theme.colorScheme.surfaceContainer,
       child: SizedBox(
@@ -1475,18 +1490,6 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
               child: AnimatedBuilder(
                 animation: widget.controller,
                 builder: (context, _) {
-                  final displayedBlocks = _dragOrder ?? widget.blocks;
-                  final tabWidths = <String, double>{
-                    for (final block in widget.blocks)
-                      _blockKey(block): _tabWidth(context, block),
-                  };
-                  var left = 0.0;
-                  final tabOffsets = <String, double>{};
-                  for (final block in displayedBlocks) {
-                    final key = _blockKey(block);
-                    tabOffsets[key] = left;
-                    left += tabWidths[key] ?? 72;
-                  }
                   return SizedBox(
                     height: 38,
                     child: SingleChildScrollView(
@@ -1495,7 +1498,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                           ? null
                           : const NeverScrollableScrollPhysics(),
                       child: SizedBox(
-                        width: left,
+                        width: totalTabWidth,
                         height: 38,
                         child: Stack(
                           clipBehavior: Clip.none,
