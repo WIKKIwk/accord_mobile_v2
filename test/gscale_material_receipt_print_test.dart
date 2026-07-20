@@ -1,8 +1,19 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
+import 'package:accord_mobile_v2/src/core/print_transport.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  tearDown(() {
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
+
   test('material receipt print response reads RS result', () {
     final response = GScaleMaterialReceiptPrintResponse.fromJson({
       'ok': true,
@@ -212,6 +223,123 @@ void main() {
     expect(history.netQty, 2.0);
     expect(history.prints.single.epc, '303132333435363738394142');
     expect(history.prints.single.status, 'submitted');
+  });
+
+  testWidgets(
+    'material control restores active manual batch without selected device',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      AppSession.instance.token = 'token';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.materialTaminotchi,
+        displayName: 'Materialchi',
+        legalName: '',
+        ref: 'MAT-RECOVERY',
+        phone: '+998900000001',
+        avatarUrl: '',
+        capabilities: ['rps.batch.manage', 'gscale.print'],
+        assignedItemGroups: ['Rulon'],
+      );
+      var stateLoadCount = 0;
+      const activeBatch = GScaleRpsBatchSession(
+        id: 'batch-active-1',
+        active: true,
+        driverUrl: 'usb://local',
+        itemCode: 'ITEM-1',
+        itemName: 'Green Tea',
+        warehouse: 'Kalidor',
+        printer: 'godex',
+        printMode: 'label',
+        quantitySource: 'manual',
+        manualQtyKg: 23,
+        tareEnabled: false,
+        tareKg: 0,
+      );
+      const offlinePrinter = UsbPrinterProfile(
+        kind: UsbPrinterKind.godex,
+        deviceName: 'usb:test',
+        vendorId: 1,
+        productId: 2,
+        manufacturerName: 'GoDEX',
+        productName: 'G500',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OperatorDashboardPage(
+              server: null,
+              printTransport: PrintTransport.offline,
+              offlinePrinter: offlinePrinter,
+              controlOnly: true,
+              onExitMode: () async {},
+              onChangeServer: () async {},
+              rpsBatchStateLoader: () async {
+                stateLoadCount++;
+                return const GScaleRpsBatchResponse(
+                  ok: true,
+                  batch: activeBatch,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(stateLoadCount, 1);
+      expect(find.text('Green Tea • Kalidor'), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Batch start'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Batch stop'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Qo‘lda brutto kg'),
+        '23',
+      );
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<IconButton>(
+              find.widgetWithIcon(IconButton, Icons.play_arrow_rounded),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  test('batch already active API error is recognized for state recovery', () {
+    const error = MobileApiException(
+      code: 'batch_already_active',
+      message: 'batch already active',
+      statusCode: 409,
+    );
+
+    expect(isRpsBatchAlreadyActiveError(error), isTrue);
+    expect(
+      isRpsBatchAlreadyActiveError(
+        const MobileApiException(
+          code: 'batch_store_failed',
+          message: 'store failed',
+        ),
+      ),
+      isFalse,
+    );
   });
 
   test('mobile batch state accepts RS batch session shape', () {

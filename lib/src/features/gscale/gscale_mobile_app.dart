@@ -462,6 +462,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.offlinePrinter,
     this.controlOnly = false,
     this.onServerUnavailable,
+    this.rpsBatchStateLoader,
     super.key,
   });
 
@@ -472,6 +473,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final Future<void> Function() onChangeServer;
   final bool controlOnly;
   final VoidCallback? onServerUnavailable;
+  final Future<GScaleRpsBatchResponse> Function()? rpsBatchStateLoader;
 
   @override
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
@@ -547,6 +549,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _startLiveStream();
       _startPingLoop();
       unawaited(_refresh());
+    }
+    if (widget.controlOnly || server != null) {
       unawaited(_refreshRsBatchState());
     }
   }
@@ -576,6 +580,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _startLiveStream();
       _startPingLoop();
       unawaited(_refresh());
+    }
+    if (widget.controlOnly || server != null) {
       unawaited(_refreshRsBatchState());
     }
   }
@@ -1001,9 +1007,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       if (!AppSession.instance.isLoggedIn) {
         return;
       }
-      final response = await MobileApi.instance.gscaleRpsBatchState().timeout(
-            const Duration(seconds: 4),
-          );
+      final response = await (widget.rpsBatchStateLoader?.call() ??
+              MobileApi.instance.gscaleRpsBatchState())
+          .timeout(const Duration(seconds: 4));
       if (!mounted) {
         return;
       }
@@ -1696,12 +1702,27 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _maybeAutoPrintStableBatch();
       }
     } catch (error) {
+      if (isRpsBatchAlreadyActiveError(error)) {
+        await _refreshRsBatchState();
+        if (!mounted) {
+          return;
+        }
+        if (_snapshot.batchActive) {
+          setState(() {
+            _batchActionLoading = false;
+            _errorText = '';
+          });
+          return;
+        }
+      }
       if (!mounted) {
         return;
       }
       setState(() {
         _batchActionLoading = false;
-        _errorText = error.toString();
+        _errorText = isRpsBatchAlreadyActiveError(error)
+            ? 'Batch allaqachon faol. Holatni qayta yuklab ko‘ring.'
+            : error.toString();
       });
     }
   }
@@ -5031,6 +5052,10 @@ GScaleRpsBatchPrintRequest buildGScaleRpsBatchPrintRequest({
     unit: 'kg',
     printCount: printCount,
   );
+}
+
+bool isRpsBatchAlreadyActiveError(Object error) {
+  return error is MobileApiException && error.code == 'batch_already_active';
 }
 
 String formatCompactKg(double value) {
