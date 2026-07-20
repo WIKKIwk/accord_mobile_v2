@@ -163,6 +163,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
           AppDialogActionRow(
             cancelLabel: 'Bekor qilish',
             confirmLabel: 'O‘chirish',
+            gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
             onConfirm: () => Navigator.of(dialogContext).pop(true),

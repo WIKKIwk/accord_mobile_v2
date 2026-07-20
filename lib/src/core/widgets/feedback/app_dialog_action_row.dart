@@ -38,9 +38,9 @@ class AppDialogActionRow extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          cancelButton,
-          SizedBox(height: gap),
           confirmButton,
+          SizedBox(height: gap),
+          cancelButton,
         ],
       );
     }

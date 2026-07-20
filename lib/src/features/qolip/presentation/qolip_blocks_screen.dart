@@ -111,6 +111,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
           AppDialogActionRow(
             cancelLabel: 'Bekor qilish',
             confirmLabel: 'Saqlash',
+            gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(),
             onConfirm: () =>
@@ -144,6 +145,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
           AppDialogActionRow(
             cancelLabel: 'Bekor qilish',
             confirmLabel: 'O‘chirish',
+            gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(false),
             onConfirm: () => Navigator.of(dialogContext).pop(true),
