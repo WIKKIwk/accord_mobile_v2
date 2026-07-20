@@ -225,6 +225,20 @@ class UsbRpsPrintRequest {
 
   bool get isQolipCodeLabel => labelKind.trim().toLowerCase() == 'qolip_code';
 
+  bool get isMaterialProductLabel =>
+      labelKind.trim().toLowerCase() == 'material_product';
+
+  String get materialProductLabelTitle {
+    final name = itemName.trim().isEmpty ? itemCode.trim() : itemName.trim();
+    final normalizedUnit = unit.trim().isEmpty ? 'kg' : unit.trim();
+    final net = _compactPrintQty(netQty);
+    if (tareEnabled && tareKg > 0) {
+      return '$name  B:${_compactPrintQty(grossQty)} $normalizedUnit '
+          'N:$net $normalizedUnit';
+    }
+    return '$name  $net $normalizedUnit';
+  }
+
   double get effectiveProgressQty => progressQty ?? netQty;
 
   UsbRpsPrintRequest forPrinter(UsbPrinterProfile profile) {
@@ -311,6 +325,14 @@ class UsbRpsPrintRequest {
       if (progressUnit.trim().isNotEmpty) 'progress_unit': progressUnit.trim(),
     };
   }
+}
+
+String _compactPrintQty(double value) {
+  var text = value.toStringAsFixed(3);
+  while (text.contains('.') && text.endsWith('0')) {
+    text = text.substring(0, text.length - 1);
+  }
+  return text.endsWith('.') ? text.substring(0, text.length - 1) : text;
 }
 
 class UsbRpsPrintResponse {

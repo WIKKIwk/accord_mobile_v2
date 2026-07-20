@@ -103,4 +103,25 @@ void main() {
     expect(output, isNot(contains('BA,')));
     expect(output, isNot(contains('Y224,224,QRLBL')));
   });
+
+  test('renders ordinary material product with the reused large QR layout', () {
+    final output = String.fromCharCodes(
+      GodexRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: '303132333435363738394142',
+          itemCode: 'CPP 1030/25',
+          itemName: 'CPP 1030/25',
+          warehouse: 'Kalidor',
+          printer: 'godex',
+          printMode: 'label',
+          grossQty: 23,
+          labelKind: 'material_product',
+        ),
+      ),
+    );
+
+    expect(output, contains('Y56,56,QRLBL'));
+    expect(output, isNot(contains('BA,')));
+    expect(output, isNot(contains('Y224,224,QRLBL')));
+  });
 }

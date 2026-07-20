@@ -42,6 +42,34 @@ void main() {
     expect(response.printCount, 5);
   });
 
+  test('material receipt USB request opts into the large QR product label', () {
+    const response = GScaleMaterialReceiptPrintResponse(
+      ok: true,
+      status: 'prepared',
+      draftName: '',
+      epc: '303132333435363738394142',
+      itemCode: 'CPP 1030/25',
+      itemName: 'CPP 1030/25',
+      warehouse: 'Kalidor',
+      qty: 23,
+      netQty: 23,
+      grossQty: 23,
+      unit: 'kg',
+      printer: 'godex',
+      printMode: 'label',
+      printerStatus: 'client_usb_pending',
+      printCount: 1,
+    );
+
+    final request = response.toUsbPrintRequest(
+      labelKind: 'material_product',
+    );
+
+    expect(request.epc, response.epc);
+    expect(request.labelKind, 'material_product');
+    expect(request.materialProductLabelTitle, 'CPP 1030/25  23 kg');
+  });
+
   test('print success message distinguishes fast printed status', () {
     const response = GScaleMaterialReceiptPrintResponse(
       ok: true,

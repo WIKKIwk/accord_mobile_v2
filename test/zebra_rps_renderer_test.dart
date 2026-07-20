@@ -121,4 +121,27 @@ void main() {
     expect(zpl, isNot(contains('^RFW')));
     expect(zpl, isNot(contains('^BCN')));
   });
+
+  test('renders ordinary material product with large QR and existing EPC RFID',
+      () {
+    final zpl = String.fromCharCodes(
+      ZebraRpsRenderer.render(
+        const UsbRpsPrintRequest(
+          epc: epc,
+          itemCode: 'CPP 1030/25',
+          itemName: 'CPP 1030/25',
+          warehouse: 'Kalidor',
+          printer: 'zebra',
+          printMode: 'rfid',
+          grossQty: 23,
+          labelKind: 'material_product',
+        ),
+      ),
+    );
+
+    expect(zpl, contains('^RFW,H,,,A^FD$epc^FS'));
+    expect(zpl, contains('^FDLA,$epc^FS'));
+    expect(zpl, contains('^FDCPP 1030/25  23 kg^FS'));
+    expect(zpl, isNot(contains('^BCN')));
+  });
 }

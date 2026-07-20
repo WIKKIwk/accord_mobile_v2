@@ -11,7 +11,7 @@ class ZebraRpsRenderer {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
     }
-    if (request.isQolipCodeLabel) {
+    if (request.isQolipCodeLabel || request.isMaterialProductLabel) {
       return _renderQolipCode(request);
     }
     final epc = _normalizeEpc(request.epc);
@@ -68,18 +68,29 @@ class ZebraRpsRenderer {
   }
 
   static Uint8List _renderQolipCode(UsbRpsPrintRequest request) {
-    final payload = _sanitize(request.epc, fallback: '-');
+    final payload = request.isMaterialProductLabel
+        ? _normalizeEpc(request.epc)
+        : _sanitize(request.epc, fallback: '-');
     final name = _sanitize(
-      request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
+      request.isMaterialProductLabel
+          ? request.materialProductLabelTitle
+          : request.itemName.trim().isEmpty
+              ? request.itemCode
+              : request.itemName,
       fallback: '-',
     );
     final code = _sanitize(
       request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
       fallback: '-',
     );
+    final rfidBlock = request.isMaterialProductLabel &&
+            request.printMode.trim().toLowerCase() == 'rfid'
+        ? '^RS8,,,1,N\n^RFW,H,,,A^FD$payload^FS\n'
+        : '';
     final zpl = '~PS\n'
         '^XA\n'
         '^LH0,0\n'
+        '$rfidBlock'
         '^FO8,2^A0N,24,20^FB784,2,28,C,0\n'
         '^FD$name^FS\n'
         '^FO120,56^BQN,2,11^FDLA,$payload^FS\n'

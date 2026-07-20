@@ -1665,7 +1665,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           .gscaleRpsBatchClientPrintPrepare(request)
           .timeout(const Duration(seconds: 15));
       await PrintService.printRps(
-        prepared.toUsbPrintRequest(),
+        prepared.toUsbPrintRequest(labelKind: 'material_product'),
         printerProfile: widget.offlinePrinter,
       );
       response = await api

@@ -32,7 +32,7 @@ class GodexRpsRenderer {
     if (request.isQolipCellLabel) {
       return _renderQolipCell(request);
     }
-    if (request.isQolipCodeLabel) {
+    if (request.isQolipCodeLabel || request.isMaterialProductLabel) {
       return _renderQolipCode(request);
     }
     final content = _PackLabelContent(
@@ -124,7 +124,11 @@ class GodexRpsRenderer {
 
   static Uint8List _renderQolipCode(UsbRpsPrintRequest request) {
     final name = _uppercaseClean(
-      request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
+      request.isMaterialProductLabel
+          ? request.materialProductLabelTitle
+          : request.itemName.trim().isEmpty
+              ? request.itemCode
+              : request.itemName,
     );
     final code = _uppercaseClean(
       request.itemCode.trim().isEmpty ? request.epc : request.itemCode,
