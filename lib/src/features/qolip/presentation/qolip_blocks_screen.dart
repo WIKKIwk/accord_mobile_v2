@@ -1,0 +1,303 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/api/mobile_api.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_retry_state.dart';
+import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../shared/models/app_models.dart';
+import 'widgets/qolip_dock.dart';
+import 'widgets/qolip_navigation_drawer.dart';
+
+class QolipBlocksScreen extends StatefulWidget {
+  const QolipBlocksScreen({super.key});
+
+  @override
+  State<QolipBlocksScreen> createState() => _QolipBlocksScreenState();
+}
+
+class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  late Future<QolipBlocksResult> _blocksFuture;
+  String _query = '';
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _blocksFuture = MobileApi.instance.qolipBlocksData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    final next = MobileApi.instance.qolipBlocksData();
+    setState(() => _blocksFuture = next);
+    await next;
+  }
+
+  void _openDrawerRoute(String route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current != route) {
+      Navigator.of(context).pushReplacementNamed(route);
+    }
+  }
+
+  Future<void> _openBlockActions(QolipBlock block) async {
+    if (_saving) {
+      return;
+    }
+    final action = await showModalBottomSheet<_QolipBlockAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Tahrirlash'),
+              onTap: () => Navigator.of(sheetContext).pop(
+                _QolipBlockAction.edit,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: const Text('O‘chirish'),
+              onTap: () => Navigator.of(sheetContext).pop(
+                _QolipBlockAction.delete,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+    switch (action) {
+      case _QolipBlockAction.edit:
+        await _editBlock(block);
+      case _QolipBlockAction.delete:
+        await _deleteBlock(block);
+    }
+  }
+
+  Future<void> _editBlock(QolipBlock block) async {
+    final controller = TextEditingController(text: block.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Blokni tahrirlash'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'Blok nomi'),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Saqlash'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final updatedName = name?.trim() ?? '';
+    if (!mounted || updatedName.isEmpty || updatedName == block.name.trim()) {
+      return;
+    }
+    await _runBlockAction(
+      () => MobileApi.instance.qolipUpdateBlock(
+        block: block,
+        newName: updatedName,
+      ),
+      successMessage: 'Blok tahrirlandi',
+      failureMessage: 'Blok tahrirlanmadi',
+    );
+  }
+
+  Future<void> _deleteBlock(QolipBlock block) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Blokni o‘chirasizmi?'),
+        content: Text('${block.name} blokini o‘chirib bo‘lmaydigan qilasiz.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('O‘chirish'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    await _runBlockAction(
+      () => MobileApi.instance.qolipDeleteBlock(block),
+      successMessage: 'Blok o‘chirildi',
+      failureMessage: 'Blok o‘chirilmadi',
+    );
+  }
+
+  Future<void> _runBlockAction(
+    Future<Object?> Function() action, {
+    required String successMessage,
+    required String failureMessage,
+  }) async {
+    if (_saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await action();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
+      await _reload();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(qolipErrorMessage(error, fallback: failureMessage))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShell(
+      title: '',
+      subtitle: '',
+      nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        hintText: 'Blok qidirish',
+        onChanged: (value) =>
+            setState(() => _query = value.trim().toLowerCase()),
+        onClear: () {
+          _searchController.clear();
+          setState(() => _query = '');
+        },
+        onBackWithContext: (context) =>
+            AppShellDrawerScope.maybeOf(context)?.openDrawer(),
+        leadingIcon: Icons.menu_rounded,
+        leadingTooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+      ),
+      drawer: QolipNavigationDrawer(
+        selectedIndex: 1,
+        onNavigate: _openDrawerRoute,
+      ),
+      bottom: const QolipDock(activeTab: null),
+      contentPadding: EdgeInsets.zero,
+      child: ColoredBox(
+        color: AppTheme.shellStart(context),
+        child: FutureBuilder<QolipBlocksResult>(
+          future: _blocksFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done &&
+                !snapshot.hasData) {
+              return const Center(child: AppLoadingIndicator());
+            }
+            if (snapshot.hasError) {
+              return AppRetryState(
+                  onRetry: _reload, message: 'Bloklar yuklanmadi');
+            }
+            final blocks =
+                (snapshot.data?.blocks ?? const <QolipBlock>[]).where((block) {
+              final query = _query;
+              return query.isEmpty ||
+                  block.name.toLowerCase().contains(query) ||
+                  block.warehouse.toLowerCase().contains(query);
+            }).toList(growable: false);
+            if (blocks.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: _reload,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 180),
+                    Center(child: Text('Blok topilmadi')),
+                  ],
+                ),
+              );
+            }
+            return RefreshIndicator(
+              onRefresh: _reload,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  4,
+                  4,
+                  MediaQuery.viewPaddingOf(context).bottom + 112,
+                ),
+                itemCount: blocks.length,
+                separatorBuilder: (_, __) => const SizedBox(
+                  height: M3SegmentedListGeometry.gap,
+                ),
+                itemBuilder: (context, index) {
+                  final block = blocks[index];
+                  return M3SegmentFilledSurface(
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                      index,
+                      blocks.length,
+                    ),
+                    cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
+                      M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index,
+                        blocks.length,
+                      ),
+                    ),
+                    onLongPress: () => _openBlockActions(block),
+                    child: ListTile(
+                      leading: const Icon(Icons.view_module_outlined),
+                      title: Text(block.name),
+                      subtitle: Text(block.warehouse),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+enum _QolipBlockAction { edit, delete }

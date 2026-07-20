@@ -320,7 +320,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             )
           : _selectionTitle(context),
       drawer: QolipNavigationDrawer(
-        selectedIndex: 1,
+        selectedIndex: 2,
         onNavigate: _openDrawerRoute,
       ),
       bottom: const QolipDock(activeTab: QolipDockTab.products),

@@ -3,6 +3,10 @@ part of '../mobile_api.dart';
 final List<QolipLocationEntry> _testModeQolipLocations = [];
 final Map<String, QolipProduct> _testModeQolipSpecs = {};
 final List<QolipCheckoutEntry> _testModeQolipCheckouts = [];
+final List<QolipBlock> _testModeQolipBlocks = [
+  const QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
+  const QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
+];
 
 String qolipErrorMessage(
   Object error, {
@@ -24,6 +28,9 @@ String qolipErrorMessage(
     'location_identity_mismatch' =>
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
     'qolip_in_use' => 'Ishchiga berilgan qolipni o‘chirib bo‘lmaydi',
+    'block_in_use' =>
+      'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘zgartirib bo‘lmaydi',
+    'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
     'forbidden' => 'Bu amal uchun ruxsat yo‘q',
     'unauthorized' => 'Sessiya tugagan. Qayta kiring',
     _ when code.contains('insufficient_stock') => 'Joyda yetarli qolip qolmadi',
@@ -58,12 +65,9 @@ extension MobileApiQolip on MobileApi {
 
   Future<QolipBlocksResult> qolipBlocksData() async {
     if (await TestModeController.instance.isEnabled()) {
-      return const QolipBlocksResult(
+      return QolipBlocksResult(
         warehouses: ['Qolip ombori'],
-        blocks: [
-          QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
-          QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
-        ],
+        blocks: List<QolipBlock>.unmodifiable(_testModeQolipBlocks),
       );
     }
     final response = await _sendAuthorized(
@@ -84,7 +88,9 @@ extension MobileApiQolip on MobileApi {
     required String block,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      return QolipBlock(name: block.trim(), warehouse: warehouse.trim());
+      final saved = QolipBlock(name: block.trim(), warehouse: warehouse.trim());
+      _testModeQolipBlocks.add(saved);
+      return saved;
     }
     final response = await _sendAuthorized(
       () => _post(
@@ -102,6 +108,96 @@ extension MobileApiQolip on MobileApi {
     }
     final data = await decodeJsonMapPayload(response.body);
     return QolipBlock.fromJson((data['block'] as Map).cast<String, dynamic>());
+  }
+
+  Future<QolipBlock> qolipUpdateBlock({
+    required QolipBlock block,
+    required String newName,
+  }) async {
+    final updatedName = newName.trim();
+    if (updatedName.isEmpty) {
+      throw const MobileApiException(
+        code: 'block_required',
+        message: 'block_required',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeQolipBlocks.indexWhere(
+        (item) =>
+            item.name.trim().toLowerCase() == block.name.trim().toLowerCase(),
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'block_not_found',
+          message: 'block_not_found',
+        );
+      }
+      if (_testModeQolipBlocks.any(
+        (item) =>
+            item.name.trim().toLowerCase() == updatedName.toLowerCase() &&
+            item.name.trim().toLowerCase() != block.name.trim().toLowerCase(),
+      )) {
+        throw const MobileApiException(
+          code: 'block_exists',
+          message: 'block_exists',
+        );
+      }
+      final saved = QolipBlock(
+        name: updatedName,
+        warehouse: block.warehouse.trim(),
+      );
+      _testModeQolipBlocks[index] = saved;
+      return saved;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': block.warehouse.trim(),
+          'block': block.name.trim(),
+          'new_block': updatedName,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_block_update_failed',
+        fallbackMessage: 'Blok tahrirlanmadi.',
+      );
+    }
+    final data = await decodeJsonMapPayload(response.body);
+    return QolipBlock.fromJson((data['block'] as Map).cast<String, dynamic>());
+  }
+
+  Future<void> qolipDeleteBlock(QolipBlock block) async {
+    if (await TestModeController.instance.isEnabled()) {
+      _testModeQolipBlocks.removeWhere(
+        (item) =>
+            item.name.trim().toLowerCase() == block.name.trim().toLowerCase(),
+      );
+      return;
+    }
+    final response = await _sendAuthorized(
+      () => _delete(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'warehouse': block.warehouse.trim(),
+          'block': block.name.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_block_delete_failed',
+        fallbackMessage: 'Blok o‘chirilmadi.',
+      );
+    }
   }
 
   Future<List<QolipProduct>> qolipProducts({

@@ -139,7 +139,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
         searchCloseKey: const ValueKey('qolip-checkouts-search-close'),
       ),
       drawer: QolipNavigationDrawer(
-        selectedIndex: 2,
+        selectedIndex: 3,
         onNavigate: _openDrawerRoute,
       ),
       bottom: const QolipDock(activeTab: QolipDockTab.checkouts),

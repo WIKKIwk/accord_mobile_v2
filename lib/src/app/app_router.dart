@@ -49,6 +49,7 @@ import '../features/admin/models/production_map_models.dart';
 import '../features/gscale/presentation/gscale_mode_screen.dart';
 import '../features/material_taminotchi/presentation/material_taminotchi_home_screen.dart';
 import '../features/qolip/presentation/qolip_home_screen.dart';
+import '../features/qolip/presentation/qolip_blocks_screen.dart';
 import '../features/qolip/presentation/qolip_checkouts_screen.dart';
 import '../features/qolip/presentation/qolip_products_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
@@ -192,6 +193,7 @@ class AppRoutes {
   static const String materialHistory = '/material-history';
   static const String gscaleMode = '/gscale-mode';
   static const String qolipHome = '/qolip';
+  static const String qolipBlocks = '/qolip-blocks';
   static const String qolipProducts = '/qolip-products';
   static const String qolipCheckouts = '/qolip-checkouts';
   static const String boyoqchiHome = '/boyoqchi-home';
@@ -240,6 +242,7 @@ class AppRouter {
     AppRoutes.materialHome,
     AppRoutes.materialHistory,
     AppRoutes.qolipHome,
+    AppRoutes.qolipBlocks,
     AppRoutes.qolipProducts,
     AppRoutes.qolipCheckouts,
     AppRoutes.boyoqchiHome,
@@ -678,6 +681,8 @@ class AppRouter {
         return _buildRoute(settings, const GScaleModeScreen());
       case AppRoutes.qolipHome:
         return _buildRoute(settings, const QolipHomeScreen());
+      case AppRoutes.qolipBlocks:
+        return _buildRoute(settings, const QolipBlocksScreen());
       case AppRoutes.qolipProducts:
         return _buildRoute(settings, const QolipProductsScreen());
       case AppRoutes.qolipCheckouts:
@@ -777,6 +782,7 @@ class AppRouter {
       'raw_material.assign',
     },
     AppRoutes.qolipHome: {'qolip.manage'},
+    AppRoutes.qolipBlocks: {'qolip.manage'},
     AppRoutes.qolipProducts: {'qolip.manage'},
     AppRoutes.qolipCheckouts: {'qolip.manage'},
     AppRoutes.boyoqchiHome: {'boyoqchi.access'},

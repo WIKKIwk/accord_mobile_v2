@@ -27,6 +27,12 @@ class QolipNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.qolipHome,
         ),
         const RoleNavigationDrawerDestination(
+          icon: Icons.view_module_outlined,
+          selectedIcon: Icons.view_module_rounded,
+          label: 'Bloklarim',
+          routeName: AppRoutes.qolipBlocks,
+        ),
+        const RoleNavigationDrawerDestination(
           icon: Icons.inventory_2_outlined,
           selectedIcon: Icons.inventory_2_rounded,
           label: 'Qoliplar',
