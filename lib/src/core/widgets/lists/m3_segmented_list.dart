@@ -177,6 +177,7 @@ class M3ExpandableFilledSurface extends StatelessWidget {
     required this.onExpandedChanged,
     required this.header,
     required this.expandedChild,
+    this.onLongPress,
     this.headerPadding = const EdgeInsets.fromLTRB(14, 8, 4, 8),
     this.collapsedMinHeight = 45,
     this.duration = const Duration(milliseconds: 180),
@@ -186,6 +187,7 @@ class M3ExpandableFilledSurface extends StatelessWidget {
   final double cornerRadius;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback? onLongPress;
   final Widget header;
   final Widget expandedChild;
   final EdgeInsetsGeometry headerPadding;
@@ -198,6 +200,7 @@ class M3ExpandableFilledSurface extends StatelessWidget {
       slot: slot,
       cornerRadius: cornerRadius,
       onTap: () => onExpandedChanged(!expanded),
+      onLongPress: onLongPress,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

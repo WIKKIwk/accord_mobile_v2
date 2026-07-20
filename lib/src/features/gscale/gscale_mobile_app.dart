@@ -20,6 +20,7 @@ import '../../core/session/session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../core/widgets/lists/m3_segmented_list.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
 import '../shared/models/app_models.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
@@ -476,7 +477,8 @@ class OperatorDashboardPage extends StatefulWidget {
   State<OperatorDashboardPage> createState() => _OperatorDashboardPageState();
 }
 
-class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
+class _OperatorDashboardPageState extends State<OperatorDashboardPage>
+    with SingleTickerProviderStateMixin {
   final http.Client _client = http.Client();
   final ValueNotifier<int> _latencyListenable = ValueNotifier<int>(0);
   final TextEditingController _defaultWarehouseController =
@@ -485,9 +487,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   final TextEditingController _manualQtyController = TextEditingController();
   final TextEditingController _manualDuplicateController =
       TextEditingController();
+  late final TabController _controlTabController;
   StreamSubscription<String>? _streamSubscription;
   int _streamGeneration = 0;
   int _selectedSection = 0;
+  int _controlTabIndex = 0;
 
   bool _manualLoading = false;
   bool _manualPrintLoading = false;
@@ -509,6 +513,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   MonitorSnapshot _snapshot = MonitorSnapshot.empty();
   List<GScaleRpsBatchPrintEntry> _batchPrints = const [];
   List<MobileArchiveSession> _archiveSessions = const [];
+  final Set<String> _expandedArchiveSessionIds = <String>{};
   MobileItem? _selectedItem;
   MobileWarehouse? _selectedWarehouse;
   Timer? _pingTimer;
@@ -527,6 +532,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   @override
   void initState() {
     super.initState();
+    _controlTabController = TabController(length: 2, vsync: this)
+      ..addListener(_handleControlTabChanged);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
     _manualDuplicateController.addListener(_scheduleSaveControlPrefs);
     _babinaWeightController.addListener(_scheduleSaveControlPrefs);
@@ -582,10 +589,24 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     _babinaWeightController.dispose();
     _manualQtyController.dispose();
     _manualDuplicateController.dispose();
+    _controlTabController
+      ..removeListener(_handleControlTabChanged)
+      ..dispose();
     _stopLiveStream();
     _latencyListenable.dispose();
     _client.close();
     super.dispose();
+  }
+
+  void _handleControlTabChanged() {
+    final index = _controlTabController.index;
+    if (_controlTabIndex == index) {
+      return;
+    }
+    _controlTabIndex = index;
+    if (index == 1) {
+      unawaited(_refreshArchive());
+    }
   }
 
   void _startLiveStream() {
@@ -2091,10 +2112,48 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     if (widget.controlOnly) {
       return Material(
         type: MaterialType.transparency,
-        child: _DashboardScrollView(
-          key: const ValueKey('control-section'),
-          horizontalPadding: 8,
-          child: _buildControlSection(context, theme, scheme, server),
+        child: Column(
+          children: [
+            Material(
+              color: scheme.surfaceContainer,
+              child: TabBar(
+                controller: _controlTabController,
+                labelColor: scheme.primary,
+                unselectedLabelColor: scheme.onSurfaceVariant,
+                tabs: const [
+                  Tab(height: 38, text: 'Print'),
+                  Tab(height: 38, text: 'Print tarixi'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _controlTabController,
+                children: [
+                  _DashboardScrollView(
+                    key: const ValueKey('control-section'),
+                    horizontalPadding: 8,
+                    child: _buildControlSection(
+                      context,
+                      theme,
+                      scheme,
+                      server,
+                    ),
+                  ),
+                  _DashboardScrollView(
+                    key: const ValueKey('print-history-section'),
+                    horizontalPadding: 8,
+                    child: _buildArchiveSection(
+                      context,
+                      theme,
+                      scheme,
+                      server,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -2370,6 +2429,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     DiscoveredServer? server,
   ) {
     final sessions = _archiveSessions;
+    final sectionTitle = widget.controlOnly ? 'Print tarixi' : 'Arxiv';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2386,7 +2446,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Arxiv',
+                    sectionTitle,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -2409,7 +2469,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
               onPressed:
                   _archiveLoading ? null : () => unawaited(_refreshArchive()),
               icon: const Icon(Icons.refresh_rounded),
-              tooltip: 'Arxivni yangilash',
+              tooltip: '$sectionTitle yangilash',
             ),
           ],
         ),
@@ -2427,24 +2487,25 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
         const SizedBox(height: 18),
         if (sessions.isEmpty && !_archiveLoading) ...[
           Text(
-            "Arxiv hali bo'sh.",
+            "$sectionTitle hali bo'sh.",
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
           ),
         ] else ...[
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sessions.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.6),
-            ),
-            itemBuilder: (context, index) {
-              final session = sessions[index];
-              return _buildArchiveSessionTile(session, theme, scheme);
-            },
+          M3SegmentSpacedColumn(
+            children: [
+              for (var index = 0; index < sessions.length; index++)
+                _buildArchiveSessionTile(
+                  sessions[index],
+                  theme,
+                  scheme,
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    sessions.length,
+                  ),
+                ),
+            ],
           ),
         ],
       ],
@@ -2498,8 +2559,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
   Widget _buildArchiveSessionTile(
     MobileArchiveSession session,
     ThemeData theme,
-    ColorScheme scheme,
-  ) {
+    ColorScheme scheme, {
+    required M3SegmentVerticalSlot slot,
+  }) {
     final unit = session.displayUnit;
     final title = session.displayItemName;
     final subtitle = _formatArchiveSessionSubtitle(session);
@@ -2508,101 +2570,127 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage> {
     final totalLabel =
         '${grossQty.toStringAsFixed(3)} / ${netQty.toStringAsFixed(3)} $unit';
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    final expanded = _expandedArchiveSessionIds.contains(session.sessionId);
+    return M3ExpandableFilledSurface(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      expanded: expanded,
+      onExpandedChanged: (value) {
+        setState(() {
+          if (value) {
+            _expandedArchiveSessionIds.add(session.sessionId);
+          } else {
+            _expandedArchiveSessionIds.remove(session.sessionId);
+          }
+        });
+      },
       onLongPress: _archivePrintLoadingSessionId.isNotEmpty
           ? null
           : () => unawaited(_confirmArchivePrint(session)),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(left: 12, right: 0, bottom: 12),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        backgroundColor: Colors.transparent,
-        collapsedBackgroundColor: Colors.transparent,
-        iconColor: scheme.primary,
-        collapsedIconColor: scheme.primary,
-        leading: Icon(
-          session.active ? Icons.timelapse_rounded : Icons.archive_outlined,
-          color: session.active ? scheme.tertiary : scheme.primary,
-        ),
-        title: Text(
-          title.isEmpty ? '-' : title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              totalLabel,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${session.printCount} print',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Brutto / Netto',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+      headerPadding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      collapsedMinHeight: 70,
+      header: Row(
         children: [
-          if (session.prints.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              child: Text(
-                "Print history hali yo'q.",
+          Icon(
+            session.active ? Icons.timelapse_rounded : Icons.archive_outlined,
+            color: session.active ? scheme.tertiary : scheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.isEmpty ? '-' : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                totalLabel,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${session.printCount} print',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-            )
-          else
-            ...session.prints.map(
-              (entry) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.playlist_add_check_rounded,
-                  size: 18,
-                  color: scheme.primary,
-                ),
-                title: Text(
-                  'B ${entry.grossQty.toStringAsFixed(3)} / N ${entry.netQty.toStringAsFixed(3)} ${entry.unit}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: Text(
-                  [
-                    formatArchiveTimestamp(entry.printedAt),
-                    if (entry.draftName.isNotEmpty) entry.draftName,
-                  ].join(' • '),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+          AnimatedRotation(
+            turns: expanded ? 0.5 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: Icon(
+              Icons.expand_more_rounded,
+              color: scheme.onSurfaceVariant,
             ),
+          ),
         ],
+      ),
+      expandedChild: Padding(
+        padding: const EdgeInsets.fromLTRB(48, 0, 12, 12),
+        child: session.prints.isEmpty
+            ? Text(
+                "Print tarixi hali yo'q.",
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            : Column(
+                children: [
+                  for (final entry in session.prints)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.playlist_add_check_rounded,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      title: Text(
+                        'B ${entry.grossQty.toStringAsFixed(3)} / N ${entry.netQty.toStringAsFixed(3)} ${entry.unit}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        [
+                          formatArchiveTimestamp(entry.printedAt),
+                          if (entry.draftName.isNotEmpty) entry.draftName,
+                        ].join(' • '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }

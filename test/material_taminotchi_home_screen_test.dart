@@ -179,8 +179,7 @@ void main() {
     expect(find.text('Material ta’minotchisi'), findsWidgets);
   });
 
-  testWidgets('material gscale mode reuses material shell without gscale tabs',
-      (
+  testWidgets('material gscale mode shows print and print history tabs', (
     tester,
   ) async {
     AppSession.instance.token = 'token';
@@ -216,6 +215,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tarozilar rejimi'), findsWidgets);
+    expect(find.widgetWithText(Tab, 'Print'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Print tarixi'), findsOneWidget);
     expect(find.byKey(const ValueKey('control-section')), findsOneWidget);
     expect(find.text('Tarozi'), findsOneWidget);
     expect(find.text('Qurilma tanlash'), findsOneWidget);
@@ -225,5 +226,13 @@ void main() {
     expect(find.text('Boshqaruv'), findsNothing);
     expect(find.text('Arxiv'), findsNothing);
     expect(find.text('Server'), findsNothing);
+
+    await tester.tap(find.widgetWithText(Tab, 'Print tarixi'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("Print tarixi hali bo'sh.").hitTestable(),
+      findsOneWidget,
+    );
   });
 }
