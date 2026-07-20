@@ -1345,23 +1345,35 @@ class _QolipBlockTabBar extends StatelessWidget {
               child: AnimatedBuilder(
                 animation: controller,
                 builder: (context, _) {
-                  return ReorderableListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.zero,
-                    buildDefaultDragHandles: false,
-                    dragBoundaryProvider: (context) {
-                      final renderObject = context.findRenderObject();
-                      if (renderObject is! RenderBox || !renderObject.hasSize) {
-                        return null;
-                      }
-                      final origin = renderObject.localToGlobal(Offset.zero);
-                      return _QolipTabDragBoundary(origin & renderObject.size);
-                    },
-                    onReorderItem: onReorder,
-                    children: [
-                      for (var index = 0; index < blocks.length; index++)
-                        _buildTab(context, blocks[index], index),
-                    ],
+                  return SizedBox(
+                    height: 38,
+                    child: Builder(
+                      builder: (boundaryContext) {
+                        return ReorderableListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.zero,
+                          buildDefaultDragHandles: false,
+                          dragBoundaryProvider: (_) {
+                            final renderObject =
+                                boundaryContext.findRenderObject();
+                            if (renderObject is! RenderBox ||
+                                !renderObject.hasSize) {
+                              return null;
+                            }
+                            final origin =
+                                renderObject.localToGlobal(Offset.zero);
+                            return _QolipTabDragBoundary(
+                              origin & renderObject.size,
+                            );
+                          },
+                          onReorderItem: onReorder,
+                          children: [
+                            for (var index = 0; index < blocks.length; index++)
+                              _buildTab(context, blocks[index], index),
+                          ],
+                        );
+                      },
+                    ),
                   );
                 },
               ),
