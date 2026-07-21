@@ -1086,7 +1086,7 @@ extension MobileApiQolip on MobileApi {
         for (var rowUnit = 'A'.codeUnitAt(0);
             rowUnit <= 'Z'.codeUnitAt(0);
             rowUnit++) {
-          for (var column = 1; column <= 9; column++) {
+          for (var column = 1; column <= 13; column++) {
             final row = String.fromCharCode(rowUnit);
             final id = [
               'qolip-cell',
