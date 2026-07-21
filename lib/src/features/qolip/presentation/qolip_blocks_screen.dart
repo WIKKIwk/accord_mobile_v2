@@ -9,6 +9,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../shared/models/app_models.dart';
+import '../qolip_search_matcher.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -114,8 +115,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
             gap: 8,
             vertical: true,
             onCancel: () => Navigator.of(dialogContext).pop(),
-            onConfirm: () =>
-                Navigator.of(dialogContext).pop(controller.text),
+            onConfirm: () => Navigator.of(dialogContext).pop(controller.text),
           ),
         ],
       ),
@@ -209,8 +209,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
         controller: _searchController,
         focusNode: _searchFocusNode,
         hintText: 'Blok qidirish',
-        onChanged: (value) =>
-            setState(() => _query = value.trim().toLowerCase()),
+        onChanged: (value) => setState(() => _query = value.trim()),
         onClear: () {
           _searchController.clear();
           setState(() => _query = '');
@@ -242,9 +241,7 @@ class _QolipBlocksScreenState extends State<QolipBlocksScreen> {
             final blocks =
                 (snapshot.data?.blocks ?? const <QolipBlock>[]).where((block) {
               final query = _query;
-              return query.isEmpty ||
-                  block.name.toLowerCase().contains(query) ||
-                  block.warehouse.toLowerCase().contains(query);
+              return qolipBlockSearchMatches(query, block);
             }).toList(growable: false);
             if (blocks.isEmpty) {
               return RefreshIndicator(

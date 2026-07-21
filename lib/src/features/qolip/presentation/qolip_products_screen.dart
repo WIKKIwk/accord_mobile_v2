@@ -13,6 +13,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../shared/models/app_models.dart';
+import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_home_screen.dart'
     show qolipPrinterChoiceForDriver, showQolipPrinterPicker;
@@ -29,8 +30,11 @@ class QolipProductsScreen extends StatefulWidget {
 class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  late Future<List<QolipProductContainer>> _future;
+  late Future<List<QolipProduct>> _future;
   Timer? _searchDebounce;
+  List<QolipProduct>? _cachedProducts;
+  String _cachedQuery = '';
+  List<QolipProductContainer> _cachedContainers = const [];
   String? _expandedContainerKey;
   _QolipSelectionMode? _selectionMode;
   final Set<String> _selectedContainerKeys = <String>{};
@@ -51,18 +55,19 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     super.dispose();
   }
 
-  Future<List<QolipProductContainer>> _load() async {
-    final products = await MobileApi.instance.qolipProducts(
-      query: _search.text,
+  Future<List<QolipProduct>> _load() {
+    return MobileApi.instance.qolipProducts(
       limit: 20000,
       withQolipOnly: true,
     );
-    return groupQolipProductsByContainer(products);
   }
 
   Future<void> _reload() async {
     final next = _load();
     setState(() {
+      _cachedProducts = null;
+      _cachedQuery = '';
+      _cachedContainers = const [];
       _expandedContainerKey = null;
       _selectionMode = null;
       _selectedContainerKeys.clear();
@@ -86,9 +91,30 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   void _searchChanged(String _) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(
-      const Duration(milliseconds: 260),
-      () => unawaited(_reload()),
+      const Duration(milliseconds: 160),
+      () {
+        if (mounted) {
+          setState(() {});
+        }
+      },
     );
+  }
+
+  List<QolipProductContainer> _visibleContainers(
+    List<QolipProduct> products,
+  ) {
+    final query = _search.text.trim();
+    if (identical(_cachedProducts, products) && _cachedQuery == query) {
+      return _cachedContainers;
+    }
+    final visibleProducts = products
+        .where((product) => qolipProductSearchMatches(query, product))
+        .toList(growable: false);
+    final containers = groupQolipProductsByContainer(visibleProducts);
+    _cachedProducts = products;
+    _cachedQuery = query;
+    _cachedContainers = containers;
+    return containers;
   }
 
   void _cancelSelection() {
@@ -331,7 +357,8 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
               onChanged: _searchChanged,
               onClear: () {
                 _search.clear();
-                unawaited(_reload());
+                _searchDebounce?.cancel();
+                setState(() {});
               },
               onBackWithContext: (context) =>
                   AppShellDrawerScope.maybeOf(context)?.openDrawer(),
@@ -348,7 +375,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),
-        child: FutureBuilder<List<QolipProductContainer>>(
+        child: FutureBuilder<List<QolipProduct>>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done &&
@@ -358,9 +385,13 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             if (snapshot.hasError) {
               return AppRetryState(onRetry: _reload);
             }
-            final containers = snapshot.data ?? const <QolipProductContainer>[];
-            if (containers.isEmpty) {
+            final products = snapshot.data ?? const <QolipProduct>[];
+            if (products.isEmpty) {
               return const Center(child: Text('Qolip topilmadi'));
+            }
+            final containers = _visibleContainers(products);
+            if (containers.isEmpty) {
+              return const Center(child: Text('Qidiruvda topilmadi'));
             }
             return RefreshIndicator(
               onRefresh: () async => _reload(),

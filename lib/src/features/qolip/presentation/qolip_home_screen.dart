@@ -10,7 +10,6 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
-import '../../../core/search/search_normalizer.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -26,6 +25,7 @@ import '../../gscale/gscale_mobile_app.dart'
         printTargetLabel;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
@@ -706,14 +706,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
           pageSize: 80,
           loadPage: (query, offset, limit) async {
             final filtered = locations.where((item) {
-              return searchMatches(query, [
-                item.itemName,
-                item.itemCode,
-                item.qolipCode,
-                '${item.size}',
-                item.block,
-                item.locationLabel,
-              ]);
+              return qolipLocationSearchMatches(query, item);
             }).toList(growable: false);
             return filtered.skip(offset).take(limit).toList(growable: false);
           },
@@ -2901,6 +2894,7 @@ class _QolipUnplacedTile extends StatelessWidget {
 }
 
 Future<QolipWorkerOption?> _showQolipWorkerPicker(BuildContext context) {
+  final workersFuture = MobileApi.instance.qolipWorkers();
   return showModalBottomSheet<QolipWorkerOption>(
     context: context,
     isDismissible: true,
@@ -2915,11 +2909,11 @@ Future<QolipWorkerOption?> _showQolipWorkerPicker(BuildContext context) {
         title: 'Ishchini tanlang',
         hintText: 'Ishchi nomi bilan qidiring',
         pageSize: 80,
-        loadPage: (query, offset, limit) {
-          if (offset > 0) {
-            return Future.value(const <QolipWorkerOption>[]);
-          }
-          return MobileApi.instance.qolipWorkers(query: query);
+        loadPage: (query, offset, limit) async {
+          final workers = await workersFuture;
+          final filtered = workers
+              .where((worker) => qolipWorkerSearchMatches(query, worker));
+          return filtered.skip(offset).take(limit).toList(growable: false);
         },
         itemTitle: (worker) => worker.name,
         itemSubtitle: (worker) => worker.level,
@@ -3499,13 +3493,13 @@ int qolipContainerSearchMatchCount(
   Iterable<QolipLocationEntry> items,
   String query,
 ) {
-  final normalizedQuery = query.trim();
-  if (normalizedQuery.isEmpty) {
+  final trimmedQuery = query.trim();
+  if (trimmedQuery.isEmpty) {
     return 0;
   }
   var count = 0;
   for (final item in items) {
-    if (searchMatches(normalizedQuery, [item.itemName])) {
+    if (qolipLocationSearchMatches(trimmedQuery, item)) {
       count += 1;
     }
   }
@@ -3516,14 +3510,14 @@ Map<String, int> qolipBlockSearchMatchCounts(
   Map<String, List<QolipLocationEntry>> locationsByBlock,
   String query,
 ) {
-  final normalizedQuery = query.trim();
-  if (normalizedQuery.isEmpty) {
+  final trimmedQuery = query.trim();
+  if (trimmedQuery.isEmpty) {
     return const <String, int>{};
   }
   return <String, int>{
     for (final entry in locationsByBlock.entries)
       entry.key.trim().toLowerCase():
-          qolipContainerSearchMatchCount(entry.value, normalizedQuery),
+          qolipContainerSearchMatchCount(entry.value, trimmedQuery),
   };
 }
 
@@ -3694,6 +3688,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
   late final Future<Set<String>> _placedQolipCodesFuture;
+  Future<List<QolipProduct>>? _productsFuture;
   QolipBlock? _block;
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
@@ -3760,6 +3755,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         .toSet();
   }
 
+  Future<List<QolipProduct>> _loadProducts() {
+    return _productsFuture ??= MobileApi.instance.qolipProducts(
+      limit: 20000,
+      withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
+    );
+  }
+
   Future<void> _pickProduct() async {
     final picked = await showModalBottomSheet<_QolipProductSelection>(
       context: context,
@@ -3782,24 +3784,23 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ? null
               : 'qolip:products',
           loadPage: (query, offset, limit) async {
-            if (!isCellPlacement && offset > 0) {
-              return Future.value(const <QolipProduct>[]);
+            if (!isCellPlacement && query.trim().isEmpty) {
+              if (offset > 0) {
+                return const <QolipProduct>[];
+              }
+              return MobileApi.instance.qolipProducts(limit: limit);
             }
-            final productsFuture = MobileApi.instance.qolipProducts(
-              query: query,
-              limit: isCellPlacement ? 20000 : limit,
-              withQolipOnly: isCellPlacement,
+            final products = await _loadProducts();
+            final available = isCellPlacement
+                ? qolipProductsAvailableForCellPlacement(
+                    products,
+                    await _placedQolipCodesFuture,
+                  )
+                : products;
+            final filtered = available.where(
+              (product) => qolipProductSearchMatches(query, product),
             );
-            if (!isCellPlacement) {
-              return productsFuture;
-            }
-            final products = await productsFuture;
-            final placedQolipCodes = await _placedQolipCodesFuture;
-            final available = qolipProductsAvailableForCellPlacement(
-              products,
-              placedQolipCodes,
-            );
-            return available.skip(offset).take(limit).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
           },
           itemTitle: (item) {
             final name = item.name.trim();

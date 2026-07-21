@@ -52,6 +52,32 @@ void main() {
     expect(qolipContainerSearchMatchCount(items, ''), 0);
   });
 
+  test('qolip home search tolerates typos, scripts and misplaced spaces', () {
+    final items = const [
+      QolipLocationEntry(
+        id: '1',
+        block: 'A blok',
+        warehouse: 'Qolip ombor',
+        itemCode: 'ITEM-001',
+        itemName: 'Kross model',
+        qolipCode: 'Q-001',
+        size: 40,
+        quantity: 1,
+        rowLetter: 'A',
+        columnNumber: 1,
+        locationLabel: 'A1',
+      ),
+    ];
+
+    expect(qolipContainerSearchMatchCount(items, 'kroos'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'кrоss'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'kr oss'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'model kroos'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'rhjcc'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'Q 001'), 1);
+    expect(qolipContainerSearchMatchCount(items, 'loafer'), 0);
+  });
+
   test('qolip home search reports matches for unopened blocks', () {
     const blockA = QolipLocationEntry(
       id: 'a-1',
@@ -90,6 +116,16 @@ void main() {
 
     expect(matches['a blok'], 0);
     expect(matches['b blok'], 1);
+
+    final typoMatches = qolipBlockSearchMatchCounts(
+      const {
+        'a blok': [blockA],
+        'b blok': [blockB],
+      },
+      'botnka',
+    );
+    expect(typoMatches['a blok'], 0);
+    expect(typoMatches['b blok'], 1);
   });
 
   test('cell placement excludes qolips that already have a cell', () {

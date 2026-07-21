@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../shared/models/app_models.dart';
+import '../qolip_search_matcher.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
@@ -126,7 +127,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
         focusNode: _searchFocusNode,
         hintText: 'Qarzdan qidirish',
         onChanged: (value) {
-          setState(() => _query = value.trim().toLowerCase());
+          setState(() => _query = value.trim());
         },
         onClear: () {
           _searchController.clear();
@@ -194,19 +195,9 @@ List<QolipCheckoutEntry> _filterCheckouts(
   if (query.isEmpty) {
     return checkouts;
   }
-  return checkouts.where((checkout) {
-    final haystack = [
-      checkout.issuedToName,
-      checkout.itemName,
-      checkout.itemCode,
-      checkout.qolipCode,
-      checkout.block,
-      checkout.warehouse,
-      checkout.locationLabel,
-      '${checkout.size}',
-    ].join(' ').toLowerCase();
-    return haystack.contains(query);
-  }).toList(growable: false);
+  return checkouts
+      .where((checkout) => qolipCheckoutSearchMatches(query, checkout))
+      .toList(growable: false);
 }
 
 class _QolipDebtList extends StatefulWidget {
