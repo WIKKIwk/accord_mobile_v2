@@ -69,6 +69,7 @@ extension MobileApiQolip on MobileApi {
       return QolipBlocksResult(
         warehouses: ['Qolip ombori'],
         blocks: List<QolipBlock>.unmodifiable(_testModeQolipBlocks),
+        supportsCrossBlockMove: true,
       );
     }
     final response = await _sendAuthorized(

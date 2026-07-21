@@ -32,6 +32,40 @@ import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
+bool qolipMoveReachedTarget({
+  required QolipLocationEntry moved,
+  required QolipBlock targetBlock,
+  required String qolipCode,
+  required String rowLetter,
+  required int columnNumber,
+}) {
+  return moved.block.trim().toLowerCase() ==
+          targetBlock.name.trim().toLowerCase() &&
+      moved.warehouse.trim().toLowerCase() ==
+          targetBlock.warehouse.trim().toLowerCase() &&
+      moved.qolipCode.trim().toLowerCase() == qolipCode.trim().toLowerCase() &&
+      moved.rowLetter.trim().toUpperCase() == rowLetter.trim().toUpperCase() &&
+      moved.columnNumber == columnNumber;
+}
+
+List<QolipBlock> qolipMoveTargetBlocks({
+  required List<QolipBlock> blocks,
+  required QolipLocationEntry source,
+  required bool supportsCrossBlockMove,
+}) {
+  if (supportsCrossBlockMove && blocks.isNotEmpty) {
+    return List<QolipBlock>.unmodifiable(blocks);
+  }
+  for (final block in blocks) {
+    if (block.name.trim().toLowerCase() == source.block.trim().toLowerCase()) {
+      return <QolipBlock>[block];
+    }
+  }
+  return <QolipBlock>[
+    QolipBlock(name: source.block, warehouse: source.warehouse),
+  ];
+}
+
 class QolipHomeScreen extends StatefulWidget {
   const QolipHomeScreen({super.key});
 
@@ -55,6 +89,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   TabController? _blockTabController;
   Timer? _searchDebounce;
   int _searchGeneration = 0;
+  bool _supportsCrossBlockMove = false;
 
   @override
   void initState() {
@@ -115,6 +150,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         .toList(growable: false);
     final orderedBlocks = await _applySavedBlockOrder(blocks);
     _orderedBlocks = orderedBlocks;
+    _supportsCrossBlockMove = result.supportsCrossBlockMove;
     if (_searchQuery.isNotEmpty) {
       _refreshSearchMatches();
     }
@@ -123,6 +159,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
           .where((warehouse) => warehouse.trim().isNotEmpty)
           .toList(growable: false),
       blocks: orderedBlocks,
+      supportsCrossBlockMove: result.supportsCrossBlockMove,
     );
   }
 
@@ -234,13 +271,47 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     return locations;
   }
 
-  void _refreshBlock(String block) {
+  Future<List<QolipLocationEntry>> _refreshBlockAndWait(String block) {
     final key = block.trim().toLowerCase();
     final next = _startLocationLoad(block, key);
     setState(() {
       _locations[key] = next;
     });
     unawaited(_refreshSearchAfter(next));
+    return next;
+  }
+
+  void _refreshBlock(String block) {
+    unawaited(_refreshBlockAndWait(block));
+  }
+
+  Future<Map<String, List<QolipLocationEntry>>> _refreshMovedBlocks(
+    Iterable<String> blocks,
+  ) async {
+    final namesByKey = <String, String>{};
+    for (final block in blocks) {
+      final name = block.trim();
+      if (name.isNotEmpty) {
+        namesByKey.putIfAbsent(name.toLowerCase(), () => name);
+      }
+    }
+    final entries = await Future.wait(
+      namesByKey.entries.map((entry) async {
+        return MapEntry(entry.key, await _refreshBlockAndWait(entry.value));
+      }),
+    );
+    return Map<String, List<QolipLocationEntry>>.fromEntries(entries);
+  }
+
+  void _showBlockTab(QolipBlock block) {
+    final index = _orderedBlocks.indexWhere(
+      (item) =>
+          item.name.trim().toLowerCase() == block.name.trim().toLowerCase(),
+    );
+    final controller = _blockTabController;
+    if (controller != null && index >= 0 && index < controller.length) {
+      controller.animateTo(index);
+    }
   }
 
   Future<void> _refreshSearchAfter(
@@ -447,7 +518,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       return false;
     }
     try {
-      await MobileApi.instance.qolipMoveLocation(
+      final moved = await MobileApi.instance.qolipMoveLocation(
         locationId: item.id,
         targetBlock: targetBlock,
         quantity: moveQty,
@@ -457,11 +528,45 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       if (!mounted) {
         return false;
       }
-      _refreshBlock(item.block);
-      if (targetBlock.name.trim().toLowerCase() !=
-          item.block.trim().toLowerCase()) {
-        _refreshBlock(targetBlock.name);
+      final refreshed = await _refreshMovedBlocks([
+        item.block,
+        targetBlock.name,
+        moved.block,
+      ]);
+      if (!mounted) {
+        return false;
       }
+      final reachedTarget = qolipMoveReachedTarget(
+        moved: moved,
+        targetBlock: targetBlock,
+        qolipCode: item.qolipCode,
+        rowLetter: rowLetter,
+        columnNumber: columnNumber,
+      );
+      final targetLocations =
+          refreshed[targetBlock.name.trim().toLowerCase()] ??
+              const <QolipLocationEntry>[];
+      final targetContainsMove = reachedTarget &&
+          targetLocations.any(
+            (location) =>
+                location.id == moved.id &&
+                location.qolipCode.trim().toLowerCase() ==
+                    item.qolipCode.trim().toLowerCase(),
+          );
+      if (!targetContainsMove) {
+        final actualLocation = moved.locationLabel.trim().isEmpty
+            ? moved.block
+            : '${moved.block} / ${moved.locationLabel}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Server target blokni tasdiqlamadi. Qolip hozir $actualLocation da.',
+            ),
+          ),
+        );
+        return false;
+      }
+      _showBlockTab(targetBlock);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -489,7 +594,12 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     QolipLocationEntry item, {
     String? excludeCellLabel,
   }) async {
-    final targetBlock = await _pickQolipBlock(_orderedBlocks);
+    final availableBlocks = qolipMoveTargetBlocks(
+      blocks: _orderedBlocks,
+      source: item,
+      supportsCrossBlockMove: _supportsCrossBlockMove,
+    );
+    final targetBlock = await _pickQolipBlock(availableBlocks);
     if (targetBlock == null || !mounted) {
       return;
     }

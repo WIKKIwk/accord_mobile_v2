@@ -394,10 +394,15 @@ class QolipBlock {
 }
 
 class QolipBlocksResult {
-  const QolipBlocksResult({required this.warehouses, required this.blocks});
+  const QolipBlocksResult({
+    required this.warehouses,
+    required this.blocks,
+    this.supportsCrossBlockMove = false,
+  });
 
   final List<String> warehouses;
   final List<QolipBlock> blocks;
+  final bool supportsCrossBlockMove;
 
   factory QolipBlocksResult.fromJson(Map<String, dynamic> json) {
     final rawWarehouses = json['warehouses'];
@@ -412,6 +417,7 @@ class QolipBlocksResult {
           for (final item in rawBlocks)
             QolipBlock.fromJson((item as Map).cast<String, dynamic>()),
       ],
+      supportsCrossBlockMove: json['supports_cross_block_move'] == true,
     );
   }
 }
