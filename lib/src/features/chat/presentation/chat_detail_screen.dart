@@ -11,8 +11,9 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
 import '../models/chat_media_models.dart';
-import '../state/chat_store.dart';
+import '../state/chat_audio_playback_controller.dart';
 import '../state/chat_failure.dart';
+import '../state/chat_store.dart';
 import '../data/chat_media_file_store.dart';
 import 'chat_media_preview_screen.dart';
 import 'chat_voice_recorder.dart';
@@ -21,6 +22,7 @@ import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_message_composer.dart';
 import 'widgets/chat_pending_media_bubble.dart';
 import 'widgets/chat_role_dock.dart';
+import 'widgets/chat_voice_mini_player.dart';
 
 const Duration _voiceAutoStopMargin = Duration(seconds: 1);
 
@@ -41,6 +43,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   final composerHeight = ValueNotifier<double>(
     ChatRoleDock.messageComposerHeight,
   );
+  final audioPlayback = ChatAudioPlaybackController();
   final voiceRecorder = ChatVoiceRecorder();
   Timer? _voiceTimer;
   bool _recordingVoice = false;
@@ -74,6 +77,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     controller.dispose();
     scrollController.dispose();
     _voiceTimer?.cancel();
+    audioPlayback.dispose();
     unawaited(voiceRecorder.dispose());
     super.dispose();
   }
@@ -176,6 +180,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           final messages = store.messagesFor(
             widget.conversation.conversationId,
           );
+          audioPlayback.setKnownMessages(messages);
           final pending = store.pendingMediaFor(
             widget.conversation.conversationId,
           );
@@ -235,7 +240,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 ),
               ),
             ),
-            child: messageList!,
+            child: Column(
+              children: [
+                ChatVoiceMiniPlayer(playback: audioPlayback),
+                Expanded(child: messageList!),
+              ],
+            ),
           ),
         );
       },
@@ -351,6 +361,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                     key: ValueKey(message.messageId),
                     message: message,
                     mine: item.mine,
+                    playback: audioPlayback,
                     compactTop: item.compactTop,
                     isLastInGroup: item.isLastInGroup,
                   );

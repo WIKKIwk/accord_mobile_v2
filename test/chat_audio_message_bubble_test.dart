@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/features/chat/models/chat_media_models.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/chat/presentation/widgets/chat_message_bubble.dart';
+import 'package:accord_mobile_v2/src/features/chat/state/chat_audio_playback_controller.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,12 +11,14 @@ void main() {
       (
     tester,
   ) async {
+    final playback = ChatAudioPlaybackController();
+    addTearDown(playback.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
-        home: const Scaffold(
+        home: Scaffold(
           body: ChatMessageBubble(
-            message: ChatMessage(
+            message: const ChatMessage(
               messageId: 'message_audio_1',
               conversationId: 'conversation_1',
               senderPrincipalId: 'principal_1',
@@ -41,6 +44,7 @@ void main() {
               ),
             ),
             mine: false,
+            playback: playback,
           ),
         ),
       ),
