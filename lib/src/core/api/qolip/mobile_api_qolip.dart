@@ -955,6 +955,7 @@ extension MobileApiQolip on MobileApi {
 
   Future<QolipLocationEntry> qolipMoveLocation({
     required String locationId,
+    required QolipBlock targetBlock,
     required int quantity,
     required String rowLetter,
     required int columnNumber,
@@ -977,8 +978,10 @@ extension MobileApiQolip on MobileApi {
         );
       }
       final cleanRow = rowLetter.trim().toUpperCase();
+      final targetBlockName = targetBlock.name.trim();
+      final targetWarehouse = targetBlock.warehouse.trim();
       final targetId = _testModeQolipLocationId(
-        block: source.block,
+        block: targetBlockName,
         itemCode: source.itemCode,
         qolipCode: source.qolipCode,
         size: source.size,
@@ -1031,8 +1034,8 @@ extension MobileApiQolip on MobileApi {
       }
       final created = QolipLocationEntry(
         id: targetId,
-        block: source.block,
-        warehouse: source.warehouse,
+        block: targetBlockName,
+        warehouse: targetWarehouse,
         itemCode: source.itemCode,
         itemName: source.itemName,
         qolipCode: source.qolipCode,
@@ -1052,6 +1055,8 @@ extension MobileApiQolip on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'location_id': locationId.trim(),
+          'block': targetBlock.name.trim(),
+          'warehouse': targetBlock.warehouse.trim(),
           'quantity': quantity,
           'row_letter': rowLetter.trim().toUpperCase(),
           'column_number': columnNumber,

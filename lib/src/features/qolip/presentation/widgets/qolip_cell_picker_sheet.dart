@@ -29,7 +29,7 @@ const List<String> kQolipGridLetters = [
   'Z',
 ];
 
-const int kQolipGridColumnCount = 9;
+const int kQolipGridColumnCount = 13;
 
 Future<String?> showQolipCellPickerSheet(
   BuildContext context, {

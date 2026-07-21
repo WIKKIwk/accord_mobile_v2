@@ -436,6 +436,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   Future<bool> _moveQolipToCell(
     QolipLocationEntry item, {
+    required QolipBlock targetBlock,
     required String rowLetter,
     required int columnNumber,
     required String cellLabel,
@@ -448,6 +449,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     try {
       await MobileApi.instance.qolipMoveLocation(
         locationId: item.id,
+        targetBlock: targetBlock,
         quantity: moveQty,
         rowLetter: rowLetter,
         columnNumber: columnNumber,
@@ -456,8 +458,16 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         return false;
       }
       _refreshBlock(item.block);
+      if (targetBlock.name.trim().toLowerCase() !=
+          item.block.trim().toLowerCase()) {
+        _refreshBlock(targetBlock.name);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.itemName} $cellLabel ga ko‘chirildi')),
+        SnackBar(
+          content: Text(
+            '${item.itemName} ${targetBlock.name} / $cellLabel ga ko‘chirildi',
+          ),
+        ),
       );
       return true;
     } catch (error) {
@@ -479,10 +489,16 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     QolipLocationEntry item, {
     String? excludeCellLabel,
   }) async {
+    final targetBlock = await _pickQolipBlock(_orderedBlocks);
+    if (targetBlock == null || !mounted) {
+      return;
+    }
+    final movingInsideSourceBlock = targetBlock.name.trim().toLowerCase() ==
+        item.block.trim().toLowerCase();
     final cellLabel = await showQolipCellPickerSheet(
       context,
-      title: 'Qayerga ko‘chirasiz?',
-      excludeCellLabel: excludeCellLabel,
+      title: '${targetBlock.name}: yacheykani tanlang',
+      excludeCellLabel: movingInsideSourceBlock ? excludeCellLabel : null,
     );
     if (cellLabel == null || !mounted) {
       return;
@@ -496,6 +512,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     }
     await _moveQolipToCell(
       item,
+      targetBlock: targetBlock,
       rowLetter: normalizedCell.substring(0, 1),
       columnNumber: columnNumber,
       cellLabel: normalizedCell,
@@ -1388,6 +1405,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                             ) =>
                                 _moveQolipToCell(
                               item,
+                              targetBlock: block,
                               rowLetter: rowLetter,
                               columnNumber: columnNumber,
                               cellLabel: cellLabel,
