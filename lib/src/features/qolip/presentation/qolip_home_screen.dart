@@ -45,11 +45,16 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   late Future<QolipBlocksResult> _blocksFuture;
   final Map<String, Future<List<QolipLocationEntry>>> _locations = {};
+  final Map<String, List<QolipLocationEntry>> _resolvedLocations = {};
+  final Map<String, int> _locationGenerations = {};
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   List<QolipBlock> _orderedBlocks = const <QolipBlock>[];
+  Map<String, int> _blockSearchMatchCounts = const <String, int>{};
   String _searchQuery = '';
   TabController? _blockTabController;
+  Timer? _searchDebounce;
+  int _searchGeneration = 0;
 
   @override
   void initState() {
@@ -62,6 +67,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   void dispose() {
     QolipDataRevision.locations.removeListener(_handleLocationsChanged);
     _blockTabController?.dispose();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -93,7 +99,13 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     if (!mounted) {
       return;
     }
-    setState(_locations.clear);
+    setState(() {
+      for (final key in _locationGenerations.keys.toList(growable: false)) {
+        _locationGenerations[key] = _locationGenerations[key]! + 1;
+      }
+      _locations.clear();
+    });
+    _refreshSearchMatches();
   }
 
   Future<QolipBlocksResult> _loadBlocks() async {
@@ -103,6 +115,9 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         .toList(growable: false);
     final orderedBlocks = await _applySavedBlockOrder(blocks);
     _orderedBlocks = orderedBlocks;
+    if (_searchQuery.isNotEmpty) {
+      _refreshSearchMatches();
+    }
     return QolipBlocksResult(
       warehouses: result.warehouses
           .where((warehouse) => warehouse.trim().isNotEmpty)
@@ -113,7 +128,12 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   Future<void> _reloadBlocks() async {
     setState(() {
+      for (final key in _locationGenerations.keys.toList(growable: false)) {
+        _locationGenerations[key] = _locationGenerations[key]! + 1;
+      }
       _locations.clear();
+      _resolvedLocations.clear();
+      _blockSearchMatchCounts = const <String, int>{};
       _orderedBlocks = const <QolipBlock>[];
       _blocksFuture = _loadBlocks();
     });
@@ -187,15 +207,51 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     final key = block.trim().toLowerCase();
     return _locations.putIfAbsent(
       key,
-      () => MobileApi.instance.qolipLocations(block),
+      () => _startLocationLoad(block, key),
     );
+  }
+
+  Future<List<QolipLocationEntry>> _startLocationLoad(
+    String block,
+    String key,
+  ) {
+    final generation = (_locationGenerations[key] ?? 0) + 1;
+    _locationGenerations[key] = generation;
+    return _loadLocations(block, key, generation);
+  }
+
+  Future<List<QolipLocationEntry>> _loadLocations(
+    String block,
+    String key,
+    int generation,
+  ) async {
+    final locations = List<QolipLocationEntry>.unmodifiable(
+      await MobileApi.instance.qolipLocations(block),
+    );
+    if (_locationGenerations[key] == generation) {
+      _resolvedLocations[key] = locations;
+    }
+    return locations;
   }
 
   void _refreshBlock(String block) {
     final key = block.trim().toLowerCase();
+    final next = _startLocationLoad(block, key);
     setState(() {
-      _locations[key] = MobileApi.instance.qolipLocations(block);
+      _locations[key] = next;
     });
+    unawaited(_refreshSearchAfter(next));
+  }
+
+  Future<void> _refreshSearchAfter(
+    Future<List<QolipLocationEntry>> future,
+  ) async {
+    try {
+      await future;
+    } catch (_) {
+      return;
+    }
+    _refreshSearchMatches();
   }
 
   void _openDrawerRoute(String route) {
@@ -207,8 +263,63 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   }
 
   void _onSearchChanged(String value) {
+    final query = value.trim();
+    _searchDebounce?.cancel();
+    _searchGeneration++;
     setState(() {
-      _searchQuery = value.trim();
+      _searchQuery = query;
+      _blockSearchMatchCounts = query.isEmpty
+          ? const <String, int>{}
+          : qolipBlockSearchMatchCounts(_resolvedLocations, query);
+    });
+    if (query.isNotEmpty) {
+      final generation = _searchGeneration;
+      _searchDebounce = Timer(
+        const Duration(milliseconds: 160),
+        () => unawaited(_loadBlockSearchMatches(query, generation)),
+      );
+    }
+  }
+
+  void _refreshSearchMatches() {
+    final query = _searchQuery;
+    if (!mounted || query.isEmpty) {
+      return;
+    }
+    final generation = ++_searchGeneration;
+    unawaited(_loadBlockSearchMatches(query, generation));
+  }
+
+  Future<void> _loadBlockSearchMatches(
+    String query,
+    int generation,
+  ) async {
+    final blocks = List<QolipBlock>.of(_orderedBlocks);
+    final entries = await Future.wait(
+      blocks.map((block) async {
+        final key = _blockKey(block);
+        try {
+          return MapEntry<String, List<QolipLocationEntry>?>(
+            key,
+            await _locationsFor(block.name),
+          );
+        } catch (_) {
+          return MapEntry<String, List<QolipLocationEntry>?>(key, null);
+        }
+      }),
+    );
+    if (!mounted || generation != _searchGeneration || query != _searchQuery) {
+      return;
+    }
+    final locationsByBlock = <String, List<QolipLocationEntry>>{
+      for (final entry in entries)
+        if (entry.value != null) entry.key: entry.value!,
+    };
+    setState(() {
+      _blockSearchMatchCounts = qolipBlockSearchMatchCounts(
+        locationsByBlock,
+        query,
+      );
     });
   }
 
@@ -762,9 +873,16 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     if (!mounted) {
       return;
     }
+    final blockKey = block.name.trim().toLowerCase();
     setState(() {
-      _locations[block.name.trim().toLowerCase()] = Future.value(locations);
+      _locationGenerations[blockKey] =
+          (_locationGenerations[blockKey] ?? 0) + 1;
+      _resolvedLocations[blockKey] = List<QolipLocationEntry>.unmodifiable(
+        locations,
+      );
+      _locations[blockKey] = Future.value(_resolvedLocations[blockKey]!);
     });
+    _refreshSearchMatches();
     final cellItems = locations.where((item) {
       return item.rowLetter.trim().toLowerCase() ==
               cell.rowLetter.trim().toLowerCase() &&
@@ -1200,8 +1318,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
               ],
             );
           }
-          final tabController =
-              _ensureBlockTabController(blocks.length + 1);
+          final tabController = _ensureBlockTabController(blocks.length + 1);
           var lastBlockIndex = tabController.index.clamp(
             0,
             blocks.length - 1,
@@ -1213,6 +1330,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                   _QolipBlockTabBar(
                     controller: tabController,
                     blocks: blocks,
+                    searchMatchCounts: _blockSearchMatchCounts,
                     onTap: (index) {
                       lastBlockIndex = index;
                     },
@@ -1241,6 +1359,8 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                           _QolipBlockGrid(
                             block: block,
                             future: _locationsFor(block.name),
+                            initialLocations:
+                                _resolvedLocations[_blockKey(block)],
                             searchQuery: _searchQuery,
                             onRefresh: () async {
                               _refreshBlock(block.name);
@@ -1341,6 +1461,7 @@ class _QolipBlockTabBar extends StatefulWidget {
   const _QolipBlockTabBar({
     required this.controller,
     required this.blocks,
+    required this.searchMatchCounts,
     required this.onTap,
     required this.onReorder,
     required this.onAdd,
@@ -1348,6 +1469,7 @@ class _QolipBlockTabBar extends StatefulWidget {
 
   final TabController controller;
   final List<QolipBlock> blocks;
+  final Map<String, int> searchMatchCounts;
   final ValueChanged<int> onTap;
   final void Function(int oldIndex, int newIndex) onReorder;
   final VoidCallback onAdd;
@@ -1587,6 +1709,11 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       (candidate) => _blockKey(candidate) == blockKey,
     );
     final selected = index >= 0 && _selectedIndex == index;
+    final matchCount = widget.searchMatchCounts[blockKey] ?? 0;
+    final hasMatch = matchCount > 0;
+    final matchColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF81C784)
+        : const Color(0xFF2E7D32);
     return GestureDetector(
       key: _tabKeyFor(block),
       behavior: HitTestBehavior.opaque,
@@ -1597,7 +1724,8 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       child: Semantics(
         button: true,
         selected: selected,
-        label: block.name,
+        label:
+            hasMatch ? '${block.name}, $matchCount ta mos qolip' : block.name,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1615,8 +1743,11 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
                 : null,
             border: Border(
               bottom: BorderSide(
-                color:
-                    selected ? theme.colorScheme.primary : Colors.transparent,
+                color: hasMatch
+                    ? matchColor
+                    : selected
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -1629,16 +1760,29 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
               widget.controller.animateTo(index);
               widget.onTap(index);
             },
-            child: Text(
-              block.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: selected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    block.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: hasMatch
+                          ? matchColor
+                          : selected
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                      fontWeight: hasMatch ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (hasMatch) ...[
+                  const SizedBox(width: 6),
+                  _QolipSearchBadge(count: matchCount),
+                ],
+              ],
             ),
           ),
         ),
@@ -1656,7 +1800,11 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
-    return (textPainter.width + 28).clamp(72.0, double.infinity).toDouble();
+    final matchCount = widget.searchMatchCounts[_blockKey(block)] ?? 0;
+    final matchWidth = matchCount > 0 ? 24.0 : 0.0;
+    return (textPainter.width + 28 + matchWidth)
+        .clamp(72.0, double.infinity)
+        .toDouble();
   }
 }
 
@@ -1706,6 +1854,7 @@ class _QolipBlockGrid extends StatelessWidget {
   const _QolipBlockGrid({
     required this.block,
     required this.future,
+    required this.initialLocations,
     required this.searchQuery,
     required this.onRefresh,
     required this.onAttachAt,
@@ -1717,6 +1866,7 @@ class _QolipBlockGrid extends StatelessWidget {
 
   final QolipBlock block;
   final Future<List<QolipLocationEntry>> future;
+  final List<QolipLocationEntry>? initialLocations;
   final String searchQuery;
   final Future<void> Function() onRefresh;
   final Future<void> Function(
@@ -1775,12 +1925,13 @@ class _QolipBlockGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<List<QolipLocationEntry>>(
       future: future,
+      initialData: initialLocations,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done &&
             !snapshot.hasData) {
           return const Center(child: AppLoadingIndicator());
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError && !snapshot.hasData) {
           return AppRetryState(onRetry: onRefresh);
         }
         final locations = snapshot.data ?? const <QolipLocationEntry>[];
@@ -1794,7 +1945,7 @@ class _QolipBlockGrid extends StatelessWidget {
             byCell.putIfAbsent(label, () => []).add(location);
           }
         }
-        final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 104;
+        final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 320;
         var occupiedCells = 0;
         var totalQty = 0;
         for (final entry in byCell.entries) {
@@ -3231,6 +3382,21 @@ int qolipContainerSearchMatchCount(
     }
   }
   return count;
+}
+
+Map<String, int> qolipBlockSearchMatchCounts(
+  Map<String, List<QolipLocationEntry>> locationsByBlock,
+  String query,
+) {
+  final normalizedQuery = query.trim();
+  if (normalizedQuery.isEmpty) {
+    return const <String, int>{};
+  }
+  return <String, int>{
+    for (final entry in locationsByBlock.entries)
+      entry.key.trim().toLowerCase():
+          qolipContainerSearchMatchCount(entry.value, normalizedQuery),
+  };
 }
 
 class _QolipBlockCreateSheet extends StatefulWidget {

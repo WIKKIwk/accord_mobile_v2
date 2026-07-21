@@ -52,6 +52,46 @@ void main() {
     expect(qolipContainerSearchMatchCount(items, ''), 0);
   });
 
+  test('qolip home search reports matches for unopened blocks', () {
+    const blockA = QolipLocationEntry(
+      id: 'a-1',
+      block: 'A blok',
+      warehouse: 'Qolip ombor',
+      itemCode: 'ITEM-001',
+      itemName: 'Kross model',
+      qolipCode: 'Q-001',
+      size: 40,
+      quantity: 1,
+      rowLetter: 'A',
+      columnNumber: 1,
+      locationLabel: 'A1',
+    );
+    const blockB = QolipLocationEntry(
+      id: 'b-1',
+      block: 'B blok',
+      warehouse: 'Qolip ombor',
+      itemCode: 'ITEM-002',
+      itemName: 'Botinka model',
+      qolipCode: 'Q-002',
+      size: 41,
+      quantity: 1,
+      rowLetter: 'B',
+      columnNumber: 2,
+      locationLabel: 'B2',
+    );
+
+    final matches = qolipBlockSearchMatchCounts(
+      const {
+        'a blok': [blockA],
+        'b blok': [blockB],
+      },
+      'botinka',
+    );
+
+    expect(matches['a blok'], 0);
+    expect(matches['b blok'], 1);
+  });
+
   test('cell placement excludes qolips that already have a cell', () {
     final products = const [
       QolipProduct(

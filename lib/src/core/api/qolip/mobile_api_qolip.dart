@@ -29,7 +29,7 @@ String qolipErrorMessage(
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
     'qolip_in_use' => 'Ishchiga berilgan qolipni o‘chirib bo‘lmaydi',
     'block_in_use' =>
-      'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘zgartirib bo‘lmaydi',
+      'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
     'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
     'block_not_found' => 'Blok topilmadi',
     'forbidden' => 'Bu amal uchun ruxsat yo‘q',
@@ -148,6 +148,54 @@ extension MobileApiQolip on MobileApi {
         warehouse: block.warehouse.trim(),
       );
       _testModeQolipBlocks[index] = saved;
+      for (var locationIndex = 0;
+          locationIndex < _testModeQolipLocations.length;
+          locationIndex++) {
+        final location = _testModeQolipLocations[locationIndex];
+        if (location.block.trim().toLowerCase() !=
+            block.name.trim().toLowerCase()) {
+          continue;
+        }
+        _testModeQolipLocations[locationIndex] = QolipLocationEntry(
+          id: location.id,
+          block: updatedName,
+          warehouse: saved.warehouse,
+          itemCode: location.itemCode,
+          itemName: location.itemName,
+          qolipCode: location.qolipCode,
+          size: location.size,
+          quantity: location.quantity,
+          rowLetter: location.rowLetter,
+          columnNumber: location.columnNumber,
+          locationLabel: location.locationLabel,
+        );
+      }
+      for (var checkoutIndex = 0;
+          checkoutIndex < _testModeQolipCheckouts.length;
+          checkoutIndex++) {
+        final checkout = _testModeQolipCheckouts[checkoutIndex];
+        if (checkout.block.trim().toLowerCase() !=
+            block.name.trim().toLowerCase()) {
+          continue;
+        }
+        _testModeQolipCheckouts[checkoutIndex] = QolipCheckoutEntry(
+          id: checkout.id,
+          locationId: checkout.locationId,
+          block: updatedName,
+          warehouse: saved.warehouse,
+          itemCode: checkout.itemCode,
+          itemName: checkout.itemName,
+          qolipCode: checkout.qolipCode,
+          size: checkout.size,
+          quantity: checkout.quantity,
+          rowLetter: checkout.rowLetter,
+          columnNumber: checkout.columnNumber,
+          locationLabel: checkout.locationLabel,
+          issuedToName: checkout.issuedToName,
+          status: checkout.status,
+          issuedAt: checkout.issuedAt,
+        );
+      }
       return saved;
     }
     final response = await _sendAuthorized(
@@ -269,6 +317,83 @@ extension MobileApiQolip on MobileApi {
           if (products.length >= limit) {
             return products;
           }
+        }
+      }
+      final seenQolipCodes = products
+          .map((product) => product.qolipCode.trim().toLowerCase())
+          .where((code) => code.isNotEmpty)
+          .toSet();
+      for (final spec in _testModeQolipSpecs.values) {
+        final qolipKey = spec.qolipCode.trim().toLowerCase();
+        if (qolipKey.isEmpty || !seenQolipCodes.add(qolipKey)) {
+          continue;
+        }
+        if (normalized.isNotEmpty &&
+            !spec.name.toLowerCase().contains(normalized) &&
+            !spec.code.toLowerCase().contains(normalized) &&
+            !spec.qolipCode.toLowerCase().contains(normalized) &&
+            !spec.customerNames.any(
+              (customer) => customer.toLowerCase().contains(normalized),
+            )) {
+          continue;
+        }
+        products.add(
+          QolipProduct(
+            code: spec.code,
+            name: spec.name,
+            itemGroup: spec.itemGroup,
+            customerNames: spec.customerNames,
+            qolipCode: spec.qolipCode,
+            qolipSize: spec.qolipSize,
+            hasQolipSpec: spec.hasQolipSpec,
+            isInUse: _testModeQolipCheckouts.any(
+              (checkout) =>
+                  checkout.isOpen &&
+                  checkout.qolipCode.trim().toLowerCase() == qolipKey,
+            ),
+          ),
+        );
+      }
+      for (final location in _testModeQolipLocations) {
+        final qolipKey = location.qolipCode.trim().toLowerCase();
+        if (qolipKey.isEmpty || !seenQolipCodes.add(qolipKey)) {
+          continue;
+        }
+        QolipProduct? catalogProduct;
+        for (final item in TestModeDemoData.items) {
+          if (item.code.trim().toLowerCase() ==
+              location.itemCode.trim().toLowerCase()) {
+            catalogProduct = QolipProduct(
+              code: item.code,
+              name: item.name,
+              itemGroup: item.itemGroup,
+              customerNames: item.customerNames,
+            );
+            break;
+          }
+        }
+        final product = QolipProduct(
+          code: location.itemCode,
+          name: catalogProduct?.name ?? location.itemName,
+          itemGroup: catalogProduct?.itemGroup ?? '',
+          customerNames: catalogProduct?.customerNames ?? const [],
+          qolipCode: location.qolipCode,
+          qolipSize: location.size,
+          hasQolipSpec: true,
+          isInUse: _testModeQolipCheckouts.any(
+            (checkout) =>
+                checkout.isOpen &&
+                checkout.qolipCode.trim().toLowerCase() == qolipKey,
+          ),
+        );
+        if (normalized.isEmpty ||
+            product.name.toLowerCase().contains(normalized) ||
+            product.code.toLowerCase().contains(normalized) ||
+            product.qolipCode.toLowerCase().contains(normalized) ||
+            product.customerNames.any(
+              (customer) => customer.toLowerCase().contains(normalized),
+            )) {
+          products.add(product);
         }
       }
       return products.take(limit).toList(growable: false);
@@ -504,14 +629,21 @@ extension MobileApiQolip on MobileApi {
           message: 'qolip_in_use',
         );
       }
-      final before = _testModeQolipSpecs.length;
+      final existingCodes = <String>{
+        for (final product in _testModeQolipSpecs.values)
+          if (keys.contains(product.qolipCode.trim().toLowerCase()))
+            product.qolipCode.trim().toLowerCase(),
+        for (final location in _testModeQolipLocations)
+          if (keys.contains(location.qolipCode.trim().toLowerCase()))
+            location.qolipCode.trim().toLowerCase(),
+      };
       _testModeQolipSpecs.removeWhere(
         (_, product) => keys.contains(product.qolipCode.trim().toLowerCase()),
       );
       _testModeQolipLocations.removeWhere(
         (location) => keys.contains(location.qolipCode.trim().toLowerCase()),
       );
-      return before - _testModeQolipSpecs.length;
+      return existingCodes.length;
     }
     final response = await _sendAuthorized(
       () => _delete(
