@@ -318,16 +318,18 @@ class ServerPickerPage extends StatefulWidget {
   State<ServerPickerPage> createState() => _ServerPickerPageState();
 }
 
+enum _DevicePickerConnection { usb, bluetooth, wifi }
+
 class _ServerPickerPageState extends State<ServerPickerPage> {
   final http.Client _client = http.Client();
 
   bool _scanning = false;
   DiscoveryResult? _result;
+  _DevicePickerConnection? _selectedConnection;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_scan());
   }
 
   @override
@@ -384,96 +386,185 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
     widget.onOpenServer(server);
   }
 
-  Future<void> _confirmExitAndClose() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Ilovadan chiqish'),
-          content: const Text('Ilovadan rostdan chiqib ketasizmi?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Yo\'q'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Ha'),
-            ),
-          ],
-        );
-      },
-    );
-    if (shouldExit == true && mounted) {
-      SystemNavigator.pop();
+  void _selectConnection(_DevicePickerConnection connection) {
+    setState(() {
+      _selectedConnection = connection;
+    });
+    if (connection == _DevicePickerConnection.wifi) {
+      unawaited(_scan());
     }
+  }
+
+  void _backToConnections() {
+    setState(() {
+      _selectedConnection = null;
+    });
+  }
+
+  String _titleForConnection(_DevicePickerConnection connection) {
+    switch (connection) {
+      case _DevicePickerConnection.usb:
+        return 'USB printer';
+      case _DevicePickerConnection.bluetooth:
+        return 'Bluetooth printer';
+      case _DevicePickerConnection.wifi:
+        return 'Wi-Fi qurilma';
+    }
+  }
+
+  Widget _buildWifiDevices(BuildContext context) {
+    final servers = _result?.servers ?? const <DiscoveredServer>[];
+    return RefreshIndicator(
+      onRefresh: _scan,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+        children: [
+          const _DeviceSelectionHeader(),
+          if (_scanning && servers.isEmpty) const _ScanningState(),
+          if (!_scanning && servers.isEmpty) _EmptyServerState(onRetry: _scan),
+          if (servers.isNotEmpty)
+            _ServerList(
+              servers: servers,
+              onOpenServer: widget.onOpenServer,
+            ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final servers = _result?.servers ?? const <DiscoveredServer>[];
+    final selectedConnection = _selectedConnection;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          unawaited(_confirmExitAndClose());
-        }
-      },
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          appBar: AppBar(
-            toolbarHeight: AppTheme.appBarHeight,
-            leading: IconButton(
-              onPressed: widget.onExitMode,
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: AppTheme.appBarHeight,
+        leading: IconButton(
+          onPressed: selectedConnection == null
+              ? widget.onExitMode
+              : _backToConnections,
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        ),
+        title: Text(
+          selectedConnection == null
+              ? 'Qurilma tanlash'
+              : _titleForConnection(selectedConnection),
+        ),
+        actions: [
+          if (selectedConnection == _DevicePickerConnection.wifi)
+            IconButton(
+              onPressed: _openManualEntrySheet,
+              icon: const Icon(Icons.add_link_rounded),
+              tooltip: 'Wi-Fi manzilini qo‘shish',
             ),
-            title: const Text('Tarozilar rejimi'),
-            actions: [
-              IconButton(
-                onPressed: _openManualEntrySheet,
-                icon: const Icon(Icons.add_link_rounded),
-                tooltip: 'WiFi server qo‘shish',
+        ],
+      ),
+      body: selectedConnection == null
+          ? _ConnectionModeSelection(onSelected: _selectConnection)
+          : switch (selectedConnection) {
+              _DevicePickerConnection.usb =>
+                _OfflineUsbSelection(onSelect: widget.onSelectOffline),
+              _DevicePickerConnection.bluetooth => BluetoothPrinterList(
+                  onSelected: widget.onSelectBluetooth,
+                ),
+              _DevicePickerConnection.wifi => _buildWifiDevices(context),
+            },
+    );
+  }
+}
+
+class _ConnectionModeSelection extends StatelessWidget {
+  const _ConnectionModeSelection({required this.onSelected});
+
+  final ValueChanged<_DevicePickerConnection> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      children: [
+        Text(
+          'Ulanish usulini tanlang',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-            ],
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'Offline'),
-                Tab(text: 'Bluetooth'),
-                Tab(text: 'WiFi'),
-              ],
-            ),
-          ),
-          body: TabBarView(
+        ),
+        const SizedBox(height: 12),
+        _ConnectionModeButton(
+          icon: Icons.usb_rounded,
+          title: 'USB printer',
+          subtitle: 'USB orqali ulangan printerni qidirish',
+          onTap: () => onSelected(_DevicePickerConnection.usb),
+        ),
+        const SizedBox(height: 10),
+        _ConnectionModeButton(
+          icon: Icons.bluetooth_rounded,
+          title: 'Bluetooth printer',
+          subtitle: 'Bluetooth orqali ulangan printerni qidirish',
+          onTap: () => onSelected(_DevicePickerConnection.bluetooth),
+        ),
+        const SizedBox(height: 10),
+        _ConnectionModeButton(
+          icon: Icons.wifi_rounded,
+          title: 'Wi-Fi qurilma',
+          subtitle: 'Tarmoqdagi tarozi yoki printerni qidirish',
+          onTap: () => onSelected(_DevicePickerConnection.wifi),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConnectionModeButton extends StatelessWidget {
+  const _ConnectionModeButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
             children: [
-              _OfflineUsbSelection(onSelect: widget.onSelectOffline),
-              BluetoothPrinterList(
-                activationTabIndex: 1,
-                onSelected: widget.onSelectBluetooth,
-              ),
-              RefreshIndicator(
-                onRefresh: _scan,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+              Icon(icon, color: scheme.primary, size: 28),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _DeviceSelectionHeader(),
-                    if (_scanning && servers.isEmpty) const _ScanningState(),
-                    if (!_scanning && servers.isEmpty)
-                      _EmptyServerState(
-                        onRetry: _scan,
-                      ),
-                    if (servers.isNotEmpty)
-                      _ServerList(
-                        servers: servers,
-                        onOpenServer: widget.onOpenServer,
-                      ),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded),
             ],
           ),
         ),
@@ -4252,7 +4343,7 @@ class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
                     label: Text(
                       _detecting
                           ? 'USB printer aniqlanmoqda...'
-                          : 'Offline rejimni tanlash',
+                          : 'USB printerni tanlash',
                     ),
                   ),
                 ),
