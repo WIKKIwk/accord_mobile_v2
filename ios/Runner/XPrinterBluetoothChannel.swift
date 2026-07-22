@@ -64,28 +64,35 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     withArguments arguments: Any?,
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
-    discoveryEventSink = events
-    discoveredPeripherals.removeAll(keepingCapacity: true)
-    discoveryWorkItem?.cancel()
-    bleManager.stopScan()
-    bleManager.startScan()
+    DispatchQueue.main.async { [weak self] in
+      guard let self else {
+        return
+      }
+      self.discoveryEventSink = events
+      self.discoveredPeripherals.removeAll(keepingCapacity: true)
+      self.discoveryWorkItem?.cancel()
+      self.bleManager.stopScan()
+      self.bleManager.startScan()
 
-    let workItem = DispatchWorkItem { [weak self] in
-      self?.finishDiscoveryStream()
+      let workItem = DispatchWorkItem { [weak self] in
+        self?.finishDiscoveryStream()
+      }
+      self.discoveryWorkItem = workItem
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + Self.scanTimeout,
+        execute: workItem
+      )
     }
-    discoveryWorkItem = workItem
-    DispatchQueue.main.asyncAfter(
-      deadline: .now() + Self.scanTimeout,
-      execute: workItem
-    )
     return nil
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
-    discoveryEventSink = nil
-    discoveryWorkItem?.cancel()
-    discoveryWorkItem = nil
-    bleManager.stopScan()
+    DispatchQueue.main.async { [weak self] in
+      self?.discoveryEventSink = nil
+      self?.discoveryWorkItem?.cancel()
+      self?.discoveryWorkItem = nil
+      self?.bleManager.stopScan()
+    }
     return nil
   }
 
@@ -662,17 +669,20 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       return
     }
 
+    DispatchQueue.main.async { [weak self] in
+      self?.handleDiscoveredPrinter(peripheral)
+    }
+  }
+
+  private func handleDiscoveredPrinter(_ peripheral: CBPeripheral) {
     let key = normalize(peripheral.identifier.uuidString)
     let isNew = discoveredPeripherals.updateValue(peripheral, forKey: key) == nil
     if isNew {
-      let event = [
+      discoveryEventSink?([
         "type": "printer",
         "name": printerName(peripheral),
         "address": peripheral.identifier.uuidString,
-      ]
-      DispatchQueue.main.async { [weak self] in
-        self?.discoveryEventSink?(event)
-      }
+      ])
     }
     if let job = printJob,
        job.address == key {
