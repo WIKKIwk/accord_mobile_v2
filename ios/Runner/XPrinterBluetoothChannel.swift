@@ -2,19 +2,23 @@ import CoreBluetooth
 import Flutter
 import Foundation
 
-final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate {
+final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStreamHandler {
   private static let channelName = "accord/bluetooth_printer"
+  private static let discoveryChannelName = "accord/bluetooth_printer/discovery"
   private static let printTimeout: TimeInterval = 25
   private static let scanTimeout: TimeInterval = 6
   private static let writeCharacteristicTimeout: TimeInterval = 8
   private static let writeCharacteristicPollInterval: TimeInterval = 0.1
 
   private let channel: FlutterMethodChannel
+  private let discoveryChannel: FlutterEventChannel
   private let bleManager: XBLEManager
 
   private var discoveredPeripherals: [String: CBPeripheral] = [:]
   private var scanResult: FlutterResult?
   private var scanWorkItem: DispatchWorkItem?
+  private var discoveryEventSink: FlutterEventSink?
+  private var discoveryWorkItem: DispatchWorkItem?
 
   private var printJob: PrintJob?
   private var printWorkItem: DispatchWorkItem?
@@ -26,10 +30,15 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate {
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
+    discoveryChannel = FlutterEventChannel(
+      name: Self.discoveryChannelName,
+      binaryMessenger: messenger
+    )
     bleManager = XBLEManager.sharedInstance()
     super.init()
 
     bleManager.delegate = self
+    discoveryChannel.setStreamHandler(self)
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call: call, result: result)
         ?? result(FlutterError(
@@ -44,9 +53,40 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate {
     scanWorkItem?.cancel()
     printWorkItem?.cancel()
     writeReadyWorkItem?.cancel()
+    discoveryWorkItem?.cancel()
     bleManager.stopScan()
     bleManager.removeDelegate(self)
+    discoveryChannel.setStreamHandler(nil)
     channel.setMethodCallHandler(nil)
+  }
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    discoveryEventSink = events
+    discoveredPeripherals.removeAll(keepingCapacity: true)
+    discoveryWorkItem?.cancel()
+    bleManager.stopScan()
+    bleManager.startScan()
+
+    let workItem = DispatchWorkItem { [weak self] in
+      self?.finishDiscoveryStream()
+    }
+    discoveryWorkItem = workItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + Self.scanTimeout,
+      execute: workItem
+    )
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    discoveryEventSink = nil
+    discoveryWorkItem?.cancel()
+    discoveryWorkItem = nil
+    bleManager.stopScan()
+    return nil
   }
 
   private func handle(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -108,6 +148,15 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate {
         ]
       }
     result(printers)
+  }
+
+  private func finishDiscoveryStream() {
+    guard let eventSink = discoveryEventSink else {
+      return
+    }
+    discoveryWorkItem = nil
+    bleManager.stopScan()
+    eventSink(["type": "complete"])
   }
 
   private func printLabel(arguments: [String: Any], result: @escaping FlutterResult) {
@@ -613,9 +662,17 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate {
       return
     }
 
-    discoveredPeripherals[normalize(peripheral.identifier.uuidString)] = peripheral
+    let key = normalize(peripheral.identifier.uuidString)
+    let isNew = discoveredPeripherals.updateValue(peripheral, forKey: key) == nil
+    if isNew {
+      discoveryEventSink?([
+        "type": "printer",
+        "name": printerName(peripheral),
+        "address": peripheral.identifier.uuidString,
+      ])
+    }
     if let job = printJob,
-       job.address == normalize(peripheral.identifier.uuidString) {
+       job.address == key {
       bleManager.stopScan()
       connect(to: peripheral)
     }
