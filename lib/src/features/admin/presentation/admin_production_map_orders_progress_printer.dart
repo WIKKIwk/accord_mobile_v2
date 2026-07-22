@@ -8,7 +8,8 @@ class _ProgressPrinterOption {
     this.printer = '',
     this.printMode = '',
   })  : transport = PrintTransport.wifi,
-        offlinePrinter = null;
+        offlinePrinter = null,
+        bluetoothPrinter = null;
 
   _ProgressPrinterOption.offline(UsbPrinterProfile profile)
       : server = null,
@@ -17,7 +18,18 @@ class _ProgressPrinterOption {
         transport = PrintTransport.offline,
         printer = profile.printer,
         printMode = profile.printMode,
-        offlinePrinter = profile;
+        offlinePrinter = profile,
+        bluetoothPrinter = null;
+
+  _ProgressPrinterOption.bluetooth(BluetoothPrinterProfile profile)
+      : server = null,
+        driverUrl = offlineUsbDriverUrl,
+        printerLabel = profile.displayName,
+        transport = PrintTransport.bluetooth,
+        printer = profile.printer,
+        printMode = profile.printMode,
+        offlinePrinter = null,
+        bluetoothPrinter = profile;
 
   final DiscoveredServer? server;
   final String driverUrl;
@@ -26,6 +38,7 @@ class _ProgressPrinterOption {
   final String printer;
   final String printMode;
   final UsbPrinterProfile? offlinePrinter;
+  final BluetoothPrinterProfile? bluetoothPrinter;
 }
 
 Future<_ProgressPrinterOption?> _showProgressPrinterPicker(
@@ -158,7 +171,7 @@ class _ProgressPrinterPickerSheetState
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: FractionallySizedBox(
         heightFactor: 0.68,
         child: SafeArea(
@@ -189,6 +202,10 @@ class _ProgressPrinterPickerSheetState
                 const TabBar(
                   tabs: [
                     Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(
+                      text: 'Bluetooth',
+                      icon: Icon(Icons.bluetooth_rounded),
+                    ),
                     Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
                   ],
                 ),
@@ -230,6 +247,14 @@ class _ProgressPrinterPickerSheetState
                             ),
                           ],
                         ],
+                      ),
+                      BluetoothPrinterList(
+                        activationTabIndex: 1,
+                        onSelected: (printer) {
+                          Navigator.of(context).pop(
+                            _ProgressPrinterOption.bluetooth(printer),
+                          );
+                        },
                       ),
                       ListView(
                         children: [

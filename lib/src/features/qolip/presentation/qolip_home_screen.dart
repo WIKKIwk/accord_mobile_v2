@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
@@ -14,6 +15,7 @@ import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
@@ -404,8 +406,10 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       return;
     }
     try {
-      final printer = option.transport.isOffline
-          ? option.offlinePrinter!.printer
+      final printer = option.transport.isLocal
+          ? option.transport.isBluetooth
+              ? option.bluetoothPrinter!.printer
+              : option.offlinePrinter!.printer
           : qolipPrinterChoiceForDriver(
               kind: option.printerKind,
               label: option.printerLabel,
@@ -416,17 +420,21 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         columnNumber: columnNumber,
         driverUrl: option.driverUrl,
         printer: printer,
-        printMode: option.transport.isOffline
-            ? option.offlinePrinter!.printMode
+        printMode: option.transport.isLocal
+            ? option.transport.isBluetooth
+                ? option.bluetoothPrinter!.printMode
+                : option.offlinePrinter!.printMode
             : printer == 'godex'
                 ? 'label'
                 : 'rfid',
         printTransport: option.transport,
       );
-      if (option.transport.isOffline) {
+      if (option.transport.isLocal) {
         await PrintService.printRps(
           result.printJob,
           printerProfile: option.offlinePrinter,
+          bluetoothPrinter: option.bluetoothPrinter,
+          transport: option.transport,
         );
       }
       final cellQr = result.cellQr;
@@ -3100,7 +3108,8 @@ class QolipPrinterOption {
     required this.printerKind,
     required this.printerLabel,
     this.transport = PrintTransport.wifi,
-  }) : offlinePrinter = null;
+  })  : offlinePrinter = null,
+        bluetoothPrinter = null;
 
   QolipPrinterOption.offline(UsbPrinterProfile profile)
       : server = null,
@@ -3108,7 +3117,17 @@ class QolipPrinterOption {
         printerKind = profile.printer,
         printerLabel = profile.displayName,
         transport = PrintTransport.offline,
-        offlinePrinter = profile;
+        offlinePrinter = profile,
+        bluetoothPrinter = null;
+
+  QolipPrinterOption.bluetooth(BluetoothPrinterProfile profile)
+      : server = null,
+        driverUrl = offlineUsbDriverUrl,
+        printerKind = profile.printer,
+        printerLabel = profile.displayName,
+        transport = PrintTransport.bluetooth,
+        offlinePrinter = null,
+        bluetoothPrinter = profile;
 
   final DiscoveredServer? server;
   final String driverUrl;
@@ -3116,6 +3135,7 @@ class QolipPrinterOption {
   final String printerLabel;
   final PrintTransport transport;
   final UsbPrinterProfile? offlinePrinter;
+  final BluetoothPrinterProfile? bluetoothPrinter;
 }
 
 Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) {
@@ -3227,7 +3247,7 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: FractionallySizedBox(
         heightFactor: 0.68,
         child: SafeArea(
@@ -3258,6 +3278,10 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
                 const TabBar(
                   tabs: [
                     Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(
+                      text: 'Bluetooth',
+                      icon: Icon(Icons.bluetooth_rounded),
+                    ),
                     Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
                   ],
                 ),
@@ -3299,6 +3323,14 @@ class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
                             ),
                           ],
                         ],
+                      ),
+                      BluetoothPrinterList(
+                        activationTabIndex: 1,
+                        onSelected: (printer) {
+                          Navigator.of(context).pop(
+                            QolipPrinterOption.bluetooth(printer),
+                          );
+                        },
                       ),
                       ListView(
                         children: [
@@ -4039,8 +4071,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
     setState(() => _printingQr = true);
     try {
-      final printer = option.transport.isOffline
-          ? option.offlinePrinter!.printer
+      final printer = option.transport.isLocal
+          ? option.transport.isBluetooth
+              ? option.bluetoothPrinter!.printer
+              : option.offlinePrinter!.printer
           : qolipPrinterChoiceForDriver(
               kind: option.printerKind,
               label: option.printerLabel,
@@ -4049,17 +4083,21 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         qolipCode: saved.qolipCode,
         driverUrl: option.driverUrl,
         printer: printer,
-        printMode: option.transport.isOffline
-            ? option.offlinePrinter!.printMode
+        printMode: option.transport.isLocal
+            ? option.transport.isBluetooth
+                ? option.bluetoothPrinter!.printMode
+                : option.offlinePrinter!.printMode
             : printer == 'godex'
                 ? 'label'
                 : 'rfid',
         printTransport: option.transport,
       );
-      if (option.transport.isOffline) {
+      if (option.transport.isLocal) {
         await PrintService.printRps(
           result.printJob,
           printerProfile: option.offlinePrinter,
+          bluetoothPrinter: option.bluetoothPrinter,
+          transport: option.transport,
         );
       }
       final qr = result.qolipQr;

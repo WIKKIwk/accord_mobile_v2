@@ -1,6 +1,7 @@
 import '../gscale_mobile_app.dart';
 import '../../../app/app_router.dart';
 import '../../../core/session/session.dart';
+import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
@@ -45,6 +46,7 @@ class _MaterialGScaleControlScreenState
     extends State<_MaterialGScaleControlScreen> {
   DiscoveredServer? _selectedServer;
   UsbPrinterProfile? _offlinePrinter;
+  BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
 
   Future<void> _applyDeviceSelection(GScaleDeviceSelection selection) async {
@@ -55,6 +57,9 @@ class _MaterialGScaleControlScreenState
       _printTransport = selection.transport;
       if (selection.offlinePrinter != null) {
         _offlinePrinter = selection.offlinePrinter;
+      }
+      if (selection.bluetoothPrinter != null) {
+        _bluetoothPrinter = selection.bluetoothPrinter;
       }
       if (selection.server != null) {
         _selectedServer = selection.server;
@@ -82,6 +87,11 @@ class _MaterialGScaleControlScreenState
             Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
           },
           onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
+          onSelectBluetooth: (printer) {
+            Navigator.of(sheetContext).pop(
+              GScaleDeviceSelection.bluetooth(printer),
+            );
+          },
           onExitMode: () async {
             Navigator.of(sheetContext).pop();
           },
@@ -129,6 +139,7 @@ class _MaterialGScaleControlScreenState
         server: _selectedServer,
         printTransport: _printTransport,
         offlinePrinter: _offlinePrinter,
+        bluetoothPrinter: _bluetoothPrinter,
         onExitMode: () async {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();

@@ -3936,8 +3936,8 @@ extension MobileApiAdmin on MobileApi {
           if (progressBatchId.trim().isNotEmpty)
             'progress_batch_id': progressBatchId.trim(),
           if (trimmedDriverUrl.isNotEmpty) 'driver_url': trimmedDriverUrl,
-          if (printTransport.isOffline)
-            'print_transport': printTransport.apiValue,
+          if (printTransport.isLocal)
+            'print_transport': printTransport.clientApiValue,
           if (printer.trim().isNotEmpty) 'printer': printer.trim(),
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
           if (trimmedCompletionRequestNote.isNotEmpty)

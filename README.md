@@ -577,7 +577,8 @@ progress lineage va final stock mutation backend tomonidan tekshiriladi.
 - ERP setup;
 - item/warehouse lookup;
 - batch start/stop;
-- Zebra/Godex print;
+- WiFi orqali Zebra/GoDEX, local USB orqali Zebra/GoDEX va Bluetooth orqali
+  XP-P323B print;
 - archive va reprint;
 - operator preference'lari uchun lokal draft.
 
@@ -638,7 +639,8 @@ Qurilma integratsiyalari:
 - file picker/image picker, save va share;
 - iOS Face ID/camera/photo permission;
 - Android camera/notification/storage permission;
-- native USB printer va Iroh transport helper'lari;
+- native USB printer, XP-P323B Bluetooth SDK bridge va Iroh transport
+  helper'lari;
 - iOS SceneDelegate ichidagi device/GScale bridge'lari.
 
 `NativeBackButtonBridge` va `NativeDockBridge` kodi saqlangan, lekin hozir

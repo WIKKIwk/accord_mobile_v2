@@ -62,6 +62,7 @@ flutter {
 }
 
 dependencies {
+    implementation(files("libs/printer-lib-3.5.8.aar"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.google.android.material:material:1.12.0")
     implementation("computer.iroh:iroh:1.0.0") {

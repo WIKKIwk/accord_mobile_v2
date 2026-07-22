@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const usbPrinterChannel = MethodChannel('accord/usb_printer');
+  const bluetoothPrinterChannel = MethodChannel('accord/bluetooth_printer');
 
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -23,11 +24,25 @@ void main() {
       }
       return null;
     });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(bluetoothPrinterChannel, (call) async {
+      if (call.method == 'pairedPrinters') {
+        return <Object?>[
+          <String, Object?>{
+            'name': 'XP-P323B',
+            'address': '00:11:22:33:44:55',
+          },
+        ];
+      }
+      return null;
+    });
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(usbPrinterChannel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(bluetoothPrinterChannel, null);
   });
 
   test(
@@ -247,7 +262,7 @@ void main() {
     );
   });
 
-  testWidgets('device picker exposes Offline USB and existing WiFi tabs', (
+  testWidgets('device picker exposes Offline, Bluetooth and WiFi tabs', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -259,8 +274,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('Bluetooth'), findsOneWidget);
     expect(find.text('WiFi'), findsOneWidget);
     expect(find.text('Offline rejimni tanlash'), findsOneWidget);
+
+    await tester.tap(find.text('Bluetooth'));
+    await tester.pumpAndSettle();
+    expect(find.text('XP-P323B'), findsOneWidget);
+
+    await tester.tap(find.text('Offline'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Offline rejimni tanlash'));
     await tester.pump();

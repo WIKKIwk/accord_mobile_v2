@@ -46,6 +46,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var nativeDockBridge: NativeDockChannelBridge? = null
     private var systemNavigationModeChannel: SystemNavigationModeChannel? = null
     private var usbPrinterChannel: UsbPrinterChannel? = null
+    private var bluetoothPrinterChannel: BluetoothPrinterChannel? = null
     private var irohTransportChannel: IrohTransportChannel? = null
     private var gscaleNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
 
@@ -100,6 +101,10 @@ class MainActivity : FlutterFragmentActivity() {
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+        bluetoothPrinterChannel = BluetoothPrinterChannel(
+            activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
         gscaleNsdDiscoveryBridge = GScaleNsdDiscoveryBridge(
             context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
@@ -113,6 +118,28 @@ class MainActivity : FlutterFragmentActivity() {
             Log.w(TAG, "Iroh native transport disabled: ${error.message}")
             null
         }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (bluetoothPrinterChannel?.onRequestPermissionsResult(
+                requestCode,
+                permissions,
+                grantResults,
+            ) == true
+        ) {
+            return
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    override fun onDestroy() {
+        bluetoothPrinterChannel?.dispose()
+        bluetoothPrinterChannel = null
+        super.onDestroy()
     }
 
     private fun ensureNativeDockHost() {

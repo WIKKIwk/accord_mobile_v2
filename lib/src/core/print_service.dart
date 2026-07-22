@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'godex_rps_renderer.dart';
+import 'native_bluetooth_printer.dart';
 import 'native_usb_printer.dart';
+import 'print_transport.dart';
 import 'zebra_rps_renderer.dart';
 
 class PrintService {
@@ -18,20 +20,61 @@ class PrintService {
   static Future<UsbRpsPrintResponse> printRps(
     UsbRpsPrintRequest request, {
     UsbPrinterProfile? printerProfile,
+    BluetoothPrinterProfile? bluetoothPrinter,
+    PrintTransport transport = PrintTransport.offline,
   }) async {
     if (request.isMaterialProductLabel && request.printCount > 1) {
       throw StateError(
         'Har bir homashyo uchun alohida EPC bilan print request yuborilishi kerak',
       );
     }
+    if (transport.isBluetooth) {
+      final printer = bluetoothPrinter;
+      if (printer == null) {
+        throw StateError('XP-P323B Bluetooth printer tanlanmagan');
+      }
+      final effectiveRequest = UsbRpsPrintRequest(
+        epc: request.epc,
+        itemCode: request.itemCode,
+        itemName: request.itemName,
+        warehouse: request.warehouse,
+        printer: printer.printer,
+        printMode: printer.printMode,
+        grossQty: request.grossQty,
+        unit: request.unit,
+        tareEnabled: request.tareEnabled,
+        tareKg: request.tareKg,
+        printCount: request.printCount,
+        labelKind: request.labelKind,
+        executorName: request.executorName,
+        progressQty: request.progressQty,
+        progressUnit: request.progressUnit,
+      );
+      final result = await NativeBluetoothPrinter.printLabel(
+        effectiveRequest,
+        printer: printer,
+      );
+      return UsbRpsPrintResponse.fromMap({
+        ...effectiveRequest.toJson(),
+        ...result,
+        'status': result['status'] ?? 'done',
+        'ok': result['ok'] == true,
+        'mode': effectiveRequest.printMode,
+        'net_qty': effectiveRequest.netQty,
+        'gross_qty': effectiveRequest.grossQty,
+        'printer_status': result['printer_status'] ?? 'Bluetooth OK',
+        'print_count': effectiveRequest.printCount,
+        'bytes': result['bytes'] ?? 0,
+      });
+    }
     final profile = printerProfile ?? await detectOfflinePrinter();
     final effectiveRequest = request.forPrinter(profile);
     late final Uint8List bytes;
-    late final Map<String, Object?> transport;
+    late final Map<String, Object?> transportResult;
     if (profile.kind == UsbPrinterKind.godex && !kIsWeb) {
       final job = GodexRpsRenderer.renderAndroidRepeated(effectiveRequest);
       bytes = job.bytes;
-      transport = await NativeUsbPrinter.printRaw(
+      transportResult = await NativeUsbPrinter.printRaw(
         bytes,
         printerKind: profile.kind,
         godexGraphicNames: job.graphicNames,
@@ -44,7 +87,7 @@ class PrintService {
         UsbPrinterKind.zebra =>
           ZebraRpsRenderer.renderRepeated(effectiveRequest),
       };
-      transport = kIsWeb
+      transportResult = kIsWeb
           ? await _printThroughMacBridge(bytes, profile)
           : await NativeUsbPrinter.printRaw(
               bytes,
@@ -54,15 +97,15 @@ class PrintService {
     }
     return UsbRpsPrintResponse.fromMap({
       ...effectiveRequest.toJson(),
-      ...transport,
-      'status': transport['status'] ?? 'done',
-      'ok': transport['ok'] == true,
+      ...transportResult,
+      'status': transportResult['status'] ?? 'done',
+      'ok': transportResult['ok'] == true,
       'mode': effectiveRequest.printMode,
       'net_qty': effectiveRequest.netQty,
       'gross_qty': effectiveRequest.grossQty,
-      'printer_status': transport['printer_status'] ?? 'USB OK',
+      'printer_status': transportResult['printer_status'] ?? 'USB OK',
       'print_count': effectiveRequest.printCount,
-      'bytes': transport['bytes'] ?? bytes.length,
+      'bytes': transportResult['bytes'] ?? bytes.length,
     });
   }
 

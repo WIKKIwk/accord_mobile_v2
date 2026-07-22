@@ -6,11 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_bluetooth_printer.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
         DiscoveredServer,
@@ -55,6 +57,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   bool _discoveringPrinters = false;
   bool _detectingOfflinePrinter = false;
   UsbPrinterProfile? _offlinePrinter;
+  BluetoothPrinterProfile? _bluetoothPrinter;
   String? _offlinePrinterError;
   PrintTransport _printTransport = PrintTransport.offline;
 
@@ -92,6 +95,31 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       }
       return null;
     }
+  }
+
+  Future<void> _selectBluetoothPrinter() async {
+    final selected = await showModalBottomSheet<BluetoothPrinterProfile>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: 0.55,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: BluetoothPrinterList(
+            onSelected: (printer) {
+              Navigator.of(sheetContext).pop(printer);
+            },
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _bluetoothPrinter = selected;
+    });
   }
 
   @override
@@ -435,11 +463,12 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       return;
     }
     final outputs = <RezkaSplitOutputRequest>[];
+    final local = _printTransport.isLocal;
     final offline = _printTransport.isOffline;
     final wifiDriverUrl = _driverUrlController.text.trim();
     final wifiPrinter = _printerController.text.trim();
     final wifiPrintMode = _printModeController.text.trim();
-    if (!offline &&
+    if (!local &&
         (wifiDriverUrl.isEmpty ||
             wifiPrinter.isEmpty ||
             wifiPrintMode.isEmpty)) {
@@ -497,9 +526,23 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       }
       return;
     }
-    final driverUrl = offline ? offlineUsbDriverUrl : wifiDriverUrl;
-    final printer = offline ? offlinePrinter!.printer : wifiPrinter;
-    final printMode = offline ? offlinePrinter!.printMode : wifiPrintMode;
+    final bluetoothPrinter =
+        _printTransport.isBluetooth ? _bluetoothPrinter : null;
+    if (_printTransport.isBluetooth && bluetoothPrinter == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('XP-P323B Bluetooth printer tanlang.')),
+        );
+      }
+      return;
+    }
+    final driverUrl = local ? offlineUsbDriverUrl : wifiDriverUrl;
+    final printer = offline
+        ? offlinePrinter!.printer
+        : bluetoothPrinter?.printer ?? wifiPrinter;
+    final printMode = offline
+        ? offlinePrinter!.printMode
+        : bluetoothPrinter?.printMode ?? wifiPrintMode;
     setState(() => _submitting = true);
     try {
       final request = RezkaSplitRequest(
@@ -513,7 +556,7 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
         outputs: outputs,
       );
       final RezkaSplitResponse response;
-      if (offline) {
+      if (local) {
         final prepared =
             await MobileApi.instance.rezkaSplitClientPrintPrepare(request);
         for (final output in prepared.outputs) {
@@ -532,6 +575,8 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
               unit: output.uom,
             ),
             printerProfile: offlinePrinter,
+            bluetoothPrinter: bluetoothPrinter,
+            transport: _printTransport,
           );
         }
         response = await MobileApi.instance.rezkaSplitClientPrintConfirm(
@@ -677,23 +722,35 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
           ),
           const SizedBox(height: 12),
           DefaultTabController(
-            length: 2,
-            initialIndex: _printTransport.isOffline ? 0 : 1,
+            length: 3,
+            initialIndex: switch (_printTransport) {
+              PrintTransport.offline => 0,
+              PrintTransport.bluetooth => 1,
+              PrintTransport.wifi => 2,
+            },
             child: Column(
               children: [
                 TabBar(
                   onTap: (index) {
                     setState(() {
-                      _printTransport = index == 0
-                          ? PrintTransport.offline
-                          : PrintTransport.wifi;
+                      _printTransport = switch (index) {
+                        0 => PrintTransport.offline,
+                        1 => PrintTransport.bluetooth,
+                        _ => PrintTransport.wifi,
+                      };
                     });
                     if (index == 0) {
                       unawaited(_detectOfflinePrinter());
+                    } else if (index == 1 && _bluetoothPrinter == null) {
+                      unawaited(_selectBluetoothPrinter());
                     }
                   },
                   tabs: const [
                     Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
+                    Tab(
+                      text: 'Bluetooth',
+                      icon: Icon(Icons.bluetooth_rounded),
+                    ),
                     Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
                   ],
                 ),
@@ -728,6 +785,29 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                               ),
                               tooltip: 'USB printerni qayta aniqlash',
                             ),
+                    ),
+                  )
+                else if (_printTransport.isBluetooth)
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const Icon(Icons.bluetooth_rounded),
+                      title: Text(
+                        _bluetoothPrinter?.displayName ?? 'XP-P323B',
+                      ),
+                      subtitle: Text(
+                        _bluetoothPrinter?.address ??
+                            'Android Bluetooth orqali pair qilingan printerni tanlang',
+                      ),
+                      trailing: IconButton(
+                        onPressed: () => unawaited(_selectBluetoothPrinter()),
+                        icon: Icon(
+                          _bluetoothPrinter == null
+                              ? Icons.search_rounded
+                              : Icons.check_circle_rounded,
+                        ),
+                        tooltip: 'Bluetooth printerni tanlash',
+                      ),
                     ),
                   )
                 else

@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/mobile_api.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_controller.dart';
+import '../../core/native_bluetooth_printer.dart';
 import '../../core/native_usb_printer.dart';
 import '../../core/print_service.dart';
 import '../../core/print_transport.dart';
@@ -23,6 +24,7 @@ import '../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../core/widgets/lists/m3_segmented_list.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
+import '../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../shared/models/app_models.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'gscale_catalog.dart';
@@ -61,15 +63,23 @@ const _configuredApiBaseUrl = String.fromEnvironment(
 class GScaleDeviceSelection {
   const GScaleDeviceSelection.wifi(DiscoveredServer this.server)
       : transport = PrintTransport.wifi,
-        offlinePrinter = null;
+        offlinePrinter = null,
+        bluetoothPrinter = null;
 
   const GScaleDeviceSelection.offline(this.offlinePrinter)
       : transport = PrintTransport.offline,
-        server = null;
+        server = null,
+        bluetoothPrinter = null;
+
+  const GScaleDeviceSelection.bluetooth(this.bluetoothPrinter)
+      : transport = PrintTransport.bluetooth,
+        server = null,
+        offlinePrinter = null;
 
   final PrintTransport transport;
   final DiscoveredServer? server;
   final UsbPrinterProfile? offlinePrinter;
+  final BluetoothPrinterProfile? bluetoothPrinter;
 }
 
 Future<void> selectOfflineGScalePrinter(BuildContext context) async {
@@ -160,6 +170,7 @@ class GScaleMobileApp extends StatefulWidget {
 class _GScaleMobileAppState extends State<GScaleMobileApp> {
   DiscoveredServer? _selectedServer;
   UsbPrinterProfile? _offlinePrinter;
+  BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
 
   @override
@@ -188,6 +199,9 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
       if (selection.offlinePrinter != null) {
         _offlinePrinter = selection.offlinePrinter;
       }
+      if (selection.bluetoothPrinter != null) {
+        _bluetoothPrinter = selection.bluetoothPrinter;
+      }
       if (selection.server != null) {
         _selectedServer = selection.server;
       }
@@ -205,6 +219,11 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
             Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
           },
           onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
+          onSelectBluetooth: (printer) {
+            Navigator.of(sheetContext).pop(
+              GScaleDeviceSelection.bluetooth(printer),
+            );
+          },
           onExitMode: () async {
             Navigator.of(sheetContext).pop();
           },
@@ -239,6 +258,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
             server: _selectedServer,
             printTransport: _printTransport,
             offlinePrinter: _offlinePrinter,
+            bluetoothPrinter: _bluetoothPrinter,
             onExitMode: widget.onExitMode,
             onChangeServer: () => _openServerPicker(context),
             onServerUnavailable: _clearSelectedServer,
@@ -267,6 +287,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
                 server: _selectedServer,
                 printTransport: _printTransport,
                 offlinePrinter: _offlinePrinter,
+                bluetoothPrinter: _bluetoothPrinter,
                 onExitMode: widget.onExitMode,
                 onChangeServer: () => _openServerPicker(context),
                 onServerUnavailable: _clearSelectedServer,
@@ -283,11 +304,13 @@ class ServerPickerPage extends StatefulWidget {
   const ServerPickerPage({
     required this.onOpenServer,
     required this.onSelectOffline,
+    required this.onSelectBluetooth,
     required this.onExitMode,
     super.key,
   });
 
   final ValueChanged<DiscoveredServer> onOpenServer;
+  final ValueChanged<BluetoothPrinterProfile> onSelectBluetooth;
   final Future<void> Function() onSelectOffline;
   final Future<void> Function() onExitMode;
 
@@ -399,7 +422,7 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
         }
       },
       child: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Scaffold(
           appBar: AppBar(
             toolbarHeight: AppTheme.appBarHeight,
@@ -419,6 +442,7 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Offline'),
+                Tab(text: 'Bluetooth'),
                 Tab(text: 'WiFi'),
               ],
             ),
@@ -426,6 +450,10 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
           body: TabBarView(
             children: [
               _OfflineUsbSelection(onSelect: widget.onSelectOffline),
+              BluetoothPrinterList(
+                activationTabIndex: 1,
+                onSelected: widget.onSelectBluetooth,
+              ),
               RefreshIndicator(
                 onRefresh: _scan,
                 child: ListView(
@@ -461,6 +489,7 @@ class OperatorDashboardPage extends StatefulWidget {
     required this.onChangeServer,
     this.printTransport = PrintTransport.wifi,
     this.offlinePrinter,
+    this.bluetoothPrinter,
     this.controlOnly = false,
     this.onServerUnavailable,
     this.rpsBatchStateLoader,
@@ -471,6 +500,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final DiscoveredServer? server;
   final PrintTransport printTransport;
   final UsbPrinterProfile? offlinePrinter;
+  final BluetoothPrinterProfile? bluetoothPrinter;
   final Future<void> Function() onExitMode;
   final Future<void> Function() onChangeServer;
   final bool controlOnly;
@@ -936,7 +966,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     }
     final server = widget.server;
     if (server == null) {
-      if (widget.printTransport.isOffline) {
+      if (widget.printTransport.isLocal) {
         if (mounted && _errorText.isNotEmpty) {
           setState(() => _errorText = '');
         }
@@ -1592,14 +1622,21 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final offlinePrinter = widget.printTransport.isOffline
         ? widget.offlinePrinter ?? await PrintService.detectOfflinePrinter()
         : null;
-    final printer =
-        offlinePrinter?.printer ?? normalizePrinterChoice(_batchPrinter);
+    final bluetoothPrinter =
+        widget.printTransport.isBluetooth ? widget.bluetoothPrinter : null;
+    if (widget.printTransport.isBluetooth && bluetoothPrinter == null) {
+      throw Exception('XP-P323B Bluetooth printer tanlanmagan');
+    }
+    final printer = offlinePrinter?.printer ??
+        bluetoothPrinter?.printer ??
+        normalizePrinterChoice(_batchPrinter);
     final printMode = offlinePrinter?.printMode ??
+        bluetoothPrinter?.printMode ??
         (printer == 'godex'
             ? 'label'
             : (_batchPrintMode == 'label' ? 'label' : 'rfid'));
     final api = MobileApi.instance;
-    final driverUrl = widget.printTransport.isOffline
+    final driverUrl = widget.printTransport.isLocal
         ? offlineUsbDriverUrl
         : driverUrlForRs(server!);
     final started = await api
@@ -1654,7 +1691,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       throw Exception('Netto kg juda kichik');
     }
     final api = MobileApi.instance;
-    final driverUrl = widget.printTransport.isOffline
+    final driverUrl = widget.printTransport.isLocal
         ? offlineUsbDriverUrl
         : driverUrlForRs(server!);
     final request = buildGScaleRpsBatchPrintRequest(
@@ -1663,7 +1700,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       printCount: printCount,
     );
     late final GScaleMaterialReceiptPrintResponse response;
-    if (widget.printTransport.isOffline) {
+    if (widget.printTransport.isLocal) {
       final singleRequest = request.singlePrint();
       GScaleMaterialReceiptPrintResponse? lastResponse;
       var completed = 0;
@@ -1675,6 +1712,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           final printResult = await PrintService.printRps(
             prepared.toUsbPrintRequest(labelKind: 'material_product'),
             printerProfile: widget.offlinePrinter,
+            bluetoothPrinter: widget.bluetoothPrinter,
+            transport: widget.printTransport,
           );
           if (!printResult.ok) {
             throw StateError('Printer QR kodini chop etmadi');
@@ -1827,9 +1866,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             response,
             serverLabel: widget.printTransport.isOffline
                 ? 'Offline • USB printer'
-                : server == null
-                    ? 'Tanlanmagan'
-                    : printTargetLabel(server),
+                : widget.printTransport.isBluetooth
+                    ? 'Bluetooth • XP-P323B'
+                    : server == null
+                        ? 'Tanlanmagan'
+                        : printTargetLabel(server),
           ),
         ),
       ),
@@ -1929,9 +1970,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       if (!mounted) {
         return;
       }
-      setState(() {
-        _manualPrintLoading = false;
-      });
       _showPrintSuccess(response);
       _scheduleSaveControlPrefs();
       unawaited(_refresh());
@@ -1940,9 +1978,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         return;
       }
       setState(() {
-        _manualPrintLoading = false;
         _errorText = error.toString();
       });
+    } finally {
+      if (mounted && _manualPrintLoading) {
+        setState(() {
+          _manualPrintLoading = false;
+        });
+      }
     }
   }
 
@@ -2005,8 +2048,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   }
 
   String _currentArchivePrinterChoice() {
-    if (widget.printTransport.isOffline) {
-      return widget.offlinePrinter?.printer ?? 'godex';
+    if (widget.printTransport.isLocal) {
+      return widget.printTransport.isBluetooth
+          ? widget.bluetoothPrinter?.printer ?? 'xp-p323b'
+          : widget.offlinePrinter?.printer ?? 'godex';
     }
     final livePrinter = _snapshot.livePrinterChoice;
     if (livePrinter.isNotEmpty) {
@@ -2089,10 +2134,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       historyEntry: entry,
       printer: printer,
     );
-    if (widget.printTransport.isOffline) {
+    if (widget.printTransport.isLocal) {
       final result = await PrintService.printRps(
         request,
         printerProfile: widget.offlinePrinter,
+        bluetoothPrinter: widget.bluetoothPrinter,
+        transport: widget.printTransport,
       );
       if (!result.ok) {
         throw StateError('Printer QR kodini chop etmadi');
@@ -2178,15 +2225,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _archiveError = '';
     });
     try {
-      final batchPlan = widget.controlOnly || widget.printTransport.isOffline
+      final batchPlan = widget.controlOnly || widget.printTransport.isLocal
           ? buildMaterialBatchPrintPlan(session)
           : null;
-      if (widget.printTransport.isOffline) {
+      if (widget.printTransport.isLocal) {
         await PrintService.printRps(
           batchPlan!.toUsbRequest(
-            printer: widget.offlinePrinter?.printer ?? 'godex',
+            printer: widget.printTransport.isBluetooth
+                ? widget.bluetoothPrinter?.printer ?? 'xp-p323b'
+                : widget.offlinePrinter?.printer ?? 'godex',
           ),
           printerProfile: widget.offlinePrinter,
+          bluetoothPrinter: widget.bluetoothPrinter,
+          transport: widget.printTransport,
         );
         if (!mounted) {
           return;
@@ -2198,7 +2249,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           _archivePrintLoadingSessionId = '';
         });
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text('$displayName USB printerda chop etildi')),
+          SnackBar(
+            content: Text(
+              '$displayName ${widget.printTransport.isBluetooth ? 'Bluetooth' : 'USB'} printerda chop etildi',
+            ),
+          ),
         );
         return;
       }
@@ -2881,7 +2936,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     DiscoveredServer? server,
   ) {
     final hasScaleDevice = server != null;
-    final hasPrintDevice = widget.printTransport.isOffline || hasScaleDevice;
+    final hasPrintDevice = widget.printTransport.isLocal || hasScaleDevice;
     final selectedProduct = _selectedItem;
     final selectedWarehouse = _selectedWarehouse;
     final defaultWarehouse = _currentDefaultWarehouse;
@@ -2943,13 +2998,15 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         !_requestInFlight;
     final printerStatusText = widget.printTransport.isOffline
         ? 'USB printer • Offline'
-        : _printerStatusOverride.isNotEmpty
-            ? _printerStatusOverride
-            : !_snapshot.hasPrinterState
-                ? _errorText.isEmpty
-                    ? 'Printer holati olinmoqda'
-                    : 'Printer holati olinmadi'
-                : _snapshot.printerLabel;
+        : widget.printTransport.isBluetooth
+            ? 'XP-P323B • Bluetooth'
+            : _printerStatusOverride.isNotEmpty
+                ? _printerStatusOverride
+                : !_snapshot.hasPrinterState
+                    ? _errorText.isEmpty
+                        ? 'Printer holati olinmoqda'
+                        : 'Printer holati olinmadi'
+                    : _snapshot.printerLabel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2958,10 +3015,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
           const SizedBox(height: 18),
         ],
-        if (widget.printTransport.isOffline && !hasScaleDevice) ...[
+        if (widget.printTransport.isLocal && !hasScaleDevice) ...[
           _OfflinePrintStatus(
             onChangeMode: widget.onChangeServer,
             printer: widget.offlinePrinter,
+            bluetoothPrinter: widget.bluetoothPrinter,
+            transport: widget.printTransport,
           ),
           const SizedBox(height: 18),
         ],
@@ -2996,7 +3055,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                       const SizedBox(height: 8),
                       _MiniIconRow(
                         icon: Icons.link_rounded,
-                        text: widget.printTransport.isOffline
+                        text: widget.printTransport.isLocal
                             ? 'Scale • ${server.endpoint.label}'
                             : '${printTargetLabel(server)} • ${server.endpoint.label}',
                       ),
@@ -4210,10 +4269,14 @@ class _OfflinePrintStatus extends StatelessWidget {
   const _OfflinePrintStatus({
     required this.onChangeMode,
     required this.printer,
+    required this.bluetoothPrinter,
+    required this.transport,
   });
 
   final Future<void> Function() onChangeMode;
   final UsbPrinterProfile? printer;
+  final BluetoothPrinterProfile? bluetoothPrinter;
+  final PrintTransport transport;
 
   @override
   Widget build(BuildContext context) {
@@ -4229,23 +4292,32 @@ class _OfflinePrintStatus extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            Icon(Icons.usb_rounded, color: scheme.primary),
+            Icon(
+              transport.isBluetooth
+                  ? Icons.bluetooth_rounded
+                  : Icons.usb_rounded,
+              color: scheme.primary,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    printer?.displayName ?? 'Offline USB printer',
+                    transport.isBluetooth
+                        ? bluetoothPrinter?.displayName ?? 'XP-P323B'
+                        : printer?.displayName ?? 'Offline USB printer',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    printer == null
-                        ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
-                        : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
+                    transport.isBluetooth
+                        ? 'XP-P323B • Bluetooth local print'
+                        : printer == null
+                            ? 'Qo‘lda kg kiritib WiFi printersiz chop etish mumkin.'
+                            : '${printer!.printer.toUpperCase()} • ${printer!.printMode.toUpperCase()} avtomatik tanlandi.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),

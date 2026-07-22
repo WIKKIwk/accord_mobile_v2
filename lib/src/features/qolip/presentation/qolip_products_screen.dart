@@ -314,8 +314,10 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     if (!mounted || option == null) {
       throw StateError('Printer tanlanmadi');
     }
-    final printer = option.transport.isOffline
-        ? option.offlinePrinter!.printer
+    final printer = option.transport.isLocal
+        ? option.transport.isBluetooth
+            ? option.bluetoothPrinter!.printer
+            : option.offlinePrinter!.printer
         : qolipPrinterChoiceForDriver(
             kind: option.printerKind,
             label: option.printerLabel,
@@ -324,17 +326,21 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       qolipCode: code,
       driverUrl: option.driverUrl,
       printer: printer,
-      printMode: option.transport.isOffline
-          ? option.offlinePrinter!.printMode
+      printMode: option.transport.isLocal
+          ? option.transport.isBluetooth
+              ? option.bluetoothPrinter!.printMode
+              : option.offlinePrinter!.printMode
           : printer == 'godex'
               ? 'label'
               : 'rfid',
       printTransport: option.transport,
     );
-    if (option.transport.isOffline) {
+    if (option.transport.isLocal) {
       await PrintService.printRps(
         result.printJob,
         printerProfile: option.offlinePrinter,
+        bluetoothPrinter: option.bluetoothPrinter,
+        transport: option.transport,
       );
     }
     return null;

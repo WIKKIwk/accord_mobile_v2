@@ -1122,8 +1122,8 @@ extension MobileApiQolip on MobileApi {
           'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
           if (printer.trim().isNotEmpty) 'printer': printer.trim(),
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
-          if (printTransport.isOffline)
-            'print_transport': printTransport.apiValue,
+          if (printTransport.isLocal)
+            'print_transport': printTransport.clientApiValue,
         }),
       ),
     );
@@ -1184,8 +1184,8 @@ extension MobileApiQolip on MobileApi {
           'driver_url': driverUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
           if (printer.trim().isNotEmpty) 'printer': printer.trim(),
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
-          if (printTransport.isOffline)
-            'print_transport': printTransport.apiValue,
+          if (printTransport.isLocal)
+            'print_transport': printTransport.clientApiValue,
         }),
       ),
     );

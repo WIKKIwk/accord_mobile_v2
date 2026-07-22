@@ -126,6 +126,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     String printer = '',
     String printMode = '',
     UsbPrinterProfile? offlinePrinter,
+    BluetoothPrinterProfile? bluetoothPrinter,
     String completionRequestNote = '',
   }) async {
     final prepared = _prepareReadOnlyQueueAction(
@@ -193,17 +194,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (states != null) {
         unawaited(_loadInputProgressBatches());
       }
-      if (states != null &&
-          printTransport.isOffline &&
-          states.printJob != null) {
+      if (states != null && printTransport.isLocal && states.printJob != null) {
         try {
           await PrintService.printRps(
             states.printJob!,
             printerProfile: offlinePrinter,
+            bluetoothPrinter: bluetoothPrinter,
+            transport: printTransport,
           );
         } catch (_) {
           if (mounted) {
-            _showSheetNotice('Amal bajarildi, USB printer chop etmadi');
+            _showSheetNotice('Amal bajarildi, local printer chop etmadi');
           }
         }
       }
@@ -318,6 +319,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       printer: printerOption.printer,
       printMode: printerOption.printMode,
       offlinePrinter: printerOption.offlinePrinter,
+      bluetoothPrinter: printerOption.bluetoothPrinter,
     );
     if (completed && action == 'complete') {
       await ReturnedPaintDraftStore.instance.clear(scope);
