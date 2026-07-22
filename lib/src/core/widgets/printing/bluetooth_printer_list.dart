@@ -21,6 +21,7 @@ class BluetoothPrinterList extends StatefulWidget {
 
 class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
   List<BluetoothPrinterProfile> _printers = const [];
+  StreamSubscription<BluetoothPrinterScanEvent>? _discoverySubscription;
   TabController? _tabController;
   bool _started = false;
   bool _loading = false;
@@ -50,6 +51,7 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
   @override
   void dispose() {
     _tabController?.removeListener(_handleTabChanged);
+    unawaited(_discoverySubscription?.cancel());
     super.dispose();
   }
 
@@ -63,11 +65,25 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
   }
 
   Future<void> _load() async {
+    final previousSubscription = _discoverySubscription;
+    _discoverySubscription = null;
+    await previousSubscription?.cancel();
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _started = true;
       _loading = true;
       _error = '';
+      _printers = const [];
     });
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      _discoverySubscription = NativeBluetoothPrinter.discoverPrinters().listen(
+        _handleDiscoveryEvent,
+        onError: _handleDiscoveryError,
+      );
+      return;
+    }
     try {
       final printers = await NativeBluetoothPrinter.pairedPrinters();
       if (!mounted) {
@@ -87,6 +103,46 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
         _error = error.toString();
       });
     }
+  }
+
+  void _handleDiscoveryEvent(BluetoothPrinterScanEvent event) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      final printer = event.printer;
+      if (printer != null) {
+        final index = _printers.indexWhere(
+          (item) => item.address == printer.address,
+        );
+        if (index < 0) {
+          _printers = [..._printers, printer];
+        } else {
+          final printers = [..._printers];
+          printers[index] = printer;
+          _printers = printers;
+        }
+      }
+      if (event.completed) {
+        _loading = false;
+      }
+    });
+    if (event.completed) {
+      final subscription = _discoverySubscription;
+      _discoverySubscription = null;
+      unawaited(subscription?.cancel());
+    }
+  }
+
+  void _handleDiscoveryError(Object error, StackTrace stackTrace) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _printers = const [];
+      _loading = false;
+      _error = error.toString();
+    });
   }
 
   @override
