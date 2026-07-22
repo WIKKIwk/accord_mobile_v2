@@ -9,10 +9,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const channel = MethodChannel('accord/bluetooth_printer');
+  const discoveryChannel = EventChannel('accord/bluetooth_printer/discovery');
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockStreamHandler(discoveryChannel, null);
   });
 
   test('reads XP-P323B profiles from the native Bluetooth channel', () async {
@@ -76,6 +79,32 @@ void main() {
       containsPair('epc', '303132333435363738394142'),
     );
     expect(captured?.arguments, isNot(contains('bytes')));
+  });
+
+  test('receives iOS printers incrementally and then receives scan completion',
+      () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockStreamHandler(
+      discoveryChannel,
+      MockStreamHandler.inline(
+        onListen: (_, events) {
+          events.success(<String, Object?>{
+            'type': 'printer',
+            'name': 'XP-P323B',
+            'address': 'ios-printer-1',
+          });
+          events.success(<String, Object?>{'type': 'complete'});
+          events.endOfStream();
+        },
+      ),
+    );
+
+    final events = await NativeBluetoothPrinter.discoverPrinters().toList();
+
+    expect(events, hasLength(2));
+    expect(events.first.printer?.displayName, 'XP-P323B');
+    expect(events.first.printer?.address, 'ios-printer-1');
+    expect(events.last.completed, isTrue);
   });
 
   test('maps Bluetooth to the unchanged backend client-print contract', () {
