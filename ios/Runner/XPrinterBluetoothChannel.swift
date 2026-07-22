@@ -665,11 +665,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let key = normalize(peripheral.identifier.uuidString)
     let isNew = discoveredPeripherals.updateValue(peripheral, forKey: key) == nil
     if isNew {
-      discoveryEventSink?([
+      let event = [
         "type": "printer",
         "name": printerName(peripheral),
         "address": peripheral.identifier.uuidString,
-      ])
+      ]
+      DispatchQueue.main.async { [weak self] in
+        self?.discoveryEventSink?(event)
+      }
     }
     if let job = printJob,
        job.address == key {
