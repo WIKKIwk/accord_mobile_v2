@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../native_bluetooth_printer.dart';
@@ -92,6 +93,7 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
     return ListView(
       children: [
         if (_loading) const LinearProgressIndicator(),
@@ -111,7 +113,9 @@ class _BluetoothPrinterListState extends State<BluetoothPrinterList> {
             title: const Text('XP-P323B topilmadi'),
             subtitle: Text(
               _error.isEmpty
-                  ? 'Printerni Android Bluetooth sozlamalarida avval pair qiling.'
+                  ? isIOS
+                      ? 'Printerni yoqing va shu oynada Bluetooth orqali qidiring.'
+                      : 'Printerni Android Bluetooth sozlamalarida avval pair qiling.'
                   : _error,
             ),
             trailing: IconButton(

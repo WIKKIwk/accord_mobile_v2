@@ -18,6 +18,7 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		B4D100010001000100010001 /* IrohTransportChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D100020001000100010001 /* IrohTransportChannel.swift */; };
 		B4D100030001000100010001 /* IrohLib in Frameworks */ = {isa = PBXBuildFile; productRef = B4D100040001000100010001 /* IrohLib */; };
+		C0B100010001000100010001 /* XPrinterBluetoothChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B100020001000100010001 /* XPrinterBluetoothChannel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B4D100020001000100010001 /* IrohTransportChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohTransportChannel.swift; sourceTree = "<group>"; };
+		C0B100020001000100010001 /* XPrinterBluetoothChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPrinterBluetoothChannel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,6 +145,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				B4D100020001000100010001 /* IrohTransportChannel.swift */,
+				C0B100020001000100010001 /* XPrinterBluetoothChannel.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -324,6 +327,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				B4D100010001000100010001 /* IrohTransportChannel.swift in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				C0B100010001000100010001 /* XPrinterBluetoothChannel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -423,6 +427,14 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK/Headers",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -431,6 +443,10 @@
 					"$(inherited)",
 					"-framework",
 					Network,
+					"-framework",
+					CoreBluetooth,
+					"-ObjC",
+					"-lPrinterSDK",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.accordMobileV2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -614,6 +630,14 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK/Headers",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -622,6 +646,10 @@
 					"$(inherited)",
 					"-framework",
 					Network,
+					"-framework",
+					CoreBluetooth,
+					"-ObjC",
+					"-lPrinterSDK",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.accordMobileV2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -644,6 +672,14 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK/Headers",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/vendor/xprinter/PrinterSDK",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -652,6 +688,10 @@
 					"$(inherited)",
 					"-framework",
 					Network,
+					"-framework",
+					CoreBluetooth,
+					"-ObjC",
+					"-lPrinterSDK",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.accordMobileV2;
 				PRODUCT_NAME = "$(TARGET_NAME)";

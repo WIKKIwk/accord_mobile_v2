@@ -8,6 +8,7 @@ class SceneDelegate: FlutterSceneDelegate {
   private var irohTransportBridge: IrohTransportChannelBridge?
   private var gscaleBonjourBridge: GScaleBonjourDiscoveryBridge?
   private var gscaleUdpDiscoveryBridge: GScaleUdpDiscoveryBridge?
+  private var xprinterBluetoothChannel: XPrinterBluetoothChannel?
 
   override func scene(
     _ scene: UIScene,
@@ -23,6 +24,9 @@ class SceneDelegate: FlutterSceneDelegate {
         messenger: flutterViewController.binaryMessenger
       )
       gscaleUdpDiscoveryBridge = GScaleUdpDiscoveryBridge(
+        messenger: flutterViewController.binaryMessenger
+      )
+      xprinterBluetoothChannel = XPrinterBluetoothChannel(
         messenger: flutterViewController.binaryMessenger
       )
     }

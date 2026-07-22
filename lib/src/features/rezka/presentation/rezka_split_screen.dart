@@ -797,7 +797,9 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
                       ),
                       subtitle: Text(
                         _bluetoothPrinter?.address ??
-                            'Android Bluetooth orqali pair qilingan printerni tanlang',
+                            (defaultTargetPlatform == TargetPlatform.iOS
+                                ? 'Printerni yoqing va shu oynada Bluetooth orqali qidiring'
+                                : 'Android Bluetooth orqali pair qilingan printerni tanlang'),
                       ),
                       trailing: IconButton(
                         onPressed: () => unawaited(_selectBluetoothPrinter()),

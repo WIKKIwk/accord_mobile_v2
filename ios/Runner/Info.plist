@@ -30,6 +30,10 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to unlock the app securely and speed up sign-in for this device.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>The app uses Bluetooth to find and print labels on the XP-P323B printer.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>The app uses Bluetooth to connect to the XP-P323B printer.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The app needs camera access to capture photos and videos for operational workflows and chat.</string>
 	<key>NSMicrophoneUsageDescription</key>

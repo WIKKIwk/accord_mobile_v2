@@ -15,7 +15,7 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('reads paired XP-P323B profiles from the Android channel', () async {
+  test('reads XP-P323B profiles from the native Bluetooth channel', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
       expect(call.method, 'pairedPrinters');
