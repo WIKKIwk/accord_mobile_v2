@@ -664,8 +664,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       return
     }
     let advertisedName = advertisementData?[CBAdvertisementDataLocalNameKey] as? String
-    let name = advertisedName?.isEmpty == false ? advertisedName! : printerName(peripheral)
-    guard isXpP323b(name) else {
+    let peripheralName = printerName(peripheral)
+    let isKnownPrinter = isXpP323b(peripheralName) ||
+      (advertisedName.map(isXpP323b) ?? false)
+    guard isKnownPrinter else {
       return
     }
 
