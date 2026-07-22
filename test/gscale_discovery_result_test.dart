@@ -1,4 +1,5 @@
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -262,35 +263,42 @@ void main() {
     );
   });
 
-  testWidgets('device picker exposes Offline, Bluetooth and WiFi tabs', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'device picker starts with choices and updates the same sheet in place',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(GScaleMobileApp(onExitMode: () async {}));
-    await tester.pump();
-    await tester.tap(find.text('Qurilma tanlash'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpWidget(GScaleMobileApp(onExitMode: () async {}));
+      await tester.pump();
+      await tester.tap(find.text('Qurilma tanlash'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Offline'), findsOneWidget);
-    expect(find.text('Bluetooth'), findsOneWidget);
-    expect(find.text('WiFi'), findsOneWidget);
-    expect(find.text('Offline rejimni tanlash'), findsOneWidget);
+      expect(find.text('Ulanish usulini tanlang'), findsOneWidget);
+      expect(find.text('USB printer'), findsOneWidget);
+      expect(find.text('Bluetooth printer'), findsOneWidget);
+      expect(find.text('Wi-Fi qurilma'), findsOneWidget);
 
-    await tester.tap(find.text('Bluetooth'));
-    await tester.pumpAndSettle();
-    expect(find.text('XP-P323B'), findsOneWidget);
+      await tester.ensureVisible(find.text('Bluetooth printer'));
+      await tester.pump();
+      await tester.tap(find.text('Bluetooth printer'));
+      await tester.pumpAndSettle();
+      expect(find.text('XP-P323B'), findsOneWidget);
+      expect(find.text('Ulanish usulini tanlang'), findsNothing);
 
-    await tester.tap(find.text('Offline'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).last);
+      await tester.pump();
+      expect(find.text('Ulanish usulini tanlang'), findsOneWidget);
 
-    await tester.tap(find.text('Offline rejimni tanlash'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('USB printer'));
+      await tester.pump();
+      expect(find.text('USB printerni tanlash'), findsOneWidget);
 
-    expect(find.text('GoDEX • G500'), findsOneWidget);
-  });
+      await tester.tap(find.text('USB printerni tanlash'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GoDEX • G500'), findsOneWidget);
+    },
+  );
 }
 
 DiscoveredServer _server(
