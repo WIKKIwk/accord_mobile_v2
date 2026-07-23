@@ -213,6 +213,12 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
         return ServerPickerPage(
           onOpenServer: (server) {
@@ -436,41 +442,84 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
   @override
   Widget build(BuildContext context) {
     final selectedConnection = _selectedConnection;
+    final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: AppTheme.appBarHeight,
-        leading: IconButton(
-          onPressed: selectedConnection == null
-              ? widget.onExitMode
-              : _backToConnections,
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-        ),
-        title: Text(
-          selectedConnection == null
-              ? 'Qurilma tanlash'
-              : _titleForConnection(selectedConnection),
-        ),
-        actions: [
-          if (selectedConnection == _DevicePickerConnection.wifi)
-            IconButton(
-              onPressed: _openManualEntrySheet,
-              icon: const Icon(Icons.add_link_rounded),
-              tooltip: 'Wi-Fi manzilini qo‘shish',
+    return Material(
+      color: scheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: selectedConnection == null
+                        ? widget.onExitMode
+                        : _backToConnections,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip:
+                        MaterialLocalizations.of(context).backButtonTooltip,
+                  ),
+                  Expanded(
+                    child: Text(
+                      selectedConnection == null
+                          ? 'Qurilma tanlash'
+                          : _titleForConnection(selectedConnection),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  if (selectedConnection == _DevicePickerConnection.wifi)
+                    IconButton(
+                      onPressed: _openManualEntrySheet,
+                      icon: const Icon(Icons.add_link_rounded),
+                      tooltip: 'Wi-Fi manzilini qo‘shish',
+                    )
+                  else
+                    const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              alignment: Alignment.topCenter,
+              child: selectedConnection == null
+                  ? _ConnectionModeSelection(onSelected: _selectConnection)
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.68,
+                      ),
+                      child: switch (selectedConnection) {
+                        _DevicePickerConnection.usb => _OfflineUsbSelection(
+                            onSelect: widget.onSelectOffline,
+                          ),
+                        _DevicePickerConnection.bluetooth =>
+                          BluetoothPrinterList(
+                            onSelected: widget.onSelectBluetooth,
+                          ),
+                        _DevicePickerConnection.wifi =>
+                          _buildWifiDevices(context),
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
-      body: selectedConnection == null
-          ? _ConnectionModeSelection(onSelected: _selectConnection)
-          : switch (selectedConnection) {
-              _DevicePickerConnection.usb =>
-                _OfflineUsbSelection(onSelect: widget.onSelectOffline),
-              _DevicePickerConnection.bluetooth => BluetoothPrinterList(
-                  onSelected: widget.onSelectBluetooth,
-                ),
-              _DevicePickerConnection.wifi => _buildWifiDevices(context),
-            },
     );
   }
 }
@@ -482,37 +531,40 @@ class _ConnectionModeSelection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-      children: [
-        Text(
-          'Ulanish usulini tanlang',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: 12),
-        _ConnectionModeButton(
-          icon: Icons.usb_rounded,
-          title: 'USB printer',
-          subtitle: 'USB orqali ulangan printerni qidirish',
-          onTap: () => onSelected(_DevicePickerConnection.usb),
-        ),
-        const SizedBox(height: 10),
-        _ConnectionModeButton(
-          icon: Icons.bluetooth_rounded,
-          title: 'Bluetooth printer',
-          subtitle: 'Bluetooth orqali ulangan printerni qidirish',
-          onTap: () => onSelected(_DevicePickerConnection.bluetooth),
-        ),
-        const SizedBox(height: 10),
-        _ConnectionModeButton(
-          icon: Icons.wifi_rounded,
-          title: 'Wi-Fi qurilma',
-          subtitle: 'Tarmoqdagi tarozi yoki printerni qidirish',
-          onTap: () => onSelected(_DevicePickerConnection.wifi),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Ulanish usulini tanlang',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 12),
+          _ConnectionModeButton(
+            icon: Icons.usb_rounded,
+            title: 'USB printer',
+            subtitle: 'USB orqali ulangan printerni qidirish',
+            onTap: () => onSelected(_DevicePickerConnection.usb),
+          ),
+          const SizedBox(height: 10),
+          _ConnectionModeButton(
+            icon: Icons.bluetooth_rounded,
+            title: 'Bluetooth printer',
+            subtitle: 'Bluetooth orqali ulangan printerni qidirish',
+            onTap: () => onSelected(_DevicePickerConnection.bluetooth),
+          ),
+          const SizedBox(height: 10),
+          _ConnectionModeButton(
+            icon: Icons.wifi_rounded,
+            title: 'Wi-Fi qurilma',
+            subtitle: 'Tarmoqdagi tarozi yoki printerni qidirish',
+            onTap: () => onSelected(_DevicePickerConnection.wifi),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4298,6 +4350,7 @@ class _OfflineUsbSelectionState extends State<_OfflineUsbSelection> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return ListView(
+      shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       children: [
         Card.filled(

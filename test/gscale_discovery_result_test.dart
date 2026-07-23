@@ -278,8 +278,6 @@ void main() {
       expect(find.text('Bluetooth printer'), findsOneWidget);
       expect(find.text('Wi-Fi qurilma'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Bluetooth printer'));
-      await tester.pump();
       await tester.tap(find.text('Bluetooth printer'));
       await tester.pumpAndSettle();
       expect(find.text('XP-P323B'), findsOneWidget);
