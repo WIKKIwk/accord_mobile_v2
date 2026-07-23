@@ -251,7 +251,7 @@ void main() {
     expect(find.text('Boshqaruv'), findsOneWidget);
     expect(find.text('Arxiv'), findsOneWidget);
     expect(find.text('Server'), findsOneWidget);
-    expect(find.text('Printer yoki tarozi tanlanmagan'), findsOneWidget);
+    expect(find.text('Printer yoki tarozi tanlanmagan'), findsNothing);
     expect(find.text('Qurilma tanlash'), findsOneWidget);
     expect(find.text('Mahsulot tanlang'), findsOneWidget);
     expect(find.text('Babina'), findsOneWidget);
