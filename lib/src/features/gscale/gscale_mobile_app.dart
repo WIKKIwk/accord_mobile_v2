@@ -1493,12 +1493,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   Future<void> _openDefaultWarehousePicker() async {
     final warehouse = await showModalBottomSheet<MobileWarehouse>(
       context: context,
+      isDismissible: true,
+      enableDrag: true,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) => M3AsyncPickerSheet<MobileWarehouse>(
         title: 'Standart ombor tanlang',
         hintText: 'Ombor qidiring',
@@ -1720,12 +1721,13 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     }
     final warehouse = await showModalBottomSheet<MobileWarehouse>(
       context: context,
+      isDismissible: true,
+      enableDrag: true,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) => M3AsyncPickerSheet<MobileWarehouse>(
         title: 'Warehouse tanlang',
         hintText: 'Warehouse qidiring',
