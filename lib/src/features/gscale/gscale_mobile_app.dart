@@ -1499,13 +1499,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (context) => _WarehousePickerSheet(
+      builder: (context) => M3AsyncPickerSheet<MobileWarehouse>(
         title: 'Standart ombor tanlang',
-        queryHint: 'Ombor qidiring',
-        emptyText: 'Ombor topilmadi.',
-        initialWarehouse: MobileWarehouse(warehouse: _currentDefaultWarehouse),
-        fetchWarehouses: ({required String query}) =>
-            _fetchAllWarehouses(query: query),
+        hintText: 'Ombor qidiring',
+        pageSize: 200,
+        loadPage: (query, offset, limit) async {
+          final warehouses = await _fetchAllWarehouses(query: query);
+          return warehouses.skip(offset).take(limit).toList(growable: false);
+        },
+        itemTitle: (warehouse) => warehouse.warehouse,
+        itemSubtitle: (warehouse) => warehouse.caption,
+        itemKey: (warehouse) => warehouse.warehouse,
+        itemSelected: (warehouse) =>
+            warehouse.warehouse == _currentDefaultWarehouse,
+        onSelected: (warehouse) => Navigator.of(context).pop(warehouse),
       ),
     );
     if (warehouse == null || !mounted) {
@@ -1719,13 +1726,23 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (context) => _WarehousePickerSheet(
+      builder: (context) => M3AsyncPickerSheet<MobileWarehouse>(
         title: 'Warehouse tanlang',
-        queryHint: 'Warehouse qidiring',
-        emptyText: 'Warehouse topilmadi.',
-        initialWarehouse: _selectedWarehouse,
-        fetchWarehouses: ({required String query}) =>
-            _fetchWarehouses(itemCode: selectedItem.itemCode, query: query),
+        hintText: 'Warehouse qidiring',
+        pageSize: 200,
+        loadPage: (query, offset, limit) async {
+          final warehouses = await _fetchWarehouses(
+            itemCode: selectedItem.itemCode,
+            query: query,
+          );
+          return warehouses.skip(offset).take(limit).toList(growable: false);
+        },
+        itemTitle: (warehouse) => warehouse.warehouse,
+        itemSubtitle: (warehouse) => warehouse.caption,
+        itemKey: (warehouse) => warehouse.warehouse,
+        itemSelected: (warehouse) =>
+            warehouse.warehouse == _selectedWarehouse?.warehouse,
+        onSelected: (warehouse) => Navigator.of(context).pop(warehouse),
       ),
     );
     if (warehouse == null || !mounted) {
@@ -3873,60 +3890,6 @@ class _MiniIconRow extends StatelessWidget {
   }
 }
 
-class _WarehouseOptionTile extends StatelessWidget {
-  const _WarehouseOptionTile({
-    required this.warehouse,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final MobileWarehouse warehouse;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    warehouse.warehouse,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: selected ? scheme.primary : scheme.onSurface,
-                    ),
-                  ),
-                  if (warehouse.caption.trim().isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      warehouse.caption,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            if (selected) Icon(Icons.check_rounded, color: scheme.primary),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _GScaleItemGroupPickerSheet extends StatelessWidget {
   const _GScaleItemGroupPickerSheet({required this.itemGroups});
 
@@ -4043,224 +4006,6 @@ class _GScaleItemGroupPickerSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WarehousePickerSheet extends StatefulWidget {
-  const _WarehousePickerSheet({
-    required this.title,
-    required this.queryHint,
-    required this.emptyText,
-    required this.fetchWarehouses,
-    this.initialWarehouse,
-  });
-
-  final String title;
-  final String queryHint;
-  final String emptyText;
-  final Future<List<MobileWarehouse>> Function({required String query})
-      fetchWarehouses;
-  final MobileWarehouse? initialWarehouse;
-
-  @override
-  State<_WarehousePickerSheet> createState() => _WarehousePickerSheetState();
-}
-
-class _WarehousePickerSheetState extends State<_WarehousePickerSheet> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-  bool _loading = false;
-  String _error = '';
-  List<MobileWarehouse> _warehouses = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(_loadWarehouses(query: ''));
-    });
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _scheduleSearch() {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 220), () {
-      unawaited(_loadWarehouses());
-    });
-  }
-
-  Future<void> _loadWarehouses({String? query}) async {
-    final search = (query ?? _controller.text).trim();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-    try {
-      final warehouses = await widget.fetchWarehouses(query: search);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _warehouses = warehouses;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _warehouses = const [];
-        _loading = false;
-        _error = error.toString();
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: FractionallySizedBox(
-        heightFactor: 0.82,
-        child: Material(
-          color: theme.scaffoldBackgroundColor,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _controller,
-                    autofocus: true,
-                    onChanged: (_) => _scheduleSearch(),
-                    decoration: InputDecoration(
-                      hintText: widget.queryHint,
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: scheme.outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: scheme.primary,
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        color: scheme.surfaceContainerLow,
-                        child: _loading
-                            ? const Center(child: CircularProgressIndicator())
-                            : _error.isNotEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Text(
-                                        _error,
-                                        textAlign: TextAlign.center,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: scheme.error,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : _warehouses.isEmpty
-                                    ? Center(
-                                        child: Text(
-                                          widget.emptyText,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.separated(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 12,
-                                        ),
-                                        itemCount: _warehouses.length,
-                                        separatorBuilder: (context, index) =>
-                                            Divider(
-                                          height: 1,
-                                          color:
-                                              scheme.outlineVariant.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                        ),
-                                        itemBuilder: (context, index) {
-                                          final warehouse = _warehouses[index];
-                                          final selected = widget
-                                                  .initialWarehouse
-                                                  ?.warehouse ==
-                                              warehouse.warehouse;
-                                          return _WarehouseOptionTile(
-                                            warehouse: warehouse,
-                                            selected: selected,
-                                            onTap: () {
-                                              Navigator.of(context)
-                                                  .pop(warehouse);
-                                            },
-                                          );
-                                        },
-                                      ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),

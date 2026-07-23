@@ -408,6 +408,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.onEmptyAction,
     this.onMultiSelected,
     this.itemKey,
+    this.itemSelected,
     this.selectedCountLabel,
     this.confirmSelectionTooltip,
   });
@@ -433,6 +434,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final Future<T?> Function(String query)? onEmptyAction;
   final ValueChanged<List<T>>? onMultiSelected;
   final Object Function(T item)? itemKey;
+  final bool Function(T item)? itemSelected;
   final String Function(int count)? selectedCountLabel;
   final String? confirmSelectionTooltip;
 
@@ -1050,7 +1052,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
             );
           }
           final item = sortedItems[index];
-          final selected = _selectedItems.containsKey(_selectionKey(item));
+          final selected = _selectedItems.containsKey(_selectionKey(item)) ||
+              widget.itemSelected?.call(item) == true;
           final subtitle = widget.itemSubtitle(item).trim();
           final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
             index,
