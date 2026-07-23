@@ -652,8 +652,6 @@ class AuthAmbientOutlineBackground extends StatefulWidget {
 
 class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
     with SingleTickerProviderStateMixin {
-  static const Duration _minimumFrameInterval = Duration(milliseconds: 32);
-
   late final Ticker _ticker = createTicker(_handleTick);
   final _AmbientPaintState _paintState = _AmbientPaintState();
 
@@ -675,9 +673,6 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
 
   void _handleTick(Duration elapsed) {
     final Duration? lastTick = _lastTick;
-    if (lastTick != null && elapsed - lastTick < _minimumFrameInterval) {
-      return;
-    }
     _lastTick = elapsed;
     if (!_seeded || _sceneSize.isEmpty || !mounted) {
       return;
@@ -920,6 +915,12 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
       rotation: _ambientCookieRotation(_phase),
     );
 
+    final Rect ovalBounds = _pointsBounds(ovalPoints);
+    final Rect cookieBounds = _pointsBounds(cookiePoints);
+    if (!ovalBounds.inflate(contactThreshold).overlaps(cookieBounds)) {
+      return null;
+    }
+
     Offset bestOvalPoint = ovalPoints.first;
     Offset bestCookiePoint = cookiePoints.first;
     double minDistanceSquared = double.infinity;
@@ -954,6 +955,22 @@ class _AmbientOutlineBackgroundState extends State<AuthAmbientOutlineBackground>
       normal: normal,
       penetration: contactThreshold - distance,
     );
+  }
+
+  Rect _pointsBounds(List<Offset> points) {
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+
+    for (final Offset point in points) {
+      minX = math.min(minX, point.dx);
+      minY = math.min(minY, point.dy);
+      maxX = math.max(maxX, point.dx);
+      maxY = math.max(maxY, point.dy);
+    }
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
   @override
