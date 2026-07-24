@@ -2009,9 +2009,6 @@ MobileApiException _adminProductionMapException(
       ];
     }
   } catch (_) {}
-  if (message == fallbackMessage) {
-    message = '$fallbackMessage (HTTP ${response.statusCode})';
-  }
   return MobileApiException(
     code: code,
     apparatusOptions: apparatusOptions,
@@ -2109,6 +2106,9 @@ MobileApiException _adminApiException(
       }
     }
   } catch (_) {}
+  if (message == fallbackMessage) {
+    message = '$fallbackMessage (HTTP ${response.statusCode})';
+  }
   return MobileApiException(
     code: code,
     message: message,
