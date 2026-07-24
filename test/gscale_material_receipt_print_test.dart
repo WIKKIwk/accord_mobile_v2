@@ -237,6 +237,7 @@ void main() {
       'ok': true,
       'batch': {
         'id': 'batch-1',
+        'revision': 7,
         'active': true,
         'owner_key': 'werka:+998901234567',
         'driver_url': 'http://127.0.0.1:39117',
@@ -271,6 +272,7 @@ void main() {
 
     expect(response.ok, isTrue);
     expect(response.batch.active, isTrue);
+    expect(response.batch.revision, 7);
     expect(response.batch.itemCode, 'ITEM-1');
     expect(response.batch.displayItemName, 'Green Tea');
     expect(response.batch.driverUrl, 'http://127.0.0.1:39117');
@@ -465,6 +467,22 @@ void main() {
     'material control restores active manual batch without selected device',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
+      await saveOperatorControlDraft(
+        const OperatorControlDraft(
+          itemCode: 'STALE-ITEM',
+          itemName: 'Stale product',
+          warehouse: 'Wrong warehouse',
+          printMode: 'rfid',
+          printer: 'zebra',
+          quantitySource: 'manual',
+          manualQtyText: '',
+          manualDuplicateText: '',
+          babinaEnabled: false,
+          babinaText: '',
+          warehouseMode: 'manual',
+          defaultWarehouse: '',
+        ),
+      );
       AppSession.instance.token = 'token';
       AppSession.instance.profile = const SessionProfile(
         role: UserRole.materialTaminotchi,
@@ -479,6 +497,7 @@ void main() {
       var stateLoadCount = 0;
       const activeBatch = GScaleRpsBatchSession(
         id: 'batch-active-1',
+        revision: 1,
         active: true,
         driverUrl: 'usb://local',
         itemCode: 'ITEM-1',
@@ -525,6 +544,9 @@ void main() {
 
       expect(stateLoadCount, 1);
       expect(find.text('Green Tea • Kalidor'), findsOneWidget);
+      expect(find.text('ITEM-1'), findsOneWidget);
+      expect(find.text('STALE-ITEM'), findsNothing);
+      expect(find.text('Wrong warehouse'), findsNothing);
       expect(
         tester
             .widget<OutlinedButton>(
@@ -672,6 +694,24 @@ void main() {
     );
 
     expect(isRpsBatchAlreadyActiveError(error), isTrue);
+    expect(
+      rpsBatchActionErrorMessage(
+        const MobileApiException(
+          code: 'batch_context_conflict',
+          message: 'batch context conflict',
+        ),
+      ),
+      contains('Eski mahsulot chop etilmadi'),
+    );
+    expect(
+      rpsBatchActionErrorMessage(
+        const MobileApiException(
+          code: 'batch_store_failed',
+          message: 'store failed',
+        ),
+      ),
+      contains('Amal bekor qilindi'),
+    );
     expect(
       isRpsBatchAlreadyActiveError(
         const MobileApiException(
@@ -931,18 +971,62 @@ void main() {
   });
 
   test('rps batch print helper sends gross qty and driver url', () {
+    const batch = GScaleRpsBatchSession(
+      id: 'batch-1',
+      revision: 7,
+      active: true,
+      driverUrl: 'usb://local',
+      itemCode: 'ITEM-1',
+      itemName: 'Green Tea',
+      warehouse: 'Stores - A',
+      printer: 'godex',
+      printMode: 'label',
+      quantitySource: 'manual',
+      manualQtyKg: 0,
+      tareEnabled: false,
+      tareKg: 0,
+    );
     final request = buildGScaleRpsBatchPrintRequest(
+      batch: batch,
       grossQtyKg: 2.5,
       driverUrl: ' http://127.0.0.1:39117/ ',
       printCount: 5,
     );
 
     expect(request.toJson(), {
+      'batch_id': 'batch-1',
+      'expected_revision': 7,
+      'expected_item_code': 'ITEM-1',
+      'expected_warehouse': 'Stores - A',
       'gross_qty': 2.5,
       'unit': 'kg',
       'driver_url': 'http://127.0.0.1:39117',
       'print_count': 5,
     });
+    expect(GScaleRpsBatchStopRequest.fromBatch(batch).toJson(), {
+      'batch_id': 'batch-1',
+      'expected_revision': 7,
+    });
+    expect(hasExactRpsBatchContext(batch), isTrue);
+    expect(
+      hasExactRpsBatchContext(
+        const GScaleRpsBatchSession(
+          id: 'batch-without-revision',
+          active: true,
+          driverUrl: 'usb://local',
+          itemCode: 'ITEM-1',
+          itemName: 'Green Tea',
+          warehouse: 'Stores - A',
+          printer: 'godex',
+          printMode: 'label',
+          quantitySource: 'manual',
+          manualQtyKg: 0,
+          tareEnabled: false,
+          tareKg: 0,
+        ),
+      ),
+      isFalse,
+    );
   });
 
   test(

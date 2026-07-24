@@ -135,13 +135,15 @@ extension MobileApiGScale on MobileApi {
         const [];
   }
 
-  Future<GScaleRpsBatchResponse> gscaleRpsBatchStop() async {
+  Future<GScaleRpsBatchResponse> gscaleRpsBatchStop(
+    GScaleRpsBatchStopRequest request,
+  ) async {
     final response = await _sendAuthorized(
       () => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/rps/batch/stop'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: '{}',
+        body: jsonEncode(request.toJson()),
       ),
     );
     final payload = _gscaleDecodeObject(response.body);
@@ -238,6 +240,30 @@ extension MobileApiGScale on MobileApi {
   }
 }
 
+class GScaleRpsBatchStopRequest {
+  const GScaleRpsBatchStopRequest({
+    required this.batchId,
+    required this.expectedRevision,
+  });
+
+  factory GScaleRpsBatchStopRequest.fromBatch(GScaleRpsBatchSession batch) {
+    return GScaleRpsBatchStopRequest(
+      batchId: batch.id,
+      expectedRevision: batch.revision,
+    );
+  }
+
+  final String batchId;
+  final int expectedRevision;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'batch_id': batchId.trim(),
+      'expected_revision': expectedRevision,
+    };
+  }
+}
+
 class GScaleRpsBatchStartRequest {
   const GScaleRpsBatchStartRequest({
     required this.clientBatchId,
@@ -284,12 +310,20 @@ class GScaleRpsBatchStartRequest {
 
 class GScaleRpsBatchPrintRequest {
   const GScaleRpsBatchPrintRequest({
+    required this.batchId,
+    required this.expectedRevision,
+    required this.expectedItemCode,
+    required this.expectedWarehouse,
     required this.grossQty,
     required this.driverUrl,
     this.unit = 'kg',
     this.printCount = 1,
   });
 
+  final String batchId;
+  final int expectedRevision;
+  final String expectedItemCode;
+  final String expectedWarehouse;
   final double grossQty;
   final String driverUrl;
   final String unit;
@@ -297,6 +331,10 @@ class GScaleRpsBatchPrintRequest {
 
   GScaleRpsBatchPrintRequest singlePrint() {
     return GScaleRpsBatchPrintRequest(
+      batchId: batchId,
+      expectedRevision: expectedRevision,
+      expectedItemCode: expectedItemCode,
+      expectedWarehouse: expectedWarehouse,
       grossQty: grossQty,
       driverUrl: driverUrl,
       unit: unit,
@@ -306,6 +344,10 @@ class GScaleRpsBatchPrintRequest {
 
   Map<String, dynamic> toJson() {
     return {
+      'batch_id': batchId.trim(),
+      'expected_revision': expectedRevision,
+      'expected_item_code': expectedItemCode.trim(),
+      'expected_warehouse': expectedWarehouse.trim(),
       'gross_qty': grossQty,
       'unit': unit.trim().isEmpty ? 'kg' : unit.trim(),
       'driver_url': driverUrl.trim().trimRightSlash(),
@@ -344,6 +386,7 @@ class GScaleRpsBatchSession {
     required this.tareEnabled,
     required this.tareKg,
     this.batchCode = '',
+    this.revision = 0,
     this.lastError = '',
     this.lastErrorAt = '',
     this.createdAt = '',
@@ -355,6 +398,7 @@ class GScaleRpsBatchSession {
     return GScaleRpsBatchSession(
       id: _gscaleText(json['id']),
       batchCode: _gscaleText(json['batch_code']),
+      revision: (json['revision'] as num?)?.toInt() ?? 0,
       active: json['active'] == true,
       driverUrl: _gscaleText(json['driver_url']),
       itemCode: _gscaleText(json['item_code']),
@@ -384,6 +428,7 @@ class GScaleRpsBatchSession {
 
   final String id;
   final String batchCode;
+  final int revision;
   final bool active;
   final String driverUrl;
   final String itemCode;

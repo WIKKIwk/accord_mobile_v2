@@ -727,6 +727,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   bool _batchActionLoading = false;
   bool _warehouseSetupLoading = false;
   bool _archiveLoading = false;
+  bool _rpsBatchStateResolved = false;
   String _archivePrintLoadingSessionId = '';
   String _errorText = '';
   String _warehousesError = '';
@@ -740,6 +741,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   bool _babinaEnabled = false;
   MonitorSnapshot _snapshot = MonitorSnapshot.empty();
   List<GScaleRpsBatchPrintEntry> _batchPrints = const [];
+  GScaleRpsBatchSession? _authoritativeRsBatch;
   List<MobileArchiveSession> _archiveSessions = const [];
   final Set<String> _expandedArchiveSessionIds = <String>{};
   MobileItem? _selectedItem;
@@ -801,6 +803,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _manualLoading = false;
       _requestInFlight = false;
       _latencyFailureCount = 0;
+      _rpsBatchStateResolved = false;
+      _authoritativeRsBatch = null;
     });
     if (server != null) {
       _startLiveStream();
@@ -939,20 +943,22 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         if (_selectedItem != null && draft.warehouse.trim().isNotEmpty) {
           _selectedWarehouse = MobileWarehouse(warehouse: draft.warehouse);
         }
-        _batchPrintMode =
-            draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
-        _batchPrinter =
-            draft.printer.isNotEmpty ? draft.printer : _batchPrinter;
-        if (_batchPrinter == 'godex') {
-          _batchPrintMode = 'label';
+        if (_authoritativeRsBatch?.active != true) {
+          _batchPrintMode =
+              draft.printMode.isNotEmpty ? draft.printMode : _batchPrintMode;
+          _batchPrinter =
+              draft.printer.isNotEmpty ? draft.printer : _batchPrinter;
+          if (_batchPrinter == 'godex') {
+            _batchPrintMode = 'label';
+          }
+          _quantitySource = draft.quantitySource.isNotEmpty
+              ? draft.quantitySource
+              : _quantitySource;
+          _babinaEnabled = draft.babinaEnabled;
+          _babinaWeightController.text = draft.babinaText;
         }
-        _quantitySource = draft.quantitySource.isNotEmpty
-            ? draft.quantitySource
-            : _quantitySource;
-        _babinaEnabled = draft.babinaEnabled;
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
-        _babinaWeightController.text = draft.babinaText;
         _warehouseMode =
             draft.warehouseMode == 'default' ? 'default' : 'manual';
         _defaultWarehouse = draft.defaultWarehouse;
@@ -1248,7 +1254,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     } catch (error) {
       if (reportError && mounted) {
         setState(() {
-          _errorText = error.toString();
+          _errorText = rpsBatchActionErrorMessage(error);
         });
       }
     }
@@ -1258,13 +1264,25 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     if (_manualPrintLoading || _batchActionLoading || _requestInFlight) {
       return;
     }
+    final batch = _authoritativeRsBatch;
+    if (!_rpsBatchStateResolved ||
+        batch == null ||
+        !batch.active ||
+        !hasExactRpsBatchContext(batch)) {
+      setState(() {
+        _errorText = 'Faol batch holati tasdiqlanmagan. Qayta yuklang.';
+      });
+      return;
+    }
     setState(() {
       _batchActionLoading = true;
       _errorText = '';
     });
     try {
-      final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
-            const Duration(seconds: 8),
+      final response = await MobileApi.instance
+          .gscaleRpsBatchStop(GScaleRpsBatchStopRequest.fromBatch(batch))
+          .timeout(
+            const Duration(seconds: 30),
           );
       if (!mounted) {
         return;
@@ -1280,19 +1298,28 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       }
       setState(() {
         _batchActionLoading = false;
-        _errorText = error.toString();
+        _errorText = rpsBatchActionErrorMessage(error);
       });
     }
   }
 
   Future<void> _stopRsBatchAfterLateErpError(String message) async {
+    final batch = _authoritativeRsBatch;
+    if (!_rpsBatchStateResolved ||
+        batch == null ||
+        !batch.active ||
+        !hasExactRpsBatchContext(batch)) {
+      return;
+    }
     setState(() {
       _batchActionLoading = true;
       _errorText = message;
     });
     try {
-      final response = await MobileApi.instance.gscaleRpsBatchStop().timeout(
-            const Duration(seconds: 8),
+      final response = await MobileApi.instance
+          .gscaleRpsBatchStop(GScaleRpsBatchStopRequest.fromBatch(batch))
+          .timeout(
+            const Duration(seconds: 30),
           );
       if (!mounted) {
         return;
@@ -1374,6 +1401,20 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   }
 
   void _applyRsBatchSession(GScaleRpsBatchSession batch) {
+    _rpsBatchStateResolved = true;
+    _authoritativeRsBatch = batch;
+    if (batch.active) {
+      _runWithoutSavingControlPrefs(() {
+        _batchPrinter = normalizePrinterChoice(batch.printer);
+        _batchPrintMode =
+            batch.printMode.trim().toLowerCase() == 'label' ? 'label' : 'rfid';
+        _quantitySource = normalizeQuantitySource(batch.quantitySource);
+        _babinaEnabled = batch.tareEnabled;
+        _babinaWeightController.text = batch.tareEnabled && batch.tareKg > 0
+            ? formatCompactKg(batch.tareKg)
+            : '';
+      });
+    }
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
     _batchPrints = batch.prints;
     if (!batch.active) {
@@ -1893,12 +1934,15 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     if (widget.printTransport == PrintTransport.wifi && server == null) {
       throw Exception('Avval printer yoki tarozini tanlang');
     }
-    final tareKg =
-        _babinaEnabled ? parsePositiveKg(_babinaWeightController.text) : 0.0;
-    if (_babinaEnabled && tareKg == null) {
-      throw Exception("Babina og'irligini kg da to'g'ri kiriting");
+    final batch = _authoritativeRsBatch;
+    if (!_rpsBatchStateResolved || batch == null || !batch.active) {
+      throw StateError('Faol batch holati server tomonidan tasdiqlanmagan');
     }
-    final netQty = grossQtyKg - (tareKg ?? 0);
+    if (!hasExactRpsBatchContext(batch)) {
+      throw StateError('Faol batch konteksti to‘liq emas');
+    }
+    final tareKg = batch.tareEnabled ? batch.tareKg : 0.0;
+    final netQty = grossQtyKg - tareKg;
     if (grossQtyKg <= 0 || netQty < _minManualPrintKg) {
       throw Exception('Netto kg juda kichik');
     }
@@ -1907,54 +1951,60 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         ? offlineUsbDriverUrl
         : driverUrlForRs(server!);
     final request = buildGScaleRpsBatchPrintRequest(
+      batch: batch,
       grossQtyKg: grossQtyKg,
       driverUrl: driverUrl,
       printCount: printCount,
     );
-    late final GScaleMaterialReceiptPrintResponse response;
-    if (widget.printTransport.isLocal) {
-      final singleRequest = request.singlePrint();
-      GScaleMaterialReceiptPrintResponse? lastResponse;
-      var completed = 0;
-      for (var index = 0; index < printCount; index++) {
-        try {
-          final prepared = await api
-              .gscaleRpsBatchClientPrintPrepare(singleRequest)
-              .timeout(const Duration(seconds: 15));
-          final printResult = await PrintService.printRps(
-            prepared.toUsbPrintRequest(labelKind: 'material_product'),
-            printerProfile: widget.offlinePrinter,
-            bluetoothPrinter: widget.bluetoothPrinter,
-            transport: widget.printTransport,
-          );
-          if (!printResult.ok) {
-            throw StateError('Printer QR kodini chop etmadi');
+    try {
+      late final GScaleMaterialReceiptPrintResponse response;
+      if (widget.printTransport.isLocal) {
+        final singleRequest = request.singlePrint();
+        GScaleMaterialReceiptPrintResponse? lastResponse;
+        var completed = 0;
+        for (var index = 0; index < printCount; index++) {
+          try {
+            final prepared = await api
+                .gscaleRpsBatchClientPrintPrepare(singleRequest)
+                .timeout(const Duration(seconds: 15));
+            final printResult = await PrintService.printRps(
+              prepared.toUsbPrintRequest(labelKind: 'material_product'),
+              printerProfile: widget.offlinePrinter,
+              bluetoothPrinter: widget.bluetoothPrinter,
+              transport: widget.printTransport,
+            );
+            if (!printResult.ok) {
+              throw StateError('Printer QR kodini chop etmadi');
+            }
+            lastResponse = await api
+                .gscaleRpsBatchClientPrintConfirm(
+                  singleRequest,
+                  epc: prepared.epc,
+                )
+                .timeout(const Duration(seconds: 15));
+            completed++;
+          } catch (error) {
+            if (completed == 0) {
+              rethrow;
+            }
+            throw StateError(
+              '$completed/$printCount ta mahsulot chop etildi; '
+              'keyingi print to‘xtadi: $error',
+            );
           }
-          lastResponse = await api
-              .gscaleRpsBatchClientPrintConfirm(
-                singleRequest,
-                epc: prepared.epc,
-              )
-              .timeout(const Duration(seconds: 15));
-          completed++;
-        } catch (error) {
-          if (completed == 0) {
-            rethrow;
-          }
-          throw StateError(
-            '$completed/$printCount ta mahsulot chop etildi; '
-            'keyingi print to‘xtadi: $error',
-          );
         }
+        response = lastResponse!.withPrintCount(printCount);
+      } else {
+        response = await api
+            .gscaleRpsBatchPrint(request)
+            .timeout(const Duration(seconds: 15));
       }
-      response = lastResponse!.withPrintCount(printCount);
-    } else {
-      response = await api
-          .gscaleRpsBatchPrint(request)
-          .timeout(const Duration(seconds: 15));
+      unawaited(_refreshRsBatchState());
+      return response;
+    } catch (_) {
+      unawaited(_refreshRsBatchState());
+      rethrow;
     }
-    unawaited(_refreshRsBatchState());
-    return response;
   }
 
   Future<void> _startBatch({required bool autoPrintStable}) async {
@@ -1999,12 +2049,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _batchActionLoading = false;
         _errorText = isRpsBatchAlreadyActiveError(error)
             ? 'Batch allaqachon faol. Holatni qayta yuklab ko‘ring.'
-            : error.toString();
+            : rpsBatchActionErrorMessage(error);
       });
     }
   }
 
   void _maybeAutoPrintStableBatch() {
+    if (!_rpsBatchStateResolved ||
+        _authoritativeRsBatch?.active != true ||
+        !hasExactRpsBatchContext(_authoritativeRsBatch)) {
+      _lastAutoBatchPrintKey = '';
+      return;
+    }
     if (normalizeQuantitySource(_snapshot.batchQuantitySource) != 'scale') {
       _lastAutoBatchPrintKey = '';
       return;
@@ -2064,7 +2120,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       }
       setState(() {
         _batchActionLoading = false;
-        _errorText = error.toString();
+        _errorText = rpsBatchActionErrorMessage(error);
       });
     }
   }
@@ -2190,7 +2246,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         return;
       }
       setState(() {
-        _errorText = error.toString();
+        _errorText = rpsBatchActionErrorMessage(error);
       });
     } finally {
       if (mounted && _manualPrintLoading) {
@@ -3149,10 +3205,23 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   ) {
     final hasScaleDevice = server != null;
     final hasPrintDevice = widget.printTransport.isLocal || hasScaleDevice;
-    final selectedProduct = _selectedItem;
-    final selectedWarehouse = _selectedWarehouse;
+    final activeBatch = _rpsBatchStateResolved &&
+            _authoritativeRsBatch != null &&
+            _authoritativeRsBatch!.active
+        ? _authoritativeRsBatch
+        : null;
+    final batchContextReady = hasExactRpsBatchContext(activeBatch);
+    final selectedProduct = activeBatch == null
+        ? _selectedItem
+        : MobileItem(
+            itemCode: activeBatch.itemCode,
+            itemName: activeBatch.itemName,
+          );
+    final selectedWarehouse = activeBatch == null
+        ? _selectedWarehouse
+        : MobileWarehouse(warehouse: activeBatch.warehouse);
     final defaultWarehouse = _currentDefaultWarehouse;
-    final defaultMode = _warehouseMode == 'default';
+    final defaultMode = activeBatch == null && _warehouseMode == 'default';
     final modeLocked =
         _snapshot.batchActive || _batchActionLoading || _manualPrintLoading;
     final printerLocked = modeLocked;
@@ -3196,14 +3265,18 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           manualPrintLoading: _manualPrintLoading,
           batchActionLoading: _batchActionLoading,
         ) &&
-        hasScaleDevice;
+        hasScaleDevice &&
+        _rpsBatchStateResolved &&
+        (_snapshot.batchActive ? batchContextReady : true);
     final manualBatchStartEnabled = hasPrintSelection &&
         hasPrintDevice &&
         !_snapshot.batchActive &&
         !_manualPrintLoading &&
         !_batchActionLoading &&
-        !_requestInFlight;
-    final manualBatchStopEnabled = _snapshot.batchActive &&
+        !_requestInFlight &&
+        _rpsBatchStateResolved;
+    final manualBatchStopEnabled = activeBatch != null &&
+        batchContextReady &&
         selectedQuantitySource == 'manual' &&
         !_manualPrintLoading &&
         !_batchActionLoading &&
@@ -3226,6 +3299,15 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         if (!hasPrintDevice) ...[
           _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
           const SizedBox(height: 18),
+        ],
+        if (!_rpsBatchStateResolved) ...[
+          Text(
+            'Batch holati serverdan tasdiqlanmoqda. Start, stop va print vaqtincha bloklangan.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
         ],
         if (widget.printTransport.isLocal && !hasScaleDevice) ...[
           _OfflinePrintStatus(
@@ -5285,11 +5367,16 @@ GScaleRpsBatchStartRequest buildGScaleRpsBatchStartRequest({
 }
 
 GScaleRpsBatchPrintRequest buildGScaleRpsBatchPrintRequest({
+  required GScaleRpsBatchSession batch,
   required double grossQtyKg,
   required String driverUrl,
   int printCount = 1,
 }) {
   return GScaleRpsBatchPrintRequest(
+    batchId: batch.id,
+    expectedRevision: batch.revision,
+    expectedItemCode: batch.itemCode,
+    expectedWarehouse: batch.warehouse,
     grossQty: grossQtyKg,
     driverUrl: driverUrl,
     unit: 'kg',
@@ -5297,8 +5384,35 @@ GScaleRpsBatchPrintRequest buildGScaleRpsBatchPrintRequest({
   );
 }
 
+bool hasExactRpsBatchContext(GScaleRpsBatchSession? batch) {
+  return batch != null &&
+      batch.id.trim().isNotEmpty &&
+      batch.revision > 0 &&
+      batch.itemCode.trim().isNotEmpty &&
+      batch.warehouse.trim().isNotEmpty;
+}
+
 bool isRpsBatchAlreadyActiveError(Object error) {
   return error is MobileApiException && error.code == 'batch_already_active';
+}
+
+String rpsBatchActionErrorMessage(Object error) {
+  if (error is! MobileApiException) {
+    return error.toString();
+  }
+  return switch (error.code) {
+    'batch_context_conflict' =>
+      'Batch boshqa joyda o‘zgargan. Eski mahsulot chop etilmadi; holatni yangilang.',
+    'batch_store_failed' =>
+      'Server batch holatini saqlay olmadi. Amal bekor qilindi; qayta urinishdan oldin holatni yangilang.',
+    'batch_not_active' =>
+      'Faol batch topilmadi. Holatni yangilab, yangi batch boshlang.',
+    'submit_failed' ||
+    'store_write_failed' =>
+      'ERPNext operatsiyani qabul qilmadi va batch xavfsizlik uchun to‘xtatildi: ${error.message}',
+    'print_failed' => 'Printer chop etmadi: ${error.message}',
+    _ => error.message,
+  };
 }
 
 String formatCompactKg(double value) {
