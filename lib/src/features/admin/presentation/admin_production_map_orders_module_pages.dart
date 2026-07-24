@@ -7,6 +7,7 @@ class _OrdersModulePage extends StatefulWidget {
     required this.visibleOrders,
     required this.baseMetrajByMapId,
     required this.orderKgByMapId,
+    required this.onLongPressOrder,
   });
 
   final double bottomPadding;
@@ -14,6 +15,7 @@ class _OrdersModulePage extends StatefulWidget {
   final List<ProductionMapSaved> visibleOrders;
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
+  final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
   State<_OrdersModulePage> createState() => _OrdersModulePageState();
@@ -49,6 +51,7 @@ class _OrdersModulePageState extends State<_OrdersModulePage> {
             baseMetrajByMapId: widget.baseMetrajByMapId,
             orderKgByMapId: widget.orderKgByMapId,
             onExpandedChanged: _onExpandedChanged,
+            onLongPressOrder: widget.onLongPressOrder,
           ),
       ],
     );
@@ -88,6 +91,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMoveDragStarted,
     required this.onMoveDragEnded,
     required this.onMove,
+    required this.onLongPressOrder,
   });
 
   final List<_OpenedOrderModule> modules;
@@ -137,6 +141,7 @@ class _AdminModulesBody extends StatelessWidget {
     required AdminApparatus from,
     required AdminApparatus to,
   }) onMove;
+  final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   String _moduleLabel(_OpenedOrderModule module) {
     return switch (module) {
@@ -178,6 +183,7 @@ class _AdminModulesBody extends StatelessWidget {
                       ),
                       baseMetrajByMapId: baseMetrajByMapId,
                       orderKgByMapId: orderKgByMapId,
+                      onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.sequence => _SequenceModulePage(
                       bottomPadding: bottomPadding,
@@ -192,6 +198,7 @@ class _AdminModulesBody extends StatelessWidget {
                       orderKgByMapId: orderKgByMapId,
                       onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
+                      onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(
                       topApparatus: moveTopApparatus,

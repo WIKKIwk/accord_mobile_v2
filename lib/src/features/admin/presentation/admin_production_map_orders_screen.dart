@@ -86,6 +86,73 @@ enum _OpenedOrderModule { orders, move, sequence, closed }
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
 
+Future<bool> showProductionMapFreezePauseFlow(
+  BuildContext context, {
+  required String requestId,
+  required String orderId,
+  required String apparatus,
+}) async {
+  final normalizedRequestId = requestId.trim();
+  final normalizedOrderId = orderId.trim();
+  final normalizedApparatus = apparatus.trim();
+  if (normalizedRequestId.isEmpty ||
+      normalizedOrderId.isEmpty ||
+      normalizedApparatus.isEmpty) {
+    throw const MobileApiException(
+      code: 'order_freeze_request_invalid',
+      message: 'Muzlatish so‘rovi ma’lumotlari to‘liq emas',
+    );
+  }
+  final results = await Future.wait<Object>([
+    MobileApi.instance.adminProductionMap(normalizedOrderId),
+    MobileApi.instance.adminProductionMapQueueSnapshot(),
+  ]);
+  if (!context.mounted) return false;
+  final order = results[0] as ProductionMapSaved;
+  final snapshot = results[1] as AdminApparatusQueueSnapshot;
+  final target = AdminApparatus(name: normalizedApparatus);
+  List<String> visibleOrderIds = const <String>[];
+  for (final entry in snapshot.visibleOrderIds.entries) {
+    if (productionMapWarehouseTitlesMatch(entry.key, normalizedApparatus)) {
+      visibleOrderIds = entry.value;
+      break;
+    }
+  }
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => _ReadOnlyOrderDetailSheet(
+      order: order,
+      apparatus: target,
+      canManageQueue: true,
+      initialQueueStates: _queueStatesForApparatus(
+        target,
+        queueStatesByApparatus: snapshot.queueStates,
+      ),
+      queueStatesByApparatus: snapshot.queueStates,
+      queuePolicy: _queuePolicyForApparatus(
+        target,
+        queuePoliciesByApparatus: snapshot.queuePolicies,
+      ),
+      sequenceOrderIds: _sequenceOrderIdsForApparatus(
+        target,
+        sequenceByApparatus: snapshot.sequences,
+      ),
+      visibleOrderIds: visibleOrderIds,
+      onQueueAction: (request) => _submitAdminApparatusQueueAction(
+        request,
+        apparatusKey: request.apparatus.name.trim(),
+      ),
+      initialOrderControls: snapshot.orderControls,
+      initialPauseRequestId: normalizedRequestId,
+      startPauseOnOpen: true,
+    ),
+  );
+  return result ?? false;
+}
+
 class AdminProductionMapOrdersScreen extends StatefulWidget {
   const AdminProductionMapOrdersScreen({
     super.key,
@@ -130,11 +197,13 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
+  final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
   List<AdminClosedProductionOrder> _closedOrders = const [];
   bool _queueActionInFlight = false;
+  bool _orderControlActionInFlight = false;
   Map<String, double> _baseMetrajByMapId = const {};
   Map<String, double> _orderKgByMapId = const {};
 
@@ -308,8 +377,155 @@ class _AdminProductionMapOrdersScreenState
         ).map((item) => item.map.id).toList(growable: false),
         onQueueAction: _handleQueueAction,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
+        initialOrderControls: _orderControlsByOrderId,
       ),
     );
+  }
+
+  Future<void> _showOrderActions(ProductionMapSaved order) async {
+    if (widget.readOnly || widget.workerMode || _orderControlActionInFlight) {
+      return;
+    }
+    final orderId = order.map.id.trim();
+    final control =
+        _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
+    final action = await showModalBottomSheet<AdminOrderControlAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (control == AdminOrderControlState.active) ...[
+              ListTile(
+                leading: const Icon(Icons.ac_unit_rounded),
+                title: const Text('Muzlatish'),
+                onTap: () => Navigator.pop(
+                  context,
+                  AdminOrderControlAction.freeze,
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'O‘chirish',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+                onTap: () => Navigator.pop(
+                  context,
+                  AdminOrderControlAction.delete,
+                ),
+              ),
+            ],
+            if (control == AdminOrderControlState.freezeRequested)
+              ListTile(
+                leading: const Icon(Icons.cancel_outlined),
+                title: const Text('Muzlatish so‘rovini bekor qilish'),
+                onTap: () => Navigator.pop(
+                  context,
+                  AdminOrderControlAction.cancelFreeze,
+                ),
+              ),
+            if (control == AdminOrderControlState.frozen)
+              ListTile(
+                leading: const Icon(Icons.play_circle_outline_rounded),
+                title: const Text('Muzdan chiqarish'),
+                onTap: () => Navigator.pop(
+                  context,
+                  AdminOrderControlAction.unfreeze,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == AdminOrderControlAction.delete) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Buyurtmani o‘chirish'),
+          content: const Text(
+            'Bu amal buyurtmani butunlay o‘chiradi. Server ish '
+            'boshlanganini, navbatdagi 1-o‘rinni va biriktirilgan '
+            'homashyoni qayta tekshiradi.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('O‘chirishni tasdiqlash'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+    }
+    await _runOrderControlAction(order, action);
+  }
+
+  Future<void> _runOrderControlAction(
+    ProductionMapSaved order,
+    AdminOrderControlAction action,
+  ) async {
+    final orderId = order.map.id.trim();
+    setState(() => _orderControlActionInFlight = true);
+    try {
+      final next = await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: orderId,
+        action: action,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (action == AdminOrderControlAction.delete) {
+          _orders = [
+            for (final item in _orders)
+              if (item.map.id.trim() != orderId) item,
+          ];
+          _orderControlsByOrderId.remove(orderId);
+          for (final sequence in _sequenceByApparatus.values) {
+            sequence.removeWhere((id) => id.trim() == orderId);
+          }
+        } else if (next != null) {
+          _orderControlsByOrderId[orderId] = next;
+        }
+      });
+      showAdminTopNotice(
+        context,
+        switch (action) {
+          AdminOrderControlAction.freeze =>
+            next == AdminOrderControlState.frozen
+                ? 'Buyurtma muzlatildi'
+                : 'Worker pauzasi kutilmoqda',
+          AdminOrderControlAction.cancelFreeze =>
+            'Muzlatish so‘rovi bekor qilindi',
+          AdminOrderControlAction.unfreeze => 'Buyurtma aktiv holatga qaytdi',
+          AdminOrderControlAction.delete => 'Buyurtma o‘chirildi',
+        },
+      );
+      unawaited(_refreshLive());
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Buyurtma amali bajarilmadi',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _orderControlActionInFlight = false);
+      }
+    }
   }
 
   void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
@@ -491,6 +707,9 @@ class _AdminProductionMapOrdersScreenState
                         });
                       },
                       onMove: _moveOrdersBetweenApparatus,
+                      onLongPressOrder: (order) {
+                        unawaited(_showOrderActions(order));
+                      },
                     ),
     );
   }

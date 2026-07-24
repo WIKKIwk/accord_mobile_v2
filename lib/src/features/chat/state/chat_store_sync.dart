@@ -84,7 +84,9 @@ extension ChatStoreReliability on ChatStore {
       final page = await MobileApi.instance.chatSync(cursor: cursor);
       if (profileKey != key) return;
       for (final event in page.events) {
-        if (event.event != 'chat.message.created' || event.message == null) {
+        if ((event.event != 'chat.message.created' &&
+                event.event != 'chat.message.updated') ||
+            event.message == null) {
           continue;
         }
         final message = event.message!;

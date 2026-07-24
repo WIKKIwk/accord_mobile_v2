@@ -102,6 +102,7 @@ extension _AdminProductionMapOrdersLiveState
         visibleOrderIds: snapshot.visibleOrderIds,
         queueStates: snapshot.queueStates,
         queuePolicies: snapshot.queuePolicies,
+        orderControls: snapshot.orderControls,
       );
       _completedWorkerOrders = snapshot.completedOrders;
       _completionRequests = snapshot.completionRequests;
@@ -176,6 +177,7 @@ extension _AdminProductionMapOrdersLiveState
         visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
         queueStatesByApparatus: _queueStatesByApparatus,
         queuePoliciesByApparatus: _queuePoliciesByApparatus,
+        orderControlsByOrderId: _orderControlsByOrderId,
       )) {
         return;
       }
@@ -185,6 +187,7 @@ extension _AdminProductionMapOrdersLiveState
           visibleOrderIds: queueSnapshot.visibleOrderIds,
           queueStates: queueSnapshot.queueStates,
           queuePolicies: queueSnapshot.queuePolicies,
+          orderControls: queueSnapshot.orderControls,
         );
       });
     } catch (error) {
@@ -205,6 +208,7 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, List<String>> visibleOrderIds,
     required Map<String, Map<String, String>> queueStates,
     required Map<String, AdminApparatusQueuePolicy> queuePolicies,
+    required Map<String, AdminOrderControlState> orderControls,
   }) {
     _sequenceByApparatus
       ..clear()
@@ -218,6 +222,9 @@ extension _AdminProductionMapOrdersLiveState
     _queuePoliciesByApparatus
       ..clear()
       ..addAll(queuePolicies);
+    _orderControlsByOrderId
+      ..clear()
+      ..addAll(orderControls);
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {

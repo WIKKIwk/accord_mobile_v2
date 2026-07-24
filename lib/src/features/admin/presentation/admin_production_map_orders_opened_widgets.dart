@@ -7,6 +7,7 @@ class _OpenedOrderExpandableList extends StatelessWidget {
     required this.baseMetrajByMapId,
     required this.orderKgByMapId,
     required this.onExpandedChanged,
+    required this.onLongPressOrder,
   });
 
   final List<ProductionMapSaved> orders;
@@ -15,6 +16,7 @@ class _OpenedOrderExpandableList extends StatelessWidget {
   final Map<String, double> orderKgByMapId;
   final void Function(ProductionMapSaved order, bool expanded)
       onExpandedChanged;
+  final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +36,7 @@ class _OpenedOrderExpandableList extends StatelessWidget {
             expanded: expandedOrderId == orders[index].map.id.trim(),
             onExpandedChanged: (expanded) =>
                 onExpandedChanged(orders[index], expanded),
+            onLongPress: () => onLongPressOrder(orders[index]),
           ),
       ],
     );
@@ -48,6 +51,7 @@ class _OpenedOrderExpandableRow extends StatelessWidget {
     required this.orderKg,
     required this.expanded,
     required this.onExpandedChanged,
+    required this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -56,6 +60,7 @@ class _OpenedOrderExpandableRow extends StatelessWidget {
   final double? orderKg;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +74,7 @@ class _OpenedOrderExpandableRow extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       expanded: expanded,
       onExpandedChanged: onExpandedChanged,
+      onLongPress: onLongPress,
       header: Row(
         children: [
           const _OpenedOrderTreeBadge(),

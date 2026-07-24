@@ -12,6 +12,7 @@ import '../core/notifications/runtime/notification_runtime.dart';
 import '../core/security/gate/app_lock_gate.dart';
 import '../features/chat/runtime/chat_runtime.dart';
 import '../core/theme/theme_controller.dart';
+import '../core/update/app_update_runtime.dart';
 import 'app_router.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
@@ -72,11 +73,13 @@ class ErpnextStockMobileApp extends StatelessWidget {
               value: overlayStyle,
               child: current,
             );
-            final wrapped = DockGestureOverlay(
-              child: NetworkRequirementRuntime(
-                child: ChatRuntime(
-                  child:
-                      NotificationRuntime(child: AppLockGate(child: current)),
+            final wrapped = AppUpdateRuntime(
+              child: DockGestureOverlay(
+                child: NetworkRequirementRuntime(
+                  child: ChatRuntime(
+                    child:
+                        NotificationRuntime(child: AppLockGate(child: current)),
+                  ),
                 ),
               ),
             );

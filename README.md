@@ -23,6 +23,7 @@ qurilma bilan bog'liq holatlarni boshqaradi va barcha ERP amallarini
 - [Asosiy ish oqimlari](#asosiy-ish-oqimlari)
 - [Navigatsiya va umumiy UI](#navigatsiya-va-umumiy-ui)
 - [Lokal holat va qurilma integratsiyalari](#lokal-holat-va-qurilma-integratsiyalari)
+- [Self-hosted APK update tarqatish](#self-hosted-apk-update-tarqatish)
 - [Build, test va tekshiruv](#build-test-va-tekshiruv)
 - [Muammo yechish](#muammo-yechish)
 - [Development qoidalari](#development-qoidalari)
@@ -53,6 +54,7 @@ Mas'uliyatlar:
 | WIP/progress lineage va yakuniy natija | `mini_rs_erp` |
 | Theme, locale, PIN/biometric va preview | Mobile lokal storage |
 | Push qarori | Backend; ko'rsatish va unread holati mobile |
+| APK update | Backend manifest/APK beradi; mobile SHA-256, package, version va signer'ni tekshiradi |
 
 Default development domeni:
 
@@ -106,7 +108,11 @@ Talablar:
 - Dart `>=3.5.0 <4.0.0`;
 - web preview uchun Chromium/Chrome;
 - ishlayotgan `mini_rs_erp` backend;
-- release target uchun platform SDK va signing.
+- release target uchun signing.
+
+`make apk` Android SDK va Eclipse Temurin JDK 17 topilmasa, ularni workspace
+ichidagi `../.tools/android-sdk` va `../.tools/jdk-17`ga yuklaydi. Global Java,
+Android SDK yoki Flutter config'ini o'zgartirmaydi.
 
 Dependency'larni olish:
 
@@ -639,6 +645,7 @@ Qurilma integratsiyalari:
 - file picker/image picker, save va share;
 - iOS Face ID/camera/photo permission;
 - Android camera/notification/storage permission;
+- Android in-app APK update, `FileProvider` va package installer;
 - native USB printer, XP-P323B Bluetooth SDK bridge va Iroh transport
   helper'lari;
 - iOS SceneDelegate ichidagi device/GScale bridge'lari.
@@ -652,6 +659,14 @@ iOS physical device runbook:
 ```text
 docs/runbooks/ios_device_install_runbook.md
 ```
+
+## Self-hosted APK update tarqatish
+
+Public fork egalari uchun application ID, stable signing key, boshqa
+kompyuterda build qilish, APK'ni SSH orqali serverga yuborish, optional yoki
+mandatory release, tekshirish va rollback jarayoni alohida runbook'da:
+
+[Self-hosted Android update release guide](docs/runbooks/android_self_hosted_updates.md)
 
 ## Build, test va tekshiruv
 
@@ -680,6 +695,32 @@ Natija:
 ```text
 build/app/outputs/flutter-apk/accord.apk
 ```
+
+Release APK'ni qo'shni backendning lokal release papkasiga bir komandada
+joylash:
+
+```bash
+make publish-apk-local \
+  API_URL=https://mini-rs-erp-test.wspace.sbs \
+  RELEASE_NOTES="Ilova ichidan yangilash qo'shildi"
+```
+
+Bu target `pubspec.yaml`dagi `versionName+versionCode`ni oladi, arm64 APK'ni
+build qiladi va `../mini_rs_erp/data/mobile_releases`ga atomik publish qiladi.
+Oddiy update ixtiyoriy. `MINIMUM_VERSION_CODE=5` faqat undan eski klientlarni,
+`MANDATORY_UPDATE=1` esa barcha eski klientlarni majburiy yangilaydi.
+
+Mobile app ishga tushgandan keyin update'ni tekshiradi va profil sozlamalarida
+qo'lda **Ilovani yangilash** amali ham bor. Yuklangan APK server bergan hajm va
+SHA-256 bilan, Android native qatlamida esa application ID, kattaroq
+`versionCode` va o'rnatilgan ilovaning signing sertifikati bilan tekshiriladi.
+Android 8+ da foydalanuvchi Accord Mobile uchun **Install unknown apps**
+ruxsatini bir marta yoqishi kerak; system package installer yakuniy tasdiqni
+baribir foydalanuvchidan oladi.
+
+Har release'da `pubspec.yaml` version code'ini oshiring va aynan bir xil signing
+key'dan foydalaning. Boshqa key bilan imzolangan APK Android tomonidan mavjud
+ilova ustiga o'rnatilmaydi.
 
 iOS release build va oldindan ulangan physical device'ga install:
 

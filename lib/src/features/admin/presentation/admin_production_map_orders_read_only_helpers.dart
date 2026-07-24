@@ -252,6 +252,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required String printMode,
   required String completionRequestNote,
   required String qolipCode,
+  String freezeRequestId = '',
 }) {
   return _ReadOnlyQueueActionRequest(
     apparatus: prepared.apparatus,
@@ -289,6 +290,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     completionRequestNote: completionRequestNote,
     returnedPaintItems: progressInput?.returnedPaintItems ?? const [],
     returnedPaintImageId: progressInput?.returnedPaintImageId ?? '',
+    freezeRequestId: freezeRequestId,
   );
 }
 
@@ -399,6 +401,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required List<String> visibleOrderIds,
   required ApparatusQueuePolicy queuePolicy,
   required AdminProgressBatch? startInputProgressBatch,
+  required AdminOrderControlState orderControlState,
+  required Map<String, AdminOrderControlState> orderControlsByOrderId,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
@@ -432,17 +436,21 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     sequence: sequenceOrderIds,
     visibleOrderIds: visibleOrderIds,
   );
+  final effectiveQueueStates = Map<String, String>.from(queueStates)
+    ..removeWhere(
+      (id, _) => orderControlsByOrderId[id] == AdminOrderControlState.frozen,
+    );
   final actionableId = canManageQueue
       ? firstActionableQueueOrderId(
           sequence: sequence,
-          states: queueStates,
+          states: effectiveQueueStates,
           visibleOrderIds: visibleOrderIds,
         )
       : null;
   final activeOrderId = canManageQueue
       ? firstInProgressQueueOrderId(
           sequence: sequence,
-          states: queueStates,
+          states: effectiveQueueStates,
           visibleOrderIds: visibleOrderIds,
         )
       : null;
@@ -470,10 +478,12 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showStart: isActionable &&
         previousStageReady &&
         queueState == ApparatusQueueOrderState.pending,
-    showPause:
-        isActionable && queueState == ApparatusQueueOrderState.inProgress,
-    showComplete:
-        isActionable && queueState == ApparatusQueueOrderState.inProgress,
+    showPause: isActionable &&
+        queueState == ApparatusQueueOrderState.inProgress &&
+        orderControlState != AdminOrderControlState.frozen,
+    showComplete: isActionable &&
+        queueState == ApparatusQueueOrderState.inProgress &&
+        orderControlState == AdminOrderControlState.active,
     showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
     showWaitingForPrevious: canManageQueue &&
         previousStage != null &&

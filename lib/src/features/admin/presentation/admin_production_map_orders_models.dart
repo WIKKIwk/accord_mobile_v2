@@ -5,6 +5,8 @@ typedef _ReadOnlyQueueActionCallback = Future<AdminApparatusQueueActionResult?>
   _ReadOnlyQueueActionRequest request,
 );
 
+enum _ProgressActionOutcome { completed, cancelled, failed }
+
 class _ReadOnlyQueueActionRequest {
   const _ReadOnlyQueueActionRequest({
     required this.apparatus,
@@ -33,6 +35,7 @@ class _ReadOnlyQueueActionRequest {
     this.completionRequestNote = '',
     this.returnedPaintItems = const [],
     this.returnedPaintImageId = '',
+    this.freezeRequestId = '',
   });
 
   final AdminApparatus apparatus;
@@ -61,6 +64,7 @@ class _ReadOnlyQueueActionRequest {
   final String completionRequestNote;
   final List<ReturnedPaintItemInput> returnedPaintItems;
   final String returnedPaintImageId;
+  final String freezeRequestId;
 }
 
 class _WorkerWatchTab {

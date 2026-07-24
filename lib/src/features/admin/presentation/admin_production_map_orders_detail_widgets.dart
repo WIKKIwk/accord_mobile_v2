@@ -26,6 +26,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onPause,
     required this.onComplete,
     required this.onResume,
+    required this.orderControlState,
   });
 
   final GlobalKey noticeAnchorKey;
@@ -52,6 +53,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onComplete;
   final VoidCallback onResume;
+  final AdminOrderControlState orderControlState;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +108,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onPause: onPause,
                 onComplete: onComplete,
                 onResume: onResume,
+                orderControlState: orderControlState,
               ),
               const SizedBox(height: 10),
               _OrderMapProgressCard(
@@ -444,6 +447,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onPause,
     required this.onComplete,
     required this.onResume,
+    required this.orderControlState,
   });
 
   final String orderCode;
@@ -478,12 +482,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onComplete;
   final VoidCallback onResume;
+  final AdminOrderControlState orderControlState;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final totalCount = assignments.length;
+    final orderControlBlocked =
+        orderControlState != AdminOrderControlState.active;
+    final orderFrozen = orderControlState == AdminOrderControlState.frozen;
     final hasActions = showStart ||
         showPause ||
         showComplete ||
@@ -551,6 +559,27 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           ),
           Divider(
               height: 28, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          if (orderControlBlocked) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                orderFrozen
+                    ? 'Buyurtma muzlatilgan. Admin aktiv qilmaguncha '
+                        'davom ettirib bo‘lmaydi.'
+                    : 'Admin buyurtmani muzlatishni so‘radi. '
+                        'Pauza qiling.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(
@@ -643,7 +672,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showStart && hasMaterialAssignments)
               FilledButton.tonalIcon(
                 onPressed:
-                    actionInFlight || allMaterialsScanned ? null : onScan,
+                    actionInFlight || orderControlBlocked || allMaterialsScanned
+                        ? null
+                        : onScan,
                 icon: Icon(
                   allMaterialsScanned
                       ? Icons.check_circle_rounded
@@ -664,7 +695,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showStart && hasMaterialAssignments) const SizedBox(height: 10),
             if (showStart && requiresQolipScan) ...[
               FilledButton.tonalIcon(
-                onPressed: actionInFlight || qolipScanned ? null : onQolipScan,
+                onPressed: actionInFlight || orderControlBlocked || qolipScanned
+                    ? null
+                    : onQolipScan,
                 icon: Icon(
                   qolipScanned
                       ? Icons.check_circle_rounded
@@ -702,6 +735,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showStart)
               FilledButton.icon(
                 onPressed: actionInFlight ||
+                        orderControlBlocked ||
                         (hasMaterialAssignments && !allMaterialsScanned) ||
                         (requiresQolipScan && !qolipScanned) ||
                         !previousProgressReady
@@ -722,7 +756,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: actionInFlight ? null : onPause,
+                      onPressed: actionInFlight || orderFrozen ? null : onPause,
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -735,7 +769,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: actionInFlight ? null : onComplete,
+                      onPressed: actionInFlight ||
+                              orderControlState != AdminOrderControlState.active
+                          ? null
+                          : onComplete,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -751,7 +788,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             if (showResume) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed: actionInFlight ? null : onResume,
+                onPressed:
+                    actionInFlight || orderControlBlocked ? null : onResume,
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('Davom ettirish'),
                 style: FilledButton.styleFrom(

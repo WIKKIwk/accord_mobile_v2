@@ -9,6 +9,7 @@ import '../../models/chat_media_models.dart';
 import '../../models/chat_models.dart';
 import '../../state/chat_audio_playback_controller.dart';
 import '../chat_media_viewer.dart';
+import 'chat_order_freeze_request_card.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
@@ -28,6 +29,10 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final freezeRequest = message.orderFreezeRequest;
+    if (freezeRequest != null && freezeRequest.isValid) {
+      return ChatOrderFreezeRequestCard(data: freezeRequest);
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final screenWidth = MediaQuery.sizeOf(context).width;

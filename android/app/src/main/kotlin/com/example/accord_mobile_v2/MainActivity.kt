@@ -49,6 +49,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var bluetoothPrinterChannel: BluetoothPrinterChannel? = null
     private var irohTransportChannel: IrohTransportChannel? = null
     private var gscaleNsdDiscoveryBridge: GScaleNsdDiscoveryBridge? = null
+    private var appUpdateChannel: AppUpdateChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,6 +110,10 @@ class MainActivity : FlutterFragmentActivity() {
             context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+        appUpdateChannel = AppUpdateChannel(
+            activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
         irohTransportChannel = try {
             IrohTransportChannel(
                 activity = this,
@@ -137,6 +142,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        appUpdateChannel?.dispose()
+        appUpdateChannel = null
         bluetoothPrinterChannel?.dispose()
         bluetoothPrinterChannel = null
         super.onDestroy()

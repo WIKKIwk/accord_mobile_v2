@@ -70,6 +70,7 @@ class ChatMessage {
     required this.sequence,
     required this.type,
     required this.body,
+    this.metadata = const <String, dynamic>{},
     required this.createdAtUnix,
     this.editedAtUnix,
     this.deletedAtUnix,
@@ -86,12 +87,14 @@ class ChatMessage {
   final int sequence;
   final String type;
   final String body;
+  final Map<String, dynamic> metadata;
   final int createdAtUnix;
   final int? editedAtUnix;
   final int? deletedAtUnix;
   final ChatMessageAttachment? attachment;
 
   String get previewText {
+    if (orderFreezeRequest != null) return 'Buyurtmani muzlatish so‘rovi';
     final caption = body.trim();
     if (caption.isNotEmpty) return caption;
     return switch (attachment?.kind) {
@@ -100,6 +103,11 @@ class ChatMessage {
       ChatMediaKind.audio => 'Ovozli xabar',
       null => 'Xabar',
     };
+  }
+
+  OrderFreezeRequestCardData? get orderFreezeRequest {
+    if (type != 'order_freeze_request') return null;
+    return OrderFreezeRequestCardData.fromJson(metadata);
   }
 
   bool isMine(SessionProfile profile) {
@@ -118,6 +126,11 @@ class ChatMessage {
       sequence: (json['sequence'] as num?)?.toInt() ?? 0,
       type: json['type']?.toString() ?? 'text',
       body: json['body']?.toString() ?? '',
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.unmodifiable(
+              (json['metadata'] as Map).cast<String, dynamic>(),
+            )
+          : const <String, dynamic>{},
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       editedAtUnix: (json['edited_at_unix'] as num?)?.toInt(),
       deletedAtUnix: (json['deleted_at_unix'] as num?)?.toInt(),
@@ -140,11 +153,94 @@ class ChatMessage {
         'sequence': sequence,
         'type': type,
         'body': body,
+        if (metadata.isNotEmpty) 'metadata': metadata,
         'created_at_unix': createdAtUnix,
         if (editedAtUnix != null) 'edited_at_unix': editedAtUnix,
         if (deletedAtUnix != null) 'deleted_at_unix': deletedAtUnix,
         if (attachment != null) 'attachment': attachment!.toJson(),
       };
+}
+
+enum OrderFreezeRequestCardStatus {
+  pending,
+  frozen,
+  cancelled,
+  unfrozen;
+
+  static OrderFreezeRequestCardStatus fromRaw(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'frozen' => OrderFreezeRequestCardStatus.frozen,
+      'cancelled' => OrderFreezeRequestCardStatus.cancelled,
+      'unfrozen' => OrderFreezeRequestCardStatus.unfrozen,
+      _ => OrderFreezeRequestCardStatus.pending,
+    };
+  }
+}
+
+class OrderFreezeRequestCardData {
+  const OrderFreezeRequestCardData({
+    required this.eventSequence,
+    required this.requestId,
+    required this.status,
+    required this.orderId,
+    required this.orderNumber,
+    required this.orderTitle,
+    required this.requesterRole,
+    required this.requesterRef,
+    required this.requesterDisplayName,
+    required this.targetSessionId,
+    required this.targetApparatus,
+    required this.targetWorkerRole,
+    required this.targetWorkerRef,
+    required this.targetWorkerDisplayName,
+    required this.requestedAtUnix,
+    required this.transitionedAtUnix,
+  });
+
+  final int eventSequence;
+  final String requestId;
+  final OrderFreezeRequestCardStatus status;
+  final String orderId;
+  final String orderNumber;
+  final String orderTitle;
+  final String requesterRole;
+  final String requesterRef;
+  final String requesterDisplayName;
+  final String targetSessionId;
+  final String targetApparatus;
+  final String targetWorkerRole;
+  final String targetWorkerRef;
+  final String targetWorkerDisplayName;
+  final int requestedAtUnix;
+  final int transitionedAtUnix;
+
+  bool get isValid =>
+      requestId.trim().isNotEmpty &&
+      orderId.trim().isNotEmpty &&
+      targetApparatus.trim().isNotEmpty &&
+      targetWorkerRef.trim().isNotEmpty;
+
+  factory OrderFreezeRequestCardData.fromJson(Map<String, dynamic> json) {
+    return OrderFreezeRequestCardData(
+      eventSequence: (json['event_sequence'] as num?)?.toInt() ?? 0,
+      requestId: json['request_id']?.toString() ?? '',
+      status: OrderFreezeRequestCardStatus.fromRaw(json['status']),
+      orderId: json['order_id']?.toString() ?? '',
+      orderNumber: json['order_number']?.toString() ?? '',
+      orderTitle: json['order_title']?.toString() ?? '',
+      requesterRole: json['requester_role']?.toString() ?? '',
+      requesterRef: json['requester_ref']?.toString() ?? '',
+      requesterDisplayName: json['requester_display_name']?.toString() ?? '',
+      targetSessionId: json['target_session_id']?.toString() ?? '',
+      targetApparatus: json['target_apparatus']?.toString() ?? '',
+      targetWorkerRole: json['target_worker_role']?.toString() ?? '',
+      targetWorkerRef: json['target_worker_ref']?.toString() ?? '',
+      targetWorkerDisplayName:
+          json['target_worker_display_name']?.toString() ?? '',
+      requestedAtUnix: (json['requested_at_unix'] as num?)?.toInt() ?? 0,
+      transitionedAtUnix: (json['transitioned_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class ChatConversation {

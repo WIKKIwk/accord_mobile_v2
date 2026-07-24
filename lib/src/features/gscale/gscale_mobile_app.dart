@@ -446,57 +446,65 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
 
     return Material(
       color: scheme.surface,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Container(
-              width: 38,
-              height: 4,
+              width: 44,
+              height: 5,
               decoration: BoxDecoration(
-                color: scheme.outlineVariant,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              padding: EdgeInsets.fromLTRB(
+                selectedConnection != null ? 12 : 20,
+                10,
+                16,
+                4,
+              ),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: selectedConnection == null
-                        ? widget.onExitMode
-                        : _backToConnections,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip:
-                        MaterialLocalizations.of(context).backButtonTooltip,
-                  ),
+                  if (selectedConnection != null) ...[
+                    IconButton.filledTonal(
+                      onPressed: _backToConnections,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 22),
+                      tooltip:
+                          MaterialLocalizations.of(context).backButtonTooltip,
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: Text(
                       selectedConnection == null
                           ? 'Qurilma tanlash'
                           : _titleForConnection(selectedConnection),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
                           ),
                     ),
                   ),
                   if (selectedConnection == _DevicePickerConnection.wifi)
-                    IconButton(
+                    IconButton.filledTonal(
                       onPressed: _openManualEntrySheet,
-                      icon: const Icon(Icons.add_link_rounded),
+                      icon: const Icon(Icons.add_link_rounded, size: 22),
                       tooltip: 'Wi-Fi manzilini qo‘shish',
                     )
-                  else
-                    const SizedBox(width: 48),
+                  else if (selectedConnection != null)
+                    const SizedBox(width: 40),
                 ],
               ),
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.fastOutSlowIn,
               alignment: Alignment.topCenter,
               child: selectedConnection == null
                   ? _ConnectionModeSelection(onSelected: _selectConnection)
@@ -531,37 +539,40 @@ class _ConnectionModeSelection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(
-            'Ulanish usulini tanlang',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          Expanded(
+            child: _GoogleBubbleButton(
+              icon: Icons.usb_rounded,
+              label: 'USB',
+              containerColor: scheme.primaryContainer,
+              iconColor: scheme.onPrimaryContainer,
+              onTap: () => onSelected(_DevicePickerConnection.usb),
+            ),
           ),
-          const SizedBox(height: 12),
-          _ConnectionModeButton(
-            icon: Icons.usb_rounded,
-            title: 'USB printer',
-            subtitle: 'USB orqali ulangan printerni qidirish',
-            onTap: () => onSelected(_DevicePickerConnection.usb),
+          Expanded(
+            child: _GoogleBubbleButton(
+              icon: Icons.bluetooth_rounded,
+              label: 'Bluetooth',
+              containerColor: scheme.secondaryContainer,
+              iconColor: scheme.onSecondaryContainer,
+              onTap: () => onSelected(_DevicePickerConnection.bluetooth),
+            ),
           ),
-          const SizedBox(height: 10),
-          _ConnectionModeButton(
-            icon: Icons.bluetooth_rounded,
-            title: 'Bluetooth printer',
-            subtitle: 'Bluetooth orqali ulangan printerni qidirish',
-            onTap: () => onSelected(_DevicePickerConnection.bluetooth),
-          ),
-          const SizedBox(height: 10),
-          _ConnectionModeButton(
-            icon: Icons.wifi_rounded,
-            title: 'Wi-Fi qurilma',
-            subtitle: 'Tarmoqdagi tarozi yoki printerni qidirish',
-            onTap: () => onSelected(_DevicePickerConnection.wifi),
+          Expanded(
+            child: _GoogleBubbleButton(
+              icon: Icons.wifi_rounded,
+              label: 'Wi-Fi',
+              containerColor: scheme.tertiaryContainer,
+              iconColor: scheme.onTertiaryContainer,
+              isRecommended: true,
+              onTap: () => onSelected(_DevicePickerConnection.wifi),
+            ),
           ),
         ],
       ),
@@ -569,64 +580,92 @@ class _ConnectionModeSelection extends StatelessWidget {
   }
 }
 
-class _ConnectionModeButton extends StatelessWidget {
-  const _ConnectionModeButton({
+class _GoogleBubbleButton extends StatelessWidget {
+  const _GoogleBubbleButton({
     required this.icon,
-    required this.title,
-    required this.subtitle,
+    required this.label,
+    required this.containerColor,
+    required this.iconColor,
     required this.onTap,
+    this.isRecommended = false,
   });
 
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String label;
+  final Color containerColor;
+  final Color iconColor;
   final VoidCallback onTap;
+  final bool isRecommended;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLow,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(26),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: scheme.primary, size: 28),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: containerColor,
+                shape: BoxShape.circle,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  customBorder: const CircleBorder(),
+                  splashColor: iconColor.withValues(alpha: 0.25),
+                  highlightColor: iconColor.withValues(alpha: 0.12),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: iconColor,
+                      size: 30,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
+            ),
+            if (isRecommended)
+              Positioned(
+                top: 2,
+                right: 2,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: scheme.surface,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: scheme.onSurface,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }
@@ -4264,24 +4303,58 @@ class _ScanningState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.4),
           ),
-          const SizedBox(width: 14),
-          Text(
-            'Printer va tarozilar qidirilmoqda...',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: scheme.onSurfaceVariant,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: scheme.tertiaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.8,
+                  color: scheme.onTertiaryContainer,
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Qidirilmoqda...',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tarmoqdagi printer va tarozilar aniqlanmoqda',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4296,30 +4369,59 @@ class _EmptyServerState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    const copy = GScalePickerEmptyCopy.noDevices();
 
-    return Card.filled(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              copy.message,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: scheme.tertiaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.wifi_off_rounded,
+                color: scheme.onTertiaryContainer,
+                size: 30,
               ),
             ),
+            const SizedBox(height: 14),
+            Text(
+              'Qurilma tarmoqda topilmadi',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Lokal Wi-Fi tarmoqda aktiv tarozi yoki printer topilmadi. Qurilma tarmoqqa ulanganini tekshiring.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(copy.primaryActionLabel),
+            FilledButton.tonalIcon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: const Text(
+                'Qayta qidirish',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -4340,53 +4442,82 @@ class _ServerCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Material(
-      color: scheme.surfaceContainerLow,
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Icon(
-                _wifiIconForLatency(server.latencyMs),
-                color: scheme.primary,
-                size: 28,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      server.handshake.serverName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      server.endpoint.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+      child: Material(
+        color: scheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: scheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    _wifiIconForLatency(server.latencyMs),
+                    color: scheme.onTertiaryContainer,
+                    size: 24,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Ulanish',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        server.handshake.serverName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        server.endpoint.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Ulanish',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1742,6 +1742,127 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
+  testWidgets('order actions open by long press in orders and sequence tabs', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-order-actions',
+        title: 'Action menu order',
+        productCode: 'ACTION-1',
+        apparatus: 'Godex aparat - DEMO',
+        product: 'action product',
+      ),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.textContaining('Action menu order').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Muzlatish'), findsOneWidget);
+    expect(find.text('O‘chirish'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Muzlatish'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ketma-ketlik'));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.textContaining('Action menu order').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Muzlatish'), findsOneWidget);
+    expect(find.text('O‘chirish'), findsOneWidget);
+  });
+
+  testWidgets('order action menu follows requested and frozen states', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-order-control-states';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Control state order',
+        productCode: 'CONTROL-1',
+        apparatus: apparatus,
+        product: 'control product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    expect(
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: orderId,
+        action: AdminOrderControlAction.freeze,
+      ),
+      AdminOrderControlState.freezeRequested,
+    );
+
+    Future<void> pumpScreen() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await _usePhoneViewport(tester);
+    await pumpScreen();
+    await tester.longPress(find.textContaining('Control state order').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Muzlatish so‘rovini bekor qilish'), findsOneWidget);
+    expect(find.text('O‘chirish'), findsNothing);
+    Navigator.of(
+      tester.element(find.text('Muzlatish so‘rovini bekor qilish')),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 1,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await pumpScreen();
+    await tester.longPress(find.textContaining('Control state order').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Muzdan chiqarish'), findsOneWidget);
+    expect(find.text('O‘chirish'), findsNothing);
+  });
+
   testWidgets('opened orders move module moves only compatible pechat orders', (
     tester,
   ) async {

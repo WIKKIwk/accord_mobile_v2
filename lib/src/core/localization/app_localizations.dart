@@ -230,6 +230,71 @@ class AppLocalizations {
   String get no => _t('Yo‘q', 'No', 'Нет');
   String get retry => _t('Qayta urinish', 'Retry', 'Повторить');
   String get loading => _t('Yuklanmoqda...', 'Loading...', 'Загрузка...');
+  String get appUpdateSettingsTitle => _t(
+        'Ilovani yangilash',
+        'App update',
+        'Обновление приложения',
+      );
+  String get appUpdateSettingsBody => _t(
+        'Yangi versiyani tekshirish',
+        'Check for a new version',
+        'Проверить новую версию',
+      );
+  String get appUpdateAvailableTitle => _t(
+        'Yangi versiya mavjud',
+        'A new version is available',
+        'Доступна новая версия',
+      );
+  String get appUpdateRequiredTitle => _t(
+        'Yangilanish talab qilinadi',
+        'Update required',
+        'Требуется обновление',
+      );
+  String appUpdateAvailableBody(String version) => _t(
+        'Accord Mobile $version versiyasiga yangilanishi mumkin.',
+        'Accord Mobile can be updated to version $version.',
+        'Accord Mobile можно обновить до версии $version.',
+      );
+  String appUpdateRequiredBody(String version) => _t(
+        'Ishni davom ettirish uchun $version versiyasini o‘rnating.',
+        'Install version $version to continue.',
+        'Установите версию $version, чтобы продолжить.',
+      );
+  String get appUpdateReleaseNotes =>
+      _t('Nimalar yangilandi', 'What changed', 'Что изменилось');
+  String get appUpdateAction => _t('Yangilash', 'Update', 'Обновить');
+  String get appUpdateLater => _t('Keyinroq', 'Later', 'Позже');
+  String get appUpdateCancel => _t('Bekor qilish', 'Cancel', 'Отменить');
+  String get appUpdateCurrent => _t(
+        'Sizda eng so‘nggi versiya o‘rnatilgan.',
+        'You already have the latest version.',
+        'У вас уже установлена последняя версия.',
+      );
+  String get appUpdateUnsupported => _t(
+        'APK update faqat Android ilovasida ishlaydi.',
+        'APK updates are only available in the Android app.',
+        'Обновление APK доступно только в приложении Android.',
+      );
+  String get appUpdateCheckFailed => _t(
+        'Yangilanishni tekshirib bo‘lmadi.',
+        'Could not check for updates.',
+        'Не удалось проверить обновления.',
+      );
+  String get appUpdateDownloadFailed => _t(
+        'Yangilanish yuklanmadi. Qayta urining.',
+        'The update could not be downloaded. Try again.',
+        'Не удалось загрузить обновление. Повторите попытку.',
+      );
+  String get appUpdateInstallPermission => _t(
+        'Accord Mobile uchun “Noma’lum ilovalarni o‘rnatish” ruxsatini yoqing, so‘ng Yangilashni yana bosing.',
+        'Allow “Install unknown apps” for Accord Mobile, then tap Update again.',
+        'Разрешите Accord Mobile устанавливать неизвестные приложения, затем снова нажмите «Обновить».',
+      );
+  String appUpdateDownloadProgress(double downloadedMb, double totalMb) => _t(
+        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
+        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
+        '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} МБ',
+      );
   String get accessDenied => _t('Ruxsat yo‘q', 'Access denied', 'Нет доступа');
   String get confirmTitle => _t('Tasdiqlash', 'Confirm', 'Подтверждение');
   String get qtyRequired =>

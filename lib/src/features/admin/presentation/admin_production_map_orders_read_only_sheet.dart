@@ -12,6 +12,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.visibleOrderIds = const [],
     this.onQueueAction,
     this.progressDriverUrlPicker,
+    this.initialOrderControls = const {},
+    this.initialPauseRequestId = '',
+    this.startPauseOnOpen = false,
   });
 
   final ProductionMapSaved order;
@@ -24,6 +27,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final List<String> visibleOrderIds;
   final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
+  final Map<String, AdminOrderControlState> initialOrderControls;
+  final String initialPauseRequestId;
+  final bool startPauseOnOpen;
 
   @override
   State<_ReadOnlyOrderDetailSheet> createState() =>
@@ -33,6 +39,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   final GlobalKey _noticeAnchorKey = GlobalKey();
   late Map<String, String> _queueStates;
+  late AdminOrderControlState _orderControlState;
+  late Map<String, AdminOrderControlState> _orderControls;
+  StreamSubscription<AdminProductionMapLiveSnapshot>? _controlLiveSubscription;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
@@ -51,8 +60,54 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   void initState() {
     super.initState();
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
+    _orderControls =
+        Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
+    _orderControlState = _orderControls[widget.order.map.id.trim()] ??
+        AdminOrderControlState.active;
+    if (widget.canManageQueue) {
+      _controlLiveSubscription =
+          MobileApi.instance.adminProductionMapLiveEvents().listen(
+                _applyOrderControlLiveSnapshot,
+                onError: (_, __) {},
+              );
+    }
     unawaited(_loadMaterialAssignments());
     unawaited(_loadInputProgressBatches());
+    if (widget.startPauseOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialPauseFlow());
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_controlLiveSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _applyOrderControlLiveSnapshot(
+    AdminProductionMapLiveSnapshot snapshot,
+  ) {
+    if (!mounted) return;
+    final orderId = widget.order.map.id.trim();
+    final station = widget.apparatus?.name.trim() ?? '';
+    final nextControls =
+        Map<String, AdminOrderControlState>.from(snapshot.orderControls);
+    final nextControl = nextControls[orderId] ?? AdminOrderControlState.active;
+    final nextStates = _queueStatesForStation(
+      station,
+      snapshot.queueStates,
+    );
+    if (nextControl == _orderControlState &&
+        mapEquals(nextStates, _queueStates)) {
+      return;
+    }
+    setState(() {
+      _orderControlState = nextControl;
+      _orderControls = nextControls;
+      _queueStates = Map<String, String>.from(nextStates);
+    });
   }
 
   @override
@@ -129,6 +184,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     BluetoothPrinterProfile? bluetoothPrinter,
     String completionRequestNote = '',
   }) async {
+    if (_orderControlState == AdminOrderControlState.frozen) {
+      _showSheetNotice('Buyurtma muzlatilgan');
+      return false;
+    }
+    if (_orderControlState == AdminOrderControlState.freezeRequested &&
+        action != 'pause') {
+      _showSheetNotice('Buyurtmani muzlatish uchun pauza qiling');
+      return false;
+    }
     final prepared = _prepareReadOnlyQueueAction(
       action: action,
       apparatus: widget.apparatus,
@@ -168,6 +232,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           printMode: printMode,
           completionRequestNote: completionRequestNote,
           qolipCode: qolipCode,
+          freezeRequestId:
+              action == 'pause' ? widget.initialPauseRequestId : '',
         ),
       );
       if (!mounted) {
@@ -186,6 +252,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
         if (action == 'start' && states != null) {
           _scannedQolipCode = '';
+        }
+        if (action == 'pause' &&
+            states != null &&
+            _orderControlState == AdminOrderControlState.freezeRequested) {
+          _orderControlState = AdminOrderControlState.frozen;
+          _orderControls[widget.order.map.id.trim()] =
+              AdminOrderControlState.frozen;
         }
       });
       if (_queueActionShouldReloadMaterials(action: action, result: states)) {
@@ -271,7 +344,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<void> _runProgressAction(String action) async {
+  Future<void> _runInitialPauseFlow() async {
+    final outcome = await _runProgressAction('pause');
+    if (!mounted) return;
+    if (outcome == _ProgressActionOutcome.completed) {
+      Navigator.of(context).pop(true);
+    } else if (outcome == _ProgressActionOutcome.cancelled) {
+      Navigator.of(context).pop(false);
+    }
+  }
+
+  Future<_ProgressActionOutcome> _runProgressAction(String action) async {
     final scope = returnedPaintWorkerDraftScope(
       actorRef: AppSession.instance.profile?.ref ?? '',
       orderId: widget.order.map.id,
@@ -283,7 +366,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       );
       _returnedPaintDraftScope = scope;
     }
-    if (!mounted) return;
+    if (!mounted) return _ProgressActionOutcome.cancelled;
     final input = await _showProgressQtyDialogForApparatus(
       context,
       action: action,
@@ -292,23 +375,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       returnedPaintDraft: _returnedPaintDraft,
     );
     if (!mounted || input == null) {
-      return;
+      return _ProgressActionOutcome.cancelled;
     }
     if (input.isCompletionRequest) {
-      await _runQueueAction(
+      final completed = await _runQueueAction(
         action,
         progressInput: input,
         uom: 'm',
         completionRequestNote: input.description,
       );
-      return;
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
     }
     final printerOption = await _pickProgressPrinter(
       context,
       widget.progressDriverUrlPicker,
     );
     if (!mounted || printerOption == null) {
-      return;
+      return _ProgressActionOutcome.cancelled;
     }
     final completed = await _runQueueAction(
       action,
@@ -326,6 +411,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _returnedPaintDraft = null;
       _returnedPaintDraftScope = '';
     }
+    return completed
+        ? _ProgressActionOutcome.completed
+        : _ProgressActionOutcome.failed;
   }
 
   Future<void> _scanMaterial() async {
@@ -496,6 +584,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       visibleOrderIds: widget.visibleOrderIds,
       queuePolicy: widget.queuePolicy,
       startInputProgressBatch: _startInputProgressBatch,
+      orderControlState: _orderControlState,
+      orderControlsByOrderId: _orderControls,
     );
     final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
     final qolipScanAllowsStart = productionMapQolipScanAllowsStart(
@@ -532,6 +622,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onPause: () => unawaited(_runProgressAction('pause')),
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),
+      orderControlState: _orderControlState,
     );
   }
 

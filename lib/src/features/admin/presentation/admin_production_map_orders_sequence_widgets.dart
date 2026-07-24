@@ -12,6 +12,7 @@ class _SequenceModulePage extends StatefulWidget {
     required this.orderKgByMapId,
     required this.onSelectApparatus,
     required this.onReorder,
+    required this.onLongPressOrder,
   });
 
   final double bottomPadding;
@@ -24,6 +25,7 @@ class _SequenceModulePage extends StatefulWidget {
   final Map<String, double> orderKgByMapId;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
+  final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
   State<_SequenceModulePage> createState() => _SequenceModulePageState();
@@ -81,6 +83,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         baseMetraj: widget.baseMetrajByMapId[mapId] ?? order.map.baseLength,
         orderKg: widget.orderKgByMapId[mapId] ?? order.map.orderKg,
         onExpandedChanged: (expanded) => _onExpandedChanged(order, expanded),
+        onLongPress: () => widget.onLongPressOrder(order),
       );
     }
 
@@ -312,6 +315,7 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
     this.backgroundColor,
     this.onTap,
     this.expandable = true,
+    this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -325,6 +329,7 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
   final Color? backgroundColor;
   final VoidCallback? onTap;
   final bool expandable;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -349,6 +354,7 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
         children: [
           InkWell(
             onTap: expandable ? () => onExpandedChanged(!expanded) : onTap,
+            onLongPress: onLongPress,
             child: Padding(
               padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
               child: ConstrainedBox(

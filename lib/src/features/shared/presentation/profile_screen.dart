@@ -8,6 +8,7 @@ import '../../../core/session/session.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/update/app_update_runtime.dart';
 import '../../../core/widgets/feedback/logout_prompt.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -462,6 +463,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                         onShowPinFlow: _showPinFlow,
                         onRemovePin: _removePin,
                         onToggleBiometric: _toggleBiometric,
+                        onCheckForUpdate: () async {
+                          Navigator.of(sheetContext).pop();
+                          await AppUpdateCoordinator.instance.checkAndPrompt(
+                            context,
+                            manual: true,
+                          );
+                        },
                         onLogout: () async {
                           Navigator.of(sheetContext).pop();
                           await showLogoutPrompt(context);
@@ -1100,6 +1108,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
     required this.onShowPinFlow,
     required this.onRemovePin,
     required this.onToggleBiometric,
+    required this.onCheckForUpdate,
     required this.onLogout,
   });
 
@@ -1115,6 +1124,7 @@ class _ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback onShowPinFlow;
   final VoidCallback onRemovePin;
   final ValueChanged<bool> onToggleBiometric;
+  final VoidCallback onCheckForUpdate;
   final VoidCallback onLogout;
 
   @override
@@ -1142,6 +1152,10 @@ class _ProfileSettingsSheet extends StatelessWidget {
             const SizedBox(height: 16),
             _ProfileSettingsRowPadding(
               child: _ThemePreferenceRow(variant: themeVariant),
+            ),
+            const SizedBox(height: 16),
+            _ProfileSettingsRowPadding(
+              child: _AppUpdatePreferenceRow(onTap: onCheckForUpdate),
             ),
             const SizedBox(height: 22),
             Divider(
@@ -1185,6 +1199,52 @@ class _ProfileSettingsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _LogoutSettingsRow(onTap: onLogout),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppUpdatePreferenceRow extends StatelessWidget {
+  const _AppUpdatePreferenceRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.system_update_rounded, color: scheme.primary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.appUpdateSettingsTitle,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.appUpdateSettingsBody,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
           ],
         ),
       ),

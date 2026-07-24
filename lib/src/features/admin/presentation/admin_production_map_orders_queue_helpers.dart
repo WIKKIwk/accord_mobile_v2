@@ -6,11 +6,13 @@ bool _queueSnapshotChanged({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
+  required Map<String, AdminOrderControlState> orderControlsByOrderId,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
-      queuePoliciesByApparatus.length != snapshot.queuePolicies.length) {
+      queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
+      orderControlsByOrderId.length != snapshot.orderControls.length) {
     return true;
   }
   for (final entry in snapshot.sequences.entries) {
@@ -40,6 +42,11 @@ bool _queueSnapshotChanged({
     if (current == null ||
         current.policy != entry.value.policy ||
         current.locked != entry.value.locked) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.orderControls.entries) {
+    if (orderControlsByOrderId[entry.key] != entry.value) {
       return true;
     }
   }
@@ -207,6 +214,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     completionRequestNote: request.completionRequestNote,
     returnedPaintItems: request.returnedPaintItems,
     returnedPaintImageId: request.returnedPaintImageId,
+    freezeRequestId: request.freezeRequestId,
   );
 }
 
@@ -219,6 +227,7 @@ Future<AdminApparatusQueueSnapshot> _loadQueueSnapshot() async {
       visibleOrderIds: {},
       queueStates: {},
       queuePolicies: {},
+      orderControls: {},
     );
   }
 }

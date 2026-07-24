@@ -12,6 +12,7 @@ final Set<String> _testModeDeletedWarehouseNames = {};
 final List<AdminServerMonitorBackupSnapshot> _testModeBackupSnapshots = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+final Map<String, AdminOrderControlState> _testModeOrderControls = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
 final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
@@ -105,6 +106,7 @@ void resetMobileApiTestModeData() {
   _testModeBackupSnapshots.clear();
   _testModeApparatusSequences.clear();
   _testModeApparatusQueueStates.clear();
+  _testModeOrderControls.clear();
   _testModeApparatusQueuePolicies.clear();
   _testModeCompletedQueueOrders.clear();
   _testModeCompletionRequests.clear();
@@ -230,12 +232,184 @@ class AdminApparatusQueueSnapshot {
     required this.visibleOrderIds,
     required this.queueStates,
     required this.queuePolicies,
+    required this.orderControls,
   });
 
   final Map<String, List<String>> sequences;
   final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
+  final Map<String, AdminOrderControlState> orderControls;
+}
+
+enum AdminOrderControlState {
+  active,
+  freezeRequested,
+  frozen;
+
+  static AdminOrderControlState fromRaw(Object? raw) {
+    return switch (raw?.toString().trim()) {
+      'freeze_requested' => AdminOrderControlState.freezeRequested,
+      'frozen' => AdminOrderControlState.frozen,
+      _ => AdminOrderControlState.active,
+    };
+  }
+
+  String get apiValue => switch (this) {
+        AdminOrderControlState.active => 'active',
+        AdminOrderControlState.freezeRequested => 'freeze_requested',
+        AdminOrderControlState.frozen => 'frozen',
+      };
+}
+
+enum AdminOrderControlAction {
+  freeze,
+  cancelFreeze,
+  unfreeze,
+  delete;
+
+  String get apiValue => switch (this) {
+        AdminOrderControlAction.freeze => 'freeze',
+        AdminOrderControlAction.cancelFreeze => 'cancel_freeze',
+        AdminOrderControlAction.unfreeze => 'unfreeze',
+        AdminOrderControlAction.delete => 'delete',
+      };
+}
+
+AdminOrderControlState? _applyTestModeOrderControl(
+  String orderId,
+  AdminOrderControlAction action,
+) {
+  final current =
+      _testModeOrderControls[orderId] ?? AdminOrderControlState.active;
+  final states = <String>[];
+  for (final apparatusStates in _testModeApparatusQueueStates.values) {
+    final state = apparatusStates[orderId]?.trim();
+    if (state != null && state.isNotEmpty) states.add(state);
+  }
+  final started = states.any((state) => state != 'pending');
+  final hasActiveWork = states.contains('in_progress');
+  final completed = _testModeProductionMaps
+      .where((saved) => saved.map.id.trim() == orderId)
+      .map((saved) => saved.map)
+      .any((map) {
+    final stages = productionMapLinearWorkStages(map);
+    return stages.isNotEmpty &&
+        stages.every((stage) {
+          final knownKeys = {
+            ..._testModeApparatusSequences.keys,
+            ..._testModeApparatusQueueStates.keys,
+          };
+          final storageKey = resolveApparatusStorageKey(
+            stage.stationTitle,
+            knownKeys,
+          );
+          return _testModeApparatusQueueStates[storageKey]?[orderId] ==
+              'completed';
+        });
+  });
+
+  switch (action) {
+    case AdminOrderControlAction.freeze:
+      if (current != AdminOrderControlState.active) {
+        throw const MobileApiException(
+          code: 'order_control_action_not_allowed',
+          message: 'Buyurtmaning hozirgi holatida bu amal mumkin emas',
+        );
+      }
+      if (!started) {
+        throw const MobileApiException(
+          code: 'order_not_started',
+          message: 'Boshlanmagan buyurtmani muzlatib bo‘lmaydi',
+        );
+      }
+      if (completed) {
+        throw const MobileApiException(
+          code: 'order_already_completed',
+          message: 'Tugallangan buyurtmani muzlatib bo‘lmaydi',
+        );
+      }
+      final next = hasActiveWork
+          ? AdminOrderControlState.freezeRequested
+          : AdminOrderControlState.frozen;
+      _testModeOrderControls[orderId] = next;
+      return next;
+    case AdminOrderControlAction.cancelFreeze:
+      if (current != AdminOrderControlState.freezeRequested) {
+        throw const MobileApiException(
+          code: 'order_control_action_not_allowed',
+          message: 'Buyurtmaning hozirgi holatida bu amal mumkin emas',
+        );
+      }
+      _testModeOrderControls[orderId] = AdminOrderControlState.active;
+      return AdminOrderControlState.active;
+    case AdminOrderControlAction.unfreeze:
+      if (current != AdminOrderControlState.frozen) {
+        throw const MobileApiException(
+          code: 'order_control_action_not_allowed',
+          message: 'Buyurtmaning hozirgi holatida bu amal mumkin emas',
+        );
+      }
+      _testModeOrderControls[orderId] = AdminOrderControlState.active;
+      return AdminOrderControlState.active;
+    case AdminOrderControlAction.delete:
+      final blockers = <String>[];
+      final visibleByApparatus = _testModeVisibleOrderIdsByApparatus();
+      for (final apparatus in {
+        ..._testModeApparatusSequences.keys,
+        ...visibleByApparatus.keys,
+      }) {
+        final sequence = effectiveQueueSequence(
+          sequence: _testModeApparatusSequences[apparatus] ?? const [],
+          visibleOrderIds: visibleByApparatus[apparatus] ?? const [],
+        );
+        if (sequence.isNotEmpty && sequence.first == orderId) {
+          blockers.add(
+            'Buyurtma $apparatus ketma-ketligida 1-o‘rinda turibdi',
+          );
+        }
+      }
+      if (started) {
+        blockers.add('Buyurtmada ish jarayoni allaqachon boshlangan');
+      }
+      final materialCount = _testModeRawMaterialAssignments
+          .where((assignment) => assignment.orderId.trim() == orderId)
+          .length;
+      if (materialCount > 0) {
+        blockers.add(
+          'Buyurtmaga $materialCount ta homashyo biriktirilgan',
+        );
+      }
+      if (blockers.isNotEmpty) {
+        throw MobileApiException(
+          code: 'order_delete_blocked',
+          message: blockers.join('\n'),
+          details: blockers,
+        );
+      }
+      _testModeProductionMaps.removeWhere(
+        (saved) => saved.map.id.trim() == orderId,
+      );
+      for (final sequence in _testModeApparatusSequences.values) {
+        sequence.removeWhere((id) => id.trim() == orderId);
+      }
+      for (final apparatusStates in _testModeApparatusQueueStates.values) {
+        apparatusStates.remove(orderId);
+      }
+      _testModeOrderControls.remove(orderId);
+      return null;
+  }
+}
+
+Map<String, AdminOrderControlState> _parseAdminOrderControls(Object? raw) {
+  if (raw is! Map) return const {};
+  return {
+    for (final entry in raw.entries)
+      if (entry.key.toString().trim().isNotEmpty)
+        entry.key.toString().trim(): AdminOrderControlState.fromRaw(
+          entry.value is Map ? (entry.value as Map)['state'] : entry.value,
+        ),
+  };
 }
 
 Map<String, List<String>> _parseRequiredProductionMapVisibleOrderIds(
@@ -1746,6 +1920,7 @@ class AdminProductionMapLiveSnapshot {
     required this.completedOrders,
     required this.completionRequests,
     required this.completionRequestDecisions,
+    required this.orderControls,
   });
 
   final List<ProductionMapSaved> maps;
@@ -1757,6 +1932,7 @@ class AdminProductionMapLiveSnapshot {
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<AdminCompletionRequestDecisionNotification>
       completionRequestDecisions;
+  final Map<String, AdminOrderControlState> orderControls;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
@@ -1798,6 +1974,7 @@ class AdminProductionMapLiveSnapshot {
               (item as Map).cast<String, dynamic>(),
             ),
       ],
+      orderControls: _parseAdminOrderControls(json['order_controls']),
     );
   }
 }
@@ -1808,6 +1985,7 @@ MobileApiException _adminProductionMapException(
 ) {
   String code = fallbackCode;
   var apparatusOptions = const <String>[];
+  var details = const <String>[];
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -1822,16 +2000,34 @@ MobileApiException _adminProductionMapException(
           if (option.toString().trim().isNotEmpty) option.toString().trim(),
       ];
     }
+    if (payload is Map && payload['blockers'] is List) {
+      details = [
+        for (final blocker in payload['blockers'] as List)
+          if (blocker is Map &&
+              blocker['message']?.toString().trim().isNotEmpty == true)
+            blocker['message'].toString().trim(),
+      ];
+    }
   } catch (_) {}
   return MobileApiException(
     code: code,
     apparatusOptions: apparatusOptions,
+    details: details,
     message: switch (code) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
       'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
       'queue_action_not_allowed' =>
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+      'order_not_started' => 'Boshlanmagan buyurtmani muzlatib bo‘lmaydi',
+      'order_already_completed' => 'Tugallangan buyurtmani muzlatib bo‘lmaydi',
+      'order_freeze_requested' =>
+        'Buyurtma muzlatish uchun worker pauzasini kutmoqda',
+      'order_frozen' => 'Buyurtma muzlatilgan',
+      'order_control_action_not_allowed' =>
+        'Buyurtmaning hozirgi holatida bu amal mumkin emas',
+      'order_delete_blocked' =>
+        details.isEmpty ? 'Buyurtmani o‘chirib bo‘lmaydi' : details.join('\n'),
       'previous_stage_not_completed' =>
         'Oldingi bosqich tugallanguncha kutilmoqda',
       'apparatus_not_assigned' => 'Bu aparat sizga biriktirilmagan',
@@ -2709,6 +2905,9 @@ extension MobileApiAdmin on MobileApi {
         queuePolicies: Map<String, AdminApparatusQueuePolicy>.unmodifiable(
           _testModeApparatusQueuePolicies,
         ),
+        orderControls: Map<String, AdminOrderControlState>.unmodifiable(
+          _testModeOrderControls,
+        ),
       );
     }
     final response = await _sendAuthorized(
@@ -2726,7 +2925,46 @@ extension MobileApiAdmin on MobileApi {
       visibleOrderIds: _parseRequiredProductionMapVisibleOrderIds(payload),
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
+      orderControls: _parseAdminOrderControls(payload['order_controls']),
     );
+  }
+
+  Future<AdminOrderControlState?> adminProductionMapOrderControl({
+    required String orderId,
+    required AdminOrderControlAction action,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      return _applyTestModeOrderControl(normalizedOrderId, action);
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/order-control',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'order_id': normalizedOrderId,
+          'action': action.apiValue,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'order_control_failed');
+    }
+    if (action == AdminOrderControlAction.delete) {
+      return null;
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final control = payload['control'];
+    if (control is! Map) {
+      throw const MobileApiException(
+        code: 'order_control_invalid_response',
+        message: 'Buyurtma holati olinmadi',
+      );
+    }
+    return AdminOrderControlState.fromRaw(control['state']);
   }
 
   Future<List<AdminProgressBatch>> adminWipBatches({
@@ -3532,6 +3770,7 @@ extension MobileApiAdmin on MobileApi {
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
+    String freezeRequestId = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final knownKeys = {
@@ -3543,6 +3782,26 @@ extension MobileApiAdmin on MobileApi {
       final states = Map<String, String>.from(
         _testModeApparatusQueueStates[storageKey] ?? const {},
       );
+      final control = _testModeOrderControls[orderId.trim()] ??
+          AdminOrderControlState.active;
+      if (control == AdminOrderControlState.frozen) {
+        throw const MobileApiException(
+          code: 'order_frozen',
+          message: 'Buyurtma muzlatilgan',
+        );
+      }
+      if (control == AdminOrderControlState.freezeRequested &&
+          action != 'pause') {
+        throw const MobileApiException(
+          code: 'order_freeze_requested',
+          message: 'Buyurtmani muzlatish uchun worker pauzasi kutilmoqda',
+        );
+      }
+      final actionableStates = Map<String, String>.from(states)
+        ..removeWhere(
+          (id, _) =>
+              _testModeOrderControls[id] == AdminOrderControlState.frozen,
+        );
       final policy =
           _effectiveTestModeQueuePolicy(apparatus, storageKey).policy;
       final progressKey =
@@ -3559,7 +3818,7 @@ extension MobileApiAdmin on MobileApi {
           !startUsesProgressQr) {
         final actionable = firstActionableQueueOrderId(
           sequence: sequence,
-          states: states,
+          states: actionableStates,
         );
         if (actionable != orderId.trim()) {
           throw const MobileApiException(
@@ -3569,6 +3828,13 @@ extension MobileApiAdmin on MobileApi {
         }
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
+      if (action == 'resume' &&
+          (sequence.isEmpty || sequence.first.trim() != orderId.trim())) {
+        throw const MobileApiException(
+          code: 'queue_action_not_allowed',
+          message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
+        );
+      }
       if (action == 'start') {
         if (qrPayload.trim().isNotEmpty) {
           final batch = _testModeProgressBatchesByQr[qrPayload.trim()];
@@ -3671,6 +3937,10 @@ extension MobileApiAdmin on MobileApi {
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'paused';
+        if (control == AdminOrderControlState.freezeRequested) {
+          _testModeOrderControls[orderId.trim()] =
+              AdminOrderControlState.frozen;
+        }
         _testModeApparatusQueueStates[storageKey] = states;
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -3912,6 +4182,8 @@ extension MobileApiAdmin on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (freezeRequestId.trim().isNotEmpty)
+            'freeze_request_id': freezeRequestId.trim(),
           if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
           if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
             'material_barcode': trimmedBarcode,

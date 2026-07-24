@@ -240,4 +240,100 @@ void main() {
     expect(page.events.single.cursor, 42);
     expect(page.events.single.message?.body, 'Offline xabar');
   });
+
+  test('freeze request card preserves exact request and target binding', () {
+    final message = ChatMessage.fromJson({
+      'message_id': 'message_freeze_1',
+      'conversation_id': 'conversation_1',
+      'sender_principal_id': 'principal_admin',
+      'sender_role': 'admin',
+      'sender_ref': 'admin_1',
+      'sender_display_name': 'Admin',
+      'client_message_id': 'order-freeze-request:order-freeze-request_abc',
+      'sequence': 11,
+      'type': 'order_freeze_request',
+      'body': 'Buyurtmani muzlatish so‘rovi',
+      'metadata': {
+        'kind': 'order_freeze_request',
+        'event_sequence': 17,
+        'request_id': 'order-freeze-request_abc',
+        'status': 'pending',
+        'order_id': 'zakaz-1',
+        'order_number': 'Z-001',
+        'order_title': 'Sinov order',
+        'requester_role': 'admin',
+        'requester_ref': 'admin_1',
+        'requester_display_name': 'Admin',
+        'target_session_id': 'session_1',
+        'target_apparatus': '7 ta rangli pechat',
+        'target_worker_role': 'aparatchi',
+        'target_worker_ref': 'worker_1',
+        'target_worker_display_name': 'Worker',
+        'requested_at_unix': 100,
+        'transitioned_at_unix': 100,
+      },
+      'created_at_unix': 100,
+    });
+
+    final request = message.orderFreezeRequest;
+    expect(request, isNotNull);
+    expect(request?.isValid, isTrue);
+    expect(request?.requestId, 'order-freeze-request_abc');
+    expect(request?.targetWorkerRef, 'worker_1');
+    expect(request?.status, OrderFreezeRequestCardStatus.pending);
+    expect(message.previewText, 'Buyurtmani muzlatish so‘rovi');
+
+    final restored = ChatMessage.fromJson(message.toJson());
+    expect(restored.orderFreezeRequest?.eventSequence, 17);
+    expect(restored.orderFreezeRequest?.targetApparatus, '7 ta rangli pechat');
+  });
+
+  test('freeze card sync update parses terminal state on the same message', () {
+    final page = ChatSyncPage.fromJson({
+      'events': [
+        {
+          'event_id': 'freeze_event_2',
+          'cursor': 43,
+          'event': 'chat.message.updated',
+          'conversation_id': 'conversation_1',
+          'sequence': 11,
+          'message': {
+            'message_id': 'message_freeze_1',
+            'conversation_id': 'conversation_1',
+            'sender_principal_id': 'principal_admin',
+            'sender_role': 'admin',
+            'sender_ref': 'admin_1',
+            'sender_display_name': 'Admin',
+            'client_message_id':
+                'order-freeze-request:order-freeze-request_abc',
+            'sequence': 11,
+            'type': 'order_freeze_request',
+            'body': 'Buyurtmani muzlatish so‘rovi',
+            'metadata': {
+              'event_sequence': 18,
+              'request_id': 'order-freeze-request_abc',
+              'status': 'cancelled',
+              'order_id': 'zakaz-1',
+              'target_apparatus': '7 ta rangli pechat',
+              'target_worker_ref': 'worker_1',
+            },
+            'created_at_unix': 100,
+            'edited_at_unix': 101,
+          },
+        },
+      ],
+      'next_cursor': 43,
+      'has_more': false,
+    });
+
+    expect(page.events.single.event, 'chat.message.updated');
+    expect(
+      page.events.single.message?.orderFreezeRequest?.status,
+      OrderFreezeRequestCardStatus.cancelled,
+    );
+    expect(
+      page.events.single.message?.orderFreezeRequest?.eventSequence,
+      18,
+    );
+  });
 }

@@ -16,6 +16,10 @@ void main() {
       'completed_orders': const [],
       'completion_requests': const [],
       'completion_request_decisions': const [],
+      'order_controls': const {
+        'zakaz-visible-alt': {'state': 'freeze_requested'},
+        'zakaz-frozen': {'state': 'frozen'},
+      },
     });
 
     expect(
@@ -23,6 +27,14 @@ void main() {
       ['zakaz-visible-alt'],
     );
     expect(snapshot.visibleOrderIds['Laminatsiya 2'], isNull);
+    expect(
+      snapshot.orderControls['zakaz-visible-alt'],
+      AdminOrderControlState.freezeRequested,
+    );
+    expect(
+      snapshot.orderControls['zakaz-frozen'],
+      AdminOrderControlState.frozen,
+    );
   });
 
   test('production map live snapshot requires backend visible order ids', () {

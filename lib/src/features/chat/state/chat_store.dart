@@ -542,7 +542,10 @@ class ChatStore extends ChangeNotifier {
       unawaited(_recoverChatState());
       return;
     }
-    if (eventType != 'chat.message.created') return;
+    if (eventType != 'chat.message.created' &&
+        eventType != 'chat.message.updated') {
+      return;
+    }
     final rawMessage = payload['message'];
     if (rawMessage is! Map) return;
     final message = ChatMessage.fromJson(rawMessage.cast<String, dynamic>());
@@ -570,15 +573,18 @@ class ChatStore extends ChangeNotifier {
           message.senderRole == profile.role &&
           message.senderRef == profile.ref;
       final next = [...conversations];
-      next[conversationIndex] = next[conversationIndex].copyWith(
-        lastMessage: message,
-        lastMessageSequence: message.sequence,
+      final currentConversation = next[conversationIndex];
+      final isLatest =
+          message.sequence >= currentConversation.lastMessageSequence;
+      next[conversationIndex] = currentConversation.copyWith(
+        lastMessage: isLatest ? message : null,
+        lastMessageSequence: isLatest ? message.sequence : null,
         unreadCount: message.conversationId == activeConversationId
             ? 0
             : !alreadyKnown && !mine
-                ? next[conversationIndex].unreadCount + 1
-                : next[conversationIndex].unreadCount,
-        updatedAtUnix: message.createdAtUnix,
+                ? currentConversation.unreadCount + 1
+                : currentConversation.unreadCount,
+        updatedAtUnix: isLatest ? message.createdAtUnix : null,
       );
       next.sort(
         (left, right) => right.updatedAtUnix.compareTo(left.updatedAtUnix),
@@ -602,7 +608,7 @@ class ChatStore extends ChangeNotifier {
       }
     }
     if (profileKey == key) notifyListeners();
-    return !alreadyKnown;
+    return true;
   }
 
   void _upsertConversation(ChatConversation conversation) {

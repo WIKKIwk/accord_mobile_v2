@@ -9,11 +9,21 @@ DART_BIN ?= $(shell if command -v dart >/dev/null 2>&1; then command -v dart; el
 export PUB_CACHE ?= $(LOCAL_TOOLS_ROOT)/pub-cache
 CHROME_EXECUTABLE ?= $(shell if command -v chromium-browser >/dev/null 2>&1; then command -v chromium-browser; elif command -v chromium >/dev/null 2>&1; then command -v chromium; elif command -v google-chrome >/dev/null 2>&1; then command -v google-chrome; fi)
 ifeq ($(HOST_OS),Darwin)
-JDK_HOME ?= /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+JDK_HOME ?= $(LOCAL_TOOLS_ROOT)/jdk-17/Contents/Home
 else
-JDK_HOME ?= /usr/lib/jvm/java-17-openjdk
+JDK_HOME ?= $(LOCAL_TOOLS_ROOT)/jdk-17
 endif
+ANDROID_SDK_ROOT ?= $(LOCAL_TOOLS_ROOT)/android-sdk
 APK_NAME ?= accord.apk
+MINI_ERP_ROOT ?= ../mini_rs_erp
+MOBILE_RELEASE_DIR ?= $(MINI_ERP_ROOT)/data/mobile_releases
+APP_VERSION := $(shell awk '/^version:/ { print $$2; exit }' pubspec.yaml)
+APP_VERSION_NAME := $(word 1,$(subst +, ,$(APP_VERSION)))
+APP_VERSION_CODE := $(word 2,$(subst +, ,$(APP_VERSION)))
+MINIMUM_VERSION_CODE ?=
+MANDATORY_UPDATE ?=
+RELEASE_NOTES ?=
+RELEASE_NOTES_FILE ?=
 ERP_ROOT ?= ../../erpnext_n1/erp
 MOCK_DIR ?= /tmp/accord_mobile_mock
 RUST_BACKEND_ROOT ?= ../accord_mobile_server_rs
@@ -60,13 +70,17 @@ endif
 # Release APKs: arm64-v8a only (typical phones); no universal/fat APK.
 FLUTTER_APK_RELEASE_FLAGS := --release --target-platform android-arm64
 
-.PHONY: run oneni ami web analyze test deps backend-up backend-stop mock-backend mock-stop core-up core-stop remote-up remote-stop remote-url apk apk-remote run-remote android-sdk-setup domain-up domain-up-fast domain-url apk-domain run-domain bench-start bench-restart bench-stop bench-limit-start bench-limit-stop prepare-run run-local web-local ios-release-install print-bridge-build print-bridge-up print-bridge-stop
+.PHONY: run oneni ami web analyze test deps backend-up backend-stop mock-backend mock-stop core-up core-stop remote-up remote-stop remote-url apk publish-apk-local apk-remote run-remote android-sdk-setup domain-up domain-up-fast domain-url apk-domain run-domain bench-start bench-restart bench-stop bench-limit-start bench-limit-stop prepare-run run-local web-local ios-release-install print-bridge-build print-bridge-up print-bridge-stop
 
 deps:
 	@$(FLUTTER_BIN) pub get
 
 android-sdk-setup:
-	@./tools/bootstrap/setup_android_sdk.sh
+	@LOCAL_TOOLS_ROOT="$(LOCAL_TOOLS_ROOT)" \
+		ANDROID_HOME="$(ANDROID_SDK_ROOT)" \
+		JDK_HOME="$(JDK_HOME)" \
+		FLUTTER_BIN="$(FLUTTER_BIN)" \
+		./tools/bootstrap/setup_android_sdk.sh
 
 backend-up:
 	@API_URL=$(API_URL) BACKEND_ROOT="$$(cd .. && pwd)" ./tools/bootstrap/ensure_mobileapi.sh
@@ -273,21 +287,32 @@ run-domain: deps domain-up
 		$(FLUTTER_BIN) run -d linux --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL"
 
 apk: deps android-sdk-setup
-	@JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) && \
+	@JAVA_HOME="$(JDK_HOME)" ANDROID_HOME="$(ANDROID_SDK_ROOT)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" PATH="$(JDK_HOME)/bin:$(ANDROID_SDK_ROOT)/platform-tools:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL=$(API_URL) && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a): build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "API: $(API_URL)"
 
+publish-apk-local: apk
+	@$(MAKE) -C "$(MINI_ERP_ROOT)" publish-mobile-apk \
+		APK="$(abspath build/app/outputs/flutter-apk/$(APK_NAME))" \
+		VERSION_CODE="$(APP_VERSION_CODE)" \
+		VERSION_NAME="$(APP_VERSION_NAME)" \
+		MOBILE_RELEASE_DIR="$(abspath $(MOBILE_RELEASE_DIR))" \
+		MINIMUM_VERSION_CODE="$(MINIMUM_VERSION_CODE)" \
+		MANDATORY_UPDATE="$(MANDATORY_UPDATE)" \
+		RELEASE_NOTES="$(RELEASE_NOTES)" \
+		RELEASE_NOTES_FILE="$(RELEASE_NOTES_FILE)"
+
 apk-remote: deps remote-up android-sdk-setup
 	@REMOTE_URL="$$(cat garbage/.core_tunnel_url)" && \
-	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL" && \
+	JAVA_HOME="$(JDK_HOME)" ANDROID_HOME="$(ANDROID_SDK_ROOT)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" PATH="$(JDK_HOME)/bin:$(ANDROID_SDK_ROOT)/platform-tools:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$REMOTE_URL" && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a) tayyor: build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "Core URL: $$REMOTE_URL"
 
 apk-domain: deps domain-up android-sdk-setup
 	@DOMAIN_URL="$$(cat garbage/.core_domain_url)" && \
-	JAVA_HOME="$(JDK_HOME)" PATH="$(JDK_HOME)/bin:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL" && \
+	JAVA_HOME="$(JDK_HOME)" ANDROID_HOME="$(ANDROID_SDK_ROOT)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" PATH="$(JDK_HOME)/bin:$(ANDROID_SDK_ROOT)/platform-tools:$$PATH" $(FLUTTER_BIN) build apk $(FLUTTER_APK_RELEASE_FLAGS) --dart-define=MOBILE_API_BASE_URL="$$DOMAIN_URL" && \
 	cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/$(APK_NAME) && \
 	echo "APK (arm64-v8a) tayyor: build/app/outputs/flutter-apk/$(APK_NAME)" && \
 	echo "Core URL: $$DOMAIN_URL"
