@@ -266,6 +266,8 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.sequenceByApparatus,
     required this.visibleOrderIdsByApparatus,
     required this.queueStatesByApparatus,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.searchQuery,
     required this.bottomPadding,
     required this.tabController,
@@ -280,6 +282,8 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, List<String>> sequenceByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final String searchQuery;
   final double bottomPadding;
   final TabController tabController;
@@ -363,6 +367,8 @@ class _WorkerWatchBody extends StatelessWidget {
                       tab.apparatus!,
                       queueStatesByApparatus: queueStatesByApparatus,
                     ),
+                    orderStatusesByOrderId: orderStatusesByOrderId,
+                    orderControlsByOrderId: orderControlsByOrderId,
                     onTapOrder: (order) => onTapWatchOrder(
                       apparatus: tab.apparatus!,
                       order: order,
@@ -383,6 +389,8 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.bottomPadding,
     required this.isAssigned,
     required this.queueStates,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.onTapOrder,
   });
 
@@ -391,16 +399,9 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final double bottomPadding;
   final bool isAssigned;
   final Map<String, String> queueStates;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onTapOrder;
-
-  Color? _cardBackground(ApparatusQueueOrderState state) {
-    return switch (state) {
-      ApparatusQueueOrderState.inProgress => const Color(0xFFFFECB3),
-      ApparatusQueueOrderState.paused => const Color(0xFFFFCDD2),
-      ApparatusQueueOrderState.completed => const Color(0xFFC8E6C9),
-      ApparatusQueueOrderState.pending => null,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +436,9 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               children: [
                 for (var index = 0; index < orders.length; index++)
                   _SequenceOrderRow(
+                    key: ValueKey(
+                      'worker-order-${orders[index].map.id.trim()}',
+                    ),
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
                       orders.length,
@@ -443,8 +447,13 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     index: index,
                     readOnly: true,
                     onTap: () => onTapOrder(orders[index]),
-                    backgroundColor: _cardBackground(
-                      apparatusQueueOrderStateFromRaw(
+                    tone: _resolveOrderCardTone(
+                      orderStatus:
+                          orderStatusesByOrderId[orders[index].map.id.trim()],
+                      orderControl:
+                          orderControlsByOrderId[orders[index].map.id.trim()] ??
+                              AdminOrderControlState.active,
+                      apparatusState: apparatusQueueOrderStateFromRaw(
                         queueStates[orders[index].map.id.trim()],
                       ),
                     ),

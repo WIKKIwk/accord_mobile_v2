@@ -2936,6 +2936,114 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
+  testWidgets('worker order cards use the shared production status colors', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-worker-status-colors';
+    await AppSession.instance.setSession(
+      token: 'worker-status-colors-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Aparatchi',
+        legalName: '',
+        ref: 'worker-status-colors',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [apparatus],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Worker status colors',
+        productCode: 'WSC',
+        apparatus: apparatus,
+        product: 'worker status colors product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await _usePhoneViewport(tester);
+    final theme = ThemeData(useMaterial3: true);
+
+    Future<void> pumpWorkerScreen() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Color cardColor() {
+      final row = find.byKey(const ValueKey('worker-order-$orderId'));
+      expect(row, findsOneWidget);
+      return tester
+          .widget<Material>(
+            find.descendant(of: row, matching: find.byType(Material)).first,
+          )
+          .color!;
+    }
+
+    Color expectedTint(Color accent) {
+      return Color.alphaBlend(
+        accent.withValues(alpha: 0.16),
+        theme.colorScheme.surfaceContainerLowest,
+      );
+    }
+
+    await pumpWorkerScreen();
+    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 1,
+    );
+    await pumpWorkerScreen();
+    expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'resume',
+    );
+    expect(
+      await MobileApi.instance.adminProductionMapOrderControl(
+        orderId: orderId,
+        action: AdminOrderControlAction.freeze,
+      ),
+      AdminOrderControlState.freezeRequested,
+    );
+    await pumpWorkerScreen();
+    expect(cardColor(), expectedTint(const Color(0xFF1565C0)));
+  });
+
   testWidgets('worker completed orders move to own completed tab', (
     tester,
   ) async {

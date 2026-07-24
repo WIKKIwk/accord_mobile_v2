@@ -671,6 +671,8 @@ class _AdminProductionMapOrdersScreenState
                       sequenceByApparatus: _sequenceByApparatus,
                       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
                       queueStatesByApparatus: _queueStatesByApparatus,
+                      orderStatusesByOrderId: _orderStatusesByOrderId,
+                      orderControlsByOrderId: _orderControlsByOrderId,
                       searchQuery: _searchQuery,
                       bottomPadding: bottomPadding,
                       tabController: _tabController,
