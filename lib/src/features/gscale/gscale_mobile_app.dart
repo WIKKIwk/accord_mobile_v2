@@ -778,7 +778,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _startPingLoop();
       unawaited(_refresh());
     }
-    if (widget.controlOnly || server != null) {
+    if (widget.controlOnly || server != null || widget.printTransport.isLocal) {
       unawaited(_refreshRsBatchState());
     }
   }
@@ -811,7 +811,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _startPingLoop();
       unawaited(_refresh());
     }
-    if (widget.controlOnly || server != null) {
+    if (widget.controlOnly || server != null || widget.printTransport.isLocal) {
       unawaited(_refreshRsBatchState());
     }
   }

@@ -1,4 +1,5 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
 import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
@@ -574,6 +575,103 @@ void main() {
         tester
             .widget<IconButton>(
               find.widgetWithIcon(IconButton, Icons.play_arrow_rounded),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'admin bluetooth selection resolves batch state and enables batch start',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await saveOperatorControlDraft(
+        const OperatorControlDraft(
+          itemCode: 'OPP-445-20',
+          itemName: 'opp 445/20',
+          warehouse: 'b blok',
+          printMode: 'label',
+          printer: 'xp-p323b',
+          quantitySource: 'manual',
+          manualQtyText: '10',
+          manualDuplicateText: '',
+          babinaEnabled: false,
+          babinaText: '',
+          warehouseMode: 'manual',
+          defaultWarehouse: '',
+        ),
+      );
+      AppSession.instance.token = 'token';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.admin,
+        displayName: 'Admin',
+        legalName: '',
+        ref: 'admin',
+        phone: '+998880000000',
+        avatarUrl: '',
+        capabilities: ['rps.batch.manage', 'gscale.print'],
+      );
+      var stateLoadCount = 0;
+      const bluetoothPrinter = BluetoothPrinterProfile(
+        name: 'XP-P323B-3972',
+        address: '00:11:22:33:44:55',
+      );
+
+      Widget dashboard({
+        required PrintTransport transport,
+        BluetoothPrinterProfile? printer,
+      }) {
+        return MaterialApp(
+          home: Scaffold(
+            body: OperatorDashboardPage(
+              server: null,
+              printTransport: transport,
+              bluetoothPrinter: printer,
+              onExitMode: () async {},
+              onChangeServer: () async {},
+              rpsBatchStateLoader: () async {
+                stateLoadCount++;
+                return const GScaleRpsBatchResponse(
+                  ok: true,
+                  batch: GScaleRpsBatchSession(
+                    id: '',
+                    active: false,
+                    driverUrl: '',
+                    itemCode: '',
+                    itemName: '',
+                    warehouse: '',
+                    printer: '',
+                    printMode: 'label',
+                    quantitySource: 'manual',
+                    manualQtyKg: 0,
+                    tareEnabled: false,
+                    tareKg: 0,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(dashboard(transport: PrintTransport.wifi));
+      await tester.pumpAndSettle();
+      expect(stateLoadCount, 0);
+
+      await tester.pumpWidget(
+        dashboard(
+          transport: PrintTransport.bluetooth,
+          printer: bluetoothPrinter,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(stateLoadCount, 1);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Batch start'),
             )
             .onPressed,
         isNotNull,
