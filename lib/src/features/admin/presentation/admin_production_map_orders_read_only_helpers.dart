@@ -492,16 +492,6 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   );
 }
 
-String _productTitle(ProductionMapDefinition map) {
-  for (final node in map.nodes) {
-    final title = node.title.trim();
-    if (node.kind == 'end' && title.isNotEmpty && title != map.title.trim()) {
-      return title;
-    }
-  }
-  return map.title;
-}
-
 ProductionMapNode? _rezkaNodeForStation({
   required ProductionMapDefinition map,
   required String station,

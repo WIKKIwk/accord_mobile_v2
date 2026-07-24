@@ -15,62 +15,6 @@ double? _productionMapOrderKg(
   return null;
 }
 
-List<String> _productionMapWorkflowLines(
-  ProductionMapDefinition map, {
-  double? baseMetraj,
-  double? orderKg,
-}) {
-  final workSteps = <String>[];
-  for (final node in _linearProductionMapNodes(map)) {
-    if (node.kind == 'start' || node.kind == 'end') {
-      continue;
-    }
-    final title = _productionMapNodeDisplayTitle(node);
-    if (title.isEmpty) {
-      continue;
-    }
-    switch (node.kind) {
-      case 'apparatus':
-        workSteps.add('$title aparatidan');
-        break;
-      case 'task':
-        workSteps.add(title);
-        break;
-      default:
-        break;
-    }
-  }
-  if (workSteps.isEmpty) {
-    final result = _productionMapResultSummary(
-      map,
-      baseMetraj: baseMetraj,
-      orderKg: orderKg,
-    );
-    return result.isEmpty ? const [] : ['Natija: $result'];
-  }
-
-  final lines = <String>['Ish tartibi:'];
-  for (var index = 0; index < workSteps.length; index++) {
-    final step = workSteps[index];
-    if (index == 0) {
-      lines.add('${index + 1}. Birinchi bosqich — $step boshlanadi');
-    } else if (index == workSteps.length - 1) {
-      lines.add('${index + 1}. So‘ng — $step');
-    } else {
-      lines.add('${index + 1}. Keyin — $step');
-    }
-  }
-  final result = _productionMapResultSummary(
-    map,
-    baseMetraj: baseMetraj,
-    orderKg: orderKg,
-  );
-  if (result.isNotEmpty) {
-    lines.add('Natija: $result');
-  }
-  return lines;
-}
-
 CalculateOrderTemplate? _calculateTemplateForProductionMap(
   ProductionMapDefinition map,
   List<CalculateOrderTemplate> templates,
@@ -103,9 +47,6 @@ CalculateOrderTemplate? _calculateTemplateForProductionMap(
   }
   CalculateOrderTemplate? fallback;
   for (final template in templates) {
-    if (template.kg <= 0) {
-      continue;
-    }
     final templateProduct = template.product.trim().toLowerCase();
     final templateItem = template.itemCode.trim().toLowerCase();
     if (!productKeys.contains(templateProduct) &&
@@ -279,6 +220,75 @@ Map<String, double> _productionMapOrderKgByMapId(
   return kgByMap;
 }
 
+Map<String, String> _productionMapCustomerByMapId(
+  List<ProductionMapSaved> orders,
+  List<CalculateOrderTemplate> templates,
+) {
+  final customerByMap = <String, String>{};
+  for (final order in orders) {
+    final mapId = order.map.id.trim();
+    if (mapId.isEmpty) {
+      continue;
+    }
+    final customer = _calculateCustomerForProductionMap(order.map, templates);
+    if (customer != null && customer.isNotEmpty) {
+      customerByMap[mapId] = customer;
+    }
+  }
+  return customerByMap;
+}
+
+String? _calculateCustomerForProductionMap(
+  ProductionMapDefinition map,
+  List<CalculateOrderTemplate> templates,
+) {
+  final directCustomer = _calculateTemplateForProductionMap(
+    map,
+    templates,
+  )?.customer.trim();
+  if (directCustomer != null && directCustomer.isNotEmpty) {
+    return directCustomer;
+  }
+
+  final mapId = map.id.trim();
+  final orderNumber = map.orderNumber.trim();
+  final code = map.code.trim();
+  final idSuffix = mapId.startsWith('zakaz-') ? mapId.substring(6).trim() : '';
+  final orderKeys =
+      {orderNumber, code, idSuffix}.where((value) => value.isNotEmpty).toSet();
+  for (final template in templates) {
+    final customer = template.customer.trim();
+    if (customer.isEmpty) {
+      continue;
+    }
+    if (orderKeys.contains(template.orderNumber.trim()) ||
+        orderKeys.contains(template.code.trim())) {
+      return customer;
+    }
+  }
+
+  final productKeys = {
+    map.productCode.trim().toLowerCase(),
+    map.title.trim().toLowerCase(),
+    _openedOrderProductTitle(map).toLowerCase(),
+    for (final node in map.nodes)
+      if (node.itemCode.trim().isNotEmpty) node.itemCode.trim().toLowerCase(),
+  }..removeWhere((value) => value.isEmpty);
+  for (final template in templates) {
+    final customer = template.customer.trim();
+    if (customer.isEmpty) {
+      continue;
+    }
+    final templateProduct = template.product.trim().toLowerCase();
+    final templateItem = template.itemCode.trim().toLowerCase();
+    if (productKeys.contains(templateProduct) ||
+        productKeys.contains(templateItem)) {
+      return customer;
+    }
+  }
+  return null;
+}
+
 Future<_ProductionMapOrderMetrics> _productionMapOrderMetrics(
   List<ProductionMapSaved> orders,
   List<CalculateOrderTemplate> templates,
@@ -286,5 +296,6 @@ Future<_ProductionMapOrderMetrics> _productionMapOrderMetrics(
   return _ProductionMapOrderMetrics(
     baseMetrajByMapId: await _productionMapBaseMetrajByMapId(orders, templates),
     orderKgByMapId: _productionMapOrderKgByMapId(orders, templates),
+    customerByMapId: _productionMapCustomerByMapId(orders, templates),
   );
 }

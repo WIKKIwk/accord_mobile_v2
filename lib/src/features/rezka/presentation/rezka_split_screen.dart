@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/api/mobile_api.dart';
@@ -12,19 +11,12 @@ import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show
         DiscoveredServer,
-        DiscoveryResult,
-        ServerEndpoint,
-        discoverServers,
-        discoverServersFast,
         driverUrlForRs,
-        loadCachedDiscoveredServers,
-        loadLastUsedServer,
-        mergeDiscoveryResults,
-        saveCachedDiscoveredServers;
+        printTargetLabel,
+        showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
 
 const _rezkaScrapWarehouse = 'brak - ombori - A';
@@ -46,15 +38,11 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   );
   final _printerController = TextEditingController(text: 'godex');
   final _printModeController = TextEditingController(text: 'label');
-  final _printerDiscoveryClient = http.Client();
   final List<_RezkaOutputDraft> _outputs = [];
   RezkaSourceEntry? _source;
-  DiscoveryResult? _printerDiscovery;
   DiscoveredServer? _selectedPrinterServer;
-  String? _printerDiscoveryError;
   bool _loadingSource = false;
   bool _submitting = false;
-  bool _discoveringPrinters = false;
   bool _detectingOfflinePrinter = false;
   UsbPrinterProfile? _offlinePrinter;
   BluetoothPrinterProfile? _bluetoothPrinter;
@@ -65,8 +53,6 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   void initState() {
     super.initState();
     unawaited(_detectOfflinePrinter());
-    unawaited(_seedCachedPrinterServers());
-    unawaited(_refreshPrinterDiscovery());
   }
 
   Future<UsbPrinterProfile?> _detectOfflinePrinter() async {
@@ -97,34 +83,24 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
     }
   }
 
-  Future<void> _selectBluetoothPrinter() async {
-    final selected = await showModalBottomSheet<BluetoothPrinterProfile>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.55,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          child: BluetoothPrinterList(
-            onSelected: (printer) {
-              Navigator.of(sheetContext).pop(printer);
-            },
-          ),
-        ),
-      ),
-    );
-    if (!mounted || selected == null) {
+  Future<void> _selectPrinter() async {
+    final selection = await showPrintDevicePicker(context);
+    if (!mounted || selection == null) {
       return;
     }
     setState(() {
-      _bluetoothPrinter = selected;
+      _printTransport = selection.transport;
+      _offlinePrinter = selection.offlinePrinter;
+      _bluetoothPrinter = selection.bluetoothPrinter;
+      _selectedPrinterServer = selection.server;
+      if (selection.server != null) {
+        _driverUrlController.text = driverUrlForRs(selection.server!);
+      }
     });
   }
 
   @override
   void dispose() {
-    _printerDiscoveryClient.close();
     _barcodeController.dispose();
     _reasonController.dispose();
     _driverUrlController.dispose();
@@ -134,131 +110,6 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
       output.dispose();
     }
     super.dispose();
-  }
-
-  Future<void> _seedCachedPrinterServers() async {
-    final cachedServers = await loadCachedDiscoveredServers();
-    if (!mounted || cachedServers.isEmpty || _printerDiscovery != null) {
-      return;
-    }
-    final selected = _selectPrinterServer(cachedServers);
-    setState(() {
-      _printerDiscovery = DiscoveryResult(
-        servers: cachedServers,
-        candidateCount: cachedServers.length,
-      );
-      _selectedPrinterServer = selected;
-      if (selected != null) {
-        _driverUrlController.text = driverUrlForRs(selected);
-      }
-    });
-  }
-
-  Future<void> _refreshPrinterDiscovery({bool background = false}) async {
-    if (_discoveringPrinters) {
-      return;
-    }
-    if (!background && mounted) {
-      setState(() {
-        _discoveringPrinters = true;
-        _printerDiscoveryError = null;
-      });
-    } else {
-      _discoveringPrinters = true;
-    }
-    try {
-      final preferredEndpoint = await loadLastUsedServer();
-      final result = await discoverServersFast(
-        _printerDiscoveryClient,
-        preferredEndpoint: preferredEndpoint,
-      );
-      if (!mounted) {
-        return;
-      }
-      final mergedResult = mergeDiscoveryResults(
-        current: _printerDiscovery,
-        next: result,
-        keepCurrentWhenNextEmpty: true,
-      );
-      final selected = _selectPrinterServer(mergedResult.servers);
-      setState(() {
-        _printerDiscovery = mergedResult;
-        _selectedPrinterServer = selected;
-        _printerDiscoveryError = null;
-        if (selected != null) {
-          _driverUrlController.text = driverUrlForRs(selected);
-        }
-      });
-      if (result.servers.isNotEmpty) {
-        unawaited(saveCachedDiscoveredServers(result.servers));
-      }
-      unawaited(_finishPrinterDiscovery(preferredEndpoint));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      if (!background) {
-        setState(() => _printerDiscoveryError = error.toString());
-      }
-    } finally {
-      _discoveringPrinters = false;
-      if (mounted && !background) {
-        setState(() {});
-      }
-    }
-  }
-
-  Future<void> _finishPrinterDiscovery(
-    ServerEndpoint? preferredEndpoint,
-  ) async {
-    try {
-      final result = await discoverServers(
-        _printerDiscoveryClient,
-        preferredEndpoint: preferredEndpoint,
-      );
-      if (!mounted) {
-        return;
-      }
-      if (result.servers.isEmpty) {
-        return;
-      }
-      final mergedResult = mergeDiscoveryResults(
-        current: _printerDiscovery,
-        next: result,
-        keepCurrentWhenNextEmpty: false,
-      );
-      final selected = _selectPrinterServer(mergedResult.servers);
-      setState(() {
-        _printerDiscovery = mergedResult;
-        _selectedPrinterServer = selected;
-        if (selected != null) {
-          _driverUrlController.text = driverUrlForRs(selected);
-        }
-      });
-      await saveCachedDiscoveredServers(result.servers);
-    } catch (_) {}
-  }
-
-  DiscoveredServer? _selectPrinterServer(List<DiscoveredServer> servers) {
-    if (servers.isEmpty) {
-      return _selectedPrinterServer;
-    }
-    final current = _selectedPrinterServer;
-    if (current != null) {
-      for (final server in servers) {
-        if (server.discoveryKey == current.discoveryKey) {
-          return server;
-        }
-      }
-    }
-    return servers.first;
-  }
-
-  void _setPrinterServer(DiscoveredServer server) {
-    setState(() {
-      _selectedPrinterServer = server;
-      _driverUrlController.text = driverUrlForRs(server);
-    });
   }
 
   Future<void> _scan() async {
@@ -684,6 +535,32 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final source = _source;
+    final printerIcon = switch (_printTransport) {
+      PrintTransport.offline => Icons.usb_rounded,
+      PrintTransport.bluetooth => Icons.bluetooth_rounded,
+      PrintTransport.wifi => Icons.wifi_rounded,
+    };
+    final printerTitle = switch (_printTransport) {
+      PrintTransport.offline =>
+        _offlinePrinter?.displayName ?? 'USB printer tanlanmagan',
+      PrintTransport.bluetooth =>
+        _bluetoothPrinter?.displayName ?? 'Bluetooth printer tanlanmagan',
+      PrintTransport.wifi => _selectedPrinterServer == null
+          ? 'Wi‑Fi printer tanlanmagan'
+          : printTargetLabel(_selectedPrinterServer!),
+    };
+    final printerSubtitle = switch (_printTransport) {
+      PrintTransport.offline => _detectingOfflinePrinter
+          ? 'USB printer aniqlanmoqda...'
+          : _offlinePrinterError != null
+              ? 'USB printer topilmadi'
+              : 'Mahalliy USB orqali chop etish',
+      PrintTransport.bluetooth =>
+        _bluetoothPrinter?.address ?? 'Bluetooth printer tanlash uchun bosing',
+      PrintTransport.wifi => _selectedPrinterServer == null
+          ? 'Wi‑Fi printer tanlash uchun bosing'
+          : _driverUrlController.text,
+    };
     return AppShell(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded),
@@ -721,108 +598,14 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             label: const Text('QR ni tekshirish'),
           ),
           const SizedBox(height: 12),
-          DefaultTabController(
-            length: 3,
-            initialIndex: switch (_printTransport) {
-              PrintTransport.offline => 0,
-              PrintTransport.bluetooth => 1,
-              PrintTransport.wifi => 2,
-            },
-            child: Column(
-              children: [
-                TabBar(
-                  onTap: (index) {
-                    setState(() {
-                      _printTransport = switch (index) {
-                        0 => PrintTransport.offline,
-                        1 => PrintTransport.bluetooth,
-                        _ => PrintTransport.wifi,
-                      };
-                    });
-                    if (index == 0) {
-                      unawaited(_detectOfflinePrinter());
-                    } else if (index == 1 && _bluetoothPrinter == null) {
-                      unawaited(_selectBluetoothPrinter());
-                    }
-                  },
-                  tabs: const [
-                    Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
-                    Tab(
-                      text: 'Bluetooth',
-                      icon: Icon(Icons.bluetooth_rounded),
-                    ),
-                    Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (_printTransport.isOffline)
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: const Icon(Icons.usb_rounded),
-                      title: Text(
-                        _offlinePrinter?.displayName ?? 'USB printer',
-                      ),
-                      subtitle: Text(
-                        _detectingOfflinePrinter
-                            ? 'GoDEX yoki Zebra aniqlanmoqda...'
-                            : _offlinePrinterError != null
-                                ? 'USB printer topilmadi'
-                                : '${_offlinePrinter!.printer.toUpperCase()} • ${_offlinePrinter!.printMode}',
-                      ),
-                      trailing: _detectingOfflinePrinter
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : IconButton(
-                              onPressed: () =>
-                                  unawaited(_detectOfflinePrinter()),
-                              icon: Icon(
-                                _offlinePrinter == null
-                                    ? Icons.refresh_rounded
-                                    : Icons.check_circle_rounded,
-                              ),
-                              tooltip: 'USB printerni qayta aniqlash',
-                            ),
-                    ),
-                  )
-                else if (_printTransport.isBluetooth)
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: const Icon(Icons.bluetooth_rounded),
-                      title: Text(
-                        _bluetoothPrinter?.displayName ?? 'XP-P323B',
-                      ),
-                      subtitle: Text(
-                        _bluetoothPrinter?.address ??
-                            (defaultTargetPlatform == TargetPlatform.iOS
-                                ? 'Printerni yoqing va shu oynada Bluetooth orqali qidiring'
-                                : 'Android Bluetooth orqali pair qilingan printerni tanlang'),
-                      ),
-                      trailing: IconButton(
-                        onPressed: () => unawaited(_selectBluetoothPrinter()),
-                        icon: Icon(
-                          _bluetoothPrinter == null
-                              ? Icons.search_rounded
-                              : Icons.check_circle_rounded,
-                        ),
-                        tooltip: 'Bluetooth printerni tanlash',
-                      ),
-                    ),
-                  )
-                else
-                  _PrinterDiscoveryCard(
-                    server: _selectedPrinterServer,
-                    result: _printerDiscovery,
-                    driverUrl: _driverUrlController.text,
-                    error: _printerDiscoveryError,
-                    discovering: _discoveringPrinters,
-                    onRefresh: () => _refreshPrinterDiscovery(),
-                    onSelectServer: _setPrinterServer,
-                  ),
-              ],
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Icon(printerIcon),
+              title: Text(printerTitle),
+              subtitle: Text(printerSubtitle),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => unawaited(_selectPrinter()),
             ),
           ),
           if (source != null) ...[
@@ -902,192 +685,6 @@ class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _PrinterDiscoveryCard extends StatelessWidget {
-  const _PrinterDiscoveryCard({
-    required this.server,
-    required this.result,
-    required this.driverUrl,
-    required this.error,
-    required this.discovering,
-    required this.onRefresh,
-    required this.onSelectServer,
-  });
-
-  final DiscoveredServer? server;
-  final DiscoveryResult? result;
-  final String driverUrl;
-  final String? error;
-  final bool discovering;
-  final VoidCallback onRefresh;
-  final ValueChanged<DiscoveredServer> onSelectServer;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final selected = server;
-    final servers = result?.servers ?? const <DiscoveredServer>[];
-    final serverCount = result?.servers.length ?? 0;
-    final activity = selected?.handshake.printActivity;
-    final isBusy = activity?.busy ?? false;
-    final title = selected == null
-        ? discovering
-            ? 'Printer qidirilmoqda'
-            : 'Printer fallback'
-        : isBusy
-            ? 'Printer band'
-            : selected.handshake.displayName.trim().isEmpty
-                ? selected.endpoint.label
-                : selected.handshake.displayName;
-    final subtitle = selected == null
-        ? driverUrl
-        : isBusy
-            ? activity!.displayDetail
-            : '${selected.endpoint.label} • ${selected.latencyMs} ms';
-    return Card(
-      child: Theme(
-        data: theme.copyWith(
-          dividerColor: Colors.transparent,
-          expansionTileTheme: theme.expansionTileTheme.copyWith(
-            shape: const Border(),
-            collapsedShape: const Border(),
-          ),
-        ),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 6, 6, 6),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-          leading: CircleAvatar(
-            child: discovering
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    isBusy ? Icons.hourglass_top_rounded : Icons.print_rounded,
-                  ),
-          ),
-          title: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (selected != null)
-                Text(
-                  driverUrl,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-              if (error != null && error!.trim().isNotEmpty)
-                Text(
-                  error!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                )
-              else if (isBusy)
-                Text(
-                  'Boshqa mobile print tugagandan keyin qayta urinadi',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                )
-              else if (serverCount > 1)
-                Text(
-                  '$serverCount ta printer server topildi',
-                  style: theme.textTheme.bodySmall,
-                ),
-            ],
-          ),
-          controlAffinity: ListTileControlAffinity.trailing,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Printer serverlar',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: discovering ? null : onRefresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Yangilash'),
-                ),
-              ],
-            ),
-            if (servers.isEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Topilmadi. Fallback ishlatiladi: $driverUrl',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )
-            else
-              SizedBox(
-                height: servers.length == 1 ? 64 : 148,
-                child: ListView.separated(
-                  itemCount: servers.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final item = servers[index];
-                    final selectedItem =
-                        selected?.discoveryKey == item.discoveryKey;
-                    final itemBusy = item.handshake.isBusy;
-                    final itemTitle = itemBusy
-                        ? 'Band'
-                        : item.handshake.displayName.trim().isEmpty
-                            ? item.endpoint.label
-                            : item.handshake.displayName;
-                    return ListTile(
-                      dense: true,
-                      minVerticalPadding: 4,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      tileColor: selectedItem
-                          ? theme.colorScheme.primaryContainer
-                          : theme.colorScheme.surfaceContainerHighest,
-                      leading: Icon(
-                        selectedItem
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                      ),
-                      title: Text(
-                        itemTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        itemBusy
-                            ? item.handshake.printActivity.displayDetail
-                            : '${item.endpoint.label} • ${item.latencyMs} ms',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () => onSelectServer(item),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

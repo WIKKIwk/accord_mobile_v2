@@ -1,34 +1,21 @@
 part of 'admin_production_map_orders_screen.dart';
 
-class _OrdersModulePage extends StatefulWidget {
+class _OrdersModulePage extends StatelessWidget {
   const _OrdersModulePage({
     required this.bottomPadding,
     required this.orders,
     required this.visibleOrders,
-    required this.baseMetrajByMapId,
-    required this.orderKgByMapId,
+    required this.customerNameByMapId,
+    required this.onInfoOrder,
     required this.onLongPressOrder,
   });
 
   final double bottomPadding;
   final List<ProductionMapSaved> orders;
   final List<ProductionMapSaved> visibleOrders;
-  final Map<String, double> baseMetrajByMapId;
-  final Map<String, double> orderKgByMapId;
+  final Map<String, String> customerNameByMapId;
+  final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
-
-  @override
-  State<_OrdersModulePage> createState() => _OrdersModulePageState();
-}
-
-class _OrdersModulePageState extends State<_OrdersModulePage> {
-  String? _expandedOrderId;
-
-  void _onExpandedChanged(ProductionMapSaved order, bool expanded) {
-    setState(() {
-      _expandedOrderId = expanded ? order.map.id.trim() : null;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,21 +24,19 @@ class _OrdersModulePageState extends State<_OrdersModulePage> {
         _openedOrderPanelCardGap,
         _openedOrderPanelTopGap,
         _openedOrderPanelCardGap,
-        widget.bottomPadding,
+        bottomPadding,
       ),
       children: [
-        if (widget.orders.isEmpty)
+        if (orders.isEmpty)
           const _EmptyOpenedOrders(message: 'Ochilgan zakaz yo‘q')
-        else if (widget.visibleOrders.isEmpty)
+        else if (visibleOrders.isEmpty)
           const _EmptyOpenedOrders(message: 'Zakaz topilmadi')
         else
-          _OpenedOrderExpandableList(
-            orders: widget.visibleOrders,
-            expandedOrderId: _expandedOrderId,
-            baseMetrajByMapId: widget.baseMetrajByMapId,
-            orderKgByMapId: widget.orderKgByMapId,
-            onExpandedChanged: _onExpandedChanged,
-            onLongPressOrder: widget.onLongPressOrder,
+          _OpenedOrderList(
+            orders: visibleOrders,
+            customerNameByMapId: customerNameByMapId,
+            onInfoOrder: onInfoOrder,
+            onLongPressOrder: onLongPressOrder,
           ),
       ],
     );
@@ -67,8 +52,6 @@ class _AdminModulesBody extends StatelessWidget {
     required this.orders,
     required this.searchQuery,
     required this.apparatus,
-    required this.baseMetrajByMapId,
-    required this.orderKgByMapId,
     required this.selectedApparatus,
     required this.completionRequests,
     required this.readOnly,
@@ -91,6 +74,8 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMoveDragStarted,
     required this.onMoveDragEnded,
     required this.onMove,
+    required this.customerNameByMapId,
+    required this.onInfoOrder,
     required this.onLongPressOrder,
   });
 
@@ -101,8 +86,6 @@ class _AdminModulesBody extends StatelessWidget {
   final List<ProductionMapSaved> orders;
   final String searchQuery;
   final List<AdminApparatus> apparatus;
-  final Map<String, double> baseMetrajByMapId;
-  final Map<String, double> orderKgByMapId;
   final AdminApparatus? selectedApparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
   final bool readOnly;
@@ -141,6 +124,8 @@ class _AdminModulesBody extends StatelessWidget {
     required AdminApparatus from,
     required AdminApparatus to,
   }) onMove;
+  final ValueChanged<ProductionMapSaved> onInfoOrder;
+  final Map<String, String> customerNameByMapId;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   String _moduleLabel(_OpenedOrderModule module) {
@@ -181,8 +166,8 @@ class _AdminModulesBody extends StatelessWidget {
                         orders: orders,
                         query: searchQuery,
                       ),
-                      baseMetrajByMapId: baseMetrajByMapId,
-                      orderKgByMapId: orderKgByMapId,
+                      customerNameByMapId: customerNameByMapId,
+                      onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.sequence => _SequenceModulePage(
@@ -194,10 +179,10 @@ class _AdminModulesBody extends StatelessWidget {
                           ? const []
                           : ordersForApparatus(selectedApparatus!),
                       readOnly: readOnly,
-                      baseMetrajByMapId: baseMetrajByMapId,
-                      orderKgByMapId: orderKgByMapId,
                       onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
+                      customerNameByMapId: customerNameByMapId,
+                      onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(
@@ -427,7 +412,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 for (var index = 0; index < orders.length; index++)
-                  _SequenceExpandableOrderRow(
+                  _SequenceOrderRow(
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
                       orders.length,
@@ -435,11 +420,6 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     order: orders[index],
                     index: index,
                     readOnly: true,
-                    expanded: false,
-                    baseMetraj: orders[index].map.baseLength,
-                    orderKg: orders[index].map.orderKg,
-                    onExpandedChanged: (_) {},
-                    expandable: false,
                     onTap: () => onTapOrder(orders[index]),
                     backgroundColor: _cardBackground(
                       apparatusQueueOrderStateFromRaw(
@@ -497,7 +477,7 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 for (var index = 0; index < orders.length; index++)
-                  _SequenceExpandableOrderRow(
+                  _SequenceOrderRow(
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                       index,
                       orders.length,
@@ -505,11 +485,6 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                     order: orders[index].order,
                     index: index,
                     readOnly: true,
-                    expanded: false,
-                    baseMetraj: orders[index].order.map.baseLength,
-                    orderKg: orders[index].order.map.orderKg,
-                    onExpandedChanged: (_) {},
-                    expandable: false,
                     onTap: () => onTapOrder(orders[index]),
                     backgroundColor: const Color(0xFFC8E6C9),
                   ),

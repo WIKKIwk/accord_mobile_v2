@@ -398,6 +398,7 @@ extension _AdminProductionMapOrdersLiveState
     _updateScreenState(() {
       _baseMetrajByMapId = metrics.baseMetrajByMapId;
       _orderKgByMapId = metrics.orderKgByMapId;
+      _customerByMapId = metrics.customerByMapId;
     });
   }
 

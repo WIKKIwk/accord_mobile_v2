@@ -15,16 +15,9 @@ import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
-import '../../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../gscale/gscale_mobile_app.dart'
-    show
-        DiscoveredServer,
-        discoverServers,
-        discoverServersFast,
-        driverUrlForRs,
-        loadLastUsedServer,
-        printTargetLabel;
+    show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../qolip_search_matcher.dart';
@@ -3138,274 +3131,29 @@ class QolipPrinterOption {
   final BluetoothPrinterProfile? bluetoothPrinter;
 }
 
-Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) {
-  return showModalBottomSheet<QolipPrinterOption>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (context) => const _QolipPrinterPickerSheet(),
-  );
-}
-
-class _QolipPrinterPickerSheet extends StatefulWidget {
-  const _QolipPrinterPickerSheet();
-
-  @override
-  State<_QolipPrinterPickerSheet> createState() =>
-      _QolipPrinterPickerSheetState();
-}
-
-class _QolipPrinterPickerSheetState extends State<_QolipPrinterPickerSheet> {
-  final http.Client _client = http.Client();
-  List<QolipPrinterOption> _options = const [];
-  bool _loading = true;
-  bool _detectingOffline = false;
-  String _error = '';
-  String _offlineError = '';
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadPrinters());
+Future<QolipPrinterOption?> showQolipPrinterPicker(BuildContext context) async {
+  final selection = await showPrintDevicePicker(context);
+  if (selection == null) {
+    return null;
   }
-
-  @override
-  void dispose() {
-    _client.close();
-    super.dispose();
+  if (selection.transport.isOffline) {
+    final printer = selection.offlinePrinter;
+    return printer == null ? null : QolipPrinterOption.offline(printer);
   }
-
-  Future<void> _loadPrinters() async {
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-    try {
-      final preferredEndpoint = await loadLastUsedServer();
-      final fast = await discoverServersFast(
-        _client,
-        preferredEndpoint: preferredEndpoint,
-      );
-      var options = await _connectedQolipPrinters(_client, fast.servers);
-      if (options.isEmpty) {
-        final full = await discoverServers(
-          _client,
-          preferredEndpoint: preferredEndpoint,
-        );
-        options = await _connectedQolipPrinters(_client, [
-          ...fast.servers,
-          ...full.servers,
-        ]);
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _options = options;
-        _loading = false;
-        _error = options.isEmpty ? 'Printer ulangan RPS topilmadi' : '';
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _options = const [];
-        _loading = false;
-        _error = 'Printer ulangan RPS topilmadi';
-      });
-    }
+  if (selection.transport.isBluetooth) {
+    final printer = selection.bluetoothPrinter;
+    return printer == null ? null : QolipPrinterOption.bluetooth(printer);
   }
-
-  Future<void> _selectOfflinePrinter() async {
-    if (_detectingOffline) {
-      return;
-    }
-    setState(() {
-      _detectingOffline = true;
-      _offlineError = '';
-    });
-    try {
-      final profile = await PrintService.detectOfflinePrinter();
-      if (!mounted) {
-        return;
-      }
-      Navigator.of(context).pop(QolipPrinterOption.offline(profile));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _detectingOffline = false;
-        _offlineError = 'USB printer aniqlanmadi: $error';
-      });
-    }
+  final server = selection.server;
+  if (server == null) {
+    return null;
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return DefaultTabController(
-      length: 3,
-      child: FractionallySizedBox(
-        heightFactor: 0.68,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Printerni tanlang',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed:
-                          _loading ? null : () => unawaited(_loadPrinters()),
-                      icon: const Icon(Icons.refresh_rounded),
-                      tooltip: 'Yangilash',
-                    ),
-                  ],
-                ),
-                const TabBar(
-                  tabs: [
-                    Tab(text: 'Offline', icon: Icon(Icons.usb_rounded)),
-                    Tab(
-                      text: 'Bluetooth',
-                      icon: Icon(Icons.bluetooth_rounded),
-                    ),
-                    Tab(text: 'WiFi', icon: Icon(Icons.wifi_rounded)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      ListView(
-                        children: [
-                          ListTile(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            tileColor: scheme.surfaceContainerHighest,
-                            leading: const Icon(Icons.usb_rounded),
-                            title: const Text('USB printer'),
-                            subtitle: const Text(
-                              'GoDEX yoki Zebra avtomatik aniqlanadi',
-                            ),
-                            trailing: _detectingOffline
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.chevron_right_rounded),
-                            onTap: _detectingOffline
-                                ? null
-                                : () => unawaited(_selectOfflinePrinter()),
-                          ),
-                          if (_offlineError.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _offlineError,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.error,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      BluetoothPrinterList(
-                        activationTabIndex: 1,
-                        onSelected: (printer) {
-                          Navigator.of(context).pop(
-                            QolipPrinterOption.bluetooth(printer),
-                          );
-                        },
-                      ),
-                      ListView(
-                        children: [
-                          if (_loading) const LinearProgressIndicator(),
-                          if (!_loading && _error.isNotEmpty)
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: scheme.errorContainer,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Text(
-                                  _error,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onErrorContainer,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          for (final option in _options) ...[
-                            const SizedBox(height: 8),
-                            ListTile(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              tileColor: scheme.surfaceContainerHighest,
-                              leading: const Icon(Icons.print_rounded),
-                              title: Text(
-                                printTargetLabel(option.server!),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${option.printerLabel} • ${option.driverUrl}',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => Navigator.of(context).pop(option),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  final client = http.Client();
+  try {
+    return await _connectedQolipPrinter(client, server);
+  } finally {
+    client.close();
   }
-}
-
-Future<List<QolipPrinterOption>> _connectedQolipPrinters(
-  http.Client client,
-  List<DiscoveredServer> servers,
-) async {
-  final seen = <String>{};
-  final uniqueServers = <DiscoveredServer>[];
-  for (final server in servers) {
-    if (seen.add(server.endpoint.baseUrl)) {
-      uniqueServers.add(server);
-    }
-  }
-  final options = await Future.wait(
-    uniqueServers.map((server) => _connectedQolipPrinter(client, server)),
-  );
-  return [
-    for (final option in options)
-      if (option != null) option,
-  ];
 }
 
 Future<QolipPrinterOption?> _connectedQolipPrinter(

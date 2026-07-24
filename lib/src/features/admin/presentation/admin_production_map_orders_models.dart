@@ -111,10 +111,12 @@ class _ProductionMapOrderMetrics {
   const _ProductionMapOrderMetrics({
     required this.baseMetrajByMapId,
     required this.orderKgByMapId,
+    required this.customerByMapId,
   });
 
   final Map<String, double> baseMetrajByMapId;
   final Map<String, double> orderKgByMapId;
+  final Map<String, String> customerByMapId;
 }
 
 class _ReadOnlyOrderDetailUiState {

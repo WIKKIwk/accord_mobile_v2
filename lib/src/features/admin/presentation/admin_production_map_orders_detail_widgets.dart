@@ -4,6 +4,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
     required this.noticeAnchorKey,
     required this.map,
+    required this.baseMetraj,
+    required this.orderKg,
+    required this.customerName,
     required this.steps,
     required this.uiState,
     required this.queueStates,
@@ -31,6 +34,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
 
   final GlobalKey noticeAnchorKey;
   final ProductionMapDefinition map;
+  final double? baseMetraj;
+  final double? orderKg;
+  final String? customerName;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
   final Map<String, String> queueStates;
@@ -75,9 +81,16 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
+              _OrderSummaryCard(
+                map: map,
+                baseMetraj: baseMetraj,
+                orderKg: orderKg,
+              ),
+              const SizedBox(height: 10),
               _OrderStartUnifiedCard(
                 orderCode: _openedOrderDisplayCode(map),
-                productTitle: _productTitle(map),
+                productTitle: _openedOrderPrimaryTitle(map),
+                customerName: customerName,
                 assignments: uiState.materialAssignments,
                 materialsLoading: materialsLoading,
                 materialsError: materialsError,
@@ -124,6 +137,78 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _OrderSummaryCard extends StatelessWidget {
+  const _OrderSummaryCard({
+    required this.map,
+    this.baseMetraj,
+    this.orderKg,
+  });
+
+  final ProductionMapDefinition map;
+  final double? baseMetraj;
+  final double? orderKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rows = <Widget>[];
+    final baseLength = baseMetraj ?? map.baseLength;
+    if (baseLength != null && baseLength > 0) {
+      final roundedMetraj = ((baseLength / 500).ceil() * 500).toString();
+      rows.add(
+        AppInfoRow(
+          label: 'Metraj',
+          value: '$roundedMetraj metr',
+          icon: Icons.straighten_rounded,
+        ),
+      );
+    }
+    final resolvedOrderKg = orderKg ?? map.orderKg;
+    if (resolvedOrderKg != null && resolvedOrderKg > 0) {
+      rows.add(
+        AppInfoRow(
+          label: 'Og‘irlik',
+          value: '${formatRawQuantity(resolvedOrderKg)} kg',
+          icon: Icons.scale_outlined,
+        ),
+      );
+    }
+    final rollCount = map.rollCount;
+    final widthMm = map.widthMm;
+    if (rollCount != null && rollCount > 0) {
+      final width = widthMm != null && widthMm > 0
+          ? ' ${formatRawQuantity(widthMm)} mm eniga ega bo‘lgan'
+          : '';
+      rows.add(
+        AppInfoRow(
+          label: 'Val',
+          value: '${formatRawQuantity(rollCount)} ta$width val ishlatiladi',
+          icon: Icons.view_column_outlined,
+        ),
+      );
+    }
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _orderDetailSurfaceCard(
+      context: context,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Kutilayotgan buyurtma ko‘rsatkichlari',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...rows,
+        ],
+      ),
     );
   }
 }
@@ -417,6 +502,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
     required this.orderCode,
     required this.productTitle,
+    required this.customerName,
     required this.assignments,
     required this.materialsLoading,
     required this.materialsError,
@@ -452,6 +538,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
 
   final String orderCode;
   final String productTitle;
+  final String? customerName;
   final List<AdminRawMaterialAssignment> assignments;
   final bool materialsLoading;
   final String materialsError;
@@ -523,6 +610,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (customerName?.trim().isNotEmpty == true) ...[
+                      Text(
+                        '${customerName!.trim()} • ${productTitle.trim()}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     Text(
                       'Zakaz kodi',
                       style: theme.textTheme.labelSmall?.copyWith(

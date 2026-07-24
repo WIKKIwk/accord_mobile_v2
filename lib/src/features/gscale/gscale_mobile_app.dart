@@ -60,18 +60,18 @@ const _configuredApiBaseUrl = String.fromEnvironment(
   defaultValue: _defaultWifiServerAddress,
 );
 
-class GScaleDeviceSelection {
-  const GScaleDeviceSelection.wifi(DiscoveredServer this.server)
+class PrintDeviceSelection {
+  const PrintDeviceSelection.wifi(DiscoveredServer this.server)
       : transport = PrintTransport.wifi,
         offlinePrinter = null,
         bluetoothPrinter = null;
 
-  const GScaleDeviceSelection.offline(this.offlinePrinter)
+  const PrintDeviceSelection.offline(this.offlinePrinter)
       : transport = PrintTransport.offline,
         server = null,
         bluetoothPrinter = null;
 
-  const GScaleDeviceSelection.bluetooth(this.bluetoothPrinter)
+  const PrintDeviceSelection.bluetooth(this.bluetoothPrinter)
       : transport = PrintTransport.bluetooth,
         server = null,
         offlinePrinter = null;
@@ -82,11 +82,11 @@ class GScaleDeviceSelection {
   final BluetoothPrinterProfile? bluetoothPrinter;
 }
 
-Future<void> selectOfflineGScalePrinter(BuildContext context) async {
+Future<void> selectOfflinePrintDevice(BuildContext context) async {
   try {
     final profile = await PrintService.detectOfflinePrinter();
     if (context.mounted) {
-      Navigator.of(context).pop(GScaleDeviceSelection.offline(profile));
+      Navigator.of(context).pop(PrintDeviceSelection.offline(profile));
     }
   } catch (error) {
     if (context.mounted) {
@@ -190,7 +190,15 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
     }
   }
 
-  Future<void> _applyDeviceSelection(GScaleDeviceSelection selection) async {
+  Future<void> _openServerPicker(BuildContext context) async {
+    final selection = await showPrintDevicePicker(context);
+    if (selection == null) {
+      return;
+    }
+    await _applyDeviceSelection(selection);
+  }
+
+  Future<void> _applyDeviceSelection(PrintDeviceSelection selection) async {
     if (!mounted) {
       return;
     }
@@ -206,40 +214,6 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
         _selectedServer = selection.server;
       }
     });
-  }
-
-  Future<void> _openServerPicker(BuildContext context) async {
-    final selection = await showModalBottomSheet<GScaleDeviceSelection>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      builder: (sheetContext) {
-        return ServerPickerPage(
-          onOpenServer: (server) {
-            Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
-          },
-          onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
-          onSelectBluetooth: (printer) {
-            Navigator.of(sheetContext).pop(
-              GScaleDeviceSelection.bluetooth(printer),
-            );
-          },
-          onExitMode: () async {
-            Navigator.of(sheetContext).pop();
-          },
-        );
-      },
-    );
-    if (selection == null) {
-      return;
-    }
-    await _applyDeviceSelection(selection);
   }
 
   void _clearSelectedServer() {
@@ -304,6 +278,36 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
       },
     );
   }
+}
+
+Future<PrintDeviceSelection?> showPrintDevicePicker(BuildContext context) {
+  return showModalBottomSheet<PrintDeviceSelection>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    clipBehavior: Clip.antiAlias,
+    builder: (sheetContext) {
+      return ServerPickerPage(
+        onOpenServer: (server) {
+          Navigator.of(sheetContext).pop(PrintDeviceSelection.wifi(server));
+        },
+        onSelectOffline: () => selectOfflinePrintDevice(sheetContext),
+        onSelectBluetooth: (printer) {
+          Navigator.of(sheetContext).pop(
+            PrintDeviceSelection.bluetooth(printer),
+          );
+        },
+        onExitMode: () async {
+          Navigator.of(sheetContext).pop();
+        },
+      );
+    },
+  );
 }
 
 class ServerPickerPage extends StatefulWidget {
@@ -485,10 +489,11 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
                       selectedConnection == null
                           ? 'Qurilma tanlash'
                           : _titleForConnection(selectedConnection),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
                     ),
                   ),
                   if (selectedConnection == _DevicePickerConnection.wifi)

@@ -16,7 +16,7 @@ import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
-import '../../../core/widgets/printing/bluetooth_printer_list.dart';
+import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -26,13 +26,7 @@ import '../../boyoqchi/models/returned_paint_models.dart';
 import '../../boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import '../../boyoqchi/state/returned_paint_draft_store.dart';
 import '../../gscale/gscale_mobile_app.dart'
-    show
-        DiscoveredServer,
-        discoverServers,
-        discoverServersFast,
-        driverUrlForRs,
-        loadLastUsedServer,
-        printTargetLabel;
+    show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../qolip/presentation/qolip_cell_qr_scan_screen.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/production_map_chain.dart';
@@ -206,6 +200,7 @@ class _AdminProductionMapOrdersScreenState
   bool _orderControlActionInFlight = false;
   Map<String, double> _baseMetrajByMapId = const {};
   Map<String, double> _orderKgByMapId = const {};
+  Map<String, String> _customerByMapId = const {};
 
   @override
   void initState() {
@@ -333,12 +328,18 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showOrderDetail(ProductionMapSaved order) {
+    final mapId = order.map.id.trim();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => _ReadOnlyOrderDetailSheet(order: order),
+      builder: (context) => _ReadOnlyOrderDetailSheet(
+        order: order,
+        baseMetraj: _baseMetrajByMapId[mapId] ?? order.map.baseLength,
+        orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
+        customerName: _customerByMapId[mapId],
+      ),
     );
   }
 
@@ -455,14 +456,24 @@ class _AdminProductionMapOrdersScreenState
             'boshlanganini, navbatdagi 1-o‘rinni va biriktirilgan '
             'homashyoni qayta tekshiradi.',
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('O‘chirishni tasdiqlash'),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('O‘chirishni tasdiqlash'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -667,8 +678,6 @@ class _AdminProductionMapOrdersScreenState
                       orders: _orders,
                       searchQuery: _searchQuery,
                       apparatus: _apparatus,
-                      baseMetrajByMapId: _baseMetrajByMapId,
-                      orderKgByMapId: _orderKgByMapId,
                       selectedApparatus: _selectedApparatus,
                       completionRequests: _completionRequests,
                       readOnly: widget.readOnly,
@@ -707,6 +716,8 @@ class _AdminProductionMapOrdersScreenState
                         });
                       },
                       onMove: _moveOrdersBetweenApparatus,
+                      onInfoOrder: _showOrderDetail,
+                      customerNameByMapId: _customerByMapId,
                       onLongPressOrder: (order) {
                         unawaited(_showOrderActions(order));
                       },

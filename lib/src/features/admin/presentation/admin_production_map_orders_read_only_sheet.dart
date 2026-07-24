@@ -3,6 +3,9 @@ part of 'admin_production_map_orders_screen.dart';
 class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     required this.order,
+    this.baseMetraj,
+    this.orderKg,
+    this.customerName,
     this.apparatus,
     this.canManageQueue = false,
     this.initialQueueStates = const {},
@@ -18,6 +21,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   });
 
   final ProductionMapSaved order;
+  final double? baseMetraj;
+  final double? orderKg;
+  final String? customerName;
   final AdminApparatus? apparatus;
   final bool canManageQueue;
   final Map<String, String> initialQueueStates;
@@ -596,6 +602,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
       map: map,
+      baseMetraj: widget.baseMetraj,
+      orderKg: widget.orderKg,
+      customerName: widget.customerName,
       steps: steps,
       uiState: uiState,
       queueStates: _queueStates,

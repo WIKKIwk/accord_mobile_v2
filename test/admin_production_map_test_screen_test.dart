@@ -1501,6 +1501,37 @@ void main() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      CalculateOrderTemplate(
+        id: 'customer-template-2',
+        code: 'CUSTOMER-ORDER-2',
+        name: 'Customer order 2',
+        savedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        orderNumber: '',
+        customerRef: 'CUSTOMER-2',
+        customer: 'Customer 2',
+        itemCode: 'ITEM-002',
+        product: 'zenit frutto ninja 70gr',
+        status: '',
+        materialDisplay: '',
+        color: '',
+        imageId: '',
+        imageName: '',
+        imageMime: '',
+        imageSizeBytes: 0,
+        imageUrl: '',
+        widthMm: 650,
+        wastePercent: 5,
+        rollCount: 7,
+        firstLayerMaterial: '',
+        firstLayerMicron: '',
+        secondLayerMaterial: '',
+        secondLayerMicron: '',
+        thirdLayerMaterial: '',
+        thirdLayerMicron: '',
+        note: '',
+      ),
+    );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -1552,10 +1583,8 @@ void main() {
 
     expect(find.text('Ochilgan zakaz qidirish'), findsOneWidget);
     expect(find.textContaining('Zenit opened'), findsOneWidget);
-    expect(
-      find.textContaining('zenit frutto ninja 70gr • ITEM-002'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Customer 2'), findsOneWidget);
+    expect(find.textContaining('ITEM-002'), findsNothing);
   });
 
   testWidgets('opened production map orders load error is text only', (
@@ -1586,7 +1615,7 @@ void main() {
   });
 
   testWidgets(
-    'opened production map orders page rounds metraj and uses val label',
+    'opened production map order info sheet shows readable order details',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       await MobileApi.instance.adminSaveProductionMap(
@@ -1634,21 +1663,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Rounded order A').first);
+      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
       await tester.pumpAndSettle();
-      expect(find.textContaining('51500 metr'), findsOneWidget);
+      expect(find.text('Zakaz kodi'), findsOneWidget);
       expect(
-        find.textContaining('7 ta 650 mm eniga ega bo‘lgan val ishlatiladi'),
+        find.text('Kutilayotgan buyurtma ko‘rsatkichlari'),
         findsOneWidget,
       );
+      expect(find.text('Metraj'), findsOneWidget);
+      expect(find.text('Val'), findsOneWidget);
 
-      await tester.tap(find.textContaining('Rounded order B').first);
+      await tester.tapAt(const Offset(1, 1));
       await tester.pumpAndSettle();
-      expect(find.textContaining('4000 metr'), findsOneWidget);
-      expect(
-        find.textContaining('7 ta 650 mm eniga ega bo‘lgan val ishlatiladi'),
-        findsWidgets,
-      );
+      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Zakaz kodi'), findsOneWidget);
     },
   );
 

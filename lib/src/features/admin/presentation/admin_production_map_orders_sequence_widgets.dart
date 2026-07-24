@@ -8,10 +8,10 @@ class _SequenceModulePage extends StatefulWidget {
     required this.completionRequests,
     required this.orders,
     required this.readOnly,
-    required this.baseMetrajByMapId,
-    required this.orderKgByMapId,
+    required this.customerNameByMapId,
     required this.onSelectApparatus,
     required this.onReorder,
+    required this.onInfoOrder,
     required this.onLongPressOrder,
   });
 
@@ -21,10 +21,10 @@ class _SequenceModulePage extends StatefulWidget {
   final List<AdminCompletionRequestNotification> completionRequests;
   final List<ProductionMapSaved> orders;
   final bool readOnly;
-  final Map<String, double> baseMetrajByMapId;
-  final Map<String, double> orderKgByMapId;
+  final Map<String, String> customerNameByMapId;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
+  final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
@@ -32,15 +32,8 @@ class _SequenceModulePage extends StatefulWidget {
 }
 
 class _SequenceModulePageState extends State<_SequenceModulePage> {
-  String? _expandedOrderId;
   String? _expandedCompletionRequestId;
   bool _apparatusFilterExpanded = false;
-
-  void _onExpandedChanged(ProductionMapSaved order, bool expanded) {
-    setState(() {
-      _expandedOrderId = expanded ? order.map.id.trim() : null;
-    });
-  }
 
   void _onCompletionRequestExpandedChanged(
     AdminCompletionRequestNotification request,
@@ -69,8 +62,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       required ProductionMapSaved order,
       required Key key,
     }) {
-      final mapId = order.map.id.trim();
-      return _SequenceExpandableOrderRow(
+      return _SequenceOrderRow(
         key: key,
         slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
           index,
@@ -79,10 +71,8 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         order: order,
         index: index,
         readOnly: widget.readOnly,
-        expanded: _expandedOrderId == mapId,
-        baseMetraj: widget.baseMetrajByMapId[mapId] ?? order.map.baseLength,
-        orderKg: widget.orderKgByMapId[mapId] ?? order.map.orderKg,
-        onExpandedChanged: (expanded) => _onExpandedChanged(order, expanded),
+        customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
+        onInfo: () => widget.onInfoOrder(order),
         onLongPress: () => widget.onLongPressOrder(order),
       );
     }
@@ -301,20 +291,17 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   }
 }
 
-class _SequenceExpandableOrderRow extends StatelessWidget {
-  const _SequenceExpandableOrderRow({
+class _SequenceOrderRow extends StatelessWidget {
+  const _SequenceOrderRow({
     super.key,
     required this.slot,
     required this.order,
     required this.index,
     required this.readOnly,
-    required this.expanded,
-    required this.baseMetraj,
-    required this.orderKg,
-    required this.onExpandedChanged,
+    this.customerName = '',
     this.backgroundColor,
     this.onTap,
-    this.expandable = true,
+    this.onInfo,
     this.onLongPress,
   });
 
@@ -322,13 +309,10 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
   final ProductionMapSaved order;
   final int index;
   final bool readOnly;
-  final bool expanded;
-  final double? baseMetraj;
-  final double? orderKg;
-  final ValueChanged<bool> onExpandedChanged;
+  final String customerName;
   final Color? backgroundColor;
   final VoidCallback? onTap;
-  final bool expandable;
+  final VoidCallback? onInfo;
   final VoidCallback? onLongPress;
 
   @override
@@ -336,7 +320,11 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
-    final subtitle = _openedOrderSubtitle(map);
+    final subtitle = _openedOrderSubtitle(
+      map,
+      customerName: customerName,
+      includeApparatusCount: true,
+    );
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -349,88 +337,68 @@ class _SequenceExpandableOrderRow extends StatelessWidget {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: expandable ? () => onExpandedChanged(!expanded) : onTap,
-            onLongPress: onLongPress,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 8 : 8),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
-                child: Row(
-                  children: [
-                    _OpenedOrderIndexBadge(index: index),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _OpenedOrderTitleLine(
-                            map: map,
-                            theme: theme,
-                            scheme: scheme,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 45),
+            child: Row(
+              children: [
+                _OpenedOrderIndexBadge(index: index),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _OpenedOrderTitleLine(
+                        map: map,
+                        theme: theme,
+                        scheme: scheme,
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.05,
                           ),
-                          if (subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                height: 1.05,
-                              ),
-                            ),
-                          ],
-                        ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (!readOnly)
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    if (!readOnly)
-                      ReorderableDragStartListener(
-                        index: index,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.drag_handle_rounded,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    if (expandable)
-                      AnimatedRotation(
-                        turns: expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 22,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 8),
-                  ],
-                ),
-              ),
+                  ),
+                if (onInfo != null)
+                  IconButton(
+                    tooltip: 'Buyurtma ma’lumotlari',
+                    onPressed: onInfo,
+                    icon: Icon(
+                      Icons.info_outline_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 8),
+              ],
             ),
           ),
-          if (expandable)
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: expanded
-                  ? _OpenedOrderWorkflowDetail(
-                      map: map,
-                      baseMetraj: baseMetraj,
-                      orderKg: orderKg,
-                    )
-                  : const SizedBox.shrink(),
-            ),
-        ],
+        ),
       ),
     );
   }

@@ -44,14 +44,20 @@ String _openedOrderProductTitle(ProductionMapDefinition map) {
 
 String _openedOrderSubtitle(
   ProductionMapDefinition map, {
+  String customerName = '',
   bool includeApparatusCount = false,
 }) {
   final productTitle = _openedOrderProductTitle(map);
+  final customer = customerName.trim();
   final apparatusCount =
       map.nodes.where((node) => node.kind == 'apparatus').length;
+  final secondaryLabel = customer.isNotEmpty
+      ? customer
+      : map.productCode.trim().isNotEmpty
+          ? map.productCode.trim()
+          : productTitle;
   return [
-    if (productTitle.isNotEmpty) productTitle,
-    if (map.productCode.trim().isNotEmpty) map.productCode.trim(),
+    if (secondaryLabel.isNotEmpty) secondaryLabel,
     if (includeApparatusCount && apparatusCount > 0)
       '$apparatusCount ta aparat',
   ].join(' • ');
@@ -189,67 +195,4 @@ List<ProductionMapNode> _linearProductionMapNodes(ProductionMapDefinition map) {
   return result.isEmpty ? map.nodes : result;
 }
 
-String _productionMapNodeDisplayTitle(ProductionMapNode node) {
-  final assigned = node.alternativeAssignedTitle.trim();
-  if (assigned.isNotEmpty) {
-    return assigned;
-  }
-  return node.title.trim();
-}
-
-String _productionMapResultSummary(
-  ProductionMapDefinition map, {
-  double? baseMetraj,
-  double? orderKg,
-}) {
-  final product = _openedOrderProductTitle(map);
-  final title = product.isNotEmpty ? product : map.title.trim();
-  if (title.isEmpty) {
-    return '';
-  }
-  final details = <String>[];
-  if (orderKg != null && orderKg > 0) {
-    details.add('${_productionMapQtyLabel(orderKg)} kg');
-  }
-  if (baseMetraj != null && baseMetraj > 0) {
-    details.add('${_productionMapRoundedMetrajLabel(baseMetraj)} metr');
-  }
-  final widthMm = map.widthMm;
-  final rollCount = map.rollCount;
-  if (rollCount != null && rollCount > 0) {
-    details.add(
-      _productionMapValUsageLabel(
-        rollCount: rollCount,
-        widthMm: widthMm,
-      ),
-    );
-  } else if (widthMm != null && widthMm > 0) {
-    details.add('${_productionMapQtyLabel(widthMm)} mm en');
-  }
-  if (map.productCode.trim().isNotEmpty) {
-    details.add(map.productCode.trim());
-  }
-  if (details.isEmpty) {
-    return '$title tayyor bo‘ladi';
-  }
-  return '$title tayyor bo‘ladi (${details.join(', ')})';
-}
-
 String _productionMapQtyLabel(double value) => formatRawQuantity(value);
-
-String _productionMapRoundedMetrajLabel(double value) {
-  final rounded = (value / 500).ceil() * 500;
-  return rounded.toString();
-}
-
-String _productionMapValUsageLabel({
-  required double rollCount,
-  required double? widthMm,
-}) {
-  final rollLabel = '${_productionMapQtyLabel(rollCount)} ta';
-  if (widthMm == null || widthMm <= 0) {
-    return '$rollLabel val ishlatiladi';
-  }
-  return '$rollLabel ${_productionMapQtyLabel(widthMm)} mm eniga ega bo‘lgan '
-      'val ishlatiladi';
-}

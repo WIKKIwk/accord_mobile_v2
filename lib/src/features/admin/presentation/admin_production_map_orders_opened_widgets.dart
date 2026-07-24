@@ -1,21 +1,16 @@
 part of 'admin_production_map_orders_screen.dart';
 
-class _OpenedOrderExpandableList extends StatelessWidget {
-  const _OpenedOrderExpandableList({
+class _OpenedOrderList extends StatelessWidget {
+  const _OpenedOrderList({
     required this.orders,
-    required this.expandedOrderId,
-    required this.baseMetrajByMapId,
-    required this.orderKgByMapId,
-    required this.onExpandedChanged,
+    required this.customerNameByMapId,
+    required this.onInfoOrder,
     required this.onLongPressOrder,
   });
 
   final List<ProductionMapSaved> orders;
-  final String? expandedOrderId;
-  final Map<String, double> baseMetrajByMapId;
-  final Map<String, double> orderKgByMapId;
-  final void Function(ProductionMapSaved order, bool expanded)
-      onExpandedChanged;
+  final Map<String, String> customerNameByMapId;
+  final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
@@ -23,19 +18,15 @@ class _OpenedOrderExpandableList extends StatelessWidget {
     return M3SegmentSpacedColumn(
       children: [
         for (var index = 0; index < orders.length; index++)
-          _OpenedOrderExpandableRow(
+          _OpenedOrderRow(
             slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
               index,
               orders.length,
             ),
             order: orders[index],
-            baseMetraj: baseMetrajByMapId[orders[index].map.id.trim()] ??
-                orders[index].map.baseLength,
-            orderKg: orderKgByMapId[orders[index].map.id.trim()] ??
-                orders[index].map.orderKg,
-            expanded: expandedOrderId == orders[index].map.id.trim(),
-            onExpandedChanged: (expanded) =>
-                onExpandedChanged(orders[index], expanded),
+            customerName:
+                customerNameByMapId[orders[index].map.id.trim()] ?? '',
+            onInfo: () => onInfoOrder(orders[index]),
             onLongPress: () => onLongPressOrder(orders[index]),
           ),
       ],
@@ -43,23 +34,19 @@ class _OpenedOrderExpandableList extends StatelessWidget {
   }
 }
 
-class _OpenedOrderExpandableRow extends StatelessWidget {
-  const _OpenedOrderExpandableRow({
+class _OpenedOrderRow extends StatelessWidget {
+  const _OpenedOrderRow({
     required this.slot,
     required this.order,
-    required this.baseMetraj,
-    required this.orderKg,
-    required this.expanded,
-    required this.onExpandedChanged,
+    required this.customerName,
+    required this.onInfo,
     required this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
-  final double? baseMetraj;
-  final double? orderKg;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
+  final String customerName;
+  final VoidCallback onInfo;
   final VoidCallback onLongPress;
 
   @override
@@ -67,119 +54,59 @@ class _OpenedOrderExpandableRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
-    final subtitle = _openedOrderSubtitle(map, includeApparatusCount: true);
+    final subtitle = _openedOrderSubtitle(
+      map,
+      customerName: customerName,
+      includeApparatusCount: true,
+    );
 
-    return M3ExpandableFilledSurface(
+    return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      expanded: expanded,
-      onExpandedChanged: onExpandedChanged,
-      onLongPress: onLongPress,
-      header: Row(
-        children: [
-          const _OpenedOrderTreeBadge(),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _OpenedOrderTitleLine(
-                  map: map,
-                  theme: theme,
-                  scheme: scheme,
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.05,
+      child: InkWell(
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+          child: Row(
+            children: [
+              const _OpenedOrderTreeBadge(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _OpenedOrderTitleLine(
+                      map: map,
+                      theme: theme,
+                      scheme: scheme,
                     ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          AnimatedRotation(
-            turns: expanded ? 0.5 : 0,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 22,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      expandedChild: _OpenedOrderWorkflowDetail(
-        map: map,
-        baseMetraj: baseMetraj,
-        orderKg: orderKg,
-      ),
-    );
-  }
-}
-
-class _OpenedOrderWorkflowDetail extends StatelessWidget {
-  const _OpenedOrderWorkflowDetail({
-    required this.map,
-    this.baseMetraj,
-    this.orderKg,
-  });
-
-  final ProductionMapDefinition map;
-  final double? baseMetraj;
-  final double? orderKg;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final lines = _productionMapWorkflowLines(
-      map,
-      baseMetraj: baseMetraj,
-      orderKg: orderKg,
-    );
-    final code = _openedOrderDisplayCode(map);
-    if (lines.isEmpty && code.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: const EdgeInsets.only(left: 44, top: 8, right: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (code.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Buyurtma kodi: $code',
-                style: theme.textTheme.bodySmall?.copyWith(
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Buyurtma ma’lumotlari',
+                onPressed: onInfo,
+                icon: Icon(
+                  Icons.info_outline_rounded,
                   color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          for (final line in lines)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                line,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.35,
-                  fontWeight: line.startsWith('Ish tartibi') ||
-                          line.startsWith('Natija')
-                      ? FontWeight.w700
-                      : FontWeight.w400,
-                ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -273,21 +273,21 @@ void main() {
       await tester.tap(find.text('Qurilma tanlash'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ulanish usulini tanlang'), findsOneWidget);
-      expect(find.text('USB printer'), findsOneWidget);
-      expect(find.text('Bluetooth printer'), findsOneWidget);
-      expect(find.text('Wi-Fi qurilma'), findsOneWidget);
+      expect(find.text('Qurilma tanlash'), findsNWidgets(2));
+      expect(find.text('USB'), findsOneWidget);
+      expect(find.text('Bluetooth'), findsOneWidget);
+      expect(find.text('Wi-Fi'), findsOneWidget);
 
-      await tester.tap(find.text('Bluetooth printer'));
+      await tester.tap(find.byIcon(Icons.bluetooth_rounded));
       await tester.pumpAndSettle();
-      expect(find.text('XP-P323B'), findsOneWidget);
-      expect(find.text('Ulanish usulini tanlang'), findsNothing);
+      expect(find.text('Bluetooth printer'), findsOneWidget);
+      expect(find.text('Qurilma tanlash'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.arrow_back_rounded).last);
       await tester.pump();
-      expect(find.text('Ulanish usulini tanlang'), findsOneWidget);
+      expect(find.text('Qurilma tanlash'), findsNWidgets(2));
 
-      await tester.tap(find.text('USB printer'));
+      await tester.tap(find.byIcon(Icons.usb_rounded));
       await tester.pump();
       expect(find.text('USB printerni tanlash'), findsOneWidget);
 

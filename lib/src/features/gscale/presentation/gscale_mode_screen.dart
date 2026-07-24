@@ -49,7 +49,7 @@ class _MaterialGScaleControlScreenState
   BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
 
-  Future<void> _applyDeviceSelection(GScaleDeviceSelection selection) async {
+  Future<void> _applyDeviceSelection(PrintDeviceSelection selection) async {
     if (!mounted) {
       return;
     }
@@ -77,27 +77,7 @@ class _MaterialGScaleControlScreenState
   }
 
   Future<void> _openServerPicker() async {
-    final selection = await showModalBottomSheet<GScaleDeviceSelection>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (sheetContext) {
-        return ServerPickerPage(
-          onOpenServer: (server) {
-            Navigator.of(sheetContext).pop(GScaleDeviceSelection.wifi(server));
-          },
-          onSelectOffline: () => selectOfflineGScalePrinter(sheetContext),
-          onSelectBluetooth: (printer) {
-            Navigator.of(sheetContext).pop(
-              GScaleDeviceSelection.bluetooth(printer),
-            );
-          },
-          onExitMode: () async {
-            Navigator.of(sheetContext).pop();
-          },
-        );
-      },
-    );
+    final selection = await showPrintDevicePicker(context);
     if (selection == null) {
       return;
     }
