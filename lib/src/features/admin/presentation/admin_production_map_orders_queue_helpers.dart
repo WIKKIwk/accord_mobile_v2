@@ -7,12 +7,14 @@ bool _queueSnapshotChanged({
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
+  required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
       queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
-      orderControlsByOrderId.length != snapshot.orderControls.length) {
+      orderControlsByOrderId.length != snapshot.orderControls.length ||
+      orderStatusesByOrderId.length != snapshot.orderStatuses.length) {
     return true;
   }
   for (final entry in snapshot.sequences.entries) {
@@ -47,6 +49,15 @@ bool _queueSnapshotChanged({
   }
   for (final entry in snapshot.orderControls.entries) {
     if (orderControlsByOrderId[entry.key] != entry.value) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.orderStatuses.entries) {
+    final current = orderStatusesByOrderId[entry.key];
+    if (current == null ||
+        current.orderStatus != entry.value.orderStatus ||
+        current.completedWithIssueCount !=
+            entry.value.completedWithIssueCount) {
       return true;
     }
   }

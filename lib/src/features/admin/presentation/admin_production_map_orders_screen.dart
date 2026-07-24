@@ -192,6 +192,8 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
+  final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
+      {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
@@ -286,6 +288,7 @@ class _AdminProductionMapOrdersScreenState
       }
       _applyQueueActionResult(
         apparatusKey: apparatusKey,
+        orderId: request.order.map.id.trim(),
         completionRequestNote: request.completionRequestNote,
         result: result,
       );
@@ -304,11 +307,13 @@ class _AdminProductionMapOrdersScreenState
 
   void _applyQueueActionResult({
     required String apparatusKey,
+    required String orderId,
     required String completionRequestNote,
     required AdminApparatusQueueActionResult result,
   }) {
     setState(() {
       _queueStatesByApparatus[apparatusKey] = result.states;
+      _orderStatusesByOrderId[orderId] = result.orderStatus;
     });
     if (_queueActionSentCompletionRequest(
       completionRequestNote: completionRequestNote,
@@ -339,6 +344,8 @@ class _AdminProductionMapOrdersScreenState
         baseMetraj: _baseMetrajByMapId[mapId] ?? order.map.baseLength,
         orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
         customerName: _customerByMapId[mapId],
+        queueStatesByApparatus: _queueStatesByApparatus,
+        initialOrderControls: _orderControlsByOrderId,
       ),
     );
   }
@@ -718,6 +725,9 @@ class _AdminProductionMapOrdersScreenState
                       onMove: _moveOrdersBetweenApparatus,
                       onInfoOrder: _showOrderDetail,
                       customerNameByMapId: _customerByMapId,
+                      queueStatesByApparatus: _queueStatesByApparatus,
+                      orderStatusesByOrderId: _orderStatusesByOrderId,
+                      orderControlsByOrderId: _orderControlsByOrderId,
                       onLongPressOrder: (order) {
                         unawaited(_showOrderActions(order));
                       },

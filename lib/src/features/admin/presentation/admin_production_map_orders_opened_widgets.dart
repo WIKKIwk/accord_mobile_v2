@@ -4,12 +4,16 @@ class _OpenedOrderList extends StatelessWidget {
   const _OpenedOrderList({
     required this.orders,
     required this.customerNameByMapId,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
 
   final List<ProductionMapSaved> orders;
   final Map<String, String> customerNameByMapId;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -26,6 +30,12 @@ class _OpenedOrderList extends StatelessWidget {
             order: orders[index],
             customerName:
                 customerNameByMapId[orders[index].map.id.trim()] ?? '',
+            tone: _resolveOrderCardTone(
+              orderStatus: orderStatusesByOrderId[orders[index].map.id.trim()],
+              orderControl:
+                  orderControlsByOrderId[orders[index].map.id.trim()] ??
+                      AdminOrderControlState.active,
+            ),
             onInfo: () => onInfoOrder(orders[index]),
             onLongPress: () => onLongPressOrder(orders[index]),
           ),
@@ -39,6 +49,7 @@ class _OpenedOrderRow extends StatelessWidget {
     required this.slot,
     required this.order,
     required this.customerName,
+    required this.tone,
     required this.onInfo,
     required this.onLongPress,
   });
@@ -46,6 +57,7 @@ class _OpenedOrderRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final String customerName;
+  final _OrderCardTone tone;
   final VoidCallback onInfo;
   final VoidCallback onLongPress;
 
@@ -63,6 +75,7 @@ class _OpenedOrderRow extends StatelessWidget {
     return M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: _orderCardBackgroundColor(context, tone),
       child: InkWell(
         onLongPress: onLongPress,
         child: Padding(

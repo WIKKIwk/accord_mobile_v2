@@ -9,6 +9,9 @@ class _SequenceModulePage extends StatefulWidget {
     required this.orders,
     required this.readOnly,
     required this.customerNameByMapId,
+    required this.queueStates,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.onSelectApparatus,
     required this.onReorder,
     required this.onInfoOrder,
@@ -22,6 +25,9 @@ class _SequenceModulePage extends StatefulWidget {
   final List<ProductionMapSaved> orders;
   final bool readOnly;
   final Map<String, String> customerNameByMapId;
+  final Map<String, String> queueStates;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
@@ -72,6 +78,14 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
         index: index,
         readOnly: widget.readOnly,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
+        tone: _resolveOrderCardTone(
+          orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
+          orderControl: widget.orderControlsByOrderId[order.map.id.trim()] ??
+              AdminOrderControlState.active,
+          apparatusState: apparatusQueueOrderStateFromRaw(
+            widget.queueStates[order.map.id.trim()],
+          ),
+        ),
         onInfo: () => widget.onInfoOrder(order),
         onLongPress: () => widget.onLongPressOrder(order),
       );
@@ -299,6 +313,7 @@ class _SequenceOrderRow extends StatelessWidget {
     required this.index,
     required this.readOnly,
     this.customerName = '',
+    this.tone = _OrderCardTone.neutral,
     this.backgroundColor,
     this.onTap,
     this.onInfo,
@@ -310,6 +325,7 @@ class _SequenceOrderRow extends StatelessWidget {
   final int index;
   final bool readOnly;
   final String customerName;
+  final _OrderCardTone tone;
   final Color? backgroundColor;
   final VoidCallback? onTap;
   final VoidCallback? onInfo;
@@ -331,7 +347,9 @@ class _SequenceOrderRow extends StatelessWidget {
     );
 
     return Material(
-      color: backgroundColor ?? scheme.surface,
+      color: backgroundColor ??
+          _orderCardBackgroundColor(context, tone) ??
+          scheme.surface,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,

@@ -186,3 +186,55 @@ const _moveUnassignedApparatus = _MoveUnassignedApparatus();
 bool _isMoveUnassignedApparatus(AdminApparatus? apparatus) {
   return apparatus is _MoveUnassignedApparatus;
 }
+
+enum _OrderCardTone { neutral, inProgress, paused, frozen, issue }
+
+_OrderCardTone _resolveOrderCardTone({
+  AdminProductionOrderStatusDetail? orderStatus,
+  AdminOrderControlState orderControl = AdminOrderControlState.active,
+  ApparatusQueueOrderState? apparatusState,
+}) {
+  final status = orderStatus?.orderStatus.trim() ?? '';
+  if (status == 'completed_with_issue' ||
+      (orderStatus?.completedWithIssueCount ?? 0) > 0) {
+    return _OrderCardTone.issue;
+  }
+  if (orderControl != AdminOrderControlState.active) {
+    return _OrderCardTone.frozen;
+  }
+  if (apparatusState != null) {
+    return switch (apparatusState) {
+      ApparatusQueueOrderState.inProgress => _OrderCardTone.inProgress,
+      ApparatusQueueOrderState.paused => _OrderCardTone.paused,
+      ApparatusQueueOrderState.completed => _OrderCardTone.neutral,
+      ApparatusQueueOrderState.pending => _OrderCardTone.neutral,
+    };
+  }
+  return switch (status) {
+    'in_progress' => _OrderCardTone.inProgress,
+    'paused' => _OrderCardTone.paused,
+    _ => _OrderCardTone.neutral,
+  };
+}
+
+Color? _orderCardBackgroundColor(
+  BuildContext context,
+  _OrderCardTone tone,
+) {
+  if (tone == _OrderCardTone.neutral) {
+    return null;
+  }
+  final theme = Theme.of(context);
+  final accent = switch (tone) {
+    _OrderCardTone.inProgress => const Color(0xFF2E7D32),
+    _OrderCardTone.paused => const Color(0xFFF9A825),
+    _OrderCardTone.frozen => const Color(0xFF1565C0),
+    _OrderCardTone.issue => const Color(0xFFC62828),
+    _OrderCardTone.neutral => Colors.transparent,
+  };
+  final opacity = theme.brightness == Brightness.dark ? 0.30 : 0.16;
+  return Color.alphaBlend(
+    accent.withValues(alpha: opacity),
+    theme.colorScheme.surfaceContainerLowest,
+  );
+}

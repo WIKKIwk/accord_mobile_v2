@@ -233,6 +233,7 @@ class AdminApparatusQueueSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     required this.orderControls,
+    this.orderStatuses = const {},
   });
 
   final Map<String, List<String>> sequences;
@@ -240,6 +241,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, AdminOrderControlState> orderControls;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
 }
 
 enum AdminOrderControlState {
@@ -409,6 +411,18 @@ Map<String, AdminOrderControlState> _parseAdminOrderControls(Object? raw) {
         entry.key.toString().trim(): AdminOrderControlState.fromRaw(
           entry.value is Map ? (entry.value as Map)['state'] : entry.value,
         ),
+  };
+}
+
+Map<String, AdminProductionOrderStatusDetail> _parseAdminOrderStatuses(
+  Object? raw,
+) {
+  if (raw is! Map) return const {};
+  return {
+    for (final entry in raw.entries)
+      if (entry.key.toString().trim().isNotEmpty)
+        entry.key.toString().trim():
+            AdminProductionOrderStatusDetail.fromJson(entry.value),
   };
 }
 
@@ -1921,6 +1935,7 @@ class AdminProductionMapLiveSnapshot {
     required this.completionRequests,
     required this.completionRequestDecisions,
     required this.orderControls,
+    this.orderStatuses = const {},
   });
 
   final List<ProductionMapSaved> maps;
@@ -1933,6 +1948,7 @@ class AdminProductionMapLiveSnapshot {
   final List<AdminCompletionRequestDecisionNotification>
       completionRequestDecisions;
   final Map<String, AdminOrderControlState> orderControls;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
     final mapsRaw = json['maps'];
@@ -1975,6 +1991,7 @@ class AdminProductionMapLiveSnapshot {
             ),
       ],
       orderControls: _parseAdminOrderControls(json['order_controls']),
+      orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),
     );
   }
 }
@@ -2921,6 +2938,7 @@ extension MobileApiAdmin on MobileApi {
         orderControls: Map<String, AdminOrderControlState>.unmodifiable(
           _testModeOrderControls,
         ),
+        orderStatuses: const {},
       );
     }
     final response = await _sendAuthorized(
@@ -2939,6 +2957,7 @@ extension MobileApiAdmin on MobileApi {
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
       orderControls: _parseAdminOrderControls(payload['order_controls']),
+      orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
     );
   }
 
@@ -3330,7 +3349,14 @@ extension MobileApiAdmin on MobileApi {
         in connectWarehouseLive(adminProductionMapLiveUri())) {
       if (event['ok'] == true) {
         yield AdminProductionMapLiveSnapshot.fromJson(event);
+        continue;
       }
+      throw MobileApiException(
+        code: 'production_map_live_failed',
+        message: event['error']?.toString().trim().isNotEmpty == true
+            ? event['error'].toString().trim()
+            : 'Production map jonli holati olinmadi',
+      );
     }
   }
 

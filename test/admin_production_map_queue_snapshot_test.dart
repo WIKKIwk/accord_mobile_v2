@@ -20,6 +20,16 @@ void main() {
         'zakaz-visible-alt': {'state': 'freeze_requested'},
         'zakaz-frozen': {'state': 'frozen'},
       },
+      'order_statuses': const {
+        'zakaz-visible-alt': {
+          'order_status': 'in_progress',
+          'active_session_count': 1,
+        },
+        'zakaz-issue': {
+          'order_status': 'completed_with_issue',
+          'completed_with_issue_count': 1,
+        },
+      },
     });
 
     expect(
@@ -34,6 +44,14 @@ void main() {
     expect(
       snapshot.orderControls['zakaz-frozen'],
       AdminOrderControlState.frozen,
+    );
+    expect(
+      snapshot.orderStatuses['zakaz-visible-alt']?.orderStatus,
+      'in_progress',
+    );
+    expect(
+      snapshot.orderStatuses['zakaz-issue']?.completedWithIssueCount,
+      1,
     );
   });
 

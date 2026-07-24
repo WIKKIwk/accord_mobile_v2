@@ -6,6 +6,8 @@ class _OrdersModulePage extends StatelessWidget {
     required this.orders,
     required this.visibleOrders,
     required this.customerNameByMapId,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -14,6 +16,8 @@ class _OrdersModulePage extends StatelessWidget {
   final List<ProductionMapSaved> orders;
   final List<ProductionMapSaved> visibleOrders;
   final Map<String, String> customerNameByMapId;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -35,6 +39,8 @@ class _OrdersModulePage extends StatelessWidget {
           _OpenedOrderList(
             orders: visibleOrders,
             customerNameByMapId: customerNameByMapId,
+            orderStatusesByOrderId: orderStatusesByOrderId,
+            orderControlsByOrderId: orderControlsByOrderId,
             onInfoOrder: onInfoOrder,
             onLongPressOrder: onLongPressOrder,
           ),
@@ -75,6 +81,9 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onMoveDragEnded,
     required this.onMove,
     required this.customerNameByMapId,
+    required this.queueStatesByApparatus,
+    required this.orderStatusesByOrderId,
+    required this.orderControlsByOrderId,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -126,6 +135,9 @@ class _AdminModulesBody extends StatelessWidget {
   }) onMove;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final Map<String, String> customerNameByMapId;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
+  final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   String _moduleLabel(_OpenedOrderModule module) {
@@ -167,6 +179,8 @@ class _AdminModulesBody extends StatelessWidget {
                         query: searchQuery,
                       ),
                       customerNameByMapId: customerNameByMapId,
+                      orderStatusesByOrderId: orderStatusesByOrderId,
+                      orderControlsByOrderId: orderControlsByOrderId,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
@@ -182,6 +196,14 @@ class _AdminModulesBody extends StatelessWidget {
                       onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
                       customerNameByMapId: customerNameByMapId,
+                      queueStates: selectedApparatus == null
+                          ? const {}
+                          : _queueStatesForApparatus(
+                              selectedApparatus!,
+                              queueStatesByApparatus: queueStatesByApparatus,
+                            ),
+                      orderStatusesByOrderId: orderStatusesByOrderId,
+                      orderControlsByOrderId: orderControlsByOrderId,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
