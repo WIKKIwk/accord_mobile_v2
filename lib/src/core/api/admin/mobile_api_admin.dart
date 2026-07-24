@@ -2009,6 +2009,9 @@ MobileApiException _adminProductionMapException(
       ];
     }
   } catch (_) {}
+  if (message == fallbackMessage) {
+    message = '$fallbackMessage (HTTP ${response.statusCode})';
+  }
   return MobileApiException(
     code: code,
     apparatusOptions: apparatusOptions,
@@ -2102,7 +2105,7 @@ MobileApiException _adminApiException(
       final error = (payload['error'] as String).trim();
       if (error.isNotEmpty) {
         code = error;
-        message = error;
+        message = _adminErrorMessage(error);
       }
     }
   } catch (_) {}
@@ -2111,6 +2114,16 @@ MobileApiException _adminApiException(
     message: message,
     statusCode: response.statusCode,
   );
+}
+
+String _adminErrorMessage(String code) {
+  return switch (code.trim().toLowerCase()) {
+    'worker phone already exists' =>
+      'Bu telefon raqami boshqa ishchiga biriktirilgan',
+    'worker not found' => 'Ishchi topilmadi',
+    'worker store failed' => 'Ishchi telefoni bazaga saqlanmadi',
+    _ => code,
+  };
 }
 
 extension MobileApiAdmin on MobileApi {
@@ -4680,7 +4693,11 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin worker phone update failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_worker_phone_update_failed',
+        fallbackMessage: 'Ishchi telefoni saqlanmadi',
+      );
     }
     return AdminWorker.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

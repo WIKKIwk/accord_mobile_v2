@@ -168,10 +168,10 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     }
   }
 
-  Future<void> _savePhone(AdminWorkerDetail detail, String phone) async {
+  Future<bool> _savePhone(AdminWorkerDetail detail, String phone) async {
     final trimmedPhone = phone.trim();
     if (trimmedPhone.isEmpty) {
-      return;
+      return false;
     }
 
     setState(() => _savingPhone = true);
@@ -190,19 +190,21 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
             ))
               .phone;
       if (!mounted) {
-        return;
+        return true;
       }
       _changed = true;
       setState(() {
         _detail = detail.copyWith(phone: updatedPhone);
       });
+      return true;
     } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Telefon saqlanmadi: $error')));
+      return false;
     } finally {
       if (mounted) {
         setState(() => _savingPhone = false);
@@ -402,7 +404,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   final bool savingPhone;
   final bool regeneratingCode;
   final ValueChanged<bool> onExpandedChanged;
-  final Future<void> Function(AdminWorkerDetail detail, String phone)
+  final Future<bool> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
@@ -563,7 +565,7 @@ class _WorkerAdminPanel extends StatelessWidget {
   final bool savingPhone;
   final bool regeneratingCode;
   final Widget? warehouseEditor;
-  final Future<void> Function(AdminWorkerDetail detail, String phone)
+  final Future<bool> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
   final Future<void> Function() onRegenerateCode;
   final Future<void> Function(String code) onCopyCode;
@@ -655,7 +657,7 @@ class _WorkerPhoneInlineField extends StatefulWidget {
 
   final AdminWorkerDetail detail;
   final bool savingPhone;
-  final Future<void> Function(AdminWorkerDetail detail, String phone)
+  final Future<bool> Function(AdminWorkerDetail detail, String phone)
       onSavePhone;
 
   @override
@@ -688,8 +690,8 @@ class _WorkerPhoneInlineFieldState extends State<_WorkerPhoneInlineField> {
   }
 
   Future<void> _submit() async {
-    await widget.onSavePhone(widget.detail, _controller.text);
-    if (mounted) {
+    final saved = await widget.onSavePhone(widget.detail, _controller.text);
+    if (mounted && saved) {
       setState(() => _editing = false);
     }
   }
