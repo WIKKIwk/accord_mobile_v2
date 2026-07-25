@@ -30,7 +30,7 @@ String qolipErrorMessage(
     'quantity_required' => 'Qolip soni noto‘g‘ri',
     'location_identity_mismatch' =>
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
-    'qolip_in_use' => 'Qolip joylashtirilgan yoki ishchiga berilgan',
+    'qolip_in_use' => 'Qolip ishchiga berilgan yoki aktiv orderda ishlatilmoqda',
     'qolip_code_conflict' => 'Bu qolip code allaqachon mavjud',
     'block_in_use' =>
       'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
@@ -590,27 +590,57 @@ extension MobileApiQolip on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final previous = previousQolipCode?.trim().toLowerCase() ?? '';
       final next = saved.qolipCode.trim().toLowerCase();
-      if (previous.isNotEmpty && previous != next) {
+      if (previous.isNotEmpty) {
         if (_testModeQolipCheckouts.any(
               (checkout) =>
                   checkout.isOpen &&
                   checkout.qolipCode.trim().toLowerCase() == previous,
-            ) ||
-            _testModeQolipLocations.any(
-              (location) => location.qolipCode.trim().toLowerCase() == previous,
             )) {
           throw const MobileApiException(
             code: 'qolip_in_use',
             message: 'qolip_in_use',
           );
         }
-        if (_testModeQolipSpecs.containsKey(next)) {
+        if (previous != next &&
+            (_testModeQolipSpecs.containsKey(next) ||
+                _testModeQolipLocations.any(
+                  (location) =>
+                      location.qolipCode.trim().toLowerCase() == next,
+                ))) {
           throw const MobileApiException(
             code: 'qolip_code_conflict',
             message: 'qolip_code_conflict',
           );
         }
-        _testModeQolipSpecs.remove(previous);
+        if (previous != next) {
+          _testModeQolipSpecs.remove(previous);
+        }
+        for (var index = 0; index < _testModeQolipLocations.length; index++) {
+          final location = _testModeQolipLocations[index];
+          if (location.qolipCode.trim().toLowerCase() != previous) {
+            continue;
+          }
+          _testModeQolipLocations[index] = QolipLocationEntry(
+            id: [
+              location.block,
+              location.itemCode,
+              saved.qolipCode,
+              saved.qolipSize,
+              location.rowLetter,
+              location.columnNumber ?? 0,
+            ].join(':'),
+            block: location.block,
+            warehouse: location.warehouse,
+            itemCode: saved.code,
+            itemName: saved.name,
+            qolipCode: saved.qolipCode,
+            size: saved.qolipSize,
+            quantity: location.quantity,
+            rowLetter: location.rowLetter,
+            columnNumber: location.columnNumber,
+            locationLabel: location.locationLabel,
+          );
+        }
       }
       _testModeQolipSpecs[saved.qolipCode.trim().toLowerCase()] = saved;
       return saved;
