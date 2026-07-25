@@ -23,6 +23,7 @@ import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
+import 'qolip_color_picker.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
@@ -3473,6 +3474,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   QolipProduct? _savedProductSpec;
+  String? _selectedColor;
   String? _rowLetter;
   int? _columnNumber;
   bool _saving = false;
@@ -3636,6 +3638,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
             _product?.hasQolipSpec == true) {
           _qolipCode.text = _product!.qolipCode;
           _size.text = _product!.qolipSize > 0 ? '${_product!.qolipSize}' : '';
+          _selectedColor = _product!.qolipColor.trim().isEmpty
+              ? null
+              : _product!.qolipColor;
         }
       });
     }
@@ -3658,6 +3663,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       setState(() {
         _product = product;
         _selectedProducts = <QolipProduct>[product];
+        _selectedColor = product.qolipColor.trim().isEmpty
+            ? null
+            : product.qolipColor;
       });
     } catch (_) {
       if (!mounted) {
@@ -3688,6 +3696,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         product: product,
         qolipCode: _qolipCode.text,
         size: size,
+        qolipColor: _selectedColor ?? '',
       );
       if (mounted) {
         setState(() {
@@ -3696,6 +3705,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           _savedProductSpec = saved;
           _qolipCode.text = saved.qolipCode;
           _size.text = saved.qolipSize > 0 ? '${saved.qolipSize}' : '';
+          _selectedColor = saved.qolipColor.trim().isEmpty
+              ? null
+              : saved.qolipColor;
         });
       }
     } finally {
@@ -4000,6 +4012,16 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textInputAction: TextInputAction.done,
                   onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Qolip rangi',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                QolipColorPicker(
+                  selectedColor: _selectedColor,
+                  onChanged: (color) => setState(() => _selectedColor = color),
                 ),
               ] else ...[
                 if (_selectedProducts.isNotEmpty &&

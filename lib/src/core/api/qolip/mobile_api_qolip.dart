@@ -315,6 +315,7 @@ extension MobileApiQolip on MobileApi {
               customerNames: item.customerNames,
               qolipCode: spec.qolipCode,
               qolipSize: spec.qolipSize,
+              qolipColor: spec.qolipColor,
               hasQolipSpec: spec.hasQolipSpec,
               isInUse: inUse,
             ),
@@ -350,6 +351,7 @@ extension MobileApiQolip on MobileApi {
             customerNames: spec.customerNames,
             qolipCode: spec.qolipCode,
             qolipSize: spec.qolipSize,
+            qolipColor: spec.qolipColor,
             hasQolipSpec: spec.hasQolipSpec,
             isInUse: _testModeQolipCheckouts.any(
               (checkout) =>
@@ -384,6 +386,7 @@ extension MobileApiQolip on MobileApi {
           customerNames: catalogProduct?.customerNames ?? const [],
           qolipCode: location.qolipCode,
           qolipSize: location.size,
+          qolipColor: _testModeQolipSpecs[qolipKey]?.qolipColor ?? '',
           hasQolipSpec: true,
           isInUse: _testModeQolipCheckouts.any(
             (checkout) =>
@@ -576,6 +579,7 @@ extension MobileApiQolip on MobileApi {
     required QolipProduct product,
     required String qolipCode,
     required int size,
+    String qolipColor = '',
     String? previousQolipCode,
   }) async {
     final saved = QolipProduct(
@@ -585,6 +589,7 @@ extension MobileApiQolip on MobileApi {
       customerNames: product.customerNames,
       qolipCode: qolipCode.trim(),
       qolipSize: size,
+      qolipColor: qolipColor.trim(),
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
@@ -655,6 +660,7 @@ extension MobileApiQolip on MobileApi {
           'item_name': product.name.trim(),
           'item_group': product.itemGroup.trim(),
           'qolip_code': qolipCode.trim(),
+          'color': qolipColor.trim(),
           if (previousQolipCode != null && previousQolipCode.trim().isNotEmpty)
             'previous_qolip_code': previousQolipCode.trim(),
           'size': size,

@@ -17,6 +17,7 @@ import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_home_screen.dart'
     show qolipPrinterChoiceForDriver, showQolipPrinterPicker;
+import 'qolip_color_picker.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -314,45 +315,70 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     }
     final code = TextEditingController(text: product.qolipCode);
     final size = TextEditingController(text: '${product.qolipSize}');
+    String? selectedColor = product.qolipColor.trim().isEmpty
+        ? null
+        : product.qolipColor;
     final draft = await showDialog<_QolipEditDraft>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Qolipni tahrirlash'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: code,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Qolip code'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Qolipni tahrirlash'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: code,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Qolip code'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: size,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Razmer'),
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Qolip rangi',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                QolipColorPicker(
+                  selectedColor: selectedColor,
+                  onChanged: (color) =>
+                      setDialogState(() => selectedColor = color),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: size,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Razmer'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final nextCode = code.text.trim();
+                final nextSize = int.tryParse(size.text.trim()) ?? 0;
+                if (nextCode.isEmpty || nextSize <= 0) {
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  _QolipEditDraft(
+                    code: nextCode,
+                    size: nextSize,
+                    color: selectedColor ?? '',
+                  ),
+                );
+              },
+              child: const Text('Saqlash'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final nextCode = code.text.trim();
-              final nextSize = int.tryParse(size.text.trim()) ?? 0;
-              if (nextCode.isEmpty || nextSize <= 0) {
-                return;
-              }
-              Navigator.of(dialogContext).pop(
-                _QolipEditDraft(code: nextCode, size: nextSize),
-              );
-            },
-            child: const Text('Saqlash'),
-          ),
-        ],
       ),
     );
     code.dispose();
@@ -365,6 +391,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         product: product,
         qolipCode: draft.code,
         size: draft.size,
+        qolipColor: draft.color,
         previousQolipCode: product.qolipCode,
       );
       if (!mounted) {
@@ -533,10 +560,15 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 enum _QolipSelectionMode { containers, qolips }
 
 class _QolipEditDraft {
-  const _QolipEditDraft({required this.code, required this.size});
+  const _QolipEditDraft({
+    required this.code,
+    required this.size,
+    required this.color,
+  });
 
   final String code;
   final int size;
+  final String color;
 }
 
 class QolipProductContainer {
@@ -838,6 +870,23 @@ class _QolipCodeRow extends StatelessWidget {
                   ),
                 ),
               ),
+              if (product.qolipColor.trim().isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Rang: ${product.qolipColor}',
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: qolipColorValue(product.qolipColor),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: scheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

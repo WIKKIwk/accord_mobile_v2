@@ -155,4 +155,25 @@ void main() {
     expect(products, isNotEmpty);
     expect(products.every((product) => product.name == 'Hotlunch'), isTrue);
   });
+
+  test('qolip color is saved and returned with the product', () async {
+    const product = QolipProduct(
+      code: 'DEMO-COLOR',
+      name: 'Rangli qolip',
+      itemGroup: 'Demo tayyor mahsulotlar',
+    );
+    final saved = await MobileApi.instance.qolipSaveProductSpec(
+      product: product,
+      qolipCode: 'Q-COLOR',
+      size: 42,
+      qolipColor: '#E53935',
+    );
+
+    expect(saved.qolipColor, '#E53935');
+    final products = await MobileApi.instance.qolipProducts(
+      query: 'Q-COLOR',
+      withQolipOnly: true,
+    );
+    expect(products.single.qolipColor, '#E53935');
+  });
 }

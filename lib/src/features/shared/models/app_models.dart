@@ -430,6 +430,7 @@ class QolipProduct {
     this.customerNames = const [],
     this.qolipCode = '',
     this.qolipSize = 0,
+    this.qolipColor = '',
     this.hasQolipSpec = false,
     this.isInUse = false,
   });
@@ -440,6 +441,7 @@ class QolipProduct {
   final List<String> customerNames;
   final String qolipCode;
   final int qolipSize;
+  final String qolipColor;
   final bool hasQolipSpec;
   final bool isInUse;
 
@@ -454,6 +456,7 @@ class QolipProduct {
           .toList(growable: false),
       qolipCode: json['qolip_code']?.toString() ?? '',
       qolipSize: (json['size'] as num?)?.toInt() ?? 0,
+      qolipColor: json['color']?.toString() ?? '',
       hasQolipSpec: json['has_qolip_spec'] == true,
       isInUse: json['is_in_use'] == true,
     );
