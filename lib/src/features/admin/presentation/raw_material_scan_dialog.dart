@@ -215,8 +215,10 @@ class _ProductionQuickScannerPanelState
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                ColoredBox(
-                                  color: Colors.black.withValues(alpha: 0.18),
+                                CustomPaint(
+                                  painter: _QuickScannerCutoutPainter(
+                                    window: scanWindow,
+                                  ),
                                 ),
                                 Center(
                                   child: CustomPaint(
@@ -278,6 +280,28 @@ class _ProductionQuickScannerPanelState
         ],
       ),
     );
+  }
+}
+
+class _QuickScannerCutoutPainter extends CustomPainter {
+  const _QuickScannerCutoutPainter({required this.window});
+
+  final Rect window;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final mask = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(
+        RRect.fromRectAndRadius(window, const Radius.circular(24)),
+      );
+    canvas.drawPath(mask, Paint()..color = Colors.black);
+  }
+
+  @override
+  bool shouldRepaint(covariant _QuickScannerCutoutPainter oldDelegate) {
+    return oldDelegate.window != window;
   }
 }
 
