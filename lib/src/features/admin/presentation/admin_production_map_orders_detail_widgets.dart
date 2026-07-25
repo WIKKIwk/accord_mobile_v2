@@ -18,6 +18,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
+    required this.quickScanStatus,
+    required this.quickScanInFlight,
+    required this.showQuickScanner,
+    required this.onQuickScan,
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.mapExpanded,
@@ -48,6 +52,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
+  final String quickScanStatus;
+  final bool quickScanInFlight;
+  final bool showQuickScanner;
+  final Future<void> Function(String rawValue) onQuickScan;
   final bool requiresQolipScan;
   final bool qolipScanned;
   final bool mapExpanded;
@@ -81,6 +89,14 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
             children: [
+              if (showQuickScanner) ...[
+                ProductionQuickScannerPanel(
+                  statusText: quickScanStatus,
+                  busy: quickScanInFlight,
+                  onCodeDetected: onQuickScan,
+                ),
+                const SizedBox(height: 10),
+              ],
               _OrderSummaryCard(
                 map: map,
                 baseMetraj: baseMetraj,
@@ -111,6 +127,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 inputProgressBatches: inputProgressBatches,
                 inputProgressLoading: inputProgressLoading,
                 inputProgressError: inputProgressError,
+                showEmbeddedQuickScanner: showQuickScanner,
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
                 rezkaInstructionLines: rezkaInstructionLines,
@@ -523,6 +540,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.inputProgressBatches,
     required this.inputProgressLoading,
     required this.inputProgressError,
+    required this.showEmbeddedQuickScanner,
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.rezkaInstructionLines,
@@ -559,6 +577,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
   final String inputProgressError;
+  final bool showEmbeddedQuickScanner;
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> rezkaInstructionLines;
@@ -765,7 +784,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             Divider(
                 height: 28,
                 color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            if (showStart && hasMaterialAssignments)
+            if (showStart &&
+                hasMaterialAssignments &&
+                !showEmbeddedQuickScanner)
               FilledButton.tonalIcon(
                 onPressed:
                     actionInFlight || orderControlBlocked || allMaterialsScanned
@@ -788,8 +809,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   ),
                 ),
               ),
-            if (showStart && hasMaterialAssignments) const SizedBox(height: 10),
-            if (showStart && requiresQolipScan) ...[
+            if (showStart &&
+                hasMaterialAssignments &&
+                !showEmbeddedQuickScanner)
+              const SizedBox(height: 10),
+            if (showStart &&
+                requiresQolipScan &&
+                !showEmbeddedQuickScanner) ...[
               FilledButton.tonalIcon(
                 onPressed: actionInFlight || orderControlBlocked || qolipScanned
                     ? null
@@ -820,6 +846,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 loading: inputProgressLoading,
                 error: inputProgressError,
                 actionInFlight: actionInFlight,
+                embeddedScanner: showEmbeddedQuickScanner,
                 onScan: onProgressScan,
               ),
               const SizedBox(height: 10),

@@ -27,7 +27,6 @@ import '../../boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import '../../boyoqchi/state/returned_paint_draft_store.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
-import '../../qolip/presentation/qolip_cell_qr_scan_screen.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';

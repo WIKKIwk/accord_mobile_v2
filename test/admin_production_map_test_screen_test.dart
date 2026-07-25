@@ -3644,13 +3644,23 @@ void main() {
 
     final previousQrLabel = find.text('Oldingi bosqich QR');
     expect(previousQrLabel, findsOneWidget);
-    expect(find.text('Scan'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('production-quick-scanner-manual')),
+      findsOneWidget,
+    );
     expect(
       find.text('Oldingi bosqichdan kelgan mahsulotlar'),
       findsOneWidget,
     );
     expect(tester.getSize(previousQrLabel).width, greaterThan(120));
-    expect(tester.getRect(find.text('Scan')).right, lessThan(360));
+    expect(
+      tester
+          .getRect(
+            find.byKey(const ValueKey('production-quick-scanner-manual')),
+          )
+          .right,
+      lessThan(360),
+    );
   });
 
   testWidgets(
@@ -3911,31 +3921,25 @@ void main() {
 }
 
 Future<void> _completeQolipScan(WidgetTester tester) async {
-  final scanButton = find.text('Qolip QR scan');
-  final requiresSeparateScan = scanButton.evaluate().isNotEmpty;
-  if (requiresSeparateScan) {
-    await MobileApi.instance.qolipSaveProductSpec(
-      product: const QolipProduct(
-        code: 'DEMO-CPP',
-        name: 'CPP sous',
-        itemGroup: 'Demo xomashyo',
-      ),
-      qolipCode: 'TEST-QOLIP-QR',
-      size: 50,
-    );
-    await tester.tap(scanButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-  }
-  final title = find.text('Qolip scan');
-  await tester.pump();
-  expect(title, findsOneWidget);
-  Navigator.of(tester.element(title)).pop<String>('TEST-QOLIP-QR');
+  await MobileApi.instance.qolipSaveProductSpec(
+    product: const QolipProduct(
+      code: 'DEMO-CPP',
+      name: 'CPP sous',
+      itemGroup: 'Demo xomashyo',
+    ),
+    qolipCode: 'TEST-QOLIP-QR',
+    size: 50,
+  );
+  final input = find.byKey(
+    const ValueKey('production-quick-scanner-manual'),
+  );
+  expect(input, findsOneWidget);
+  await tester.enterText(input, 'TEST-QOLIP-QR');
+  await tester.tap(find.byTooltip('Qabul qilish'));
   await tester.pumpAndSettle();
-  if (requiresSeparateScan) {
-    await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
-  }
+  expect(find.text('Qolip tasdiqlandi'), findsOneWidget);
+  await tester.tap(find.text('Boshlash'));
+  await tester.pumpAndSettle();
 }
 
 ProductionMapDefinition _alternativeProductionOrderMap({

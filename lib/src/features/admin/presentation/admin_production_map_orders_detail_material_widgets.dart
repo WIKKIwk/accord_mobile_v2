@@ -9,6 +9,7 @@ class _PreviousProgressQrTile extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.actionInFlight,
+    required this.embeddedScanner,
     required this.onScan,
   });
 
@@ -19,6 +20,7 @@ class _PreviousProgressQrTile extends StatelessWidget {
   final bool loading;
   final String error;
   final bool actionInFlight;
+  final bool embeddedScanner;
   final VoidCallback? onScan;
 
   @override
@@ -89,19 +91,20 @@ class _PreviousProgressQrTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          FilledButton.tonalIcon(
-            onPressed: actionInFlight ? null : onScan,
-            icon: Icon(
-              ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
-            ),
-            label: Text(ready ? 'Qayta scan' : 'Scan'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          if (!embeddedScanner)
+            FilledButton.tonalIcon(
+              onPressed: actionInFlight ? null : onScan,
+              icon: Icon(
+                ready ? Icons.refresh_rounded : Icons.qr_code_scanner_rounded,
+              ),
+              label: Text(ready ? 'Qayta scan' : 'Scan'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 12),
           _InputProgressBatchList(
             previousStage: previousStage,

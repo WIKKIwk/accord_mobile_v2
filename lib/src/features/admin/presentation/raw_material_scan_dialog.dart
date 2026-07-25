@@ -43,6 +43,349 @@ String rawMaterialBarcodeFromQr(String raw) {
   return value;
 }
 
+class ProductionQuickScannerPanel extends StatefulWidget {
+  const ProductionQuickScannerPanel({
+    super.key,
+    required this.onCodeDetected,
+    required this.statusText,
+    this.busy = false,
+  });
+
+  final Future<void> Function(String rawValue) onCodeDetected;
+  final String statusText;
+  final bool busy;
+
+  @override
+  State<ProductionQuickScannerPanel> createState() =>
+      _ProductionQuickScannerPanelState();
+}
+
+class _ProductionQuickScannerPanelState
+    extends State<ProductionQuickScannerPanel> {
+  MobileScannerController? _controller;
+  final _manualController = TextEditingController();
+  bool _processing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_supportsScanner) {
+      _controller = MobileScannerController(
+        autoStart: false,
+        autoZoom: true,
+        facing: CameraFacing.back,
+        detectionSpeed: DetectionSpeed.noDuplicates,
+        formats: const [BarcodeFormat.qrCode],
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_startScanner());
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _manualController.dispose();
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(controller.dispose());
+    }
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductionQuickScannerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.busy == widget.busy) {
+      return;
+    }
+    if (widget.busy) {
+      unawaited(_stopScanner());
+    } else if (!_processing) {
+      unawaited(_startScanner());
+    }
+  }
+
+  static bool get _supportsScanner {
+    if (kIsWeb) {
+      return true;
+    }
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+  }
+
+  Future<void> _startScanner() async {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    try {
+      await controller.start();
+    } catch (_) {
+      // MobileScanner renders its own camera error state when permission or
+      // initialization fails. Manual entry remains available below it.
+    }
+  }
+
+  Future<void> _stopScanner() async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    try {
+      await controller.stop();
+    } catch (_) {
+      // Best-effort pause while the current QR is being validated.
+    }
+  }
+
+  Future<void> _handleDetect(BarcodeCapture capture) async {
+    if (_processing || widget.busy) {
+      return;
+    }
+    final rawValue = _firstBarcodeValue(capture);
+    if (rawValue.isEmpty) {
+      return;
+    }
+    setState(() => _processing = true);
+    await _stopScanner();
+    try {
+      await widget.onCodeDetected(rawValue);
+    } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+        if (!widget.busy) {
+          await _startScanner();
+        }
+      }
+    }
+  }
+
+  String _firstBarcodeValue(BarcodeCapture capture) {
+    for (final barcode in capture.barcodes) {
+      final rawValue = barcode.rawValue?.trim() ?? '';
+      if (rawValue.isNotEmpty) {
+        return rawValue;
+      }
+      final displayValue = barcode.displayValue?.trim() ?? '';
+      if (displayValue.isNotEmpty) {
+        return displayValue;
+      }
+    }
+    return '';
+  }
+
+  void _submitManualValue() {
+    final value = _manualController.text.trim();
+    if (value.isEmpty || _processing) {
+      return;
+    }
+    unawaited(_handleManualValue(value));
+  }
+
+  Future<void> _handleManualValue(String value) async {
+    setState(() => _processing = true);
+    try {
+      await widget.onCodeDetected(value);
+      _manualController.clear();
+    } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final controller = _controller;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      color: Colors.black,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 248,
+            child: controller == null
+                ? const _QuickScannerUnavailableView()
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final size = math.min(
+                        constraints.maxWidth,
+                        constraints.maxHeight,
+                      );
+                      final frameSize = size.clamp(190.0, 218.0);
+                      final scanWindow = Rect.fromCenter(
+                        center: Offset(
+                          constraints.maxWidth / 2,
+                          constraints.maxHeight / 2,
+                        ),
+                        width: frameSize,
+                        height: frameSize,
+                      );
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          MobileScanner(
+                            controller: controller,
+                            fit: BoxFit.cover,
+                            useAppLifecycleState: true,
+                            scanWindow: scanWindow,
+                            tapToFocus: true,
+                            onDetect: _handleDetect,
+                            errorBuilder: (context, error) =>
+                                const _QuickScannerUnavailableView(),
+                          ),
+                          IgnorePointer(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ColoredBox(
+                                  color: Colors.black.withValues(alpha: 0.18),
+                                ),
+                                Center(
+                                  child: CustomPaint(
+                                    size: Size.square(frameSize),
+                                    painter: _RawMaterialScannerGridPainter(),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _QuickScannerStatus(
+                                      text: _processing || widget.busy
+                                          ? 'QR tekshirilmoqda...'
+                                          : widget.statusText,
+                                      busy: _processing || widget.busy,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          ColoredBox(
+            color: scheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('production-quick-scanner-manual'),
+                      controller: _manualController,
+                      enabled: !_processing && !widget.busy,
+                      decoration: const InputDecoration(
+                        labelText: 'QR / barcode',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _submitManualValue(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    tooltip: 'Qabul qilish',
+                    onPressed:
+                        _processing || widget.busy ? null : _submitManualValue,
+                    icon: const Icon(Icons.check_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickScannerStatus extends StatelessWidget {
+  const _QuickScannerStatus({required this.text, required this.busy});
+
+  final String text;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (busy) ...[
+              const SizedBox.square(
+                dimension: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ] else ...[
+              const Icon(
+                Icons.qr_code_scanner_rounded,
+                size: 17,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+            ],
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 250),
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickScannerUnavailableView extends StatelessWidget {
+  const _QuickScannerUnavailableView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'Kamera ochilmadi. Quyidagi maydonga QR yoki barcode kiriting.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class RawMaterialScanDialog extends StatefulWidget {
   const RawMaterialScanDialog({
     super.key,

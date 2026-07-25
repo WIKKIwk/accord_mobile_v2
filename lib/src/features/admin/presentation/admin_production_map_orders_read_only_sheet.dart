@@ -52,6 +52,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
   String _scannedQolipCode = '';
+  String _quickScanStatus =
+      'Qolip yoki homashyo QR kodini tirqishga olib keling';
+  bool _quickScanInFlight = false;
+  String _lastQuickScanValue = '';
+  DateTime? _lastQuickScanAt;
   AdminProgressBatch? _startInputProgressBatch;
   bool _actionInFlight = false;
   bool _materialsLoading = true;
@@ -125,6 +130,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
       _scannedQolipCode = '';
+      _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
+      _lastQuickScanValue = '';
+      _lastQuickScanAt = null;
       _startInputProgressBatch = null;
       _availableInputProgressBatches = const [];
       _inputProgressError = '';
@@ -314,19 +322,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (_scannedQolipCode.trim().isNotEmpty) {
       return _scannedQolipCode.trim();
     }
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (context) => const QolipRawQrScanScreen()),
+    _showSheetNotice(
+      'Avval yuqoridagi embedded scanner orqali qolip QR scan qiling',
     );
-    if (!mounted || code == null || code.trim().isEmpty) {
-      return null;
-    }
-    setState(() => _scannedQolipCode = code.trim());
-    return code.trim();
+    return null;
   }
 
   Future<void> _scanQolip() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (context) => const QolipRawQrScanScreen()),
+    final code = await showRawMaterialScanDialog(
+      context,
+      title: 'Qolip QR',
+      manualLabel: 'Qolip kodi',
     );
     if (!mounted || code == null || code.trim().isEmpty) {
       return;
@@ -348,6 +354,152 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() => _scannedQolipCode = '');
       _showSheetNotice(_readOnlyQueueActionErrorText(error));
     }
+  }
+
+  Future<void> _handleQuickScan(String rawValue) async {
+    final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastQuickScanValue == normalized &&
+        _lastQuickScanAt != null &&
+        now.difference(_lastQuickScanAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastQuickScanValue = normalized;
+    _lastQuickScanAt = now;
+    if (mounted) {
+      setState(() {
+        _quickScanInFlight = true;
+        _quickScanStatus = 'QR tekshirilmoqda...';
+      });
+    }
+
+    try {
+      final orderId = widget.order.map.id.trim();
+      final station = widget.apparatus?.name.trim() ?? '';
+      final assignments = _stationMaterialAssignments(
+        assignments: _materialAssignments,
+        orderId: orderId,
+        station: station,
+      );
+      final material = _materialAssignmentForScannedBarcode(
+        assignments: assignments,
+        barcode: normalized,
+      );
+      if (material != null) {
+        final key = _materialBarcodeKey(material.barcode);
+        final alreadyScanned = _scannedMaterialBarcodes.contains(key);
+        if (!alreadyScanned && mounted) {
+          setState(() => _scannedMaterialBarcodes.add(key));
+        }
+        if (mounted) {
+          final complete = _materialScanCompleted(
+            assignments: assignments,
+            scannedBarcodes: _scannedMaterialBarcodes,
+            orderId: orderId,
+          );
+          setState(() {
+            _quickScanStatus = complete
+                ? 'Barcha homashyolar tasdiqlandi'
+                : '${material.itemName.trim().isEmpty ? material.itemCode : material.itemName} tasdiqlandi';
+          });
+        }
+        return;
+      }
+
+      Object? scanError;
+      if (_apparatusRequiresQolipScan(station)) {
+        try {
+          await MobileApi.instance.adminValidateProductionMapQolip(
+            apparatus: station,
+            orderId: orderId,
+            qolipCode: normalized,
+          );
+          if (mounted) {
+            setState(() {
+              _scannedQolipCode = normalized;
+              _quickScanStatus = 'Qolip tasdiqlandi';
+            });
+          }
+          return;
+        } catch (error) {
+          scanError = error;
+          // The same QR may be a progress QR on a later production stage.
+        }
+      }
+
+      final previousStage = productionMapPreviousWorkStageStation(
+        map: widget.order.map,
+        station: station,
+      );
+      if (previousStage != null && _startInputProgressBatch == null) {
+        try {
+          final batch = await MobileApi.instance.adminProgressQrLookup(
+            normalized,
+          );
+          final accepted = await _acceptProgressBatch(batch, previousStage);
+          if (accepted) {
+            return;
+          }
+          return;
+        } catch (error) {
+          scanError ??= error;
+          // Unknown QR values are reported below and scanning continues.
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _quickScanStatus = scanError == null
+              ? 'Bu QR ushbu order uchun mos emas'
+              : _readOnlyQueueActionErrorText(scanError);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _quickScanInFlight = false);
+      }
+    }
+  }
+
+  Future<bool> _acceptProgressBatch(
+    AdminProgressBatch batch,
+    String previousStage,
+  ) async {
+    if (!_progressBatchMatchesPreviousStage(
+      batch: batch,
+      orderId: widget.order.map.id.trim(),
+      previousStage: previousStage,
+    )) {
+      if (mounted) {
+        setState(() => _quickScanStatus = 'Bu QR oldingi bosqichga mos emas');
+      }
+      return false;
+    }
+    final latest = await _fetchInputProgressBatches(previousStage);
+    if (!mounted) {
+      return false;
+    }
+    final match = _matchingInputProgressBatch(batches: latest, batch: batch);
+    if (match == null) {
+      setState(() {
+        _availableInputProgressBatches = latest;
+        _inputProgressLoading = false;
+        _inputProgressError = '';
+        _quickScanStatus = 'Bu WIP QR ushbu order ro‘yxatida topilmadi';
+      });
+      return false;
+    }
+    setState(() {
+      _availableInputProgressBatches = latest;
+      _startInputProgressBatch = match;
+      _inputProgressLoading = false;
+      _inputProgressError = '';
+      _quickScanStatus = 'Oldingi bosqich QR tasdiqlandi';
+    });
+    return true;
   }
 
   Future<void> _runInitialPauseFlow() async {
@@ -465,40 +617,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (batch == null) {
         return;
       }
-      if (!_progressBatchMatchesPreviousStage(
-        batch: batch,
-        orderId: widget.order.map.id.trim(),
-        previousStage: previousStage,
-      )) {
-        _showSheetNotice('Bu QR oldingi bosqich mahsulotiga mos emas');
-        return;
+      final accepted = await _acceptProgressBatch(batch, previousStage);
+      if (accepted && mounted) {
+        _showSheetNotice('Oldingi bosqich QR tasdiqlandi');
+      } else if (mounted) {
+        _showSheetNotice(_quickScanStatus);
       }
-      final latest = await _fetchInputProgressBatches(previousStage);
-      if (!mounted) {
-        return;
-      }
-      final match = _matchingInputProgressBatch(
-        batches: latest,
-        batch: batch,
-      );
-      if (match == null) {
-        _showSheetNotice(
-          'Bu QR ushbu orderning ${widget.apparatus?.name.trim() ?? ''} WIP listida topilmadi',
-        );
-        setState(() {
-          _availableInputProgressBatches = latest;
-          _inputProgressLoading = false;
-          _inputProgressError = '';
-        });
-        return;
-      }
-      setState(() {
-        _availableInputProgressBatches = latest;
-        _startInputProgressBatch = match;
-        _inputProgressLoading = false;
-        _inputProgressError = '';
-      });
-      _showSheetNotice('Oldingi bosqich QR tasdiqlandi');
     } catch (error) {
       if (!mounted) {
         return;
@@ -616,6 +740,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       inputProgressBatches: _availableInputProgressBatches,
       inputProgressLoading: _inputProgressLoading,
       inputProgressError: _inputProgressError,
+      quickScanStatus: _quickScanStatus,
+      quickScanInFlight: _quickScanInFlight,
+      showQuickScanner: uiState.showStart,
+      onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,
       mapExpanded: _mapExpanded,
