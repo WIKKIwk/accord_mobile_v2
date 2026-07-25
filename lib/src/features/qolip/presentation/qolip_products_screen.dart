@@ -396,26 +396,35 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final nextCode = code.text.trim();
-                final nextSize = int.tryParse(size.text.trim()) ?? 0;
-                if (nextCode.isEmpty || nextSize <= 0) {
-                  return;
-                }
-                Navigator.of(dialogContext).pop(
-                  _QolipEditDraft(
-                    code: nextCode,
-                    size: nextSize,
-                    color: selectedColor ?? '',
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    onPressed: () {
+                      final nextCode = code.text.trim();
+                      final nextSize = int.tryParse(size.text.trim()) ?? 0;
+                      if (nextCode.isEmpty || nextSize <= 0) {
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop(
+                        _QolipEditDraft(
+                          code: nextCode,
+                          size: nextSize,
+                          color: selectedColor ?? '',
+                        ),
+                      );
+                    },
+                    child: const Text('Saqlash'),
                   ),
-                );
-              },
-              child: const Text('Saqlash'),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
