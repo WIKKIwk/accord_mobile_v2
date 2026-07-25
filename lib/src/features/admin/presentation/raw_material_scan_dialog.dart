@@ -93,19 +93,6 @@ class _ProductionQuickScannerPanelState
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(covariant ProductionQuickScannerPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.busy == widget.busy) {
-      return;
-    }
-    if (widget.busy) {
-      unawaited(_stopScanner());
-    } else if (!_processing) {
-      unawaited(_startScanner());
-    }
-  }
-
   static bool get _supportsScanner {
     if (kIsWeb) {
       return true;
@@ -128,18 +115,6 @@ class _ProductionQuickScannerPanelState
     }
   }
 
-  Future<void> _stopScanner() async {
-    final controller = _controller;
-    if (controller == null) {
-      return;
-    }
-    try {
-      await controller.stop();
-    } catch (_) {
-      // Best-effort pause while the current QR is being validated.
-    }
-  }
-
   Future<void> _handleDetect(BarcodeCapture capture) async {
     if (_processing || widget.busy) {
       return;
@@ -149,15 +124,11 @@ class _ProductionQuickScannerPanelState
       return;
     }
     setState(() => _processing = true);
-    await _stopScanner();
     try {
       await widget.onCodeDetected(rawValue);
     } finally {
       if (mounted) {
         setState(() => _processing = false);
-        if (!widget.busy) {
-          await _startScanner();
-        }
       }
     }
   }
