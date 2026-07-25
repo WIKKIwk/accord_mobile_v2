@@ -1670,6 +1670,10 @@ void main() {
         find.text('Kutilayotgan buyurtma ko‘rsatkichlari'),
         findsOneWidget,
       );
+      expect(find.text('Metraj'), findsNothing);
+      expect(find.text('Val'), findsNothing);
+      await tester.tap(find.text('Kutilayotgan buyurtma ko‘rsatkichlari'));
+      await tester.pumpAndSettle();
       expect(find.text('Metraj'), findsOneWidget);
       expect(find.text('Val'), findsOneWidget);
 

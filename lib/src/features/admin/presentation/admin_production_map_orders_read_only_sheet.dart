@@ -776,7 +776,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onToggleMapExpanded: () {
         setState(() => _mapExpanded = !_mapExpanded);
       },
-      summaryExpanded: _summaryExpanded || !uiState.showStart,
+      summaryExpanded: _summaryExpanded,
       onToggleSummaryExpanded: () {
         setState(() => _summaryExpanded = !_summaryExpanded);
       },
