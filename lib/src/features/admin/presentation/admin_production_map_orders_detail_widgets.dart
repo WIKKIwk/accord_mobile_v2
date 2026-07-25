@@ -665,6 +665,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         showComplete ||
         showResume ||
         showWaitingForPrevious;
+    final customer = customerName?.trim() ?? '';
+    final product = productTitle.trim();
+    final orderProductLabel = customer.isEmpty
+        ? product
+        : product.isEmpty
+            ? customer
+            : '$customer • $product';
 
     return _orderDetailSurfaceCard(
       context: context,
@@ -688,45 +695,45 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (customerName?.trim().isNotEmpty == true) ...[
-                      Text(
-                        '${customerName!.trim()} • ${productTitle.trim()}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                    SizedBox(
+                      width: 78,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Zakaz kodi',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            orderCode.trim().isEmpty ? '-' : orderCode.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Text(
+                          orderProductLabel.isEmpty ? '-' : orderProductLabel,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    Text(
-                      'Zakaz kodi',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      orderCode.trim().isEmpty ? '-' : orderCode.trim(),
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Mahsulot',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      productTitle.trim().isEmpty ? '-' : productTitle.trim(),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
