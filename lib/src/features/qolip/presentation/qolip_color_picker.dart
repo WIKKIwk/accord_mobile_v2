@@ -25,20 +25,15 @@ const qolipDefaultColors = <QolipColorOption>[
   QolipColorOption(name: 'Qora', value: '#212121'),
 ];
 
-const qolipPantonColorValue = 'PANTON';
+const qolipPantonPrefix = 'PANTON';
 
-const qolipPantonColors = <QolipColorOption>[
-  QolipColorOption(name: 'Panton 1', value: 'PANTON 1'),
-  QolipColorOption(name: 'Panton 2', value: 'PANTON 2'),
-  QolipColorOption(name: 'Panton 3', value: 'PANTON 3'),
-  QolipColorOption(name: 'Panton 4', value: 'PANTON 4'),
-  QolipColorOption(name: 'Panton 5', value: 'PANTON 5'),
-  QolipColorOption(name: 'Panton 6', value: 'PANTON 6'),
-  QolipColorOption(name: 'Panton 7', value: 'PANTON 7'),
-];
+String qolipPantonColorValue(int number) => '$qolipPantonPrefix $number';
 
-bool qolipIsPantonColor(String value) =>
-    value.trim().toUpperCase().startsWith(qolipPantonColorValue);
+int? qolipPantonNumber(String value) {
+  final match = RegExp(r'^PANTON\s+([1-7])$')
+      .firstMatch(value.trim().toUpperCase());
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
 
 Color qolipColorValue(String value) {
   final normalized = value.trim().replaceFirst('#', '');
@@ -46,22 +41,23 @@ Color qolipColorValue(String value) {
   return Color(0xFF000000 | (parsed ?? 0x757575));
 }
 
-bool _isPantonOption(QolipColorOption option) =>
-    qolipIsPantonColor(option.value);
-
 class QolipColorPicker extends StatelessWidget {
   const QolipColorPicker({
     super.key,
     required this.selectedColor,
     required this.onChanged,
+    this.availablePantonNumber = 1,
   });
 
   final String? selectedColor;
   final ValueChanged<String> onChanged;
+  final int? availablePantonNumber;
 
   @override
   Widget build(BuildContext context) {
     final selected = selectedColor?.trim().toUpperCase();
+    final selectedPantonNumber = qolipPantonNumber(selectedColor ?? '');
+    final pantonNumber = selectedPantonNumber ?? availablePantonNumber;
     return Wrap(
       spacing: 4,
       runSpacing: 6,
@@ -73,12 +69,15 @@ class QolipColorPicker extends StatelessWidget {
             isPanton: false,
             onTap: () => onChanged(option.value),
           ),
-        for (final option in qolipPantonColors)
+        if (pantonNumber != null)
           _QolipColorTile(
-            option: option,
-            selected: selected == option.value,
-            isPanton: _isPantonOption(option),
-            onTap: () => onChanged(option.value),
+            option: QolipColorOption(
+              name: 'Panton $pantonNumber',
+              value: qolipPantonColorValue(pantonNumber),
+            ),
+            selected: selectedPantonNumber == pantonNumber,
+            isPanton: true,
+            onTap: () => onChanged(qolipPantonColorValue(pantonNumber)),
           ),
       ],
     );

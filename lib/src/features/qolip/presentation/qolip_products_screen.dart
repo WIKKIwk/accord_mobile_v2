@@ -309,6 +309,26 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     );
   }
 
+  int? _availablePantonNumber(QolipProduct product) {
+    final currentCode = product.qolipCode.trim().toLowerCase();
+    final used = <int>{};
+    for (final item in _cachedProducts ?? const <QolipProduct>[]) {
+      if (item.qolipCode.trim().toLowerCase() == currentCode) {
+        continue;
+      }
+      final number = qolipPantonNumber(item.qolipColor);
+      if (number != null) {
+        used.add(number);
+      }
+    }
+    for (var number = 1; number <= 7; number++) {
+      if (!used.contains(number)) {
+        return number;
+      }
+    }
+    return null;
+  }
+
   Future<void> _editQolip(QolipProduct product) async {
     if (product.isInUse) {
       return;
@@ -389,6 +409,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                 const SizedBox(height: 8),
                 QolipColorPicker(
                   selectedColor: selectedColor,
+                  availablePantonNumber: _availablePantonNumber(product),
                   onChanged: (color) =>
                       setDialogState(() => selectedColor = color),
                 ),

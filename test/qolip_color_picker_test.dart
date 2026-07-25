@@ -9,18 +9,10 @@ void main() {
         hasLength(12));
   });
 
-  test('qolip has seven Panton color options', () {
-    expect(qolipPantonColors, hasLength(7));
-    expect(qolipPantonColors.map((option) => option.name),
-        orderedEquals(const [
-          'Panton 1',
-          'Panton 2',
-          'Panton 3',
-          'Panton 4',
-          'Panton 5',
-          'Panton 6',
-          'Panton 7',
-        ]));
+  test('qolip Panton numbers are limited to one through seven', () {
+    expect(qolipPantonNumber('PANTON 1'), 1);
+    expect(qolipPantonNumber('PANTON 7'), 7);
+    expect(qolipPantonNumber('PANTON 8'), isNull);
   });
 
   testWidgets('qolip color picker renders every default color', (tester) async {
@@ -39,8 +31,7 @@ void main() {
     for (final option in qolipDefaultColors) {
       expect(find.bySemanticsLabel(option.name), findsOneWidget);
     }
-    for (final option in qolipPantonColors) {
-      expect(find.bySemanticsLabel(option.name), findsOneWidget);
-    }
+    expect(find.bySemanticsLabel('Panton 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Panton 2'), findsNothing);
   });
 }
