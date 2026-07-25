@@ -65,6 +65,7 @@ class _ProductionQuickScannerPanelState
   MobileScannerController? _controller;
   final _manualController = TextEditingController();
   bool _processing = false;
+  bool _manualEntryVisible = false;
 
   @override
   void initState() {
@@ -234,6 +235,38 @@ class _ProductionQuickScannerPanelState
                                       ],
                                     ),
                                   ),
+                                  Positioned(
+                                    right: 8,
+                                    bottom: 8,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.58,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: IconButton(
+                                        key: const ValueKey(
+                                          'production-quick-scanner-manual-toggle',
+                                        ),
+                                        tooltip: _manualEntryVisible
+                                            ? 'Barcode maydonini yopish'
+                                            : 'Barcode kiritish',
+                                        onPressed: () {
+                                          setState(() {
+                                            _manualEntryVisible =
+                                                !_manualEntryVisible;
+                                          });
+                                        },
+                                        color: Colors.white,
+                                        icon: Icon(
+                                          _manualEntryVisible
+                                              ? Icons.close_rounded
+                                              : Icons.edit_rounded,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -243,37 +276,39 @@ class _ProductionQuickScannerPanelState
                     },
                   ),
           ),
-          ColoredBox(
-            color: scheme.surface,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('production-quick-scanner-manual'),
-                      controller: _manualController,
-                      enabled: !_processing && !widget.busy,
-                      decoration: const InputDecoration(
-                        labelText: 'QR / barcode',
-                        isDense: true,
-                        border: OutlineInputBorder(),
+          if (_manualEntryVisible)
+            ColoredBox(
+              color: scheme.surface,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('production-quick-scanner-manual'),
+                        controller: _manualController,
+                        enabled: !_processing && !widget.busy,
+                        decoration: const InputDecoration(
+                          labelText: 'QR / barcode',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _submitManualValue(),
                       ),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _submitManualValue(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: 'Qabul qilish',
-                    onPressed:
-                        _processing || widget.busy ? null : _submitManualValue,
-                    icon: const Icon(Icons.check_rounded),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      tooltip: 'Qabul qilish',
+                      onPressed: _processing || widget.busy
+                          ? null
+                          : _submitManualValue,
+                      icon: const Icon(Icons.check_rounded),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
