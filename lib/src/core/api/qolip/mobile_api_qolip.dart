@@ -629,7 +629,11 @@ extension MobileApiQolip on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Qolip product spec save failed');
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_product_spec_save_failed',
+        fallbackMessage: 'Qolip tahrirlanmadi',
+      );
     }
     final data = await decodeJsonMapPayload(response.body);
     return QolipProduct.fromJson(
