@@ -22,6 +22,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.quickScanInFlight,
     required this.showQuickScanner,
     required this.onQuickScan,
+    required this.summaryExpanded,
+    required this.onToggleSummaryExpanded,
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.mapExpanded,
@@ -56,6 +58,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool quickScanInFlight;
   final bool showQuickScanner;
   final Future<void> Function(String rawValue) onQuickScan;
+  final bool summaryExpanded;
+  final VoidCallback onToggleSummaryExpanded;
   final bool requiresQolipScan;
   final bool qolipScanned;
   final bool mapExpanded;
@@ -97,12 +101,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
               ],
-              _OrderSummaryCard(
-                map: map,
-                baseMetraj: baseMetraj,
-                orderKg: orderKg,
-              ),
-              const SizedBox(height: 10),
               _OrderStartUnifiedCard(
                 orderCode: _openedOrderDisplayCode(map),
                 productTitle: _openedOrderPrimaryTitle(map),
@@ -141,6 +139,14 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 orderControlState: orderControlState,
               ),
               const SizedBox(height: 10),
+              _OrderSummaryCard(
+                map: map,
+                baseMetraj: baseMetraj,
+                orderKg: orderKg,
+                expanded: summaryExpanded,
+                onToggleExpanded: onToggleSummaryExpanded,
+              ),
+              const SizedBox(height: 10),
               _OrderMapProgressCard(
                 steps: steps,
                 orderId: uiState.orderId,
@@ -163,15 +169,20 @@ class _OrderSummaryCard extends StatelessWidget {
     required this.map,
     this.baseMetraj,
     this.orderKg,
+    required this.expanded,
+    required this.onToggleExpanded,
   });
 
   final ProductionMapDefinition map;
   final double? baseMetraj;
   final double? orderKg;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final rows = <Widget>[];
     final baseLength = baseMetraj ?? map.baseLength;
     if (baseLength != null && baseLength > 0) {
@@ -213,17 +224,68 @@ class _OrderSummaryCard extends StatelessWidget {
     }
     return _orderDetailSurfaceCard(
       context: context,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Kutilayotgan buyurtma ko‘rsatkichlari',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onToggleExpanded,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.analytics_outlined,
+                    color: scheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Kutilayotgan buyurtma ko‘rsatkichlari',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Buyurtma bo‘yicha taxminiy ma’lumotlar',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          ...rows,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    child: Column(children: rows),
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );

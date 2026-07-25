@@ -64,6 +64,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
   bool _mapExpanded = false;
+  bool _summaryExpanded = false;
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
 
@@ -749,6 +750,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       mapExpanded: _mapExpanded,
       onToggleMapExpanded: () {
         setState(() => _mapExpanded = !_mapExpanded);
+      },
+      summaryExpanded: _summaryExpanded || !uiState.showStart,
+      onToggleSummaryExpanded: () {
+        setState(() => _summaryExpanded = !_summaryExpanded);
       },
       onScan: () => unawaited(_scanMaterial()),
       onProgressScan: uiState.previousStage == null
