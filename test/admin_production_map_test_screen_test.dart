@@ -1771,6 +1771,102 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
+  testWidgets('admin sequence excludes completed apparatus orders', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const completedOrderId = 'zakaz-admin-sequence-completed';
+    const pendingOrderId = 'zakaz-admin-sequence-pending';
+    await MobileApi.instance.adminSaveProductionMap(
+      _twoStageProductionOrderMap(
+        id: completedOrderId,
+        title: 'Admin sequence completed order',
+        productCode: 'ASC-A',
+        product: 'admin sequence completed product',
+        firstApparatus: apparatus,
+        secondApparatus: 'Laminatsiya 1',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: pendingOrderId,
+        title: 'Admin sequence pending order',
+        productCode: 'ASC-B',
+        apparatus: apparatus,
+        product: 'admin sequence pending product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [completedOrderId, pendingOrderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Laminatsiya 1',
+      orderIds: const [completedOrderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: completedOrderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: completedOrderId,
+      action: 'complete',
+      producedQty: 12,
+      grossQty: 9,
+      uom: 'm',
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ketma-ketlik'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 ta zakaz'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('sequence-$apparatus-$completedOrderId')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('sequence-$apparatus-$pendingOrderId')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Aparat: $apparatus'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('admin-filter-option-Laminatsiya 1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 ta zakaz'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey('sequence-Laminatsiya 1-$completedOrderId'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('order actions open by long press in orders and sequence tabs', (
     tester,
   ) async {

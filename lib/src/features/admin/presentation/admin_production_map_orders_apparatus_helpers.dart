@@ -95,38 +95,38 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required bool workerMode,
   required String query,
 }) {
-  final filtered = _productionMapBaseOrdersForApparatus(
+  final visibleOrders = _productionMapBaseOrdersForApparatus(
     orders: orders,
     apparatus: apparatus,
     visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
   );
-  final sequence = _sequenceOrderIdsForApparatus(
-    apparatus,
-    sequenceByApparatus: sequenceByApparatus,
-  );
-  final visibleOrderIds = filtered.map((order) => order.map.id).toList();
-  final ordered = _applyApparatusOrderSequence(
-    orders: filtered,
-    sequence: effectiveQueueSequence(
-      sequence: sequence,
-      visibleOrderIds: visibleOrderIds,
-    ),
-  );
-  if (!workerMode) {
-    return ordered;
-  }
   final states = _queueStatesForApparatus(
     apparatus,
     queueStatesByApparatus: queueStatesByApparatus,
   );
-  final activeOrders = ordered
+  final activeOrders = visibleOrders
       .where(
         (order) =>
             apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) !=
             ApparatusQueueOrderState.completed,
       )
       .toList(growable: false);
-  return _filterOrdersBySearch(activeOrders, query: query);
+  final sequence = _sequenceOrderIdsForApparatus(
+    apparatus,
+    sequenceByApparatus: sequenceByApparatus,
+  );
+  final activeOrderIds = activeOrders.map((order) => order.map.id).toList();
+  final ordered = _applyApparatusOrderSequence(
+    orders: activeOrders,
+    sequence: effectiveQueueSequence(
+      sequence: sequence,
+      visibleOrderIds: activeOrderIds,
+    ),
+  );
+  if (!workerMode) {
+    return ordered;
+  }
+  return _filterOrdersBySearch(ordered, query: query);
 }
 
 List<ProductionMapSaved> _applyApparatusOrderSequence({
