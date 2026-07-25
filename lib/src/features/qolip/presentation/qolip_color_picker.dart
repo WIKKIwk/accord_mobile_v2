@@ -45,8 +45,8 @@ class QolipColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = selectedColor?.trim().toUpperCase();
     return Wrap(
-      spacing: 8,
-      runSpacing: 10,
+      spacing: 4,
+      runSpacing: 6,
       children: [
         for (final option in qolipDefaultColors)
           Semantics(
@@ -55,16 +55,16 @@ class QolipColorPicker extends StatelessWidget {
             selected: selected == option.value,
             child: InkWell(
               onTap: () => onChanged(option.value),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox(
-                width: 78,
-                height: 68,
+                width: 60,
+                height: 64,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: qolipColorValue(option.value),
                         shape: BoxShape.circle,
