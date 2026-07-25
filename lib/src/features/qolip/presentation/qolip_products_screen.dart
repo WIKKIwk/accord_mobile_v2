@@ -334,13 +334,23 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                 TextField(
                   controller: code,
                   autofocus: true,
-                  decoration: const InputDecoration(labelText: 'Qolip code'),
+                  decoration: InputDecoration(
+                    labelText: 'Qolip code',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: size,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Razmer'),
+                  decoration: InputDecoration(
+                    labelText: 'Razmer',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Align(
