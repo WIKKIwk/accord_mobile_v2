@@ -55,15 +55,16 @@ class QolipColorPicker extends StatelessWidget {
             selected: selected == option.value,
             child: InkWell(
               onTap: () => onChanged(option.value),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
-                width: 58,
+                width: 78,
+                height: 68,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 34,
-                      height: 34,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: qolipColorValue(option.value),
                         shape: BoxShape.circle,
@@ -79,7 +80,7 @@ class QolipColorPicker extends StatelessWidget {
                       child: selected == option.value
                           ? Icon(
                               Icons.check_rounded,
-                              size: 19,
+                              size: 25,
                               color: option.value == '#FDD835'
                                   ? Colors.black
                                   : Colors.white,
