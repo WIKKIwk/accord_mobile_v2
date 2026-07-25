@@ -322,6 +322,10 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 24,
+          ),
           title: const Text('Qolipni tahrirlash'),
           content: SingleChildScrollView(
             child: Column(
