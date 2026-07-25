@@ -3037,6 +3037,99 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
+  testWidgets('worker can receive more raw material only after order starts', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Rezka';
+    const orderId = 'zakaz-worker-material-intake';
+    await AppSession.instance.setSession(
+      token: 'worker-material-intake-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Rezka operatori',
+        legalName: '',
+        ref: 'worker-material-intake',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [apparatus],
+      ),
+    );
+    await MobileApi.instance.adminCreateApparatus(apparatus);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Worker material intake',
+        productCode: 'WMI-A',
+        apparatus: apparatus,
+        product: 'worker material product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(apparatus));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('worker-material-intake').first);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('receive-additional-raw-material')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Boshlash'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('receive-additional-raw-material')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('receive-additional-raw-material')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('production-quick-scanner-manual')),
+      'ROLL-WORKER-1000',
+    );
+    await tester.tap(find.byTooltip('Qabul qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Homashyo qabul qilindi'), findsOneWidget);
+    expect(find.text('ROLL-WORKER-1000'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('worker order cards use the shared production status colors', (
     tester,
   ) async {

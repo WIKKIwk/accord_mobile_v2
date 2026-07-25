@@ -755,6 +755,39 @@ void main() {
             ));
   });
 
+  test(
+      'active order raw material intake sends worker contract and parses balance',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final assignment =
+          await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
+        orderId: 'zakaz-1',
+        apparatus: 'Pechat',
+        barcode: 'ROLL-1000-B',
+      );
+
+      expect(assignment.orderId, 'zakaz-1');
+      expect(assignment.barcode, 'ROLL-1000-B');
+      expect(assignment.stockStatus, 'in_use');
+      expect(assignment.stockQty, 1000);
+      expect(assignment.stockUom, 'm');
+      expect(assignment.receivedQty, 1000);
+      expect(assignment.consumedQty, 0);
+      expect(assignment.remainingQty, 1000);
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/raw-material-intake '
+          '{"order_id":"zakaz-1","apparatus":"Pechat",'
+          '"barcode":"ROLL-1000-B"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('raw material lookup returns understandable scan report data', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -1462,6 +1495,26 @@ class _RawMaterialApiHttpClient implements HttpClient {
           'stock_status': 'in_use',
           'reserved_order_id': 'zakaz-1',
           'stock_warehouse': 'Kalidor',
+        };
+      case 'POST /v1/mobile/admin/raw-material-intake':
+        body = const {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'ROLL-1000-B',
+          'item_code': 'RULON-1000',
+          'item_name': '1000 metr rulon',
+          'item_group': 'Rulon',
+          'assigned_by_ref': 'worker-1',
+          'assigned_by_display_name': 'Pechatchi',
+          'assigned_at': '2026-07-25T10:00:00Z',
+          'stock_status': 'in_use',
+          'reserved_order_id': 'zakaz-1',
+          'stock_warehouse': 'Kalidor',
+          'stock_qty': 1000,
+          'stock_uom': 'm',
+          'received_qty': 1000,
+          'consumed_qty': 0,
+          'remaining_qty': 1000,
         };
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=RM-001':
         body = const {

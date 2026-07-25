@@ -40,6 +40,56 @@ List<AdminRawMaterialAssignment> _stationMaterialAssignments({
   return result;
 }
 
+class _RawMaterialBalance {
+  const _RawMaterialBalance({
+    required this.uom,
+    required this.receivedQty,
+    required this.consumedQty,
+  });
+
+  final String uom;
+  final double receivedQty;
+  final double consumedQty;
+
+  double get remainingQty {
+    final result = receivedQty - consumedQty;
+    return result > 0 ? result : 0;
+  }
+}
+
+List<_RawMaterialBalance> _rawMaterialBalances(
+  List<AdminRawMaterialAssignment> assignments,
+) {
+  final receivedByUom = <String, double>{};
+  final consumedByUom = <String, double>{};
+  final labelsByUom = <String, String>{};
+  for (final assignment in assignments) {
+    final uom = assignment.stockUom.trim();
+    if (uom.isEmpty) continue;
+    final key = uom.toLowerCase();
+    labelsByUom.putIfAbsent(key, () => uom);
+    final received = assignment.receivedQty;
+    final consumed = assignment.consumedQty;
+    if (received.isFinite && received > 0) {
+      receivedByUom[key] = (receivedByUom[key] ?? 0) + received;
+    }
+    if (consumed.isFinite && consumed > 0) {
+      consumedByUom[key] = (consumedByUom[key] ?? 0) + consumed;
+    }
+  }
+  final balances = <_RawMaterialBalance>[
+    for (final entry in labelsByUom.entries)
+      _RawMaterialBalance(
+        uom: entry.value,
+        receivedQty: receivedByUom[entry.key] ?? 0,
+        consumedQty: consumedByUom[entry.key] ?? 0,
+      ),
+  ];
+  balances.sort((left, right) =>
+      left.uom.toLowerCase().compareTo(right.uom.toLowerCase()));
+  return balances;
+}
+
 bool _allMaterialsScanned({
   required List<AdminRawMaterialAssignment> assignments,
   required Set<String> scannedBarcodes,
@@ -252,6 +302,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required String printMode,
   required String completionRequestNote,
   required List<String> qolipCodes,
+  required List<String> qolipPantonCodes,
   String freezeRequestId = '',
 }) {
   return _ReadOnlyQueueActionRequest(
@@ -263,6 +314,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
       assignments: prepared.materialAssignments,
     ),
     qolipCodes: qolipCodes,
+    qolipPantonCodes: qolipPantonCodes,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
     returnInkKg: progressInput?.returnInkKg,

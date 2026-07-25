@@ -14,6 +14,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.materialsLoading,
     required this.materialsError,
     required this.actionInFlight,
+    required this.materialIntakeInFlight,
+    required this.materialIntakeMode,
     required this.previousProgressBatch,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
@@ -27,6 +29,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
+    required this.qolipPantonCodes,
+    required this.existingOrderPantonNumbers,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -34,8 +38,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.mapExpanded,
     required this.onToggleMapExpanded,
     required this.onScan,
+    required this.onMaterialIntake,
     required this.onProgressScan,
     required this.onQolipScan,
+    required this.onToggleQolipPanton,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -55,6 +61,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool materialsLoading;
   final String materialsError;
   final bool actionInFlight;
+  final bool materialIntakeInFlight;
+  final bool materialIntakeMode;
   final AdminProgressBatch? previousProgressBatch;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
@@ -68,6 +76,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
+  final List<String> qolipPantonCodes;
+  final Set<int> existingOrderPantonNumbers;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -75,8 +85,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
   final VoidCallback onScan;
+  final VoidCallback onMaterialIntake;
   final VoidCallback? onProgressScan;
   final VoidCallback onQolipScan;
+  final ValueChanged<String> onToggleQolipPanton;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -124,6 +136,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 hasMaterialAssignments: uiState.hasMaterialAssignments,
                 allMaterialsScanned: uiState.allMaterialsScanned,
                 actionInFlight: actionInFlight,
+                materialIntakeInFlight: materialIntakeInFlight,
+                materialIntakeMode: materialIntakeMode,
                 showPause: uiState.showPause,
                 showComplete: uiState.showComplete,
                 showResume: uiState.showResume,
@@ -139,14 +153,18 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
                 qolipCodes: qolipCodes,
+                qolipPantonCodes: qolipPantonCodes,
+                existingOrderPantonNumbers: existingOrderPantonNumbers,
                 materialsExpanded: materialsExpanded,
                 onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                 qolipsExpanded: qolipsExpanded,
                 onToggleQolipsExpanded: onToggleQolipsExpanded,
                 rezkaInstructionLines: rezkaInstructionLines,
                 onScan: onScan,
+                onMaterialIntake: onMaterialIntake,
                 onProgressScan: onProgressScan,
                 onQolipScan: onQolipScan,
+                onToggleQolipPanton: onToggleQolipPanton,
                 onStart: onStart,
                 onPause: onPause,
                 onComplete: onComplete,
@@ -606,6 +624,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
     required this.actionInFlight,
+    required this.materialIntakeInFlight,
+    required this.materialIntakeMode,
     required this.showPause,
     required this.showComplete,
     required this.showResume,
@@ -621,14 +641,18 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
+    required this.qolipPantonCodes,
+    required this.existingOrderPantonNumbers,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
     required this.onToggleQolipsExpanded,
     required this.rezkaInstructionLines,
     required this.onScan,
+    required this.onMaterialIntake,
     required this.onProgressScan,
     required this.onQolipScan,
+    required this.onToggleQolipPanton,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -648,6 +672,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
   final bool actionInFlight;
+  final bool materialIntakeInFlight;
+  final bool materialIntakeMode;
   final bool showPause;
   final bool showComplete;
   final bool showResume;
@@ -663,14 +689,18 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
+  final List<String> qolipPantonCodes;
+  final Set<int> existingOrderPantonNumbers;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
   final VoidCallback onToggleQolipsExpanded;
   final List<String> rezkaInstructionLines;
   final VoidCallback onScan;
+  final VoidCallback onMaterialIntake;
   final VoidCallback? onProgressScan;
   final VoidCallback onQolipScan;
+  final ValueChanged<String> onToggleQolipPanton;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -682,6 +712,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final totalCount = assignments.length;
+    final materialBalances = _rawMaterialBalances(assignments);
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
     final orderFrozen = orderControlState == AdminOrderControlState.frozen;
@@ -690,6 +721,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         showComplete ||
         showResume ||
         showWaitingForPrevious;
+    final showMaterialIntake = showPause || showResume;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
     final orderProductLabel = customer.isEmpty
@@ -838,6 +870,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             else
               Column(
                 children: [
+                  if (materialBalances.isNotEmpty) ...[
+                    _RawMaterialBalanceSummary(balances: materialBalances),
+                    const SizedBox(height: 10),
+                  ],
                   for (var index = 0; index < assignments.length; index++) ...[
                     if (index > 0) const SizedBox(height: 8),
                     _AssignedMaterialTile(
@@ -878,7 +914,19 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                   children: [
                     for (var index = 0; index < qolipCodes.length; index++) ...[
                       if (index > 0) const SizedBox(height: 8),
-                      _ScannedQolipTile(qolipCode: qolipCodes[index]),
+                      _ScannedQolipTile(
+                        qolipCode: qolipCodes[index],
+                        pantonNumber: _qolipPantonNumber(
+                          qolipCodes[index],
+                          qolipPantonCodes,
+                          existingOrderPantonNumbers,
+                        ),
+                        nextPantonNumber: _nextQolipPantonNumber(
+                          qolipPantonCodes,
+                          existingOrderPantonNumbers,
+                        ),
+                        onPantonTap: onToggleQolipPanton,
+                      ),
                     ],
                   ],
                 ),
@@ -949,6 +997,38 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 actionInFlight: actionInFlight,
                 embeddedScanner: showEmbeddedQuickScanner,
                 onScan: onProgressScan,
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (showMaterialIntake) ...[
+              FilledButton.tonalIcon(
+                key: const ValueKey('receive-additional-raw-material'),
+                onPressed: actionInFlight ||
+                        materialIntakeInFlight ||
+                        orderControlBlocked
+                    ? null
+                    : onMaterialIntake,
+                icon: materialIntakeInFlight
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        materialIntakeMode
+                            ? Icons.close_rounded
+                            : Icons.add_box_outlined,
+                      ),
+                label: Text(
+                  materialIntakeMode
+                      ? 'Scannerni yopish'
+                      : 'Yana homashyo olish',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
             ],

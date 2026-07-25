@@ -415,9 +415,17 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
 }
 
 class _ScannedQolipTile extends StatelessWidget {
-  const _ScannedQolipTile({required this.qolipCode});
+  const _ScannedQolipTile({
+    required this.qolipCode,
+    required this.pantonNumber,
+    required this.nextPantonNumber,
+    required this.onPantonTap,
+  });
 
   final String qolipCode;
+  final int? pantonNumber;
+  final int nextPantonNumber;
+  final ValueChanged<String> onPantonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -457,6 +465,132 @@ class _ScannedQolipTile extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: pantonNumber == null && nextPantonNumber > 7
+                ? null
+                : () => onPantonTap(code),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              pantonNumber == null
+                  ? nextPantonNumber > 7
+                      ? 'Limit'
+                      : 'Panton $nextPantonNumber'
+                  : 'Panton $pantonNumber',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+int? _qolipPantonNumber(
+  String qolipCode,
+  List<String> pantonQolipCodes,
+  Set<int> existingOrderPantonNumbers,
+) {
+  final normalized = qolipCode.trim().toLowerCase();
+  final index = pantonQolipCodes.indexWhere(
+    (code) => code.trim().toLowerCase() == normalized,
+  );
+  if (index < 0) {
+    return null;
+  }
+  return _pantonNumbersForSelection(
+    pantonQolipCodes,
+    existingOrderPantonNumbers,
+  )[normalized];
+}
+
+int _nextQolipPantonNumber(
+  List<String> pantonQolipCodes,
+  Set<int> existingOrderPantonNumbers,
+) {
+  final used = <int>{...existingOrderPantonNumbers};
+  used.addAll(
+    _pantonNumbersForSelection(
+      pantonQolipCodes,
+      existingOrderPantonNumbers,
+    ).values,
+  );
+  for (var number = 1; number <= 7; number++) {
+    if (!used.contains(number)) {
+      return number;
+    }
+  }
+  return 8;
+}
+
+Map<String, int> _pantonNumbersForSelection(
+  List<String> pantonQolipCodes,
+  Set<int> existingOrderPantonNumbers,
+) {
+  final used = <int>{...existingOrderPantonNumbers};
+  final result = <String, int>{};
+  for (final code in pantonQolipCodes) {
+    final normalized = code.trim().toLowerCase();
+    if (normalized.isEmpty) continue;
+    for (var number = 1; number <= 7; number++) {
+      if (!used.contains(number)) {
+        result[normalized] = number;
+        used.add(number);
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+class _RawMaterialBalanceSummary extends StatelessWidget {
+  const _RawMaterialBalanceSummary({required this.balances});
+
+  final List<_RawMaterialBalance> balances;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Homashyo balansi',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSecondaryContainer,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (var index = 0; index < balances.length; index++) ...[
+            if (index > 0) const SizedBox(height: 4),
+            Text(
+              'Qabul: ${formatRawQuantity(balances[index].receivedQty)} '
+              '${balances[index].uom}  •  Sarf: '
+              '${formatRawQuantity(balances[index].consumedQty)} '
+              '${balances[index].uom}  •  Qoldiq: '
+              '${formatRawQuantity(balances[index].remainingQty)} '
+              '${balances[index].uom}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSecondaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1592,6 +1592,37 @@ class AdminServerMonitorLiveEvent {
   }
 }
 
+class AdminProductionMapQolipValidation {
+  const AdminProductionMapQolipValidation({
+    required this.qolipCode,
+    required this.qolipPantons,
+  });
+
+  final String qolipCode;
+  final Map<String, int> qolipPantons;
+
+  factory AdminProductionMapQolipValidation.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawPantons = json['qolip_pantons'];
+    final pantons = <String, int>{};
+    if (rawPantons is Map) {
+      for (final entry in rawPantons.entries) {
+        final number = entry.value is num
+            ? (entry.value as num).toInt()
+            : int.tryParse(entry.value.toString());
+        if (number != null && number >= 1 && number <= 7) {
+          pantons[entry.key.toString()] = number;
+        }
+      }
+    }
+    return AdminProductionMapQolipValidation(
+      qolipCode: json['qolip_code']?.toString().trim() ?? '',
+      qolipPantons: Map.unmodifiable(pantons),
+    );
+  }
+}
+
 class AdminApparatusQueueActionResult {
   const AdminApparatusQueueActionResult({
     required this.states,
@@ -1739,6 +1770,11 @@ class AdminRawMaterialAssignment {
     this.stockStatus = '',
     this.reservedOrderId = '',
     this.stockWarehouse = '',
+    this.stockQty = 0,
+    this.stockUom = '',
+    this.receivedQty = 0,
+    this.consumedQty = 0,
+    this.remainingQty = 0,
   });
 
   final String orderId;
@@ -1753,6 +1789,11 @@ class AdminRawMaterialAssignment {
   final String stockStatus;
   final String reservedOrderId;
   final String stockWarehouse;
+  final double stockQty;
+  final String stockUom;
+  final double receivedQty;
+  final double consumedQty;
+  final double remainingQty;
 
   factory AdminRawMaterialAssignment.fromJson(Map<String, dynamic> json) {
     return AdminRawMaterialAssignment(
@@ -1770,6 +1811,11 @@ class AdminRawMaterialAssignment {
       stockStatus: json['stock_status']?.toString() ?? '',
       reservedOrderId: json['reserved_order_id']?.toString() ?? '',
       stockWarehouse: json['stock_warehouse']?.toString() ?? '',
+      stockQty: (json['stock_qty'] as num?)?.toDouble() ?? 0,
+      stockUom: json['stock_uom']?.toString() ?? '',
+      receivedQty: (json['received_qty'] as num?)?.toDouble() ?? 0,
+      consumedQty: (json['consumed_qty'] as num?)?.toDouble() ?? 0,
+      remainingQty: (json['remaining_qty'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -1777,6 +1823,11 @@ class AdminRawMaterialAssignment {
     String? stockStatus,
     String? reservedOrderId,
     String? stockWarehouse,
+    double? stockQty,
+    String? stockUom,
+    double? receivedQty,
+    double? consumedQty,
+    double? remainingQty,
   }) {
     return AdminRawMaterialAssignment(
       orderId: orderId,
@@ -1791,6 +1842,11 @@ class AdminRawMaterialAssignment {
       stockStatus: stockStatus ?? this.stockStatus,
       reservedOrderId: reservedOrderId ?? this.reservedOrderId,
       stockWarehouse: stockWarehouse ?? this.stockWarehouse,
+      stockQty: stockQty ?? this.stockQty,
+      stockUom: stockUom ?? this.stockUom,
+      receivedQty: receivedQty ?? this.receivedQty,
+      consumedQty: consumedQty ?? this.consumedQty,
+      remainingQty: remainingQty ?? this.remainingQty,
     );
   }
 }
@@ -2082,9 +2138,13 @@ MobileApiException _adminProductionMapException(
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_stock_unavailable' =>
         'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
+      'raw_material_order_not_active' =>
+        'Yana homashyo faqat ish boshlangan yoki pauzadagi zakazga olinadi',
       'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
+      'qolip_panton_limit_exceeded' =>
+        'Bitta order uchun Panton soni 7 tadan oshmaydi',
       'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',
       'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
       'insufficient_stock' => 'Bu qolip omborda qolmagan',
@@ -3576,6 +3636,57 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminRawMaterialAssignment> adminReceiveRawMaterialForActiveOrder({
+    required String orderId,
+    required String apparatus,
+    required String barcode,
+  }) async {
+    final body = {
+      'order_id': orderId.trim(),
+      'apparatus': apparatus.trim(),
+      'barcode': barcode.trim(),
+    };
+    if (await TestModeController.instance.isEnabled()) {
+      final normalizedBarcode = body['barcode']!.toUpperCase();
+      if (_testModeRawMaterialAssignments.any(
+        (item) => item.barcode.trim().toUpperCase() == normalizedBarcode,
+      )) {
+        throw const MobileApiException(
+          code: 'raw_material_already_assigned',
+          message: 'Bu homashyo allaqachon zakazga ulangan',
+        );
+      }
+      final assignment = AdminRawMaterialAssignment(
+        orderId: body['order_id']!,
+        apparatus: body['apparatus']!,
+        barcode: body['barcode']!,
+        itemCode: '',
+        itemName: '',
+        itemGroup: '',
+        assignedByRef: AppSession.instance.profile?.ref ?? '',
+        assignedByName: AppSession.instance.profile?.displayName ?? '',
+        stockStatus: 'in_use',
+        reservedOrderId: body['order_id']!,
+      );
+      _testModeRawMaterialAssignments.add(assignment);
+      return assignment;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/raw-material-intake'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'raw_material_intake');
+    }
+    return AdminRawMaterialAssignment.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminRawMaterialAssignment> adminUnlinkRawMaterialAssignment({
     required String orderId,
     required String barcode,
@@ -3724,6 +3835,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> materialBarcodes = const [],
     String qolipCode = '',
     List<String> qolipCodes = const [],
+    List<String> qolipPantonCodes = const [],
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -3754,6 +3866,7 @@ extension MobileApiAdmin on MobileApi {
       materialBarcodes: materialBarcodes,
       qolipCode: qolipCode,
       qolipCodes: qolipCodes,
+      qolipPantonCodes: qolipPantonCodes,
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
@@ -3784,11 +3897,28 @@ extension MobileApiAdmin on MobileApi {
     required String orderId,
     required String qolipCode,
   }) async {
+    final validation = await adminValidateProductionMapQolipDetails(
+      apparatus: apparatus,
+      orderId: orderId,
+      qolipCode: qolipCode,
+    );
+    return validation.qolipCode;
+  }
+
+  Future<AdminProductionMapQolipValidation>
+      adminValidateProductionMapQolipDetails({
+    required String apparatus,
+    required String orderId,
+    required String qolipCode,
+  }) async {
     if (await TestModeController.instance.isEnabled()) {
       final product = await qolipProductByQr(qolipCode);
-      return product.qolipCode.trim().isEmpty
-          ? qolipCode.trim()
-          : product.qolipCode.trim();
+      return AdminProductionMapQolipValidation(
+        qolipCode: product.qolipCode.trim().isEmpty
+            ? qolipCode.trim()
+            : product.qolipCode.trim(),
+        qolipPantons: const {},
+      );
     }
     final response = await _sendAuthorized(
       () => _post(
@@ -3810,12 +3940,15 @@ extension MobileApiAdmin on MobileApi {
     final payload = await decodeJsonMapPayload(response.body);
     final rawQolip = payload['qolip'];
     if (rawQolip is Map) {
-      final validated = rawQolip['qolip_code']?.toString().trim() ?? '';
-      if (validated.isNotEmpty) {
-        return validated;
-      }
+      final validation = AdminProductionMapQolipValidation.fromJson(
+        rawQolip.cast<String, dynamic>(),
+      );
+      if (validation.qolipCode.isNotEmpty) return validation;
     }
-    return qolipCode.trim();
+    return AdminProductionMapQolipValidation(
+      qolipCode: qolipCode.trim(),
+      qolipPantons: const {},
+    );
   }
 
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
@@ -3826,6 +3959,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> materialBarcodes = const [],
     String qolipCode = '',
     List<String> qolipCodes = const [],
+    List<String> qolipPantonCodes = const [],
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -4255,6 +4389,17 @@ extension MobileApiAdmin on MobileApi {
       }
       trimmedQolipCodes.add(trimmed);
     }
+    final trimmedQolipPantonCodes = <String>[];
+    for (final code in qolipPantonCodes) {
+      final trimmed = code.trim();
+      if (trimmed.isEmpty ||
+          trimmedQolipPantonCodes.any(
+            (existing) => existing.toLowerCase() == trimmed.toLowerCase(),
+          )) {
+        continue;
+      }
+      trimmedQolipPantonCodes.add(trimmed);
+    }
     final trimmedBarcodes = [
       for (final barcode in materialBarcodes)
         if (barcode.trim().isNotEmpty) barcode.trim(),
@@ -4278,6 +4423,8 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedQolipCodes.isNotEmpty) 'qolip_codes': trimmedQolipCodes,
           if (trimmedQolipCodes.isEmpty && trimmedQolipCode.isNotEmpty)
             'qolip_code': trimmedQolipCode,
+          if (trimmedQolipPantonCodes.isNotEmpty)
+            'qolip_panton_codes': trimmedQolipPantonCodes,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,
