@@ -7,6 +7,7 @@ bool _queueSnapshotChanged({
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
+  required Map<String, String> orderCustomersByOrderId,
   required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
@@ -49,6 +50,11 @@ bool _queueSnapshotChanged({
   }
   for (final entry in snapshot.orderControls.entries) {
     if (orderControlsByOrderId[entry.key] != entry.value) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.orderCustomers.entries) {
+    if (orderCustomersByOrderId[entry.key] != entry.value) {
       return true;
     }
   }

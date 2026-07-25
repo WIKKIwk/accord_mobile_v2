@@ -1,4 +1,5 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,6 +20,9 @@ void main() {
       'order_controls': const {
         'zakaz-visible-alt': {'state': 'freeze_requested'},
         'zakaz-frozen': {'state': 'frozen'},
+      },
+      'order_customers': const {
+        'zakaz-visible-alt': '555 kukuruz',
       },
       'order_statuses': const {
         'zakaz-visible-alt': {
@@ -53,6 +57,21 @@ void main() {
       snapshot.orderStatuses['zakaz-issue']?.completedWithIssueCount,
       1,
     );
+    expect(snapshot.orderCustomers['zakaz-visible-alt'], '555 kukuruz');
+  });
+
+  test('production map definition keeps server customer name', () {
+    final map = ProductionMapDefinition.fromJson({
+      'id': 'zakaz-7657',
+      'product_code': 'YASHIL',
+      'title': 'yashil',
+      'customer_name': '555 kukuruz',
+      'nodes': const [],
+      'edges': const [],
+    });
+
+    expect(map.customerName, '555 kukuruz');
+    expect(map.toJson()['customer_name'], '555 kukuruz');
   });
 
   test('production map live snapshot requires backend visible order ids', () {

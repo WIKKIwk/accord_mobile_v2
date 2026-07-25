@@ -103,6 +103,7 @@ extension _AdminProductionMapOrdersLiveState
         queueStates: snapshot.queueStates,
         queuePolicies: snapshot.queuePolicies,
         orderControls: snapshot.orderControls,
+        orderCustomers: snapshot.orderCustomers,
         orderStatuses: snapshot.orderStatuses,
       );
       _completedWorkerOrders = snapshot.completedOrders;
@@ -179,6 +180,7 @@ extension _AdminProductionMapOrdersLiveState
         queueStatesByApparatus: _queueStatesByApparatus,
         queuePoliciesByApparatus: _queuePoliciesByApparatus,
         orderControlsByOrderId: _orderControlsByOrderId,
+        orderCustomersByOrderId: _customerByMapId,
         orderStatusesByOrderId: _orderStatusesByOrderId,
       )) {
         return;
@@ -190,6 +192,7 @@ extension _AdminProductionMapOrdersLiveState
           queueStates: queueSnapshot.queueStates,
           queuePolicies: queueSnapshot.queuePolicies,
           orderControls: queueSnapshot.orderControls,
+          orderCustomers: queueSnapshot.orderCustomers,
           orderStatuses: queueSnapshot.orderStatuses,
         );
       });
@@ -212,6 +215,7 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, Map<String, String>> queueStates,
     required Map<String, AdminApparatusQueuePolicy> queuePolicies,
     required Map<String, AdminOrderControlState> orderControls,
+    required Map<String, String> orderCustomers,
     required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
   }) {
     _sequenceByApparatus
@@ -229,6 +233,10 @@ extension _AdminProductionMapOrdersLiveState
     _orderControlsByOrderId
       ..clear()
       ..addAll(orderControls);
+    _customerByMapId = {
+      ..._customerByMapId,
+      ...orderCustomers,
+    };
     _orderStatusesByOrderId
       ..clear()
       ..addAll(orderStatuses);
@@ -405,7 +413,10 @@ extension _AdminProductionMapOrdersLiveState
     _updateScreenState(() {
       _baseMetrajByMapId = metrics.baseMetrajByMapId;
       _orderKgByMapId = metrics.orderKgByMapId;
-      _customerByMapId = metrics.customerByMapId;
+      _customerByMapId = {
+        ...metrics.customerByMapId,
+        ..._customerByMapId,
+      };
     });
   }
 

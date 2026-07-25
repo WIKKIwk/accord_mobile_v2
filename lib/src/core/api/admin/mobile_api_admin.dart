@@ -233,6 +233,7 @@ class AdminApparatusQueueSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     required this.orderControls,
+    this.orderCustomers = const {},
     this.orderStatuses = const {},
   });
 
@@ -241,6 +242,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, Map<String, String>> queueStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, AdminOrderControlState> orderControls;
+  final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
 }
 
@@ -1138,6 +1140,18 @@ Map<String, Map<String, String>> _stringMapOfStringMaps(Object? raw) {
   };
 }
 
+Map<String, String> _stringMapOfStrings(Object? raw) {
+  if (raw is! Map) {
+    return const {};
+  }
+  return {
+    for (final entry in raw.entries)
+      if (entry.key.toString().trim().isNotEmpty &&
+          entry.value.toString().trim().isNotEmpty)
+        entry.key.toString().trim(): entry.value.toString().trim(),
+  };
+}
+
 class AdminWorkerProfileDetail {
   const AdminWorkerProfileDetail({
     required this.worker,
@@ -1935,6 +1949,7 @@ class AdminProductionMapLiveSnapshot {
     required this.completionRequests,
     required this.completionRequestDecisions,
     required this.orderControls,
+    this.orderCustomers = const {},
     this.orderStatuses = const {},
   });
 
@@ -1948,6 +1963,7 @@ class AdminProductionMapLiveSnapshot {
   final List<AdminCompletionRequestDecisionNotification>
       completionRequestDecisions;
   final Map<String, AdminOrderControlState> orderControls;
+  final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
@@ -1991,6 +2007,7 @@ class AdminProductionMapLiveSnapshot {
             ),
       ],
       orderControls: _parseAdminOrderControls(json['order_controls']),
+      orderCustomers: _stringMapOfStrings(json['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),
     );
   }
@@ -2938,6 +2955,12 @@ extension MobileApiAdmin on MobileApi {
         orderControls: Map<String, AdminOrderControlState>.unmodifiable(
           _testModeOrderControls,
         ),
+        orderCustomers: {
+          for (final saved in _testModeProductionMaps)
+            if (saved.map.id.trim().isNotEmpty &&
+                saved.map.customerName.trim().isNotEmpty)
+              saved.map.id.trim(): saved.map.customerName.trim(),
+        },
         orderStatuses: const {},
       );
     }
@@ -2957,6 +2980,7 @@ extension MobileApiAdmin on MobileApi {
       queueStates: parseApparatusQueueStateMap(payload['queue_states']),
       queuePolicies: parseApparatusQueuePolicyMap(payload['queue_policies']),
       orderControls: _parseAdminOrderControls(payload['order_controls']),
+      orderCustomers: _stringMapOfStrings(payload['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
     );
   }

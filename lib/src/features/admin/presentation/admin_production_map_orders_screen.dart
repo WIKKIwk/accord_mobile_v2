@@ -342,7 +342,7 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         baseMetraj: _baseMetrajByMapId[mapId] ?? order.map.baseLength,
         orderKg: _orderKgByMapId[mapId] ?? order.map.orderKg,
-        customerName: _customerByMapId[mapId],
+        customerName: _customerByMapId[mapId] ?? order.map.customerName,
         queueStatesByApparatus: _queueStatesByApparatus,
         initialOrderControls: _orderControlsByOrderId,
       ),
@@ -353,6 +353,7 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) {
+    final mapId = order.map.id.trim();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -361,6 +362,7 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
         apparatus: apparatus,
+        customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: _isAssignedWatchApparatus(
           apparatus,
           assignedApparatus: AppSession.instance.profile?.assignedApparatus ??

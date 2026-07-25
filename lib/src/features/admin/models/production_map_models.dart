@@ -5,6 +5,7 @@ class ProductionMapDefinition {
     required this.title,
     this.code = '',
     this.orderNumber = '',
+    this.customerName = '',
     this.rollCount,
     this.widthMm,
     this.orderKg,
@@ -18,6 +19,7 @@ class ProductionMapDefinition {
   final String title;
   final String code;
   final String orderNumber;
+  final String customerName;
   final double? rollCount;
   final double? widthMm;
   final double? orderKg;
@@ -32,6 +34,7 @@ class ProductionMapDefinition {
       title: json['title'] as String? ?? '',
       code: json['code'] as String? ?? '',
       orderNumber: json['order_number'] as String? ?? '',
+      customerName: json['customer_name'] as String? ?? '',
       rollCount: (json['roll_count'] as num?)?.toDouble(),
       widthMm: (json['width_mm'] as num?)?.toDouble(),
       orderKg: (json['order_kg'] as num?)?.toDouble(),
@@ -56,6 +59,8 @@ class ProductionMapDefinition {
       'title': title,
       if (code.trim().isNotEmpty) 'code': code.trim(),
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
+      if (customerName.trim().isNotEmpty)
+        'customer_name': customerName.trim(),
       if (rollCount != null) 'roll_count': rollCount,
       if (widthMm != null) 'width_mm': widthMm,
       if (orderKg != null) 'order_kg': orderKg,
@@ -71,6 +76,7 @@ class ProductionMapDefinition {
     String? title,
     String? code,
     String? orderNumber,
+    String? customerName,
     double? rollCount,
     double? widthMm,
     double? orderKg,
@@ -84,6 +90,7 @@ class ProductionMapDefinition {
       title: title ?? this.title,
       code: code ?? this.code,
       orderNumber: orderNumber ?? this.orderNumber,
+      customerName: customerName ?? this.customerName,
       rollCount: rollCount ?? this.rollCount,
       widthMm: widthMm ?? this.widthMm,
       orderKg: orderKg ?? this.orderKg,

@@ -2744,7 +2744,7 @@ void main() {
         productCode: 'WRK-A',
         apparatus: '7 ta rangli bosma aparat',
         product: 'worker mahsulot',
-      ),
+      ).copyWith(customerName: '555 kukuruz'),
     );
     await MobileApi.instance.adminSaveProductionMap(
       _productionOrderMap(
@@ -2796,6 +2796,7 @@ void main() {
     await tester.tap(find.textContaining('worker-queue').first);
     await tester.pumpAndSettle();
 
+    expect(find.text('555 kukuruz • worker mahsulot'), findsOneWidget);
     expect(find.text('Boshlash'), findsOneWidget);
     expect(find.text('Tugatish'), findsNothing);
 
