@@ -182,9 +182,13 @@ class _ProductionQuickScannerPanelState
         children: [
           SizedBox(
             height: 248,
-            child: controller == null
-                ? const _QuickScannerUnavailableView()
-                : LayoutBuilder(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (controller == null)
+                  const _QuickScannerUnavailableView()
+                else
+                  LayoutBuilder(
                     builder: (context, constraints) {
                       final frameSize = math.min(
                         constraints.maxWidth,
@@ -235,38 +239,6 @@ class _ProductionQuickScannerPanelState
                                       ],
                                     ),
                                   ),
-                                  Positioned(
-                                    right: 8,
-                                    bottom: 8,
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.58,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: IconButton(
-                                        key: const ValueKey(
-                                          'production-quick-scanner-manual-toggle',
-                                        ),
-                                        tooltip: _manualEntryVisible
-                                            ? 'Barcode maydonini yopish'
-                                            : 'Barcode kiritish',
-                                        onPressed: () {
-                                          setState(() {
-                                            _manualEntryVisible =
-                                                !_manualEntryVisible;
-                                          });
-                                        },
-                                        color: Colors.white,
-                                        icon: Icon(
-                                          _manualEntryVisible
-                                              ? Icons.close_rounded
-                                              : Icons.edit_rounded,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -275,6 +247,37 @@ class _ProductionQuickScannerPanelState
                       );
                     },
                   ),
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      key: const ValueKey(
+                        'production-quick-scanner-manual-toggle',
+                      ),
+                      tooltip: _manualEntryVisible
+                          ? 'Barcode maydonini yopish'
+                          : 'Barcode kiritish',
+                      onPressed: () {
+                        setState(() {
+                          _manualEntryVisible = !_manualEntryVisible;
+                        });
+                      },
+                      color: scheme.onPrimary,
+                      icon: Icon(
+                        _manualEntryVisible
+                            ? Icons.close_rounded
+                            : Icons.edit_rounded,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (_manualEntryVisible)
             ColoredBox(
