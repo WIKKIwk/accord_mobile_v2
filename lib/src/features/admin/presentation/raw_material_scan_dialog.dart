@@ -176,7 +176,7 @@ class _ProductionQuickScannerPanelState
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      color: Colors.black,
+      color: scheme.surface,
       child: Column(
         children: [
           SizedBox(
@@ -185,63 +185,60 @@ class _ProductionQuickScannerPanelState
                 ? const _QuickScannerUnavailableView()
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final size = math.min(
+                      final frameSize = math.min(
                         constraints.maxWidth,
-                        constraints.maxHeight,
+                        218.0,
                       );
-                      final frameSize = size.clamp(190.0, 218.0);
-                      final scanWindow = Rect.fromCenter(
-                        center: Offset(
-                          constraints.maxWidth / 2,
-                          constraints.maxHeight / 2,
-                        ),
-                        width: frameSize,
-                        height: frameSize,
-                      );
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          MobileScanner(
-                            controller: controller,
-                            fit: BoxFit.cover,
-                            useAppLifecycleState: true,
-                            scanWindow: scanWindow,
-                            tapToFocus: true,
-                            onDetect: _handleDetect,
-                            errorBuilder: (context, error) =>
-                                const _QuickScannerUnavailableView(),
-                          ),
-                          IgnorePointer(
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                CustomPaint(
-                                  painter: _QuickScannerCutoutPainter(
-                                    window: scanWindow,
+                      return Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: SizedBox.square(
+                            dimension: frameSize,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  MobileScanner(
+                                    controller: controller,
+                                    fit: BoxFit.cover,
+                                    useAppLifecycleState: true,
+                                    tapToFocus: true,
+                                    onDetect: _handleDetect,
+                                    errorBuilder: (context, error) =>
+                                        const _QuickScannerUnavailableView(),
                                   ),
-                                ),
-                                Center(
-                                  child: CustomPaint(
-                                    size: Size.square(frameSize),
-                                    painter: _RawMaterialScannerGridPainter(),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.bottomCenter,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _QuickScannerStatus(
-                                      text: _processing || widget.busy
-                                          ? 'QR tekshirilmoqda...'
-                                          : widget.statusText,
-                                      busy: _processing || widget.busy,
+                                  IgnorePointer(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        CustomPaint(
+                                          painter:
+                                              _RawMaterialScannerGridPainter(),
+                                        ),
+                                        Align(
+                                          alignment: Alignment.bottomCenter,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 12,
+                                            ),
+                                            child: _QuickScannerStatus(
+                                              text: _processing || widget.busy
+                                                  ? 'QR tekshirilmoqda...'
+                                                  : widget.statusText,
+                                              busy: _processing || widget.busy,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -283,28 +280,6 @@ class _ProductionQuickScannerPanelState
   }
 }
 
-class _QuickScannerCutoutPainter extends CustomPainter {
-  const _QuickScannerCutoutPainter({required this.window});
-
-  final Rect window;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final mask = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(Offset.zero & size)
-      ..addRRect(
-        RRect.fromRectAndRadius(window, const Radius.circular(24)),
-      );
-    canvas.drawPath(mask, Paint()..color = Colors.black);
-  }
-
-  @override
-  bool shouldRepaint(covariant _QuickScannerCutoutPainter oldDelegate) {
-    return oldDelegate.window != window;
-  }
-}
-
 class _QuickScannerStatus extends StatelessWidget {
   const _QuickScannerStatus({required this.text, required this.busy});
 
@@ -313,47 +288,48 @@ class _QuickScannerStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (busy) ...[
-              const SizedBox.square(
-                dimension: 15,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 250),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              if (busy) ...[
+                const SizedBox.square(
+                  dimension: 15,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else ...[
+                const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 17,
                   color: Colors.white,
                 ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-              const SizedBox(width: 8),
-            ] else ...[
-              const Icon(
-                Icons.qr_code_scanner_rounded,
-                size: 17,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 8),
             ],
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 250),
-              child: Text(
-                text,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
