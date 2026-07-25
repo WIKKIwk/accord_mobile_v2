@@ -22,6 +22,9 @@ String qolipErrorMessage(
     'location_invalid' => 'Joy noto‘g‘ri tanlangan',
     'checkout_not_found' => 'Berilgan qolip topilmadi',
     'checkout_not_returnable' => 'Bu qolipni qaytarib bo‘lmaydi',
+    'qolip_checkout_required' => 'Qolip avval workerga qarzga berilishi kerak',
+    'qolip_checkout_assigned_to_another_worker' =>
+      'Qolip boshqa workerga berilgan',
     'worker_required' => 'Ishchini tanlang',
     'worker_not_found' => 'Ishchi topilmadi',
     'quantity_required' => 'Qolip soni noto‘g‘ri',
