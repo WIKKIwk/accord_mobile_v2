@@ -340,6 +340,129 @@ String _inputProgressBatchTitle(AdminProgressBatch batch) {
   return '$source $actionText mahsulot';
 }
 
+class _ScannedItemsExpansionHeader extends StatelessWidget {
+  const _ScannedItemsExpansionHeader({
+    super.key,
+    required this.title,
+    required this.countText,
+    required this.expanded,
+    required this.complete,
+    required this.onTap,
+  });
+
+  final String title;
+  final String countText;
+  final bool expanded;
+  final bool complete;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: complete
+                      ? scheme.primaryContainer
+                      : scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  countText,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: complete
+                        ? scheme.onPrimaryContainer
+                        : scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScannedQolipTile extends StatelessWidget {
+  const _ScannedQolipTile({required this.qolipCode});
+
+  final String qolipCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final code = qolipCode.trim();
+    return Container(
+      key: ValueKey('production-scanned-qolip-${code.toLowerCase()}'),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.check_rounded,
+              color: scheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              code,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AssignedMaterialTile extends StatelessWidget {
   const _AssignedMaterialTile({
     required this.assignment,
@@ -369,8 +492,7 @@ class _AssignedMaterialTile extends StatelessWidget {
     }
 
     final itemCode = assignment.itemCode.trim();
-    if (itemCode.isNotEmpty &&
-        itemCode.toLowerCase() != title.toLowerCase()) {
+    if (itemCode.isNotEmpty && itemCode.toLowerCase() != title.toLowerCase()) {
       final titlePrefix = title.toLowerCase();
       final codeLower = itemCode.toLowerCase();
       final remainder = title.isNotEmpty && codeLower.startsWith(titlePrefix)

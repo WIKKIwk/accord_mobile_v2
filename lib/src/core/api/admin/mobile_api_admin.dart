@@ -3723,6 +3723,7 @@ extension MobileApiAdmin on MobileApi {
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     String qolipCode = '',
+    List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -3752,6 +3753,7 @@ extension MobileApiAdmin on MobileApi {
       materialBarcode: materialBarcode,
       materialBarcodes: materialBarcodes,
       qolipCode: qolipCode,
+      qolipCodes: qolipCodes,
       producedQty: producedQty,
       grossQty: grossQty,
       returnInkKg: returnInkKg,
@@ -3777,14 +3779,16 @@ extension MobileApiAdmin on MobileApi {
     return result.states;
   }
 
-  Future<void> adminValidateProductionMapQolip({
+  Future<String> adminValidateProductionMapQolip({
     required String apparatus,
     required String orderId,
     required String qolipCode,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
-      await qolipProductByQr(qolipCode);
-      return;
+      final product = await qolipProductByQr(qolipCode);
+      return product.qolipCode.trim().isEmpty
+          ? qolipCode.trim()
+          : product.qolipCode.trim();
     }
     final response = await _sendAuthorized(
       () => _post(
@@ -3803,6 +3807,15 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'qolip_code_not_found');
     }
+    final payload = await decodeJsonMapPayload(response.body);
+    final rawQolip = payload['qolip'];
+    if (rawQolip is Map) {
+      final validated = rawQolip['qolip_code']?.toString().trim() ?? '';
+      if (validated.isNotEmpty) {
+        return validated;
+      }
+    }
+    return qolipCode.trim();
   }
 
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
@@ -3812,6 +3825,7 @@ extension MobileApiAdmin on MobileApi {
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     String qolipCode = '',
+    List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
     double? returnInkKg,
@@ -4230,6 +4244,17 @@ extension MobileApiAdmin on MobileApi {
     }
     final trimmedBarcode = materialBarcode.trim();
     final trimmedQolipCode = qolipCode.trim();
+    final trimmedQolipCodes = <String>[];
+    for (final code in qolipCodes) {
+      final trimmed = code.trim();
+      if (trimmed.isEmpty ||
+          trimmedQolipCodes.any(
+            (existing) => existing.toLowerCase() == trimmed.toLowerCase(),
+          )) {
+        continue;
+      }
+      trimmedQolipCodes.add(trimmed);
+    }
     final trimmedBarcodes = [
       for (final barcode in materialBarcodes)
         if (barcode.trim().isNotEmpty) barcode.trim(),
@@ -4250,7 +4275,9 @@ extension MobileApiAdmin on MobileApi {
           if (trimmedBarcodes.isNotEmpty) 'material_barcodes': trimmedBarcodes,
           if (trimmedBarcodes.isEmpty && trimmedBarcode.isNotEmpty)
             'material_barcode': trimmedBarcode,
-          if (trimmedQolipCode.isNotEmpty) 'qolip_code': trimmedQolipCode,
+          if (trimmedQolipCodes.isNotEmpty) 'qolip_codes': trimmedQolipCodes,
+          if (trimmedQolipCodes.isEmpty && trimmedQolipCode.isNotEmpty)
+            'qolip_code': trimmedQolipCode,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,

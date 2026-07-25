@@ -4034,7 +4034,23 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   await tester.enterText(input, 'TEST-QOLIP-QR');
   await tester.tap(find.byTooltip('Qabul qilish'));
   await tester.pumpAndSettle();
-  expect(find.text('Qolip tasdiqlandi'), findsOneWidget);
+  expect(find.text('Qolip qo‘shildi (1 ta)'), findsOneWidget);
+  final qolipsHeader = find.byKey(
+    const ValueKey('production-qolips-expansion'),
+  );
+  expect(qolipsHeader, findsOneWidget);
+  expect(
+    find.descendant(of: qolipsHeader, matching: find.text('1 ta')),
+    findsOneWidget,
+  );
+  await tester.tap(qolipsHeader);
+  await tester.pumpAndSettle();
+  expect(
+    find.byKey(
+      const ValueKey('production-scanned-qolip-test-qolip-qr'),
+    ),
+    findsOneWidget,
+  );
   await tester.tap(find.text('Boshlash'));
   await tester.pumpAndSettle();
 }

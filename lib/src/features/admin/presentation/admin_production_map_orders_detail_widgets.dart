@@ -26,6 +26,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleSummaryExpanded,
     required this.requiresQolipScan,
     required this.qolipScanned,
+    required this.qolipCodes,
+    required this.materialsExpanded,
+    required this.onToggleMaterialsExpanded,
+    required this.qolipsExpanded,
+    required this.onToggleQolipsExpanded,
     required this.mapExpanded,
     required this.onToggleMapExpanded,
     required this.onScan,
@@ -62,6 +67,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleSummaryExpanded;
   final bool requiresQolipScan;
   final bool qolipScanned;
+  final List<String> qolipCodes;
+  final bool materialsExpanded;
+  final VoidCallback onToggleMaterialsExpanded;
+  final bool qolipsExpanded;
+  final VoidCallback onToggleQolipsExpanded;
   final bool mapExpanded;
   final VoidCallback onToggleMapExpanded;
   final VoidCallback onScan;
@@ -128,6 +138,11 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 showEmbeddedQuickScanner: showQuickScanner,
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
+                qolipCodes: qolipCodes,
+                materialsExpanded: materialsExpanded,
+                onToggleMaterialsExpanded: onToggleMaterialsExpanded,
+                qolipsExpanded: qolipsExpanded,
+                onToggleQolipsExpanded: onToggleQolipsExpanded,
                 rezkaInstructionLines: rezkaInstructionLines,
                 onScan: onScan,
                 onProgressScan: onProgressScan,
@@ -605,6 +620,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.showEmbeddedQuickScanner,
     required this.requiresQolipScan,
     required this.qolipScanned,
+    required this.qolipCodes,
+    required this.materialsExpanded,
+    required this.onToggleMaterialsExpanded,
+    required this.qolipsExpanded,
+    required this.onToggleQolipsExpanded,
     required this.rezkaInstructionLines,
     required this.onScan,
     required this.onProgressScan,
@@ -642,6 +662,11 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool showEmbeddedQuickScanner;
   final bool requiresQolipScan;
   final bool qolipScanned;
+  final List<String> qolipCodes;
+  final bool materialsExpanded;
+  final VoidCallback onToggleMaterialsExpanded;
+  final bool qolipsExpanded;
+  final VoidCallback onToggleQolipsExpanded;
   final List<String> rezkaInstructionLines;
   final VoidCallback onScan;
   final VoidCallback? onProgressScan;
@@ -764,91 +789,101 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Biriktirilgan homashyolar',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (!materialsLoading &&
-                  materialsError.trim().isEmpty &&
-                  totalCount > 0)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: scannedCount == totalCount
-                        ? scheme.primaryContainer
-                        : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '$scannedCount/$totalCount',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: scannedCount == totalCount
-                          ? scheme.onPrimaryContainer
-                          : scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
+          _ScannedItemsExpansionHeader(
+            key: const ValueKey('production-materials-expansion'),
+            title: 'Biriktirilgan homashyolar',
+            countText: materialsLoading ? '...' : '$scannedCount/$totalCount',
+            expanded: materialsExpanded,
+            complete: totalCount > 0 && scannedCount == totalCount,
+            onTap: onToggleMaterialsExpanded,
+          ),
+          if (materialsExpanded) ...[
+            const SizedBox(height: 12),
+            if (materialsLoading)
+              Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: scheme.primary,
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (materialsLoading)
-            Row(
-              children: [
-                SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: scheme.primary,
+                  const SizedBox(width: 10),
+                  Text(
+                    'Yuklanmoqda',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+                ],
+              )
+            else if (materialsError.trim().isNotEmpty)
+              Text(
+                materialsError,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.error,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 10),
+              )
+            else if (assignments.isEmpty)
+              Text(
+                'Homashyo biriktirilmagan',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (var index = 0; index < assignments.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 8),
+                    _AssignedMaterialTile(
+                      assignment: assignments[index],
+                      scanned: scannedBarcodes.contains(
+                        assignments[index].barcode.trim().toUpperCase(),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+          ],
+          if (showStart && requiresQolipScan) ...[
+            Divider(
+              height: 28,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            _ScannedItemsExpansionHeader(
+              key: const ValueKey('production-qolips-expansion'),
+              title: 'Qoliplar',
+              countText: '${qolipCodes.length} ta',
+              expanded: qolipsExpanded,
+              complete: qolipCodes.isNotEmpty,
+              onTap: onToggleQolipsExpanded,
+            ),
+            if (qolipsExpanded) ...[
+              const SizedBox(height: 12),
+              if (qolipCodes.isEmpty)
                 Text(
-                  'Yuklanmoqda',
+                  'Qolip scan qilinmagan',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
+                )
+              else
+                Column(
+                  children: [
+                    for (var index = 0; index < qolipCodes.length; index++) ...[
+                      if (index > 0) const SizedBox(height: 8),
+                      _ScannedQolipTile(qolipCode: qolipCodes[index]),
+                    ],
+                  ],
                 ),
-              ],
-            )
-          else if (materialsError.trim().isNotEmpty)
-            Text(
-              materialsError,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.error,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else if (assignments.isEmpty)
-            Text(
-              'Homashyo biriktirilmagan',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            Column(
-              children: [
-                for (var index = 0; index < assignments.length; index++) ...[
-                  if (index > 0) const SizedBox(height: 8),
-                  _AssignedMaterialTile(
-                    assignment: assignments[index],
-                    scanned: scannedBarcodes.contains(
-                      assignments[index].barcode.trim().toUpperCase(),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            ],
+          ],
           if (hasActions) ...[
             Divider(
                 height: 28,
@@ -886,16 +921,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 requiresQolipScan &&
                 !showEmbeddedQuickScanner) ...[
               FilledButton.tonalIcon(
-                onPressed: actionInFlight || orderControlBlocked || qolipScanned
-                    ? null
-                    : onQolipScan,
-                icon: Icon(
-                  qolipScanned
-                      ? Icons.check_circle_rounded
-                      : Icons.qr_code_scanner_rounded,
-                ),
+                onPressed:
+                    actionInFlight || orderControlBlocked ? null : onQolipScan,
+                icon: const Icon(Icons.qr_code_scanner_rounded),
                 label: Text(
-                  qolipScanned ? 'Qolip tasdiqlandi' : 'Qolip QR scan',
+                  qolipCodes.isEmpty
+                      ? 'Qolip QR scan'
+                      : 'Yana qolip scan qilish (${qolipCodes.length} ta)',
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),

@@ -62,18 +62,45 @@ void main() {
     AppSession.instance.token = 'token';
 
     await HttpOverrides.runZoned(() async {
-      await MobileApi.instance.adminValidateProductionMapQolip(
+      final validatedCode =
+          await MobileApi.instance.adminValidateProductionMapQolip(
         apparatus: '7 ta rangli bosma aparat',
         orderId: 'zakaz-1212',
         qolipCode: 'QOLIP-1212',
       );
 
+      expect(validatedCode, 'QOLIP-1212');
       expect(
         seenRequests,
         contains(
           'BODY POST /v1/mobile/admin/production-maps/qolip-validate '
           '{"apparatus":"7 ta rangli bosma aparat",'
           '"order_id":"zakaz-1212","qolip_code":"QOLIP-1212"}',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('queue action sends unique scanned qolip codes together', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final states = await MobileApi.instance.adminApparatusQueueAction(
+        apparatus: '7 ta rangli bosma aparat',
+        orderId: 'zakaz-1212',
+        action: 'start',
+        qolipCodes: const ['QOLIP-1', 'QOLIP-2', 'qolip-2'],
+      );
+
+      expect(states, {'zakaz-1': 'in_progress'});
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/queue-action '
+          '{"apparatus":"7 ta rangli bosma aparat",'
+          '"order_id":"zakaz-1212","action":"start",'
+          '"qolip_codes":["QOLIP-1","QOLIP-2"]}',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));

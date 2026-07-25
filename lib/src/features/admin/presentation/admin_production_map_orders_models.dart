@@ -13,7 +13,7 @@ class _ReadOnlyQueueActionRequest {
     required this.order,
     required this.action,
     this.materialBarcodes = const [],
-    this.qolipCode = '',
+    this.qolipCodes = const [],
     this.producedQty,
     this.grossQty,
     this.returnInkKg,
@@ -42,7 +42,7 @@ class _ReadOnlyQueueActionRequest {
   final ProductionMapSaved order;
   final String action;
   final List<String> materialBarcodes;
-  final String qolipCode;
+  final List<String> qolipCodes;
   final double? producedQty;
   final double? grossQty;
   final double? returnInkKg;

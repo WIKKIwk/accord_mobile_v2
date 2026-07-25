@@ -251,7 +251,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required String printer,
   required String printMode,
   required String completionRequestNote,
-  required String qolipCode,
+  required List<String> qolipCodes,
   String freezeRequestId = '',
 }) {
   return _ReadOnlyQueueActionRequest(
@@ -262,7 +262,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
       action: action,
       assignments: prepared.materialAssignments,
     ),
-    qolipCode: qolipCode,
+    qolipCodes: qolipCodes,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
     returnInkKg: progressInput?.returnInkKg,

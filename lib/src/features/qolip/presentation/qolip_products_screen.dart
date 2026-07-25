@@ -308,6 +308,84 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     );
   }
 
+  Future<void> _editQolip(QolipProduct product) async {
+    if (product.isInUse) {
+      return;
+    }
+    final code = TextEditingController(text: product.qolipCode);
+    final size = TextEditingController(text: '${product.qolipSize}');
+    final draft = await showDialog<_QolipEditDraft>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Qolipni tahrirlash'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: code,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Qolip code'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: size,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Razmer'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final nextCode = code.text.trim();
+              final nextSize = int.tryParse(size.text.trim()) ?? 0;
+              if (nextCode.isEmpty || nextSize <= 0) {
+                return;
+              }
+              Navigator.of(dialogContext).pop(
+                _QolipEditDraft(code: nextCode, size: nextSize),
+              );
+            },
+            child: const Text('Saqlash'),
+          ),
+        ],
+      ),
+    );
+    code.dispose();
+    size.dispose();
+    if (draft == null || !mounted) {
+      return;
+    }
+    try {
+      await MobileApi.instance.qolipSaveProductSpec(
+        product: product,
+        qolipCode: draft.code,
+        size: draft.size,
+        previousQolipCode: product.qolipCode,
+      );
+      if (!mounted) {
+        return;
+      }
+      QolipDataRevision.notifyLocationsChanged();
+      await _reload();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(error, fallback: 'Qolip tahrirlanmadi'),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<String?> _reprintQolipCodeQr(QolipProduct product) async {
     final code = product.qolipCode.trim();
     final option = await showQolipPrinterPicker(context);
@@ -440,6 +518,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                         _toggleContainerSelection(containers[index]),
                     onToggleQolip: _toggleQolipSelection,
                     onPrintCodeQr: _showQolipCodeQr,
+                    onEditQolip: _editQolip,
                   );
                 },
               ),
@@ -452,6 +531,13 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
 }
 
 enum _QolipSelectionMode { containers, qolips }
+
+class _QolipEditDraft {
+  const _QolipEditDraft({required this.code, required this.size});
+
+  final String code;
+  final int size;
+}
 
 class QolipProductContainer {
   const QolipProductContainer({
@@ -547,6 +633,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.onLongPress,
     required this.onToggleQolip,
     required this.onPrintCodeQr,
+    required this.onEditQolip,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -560,6 +647,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   final VoidCallback onLongPress;
   final ValueChanged<QolipProduct> onToggleQolip;
   final ValueChanged<QolipProduct> onPrintCodeQr;
+  final ValueChanged<QolipProduct> onEditQolip;
 
   @override
   Widget build(BuildContext context) {
@@ -683,6 +771,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                             onLongPress: child.isInUse
                                 ? () {}
                                 : () => onToggleQolip(child),
+                            onEdit: () => onEditQolip(child),
                           ),
                         ),
                       const SizedBox(height: 10),
@@ -703,6 +792,7 @@ class _QolipCodeRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onLongPress,
+    required this.onEdit,
   });
 
   final QolipProduct product;
@@ -710,6 +800,7 @@ class _QolipCodeRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -780,6 +871,13 @@ class _QolipCodeRow extends StatelessWidget {
                 Checkbox(
                   value: selected,
                   onChanged: product.isInUse ? null : (_) => onTap(),
+                )
+              else if (!product.isInUse)
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  tooltip: 'Qolipni tahrirlash',
+                  visualDensity: VisualDensity.compact,
                 ),
             ],
           ),

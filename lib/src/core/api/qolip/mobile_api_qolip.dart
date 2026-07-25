@@ -27,7 +27,8 @@ String qolipErrorMessage(
     'quantity_required' => 'Qolip soni noto‘g‘ri',
     'location_identity_mismatch' =>
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
-    'qolip_in_use' => 'Ishchiga berilgan qolipni o‘chirib bo‘lmaydi',
+    'qolip_in_use' => 'Qolip joylashtirilgan yoki ishchiga berilgan',
+    'qolip_code_conflict' => 'Bu qolip code allaqachon mavjud',
     'block_in_use' =>
       'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
     'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
@@ -572,6 +573,7 @@ extension MobileApiQolip on MobileApi {
     required QolipProduct product,
     required String qolipCode,
     required int size,
+    String? previousQolipCode,
   }) async {
     final saved = QolipProduct(
       code: product.code.trim(),
@@ -583,6 +585,30 @@ extension MobileApiQolip on MobileApi {
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
+      final previous = previousQolipCode?.trim().toLowerCase() ?? '';
+      final next = saved.qolipCode.trim().toLowerCase();
+      if (previous.isNotEmpty && previous != next) {
+        if (_testModeQolipCheckouts.any(
+              (checkout) =>
+                  checkout.isOpen &&
+                  checkout.qolipCode.trim().toLowerCase() == previous,
+            ) ||
+            _testModeQolipLocations.any(
+              (location) => location.qolipCode.trim().toLowerCase() == previous,
+            )) {
+          throw const MobileApiException(
+            code: 'qolip_in_use',
+            message: 'qolip_in_use',
+          );
+        }
+        if (_testModeQolipSpecs.containsKey(next)) {
+          throw const MobileApiException(
+            code: 'qolip_code_conflict',
+            message: 'qolip_code_conflict',
+          );
+        }
+        _testModeQolipSpecs.remove(previous);
+      }
       _testModeQolipSpecs[saved.qolipCode.trim().toLowerCase()] = saved;
       return saved;
     }
@@ -596,6 +622,8 @@ extension MobileApiQolip on MobileApi {
           'item_name': product.name.trim(),
           'item_group': product.itemGroup.trim(),
           'qolip_code': qolipCode.trim(),
+          if (previousQolipCode != null && previousQolipCode.trim().isNotEmpty)
+            'previous_qolip_code': previousQolipCode.trim(),
           'size': size,
         }),
       ),
