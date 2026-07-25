@@ -210,7 +210,6 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     action: request.action,
     materialBarcodes: request.materialBarcodes,
     qolipCodes: request.qolipCodes,
-    qolipPantonCodes: request.qolipPantonCodes,
     producedQty: request.producedQty,
     grossQty: request.grossQty,
     returnInkKg: request.returnInkKg,

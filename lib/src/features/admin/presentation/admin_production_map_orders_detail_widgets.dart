@@ -29,8 +29,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
-    required this.qolipPantonCodes,
-    required this.existingOrderPantonNumbers,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -41,7 +39,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onMaterialIntake,
     required this.onProgressScan,
     required this.onQolipScan,
-    required this.onToggleQolipPanton,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -76,8 +73,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
-  final List<String> qolipPantonCodes;
-  final Set<int> existingOrderPantonNumbers;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -88,7 +83,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onMaterialIntake;
   final VoidCallback? onProgressScan;
   final VoidCallback onQolipScan;
-  final ValueChanged<String> onToggleQolipPanton;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -153,8 +147,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
                 qolipCodes: qolipCodes,
-                qolipPantonCodes: qolipPantonCodes,
-                existingOrderPantonNumbers: existingOrderPantonNumbers,
                 materialsExpanded: materialsExpanded,
                 onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                 qolipsExpanded: qolipsExpanded,
@@ -164,7 +156,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onMaterialIntake: onMaterialIntake,
                 onProgressScan: onProgressScan,
                 onQolipScan: onQolipScan,
-                onToggleQolipPanton: onToggleQolipPanton,
                 onStart: onStart,
                 onPause: onPause,
                 onComplete: onComplete,
@@ -641,8 +632,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
-    required this.qolipPantonCodes,
-    required this.existingOrderPantonNumbers,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -652,7 +641,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onMaterialIntake,
     required this.onProgressScan,
     required this.onQolipScan,
-    required this.onToggleQolipPanton,
     required this.onStart,
     required this.onPause,
     required this.onComplete,
@@ -689,8 +677,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
-  final List<String> qolipPantonCodes;
-  final Set<int> existingOrderPantonNumbers;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -700,7 +686,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onMaterialIntake;
   final VoidCallback? onProgressScan;
   final VoidCallback onQolipScan;
-  final ValueChanged<String> onToggleQolipPanton;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onComplete;
@@ -916,16 +901,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       if (index > 0) const SizedBox(height: 8),
                       _ScannedQolipTile(
                         qolipCode: qolipCodes[index],
-                        pantonNumber: _qolipPantonNumber(
-                          qolipCodes[index],
-                          qolipPantonCodes,
-                          existingOrderPantonNumbers,
-                        ),
-                        nextPantonNumber: _nextQolipPantonNumber(
-                          qolipPantonCodes,
-                          existingOrderPantonNumbers,
-                        ),
-                        onPantonTap: onToggleQolipPanton,
                       ),
                     ],
                   ],

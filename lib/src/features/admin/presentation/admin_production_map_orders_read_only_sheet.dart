@@ -52,8 +52,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
-  final List<String> _pantonQolipCodes = [];
-  final Map<String, int> _existingOrderPantonNumbers = {};
   String _quickScanStatus =
       'Qolip yoki homashyo QR kodini tirqishga olib keling';
   bool _quickScanInFlight = false;
@@ -137,8 +135,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
-      _pantonQolipCodes.clear();
-      _existingOrderPantonNumbers.clear();
       _materialsExpanded = false;
       _qolipsExpanded = false;
       _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
@@ -258,9 +254,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           printMode: printMode,
           completionRequestNote: completionRequestNote,
           qolipCodes: qolipCodes,
-          qolipPantonCodes: action == 'start'
-              ? List<String>.unmodifiable(_pantonQolipCodes)
-              : const [],
           freezeRequestId:
               action == 'pause' ? widget.initialPauseRequestId : '',
         ),
@@ -281,8 +274,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
         if (action == 'start' && states != null) {
           _scannedQolipCodes.clear();
-          _pantonQolipCodes.clear();
-          _existingOrderPantonNumbers.clear();
           _qolipsExpanded = false;
         }
         if (action == 'pause' &&
@@ -322,8 +313,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _actionInFlight = false;
         if (action == 'start' && _queueActionShouldClearQolipScan(error)) {
           _scannedQolipCodes.clear();
-          _pantonQolipCodes.clear();
-          _existingOrderPantonNumbers.clear();
           _qolipsExpanded = false;
         }
       });
@@ -347,24 +336,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       'Avval yuqoridagi embedded scanner orqali qolip QR scan qiling',
     );
     return null;
-  }
-
-  void _toggleQolipPanton(String qolipCode) {
-    final normalized = qolipCode.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return;
-    }
-    setState(() {
-      final index = _pantonQolipCodes.indexWhere(
-        (code) => code.trim().toLowerCase() == normalized,
-      );
-      if (index >= 0) {
-        _pantonQolipCodes.removeAt(index);
-      } else if (_pantonQolipCodes.length < 7 &&
-          _scannedQolipCodes.containsKey(normalized)) {
-        _pantonQolipCodes.add(_scannedQolipCodes[normalized]!);
-      }
-    });
   }
 
   Future<void> _scanQolip() async {
@@ -391,9 +362,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final alreadyScanned = _scannedQolipCodes.containsKey(key);
       setState(() {
         _scannedQolipCodes[key] = validatedCode.trim();
-        _existingOrderPantonNumbers
-          ..clear()
-          ..addAll(validation.qolipPantons);
       });
       _showSheetNotice(
         alreadyScanned
@@ -480,9 +448,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             final alreadyScanned = _scannedQolipCodes.containsKey(key);
             setState(() {
               _scannedQolipCodes[key] = validatedCode.trim();
-              _existingOrderPantonNumbers
-                ..clear()
-                ..addAll(validation.qolipPantons);
               _quickScanStatus = alreadyScanned
                   ? 'Bu qolip avval scan qilingan (${_scannedQolipCodes.length} ta)'
                   : 'Qolip qo‘shildi (${_scannedQolipCodes.length} ta)';
@@ -882,8 +847,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,
       qolipCodes: _scannedQolipCodes.values.toList(growable: false),
-      qolipPantonCodes: List<String>.unmodifiable(_pantonQolipCodes),
-      existingOrderPantonNumbers: _existingOrderPantonNumbers.values.toSet(),
       materialsExpanded: _materialsExpanded,
       onToggleMaterialsExpanded: () {
         setState(() => _materialsExpanded = !_materialsExpanded);
@@ -906,7 +869,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           ? null
           : () => unawaited(_scanStartInputProgressQr(uiState.previousStage!)),
       onQolipScan: () => unawaited(_scanQolip()),
-      onToggleQolipPanton: _toggleQolipPanton,
       onStart: () => unawaited(_runQueueAction('start')),
       onPause: () => unawaited(_runProgressAction('pause')),
       onComplete: () => unawaited(_runProgressAction('complete')),

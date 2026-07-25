@@ -415,17 +415,9 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
 }
 
 class _ScannedQolipTile extends StatelessWidget {
-  const _ScannedQolipTile({
-    required this.qolipCode,
-    required this.pantonNumber,
-    required this.nextPantonNumber,
-    required this.onPantonTap,
-  });
+  const _ScannedQolipTile({required this.qolipCode});
 
   final String qolipCode;
-  final int? pantonNumber;
-  final int nextPantonNumber;
-  final ValueChanged<String> onPantonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -465,88 +457,10 @@ class _ScannedQolipTile extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: pantonNumber == null && nextPantonNumber > 7
-                ? null
-                : () => onPantonTap(code),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              visualDensity: VisualDensity.compact,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: Text(
-              pantonNumber == null
-                  ? nextPantonNumber > 7
-                      ? 'Limit'
-                      : 'Panton $nextPantonNumber'
-                  : 'Panton $pantonNumber',
-            ),
-          ),
         ],
       ),
     );
   }
-}
-
-int? _qolipPantonNumber(
-  String qolipCode,
-  List<String> pantonQolipCodes,
-  Set<int> existingOrderPantonNumbers,
-) {
-  final normalized = qolipCode.trim().toLowerCase();
-  final index = pantonQolipCodes.indexWhere(
-    (code) => code.trim().toLowerCase() == normalized,
-  );
-  if (index < 0) {
-    return null;
-  }
-  return _pantonNumbersForSelection(
-    pantonQolipCodes,
-    existingOrderPantonNumbers,
-  )[normalized];
-}
-
-int _nextQolipPantonNumber(
-  List<String> pantonQolipCodes,
-  Set<int> existingOrderPantonNumbers,
-) {
-  final used = <int>{...existingOrderPantonNumbers};
-  used.addAll(
-    _pantonNumbersForSelection(
-      pantonQolipCodes,
-      existingOrderPantonNumbers,
-    ).values,
-  );
-  for (var number = 1; number <= 7; number++) {
-    if (!used.contains(number)) {
-      return number;
-    }
-  }
-  return 8;
-}
-
-Map<String, int> _pantonNumbersForSelection(
-  List<String> pantonQolipCodes,
-  Set<int> existingOrderPantonNumbers,
-) {
-  final used = <int>{...existingOrderPantonNumbers};
-  final result = <String, int>{};
-  for (final code in pantonQolipCodes) {
-    final normalized = code.trim().toLowerCase();
-    if (normalized.isEmpty) continue;
-    for (var number = 1; number <= 7; number++) {
-      if (!used.contains(number)) {
-        result[normalized] = number;
-        used.add(number);
-        break;
-      }
-    }
-  }
-  return result;
 }
 
 class _RawMaterialBalanceSummary extends StatelessWidget {
