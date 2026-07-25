@@ -25,11 +25,29 @@ const qolipDefaultColors = <QolipColorOption>[
   QolipColorOption(name: 'Qora', value: '#212121'),
 ];
 
+const qolipPantonColorValue = 'PANTON';
+
+const qolipPantonColors = <QolipColorOption>[
+  QolipColorOption(name: 'Panton 1', value: 'PANTON 1'),
+  QolipColorOption(name: 'Panton 2', value: 'PANTON 2'),
+  QolipColorOption(name: 'Panton 3', value: 'PANTON 3'),
+  QolipColorOption(name: 'Panton 4', value: 'PANTON 4'),
+  QolipColorOption(name: 'Panton 5', value: 'PANTON 5'),
+  QolipColorOption(name: 'Panton 6', value: 'PANTON 6'),
+  QolipColorOption(name: 'Panton 7', value: 'PANTON 7'),
+];
+
+bool qolipIsPantonColor(String value) =>
+    value.trim().toUpperCase().startsWith(qolipPantonColorValue);
+
 Color qolipColorValue(String value) {
   final normalized = value.trim().replaceFirst('#', '');
   final parsed = int.tryParse(normalized, radix: 16);
   return Color(0xFF000000 | (parsed ?? 0x757575));
 }
+
+bool _isPantonOption(QolipColorOption option) =>
+    qolipIsPantonColor(option.value);
 
 class QolipColorPicker extends StatelessWidget {
   const QolipColorPicker({
@@ -49,58 +67,97 @@ class QolipColorPicker extends StatelessWidget {
       runSpacing: 6,
       children: [
         for (final option in qolipDefaultColors)
-          Semantics(
-            button: true,
-            label: option.name,
+          _QolipColorTile(
+            option: option,
             selected: selected == option.value,
-            child: InkWell(
-              onTap: () => onChanged(option.value),
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 60,
-                height: 64,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: qolipColorValue(option.value),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected == option.value
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .outlineVariant,
-                          width: selected == option.value ? 3 : 1,
-                        ),
-                      ),
-                      child: selected == option.value
-                          ? Icon(
-                              Icons.check_rounded,
-                              size: 25,
-                              color: option.value == '#FDD835'
-                                  ? Colors.black
-                                  : Colors.white,
-                            )
-                          : null,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      option.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            isPanton: false,
+            onTap: () => onChanged(option.value),
+          ),
+        for (final option in qolipPantonColors)
+          _QolipColorTile(
+            option: option,
+            selected: selected == option.value,
+            isPanton: _isPantonOption(option),
+            onTap: () => onChanged(option.value),
           ),
       ],
+    );
+  }
+}
+
+class _QolipColorTile extends StatelessWidget {
+  const _QolipColorTile({
+    required this.option,
+    required this.selected,
+    required this.isPanton,
+    required this.onTap,
+  });
+
+  final QolipColorOption option;
+  final bool selected;
+  final bool isPanton;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: option.name,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 60,
+          height: 64,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isPanton ? null : qolipColorValue(option.value),
+                  gradient: isPanton
+                      ? const LinearGradient(
+                          colors: [
+                            Color(0xFFE53935),
+                            Color(0xFFFDD835),
+                            Color(0xFF43A047),
+                            Color(0xFF3949AB),
+                            Color(0xFFD81B60),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? scheme.onSurface : scheme.outlineVariant,
+                    width: selected ? 3 : 1,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 25,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                option.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
