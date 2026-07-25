@@ -356,13 +356,37 @@ class _AssignedMaterialTile extends StatelessWidget {
     final title = assignment.itemName.trim().isEmpty
         ? assignment.itemCode.trim()
         : assignment.itemName.trim();
-    final meta = [
-      if (assignment.itemCode.trim().isNotEmpty) assignment.itemCode.trim(),
-      if (assignment.itemGroup.trim().isNotEmpty) assignment.itemGroup.trim(),
-      assignment.barcode.trim(),
-    ].where((item) => item.isNotEmpty).join(' • ');
+    final details = <String>[];
+    void addDetail(String value) {
+      final normalized = value.trim();
+      if (normalized.isEmpty ||
+          details.any(
+            (item) => item.toLowerCase() == normalized.toLowerCase(),
+          )) {
+        return;
+      }
+      details.add(normalized);
+    }
+
+    final itemCode = assignment.itemCode.trim();
+    if (itemCode.isNotEmpty &&
+        itemCode.toLowerCase() != title.toLowerCase()) {
+      final titlePrefix = title.toLowerCase();
+      final codeLower = itemCode.toLowerCase();
+      final remainder = title.isNotEmpty && codeLower.startsWith(titlePrefix)
+          ? itemCode.substring(title.length).trim()
+          : itemCode;
+      addDetail(remainder.replaceFirst(RegExp(r'^[•·|,/-]+\s*'), ''));
+    }
+    addDetail(assignment.itemGroup);
+    addDetail(assignment.barcode);
+
+    var primary = title;
+    if (primary.isEmpty && details.isNotEmpty) {
+      primary = details.removeAt(0);
+    }
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: scanned
             ? scheme.primaryContainer.withValues(alpha: 0.45)
@@ -373,8 +397,8 @@ class _AssignedMaterialTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: scanned
                   ? scheme.primary.withValues(alpha: 0.14)
@@ -384,7 +408,7 @@ class _AssignedMaterialTile extends StatelessWidget {
             child: Icon(
               scanned ? Icons.check_rounded : Icons.science_outlined,
               color: scanned ? scheme.primary : scheme.onSurfaceVariant,
-              size: 22,
+              size: 20,
             ),
           ),
           const SizedBox(width: 12),
@@ -392,26 +416,30 @@ class _AssignedMaterialTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title.isEmpty ? assignment.barcode : title,
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      if (primary.isNotEmpty)
+                        TextSpan(
+                          text: primary,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      if (details.isNotEmpty)
+                        TextSpan(
+                          text:
+                              '${primary.isEmpty ? '' : ' • '}${details.join(' • ')}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
