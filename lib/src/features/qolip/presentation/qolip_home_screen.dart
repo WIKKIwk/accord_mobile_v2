@@ -28,6 +28,24 @@ import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
+Future<void> showQolipProductSpecSheet(
+  BuildContext context, {
+  QolipProduct? initialProduct,
+}) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.32),
+    builder: (context) => _QolipAttachSheet(
+      mode: _QolipAttachMode.productSpec,
+      blocks: const <QolipBlock>[],
+      initialProduct: initialProduct,
+    ),
+  );
+}
+
 bool qolipMoveReachedTarget({
   required QolipLocationEntry moved,
   required QolipBlock targetBlock,
@@ -3451,6 +3469,7 @@ class _QolipAttachSheet extends StatefulWidget {
     required this.mode,
     required this.blocks,
     this.initialBlock,
+    this.initialProduct,
     this.initialRowLetter,
     this.initialColumnNumber,
   });
@@ -3458,6 +3477,7 @@ class _QolipAttachSheet extends StatefulWidget {
   final _QolipAttachMode mode;
   final List<QolipBlock> blocks;
   final QolipBlock? initialBlock;
+  final QolipProduct? initialProduct;
   final String? initialRowLetter;
   final int? initialColumnNumber;
 
@@ -3484,6 +3504,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   void initState() {
     super.initState();
     _block = _initialBlock();
+    _product = widget.initialProduct;
+    _selectedProducts = widget.initialProduct == null
+        ? const <QolipProduct>[]
+        : <QolipProduct>[widget.initialProduct!];
     _rowLetter = widget.initialRowLetter;
     _columnNumber = widget.initialColumnNumber;
     _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement

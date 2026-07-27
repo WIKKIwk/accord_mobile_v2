@@ -1440,6 +1440,18 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
     if (stock.status.trim().toLowerCase() != 'available' || stock.qty <= 0) {
       continue;
     }
+    final inventoryAsset = _testModeInventoryAssets.where(
+      (asset) =>
+          asset.kind == InventoryAssetKind.rawMaterial &&
+          asset.assetRef.trim().toLowerCase() == stock.id.trim().toLowerCase(),
+    );
+    if (inventoryAsset.isNotEmpty &&
+        (inventoryAsset.first.physicalLocation.kind !=
+                InventoryLocationKind.warehouse ||
+            inventoryAsset.first.physicalLocation.name.trim().toLowerCase() !=
+                stock.warehouse.trim().toLowerCase())) {
+      continue;
+    }
     addProduct(stock.warehouse);
     stockWarehouseByBarcode[stock.barcode.trim().toLowerCase()] =
         stock.warehouse.trim();

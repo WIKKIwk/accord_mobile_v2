@@ -118,6 +118,15 @@ void main() {
     await tester.tap(find.text('Hotlunch'));
     await tester.pumpAndSettle();
     expect(find.text('Ishchiga berilgan'), findsOneWidget);
+    expect(find.byTooltip('Qolip qo‘shish'), findsOneWidget);
+    await tester.tap(find.byTooltip('Qolip qo‘shish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Qolipni omborga biriktirish'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsWidgets);
+    Navigator.of(
+      tester.element(find.text('Qolipni omborga biriktirish')),
+    ).pop();
+    await tester.pumpAndSettle();
 
     await tester.longPress(find.text('Q-LOCKED'));
     await tester.pumpAndSettle();

@@ -60,6 +60,8 @@ class _AdminRawMaterialSettingsScreenState
   List<AdminRawMaterialRequirementGroup> _selectedRequirementGroups = const [];
   String _selectedApparatus = '';
   bool _selectedRequiresMaterial = false;
+  AdminRawMaterialStartPolicy _selectedStartPolicy =
+      AdminRawMaterialStartPolicy.stateAll;
   bool _saving = false;
 
   @override
@@ -138,11 +140,13 @@ class _AdminRawMaterialSettingsScreenState
         _selectedRequirementGroups,
       );
       _selectedRequiresMaterial = rule.requiresMaterial;
+      _selectedStartPolicy = rule.startPolicy;
       return;
     }
     _groupsController.clear();
     _selectedRequirementGroups = const [];
     _selectedRequiresMaterial = false;
+    _selectedStartPolicy = AdminRawMaterialStartPolicy.stateAll;
   }
 
   AdminRawMaterialRule? _ruleFor(String apparatus) {
@@ -199,6 +203,7 @@ class _AdminRawMaterialSettingsScreenState
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatus,
         requiresMaterial: _selectedRequiresMaterial,
+        startPolicy: _selectedStartPolicy,
         itemGroups: groups,
         requirementGroups: requirementGroups,
       );
@@ -212,6 +217,7 @@ class _AdminRawMaterialSettingsScreenState
           _selectedRequirementGroups,
         );
         _selectedRequiresMaterial = saved.requiresMaterial;
+        _selectedStartPolicy = saved.startPolicy;
       });
       showAdminTopNotice(context, 'Homashyo qoidasi saqlandi');
     } catch (error) {
@@ -246,6 +252,7 @@ class _AdminRawMaterialSettingsScreenState
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatusName,
         requiresMaterial: requiresMaterial,
+        startPolicy: rule.startPolicy,
         itemGroups: rule.itemGroups,
         requirementGroups: rule.requirementGroups,
       );
@@ -367,6 +374,7 @@ class _AdminRawMaterialSettingsScreenState
                             selectedApparatus: _selectedApparatus,
                             rawMaterialGroups: data.rawMaterialGroups,
                             groupsController: _groupsController,
+                            selectedStartPolicy: _selectedStartPolicy,
                             saving: _saving,
                             onApparatusChanged: (value) {
                               setState(() {
@@ -376,6 +384,9 @@ class _AdminRawMaterialSettingsScreenState
                             },
                             onPickGroups: () =>
                                 _pickGroups(data.rawMaterialGroups),
+                            onStartPolicyChanged: (value) {
+                              setState(() => _selectedStartPolicy = value);
+                            },
                             onSave: _save,
                           ),
                           if (_rules.isNotEmpty) ...[
@@ -539,9 +550,11 @@ class _RuleEditor extends StatelessWidget {
     required this.selectedApparatus,
     required this.rawMaterialGroups,
     required this.groupsController,
+    required this.selectedStartPolicy,
     required this.saving,
     required this.onApparatusChanged,
     required this.onPickGroups,
+    required this.onStartPolicyChanged,
     required this.onSave,
   });
 
@@ -549,9 +562,11 @@ class _RuleEditor extends StatelessWidget {
   final String selectedApparatus;
   final List<String> rawMaterialGroups;
   final TextEditingController groupsController;
+  final AdminRawMaterialStartPolicy selectedStartPolicy;
   final bool saving;
   final ValueChanged<String> onApparatusChanged;
   final VoidCallback onPickGroups;
+  final ValueChanged<AdminRawMaterialStartPolicy> onStartPolicyChanged;
   final VoidCallback onSave;
 
   @override
@@ -590,6 +605,30 @@ class _RuleEditor extends StatelessWidget {
                       if (value != null) {
                         onApparatusChanged(value);
                       }
+                    },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<AdminRawMaterialStartPolicy>(
+              key: ValueKey(selectedStartPolicy),
+              initialValue: selectedStartPolicy,
+              decoration: appSurfaceInputDecoration(
+                context,
+                labelText: 'Ish boshlash qoidasi',
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: AdminRawMaterialStartPolicy.stateAll,
+                  child: Text('State’dagi barcha homashyolar'),
+                ),
+                DropdownMenuItem(
+                  value: AdminRawMaterialStartPolicy.requirementGroups,
+                  child: Text('Har bir guruhdan minimum'),
+                ),
+              ],
+              onChanged: saving
+                  ? null
+                  : (value) {
+                      if (value != null) onStartPolicyChanged(value);
                     },
             ),
             const SizedBox(height: 10),
@@ -987,6 +1026,16 @@ class _RuleTile extends StatelessWidget {
                   rule.requiresMaterial
                       ? 'Homashyo majburiy'
                       : 'Homashyo ixtiyoriy',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  rule.startPolicy == AdminRawMaterialStartPolicy.stateAll
+                      ? 'State’dagi hammasi scan qilinadi'
+                      : 'Har bir guruhdan minimum scan qilinadi',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.05,

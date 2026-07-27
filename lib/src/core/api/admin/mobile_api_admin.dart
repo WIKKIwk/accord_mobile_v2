@@ -1709,6 +1709,23 @@ class AdminApparatusQueuePolicy {
       };
 }
 
+enum AdminRawMaterialStartPolicy {
+  stateAll,
+  requirementGroups;
+
+  String get apiValue => switch (this) {
+        AdminRawMaterialStartPolicy.stateAll => 'state_all',
+        AdminRawMaterialStartPolicy.requirementGroups => 'requirement_groups',
+      };
+
+  static AdminRawMaterialStartPolicy fromJson(Object? raw) {
+    return switch (raw?.toString().trim().toLowerCase()) {
+      'requirement_groups' => AdminRawMaterialStartPolicy.requirementGroups,
+      _ => AdminRawMaterialStartPolicy.stateAll,
+    };
+  }
+}
+
 class AdminRawMaterialRequirementGroup {
   const AdminRawMaterialRequirementGroup({
     required this.name,
@@ -1751,12 +1768,14 @@ class AdminRawMaterialRule {
     required this.apparatus,
     required this.requiresMaterial,
     required this.itemGroups,
+    this.startPolicy = AdminRawMaterialStartPolicy.stateAll,
     this.requirementGroups = const [],
   });
 
   final String apparatus;
   final bool requiresMaterial;
   final List<String> itemGroups;
+  final AdminRawMaterialStartPolicy startPolicy;
   final List<AdminRawMaterialRequirementGroup> requirementGroups;
 
   factory AdminRawMaterialRule.fromJson(Map<String, dynamic> json) {
@@ -1765,6 +1784,7 @@ class AdminRawMaterialRule {
     return AdminRawMaterialRule(
       apparatus: json['apparatus']?.toString() ?? '',
       requiresMaterial: json['requires_material'] == true,
+      startPolicy: AdminRawMaterialStartPolicy.fromJson(json['start_policy']),
       itemGroups: [
         if (rawGroups is List)
           for (final item in rawGroups)
@@ -1778,6 +1798,161 @@ class AdminRawMaterialRule {
       ],
     );
   }
+}
+
+class AdminRawMaterialStartRequirements {
+  const AdminRawMaterialStartRequirements({
+    this.policy = AdminRawMaterialStartPolicy.stateAll,
+    this.requiresMaterial = false,
+    this.requirementGroups = const [],
+    this.assignedBarcodes = const [],
+    this.stagedBarcodes = const [],
+  });
+
+  final AdminRawMaterialStartPolicy policy;
+  final bool requiresMaterial;
+  final List<AdminRawMaterialRequirementGroup> requirementGroups;
+  final List<String> assignedBarcodes;
+  final List<String> stagedBarcodes;
+
+  factory AdminRawMaterialStartRequirements.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawRequirementGroups = json['requirement_groups'];
+    final rawAssignedBarcodes = json['assigned_barcodes'];
+    final rawStagedBarcodes = json['staged_barcodes'];
+    return AdminRawMaterialStartRequirements(
+      policy: AdminRawMaterialStartPolicy.fromJson(json['policy']),
+      requiresMaterial: json['requires_material'] == true,
+      requirementGroups: [
+        if (rawRequirementGroups is List)
+          for (final item in rawRequirementGroups)
+            if (item is Map)
+              AdminRawMaterialRequirementGroup.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+      assignedBarcodes: _normalizedRawMaterialBarcodeList(
+        rawAssignedBarcodes,
+      ),
+      stagedBarcodes: _normalizedRawMaterialBarcodeList(rawStagedBarcodes),
+    );
+  }
+
+  Set<String> get normalizedAssignedBarcodes =>
+      assignedBarcodes.map(_normalizeRawMaterialBarcode).toSet()..remove('');
+
+  Set<String> get normalizedStagedBarcodes =>
+      stagedBarcodes.map(_normalizeRawMaterialBarcode).toSet()..remove('');
+
+  int get requiredScanCount => switch (policy) {
+        AdminRawMaterialStartPolicy.stateAll => normalizedStagedBarcodes.length,
+        AdminRawMaterialStartPolicy.requirementGroups => requirementGroups.fold(
+            0,
+            (total, group) =>
+                total +
+                (group.minRequiredCount < 1 ? 1 : group.minRequiredCount),
+          ),
+      };
+
+  List<AdminRawMaterialAssignment> eligibleAssignments(
+    List<AdminRawMaterialAssignment> assignments,
+  ) {
+    final assigned = normalizedAssignedBarcodes;
+    final eligible = policy == AdminRawMaterialStartPolicy.stateAll
+        ? normalizedStagedBarcodes
+        : assigned;
+    return assignments
+        .where(
+          (assignment) => eligible.contains(
+            _normalizeRawMaterialBarcode(assignment.barcode),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  int matchedRequirementCount({
+    required List<AdminRawMaterialAssignment> assignments,
+    required Set<String> scannedBarcodes,
+  }) {
+    final slots = <List<String>>[
+      for (final group in requirementGroups)
+        for (var index = 0;
+            index < (group.minRequiredCount < 1 ? 1 : group.minRequiredCount);
+            index += 1)
+          group.itemGroups,
+    ];
+    if (slots.isEmpty) return 0;
+    final scanned = scannedBarcodes.map(_normalizeRawMaterialBarcode).toSet()
+      ..remove('');
+    final candidates = assignments
+        .where(
+          (assignment) => scanned
+              .contains(_normalizeRawMaterialBarcode(assignment.barcode)),
+        )
+        .toList(growable: false);
+    final matchedSlots = List<int?>.filled(slots.length, null);
+
+    bool matchAssignment(int assignmentIndex, List<bool> visited) {
+      final itemGroup = candidates[assignmentIndex].itemGroup.trim();
+      for (var slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+        if (visited[slotIndex] ||
+            !slots[slotIndex].any(
+              (group) => group.trim().toLowerCase() == itemGroup.toLowerCase(),
+            )) {
+          continue;
+        }
+        visited[slotIndex] = true;
+        final previousAssignment = matchedSlots[slotIndex];
+        if (previousAssignment == null ||
+            matchAssignment(previousAssignment, visited)) {
+          matchedSlots[slotIndex] = assignmentIndex;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (var index = 0; index < candidates.length; index += 1) {
+      matchAssignment(index, List<bool>.filled(slots.length, false));
+    }
+    return matchedSlots.whereType<int>().length;
+  }
+
+  bool scansSatisfy({
+    required List<AdminRawMaterialAssignment> assignments,
+    required Set<String> scannedBarcodes,
+  }) {
+    final assigned = normalizedAssignedBarcodes;
+    if (assigned.isEmpty) return !requiresMaterial;
+    final scanned = scannedBarcodes.map(_normalizeRawMaterialBarcode).toSet()
+      ..remove('');
+    if (scanned.isEmpty || !assigned.containsAll(scanned)) return false;
+    return switch (policy) {
+      AdminRawMaterialStartPolicy.stateAll =>
+        setEquals(scanned, normalizedStagedBarcodes) && scanned.isNotEmpty,
+      AdminRawMaterialStartPolicy.requirementGroups =>
+        requirementGroups.isNotEmpty &&
+            matchedRequirementCount(
+                  assignments: assignments,
+                  scannedBarcodes: scanned,
+                ) ==
+                requiredScanCount,
+    };
+  }
+}
+
+String _normalizeRawMaterialBarcode(String value) => value.trim().toUpperCase();
+
+List<String> _normalizedRawMaterialBarcodeList(Object? raw) {
+  if (raw is! List) return const [];
+  final seen = <String>{};
+  return [
+    for (final value in raw)
+      if (_normalizeRawMaterialBarcode(value.toString()).isNotEmpty &&
+          seen.add(_normalizeRawMaterialBarcode(value.toString())))
+        _normalizeRawMaterialBarcode(value.toString()),
+  ];
 }
 
 class AdminRawMaterialAssignment {
@@ -2159,6 +2334,12 @@ MobileApiException _adminProductionMapException(
         '0 qiymat kiritilganda sababini yozing',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
+      'raw_material_state_not_ready' =>
+        'Apparat oldiga homashyo olib kelinmagan',
+      'raw_material_scan_incomplete' =>
+        'Apparat oldidagi barcha homashyolarni skaner qiling',
+      'raw_material_requirement_not_met' =>
+        'Har bir majburiy guruhdan minimum homashyo skaner qiling',
       'raw_material_mismatch' => 'Bu homashyo ish boshlash uchun mos emas',
       'raw_material_stock_unavailable' =>
         'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
@@ -3492,6 +3673,8 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminRawMaterialRule> adminSaveRawMaterialRule({
     required String apparatus,
     bool requiresMaterial = false,
+    AdminRawMaterialStartPolicy startPolicy =
+        AdminRawMaterialStartPolicy.stateAll,
     required List<String> itemGroups,
     List<AdminRawMaterialRequirementGroup> requirementGroups = const [],
   }) async {
@@ -3508,6 +3691,7 @@ extension MobileApiAdmin on MobileApi {
       final rule = AdminRawMaterialRule(
         apparatus: normalizedApparatus,
         requiresMaterial: requiresMaterial,
+        startPolicy: startPolicy,
         itemGroups: normalizedGroups,
         requirementGroups: requirementGroups,
       );
@@ -3522,6 +3706,7 @@ extension MobileApiAdmin on MobileApi {
         body: jsonEncode({
           'apparatus': normalizedApparatus,
           'requires_material': requiresMaterial,
+          'start_policy': startPolicy.apiValue,
           'item_groups': normalizedGroups,
           'requirement_groups': normalizedRequirementGroups,
         }),
@@ -3531,6 +3716,106 @@ extension MobileApiAdmin on MobileApi {
       throw _adminProductionMapException(response, 'raw_material_rules');
     }
     return AdminRawMaterialRule.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminRawMaterialStartRequirements> adminRawMaterialStartRequirements({
+    required String orderId,
+    required String apparatus,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = apparatus.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      AdminRawMaterialRule? rule;
+      for (final candidate in _testModeRawMaterialRules.values) {
+        if (productionMapWarehouseTitlesMatch(
+          candidate.apparatus,
+          normalizedApparatus,
+        )) {
+          rule = candidate;
+          break;
+        }
+      }
+      final assignments = _testModeRawMaterialAssignments
+          .where(
+            (assignment) =>
+                assignment.orderId.trim() == normalizedOrderId &&
+                productionMapWarehouseTitlesMatch(
+                  assignment.apparatus,
+                  normalizedApparatus,
+                ),
+          )
+          .toList(growable: false);
+      final assignedBarcodes = {
+        for (final assignment in assignments)
+          _normalizeRawMaterialBarcode(assignment.barcode),
+      }..remove('');
+      final stagedBarcodes = <String>{};
+      for (final asset in _testModeInventoryAssets) {
+        final barcode = _normalizeRawMaterialBarcode(asset.identifier);
+        if (asset.kind != InventoryAssetKind.rawMaterial ||
+            asset.physicalLocation.kind != InventoryLocationKind.state ||
+            asset.status.trim().toLowerCase() == 'consumed' ||
+            !assignedBarcodes.contains(barcode)) {
+          continue;
+        }
+        final locations = _testModeInventoryLocations.where(
+          (location) =>
+              location.active &&
+              location.isState &&
+              location.id == asset.physicalLocation.id,
+        );
+        if (locations.any(
+          (location) => location.apparatus.any(
+            (linked) => productionMapWarehouseTitlesMatch(
+              linked.name,
+              normalizedApparatus,
+            ),
+          ),
+        )) {
+          stagedBarcodes.add(barcode);
+        }
+      }
+      final requirementGroups = rule == null
+          ? const <AdminRawMaterialRequirementGroup>[]
+          : rule.requirementGroups.isNotEmpty
+              ? rule.requirementGroups
+              : [
+                  for (final itemGroup in rule.itemGroups)
+                    AdminRawMaterialRequirementGroup(
+                      name: itemGroup,
+                      itemGroups: [itemGroup],
+                    ),
+                ];
+      return AdminRawMaterialStartRequirements(
+        policy: rule?.startPolicy ?? AdminRawMaterialStartPolicy.stateAll,
+        requiresMaterial: rule?.requiresMaterial ?? false,
+        requirementGroups: requirementGroups,
+        assignedBarcodes: assignedBarcodes.toList(growable: false),
+        stagedBarcodes: stagedBarcodes.toList(growable: false),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/raw-material-start-requirements',
+        ).replace(
+          queryParameters: {
+            'order_id': normalizedOrderId,
+            'apparatus': normalizedApparatus,
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'raw_material_start_requirements',
+      );
+    }
+    return AdminRawMaterialStartRequirements.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
@@ -3672,12 +3957,32 @@ extension MobileApiAdmin on MobileApi {
     };
     if (await TestModeController.instance.isEnabled()) {
       final normalizedBarcode = body['barcode']!.toUpperCase();
-      if (_testModeRawMaterialAssignments.any(
+      final existingIndex = _testModeRawMaterialAssignments.indexWhere(
         (item) => item.barcode.trim().toUpperCase() == normalizedBarcode,
-      )) {
+      );
+      if (existingIndex >= 0) {
+        final existing = _testModeRawMaterialAssignments[existingIndex];
+        if (existing.orderId.trim() != body['order_id'] ||
+            !productionMapWarehouseTitlesMatch(
+              existing.apparatus,
+              body['apparatus']!,
+            )) {
+          throw const MobileApiException(
+            code: 'raw_material_already_assigned',
+            message: 'Bu homashyo boshqa zakaz uchun band qilingan',
+          );
+        }
+        final updated = existing.copyWith(
+          stockStatus: 'in_use',
+          reservedOrderId: body['order_id'],
+        );
+        _testModeRawMaterialAssignments[existingIndex] = updated;
+        return updated;
+      }
+      if (body['order_id']!.isEmpty || body['apparatus']!.isEmpty) {
         throw const MobileApiException(
-          code: 'raw_material_already_assigned',
-          message: 'Bu homashyo allaqachon zakazga ulangan',
+          code: 'raw_material_invalid_input',
+          message: 'Homashyo QR noto‘g‘ri',
         );
       }
       final assignment = AdminRawMaterialAssignment(
@@ -4145,25 +4450,37 @@ extension MobileApiAdmin on MobileApi {
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
           );
         }
-        final requiredMaterials = _testModeRawMaterialAssignments.where(
-          (assignment) =>
-              assignment.orderId.trim() == orderId.trim() &&
-              productionMapWarehouseTitlesMatch(
-                assignment.apparatus,
-                apparatus,
-              ),
+        final requiredMaterials = _testModeRawMaterialAssignments
+            .where(
+              (assignment) =>
+                  assignment.orderId.trim() == orderId.trim() &&
+                  productionMapWarehouseTitlesMatch(
+                    assignment.apparatus,
+                    apparatus,
+                  ),
+            )
+            .toList(growable: false);
+        final requirements = await adminRawMaterialStartRequirements(
+          orderId: orderId,
+          apparatus: apparatus,
         );
         final requiredBarcodes = {
           for (final assignment in requiredMaterials)
-            assignment.barcode.trim().toUpperCase(),
+            _normalizeRawMaterialBarcode(assignment.barcode),
         }..remove('');
         final scannedBarcodes = {
           for (final barcode in [
             ...materialBarcodes,
             if (materialBarcode.trim().isNotEmpty) materialBarcode,
           ])
-            barcode.trim().toUpperCase(),
+            _normalizeRawMaterialBarcode(barcode),
         }..remove('');
+        if (requiredBarcodes.isEmpty && requirements.requiresMaterial) {
+          throw const MobileApiException(
+            code: 'raw_material_assignment_not_found',
+            message: 'Homashyo biriktirilmagan',
+          );
+        }
         if (requiredBarcodes.isNotEmpty && scannedBarcodes.isEmpty) {
           throw const MobileApiException(
             code: 'raw_material_scan_required',
@@ -4171,11 +4488,45 @@ extension MobileApiAdmin on MobileApi {
                 'Ishni boshlash uchun biriktirilgan homashyolarni skaner qiling',
           );
         }
-        if (requiredBarcodes.isNotEmpty &&
-            !setEquals(requiredBarcodes, scannedBarcodes)) {
+        if (!requiredBarcodes.containsAll(scannedBarcodes)) {
           throw const MobileApiException(
             code: 'raw_material_mismatch',
             message: 'Bu homashyo ish boshlash uchun mos emas',
+          );
+        }
+        if (requirements.policy == AdminRawMaterialStartPolicy.stateAll &&
+            requiredBarcodes.isNotEmpty &&
+            requirements.normalizedStagedBarcodes.isEmpty) {
+          throw const MobileApiException(
+            code: 'raw_material_state_not_ready',
+            message: 'Apparat oldiga homashyo olib kelinmagan',
+          );
+        }
+        if (requirements.policy ==
+                AdminRawMaterialStartPolicy.requirementGroups &&
+            requirements.requiresMaterial &&
+            requirements.matchedRequirementCount(
+                  assignments: requiredMaterials,
+                  scannedBarcodes: requiredBarcodes,
+                ) !=
+                requirements.requiredScanCount) {
+          throw const MobileApiException(
+            code: 'raw_material_assignment_not_found',
+            message: 'Majburiy homashyo guruhlari to‘liq biriktirilmagan',
+          );
+        }
+        if (requiredBarcodes.isNotEmpty &&
+            !requirements.scansSatisfy(
+              assignments: requiredMaterials,
+              scannedBarcodes: scannedBarcodes,
+            )) {
+          throw MobileApiException(
+            code: requirements.policy == AdminRawMaterialStartPolicy.stateAll
+                ? 'raw_material_scan_incomplete'
+                : 'raw_material_requirement_not_met',
+            message: requirements.policy == AdminRawMaterialStartPolicy.stateAll
+                ? 'Apparat oldidagi barcha homashyolarni skaner qiling'
+                : 'Har bir majburiy guruhdan minimum homashyo skaner qiling',
           );
         }
         states[orderId.trim()] = 'in_progress';

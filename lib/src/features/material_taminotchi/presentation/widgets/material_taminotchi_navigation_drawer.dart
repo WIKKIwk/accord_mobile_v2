@@ -52,9 +52,9 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           ),
         if (AppRouter.canOpenRoute(AppRoutes.adminWarehouses))
           const RoleNavigationDrawerDestination(
-            icon: Icons.warehouse_outlined,
-            selectedIcon: Icons.warehouse_rounded,
-            label: 'Omborlarim',
+            icon: Icons.location_on_outlined,
+            selectedIcon: Icons.location_on_rounded,
+            label: 'Joylashuvlarim',
             routeName: AppRoutes.adminWarehouses,
             push: true,
           ),

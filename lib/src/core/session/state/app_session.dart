@@ -24,6 +24,10 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.qolipchi &&
+        profile.hasCapability('qolip.manage')) {
+      return '/qolip';
+    }
     if (profile.hasCapability('admin.access')) {
       return '/admin-home';
     }

@@ -1,7 +1,18 @@
 import 'dart:async';
 
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
+import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
+import '../../admin/presentation/widgets/admin_summary_card.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
 
@@ -15,14 +26,18 @@ class InventoryMovementsScreen extends StatefulWidget {
 
 class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
   List<InventoryLocation> _locations = const [];
   List<InventoryAsset> _assets = const [];
+  List<InventoryTransfer> _allIncoming = const [];
+  List<InventoryTransfer> _allOutgoing = const [];
   List<InventoryTransfer> _incoming = const [];
   List<InventoryTransfer> _outgoing = const [];
   String _selectedWarehouseId = '';
   bool _loading = true;
   bool _assetsLoading = false;
+  bool _warehouseFilterExpanded = false;
   String _error = '';
   final Set<String> _busyKeys = {};
 
@@ -36,6 +51,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -54,6 +70,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           .toSet();
 
   bool get _isAdmin => AppSession.instance.can('admin.access');
+
+  bool get _materialScoped =>
+      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
   Future<void> _loadAll() async {
     if (mounted) {
@@ -93,11 +112,28 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       if (!mounted) {
         return;
       }
+      final selectedWarehouse = warehouses.where(
+        (item) => item.warehouseId == selected,
+      );
+      final selectedWarehouseName =
+          selectedWarehouse.isEmpty ? '' : selectedWarehouse.first.name;
+      final incoming = _filterTransfersByWarehouse(
+        results[0] as List<InventoryTransfer>,
+        warehouseName: selectedWarehouseName,
+        incoming: true,
+      );
+      final outgoing = _filterTransfersByWarehouse(
+        results[1] as List<InventoryTransfer>,
+        warehouseName: selectedWarehouseName,
+        incoming: false,
+      );
       setState(() {
         _locations = locations;
         _selectedWarehouseId = selected;
-        _incoming = results[0] as List<InventoryTransfer>;
-        _outgoing = results[1] as List<InventoryTransfer>;
+        _allIncoming = results[0] as List<InventoryTransfer>;
+        _allOutgoing = results[1] as List<InventoryTransfer>;
+        _incoming = incoming;
+        _outgoing = outgoing;
         _assets = results[2] as List<InventoryAsset>;
         _loading = false;
       });
@@ -138,8 +174,50 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   }
 
   void _onSearchChanged(String _) {
+    _refreshTransferFilters();
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), _loadAssets);
+  }
+
+  void _refreshTransferFilters() {
+    final selected = _warehouseLocations.where(
+      (item) => item.warehouseId == _selectedWarehouseId,
+    );
+    if (selected.isEmpty || !mounted) {
+      return;
+    }
+    final warehouseName = selected.first.name;
+    setState(() {
+      _incoming = _filterTransfersByWarehouse(
+        _allIncoming,
+        warehouseName: warehouseName,
+        incoming: true,
+      );
+      _outgoing = _filterTransfersByWarehouse(
+        _allOutgoing,
+        warehouseName: warehouseName,
+        incoming: false,
+      );
+    });
+  }
+
+  void _openDrawerRoute(String routeName) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == routeName) {
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed(routeName);
+  }
+
+  void _goBack() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    nav.pushReplacementNamed(
+      _materialScoped ? AppRoutes.materialHome : AppRoutes.adminHome,
+    );
   }
 
   Future<void> _relocate(InventoryAsset asset) async {
@@ -188,15 +266,25 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     if (selected == null || !mounted) {
       return;
     }
+    final internalTransfer = _assignedWarehouseNames.contains(
+          asset.custodyWarehouse.trim().toLowerCase(),
+        ) &&
+        _assignedWarehouseNames.contains(selected.name.trim().toLowerCase());
+    final transferExplanation = internalTransfer
+        ? 'Ikkala ombor ham sizga biriktirilgan. Mahsulot darhol '
+            'qabul qiluvchi omborga ko‘chiriladi.'
+        : 'Qabul qiluvchi tasdiqlamaguncha mahsulot manba omborda '
+            'band holatda qoladi.';
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Transfer so‘rovi'),
+            title: Text(
+              internalTransfer ? 'Ichki ko‘chirish' : 'Transfer so‘rovi',
+            ),
             content: Text(
               '${asset.itemName} (${_qty(asset.qty)} ${asset.uom})\n'
               '${asset.custodyWarehouse} → ${selected.name}\n\n'
-              'Qabul qiluvchi tasdiqlamaguncha mahsulot manba omborda '
-              'band holatda qoladi.',
+              '$transferExplanation',
             ),
             actions: [
               TextButton(
@@ -205,7 +293,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('So‘rov yuborish'),
+                child: Text(
+                  internalTransfer ? 'Ko‘chirish' : 'So‘rov yuborish',
+                ),
               ),
             ],
           ),
@@ -216,21 +306,61 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     }
     final busyKey = 'transfer:${asset.kind.apiValue}:${asset.assetRef}';
     await _runBusy(busyKey, () async {
-      await MobileApi.instance.inventoryCreateTransfer(
+      final transfer = await MobileApi.instance.inventoryCreateTransfer(
         sourceWarehouseId: asset.custodyWarehouseId,
         destinationWarehouseId: selected.warehouseId,
         assets: [asset],
         idempotencyKey: _idempotencyKey('transfer'),
       );
-      _showMessage('Transfer so‘rovi yuborildi');
+      _showMessage(
+        transfer.status == InventoryTransferStatus.received
+            ? '${asset.itemName} — ${selected.name} omboriga ko‘chirildi'
+            : 'Transfer so‘rovi yuborildi',
+      );
       await _loadAll();
     });
+  }
+
+  Future<void> _showAssetDetails(InventoryAsset asset) async {
+    final key = '${asset.kind.apiValue}:${asset.assetRef}';
+    final busy = _busyKeys.any((item) => item.contains(key));
+    final physicallyInWarehouse =
+        asset.physicalLocation.kind == InventoryLocationKind.warehouse;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _InventoryAssetDetailsSheet(
+        asset: asset,
+        busy: busy,
+        transferRequiresWarehouseLocation: !physicallyInWarehouse,
+        onRelocate: asset.isAvailable && !busy
+            ? () async {
+                Navigator.of(sheetContext).pop();
+                await _relocate(asset);
+              }
+            : null,
+        onTransfer: asset.isAvailable && physicallyInWarehouse && !busy
+            ? () async {
+                Navigator.of(sheetContext).pop();
+                await _requestTransfer(asset);
+              }
+            : null,
+      ),
+    );
   }
 
   Future<void> _transferAction(
     InventoryTransfer transfer,
     String action,
   ) async {
+    final completesInternalTransfer = _managesTransferInternally(transfer) &&
+        ((action == 'approve' &&
+                transfer.status == InventoryTransferStatus.requested) ||
+            (action == 'dispatch' &&
+                transfer.status == InventoryTransferStatus.approved));
     final labels = {
       'approve': 'Transferni tasdiqlaysizmi?',
       'reject': 'Transferni rad qilasizmi?',
@@ -241,7 +371,11 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(labels[action] ?? 'Transfer'),
+            title: Text(
+              completesInternalTransfer
+                  ? 'Ichki ko‘chirishni yakunlaysizmi?'
+                  : labels[action] ?? 'Transfer',
+            ),
             content: Text(
               '${transfer.sourceWarehouse} → '
               '${transfer.destinationWarehouse}\n'
@@ -360,49 +494,80 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Inventory harakatlari'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Mahsulotlar'),
-              Tab(text: 'Kiruvchi'),
-              Tab(text: 'Chiquvchi'),
-            ],
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Yangilash',
-              onPressed: _loading ? null : _loadAll,
-              icon: const Icon(Icons.refresh_rounded),
+      child: AppShell(
+        animateOnEnter: false,
+        title: '',
+        subtitle: '',
+        nativeTopBar: true,
+        automaticallyImplyNativeLeading: false,
+        profileActionListenable: _searchFocusNode,
+        showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+        titleWidget: AdminCatalogSearchField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          hintText: 'Mahsulot, kod yoki QR qidirish',
+          onChanged: _onSearchChanged,
+          onClear: () {
+            _searchController.clear();
+            _onSearchChanged('');
+          },
+          onBack: _goBack,
+        ),
+        drawer: _materialScoped
+            ? MaterialTaminotchiNavigationDrawer(
+                selectedRouteName: AppRoutes.inventoryMovements,
+                onNavigate: _openDrawerRoute,
+              )
+            : null,
+        bottom: _materialScoped
+            ? const MaterialTaminotchiDock(
+                activeTab: MaterialTaminotchiDockTab.home,
+              )
+            : null,
+        contentPadding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Mahsulotlar'),
+                Tab(text: 'Kiruvchi'),
+                Tab(text: 'Chiquvchi'),
+              ],
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: AppLoadingIndicator())
+                  : _error.isNotEmpty
+                      ? _InventoryErrorState(
+                          message: _error,
+                          onRetry: _loadAll,
+                        )
+                      : TabBarView(
+                          children: [
+                            _buildAssetsTab(),
+                            _TransferList(
+                              transfers: _incoming,
+                              emptyMessage: 'Kiruvchi transfer yo‘q',
+                              header: _warehouseFilter(),
+                              busyKeys: _busyKeys,
+                              actionsFor: _incomingActions,
+                              onTransferTap: _showTransferDetails,
+                              onRefresh: _loadAll,
+                            ),
+                            _TransferList(
+                              transfers: _outgoing,
+                              emptyMessage: 'Chiquvchi transfer yo‘q',
+                              header: _warehouseFilter(),
+                              busyKeys: _busyKeys,
+                              actionsFor: _outgoingActions,
+                              onTransferTap: _showTransferDetails,
+                              onRefresh: _loadAll,
+                            ),
+                          ],
+                        ),
             ),
           ],
         ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error.isNotEmpty
-                ? _InventoryErrorState(message: _error, onRetry: _loadAll)
-                : TabBarView(
-                    children: [
-                      _buildAssetsTab(),
-                      _TransferList(
-                        transfers: _incoming,
-                        emptyMessage: 'Kiruvchi transfer yo‘q',
-                        busyKeys: _busyKeys,
-                        actionsFor: _incomingActions,
-                        onAction: _transferAction,
-                        onRefresh: _loadAll,
-                      ),
-                      _TransferList(
-                        transfers: _outgoing,
-                        emptyMessage: 'Chiquvchi transfer yo‘q',
-                        busyKeys: _busyKeys,
-                        actionsFor: _outgoingActions,
-                        onAction: _transferAction,
-                        onRefresh: _loadAll,
-                      ),
-                    ],
-                  ),
       ),
     );
   }
@@ -414,52 +579,22 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         message: 'Sizga biriktirilgan ombor topilmadi',
       );
     }
-    return RefreshIndicator(
+    final bottomPadding =
+        MediaQuery.viewPaddingOf(context).bottom + (_materialScoped ? 116 : 28);
+    return AppRefreshIndicator(
       onRefresh: _loadAll,
+      allowRefreshOnShortContent: true,
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const TopRefreshScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    key: const ValueKey('inventory-warehouse-picker'),
-                    initialValue: _selectedWarehouseId.isEmpty
-                        ? null
-                        : _selectedWarehouseId,
-                    decoration: const InputDecoration(
-                      labelText: 'Ombor',
-                      prefixIcon: Icon(Icons.warehouse_outlined),
-                    ),
-                    items: [
-                      for (final location in _visibleWarehouseLocations())
-                        DropdownMenuItem(
-                          value: location.warehouseId,
-                          child: Text(location.name),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _selectedWarehouseId = value ?? '');
-                      _loadAssets();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    decoration: const InputDecoration(
-                      hintText: 'Nomi, kodi yoki QR bo‘yicha qidirish',
-                      prefixIcon: Icon(Icons.search_rounded),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _warehouseFilter(),
           ),
           if (_assetsLoading)
-            const SliverToBoxAdapter(child: LinearProgressIndicator())
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: AppLoadingIndicator()),
+            )
           else if (_assets.isEmpty)
             const SliverFillRemaining(
               hasScrollBody: false,
@@ -470,22 +605,27 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 28),
-              sliver: SliverList.separated(
+              padding: EdgeInsets.fromLTRB(4, 0, 4, bottomPadding),
+              sliver: SliverList.builder(
                 itemCount: _assets.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final asset = _assets[index];
                   final key = '${asset.kind.apiValue}:${asset.assetRef}';
                   final busy = _busyKeys.any((item) => item.contains(key));
-                  return _InventoryAssetCard(
-                    asset: asset,
-                    busy: busy,
-                    onRelocate:
-                        asset.isAvailable ? () => _relocate(asset) : null,
-                    onTransfer: asset.isAvailable
-                        ? () => _requestTransfer(asset)
-                        : null,
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
+                    ),
+                    child: _InventoryAssetListRow(
+                      key: ValueKey('inventory-asset-${asset.assetRef}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index,
+                        _assets.length,
+                      ),
+                      asset: asset,
+                      busy: busy,
+                      onTap: () => _showAssetDetails(asset),
+                    ),
                   );
                 },
               ),
@@ -505,12 +645,111 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         .toList(growable: false);
   }
 
+  Widget _warehouseFilter() {
+    final selected = _selectedWarehouseId.trim();
+    return AdminExpandableFilterChip<String>(
+      key: const ValueKey('inventory-warehouse-filter'),
+      chipKey: const ValueKey('inventory-warehouse-filter-chip'),
+      label: 'Ombor',
+      emptyLabel: 'Tanlanmagan',
+      icon: Icons.warehouse_outlined,
+      selectedValue: selected.isEmpty ? null : selected,
+      expanded: _warehouseFilterExpanded,
+      onToggle: () {
+        setState(() {
+          _warehouseFilterExpanded = !_warehouseFilterExpanded;
+        });
+      },
+      onSelect: _selectWarehouse,
+      optionKeyPrefix: 'inventory-warehouse-option-chip',
+      options: [
+        for (final location in _visibleWarehouseLocations())
+          AdminFilterChipOption<String>(
+            value: location.warehouseId,
+            label: location.name,
+            key: ValueKey('inventory-warehouse-option-${location.warehouseId}'),
+          ),
+      ],
+    );
+  }
+
+  void _selectWarehouse(String warehouseId) {
+    final selected = warehouseId.trim();
+    final location = _warehouseLocations.where(
+      (item) => item.warehouseId == selected,
+    );
+    if (selected.isEmpty || location.isEmpty) {
+      return;
+    }
+    final warehouseName = location.first.name;
+    setState(() {
+      _selectedWarehouseId = selected;
+      _warehouseFilterExpanded = false;
+      _incoming = _filterTransfersByWarehouse(
+        _allIncoming,
+        warehouseName: warehouseName,
+        incoming: true,
+      );
+      _outgoing = _filterTransfersByWarehouse(
+        _allOutgoing,
+        warehouseName: warehouseName,
+        incoming: false,
+      );
+    });
+    unawaited(_loadAssets());
+  }
+
+  List<InventoryTransfer> _filterTransfersByWarehouse(
+    List<InventoryTransfer> transfers, {
+    required String warehouseName,
+    required bool incoming,
+  }) {
+    final normalizedWarehouse = warehouseName.trim().toLowerCase();
+    final query = _searchController.text.trim().toLowerCase();
+    return transfers.where(
+      (transfer) {
+        final matchesWarehouse = (incoming
+                    ? transfer.destinationWarehouse
+                    : transfer.sourceWarehouse)
+                .trim()
+                .toLowerCase() ==
+            normalizedWarehouse;
+        if (!matchesWarehouse || query.isEmpty) {
+          return matchesWarehouse;
+        }
+        return [
+          transfer.sourceWarehouse,
+          transfer.destinationWarehouse,
+          transfer.note,
+          for (final line in transfer.lines) ...[
+            line.itemName,
+            line.itemCode,
+            line.identifier,
+            line.assetRef,
+          ],
+        ].any((value) => value.toLowerCase().contains(query));
+      },
+    ).toList(growable: false);
+  }
+
+  bool _managesTransferInternally(InventoryTransfer transfer) {
+    final assigned = _assignedWarehouseNames;
+    return assigned.contains(transfer.sourceWarehouse.trim().toLowerCase()) &&
+        assigned.contains(
+          transfer.destinationWarehouse.trim().toLowerCase(),
+        );
+  }
+
   List<String> _incomingActions(InventoryTransfer transfer) {
     final canReceive = _isAdmin ||
         _assignedWarehouseNames
             .contains(transfer.destinationWarehouse.trim().toLowerCase());
     if (!canReceive) {
       return const [];
+    }
+    if (_managesTransferInternally(transfer) &&
+        transfer.status == InventoryTransferStatus.requested) {
+      return const ['approve'];
     }
     return switch (transfer.status) {
       InventoryTransferStatus.requested => const ['approve', 'reject'],
@@ -532,37 +771,168 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       _ => const [],
     };
   }
+
+  String _transferActionLabel(InventoryTransfer transfer, String action) {
+    if (_managesTransferInternally(transfer) &&
+        (action == 'approve' || action == 'dispatch')) {
+      return 'Ko‘chirishni yakunlash';
+    }
+    return _actionLabel(action);
+  }
+
+  Future<void> _showTransferDetails(
+    InventoryTransfer transfer,
+    List<String> actions,
+  ) async {
+    final busy = _busyKeys.any((key) => key.startsWith(transfer.id));
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _InventoryTransferDetailsSheet(
+        transfer: transfer,
+        actions: actions,
+        busy: busy,
+        actionLabelFor: (action) => _transferActionLabel(transfer, action),
+        onAction: (action) async {
+          Navigator.of(sheetContext).pop();
+          await _transferAction(transfer, action);
+        },
+      ),
+    );
+  }
 }
 
-class _InventoryAssetCard extends StatelessWidget {
-  const _InventoryAssetCard({
+class _InventoryAssetListRow extends StatelessWidget {
+  const _InventoryAssetListRow({
+    super.key,
+    required this.slot,
     required this.asset,
     required this.busy,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final InventoryAsset asset;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title =
+        asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    final subtitle = [
+      if (asset.identifier.trim().isNotEmpty) asset.identifier.trim(),
+      '${_qty(asset.qty)} ${asset.uom}',
+      _statusLabel(asset.status),
+    ].join(' • ');
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            _assetIcon(asset.kind),
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      trailing:
+          busy ? const AppLoadingIndicator(size: 30, glyphSize: 18) : null,
+      title: title,
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      elevation: 1,
+    );
+  }
+}
+
+class _InventoryAssetDetailsSheet extends StatelessWidget {
+  const _InventoryAssetDetailsSheet({
+    required this.asset,
+    required this.busy,
+    required this.transferRequiresWarehouseLocation,
     required this.onRelocate,
     required this.onTransfer,
   });
 
   final InventoryAsset asset;
   final bool busy;
-  final VoidCallback? onRelocate;
-  final VoidCallback? onTransfer;
+  final bool transferRequiresWarehouseLocation;
+  final Future<void> Function()? onRelocate;
+  final Future<void> Function()? onTransfer;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title =
+        asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundColor: scheme.secondaryContainer,
-                  child: Icon(_assetIcon(asset.kind)),
+                SizedBox.square(
+                  dimension: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _assetIcon(asset.kind),
+                      color: scheme.onSecondaryContainer,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -570,54 +940,75 @@ class _InventoryAssetCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        asset.itemName.isEmpty
-                            ? asset.itemCode
-                            : asset.itemName,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        title,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        [
-                          if (asset.identifier.isNotEmpty) asset.identifier,
-                          '${_qty(asset.qty)} ${asset.uom}',
-                        ].join(' • '),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      if (asset.itemCode.trim().isNotEmpty &&
+                          asset.itemCode.trim() != title.trim()) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          asset.itemCode,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 _StatusBadge(status: asset.status),
               ],
             ),
-            const SizedBox(height: 12),
-            _DetailRow(
-              icon: Icons.account_balance_outlined,
-              label: 'Javobgar ombor',
-              value: asset.custodyWarehouse,
+            const SizedBox(height: 18),
+            _AssetSheetDetail(
+              icon: Icons.qr_code_rounded,
+              label: 'Identifikator',
+              value: asset.identifier,
             ),
-            const SizedBox(height: 6),
-            _DetailRow(
+            _AssetSheetDetail(
+              icon: Icons.scale_outlined,
+              label: 'Miqdor',
+              value: '${_qty(asset.qty)} ${asset.uom}',
+            ),
+            _AssetSheetDetail(
               icon: Icons.location_on_outlined,
               label: 'Fizik joy',
               value: asset.physicalLocation.name,
             ),
-            const SizedBox(height: 12),
+            if (transferRequiresWarehouseLocation) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Transfer qilishdan oldin mahsulotni omborga qaytaring.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
             if (busy)
-              const LinearProgressIndicator()
+              const Center(child: AppLoadingIndicator())
             else
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: onRelocate,
+                      onPressed: onRelocate == null
+                          ? null
+                          : () => unawaited(onRelocate!()),
                       icon: const Icon(Icons.pin_drop_outlined),
                       label: const Text('Joylashtirish'),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: onTransfer,
+                      onPressed: onTransfer == null
+                          ? null
+                          : () => unawaited(onTransfer!()),
                       icon: const Icon(Icons.swap_horiz_rounded),
                       label: const Text('Transfer'),
                     ),
@@ -631,147 +1022,8 @@ class _InventoryAssetCard extends StatelessWidget {
   }
 }
 
-class _TransferList extends StatelessWidget {
-  const _TransferList({
-    required this.transfers,
-    required this.emptyMessage,
-    required this.busyKeys,
-    required this.actionsFor,
-    required this.onAction,
-    required this.onRefresh,
-  });
-
-  final List<InventoryTransfer> transfers;
-  final String emptyMessage;
-  final Set<String> busyKeys;
-  final List<String> Function(InventoryTransfer) actionsFor;
-  final Future<void> Function(InventoryTransfer, String) onAction;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: transfers.isEmpty
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SizedBox(
-                  height: MediaQuery.sizeOf(context).height * 0.55,
-                  child: _InventoryEmptyState(
-                    icon: Icons.swap_horiz_rounded,
-                    message: emptyMessage,
-                  ),
-                ),
-              ],
-            )
-          : ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
-              itemCount: transfers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final transfer = transfers[index];
-                final actions = actionsFor(transfer);
-                return _TransferCard(
-                  transfer: transfer,
-                  actions: actions,
-                  busy: busyKeys.any((key) => key.startsWith(transfer.id)),
-                  onAction: (action) => onAction(transfer, action),
-                );
-              },
-            ),
-    );
-  }
-}
-
-class _TransferCard extends StatelessWidget {
-  const _TransferCard({
-    required this.transfer,
-    required this.actions,
-    required this.busy,
-    required this.onAction,
-  });
-
-  final InventoryTransfer transfer;
-  final List<String> actions;
-  final bool busy;
-  final ValueChanged<String> onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${transfer.sourceWarehouse} → '
-                    '${transfer.destinationWarehouse}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                _StatusBadge(status: transfer.status.apiValue),
-              ],
-            ),
-            const SizedBox(height: 10),
-            for (final line in transfer.lines)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Text(
-                  '• ${line.itemName.isEmpty ? line.itemCode : line.itemName}'
-                  ' — ${_qty(line.qty)} ${line.uom}',
-                ),
-              ),
-            if (transfer.note.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                transfer.note,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              _transferTimestamp(transfer),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (busy) ...[
-              const SizedBox(height: 10),
-              const LinearProgressIndicator(),
-            ] else if (actions.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                children: [
-                  for (final action in actions)
-                    action == 'reject' || action == 'cancel'
-                        ? OutlinedButton(
-                            onPressed: () => onAction(action),
-                            child: Text(_actionLabel(action)),
-                          )
-                        : FilledButton(
-                            onPressed: () => onAction(action),
-                            child: Text(_actionLabel(action)),
-                          ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
+class _AssetSheetDetail extends StatelessWidget {
+  const _AssetSheetDetail({
     required this.icon,
     required this.label,
     required this.value,
@@ -783,18 +1035,294 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 8),
-        Text('$label: '),
-        Expanded(
-          child: Text(
-            value.isEmpty ? '—' : value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 116,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '—' : value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransferList extends StatelessWidget {
+  const _TransferList({
+    required this.transfers,
+    required this.emptyMessage,
+    required this.header,
+    required this.busyKeys,
+    required this.actionsFor,
+    required this.onTransferTap,
+    required this.onRefresh,
+  });
+
+  final List<InventoryTransfer> transfers;
+  final String emptyMessage;
+  final Widget header;
+  final Set<String> busyKeys;
+  final List<String> Function(InventoryTransfer) actionsFor;
+  final Future<void> Function(InventoryTransfer, List<String>) onTransferTap;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppRefreshIndicator(
+      onRefresh: onRefresh,
+      allowRefreshOnShortContent: true,
+      child: transfers.isEmpty
+          ? ListView(
+              physics: const TopRefreshScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 116),
+              children: [
+                header,
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.55,
+                  child: _InventoryEmptyState(
+                    icon: Icons.swap_horiz_rounded,
+                    message: emptyMessage,
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              physics: const TopRefreshScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
+              itemCount: transfers.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return header;
+                }
+                final transfer = transfers[index - 1];
+                final actions = actionsFor(transfer);
+                return _InventoryTransferListRow(
+                  key: ValueKey('inventory-transfer-${transfer.id}'),
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index - 1,
+                    transfers.length,
+                  ),
+                  transfer: transfer,
+                  busy: busyKeys.any((key) => key.startsWith(transfer.id)),
+                  onTap: () => unawaited(onTransferTap(transfer, actions)),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _InventoryTransferListRow extends StatelessWidget {
+  const _InventoryTransferListRow({
+    super.key,
+    required this.slot,
+    required this.transfer,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final InventoryTransfer transfer;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.swap_horiz_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
           ),
         ),
-      ],
+      ),
+      trailing: busy
+          ? const AppLoadingIndicator(size: 30, glyphSize: 18)
+          : _StatusBadge(status: transfer.status.apiValue),
+      title: '${transfer.sourceWarehouse} → ${transfer.destinationWarehouse}',
+      subtitle: _transferSummary(transfer),
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      elevation: 1,
+    );
+  }
+}
+
+class _InventoryTransferDetailsSheet extends StatelessWidget {
+  const _InventoryTransferDetailsSheet({
+    required this.transfer,
+    required this.actions,
+    required this.busy,
+    required this.actionLabelFor,
+    required this.onAction,
+  });
+
+  final InventoryTransfer transfer;
+  final List<String> actions;
+  final bool busy;
+  final String Function(String) actionLabelFor;
+  final Future<void> Function(String) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.swap_horiz_rounded,
+                      color: scheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${transfer.sourceWarehouse} → '
+                    '${transfer.destinationWarehouse}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _StatusBadge(status: transfer.status.apiValue),
+              ],
+            ),
+            const SizedBox(height: 18),
+            for (final line in transfer.lines)
+              _AssetSheetDetail(
+                icon: Icons.category_outlined,
+                label: line.itemName.trim().isEmpty
+                    ? line.itemCode
+                    : line.itemName,
+                value: '${_qty(line.qty)} ${line.uom}',
+              ),
+            if (transfer.lines.isEmpty)
+              const _AssetSheetDetail(
+                icon: Icons.category_outlined,
+                label: 'Mahsulot',
+                value: '—',
+              ),
+            _AssetSheetDetail(
+              icon: Icons.schedule_rounded,
+              label: 'Sana',
+              value: _transferTimestamp(transfer),
+            ),
+            if (transfer.note.trim().isNotEmpty)
+              _AssetSheetDetail(
+                icon: Icons.notes_rounded,
+                label: 'Izoh',
+                value: transfer.note,
+              ),
+            const SizedBox(height: 18),
+            if (busy)
+              const Center(child: AppLoadingIndicator())
+            else if (actions.isNotEmpty)
+              Row(
+                children: [
+                  for (int index = 0; index < actions.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 10),
+                    Expanded(
+                      child: actions[index] == 'reject' ||
+                              actions[index] == 'cancel'
+                          ? OutlinedButton(
+                              onPressed: () => unawaited(
+                                onAction(actions[index]),
+                              ),
+                              child: Text(actionLabelFor(actions[index])),
+                            )
+                          : FilledButton(
+                              onPressed: () => unawaited(
+                                onAction(actions[index]),
+                              ),
+                              child: Text(actionLabelFor(actions[index])),
+                            ),
+                    ),
+                  ],
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -914,6 +1442,18 @@ String _transferTimestamp(InventoryTransfer transfer) {
   String two(int value) => value.toString().padLeft(2, '0');
   return '${two(date.day)}.${two(date.month)}.${date.year} '
       '${two(date.hour)}:${two(date.minute)}';
+}
+
+String _transferSummary(InventoryTransfer transfer) {
+  if (transfer.lines.isEmpty) {
+    return _transferTimestamp(transfer);
+  }
+  final line = transfer.lines.first;
+  final item = line.itemName.trim().isEmpty ? line.itemCode : line.itemName;
+  final extra =
+      transfer.lines.length > 1 ? ' +${transfer.lines.length - 1} ta' : '';
+  return '$item$extra • ${_qty(line.qty)} ${line.uom} • '
+      '${_transferTimestamp(transfer)}';
 }
 
 String _qty(double value) {

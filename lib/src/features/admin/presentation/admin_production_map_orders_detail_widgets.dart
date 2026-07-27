@@ -130,6 +130,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 materialsError: materialsError,
                 scannedBarcodes: uiState.confirmedMaterialBarcodes,
                 scannedCount: uiState.scannedCount,
+                requiredCount: uiState.materialRequiredCount,
                 showStart: uiState.showStart,
                 hasMaterialAssignments: uiState.hasMaterialAssignments,
                 allMaterialsScanned: uiState.allMaterialsScanned,
@@ -617,6 +618,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.materialsError,
     required this.scannedBarcodes,
     required this.scannedCount,
+    required this.requiredCount,
     required this.showStart,
     required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
@@ -664,6 +666,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String materialsError;
   final Set<String> scannedBarcodes;
   final int scannedCount;
+  final int requiredCount;
   final bool showStart;
   final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
@@ -706,7 +709,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final totalCount = assignments.length;
+    final totalCount = requiredCount;
     final materialBalances = _rawMaterialBalances(assignments);
     final scannedQolipKeys = qolipCodes
         .map((code) => code.trim().toLowerCase())

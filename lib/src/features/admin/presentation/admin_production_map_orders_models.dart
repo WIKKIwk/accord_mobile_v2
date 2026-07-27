@@ -125,6 +125,8 @@ class _ReadOnlyOrderDetailUiState {
     required this.station,
     required this.materialAssignments,
     required this.confirmedMaterialBarcodes,
+    required this.materialRequiredCount,
+    required this.materialScannedCount,
     required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
     required this.previousStage,
@@ -141,6 +143,8 @@ class _ReadOnlyOrderDetailUiState {
   final String station;
   final List<AdminRawMaterialAssignment> materialAssignments;
   final Set<String> confirmedMaterialBarcodes;
+  final int materialRequiredCount;
+  final int materialScannedCount;
   final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
   final String? previousStage;
@@ -152,7 +156,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool showResume;
   final bool showWaitingForPrevious;
 
-  int get scannedCount => confirmedMaterialBarcodes.length;
+  int get scannedCount => materialScannedCount;
 }
 
 class _PreparedReadOnlyQueueAction {
@@ -160,6 +164,7 @@ class _PreparedReadOnlyQueueAction {
     required this.apparatus,
     required this.onQueueAction,
     required this.materialAssignments,
+    required this.scannedMaterialBarcodes,
     required this.startInputProgressBatch,
     this.blockReason,
   });
@@ -167,6 +172,7 @@ class _PreparedReadOnlyQueueAction {
   final AdminApparatus apparatus;
   final _ReadOnlyQueueActionCallback onQueueAction;
   final List<AdminRawMaterialAssignment> materialAssignments;
+  final Set<String> scannedMaterialBarcodes;
   final AdminProgressBatch? startInputProgressBatch;
   final String? blockReason;
 }

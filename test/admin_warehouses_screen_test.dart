@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_warehouses_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,35 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['admin.access', 'catalog.item.read'],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [
+        InventoryLocation(
+          id: 'inventory_location:warehouse:demo-raw',
+          kind: InventoryLocationKind.warehouse,
+          name: 'Xomashyo ombori - DEMO',
+          warehouseId: 'warehouse:demo-raw',
+        ),
+      ],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:30aa',
+          custodyWarehouseId: 'warehouse:demo-raw',
+          custodyWarehouse: 'Xomashyo ombori - DEMO',
+          itemCode: 'DEMO-RAW-001',
+          itemName: 'Demo xomashyo rulon',
+          identifier: '30AA',
+          qty: 12,
+          uom: 'Kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'inventory_location:warehouse:demo-raw',
+            kind: InventoryLocationKind.warehouse,
+            name: 'Xomashyo ombori - DEMO',
+          ),
+        ),
+      ],
     );
   });
 
@@ -168,6 +198,69 @@ void main() {
     expect(find.text('GSR-30AA'), findsOneWidget);
     expect(find.byKey(const ValueKey('raw-stock-edit-30AA')), findsNothing);
     expect(find.byKey(const ValueKey('raw-stock-qr-30AA')), findsNothing);
+  });
+
+  testWidgets('state-located material is excluded from warehouse stock', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [
+        InventoryLocation(
+          id: 'inventory_location:warehouse:demo-raw',
+          kind: InventoryLocationKind.warehouse,
+          name: 'Xomashyo ombori - DEMO',
+          warehouseId: 'warehouse:demo-raw',
+        ),
+        InventoryLocation(
+          id: 'inventory_location:state:bosma',
+          kind: InventoryLocationKind.state,
+          name: '7 ta bosma apar',
+          factoryLocationId: 'state:bosma',
+        ),
+      ],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:30aa',
+          custodyWarehouseId: 'warehouse:demo-raw',
+          custodyWarehouse: 'Xomashyo ombori - DEMO',
+          itemCode: 'DEMO-RAW-001',
+          itemName: 'Demo xomashyo rulon',
+          identifier: '30AA',
+          qty: 12,
+          uom: 'Kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'inventory_location:state:bosma',
+            kind: InventoryLocationKind.state,
+            name: '7 ta bosma apar',
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWarehousesScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _openWarehouseFilter(tester);
+    await tester.tap(find.text('Xomashyo ombori - DEMO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Demo xomashyo rulon'), findsNothing);
+    expect(find.text('Mavjud (0)'), findsOneWidget);
   });
 
   testWidgets('admin warehouses page has list and create tabs with detail', (
@@ -530,7 +623,9 @@ void main() {
       }
     }
 
-    expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
+    expect(find.text('Joylashuvdagi mahsulotni qidirish'), findsOneWidget);
+    expect(find.text('Omborlar'), findsOneWidget);
+    expect(find.text('State’lar'), findsOneWidget);
     expect(find.text('Ombor yaratish'), findsNothing);
 
     await _openWarehouseFilter(tester);
@@ -543,6 +638,7 @@ void main() {
 
     expect(find.text('Demo kraska'), findsNothing);
     expect(find.text('Demo xomashyo rulon'), findsOneWidget);
+    expect(find.textContaining('30AA • 12 Kg'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
 
     await tester.tap(find.text('Demo xomashyo rulon'));
@@ -577,6 +673,109 @@ void main() {
     expect(find.textContaining('Shtrix-kod 30AA'), findsOneWidget);
     expect(find.byKey(const ValueKey('raw-stock-edit-qty')), findsOneWidget);
     expect(find.byKey(const ValueKey('raw-stock-edit-save')), findsOneWidget);
+  });
+
+  testWidgets(
+      'material state tab only shows own current placements and returns them',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['inventory.movement.manage'],
+      assignedWarehouses: ['Xomashyo ombori - DEMO'],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [
+        InventoryLocation(
+          id: 'inventory_location:warehouse:demo-raw',
+          kind: InventoryLocationKind.warehouse,
+          name: 'Xomashyo ombori - DEMO',
+          warehouseId: 'warehouse:demo-raw',
+        ),
+        InventoryLocation(
+          id: 'inventory_location:state:bosma',
+          kind: InventoryLocationKind.state,
+          name: '7 ta bosma apar',
+          factoryLocationId: 'state:bosma',
+        ),
+      ],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:30aa',
+          custodyWarehouseId: 'warehouse:demo-raw',
+          custodyWarehouse: 'Xomashyo ombori - DEMO',
+          itemCode: 'DEMO-RAW-001',
+          itemName: 'Demo xomashyo rulon',
+          identifier: '30AA',
+          qty: 12,
+          uom: 'Kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'inventory_location:warehouse:demo-raw',
+            kind: InventoryLocationKind.warehouse,
+            name: 'Xomashyo ombori - DEMO',
+          ),
+        ),
+      ],
+    );
+    await MobileApi.instance.inventoryRelocate(
+      assetKind: InventoryAssetKind.rawMaterial,
+      assetRef: 'raw:30aa',
+      physicalLocationId: 'inventory_location:state:bosma',
+      idempotencyKey: 'material-state-placement',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWarehousesScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('7 ta bosma apar'), findsOneWidget);
+
+    await tester.tap(find.text('7 ta bosma apar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Demo xomashyo rulon'), findsOneWidget);
+
+    await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hisobdagi ombor'), findsNothing);
+    expect(find.text('Omborga qaytarish'), findsOneWidget);
+
+    await tester.tap(find.byKey(
+      const ValueKey('material-state-return-button'),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ha'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      findsOneWidget,
+    );
   });
 
   test('admin warehouse live url uses websocket scheme and session token', () {

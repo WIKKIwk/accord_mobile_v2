@@ -53,6 +53,7 @@ import '../features/material_taminotchi/presentation/material_taminotchi_home_sc
 import '../features/qolip/presentation/qolip_home_screen.dart';
 import '../features/qolip/presentation/qolip_blocks_screen.dart';
 import '../features/qolip/presentation/qolip_checkouts_screen.dart';
+import '../features/qolip/presentation/qolip_location_transfer_screen.dart';
 import '../features/qolip/presentation/qolip_products_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
@@ -200,6 +201,7 @@ class AppRoutes {
   static const String qolipBlocks = '/qolip-blocks';
   static const String qolipProducts = '/qolip-products';
   static const String qolipCheckouts = '/qolip-checkouts';
+  static const String qolipLocationTransfer = '/qolip-location-transfer';
   static const String boyoqchiHome = '/boyoqchi-home';
   static const String boyoqchiAstatka = '/boyoqchi-astatka';
   static const String rezkaSplit = '/rezka-split';
@@ -251,6 +253,7 @@ class AppRouter {
     AppRoutes.qolipBlocks,
     AppRoutes.qolipProducts,
     AppRoutes.qolipCheckouts,
+    AppRoutes.qolipLocationTransfer,
     AppRoutes.boyoqchiHome,
     AppRoutes.boyoqchiAstatka,
   };
@@ -697,6 +700,8 @@ class AppRouter {
         return _buildRoute(settings, const QolipProductsScreen());
       case AppRoutes.qolipCheckouts:
         return _buildRoute(settings, const QolipCheckoutsScreen());
+      case AppRoutes.qolipLocationTransfer:
+        return _buildRoute(settings, const QolipLocationTransferScreen());
       case AppRoutes.boyoqchiHome:
         return _buildRoute(settings, const BoyoqchiHomeScreen());
       case AppRoutes.boyoqchiAstatka:
@@ -796,6 +801,7 @@ class AppRouter {
     AppRoutes.qolipBlocks: {'qolip.manage'},
     AppRoutes.qolipProducts: {'qolip.manage'},
     AppRoutes.qolipCheckouts: {'qolip.manage'},
+    AppRoutes.qolipLocationTransfer: {'qolip.manage'},
     AppRoutes.boyoqchiHome: {'boyoqchi.access'},
     AppRoutes.boyoqchiAstatka: {'boyoqchi.access'},
     AppRoutes.rezkaSplit: {'rezka.split.manage'},

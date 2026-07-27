@@ -16,7 +16,10 @@ import '../../shared/models/app_models.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_home_screen.dart'
-    show qolipPrinterChoiceForDriver, showQolipPrinterPicker;
+    show
+        qolipPrinterChoiceForDriver,
+        showQolipPrinterPicker,
+        showQolipProductSpecSheet;
 import 'qolip_color_picker.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
@@ -63,13 +66,13 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     );
   }
 
-  Future<void> _reload() async {
+  Future<void> _reload({String? preserveExpandedContainerKey}) async {
     final next = _load();
     setState(() {
       _cachedProducts = null;
       _cachedQuery = '';
       _cachedContainers = const [];
-      _expandedContainerKey = null;
+      _expandedContainerKey = preserveExpandedContainerKey;
       _selectionMode = null;
       _selectedContainerKeys.clear();
       _selectedQolipCodes.clear();
@@ -87,6 +90,15 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         _expandedContainerKey = key;
       }
     });
+  }
+
+  Future<void> _addQolip(QolipProduct product) async {
+    await showQolipProductSpecSheet(context, initialProduct: product);
+    if (!mounted) {
+      return;
+    }
+    QolipDataRevision.notifyLocationsChanged();
+    await _reload(preserveExpandedContainerKey: _expandedContainerKey);
   }
 
   void _searchChanged(String _) {
@@ -616,6 +628,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                     onToggleQolip: _toggleQolipSelection,
                     onPrintCodeQr: _showQolipCodeQr,
                     onEditQolip: _editQolip,
+                    onAdd: () => _addQolip(containers[index].catalogProduct),
                   );
                 },
               ),
@@ -655,6 +668,16 @@ class QolipProductContainer {
   final List<QolipProduct> children;
 
   bool get hasInUseQolip => children.any((child) => child.isInUse);
+
+  QolipProduct get catalogProduct {
+    final first = children.first;
+    return QolipProduct(
+      code: code,
+      name: name,
+      itemGroup: itemGroup,
+      customerNames: first.customerNames,
+    );
+  }
 
   String get key {
     final codeKey = code.trim().toLowerCase();
@@ -736,6 +759,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.onToggleQolip,
     required this.onPrintCodeQr,
     required this.onEditQolip,
+    required this.onAdd,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -750,6 +774,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   final ValueChanged<QolipProduct> onToggleQolip;
   final ValueChanged<QolipProduct> onPrintCodeQr;
   final ValueChanged<QolipProduct> onEditQolip;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -833,6 +858,16 @@ class _QolipProductContainerCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (expanded &&
+                      !containerSelectionMode &&
+                      !qolipSelectionMode) ...[
+                    IconButton.filledTonal(
+                      onPressed: onAdd,
+                      icon: const Icon(Icons.add_rounded),
+                      tooltip: 'Qolip qo‘shish',
+                    ),
+                    const SizedBox(width: 2),
+                  ],
                   AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),

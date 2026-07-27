@@ -26,6 +26,7 @@ import '../../core/widgets/lists/m3_segmented_list.dart';
 import '../../core/widgets/navigation/app_navigation_bar.dart';
 import '../../core/widgets/printing/bluetooth_printer_list.dart';
 import '../shared/models/app_models.dart';
+import '../admin/presentation/widgets/admin_summary_card.dart';
 import '../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'gscale_catalog.dart';
 import 'network_candidates_stub.dart'
@@ -743,7 +744,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   List<GScaleRpsBatchPrintEntry> _batchPrints = const [];
   GScaleRpsBatchSession? _authoritativeRsBatch;
   List<MobileArchiveSession> _archiveSessions = const [];
-  final Set<String> _expandedArchiveSessionIds = <String>{};
   MobileItem? _selectedItem;
   MobileWarehouse? _selectedWarehouse;
   Timer? _pingTimer;
@@ -2379,6 +2379,24 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     );
   }
 
+  Future<void> _showArchiveSessionDetails(MobileArchiveSession session) async {
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _ArchiveSessionDetailsSheet(
+        session: session,
+        onReceiptTap: (entry) => _showArchiveReceiptQr(session, entry),
+      ),
+    );
+  }
+
   Future<String?> _reprintArchiveReceipt(
     MobileArchivePrintEntry entry,
   ) async {
@@ -2998,32 +3016,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     return parts.join(' • ');
   }
 
-  String formatArchiveTimestamp(String raw) {
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) {
-      return raw;
-    }
-    final local = parsed.toLocal();
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$day ${months[local.month - 1]} $hour:$minute';
-  }
-
   Widget _buildArchiveSessionTile(
     MobileArchiveSession session,
     ThemeData theme,
@@ -3038,161 +3030,52 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final totalLabel =
         '${grossQty.toStringAsFixed(3)} / ${netQty.toStringAsFixed(3)} $unit';
 
-    final expanded = _expandedArchiveSessionIds.contains(session.sessionId);
-    return M3ExpandableFilledSurface(
+    return AdminSummaryCard(
       key: ValueKey('batch-history-${session.sessionId}'),
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      expanded: expanded,
-      onExpandedChanged: (value) {
-        setState(() {
-          if (value) {
-            _expandedArchiveSessionIds.add(session.sessionId);
-          } else {
-            _expandedArchiveSessionIds.remove(session.sessionId);
-          }
-        });
-      },
-      headerPadding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-      collapsedMinHeight: 70,
-      header: Row(
-        children: [
-          Icon(
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 70,
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      title: title.isEmpty ? '-' : title,
+      subtitle: subtitle,
+      value: totalLabel,
+      onTap: () => unawaited(_showArchiveSessionDetails(session)),
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
             session.active ? Icons.timelapse_rounded : Icons.archive_outlined,
-            color: session.active ? scheme.tertiary : scheme.primary,
+            size: 16,
+            color: scheme.onSecondaryContainer,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.isEmpty ? '-' : title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                totalLabel,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${session.printCount} print',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            key: ValueKey('batch-qr-print-${session.sessionId}'),
-            onPressed: _archivePrintLoadingSessionId.isNotEmpty
-                ? null
-                : () => unawaited(_confirmArchivePrint(session)),
-            tooltip: 'Partiya QR chop etish',
-            visualDensity: VisualDensity.compact,
-            iconSize: 20,
-            icon: const Icon(Icons.qr_code_2_rounded),
-          ),
-          AnimatedRotation(
-            turns: expanded ? 0.5 : 0,
-            duration: const Duration(milliseconds: 180),
-            child: Icon(
-              Icons.expand_more_rounded,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
-      expandedChild: Padding(
-        padding: const EdgeInsets.fromLTRB(48, 0, 12, 12),
-        child: session.prints.isEmpty
-            ? Text(
-                "Print tarixi hali yo'q.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              )
-            : Column(
-                children: [
-                  for (final entry in session.prints)
-                    ListTile(
-                      key: ValueKey('batch-receipt-${entry.epc}'),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      onTap: entry.epc.trim().isEmpty
-                          ? null
-                          : () => unawaited(
-                                _showArchiveReceiptQr(session, entry),
-                              ),
-                      onLongPress: entry.epc.trim().isEmpty
-                          ? null
-                          : () => unawaited(
-                                _showArchiveReceiptQr(session, entry),
-                              ),
-                      leading: Icon(
-                        Icons.playlist_add_check_rounded,
-                        size: 18,
-                        color: scheme.primary,
-                      ),
-                      title: Text(
-                        'B ${entry.grossQty.toStringAsFixed(3)} / N ${entry.netQty.toStringAsFixed(3)} ${entry.unit}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      subtitle: Text(
-                        [
-                          formatArchiveTimestamp(entry.printedAt),
-                          if (entry.draftName.isNotEmpty) entry.draftName,
-                          if (entry.status.isNotEmpty) entry.status,
-                        ].join(' • '),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: entry.epc.trim().isEmpty
-                          ? null
-                          : IconButton(
-                              key: ValueKey(
-                                'batch-receipt-print-${entry.epc}',
-                              ),
-                              onPressed: () => unawaited(
-                                _showArchiveReceiptQr(session, entry),
-                              ),
-                              tooltip: 'Receipt QR chop etish',
-                              visualDensity: VisualDensity.compact,
-                              iconSize: 20,
-                              icon: const Icon(Icons.print_rounded),
-                            ),
-                    ),
-                ],
-              ),
+      trailing: IconButton(
+        key: ValueKey('batch-qr-print-${session.sessionId}'),
+        onPressed: _archivePrintLoadingSessionId.isNotEmpty
+            ? null
+            : () => unawaited(_confirmArchivePrint(session)),
+        tooltip: 'Partiya QR chop etish',
+        visualDensity: VisualDensity.compact,
+        iconSize: 20,
+        icon: const Icon(Icons.qr_code_2_rounded),
+      ),
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      subtitleStyle: theme.textTheme.bodySmall?.copyWith(
+        color: scheme.onSurfaceVariant,
+        height: 1.05,
+      ),
+      valueStyle: theme.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -5761,6 +5644,32 @@ class MobileArchivePrintEntry {
   final String printMode;
 }
 
+String formatArchiveTimestamp(String raw) {
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) {
+    return raw;
+  }
+  final local = parsed.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day ${months[local.month - 1]} $hour:$minute';
+}
+
 class MobileArchiveSession {
   const MobileArchiveSession({
     required this.sessionId,
@@ -5864,6 +5773,157 @@ class MobileArchiveSession {
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;
   String get displayUnit => unit.isEmpty ? 'kg' : unit;
+}
+
+class _ArchiveSessionDetailsSheet extends StatelessWidget {
+  const _ArchiveSessionDetailsSheet({
+    required this.session,
+    required this.onReceiptTap,
+  });
+
+  final MobileArchiveSession session;
+  final ValueChanged<MobileArchivePrintEntry> onReceiptTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final netQty = session.netQty > 0 ? session.netQty : session.totalQty;
+    final grossQty = session.grossQty > 0 ? session.grossQty : netQty;
+    final details = <String, String>{
+      'Holat': session.active ? 'ACTIVE' : 'CLOSED',
+      if (session.batchCode.trim().isNotEmpty) 'Batch': session.batchCode,
+      if (session.warehouse.trim().isNotEmpty) 'Ombor': session.warehouse,
+      if (session.startedAt.trim().isNotEmpty)
+        'Boshlangan': formatArchiveTimestamp(session.startedAt),
+      if (session.endedAt.trim().isNotEmpty)
+        'Tugagan': formatArchiveTimestamp(session.endedAt),
+      'Brutto / netto':
+          '${formatCompactKg(grossQty)} / ${formatCompactKg(netQty)} ${session.displayUnit}',
+      if (session.tareEnabled && session.tareKg > 0)
+        'Tara': '${formatCompactKg(session.tareKg)} ${session.displayUnit}',
+      'Printlar': '${session.printCount} ta',
+    };
+
+    return Material(
+      color: scheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                session.displayItemName,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Batch to‘liq ma’lumotlari',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final detail in details.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 112,
+                        child: Text(
+                          detail.key,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          detail.value,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                'QR / printlar',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (session.prints.isEmpty)
+                Text(
+                  "Print tarixi hali yo'q.",
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                ...session.prints.map(
+                  (entry) => ListTile(
+                    key: ValueKey('batch-receipt-${entry.epc}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.playlist_add_check_rounded,
+                      color: scheme.primary,
+                    ),
+                    title: Text(
+                      'B ${formatCompactKg(entry.grossQty)} / '
+                      'N ${formatCompactKg(entry.netQty)} ${entry.unit}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      [
+                        formatArchiveTimestamp(entry.printedAt),
+                        if (entry.draftName.isNotEmpty) entry.draftName,
+                        if (entry.status.isNotEmpty) entry.status,
+                      ].join(' • '),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    onTap: entry.epc.trim().isEmpty
+                        ? null
+                        : () => onReceiptTap(entry),
+                    onLongPress: entry.epc.trim().isEmpty
+                        ? null
+                        : () => onReceiptTap(entry),
+                    trailing: entry.epc.trim().isEmpty
+                        ? null
+                        : IconButton(
+                            key: ValueKey(
+                              'batch-receipt-print-${entry.epc}',
+                            ),
+                            onPressed: () => onReceiptTap(entry),
+                            tooltip: 'Receipt QR ochish',
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.qr_code_2_rounded),
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MaterialBatchPrintPlan {

@@ -706,6 +706,7 @@ void main() {
       final rule = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: 'Pechat',
         requiresMaterial: true,
+        startPolicy: AdminRawMaterialStartPolicy.requirementGroups,
         itemGroups: const ['Kraska', 'Kley'],
         requirementGroups: const [
           AdminRawMaterialRequirementGroup(
@@ -723,6 +724,10 @@ void main() {
 
       expect(rule.apparatus, 'Pechat');
       expect(rule.requiresMaterial, isTrue);
+      expect(
+        rule.startPolicy,
+        AdminRawMaterialStartPolicy.requirementGroups,
+      );
       expect(rule.itemGroups, ['Kraska', 'Kley']);
       expect(rule.requirementGroups, hasLength(1));
       expect(rule.requirementGroups.first.name, 'Yopishtiruvchi');
@@ -737,6 +742,7 @@ void main() {
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
           '{"apparatus":"Pechat","requires_material":true,'
+          '"start_policy":"requirement_groups",'
           '"item_groups":["Kraska","Kley"],'
           '"requirement_groups":[{"name":"Yopishtiruvchi",'
           '"item_groups":["Kraska","Kley"],"min_required_count":1}]}',
@@ -751,6 +757,136 @@ void main() {
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('state start policy requires exactly the staged assigned subset', () {
+    final requirements = AdminRawMaterialStartRequirements.fromJson(const {
+      'policy': 'state_all',
+      'requires_material': true,
+      'assigned_barcodes': [
+        'RM-01',
+        'RM-02',
+        'RM-03',
+        'RM-04',
+        'RM-05',
+        'RM-06',
+        'RM-07',
+        'RM-08',
+        'RM-09',
+        'RM-10',
+      ],
+      'staged_barcodes': ['RM-01', 'RM-02', 'RM-03'],
+      'requirement_groups': [],
+    });
+    final assignments = [
+      for (var index = 1; index <= 10; index += 1)
+        AdminRawMaterialAssignment(
+          orderId: 'zakaz-1',
+          apparatus: 'Pechat',
+          barcode: 'RM-${index.toString().padLeft(2, '0')}',
+          itemCode: 'RM-$index',
+          itemName: 'Rulon $index',
+          itemGroup: 'Rulon',
+        ),
+    ];
+
+    expect(requirements.eligibleAssignments(assignments), hasLength(3));
+    expect(
+      requirements.scansSatisfy(
+        assignments: assignments,
+        scannedBarcodes: {'RM-01', 'RM-02'},
+      ),
+      isFalse,
+    );
+    expect(
+      requirements.scansSatisfy(
+        assignments: assignments,
+        scannedBarcodes: {'RM-01', 'RM-02', 'RM-03'},
+      ),
+      isTrue,
+    );
+    expect(
+      requirements.scansSatisfy(
+        assignments: assignments,
+        scannedBarcodes: {'RM-01', 'RM-02', 'RM-03', 'RM-04'},
+      ),
+      isFalse,
+    );
+  });
+
+  test('raw material start requirements use backend state context', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final requirements =
+          await MobileApi.instance.adminRawMaterialStartRequirements(
+        orderId: 'zakaz-1',
+        apparatus: 'Pechat',
+      );
+
+      expect(requirements.policy, AdminRawMaterialStartPolicy.stateAll);
+      expect(requirements.assignedBarcodes, ['RM-01', 'RM-02', 'RM-03']);
+      expect(requirements.stagedBarcodes, ['RM-01', 'RM-02']);
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-start-requirements?'
+          'order_id=zakaz-1&apparatus=Pechat',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('one material cannot satisfy two required groups', () {
+    const requirements = AdminRawMaterialStartRequirements(
+      policy: AdminRawMaterialStartPolicy.requirementGroups,
+      requiresMaterial: true,
+      assignedBarcodes: ['RM-UNIVERSAL', 'RM-KLEY'],
+      requirementGroups: [
+        AdminRawMaterialRequirementGroup(
+          name: 'Bo‘yoq',
+          itemGroups: ['Kraska', 'Universal'],
+        ),
+        AdminRawMaterialRequirementGroup(
+          name: 'Yopishtiruvchi',
+          itemGroups: ['Kley', 'Universal'],
+        ),
+      ],
+    );
+    const assignments = [
+      AdminRawMaterialAssignment(
+        orderId: 'zakaz-1',
+        apparatus: 'Pechat',
+        barcode: 'RM-UNIVERSAL',
+        itemCode: 'RM-U',
+        itemName: 'Universal',
+        itemGroup: 'Universal',
+      ),
+      AdminRawMaterialAssignment(
+        orderId: 'zakaz-1',
+        apparatus: 'Pechat',
+        barcode: 'RM-KLEY',
+        itemCode: 'RM-K',
+        itemName: 'Kley',
+        itemGroup: 'Kley',
+      ),
+    ];
+
+    expect(
+      requirements.scansSatisfy(
+        assignments: assignments,
+        scannedBarcodes: {'RM-UNIVERSAL'},
+      ),
+      isFalse,
+    );
+    expect(
+      requirements.scansSatisfy(
+        assignments: assignments,
+        scannedBarcodes: {'RM-UNIVERSAL', 'RM-KLEY'},
+      ),
+      isTrue,
+    );
   });
 
   test('raw material assignment exposes apparatus choices from backend',
@@ -1533,6 +1669,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
         body = const {
           'apparatus': 'Pechat',
           'requires_material': true,
+          'start_policy': 'requirement_groups',
           'item_groups': ['Kraska', 'Kley'],
           'requirement_groups': [
             {
@@ -1541,6 +1678,14 @@ class _RawMaterialApiHttpClient implements HttpClient {
               'min_required_count': 1,
             },
           ],
+        };
+      case 'GET /v1/mobile/admin/raw-material-start-requirements?order_id=zakaz-1&apparatus=Pechat':
+        body = const {
+          'policy': 'state_all',
+          'requires_material': true,
+          'requirement_groups': [],
+          'assigned_barcodes': ['RM-01', 'RM-02', 'RM-03'],
+          'staged_barcodes': ['RM-01', 'RM-02'],
         };
       case 'POST /v1/mobile/admin/raw-material-assignments':
         if (assignmentErrorCode.isNotEmpty) {

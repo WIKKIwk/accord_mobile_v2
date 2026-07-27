@@ -203,6 +203,7 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.qolipBlocks), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.qolipProducts), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.qolipCheckouts), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.qolipLocationTransfer), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
   });
 

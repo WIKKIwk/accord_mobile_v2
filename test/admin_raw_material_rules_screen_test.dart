@@ -118,6 +118,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('State’dagi barcha homashyolar').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Har bir guruhdan minimum').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(TextField));
       await tester.pumpAndSettle();
       await tester
@@ -140,6 +144,7 @@ void main() {
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
           '{"apparatus":"Pechat","requires_material":false,'
+          '"start_policy":"requirement_groups",'
           '"item_groups":["Kley","Kraska"],'
           '"requirement_groups":[{"name":"Kley",'
           '"item_groups":["Kley","Kraska"],"min_required_count":1}]}',
@@ -232,6 +237,7 @@ void main() {
         contains(
           'BODY PUT /v1/mobile/admin/raw-material-rules '
           '{"apparatus":"Pechat","requires_material":true,'
+          '"start_policy":"state_all",'
           '"item_groups":["Kraska"],"requirement_groups":[]}',
         ),
       );
@@ -243,6 +249,7 @@ void main() {
                 {
                   'apparatus': 'Pechat',
                   'requires_material': false,
+                  'start_policy': 'state_all',
                   'item_groups': ['Kraska'],
                 },
               ],
@@ -284,6 +291,7 @@ class _RawMaterialRulesHttpClient implements HttpClient {
         body = {
           'apparatus': 'Pechat',
           'requires_material': false,
+          'start_policy': 'requirement_groups',
           'item_groups': ['Kley', 'Kraska'],
           'requirement_groups': [
             {

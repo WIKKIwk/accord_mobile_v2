@@ -584,8 +584,8 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       requiresMaterialGroupScope: !hasMaterialGroupScope,
     ),
     const _MaterialHomeAction(
-      icon: Icons.warehouse_outlined,
-      title: 'Omborlarim',
+      icon: Icons.location_on_outlined,
+      title: 'Joylashuvlarim',
       routeName: AppRoutes.adminWarehouses,
     ),
     const _MaterialHomeAction(

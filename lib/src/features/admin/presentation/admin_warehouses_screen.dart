@@ -16,11 +16,13 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/models/inventory_movement_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_create_hub_sheet.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_surface_tab_bar.dart';
@@ -55,6 +57,8 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   final FocusNode _materialItemsSearchFocusNode = FocusNode();
   final GlobalKey<_WarehouseDetailsTabState> _warehouseDetailsKey =
       GlobalKey<_WarehouseDetailsTabState>();
+  final GlobalKey<_MaterialStateLocationsTabState> _materialStateLocationsKey =
+      GlobalKey<_MaterialStateLocationsTabState>();
 
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
@@ -148,15 +152,54 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
         warehouse: warehouse,
         limit: 500,
       ),
+      MobileApi.instance.inventoryLocations(),
     ]);
     final allReservations = results[0] as List<AdminRawMaterialAssignment>;
     final rawStock = results[1] as List<AdminRawMaterialStockEntry>;
-    final stockBarcodes = rawStock
+    if (rawStock.isEmpty) {
+      return const _WarehouseInventorySection(
+        rawStock: <AdminRawMaterialStockEntry>[],
+        reservations: <AdminRawMaterialAssignment>[],
+      );
+    }
+    final locations = results[2] as List<InventoryLocation>;
+    final warehouseLocations = locations.where(
+      (location) =>
+          location.isWarehouse &&
+          location.name.trim().toLowerCase() == warehouse.trim().toLowerCase(),
+    );
+    if (warehouseLocations.isEmpty) {
+      throw StateError('Inventory warehouse location not found: $warehouse');
+    }
+    final warehouseLocation = warehouseLocations.first;
+    final inventoryAssets = await MobileApi.instance.inventoryAssets(
+      warehouseId: warehouseLocation.warehouseId,
+      assetKind: InventoryAssetKind.rawMaterial,
+      limit: 500,
+    );
+    final physicalRawMaterialRefs = inventoryAssets
+        .where(
+          (asset) =>
+              asset.physicalLocation.kind == InventoryLocationKind.warehouse &&
+              asset.physicalLocation.id == warehouseLocation.id,
+        )
+        .map((asset) => asset.assetRef.trim().toLowerCase())
+        .where((assetRef) => assetRef.isNotEmpty)
+        .toSet();
+    final warehouseRawStock = rawStock
+        .where(
+          (stock) =>
+              physicalRawMaterialRefs.contains(stock.id.trim().toLowerCase()),
+        )
+        .toList(growable: false);
+    final stockBarcodes = warehouseRawStock
         .map((item) => item.barcode.trim().toLowerCase())
         .where((barcode) => barcode.isNotEmpty)
         .toSet();
     return _WarehouseInventorySection(
-      rawStock: List<AdminRawMaterialStockEntry>.unmodifiable(rawStock),
+      rawStock: List<AdminRawMaterialStockEntry>.unmodifiable(
+        warehouseRawStock,
+      ),
       reservations: List<AdminRawMaterialAssignment>.unmodifiable(
         allReservations.where(
           (item) => stockBarcodes.contains(item.barcode.trim().toLowerCase()),
@@ -166,6 +209,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   }
 
   Future<void> _reload() async {
+    final stateReload = _materialStateLocationsKey.currentState?.reload();
     setState(() {
       _future = _load();
       final selected = _selectedWarehouse?.trim() ?? '';
@@ -174,6 +218,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       }
     });
     await _future;
+    await stateReload;
   }
 
   Future<void> _handleWarehouseDeleted() async {
@@ -315,7 +360,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
               selectedRouteName: AppRoutes.adminWarehouses,
               onNavigate: _openDrawerRoute,
             ),
-      title: 'Ombor',
+      title: materialScoped ? 'Joylashuvlarim' : 'Ombor',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -325,12 +370,18 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
       titleWidget: AdminCatalogSearchField(
         controller: _materialItemsSearchController,
         focusNode: _materialItemsSearchFocusNode,
-        hintText: 'Ombordagi mahsulotni qidirish',
-        onChanged: (value) =>
-            _warehouseDetailsKey.currentState?.handleItemsSearchChanged(value),
+        hintText: materialScoped
+            ? 'Joylashuvdagi mahsulotni qidirish'
+            : 'Ombordagi mahsulotni qidirish',
+        onChanged: (value) {
+          _warehouseDetailsKey.currentState?.handleItemsSearchChanged(value);
+          _materialStateLocationsKey.currentState
+              ?.handleItemsSearchChanged(value);
+        },
         onClear: () {
           _materialItemsSearchController.clear();
           _warehouseDetailsKey.currentState?.handleItemsSearchChanged('');
+          _materialStateLocationsKey.currentState?.handleItemsSearchChanged('');
         },
         onBack: _goBackFromSearch,
       ),
@@ -377,7 +428,30 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
             onRawStockChanged: _reload,
           );
           if (materialScoped) {
-            return productsTab;
+            return Column(
+              children: [
+                AdminSurfaceTabBar(
+                  controller: _pageTabController,
+                  tabs: const [
+                    Tab(height: 38, text: 'Omborlar'),
+                    Tab(height: 38, text: 'State’lar'),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _pageTabController,
+                    children: [
+                      productsTab,
+                      _MaterialStateLocationsTab(
+                        key: _materialStateLocationsKey,
+                        bottomPadding: bottomPadding,
+                        onAssetReturned: _reload,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
           }
           return Column(
             children: [
@@ -451,6 +525,543 @@ class _WarehouseInventorySection {
   final List<AdminRawMaterialStockEntry> rawStock;
   final List<AdminRawMaterialAssignment> reservations;
 }
+
+class _MaterialStateLocationsData {
+  const _MaterialStateLocationsData({
+    required this.assets,
+    required this.locations,
+  });
+
+  final List<InventoryAsset> assets;
+  final List<InventoryLocation> locations;
+}
+
+class _MaterialStateLocationsTab extends StatefulWidget {
+  const _MaterialStateLocationsTab({
+    super.key,
+    required this.bottomPadding,
+    required this.onAssetReturned,
+  });
+
+  final double bottomPadding;
+  final Future<void> Function() onAssetReturned;
+
+  @override
+  State<_MaterialStateLocationsTab> createState() =>
+      _MaterialStateLocationsTabState();
+}
+
+class _MaterialStateLocationsTabState
+    extends State<_MaterialStateLocationsTab> {
+  late Future<_MaterialStateLocationsData> _future;
+  Timer? _searchDebounce;
+  String _query = '';
+  String _selectedStateId = '';
+  String _busyAssetKey = '';
+  bool _filterExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<_MaterialStateLocationsData> _load() async {
+    final results = await Future.wait<Object>([
+      MobileApi.instance.inventoryAssets(
+        assetKind: InventoryAssetKind.rawMaterial,
+        currentUserStatesOnly: true,
+        limit: 500,
+      ),
+      MobileApi.instance.inventoryLocations(),
+    ]);
+    final assets = (results[0] as List<InventoryAsset>)
+        .where(
+          (asset) => asset.physicalLocation.kind == InventoryLocationKind.state,
+        )
+        .toList(growable: false);
+    final locations = (results[1] as List<InventoryLocation>)
+        .where((location) => location.active)
+        .toList(growable: false);
+    return _MaterialStateLocationsData(
+      assets: assets,
+      locations: locations,
+    );
+  }
+
+  Future<void> reload() async {
+    final future = _load();
+    if (mounted) {
+      setState(() {
+        _future = future;
+      });
+    }
+    await future;
+  }
+
+  void handleItemsSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _query = value.trim().toLowerCase());
+    });
+  }
+
+  Future<void> _showAssetDetails(
+    InventoryAsset asset,
+    List<InventoryLocation> locations,
+  ) async {
+    InventoryLocation? returnLocation;
+    for (final location in locations) {
+      if (location.isWarehouse &&
+          location.warehouseId == asset.custodyWarehouseId) {
+        returnLocation = location;
+        break;
+      }
+    }
+    final assetKey = _inventoryStateAssetKey(asset);
+    final busy = _busyAssetKey == assetKey;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _MaterialStateAssetSheet(
+        asset: asset,
+        busy: busy,
+        canReturn: asset.isAvailable && returnLocation != null && !busy,
+        onReturn: returnLocation == null
+            ? null
+            : () async {
+                Navigator.of(sheetContext).pop();
+                await _returnToWarehouse(asset, returnLocation!);
+              },
+      ),
+    );
+  }
+
+  Future<void> _returnToWarehouse(
+    InventoryAsset asset,
+    InventoryLocation warehouseLocation,
+  ) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Omborga qaytarish'),
+            content: Text(
+              '${asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName} '
+              '${warehouseLocation.name} omboriga qaytarilsinmi?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Yo‘q'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Ha'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final assetKey = _inventoryStateAssetKey(asset);
+    setState(() => _busyAssetKey = assetKey);
+    try {
+      await MobileApi.instance.inventoryRelocate(
+        assetKind: asset.kind,
+        assetRef: asset.assetRef,
+        physicalLocationId: warehouseLocation.id,
+        idempotencyKey: 'state-return-${DateTime.now().microsecondsSinceEpoch}',
+        note: 'State’dan omborga qaytarildi',
+      );
+      await widget.onAssetReturned();
+      if (mounted) {
+        _showWarehouseNotice(
+          context,
+          '${warehouseLocation.name} omboriga qaytarildi',
+        );
+      }
+    } on MobileApiException catch (error) {
+      if (mounted) {
+        _showWarehouseNotice(context, error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showWarehouseNotice(context, 'Mahsulotni omborga qaytarib bo‘lmadi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyAssetKey = '');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_MaterialStateLocationsData>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done &&
+            !snapshot.hasData) {
+          return const Center(child: AppLoadingIndicator());
+        }
+        if (snapshot.hasError) {
+          return AppRetryState(onRetry: reload);
+        }
+        final data = snapshot.data ??
+            const _MaterialStateLocationsData(assets: [], locations: []);
+        final stateNames = <String, String>{};
+        for (final asset in data.assets) {
+          final id = asset.physicalLocation.id.trim();
+          if (id.isNotEmpty) {
+            stateNames[id] = asset.physicalLocation.name.trim();
+          }
+        }
+        final stateIds = stateNames.keys.toList(growable: false)
+          ..sort((left, right) => stateNames[left]!.toLowerCase().compareTo(
+                stateNames[right]!.toLowerCase(),
+              ));
+        final selectedStateId =
+            stateNames.containsKey(_selectedStateId) ? _selectedStateId : '';
+        final visibleAssets = data.assets.where((asset) {
+          if (selectedStateId.isEmpty ||
+              asset.physicalLocation.id != selectedStateId) {
+            return false;
+          }
+          if (_query.isEmpty) {
+            return true;
+          }
+          return [
+            asset.itemName,
+            asset.itemCode,
+            asset.identifier,
+            asset.assetRef,
+          ].any((value) => value.toLowerCase().contains(_query));
+        }).toList(growable: false);
+        return ColoredBox(
+          color: AppTheme.shellStart(context),
+          child: AppRefreshIndicator(
+            onRefresh: reload,
+            allowRefreshOnShortContent: true,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(4, 4, 4, widget.bottomPadding),
+              children: [
+                AdminExpandableFilterChip<String>(
+                  key: const ValueKey('material-state-filter'),
+                  chipKey: const ValueKey('material-state-filter-chip'),
+                  label: 'State',
+                  emptyLabel: 'Tanlanmagan',
+                  icon: Icons.location_on_outlined,
+                  selectedValue:
+                      selectedStateId.isEmpty ? null : selectedStateId,
+                  options: [
+                    for (final stateId in stateIds)
+                      AdminFilterChipOption<String>(
+                        value: stateId,
+                        label: stateNames[stateId]!,
+                        key: ValueKey('material-state-option-$stateId'),
+                      ),
+                  ],
+                  expanded: _filterExpanded,
+                  onToggle: () => setState(
+                    () => _filterExpanded = !_filterExpanded,
+                  ),
+                  onSelect: (stateId) {
+                    setState(() {
+                      _selectedStateId = stateId;
+                      _filterExpanded = false;
+                    });
+                  },
+                  optionKeyPrefix: 'material-state-option-chip',
+                ),
+                if (stateIds.isEmpty)
+                  const _MaterialStateEmpty(
+                    message: 'Siz joylashtirgan State’dagi mahsulot topilmadi',
+                  )
+                else if (selectedStateId.isEmpty)
+                  const _MaterialStateEmpty(message: 'State tanlanmagan')
+                else if (visibleAssets.isEmpty)
+                  const _MaterialStateEmpty(message: 'Mahsulot topilmadi')
+                else
+                  M3SegmentSpacedColumn(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    children: [
+                      for (var index = 0; index < visibleAssets.length; index++)
+                        _MaterialStateAssetRow(
+                          key: ValueKey(
+                            'material-state-asset-'
+                            '${visibleAssets[index].assetRef}',
+                          ),
+                          slot: M3SegmentedListGeometry
+                              .standaloneListSlotForIndex(
+                            index,
+                            visibleAssets.length,
+                          ),
+                          asset: visibleAssets[index],
+                          busy: _busyAssetKey ==
+                              _inventoryStateAssetKey(visibleAssets[index]),
+                          onTap: () => _showAssetDetails(
+                            visibleAssets[index],
+                            data.locations,
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MaterialStateEmpty extends StatelessWidget {
+  const _MaterialStateEmpty({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+      child: Text(message, textAlign: TextAlign.center),
+    );
+  }
+}
+
+class _MaterialStateAssetRow extends StatelessWidget {
+  const _MaterialStateAssetRow({
+    super.key,
+    required this.slot,
+    required this.asset,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final InventoryAsset asset;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title =
+        asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    final subtitle = [
+      if (asset.identifier.trim().isNotEmpty) asset.identifier.trim(),
+      '${_formatQty(asset.qty)} ${asset.uom}'.trim(),
+    ].join(' • ');
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.category_outlined,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      trailing:
+          busy ? const AppLoadingIndicator(size: 30, glyphSize: 18) : null,
+      title: title,
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+      elevation: 1,
+    );
+  }
+}
+
+class _MaterialStateAssetSheet extends StatelessWidget {
+  const _MaterialStateAssetSheet({
+    required this.asset,
+    required this.busy,
+    required this.canReturn,
+    required this.onReturn,
+  });
+
+  final InventoryAsset asset;
+  final bool busy;
+  final bool canReturn;
+  final Future<void> Function()? onReturn;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title =
+        asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (asset.itemCode.trim().isNotEmpty &&
+                asset.itemCode.trim() != title.trim()) ...[
+              const SizedBox(height: 2),
+              Text(
+                asset.itemCode,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            _MaterialStateAssetDetail(
+              icon: Icons.qr_code_rounded,
+              label: 'Identifikator',
+              value: asset.identifier,
+            ),
+            _MaterialStateAssetDetail(
+              icon: Icons.scale_outlined,
+              label: 'Miqdor',
+              value: '${_formatQty(asset.qty)} ${asset.uom}'.trim(),
+            ),
+            _MaterialStateAssetDetail(
+              icon: Icons.location_on_outlined,
+              label: 'State',
+              value: asset.physicalLocation.name,
+            ),
+            const SizedBox(height: 18),
+            if (busy)
+              const Center(child: AppLoadingIndicator())
+            else
+              FilledButton.icon(
+                key: const ValueKey('material-state-return-button'),
+                onPressed: canReturn && onReturn != null
+                    ? () => unawaited(onReturn!())
+                    : null,
+                icon: const Icon(Icons.keyboard_return_rounded),
+                label: const Text('Omborga qaytarish'),
+              ),
+            if (!canReturn && !busy) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Mahsulotni qaytarish uchun uning ombor joylashuvi faol '
+                'bo‘lishi kerak.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialStateAssetDetail extends StatelessWidget {
+  const _MaterialStateAssetDetail({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 116,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '—' : value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _inventoryStateAssetKey(InventoryAsset asset) =>
+    '${asset.kind.apiValue}:${asset.assetRef.trim().toLowerCase()}';
 
 Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
   final results = await Future.wait([
@@ -817,12 +1428,10 @@ class _WarehouseDetailsTab extends StatefulWidget {
   State<_WarehouseDetailsTab> createState() => _WarehouseDetailsTabState();
 }
 
-class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
-    with SingleTickerProviderStateMixin {
+class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   static const int _pageSize = 80;
   static const double _loadMoreExtent = 420;
 
-  late TabController _stockTabController;
   final ScrollController _itemsScrollController = ScrollController();
   late final TextEditingController _itemsSearchController;
   late final bool _ownsItemsSearchController;
@@ -834,7 +1443,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
   bool _hasMoreItems = false;
   Object? _itemsError;
   int _itemsRequestGeneration = 0;
-  String? _expandedCardKey;
   String? _editingStockBarcode;
 
   @override
@@ -842,8 +1450,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     super.initState();
     _ownsItemsSearchController = widget.searchController == null;
     _itemsSearchController = widget.searchController ?? TextEditingController();
-    _stockTabController = TabController(length: 1, vsync: this);
-    _stockTabController.addListener(_handleStockTabChanged);
     _itemsScrollController.addListener(_handleItemsScroll);
     unawaited(_loadFirstItemsPage());
   }
@@ -852,7 +1458,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
   void didUpdateWidget(covariant _WarehouseDetailsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.warehouse != widget.warehouse) {
-      _expandedCardKey = null;
       _itemsSearchDebounce?.cancel();
       final queryToClear = _itemsSearchController.text;
       if (queryToClear.isNotEmpty) {
@@ -875,8 +1480,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     if (_ownsItemsSearchController) {
       _itemsSearchController.dispose();
     }
-    _stockTabController.removeListener(_handleStockTabChanged);
-    _stockTabController.dispose();
     super.dispose();
   }
 
@@ -1056,38 +1659,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
     }
   }
 
-  void _handleStockTabChanged() {
-    if (_stockTabController.indexIsChanging) {
-      return;
-    }
-    setState(() {
-      _expandedCardKey = null;
-    });
-  }
-
-  TabController _stockControllerForLength(int length) {
-    if (_stockTabController.length == length) {
-      return _stockTabController;
-    }
-    final currentIndex = _stockTabController.index;
-    _stockTabController.removeListener(_handleStockTabChanged);
-    _stockTabController.dispose();
-    _stockTabController = TabController(
-      length: length,
-      initialIndex: currentIndex < length ? currentIndex : length - 1,
-      vsync: this,
-    );
-    _stockTabController.addListener(_handleStockTabChanged);
-    _expandedCardKey = null;
-    return _stockTabController;
-  }
-
-  void _onExpandedChanged(String key, bool expanded) {
-    setState(() {
-      _expandedCardKey = expanded ? key : null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final future = widget.detailFuture;
@@ -1191,8 +1762,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
           else if (_items.isNotEmpty)
             _WarehouseItemListModule(
               items: _items,
-              expandedKey: _expandedCardKey,
-              onExpandedChanged: _onExpandedChanged,
             )
           else if (availableRawStock.isEmpty)
             const Padding(
@@ -1202,8 +1771,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
           if (availableRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
               stock: availableRawStock,
-              expandedKey: _expandedCardKey,
-              onExpandedChanged: _onExpandedChanged,
               canEdit: widget.allowRawStockEdit
                   ? (stock) => _canEditRawMaterialStock(
                         stock,
@@ -1247,14 +1814,10 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
           if (current.reservations.isNotEmpty)
             _WarehouseReservationListModule(
               reservations: current.reservations,
-              expandedKey: _expandedCardKey,
-              onExpandedChanged: _onExpandedChanged,
             )
           else if (reservedRawStock.isNotEmpty)
             _WarehouseRawStockListModule(
               stock: reservedRawStock,
-              expandedKey: _expandedCardKey,
-              onExpandedChanged: _onExpandedChanged,
               onQr: widget.allowRawStockEdit
                   ? (stock) => unawaited(_showRawStockQr(stock))
                   : null,
@@ -1270,30 +1833,51 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab>
               .add(Tab(height: 38, text: 'Band qilingan ($reservedCount)'));
           stockTabChildren.add(reservedChildren);
         }
-        final stockController = _stockControllerForLength(stockTabs.length);
-        final visibleChildren = stockTabChildren[stockController.index];
-        return buildScaffold([
-          const SizedBox(height: 8),
-          if (visibleChildren.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: Center(child: Text('Mahsulot topilmadi')),
-            )
-          else ...[
-            for (var index = 0; index < visibleChildren.length; index++) ...[
-              if (index > 0) const SizedBox(height: 16),
-              visibleChildren[index],
-            ],
-          ],
-        ],
-            leading: [
-              AdminSurfaceTabBar(
-                controller: stockController,
-                tabs: stockTabs,
-              ),
-            ],
-            controller:
-                stockController.index == 0 ? _itemsScrollController : null);
+        return DefaultTabController(
+          key: ValueKey<String>(
+            '${selectedWarehouse.toLowerCase()}:${stockTabs.length}',
+          ),
+          length: stockTabs.length,
+          child: Builder(
+            builder: (context) {
+              final stockController = DefaultTabController.of(context);
+              return AnimatedBuilder(
+                animation: stockController,
+                builder: (context, _) {
+                  final selectedIndex =
+                      stockController.index < stockTabChildren.length
+                          ? stockController.index
+                          : stockTabChildren.length - 1;
+                  final visibleChildren = stockTabChildren[selectedIndex];
+                  return buildScaffold([
+                    const SizedBox(height: 8),
+                    if (visibleChildren.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: Center(child: Text('Mahsulot topilmadi')),
+                      )
+                    else ...[
+                      for (var index = 0;
+                          index < visibleChildren.length;
+                          index++) ...[
+                        if (index > 0) const SizedBox(height: 16),
+                        visibleChildren[index],
+                      ],
+                    ],
+                  ],
+                      leading: [
+                        AdminSurfaceTabBar(
+                          controller: stockController,
+                          tabs: stockTabs,
+                        ),
+                      ],
+                      controller:
+                          selectedIndex == 0 ? _itemsScrollController : null);
+                },
+              );
+            },
+          ),
+        );
       },
     );
   }
@@ -1929,15 +2513,9 @@ class _WarehouseFilterBar extends StatelessWidget {
 }
 
 class _WarehouseItemListModule extends StatelessWidget {
-  const _WarehouseItemListModule({
-    required this.items,
-    required this.expandedKey,
-    required this.onExpandedChanged,
-  });
+  const _WarehouseItemListModule({required this.items});
 
   final List<AdminWarehouseStockItem> items;
-  final String? expandedKey;
-  final void Function(String key, bool expanded) onExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1951,32 +2529,17 @@ class _WarehouseItemListModule extends StatelessWidget {
               items.length,
             ),
             item: items[index],
-            expanded: expandedKey == _warehouseItemCardKey(items[index]),
-            onExpandedChanged: (expanded) => onExpandedChanged(
-              _warehouseItemCardKey(items[index]),
-              expanded,
-            ),
           ),
       ],
     );
   }
 }
 
-String _warehouseItemCardKey(AdminWarehouseStockItem item) =>
-    'item:${item.code}:${item.uom}';
-
 class _WarehouseItemRow extends StatelessWidget {
-  const _WarehouseItemRow({
-    required this.slot,
-    required this.item,
-    required this.expanded,
-    required this.onExpandedChanged,
-  });
+  const _WarehouseItemRow({required this.slot, required this.item});
 
   final M3SegmentVerticalSlot slot;
   final AdminWarehouseStockItem item;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1990,8 +2553,6 @@ class _WarehouseItemRow extends StatelessWidget {
 
     return _WarehouseExpandableSummaryCard(
       slot: slot,
-      expanded: expanded,
-      onExpandedChanged: onExpandedChanged,
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(
@@ -2026,16 +2587,12 @@ class _WarehouseItemRow extends StatelessWidget {
 class _WarehouseRawStockListModule extends StatelessWidget {
   const _WarehouseRawStockListModule({
     required this.stock,
-    required this.expandedKey,
-    required this.onExpandedChanged,
     this.canEdit,
     this.onEdit,
     this.onQr,
   });
 
   final List<AdminRawMaterialStockEntry> stock;
-  final String? expandedKey;
-  final void Function(String key, bool expanded) onExpandedChanged;
   final bool Function(AdminRawMaterialStockEntry stock)? canEdit;
   final ValueChanged<AdminRawMaterialStockEntry>? onEdit;
   final ValueChanged<AdminRawMaterialStockEntry>? onQr;
@@ -2052,11 +2609,6 @@ class _WarehouseRawStockListModule extends StatelessWidget {
               stock.length,
             ),
             stock: stock[index],
-            expanded: expandedKey == _warehouseStockCardKey(stock[index]),
-            onExpandedChanged: (expanded) => onExpandedChanged(
-              _warehouseStockCardKey(stock[index]),
-              expanded,
-            ),
             onEdit: canEdit?.call(stock[index]) == true && onEdit != null
                 ? () => onEdit!(stock[index])
                 : null,
@@ -2067,27 +2619,16 @@ class _WarehouseRawStockListModule extends StatelessWidget {
   }
 }
 
-String _warehouseStockCardKey(AdminRawMaterialStockEntry stock) {
-  if (stock.id.trim().isNotEmpty) {
-    return 'stock:${stock.id}';
-  }
-  return 'stock:${stock.itemCode}-${stock.barcode}';
-}
-
 class _WarehouseRawStockRow extends StatelessWidget {
   const _WarehouseRawStockRow({
     required this.slot,
     required this.stock,
-    required this.expanded,
-    required this.onExpandedChanged,
     this.onEdit,
     this.onQr,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialStockEntry stock;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
   final VoidCallback? onEdit;
   final VoidCallback? onQr;
 
@@ -2097,11 +2638,13 @@ class _WarehouseRawStockRow extends StatelessWidget {
     final title = stock.itemName.trim().isEmpty
         ? stock.itemCode.trim()
         : stock.itemName.trim();
+    final subtitle = <String>[
+      if (stock.barcode.trim().isNotEmpty) stock.barcode.trim(),
+      '${_formatQty(stock.qty)} ${stock.uom}'.trim(),
+    ].join(' • ');
 
     return _WarehouseExpandableSummaryCard(
       slot: slot,
-      expanded: expanded,
-      onExpandedChanged: onExpandedChanged,
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(
@@ -2110,14 +2653,14 @@ class _WarehouseRawStockRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.science_outlined,
+            Icons.category_outlined,
             size: 16,
             color: scheme.onSecondaryContainer,
           ),
         ),
       ),
       title: title.isEmpty ? stock.barcode : title,
-      subtitle: '',
+      subtitle: subtitle,
       details: [
         _WarehouseDetailEntry('Mahsulot kodi', stock.itemCode),
         _WarehouseDetailEntry('Shtrix-kod', stock.barcode),
@@ -2482,15 +3025,9 @@ class _RawMaterialStockEditSheetState
 }
 
 class _WarehouseReservationListModule extends StatelessWidget {
-  const _WarehouseReservationListModule({
-    required this.reservations,
-    required this.expandedKey,
-    required this.onExpandedChanged,
-  });
+  const _WarehouseReservationListModule({required this.reservations});
 
   final List<AdminRawMaterialAssignment> reservations;
-  final String? expandedKey;
-  final void Function(String key, bool expanded) onExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2504,36 +3041,20 @@ class _WarehouseReservationListModule extends StatelessWidget {
               reservations.length,
             ),
             reservation: reservations[index],
-            expanded: expandedKey ==
-                _warehouseReservationCardKey(
-                  reservations[index],
-                ),
-            onExpandedChanged: (expanded) => onExpandedChanged(
-              _warehouseReservationCardKey(reservations[index]),
-              expanded,
-            ),
           ),
       ],
     );
   }
 }
 
-String _warehouseReservationCardKey(AdminRawMaterialAssignment reservation) {
-  return 'reservation:${reservation.orderId}-${reservation.barcode}';
-}
-
 class _WarehouseReservationRow extends StatelessWidget {
   const _WarehouseReservationRow({
     required this.slot,
     required this.reservation,
-    required this.expanded,
-    required this.onExpandedChanged,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialAssignment reservation;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2551,8 +3072,6 @@ class _WarehouseReservationRow extends StatelessWidget {
 
     return _WarehouseExpandableSummaryCard(
       slot: slot,
-      expanded: expanded,
-      onExpandedChanged: onExpandedChanged,
       leading: SizedBox.square(
         dimension: 30,
         child: DecoratedBox(
@@ -2596,8 +3115,6 @@ class _WarehouseDetailEntry {
 class _WarehouseExpandableSummaryCard extends StatelessWidget {
   const _WarehouseExpandableSummaryCard({
     required this.slot,
-    required this.expanded,
-    required this.onExpandedChanged,
     required this.leading,
     required this.title,
     required this.subtitle,
@@ -2606,8 +3123,6 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
   });
 
   final M3SegmentVerticalSlot slot;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
   final Widget leading;
   final String title;
   final String subtitle;
@@ -2617,107 +3132,101 @@ class _WarehouseExpandableSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final cornerRadius = M3SegmentedListGeometry.cornerRadiusForSlot(slot);
-    final radius = M3SegmentedListGeometry.borderRadius(slot, cornerRadius);
-
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      elevation: 4,
-      shadowColor: scheme.shadow.withValues(alpha: 0.24),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => onExpandedChanged(!expanded),
-        borderRadius: radius,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: radius,
+    return AdminSummaryCard(
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      title: title,
+      subtitle: subtitle,
+      value: '',
+      showChevron: true,
+      onTap: () => _showWarehouseSummaryDetails(
+        context,
+        title: title,
+        details: details,
+        expandedFooter: expandedFooter,
+      ),
+      leading: leading,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(14, 8, 4, expanded ? 12 : 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: expanded ? 0 : 45),
-                  child: Row(
-                    children: [
-                      leading,
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            if (subtitle.trim().isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                      height: 1.05,
-                                    ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      AnimatedRotation(
-                        turns: expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 22,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+    );
+  }
+}
+
+Future<void> _showWarehouseSummaryDetails(
+  BuildContext context, {
+  required String title,
+  required List<_WarehouseDetailEntry> details,
+  Widget? expandedFooter,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isDismissible: true,
+    enableDrag: true,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => _WarehouseSummaryDetailsSheet(
+      title: title,
+      details: details,
+      footer: expandedFooter,
+    ),
+  );
+}
+
+class _WarehouseSummaryDetailsSheet extends StatelessWidget {
+  const _WarehouseSummaryDetailsSheet({
+    required this.title,
+    required this.details,
+    this.footer,
+  });
+
+  final String title;
+  final List<_WarehouseDetailEntry> details;
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              for (final detail in details)
+                _WarehouseDetailLine(
+                  label: detail.label,
+                  value: detail.value,
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: expanded
-                      ? Padding(
-                          padding: const EdgeInsets.only(
-                            left: 44,
-                            top: 8,
-                            right: 8,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (final detail in details)
-                                _WarehouseDetailLine(
-                                  label: detail.label,
-                                  value: detail.value,
-                                ),
-                              if (expandedFooter != null) expandedFooter!,
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                footer!,
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -2841,7 +3350,11 @@ List<AdminRawMaterialStockEntry> _availableRawStock(
   List<AdminRawMaterialStockEntry> stock,
 ) {
   return stock
-      .where((item) => !_isReservedRawStock(item))
+      .where(
+        (item) =>
+            item.status.trim().toLowerCase() == 'available' &&
+            !_isReservedRawStock(item),
+      )
       .toList(growable: false);
 }
 

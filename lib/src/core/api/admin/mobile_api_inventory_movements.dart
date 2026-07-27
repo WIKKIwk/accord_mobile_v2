@@ -3,11 +3,16 @@ part of '../mobile_api.dart';
 final List<InventoryLocation> _testModeInventoryLocations = [];
 final List<InventoryAsset> _testModeInventoryAssets = [];
 final List<InventoryTransfer> _testModeInventoryTransfers = [];
+final Map<String, String> _testModeInventoryPlacementOwnerRefs = {};
+
+String _inventoryAssetKey(InventoryAssetKind kind, String assetRef) =>
+    '${kind.apiValue}:${assetRef.trim().toLowerCase()}';
 
 void resetMobileApiInventoryMovementTestData() {
   _testModeInventoryLocations.clear();
   _testModeInventoryAssets.clear();
   _testModeInventoryTransfers.clear();
+  _testModeInventoryPlacementOwnerRefs.clear();
 }
 
 void seedMobileApiInventoryMovementTestData({
@@ -24,6 +29,7 @@ void seedMobileApiInventoryMovementTestData({
   _testModeInventoryTransfers
     ..clear()
     ..addAll(transfers);
+  _testModeInventoryPlacementOwnerRefs.clear();
 }
 
 extension MobileApiInventoryMovements on MobileApi {
@@ -66,16 +72,39 @@ extension MobileApiInventoryMovements on MobileApi {
     String warehouseId = '',
     String query = '',
     InventoryAssetKind? assetKind,
+    bool currentUserStatesOnly = false,
     int limit = 100,
     int offset = 0,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final needle = query.trim().toLowerCase();
+      final warehouseLocationIds = _testModeInventoryLocations
+          .where(
+            (location) =>
+                location.isWarehouse &&
+                location.warehouseId == warehouseId.trim(),
+          )
+          .map((location) => location.id)
+          .toSet();
+      final currentProfileRef = AppSession.instance.profile?.ref.trim() ?? '';
       return _testModeInventoryAssets
           .where(
             (asset) =>
                 (warehouseId.trim().isEmpty ||
-                    asset.custodyWarehouseId == warehouseId.trim()) &&
+                    (asset.physicalLocation.kind ==
+                            InventoryLocationKind.warehouse &&
+                        warehouseLocationIds.contains(
+                          asset.physicalLocation.id,
+                        ))) &&
+                (!currentUserStatesOnly ||
+                    (asset.physicalLocation.kind ==
+                            InventoryLocationKind.state &&
+                        currentProfileRef.isNotEmpty &&
+                        _testModeInventoryPlacementOwnerRefs[_inventoryAssetKey(
+                              asset.kind,
+                              asset.assetRef,
+                            )] ==
+                            currentProfileRef)) &&
                 (assetKind == null || asset.kind == assetKind) &&
                 (needle.isEmpty ||
                     [
@@ -99,6 +128,7 @@ extension MobileApiInventoryMovements on MobileApi {
               'warehouse_id': warehouseId.trim(),
             if (query.trim().isNotEmpty) 'query': query.trim(),
             if (assetKind != null) 'asset_kind': assetKind.apiValue,
+            if (currentUserStatesOnly) 'current_user_states_only': 'true',
             'limit': '$limit',
             if (offset > 0) 'offset': '$offset',
           },
@@ -180,6 +210,9 @@ extension MobileApiInventoryMovements on MobileApi {
         placementVersion: current.placementVersion + 1,
       );
       _testModeInventoryAssets[assetIndex] = updated;
+      _testModeInventoryPlacementOwnerRefs[
+              _inventoryAssetKey(updated.kind, updated.assetRef)] =
+          AppSession.instance.profile?.ref.trim() ?? '';
       return updated;
     }
     final response = await _sendAuthorized(
@@ -316,6 +349,14 @@ extension MobileApiInventoryMovements on MobileApi {
           );
         }
         final current = _testModeInventoryAssets[index];
+        if (current.physicalLocation.kind != InventoryLocationKind.warehouse ||
+            current.physicalLocation.id != source.first.id) {
+          throw const MobileApiException(
+            code: 'inventory_asset_not_in_source_warehouse',
+            message: 'Mahsulotni transferdan oldin omborga qaytaring',
+            statusCode: 409,
+          );
+        }
         lines.add(
           InventoryTransferLine(
             assetKind: current.kind,
@@ -333,7 +374,9 @@ extension MobileApiInventoryMovements on MobileApi {
           transferId: transferId,
         );
       }
-      final transfer = InventoryTransfer(
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final actorName = AppSession.instance.profile?.displayName ?? '';
+      var transfer = InventoryTransfer(
         id: transferId,
         sourceWarehouseId: sourceWarehouseId.trim(),
         sourceWarehouse: source.first.name,
@@ -341,15 +384,30 @@ extension MobileApiInventoryMovements on MobileApi {
         destinationWarehouse: destination.first.name,
         status: InventoryTransferStatus.requested,
         note: note.trim(),
-        requestedByName: AppSession.instance.profile?.displayName ?? '',
+        requestedByName: actorName,
         approvedByName: '',
         dispatchedByName: '',
         receivedByName: '',
         rejectedByName: '',
         cancelledByName: '',
-        createdAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        createdAtUnix: now,
         lines: lines,
       );
+      if (_testModeActorManagesTransferInternally(
+        transfer.sourceWarehouse,
+        transfer.destinationWarehouse,
+      )) {
+        transfer = transfer.copyWith(
+          status: InventoryTransferStatus.received,
+          approvedByName: actorName,
+          dispatchedByName: actorName,
+          receivedByName: actorName,
+          approvedAtUnix: now,
+          dispatchedAtUnix: now,
+          receivedAtUnix: now,
+        );
+        _receiveTestModeTransferAssets(transfer);
+      }
       _testModeInventoryTransfers.insert(0, transfer);
       return transfer;
     }
@@ -412,29 +470,56 @@ extension MobileApiInventoryMovements on MobileApi {
       }
       final current = _testModeInventoryTransfers[index];
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final actorName = AppSession.instance.profile?.displayName ?? '';
+      final internalTransfer = _testModeActorManagesTransferInternally(
+        current.sourceWarehouse,
+        current.destinationWarehouse,
+      );
       final updated = switch (normalizedAction) {
+        'approve'
+            when current.status == InventoryTransferStatus.requested &&
+                internalTransfer =>
+          current.copyWith(
+            status: InventoryTransferStatus.received,
+            approvedByName: actorName,
+            dispatchedByName: actorName,
+            receivedByName: actorName,
+            approvedAtUnix: now,
+            dispatchedAtUnix: now,
+            receivedAtUnix: now,
+          ),
         'approve' when current.status == InventoryTransferStatus.requested =>
           current.copyWith(
             status: InventoryTransferStatus.approved,
-            approvedByName: AppSession.instance.profile?.displayName ?? '',
+            approvedByName: actorName,
             approvedAtUnix: now,
           ),
         'reject' when current.status == InventoryTransferStatus.requested =>
           current.copyWith(
             status: InventoryTransferStatus.rejected,
-            rejectedByName: AppSession.instance.profile?.displayName ?? '',
+            rejectedByName: actorName,
             rejectedAtUnix: now,
+          ),
+        'dispatch'
+            when current.status == InventoryTransferStatus.approved &&
+                internalTransfer =>
+          current.copyWith(
+            status: InventoryTransferStatus.received,
+            dispatchedByName: actorName,
+            receivedByName: actorName,
+            dispatchedAtUnix: now,
+            receivedAtUnix: now,
           ),
         'dispatch' when current.status == InventoryTransferStatus.approved =>
           current.copyWith(
             status: InventoryTransferStatus.inTransit,
-            dispatchedByName: AppSession.instance.profile?.displayName ?? '',
+            dispatchedByName: actorName,
             dispatchedAtUnix: now,
           ),
         'receive' when current.status == InventoryTransferStatus.inTransit =>
           current.copyWith(
             status: InventoryTransferStatus.received,
-            receivedByName: AppSession.instance.profile?.displayName ?? '',
+            receivedByName: actorName,
             receivedAtUnix: now,
           ),
         'cancel'
@@ -442,7 +527,7 @@ extension MobileApiInventoryMovements on MobileApi {
                 current.status == InventoryTransferStatus.approved =>
           current.copyWith(
             status: InventoryTransferStatus.cancelled,
-            cancelledByName: AppSession.instance.profile?.displayName ?? '',
+            cancelledByName: actorName,
             cancelledAtUnix: now,
           ),
         _ => throw const MobileApiException(
@@ -484,6 +569,19 @@ extension MobileApiInventoryMovements on MobileApi {
       fallbackMessage: 'Transfer yangilanmadi',
     );
   }
+}
+
+bool _testModeActorManagesTransferInternally(
+  String sourceWarehouse,
+  String destinationWarehouse,
+) {
+  final assigned = AppSession.instance.profile?.assignedWarehouses
+          .map((warehouse) => warehouse.trim().toLowerCase())
+          .where((warehouse) => warehouse.isNotEmpty)
+          .toSet() ??
+      const <String>{};
+  return assigned.contains(sourceWarehouse.trim().toLowerCase()) &&
+      assigned.contains(destinationWarehouse.trim().toLowerCase());
 }
 
 T _decodeInventoryMutation<T>(
@@ -542,6 +640,8 @@ String _inventoryErrorMessage(String code, String fallback) {
     'inventory_asset_not_found' => 'Mahsulot topilmadi',
     'inventory_asset_unavailable' =>
       'Mahsulot band qilingan yoki hozir mavjud emas',
+    'inventory_asset_not_in_source_warehouse' =>
+      'Mahsulotni transferdan oldin omborga qaytaring',
     'inventory_location_not_found' => 'Joylashuv topilmadi',
     'inventory_location_inactive' => 'Bu state faol emas',
     'inventory_cross_warehouse_requires_transfer' =>

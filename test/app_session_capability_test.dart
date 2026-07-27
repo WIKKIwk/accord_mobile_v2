@@ -173,6 +173,23 @@ void main() {
     expect(AppSession.instance.can('qolip.manage'), isTrue);
   });
 
+  test('qolipchi home wins when the role also has admin capability', () async {
+    await AppSession.instance.setSession(
+      token: 'token',
+      profile: const SessionProfile(
+        role: UserRole.qolipchi,
+        displayName: 'Qolipchi',
+        legalName: '',
+        ref: 'worker-qolip',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['qolip.manage', 'admin.access'],
+      ),
+    );
+
+    expect(AppSession.instance.homeRoute, AppRoutes.qolipHome);
+  });
+
   test('boyoqchi role has its own home route and capabilities', () async {
     await AppSession.instance.setSession(
       token: 'token',

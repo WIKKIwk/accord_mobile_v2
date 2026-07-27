@@ -90,23 +90,6 @@ List<_RawMaterialBalance> _rawMaterialBalances(
   return balances;
 }
 
-bool _allMaterialsScanned({
-  required List<AdminRawMaterialAssignment> assignments,
-  required Set<String> scannedBarcodes,
-  required String orderId,
-}) {
-  if (assignments.isEmpty) {
-    return true;
-  }
-  return assignments.every(
-    (assignment) => _materialAssignmentConfirmed(
-      assignment: assignment,
-      scannedBarcodes: scannedBarcodes,
-      orderId: orderId,
-    ),
-  );
-}
-
 Set<String> _confirmedMaterialBarcodes({
   required List<AdminRawMaterialAssignment> assignments,
   required Set<String> scannedBarcodes,
@@ -169,12 +152,11 @@ Future<_MaterialScanResult?> _scanMaterialAssignmentFromDialog({
 bool _materialScanCompleted({
   required List<AdminRawMaterialAssignment> assignments,
   required Set<String> scannedBarcodes,
-  required String orderId,
+  required AdminRawMaterialStartRequirements requirements,
 }) {
-  return _allMaterialsScanned(
+  return requirements.scansSatisfy(
     assignments: assignments,
     scannedBarcodes: scannedBarcodes,
-    orderId: orderId,
   );
 }
 
@@ -250,10 +232,15 @@ String _progressQrLookupErrorText(Object error) {
 List<String> _queueActionMaterialBarcodes({
   required String action,
   required List<AdminRawMaterialAssignment> assignments,
+  required Set<String> scannedBarcodes,
 }) {
-  return action == 'start'
-      ? assignments.map((item) => item.barcode).toList()
-      : const [];
+  if (action != 'start') return const [];
+  final scanned = scannedBarcodes.map(_materialBarcodeKey).toSet()..remove('');
+  return [
+    for (final assignment in assignments)
+      if (scanned.contains(_materialBarcodeKey(assignment.barcode)))
+        assignment.barcode.trim(),
+  ];
 }
 
 String _queueActionQrPayload({
@@ -311,6 +298,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     materialBarcodes: _queueActionMaterialBarcodes(
       action: action,
       assignments: prepared.materialAssignments,
+      scannedBarcodes: prepared.scannedMaterialBarcodes,
     ),
     qolipCodes: qolipCodes,
     producedQty: progressInput?.meterQty,
@@ -351,8 +339,10 @@ bool _apparatusRequiresQolipScan(String apparatus) {
 String? _queueActionStartBlockReason({
   required String action,
   required List<AdminRawMaterialAssignment> materialAssignments,
+  required AdminRawMaterialStartRequirements? materialRequirements,
+  required bool materialsLoading,
+  required String materialsError,
   required Set<String> scannedMaterialBarcodes,
-  required String orderId,
   required ProductionMapDefinition map,
   required String station,
   required AdminProgressBatch? startInputProgressBatch,
@@ -362,13 +352,31 @@ String? _queueActionStartBlockReason({
   if (action != 'start') {
     return null;
   }
-  if (materialAssignments.isNotEmpty &&
-      !_allMaterialsScanned(
+  if (materialsLoading) {
+    return 'Homashyo qoidasi yuklanmoqda';
+  }
+  if (materialsError.trim().isNotEmpty || materialRequirements == null) {
+    return materialsError.trim().isEmpty
+        ? 'Homashyo qoidasi yuklanmadi'
+        : materialsError.trim();
+  }
+  if (materialRequirements.requiresMaterial &&
+      materialRequirements.normalizedAssignedBarcodes.isEmpty) {
+    return 'Ish boshlash uchun homashyo biriktirilmagan';
+  }
+  if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
+      materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
+      materialRequirements.normalizedStagedBarcodes.isEmpty) {
+    return 'Apparat oldiga homashyo olib kelinmagan';
+  }
+  if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
+      !materialRequirements.scansSatisfy(
         assignments: materialAssignments,
         scannedBarcodes: scannedMaterialBarcodes,
-        orderId: orderId,
       )) {
-    return 'Avval hamma homashyoni QR scan qiling';
+    return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
+        ? 'Avval state’dagi barcha homashyolarni QR scan qiling'
+        : 'Avval har bir majburiy guruhdan minimum homashyo QR scan qiling';
   }
   if (qolipScanRequired && !qolipScanned) {
     return 'Avval qolip QR scan qiling';
@@ -405,6 +413,9 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required _ReadOnlyQueueActionCallback? onQueueAction,
   required bool actionInFlight,
   required List<AdminRawMaterialAssignment> materialAssignments,
+  required AdminRawMaterialStartRequirements? materialRequirements,
+  required bool materialsLoading,
+  required String materialsError,
   required ProductionMapSaved order,
   required Set<String> scannedMaterialBarcodes,
   required AdminProgressBatch? startInputProgressBatch,
@@ -415,22 +426,30 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   }
   final orderId = order.map.id.trim();
   final station = apparatus.name.trim();
-  final stationMaterialAssignments = _stationMaterialAssignments(
+  final allStationMaterialAssignments = _stationMaterialAssignments(
     assignments: materialAssignments,
     orderId: orderId,
     station: station,
   );
+  final stationMaterialAssignments = materialRequirements
+          ?.eligibleAssignments(allStationMaterialAssignments) ??
+      const <AdminRawMaterialAssignment>[];
   final inputProgressBatch = action == 'start' ? startInputProgressBatch : null;
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
     onQueueAction: onQueueAction,
     materialAssignments: stationMaterialAssignments,
+    scannedMaterialBarcodes: Set<String>.unmodifiable(
+      scannedMaterialBarcodes,
+    ),
     startInputProgressBatch: inputProgressBatch,
     blockReason: _queueActionStartBlockReason(
       action: action,
       materialAssignments: stationMaterialAssignments,
+      materialRequirements: materialRequirements,
+      materialsLoading: materialsLoading,
+      materialsError: materialsError,
       scannedMaterialBarcodes: scannedMaterialBarcodes,
-      orderId: orderId,
       map: order.map,
       station: station,
       startInputProgressBatch: inputProgressBatch,
@@ -446,6 +465,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
+  required AdminRawMaterialStartRequirements? materialRequirements,
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
   required List<String> sequenceOrderIds,
@@ -459,21 +479,44 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
   final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
-  final stationMaterialAssignments = _stationMaterialAssignments(
+  final allStationMaterialAssignments = _stationMaterialAssignments(
     assignments: materialAssignments,
     orderId: orderId,
     station: station,
   );
-  final allMaterialsScanned = _allMaterialsScanned(
-    assignments: stationMaterialAssignments,
-    scannedBarcodes: scannedMaterialBarcodes,
-    orderId: orderId,
-  );
+  final stationMaterialAssignments = materialRequirements
+          ?.eligibleAssignments(allStationMaterialAssignments) ??
+      const <AdminRawMaterialAssignment>[];
+  final allMaterialsScanned = materialRequirements?.scansSatisfy(
+        assignments: stationMaterialAssignments,
+        scannedBarcodes: scannedMaterialBarcodes,
+      ) ??
+      false;
   final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
     assignments: stationMaterialAssignments,
     scannedBarcodes: scannedMaterialBarcodes,
     orderId: orderId,
   );
+  final materialRequiredCount = materialRequirements == null
+      ? 0
+      : materialRequirements.normalizedAssignedBarcodes.isEmpty &&
+              !materialRequirements.requiresMaterial
+          ? 0
+          : materialRequirements.requiredScanCount;
+  final materialScannedCount = materialRequirements == null
+      ? 0
+      : switch (materialRequirements.policy) {
+          AdminRawMaterialStartPolicy.stateAll => confirmedMaterialBarcodes
+              .where(
+                materialRequirements.normalizedStagedBarcodes.contains,
+              )
+              .length,
+          AdminRawMaterialStartPolicy.requirementGroups =>
+            materialRequirements.matchedRequirementCount(
+              assignments: stationMaterialAssignments,
+              scannedBarcodes: confirmedMaterialBarcodes,
+            ),
+        };
   final previousStage = station.isEmpty
       ? null
       : productionMapPreviousWorkStageStation(map: map, station: station);
@@ -520,7 +563,11 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     station: station,
     materialAssignments: stationMaterialAssignments,
     confirmedMaterialBarcodes: confirmedMaterialBarcodes,
-    hasMaterialAssignments: stationMaterialAssignments.isNotEmpty,
+    materialRequiredCount: materialRequiredCount,
+    materialScannedCount: materialScannedCount,
+    hasMaterialAssignments: materialRequirements == null ||
+        materialRequirements.requiresMaterial ||
+        allStationMaterialAssignments.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
