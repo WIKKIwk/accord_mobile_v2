@@ -390,6 +390,7 @@ bool _queueActionShouldClearQolipScan(Object error) {
   if (error is! MobileApiException) return false;
   return const {
     'qolip_scan_required',
+    'qolip_scan_incomplete',
     'qolip_code_not_found',
     'qolip_code_mismatch',
     'qolip_location_not_found',

@@ -34,6 +34,23 @@ bool productionMapQolipScanAllowsStart(String title, String qolipCode) {
       qolipCode.trim().isNotEmpty;
 }
 
+bool productionMapAllRequiredQolipsScanned({
+  required Iterable<String> requiredQolipCodes,
+  required Iterable<String> scannedQolipCodes,
+}) {
+  final required = {
+    for (final code in requiredQolipCodes)
+      if (code.trim().isNotEmpty) code.trim().toLowerCase(),
+  };
+  final scanned = {
+    for (final code in scannedQolipCodes)
+      if (code.trim().isNotEmpty) code.trim().toLowerCase(),
+  };
+  return required.isNotEmpty &&
+      required.length == scanned.length &&
+      required.containsAll(scanned);
+}
+
 int? productionMapRecommendedPechatColorCount({
   double? rollCount,
   double? widthMm,

@@ -30,9 +30,11 @@ String qolipErrorMessage(
     'quantity_required' => 'Qolip soni noto‘g‘ri',
     'location_identity_mismatch' =>
       'Bu joyda boshqa qolip bor. Avval mavjud qolipni ko‘chiring',
-    'qolip_in_use' => 'Qolip ishchiga berilgan yoki aktiv orderda ishlatilmoqda',
+    'qolip_in_use' =>
+      'Qolip ishchiga berilgan yoki aktiv orderda ishlatilmoqda',
     'qolip_code_conflict' => 'Bu qolip code allaqachon mavjud',
-    'panton_limit_exceeded' => 'Panton 1–7 band. Yangi Panton biriktirib bo‘lmaydi',
+    'panton_limit_exceeded' =>
+      'Panton 1–7 band. Yangi Panton biriktirib bo‘lmaydi',
     'block_in_use' =>
       'Blokda qolip yoki qaytarilmagan berish bor. Uni o‘chirib bo‘lmaydi',
     'block_exists' => 'Bu nomdagi blok allaqachon mavjud',
@@ -596,12 +598,18 @@ extension MobileApiQolip on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final previous = previousQolipCode?.trim().toLowerCase() ?? '';
       final next = saved.qolipCode.trim().toLowerCase();
+      if (previous.isEmpty && _testModeQolipSpecs.containsKey(next)) {
+        throw const MobileApiException(
+          code: 'qolip_code_conflict',
+          message: 'qolip_code_conflict',
+        );
+      }
       if (previous.isNotEmpty) {
         if (_testModeQolipCheckouts.any(
-              (checkout) =>
-                  checkout.isOpen &&
-                  checkout.qolipCode.trim().toLowerCase() == previous,
-            )) {
+          (checkout) =>
+              checkout.isOpen &&
+              checkout.qolipCode.trim().toLowerCase() == previous,
+        )) {
           throw const MobileApiException(
             code: 'qolip_in_use',
             message: 'qolip_in_use',
@@ -610,8 +618,7 @@ extension MobileApiQolip on MobileApi {
         if (previous != next &&
             (_testModeQolipSpecs.containsKey(next) ||
                 _testModeQolipLocations.any(
-                  (location) =>
-                      location.qolipCode.trim().toLowerCase() == next,
+                  (location) => location.qolipCode.trim().toLowerCase() == next,
                 ))) {
           throw const MobileApiException(
             code: 'qolip_code_conflict',

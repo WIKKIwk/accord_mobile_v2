@@ -81,6 +81,51 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('qolip requirements expose the complete mold code and color set',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final validation =
+          await MobileApi.instance.adminProductionMapQolipRequirements(
+        apparatus: '7 ta rangli bosma aparat',
+        orderId: 'zakaz-1212',
+      );
+
+      expect(validation.qolipCode, isEmpty);
+      expect(
+        validation.requiredQolipCodes,
+        ['QOLIP-1212', 'QOLIP-1213', 'QOLIP-1214', 'QOLIP-1215'],
+      );
+      expect(validation.requiredQolips, hasLength(4));
+      expect(validation.requiredQolips.first.color, '#E53935');
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/production-maps/qolip-validate '
+          '{"apparatus":"7 ta rangli bosma aparat",'
+          '"order_id":"zakaz-1212","qolip_code":""}',
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              seenRequests,
+              qolipValidationQolipCode: '',
+            ));
+  });
+
+  test('qolip metadata is never invented from count or code-only fields', () {
+    final validation = AdminProductionMapQolipValidation.fromJson(const {
+      'qolip_code': '',
+      'required_qolip_codes': ['QOLIP-ONLY-CODE'],
+      'required_qolip_count': 1,
+    });
+
+    expect(validation.requiredQolips, isEmpty);
+    expect(validation.requiredQolipCodes, isEmpty);
+  });
+
   test('queue action sends unique scanned qolip codes together', () async {
     final seenRequests = <String>[];
     AppSession.instance.token = 'token';
@@ -184,6 +229,8 @@ void main() {
       'raw_material_stock_unavailable':
           'Bu homashyo omborda mavjud emas yoki boshqa zakaz uchun band',
       'insufficient_stock': 'Bu qolip omborda qolmagan',
+      'qolip_scan_incomplete':
+          'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
     };
 
     for (final entry in expectedMessages.entries) {
@@ -1028,6 +1075,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
     this.seenRequests, {
     this.queueActionErrorCode = '',
     this.qolipValidationErrorCode = '',
+    this.qolipValidationQolipCode = 'QOLIP-1212',
     this.assignmentErrorCode = '',
     this.assignmentErrorApparatusOptions = const [],
     this.unlinkErrorCode = '',
@@ -1040,6 +1088,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
   final List<String> seenRequests;
   final String queueActionErrorCode;
   final String qolipValidationErrorCode;
+  final String qolipValidationQolipCode;
   final String assignmentErrorCode;
   final List<String> assignmentErrorApparatusOptions;
   final String unlinkErrorCode;
@@ -1068,9 +1117,36 @@ class _RawMaterialApiHttpClient implements HttpClient {
             ),
           );
         }
-        body = const {
+        body = {
           'ok': true,
-          'qolip': {'qolip_code': 'QOLIP-1212'},
+          'qolip': {
+            'qolip_code': qolipValidationQolipCode,
+            'required_qolip_codes': const [
+              'QOLIP-1212',
+              'QOLIP-1213',
+              'QOLIP-1214',
+              'QOLIP-1215',
+            ],
+            'required_qolip_count': 4,
+            'required_qolips': const [
+              {
+                'qolip_code': 'QOLIP-1212',
+                'color': '#E53935',
+              },
+              {
+                'qolip_code': 'QOLIP-1213',
+                'color': '#FB8C00',
+              },
+              {
+                'qolip_code': 'QOLIP-1214',
+                'color': '#FDD835',
+              },
+              {
+                'qolip_code': 'QOLIP-1215',
+                'color': '#43A047',
+              },
+            ],
+          },
         };
       case 'POST /v1/mobile/admin/production-maps/queue-action':
         if (queueActionErrorCode.isNotEmpty) {

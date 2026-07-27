@@ -415,20 +415,31 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
 }
 
 class _ScannedQolipTile extends StatelessWidget {
-  const _ScannedQolipTile({required this.qolipCode});
+  const _ScannedQolipTile({
+    required this.qolip,
+    required this.scanned,
+  });
 
-  final String qolipCode;
+  final AdminProductionMapRequiredQolip qolip;
+  final bool scanned;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final code = qolipCode.trim();
+    final code = qolip.qolipCode.trim();
+    final exactColor = _exactQolipHexColor(qolip.color);
     return Container(
-      key: ValueKey('production-scanned-qolip-${code.toLowerCase()}'),
+      key: ValueKey(
+        scanned
+            ? 'production-scanned-qolip-${code.toLowerCase()}'
+            : 'production-required-qolip-${code.toLowerCase()}',
+      ),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        color: scanned
+            ? scheme.primaryContainer.withValues(alpha: 0.45)
+            : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -437,30 +448,74 @@ class _ScannedQolipTile extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.14),
+              color: scanned
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              Icons.check_rounded,
-              color: scheme.primary,
+              scanned ? Icons.check_rounded : Icons.qr_code_rounded,
+              color: scanned ? scheme.primary : scheme.onSurfaceVariant,
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              code,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Qolip kodi: $code',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    if (exactColor != null) ...[
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: exactColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: scheme.outlineVariant),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        qolip.color.isEmpty
+                            ? 'Rang: kiritilmagan'
+                            : 'Rang: ${qolip.color}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
+
+Color? _exactQolipHexColor(String value) {
+  final normalized = value.trim();
+  if (!RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(normalized)) {
+    return null;
+  }
+  final rgb = int.parse(normalized.substring(1), radix: 16);
+  return Color(0xFF000000 | rgb);
 }
 
 class _RawMaterialBalanceSummary extends StatelessWidget {

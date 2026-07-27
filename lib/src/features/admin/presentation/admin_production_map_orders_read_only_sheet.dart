@@ -52,6 +52,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
+  final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
+  bool _qolipRequirementsLoading = false;
+  String _qolipRequirementsError = '';
   String _quickScanStatus =
       'Qolip yoki homashyo QR kodini tirqishga olib keling';
   bool _quickScanInFlight = false;
@@ -89,6 +92,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     unawaited(_loadMaterialAssignments());
     unawaited(_loadInputProgressBatches());
+    unawaited(_loadQolipRequirements());
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
@@ -135,6 +139,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         oldStation != station) {
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
+      _requiredQolips.clear();
+      _qolipRequirementsLoading = false;
+      _qolipRequirementsError = '';
       _materialsExpanded = false;
       _qolipsExpanded = false;
       _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
@@ -148,6 +155,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _returnedPaintDraft = null;
       _returnedPaintDraftScope = '';
       unawaited(_loadInputProgressBatches());
+      unawaited(_loadQolipRequirements());
     }
     if (_actionInFlight) {
       return;
@@ -192,6 +200,82 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
+  Future<void> _loadQolipRequirements() async {
+    final apparatus = widget.apparatus?.name.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    if (!_apparatusRequiresQolipScan(apparatus)) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _qolipRequirementsLoading = true;
+        _qolipRequirementsError = '';
+      });
+    }
+    try {
+      final validation =
+          await MobileApi.instance.adminProductionMapQolipRequirements(
+        apparatus: apparatus,
+        orderId: orderId,
+      );
+      if (!mounted ||
+          widget.apparatus?.name.trim() != apparatus ||
+          widget.order.map.id.trim() != orderId) {
+        return;
+      }
+      setState(() {
+        _replaceRequiredQolips(validation.requiredQolips);
+        _qolipRequirementsLoading = false;
+        _qolipRequirementsError = '';
+      });
+    } catch (error) {
+      if (!mounted ||
+          widget.apparatus?.name.trim() != apparatus ||
+          widget.order.map.id.trim() != orderId) {
+        return;
+      }
+      setState(() {
+        _requiredQolips.clear();
+        _qolipRequirementsLoading = false;
+        _qolipRequirementsError = _readOnlyQueueActionErrorText(error);
+      });
+    }
+  }
+
+  void _replaceRequiredQolips(
+    Iterable<AdminProductionMapRequiredQolip> qolips,
+  ) {
+    _requiredQolips
+      ..clear()
+      ..addEntries(
+        qolips.where((qolip) => qolip.qolipCode.trim().isNotEmpty).map(
+              (qolip) => MapEntry(
+                qolip.qolipCode.trim().toLowerCase(),
+                qolip,
+              ),
+            ),
+      );
+  }
+
+  bool get _allRequiredQolipsScanned => productionMapAllRequiredQolipsScanned(
+        requiredQolipCodes:
+            _requiredQolips.values.map((qolip) => qolip.qolipCode),
+        scannedQolipCodes: _scannedQolipCodes.values,
+      );
+
+  String get _qolipRequirementsStatusText {
+    if (_qolipRequirementsLoading) {
+      return 'Mahsulot qoliplari yuklanmoqda';
+    }
+    if (_qolipRequirementsError.isNotEmpty) {
+      return _qolipRequirementsError;
+    }
+    if (_requiredQolips.isEmpty) {
+      return 'Mahsulotga qolip biriktirilmagan';
+    }
+    return '';
+  }
+
   Future<bool> _runQueueAction(
     String action, {
     _ProgressQtyInput? progressInput,
@@ -224,7 +308,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       materialAssignments: _materialAssignments,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
-      qolipScanned: _scannedQolipCodes.isNotEmpty,
+      qolipScanned: _allRequiredQolipsScanned,
     );
     if (prepared == null) {
       return false;
@@ -274,6 +358,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
         if (action == 'start' && states != null) {
           _scannedQolipCodes.clear();
+          _requiredQolips.clear();
           _qolipsExpanded = false;
         }
         if (action == 'pause' &&
@@ -309,13 +394,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) {
         return false;
       }
+      final requirementsChanged =
+          error is MobileApiException && error.code == 'qolip_scan_incomplete';
       setState(() {
         _actionInFlight = false;
         if (action == 'start' && _queueActionShouldClearQolipScan(error)) {
           _scannedQolipCodes.clear();
+          if (requirementsChanged) {
+            _requiredQolips.clear();
+          }
           _qolipsExpanded = false;
         }
       });
+      if (requirementsChanged) {
+        unawaited(_loadQolipRequirements());
+      }
       _showSheetNotice(_readOnlyQueueActionErrorText(error));
       return false;
     }
@@ -330,7 +423,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return const [];
     }
     if (_scannedQolipCodes.isNotEmpty) {
-      return _scannedQolipCodes.values.toList(growable: false);
+      if (_allRequiredQolipsScanned) {
+        return _scannedQolipCodes.values.toList(growable: false);
+      }
+      _showSheetNotice(
+        'Barcha qoliplarni scan qiling '
+        '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)',
+      );
+      return null;
     }
     _showSheetNotice(
       'Avval yuqoridagi embedded scanner orqali qolip QR scan qiling',
@@ -361,12 +461,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final key = validatedCode.trim().toLowerCase();
       final alreadyScanned = _scannedQolipCodes.containsKey(key);
       setState(() {
+        _replaceRequiredQolips(validation.requiredQolips);
         _scannedQolipCodes[key] = validatedCode.trim();
       });
+      final scannedCount = _scannedQolipCodes.length;
+      final requiredCount = _requiredQolips.length;
       _showSheetNotice(
         alreadyScanned
-            ? 'Bu qolip avval scan qilingan (${_scannedQolipCodes.length} ta)'
-            : 'Qolip qo‘shildi (${_scannedQolipCodes.length} ta)',
+            ? 'Bu qolip avval scan qilingan ($scannedCount/$requiredCount ta)'
+            : 'Qolip qo‘shildi ($scannedCount/$requiredCount ta)',
       );
     } catch (error) {
       if (!mounted) {
@@ -447,10 +550,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             final key = validatedCode.trim().toLowerCase();
             final alreadyScanned = _scannedQolipCodes.containsKey(key);
             setState(() {
+              _replaceRequiredQolips(validation.requiredQolips);
               _scannedQolipCodes[key] = validatedCode.trim();
               _quickScanStatus = alreadyScanned
-                  ? 'Bu qolip avval scan qilingan (${_scannedQolipCodes.length} ta)'
-                  : 'Qolip qo‘shildi (${_scannedQolipCodes.length} ta)';
+                  ? 'Bu qolip avval scan qilingan '
+                      '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)'
+                  : 'Qolip qo‘shildi '
+                      '(${_scannedQolipCodes.length}/${_requiredQolips.length} ta)';
             });
           }
           return;
@@ -818,7 +924,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     );
     final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
     final qolipScanAllowsStart =
-        !requiresQolipScan || _scannedQolipCodes.isNotEmpty;
+        !requiresQolipScan || _allRequiredQolipsScanned;
 
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
@@ -847,6 +953,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,
       qolipCodes: _scannedQolipCodes.values.toList(growable: false),
+      requiredQolips: _requiredQolips.values.toList(growable: false),
+      qolipRequirementsStatusText: _qolipRequirementsStatusText,
       materialsExpanded: _materialsExpanded,
       onToggleMaterialsExpanded: () {
         setState(() => _materialsExpanded = !_materialsExpanded);

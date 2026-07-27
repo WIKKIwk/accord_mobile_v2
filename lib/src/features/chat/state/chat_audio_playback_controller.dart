@@ -19,10 +19,12 @@ class ChatAudioPlaybackController extends ChangeNotifier {
     );
     _positionSubscription = _player.positionStream.listen((position) {
       if (_disposed || _currentMessage == null) return;
-      if ((position - _position).abs() < const Duration(milliseconds: 150) &&
-          position != Duration.zero) {
+      // Throttle updates to 60fps max for smooth animation
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (_lastPositionUpdate != null && now - _lastPositionUpdate! < 16) {
         return;
       }
+      _lastPositionUpdate = now;
       _position = position;
       notifyListeners();
     });
@@ -56,6 +58,7 @@ class ChatAudioPlaybackController extends ChangeNotifier {
   String _error = '';
   Duration _position = Duration.zero;
   Duration? _duration;
+  int? _lastPositionUpdate;
 
   ChatMessage? get currentMessage => _currentMessage;
   bool get hasCurrentMessage => _currentMessage != null;

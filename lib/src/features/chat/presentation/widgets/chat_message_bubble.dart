@@ -367,30 +367,33 @@ class _AudioMessageContent extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Slider(
-                            value: value,
-                            max: maximum,
-                            onChanged: current && !loading
-                                ? (next) => unawaited(playback.seek(next))
-                                : null,
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _mediaDuration(position.inMilliseconds),
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                              Text(
-                                _mediaDuration(duration.inMilliseconds),
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+ mainAxisSize: MainAxisSize.min,
+ children: [
+   _AudioProgressBar(
+     value: value,
+     max: maximum,
+     onChanged: current && !loading
+         ? (next) => unawaited(playback.seek(next))
+         : null,
+     activeColor: scheme.primary,
+     inactiveColor: scheme.onSurfaceVariant.withValues(alpha: 0.2),
+   ),
+   const SizedBox(height: 6),
+   Row(
+     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+     children: [
+       Text(
+         _mediaDuration(position.inMilliseconds),
+         style: Theme.of(context).textTheme.labelSmall,
+       ),
+       Text(
+         _mediaDuration(duration.inMilliseconds),
+         style: Theme.of(context).textTheme.labelSmall,
+       ),
+     ],
+   ),
+ ],
+ ),
                     ),
                   ],
                 ),
@@ -510,6 +513,186 @@ class ChatDateDivider extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Custom audio progress bar with smooth thumb animation.
+/// Silky 60fps interpolation when audio position changes.
+class _AudioProgressBar extends StatefulWidget {
+  const _AudioProgressBar({
+    required this.value,
+    required this.max,
+    this.onChanged,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  final double value;
+  final double max;
+  final ValueChanged<double>? onChanged;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  @override
+  State<_AudioProgressBar> createState() => _AudioProgressBarState();
+}
+
+class _AudioProgressBarState extends State<_AudioProgressBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _thumbController;
+  late Animation<double> _thumbAnimation;
+  double _dragValue = 0;
+  bool _isDragging = false;
+  double _displayValue = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _thumbAnimation = Tween<double>(
+      begin: widget.value,
+      end: widget.value,
+    ).animate(
+      CurvedAnimation(parent: _thumbController, curve: Curves.linear),
+    );
+    _displayValue = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(_AudioProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isDragging && widget.value != _displayValue) {
+      _displayValue = widget.value;
+      // Animate from current position to new position smoothly
+      final currentPos = _thumbAnimation.value;
+      final distance = (_displayValue - currentPos).abs();
+
+      // Shorter animation for small jumps (playing audio), longer for seeks
+      final duration = distance < widget.max * 0.05
+          ? const Duration(milliseconds: 150)
+          : const Duration(milliseconds: 250);
+
+      _thumbController.stop();
+      _thumbAnimation = Tween<double>(
+        begin: currentPos,
+        end: _displayValue,
+      ).animate(
+        CurvedAnimation(
+          parent: _thumbController,
+          curve: Curves.linearToEaseOut,
+        ),
+      );
+      _thumbController.duration = duration;
+      _thumbController.reset();
+      _thumbController.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _thumbController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxSafe = widget.max > 0 ? widget.max : 1;
+    final currentValue = _isDragging ? _dragValue : _thumbAnimation.value;
+    final progress = (currentValue / maxSafe).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onHorizontalDragStart: widget.onChanged != null
+          ? (details) {
+              setState(() {
+                _isDragging = true;
+                _dragValue = widget.value;
+              });
+            }
+          : null,
+      onHorizontalDragUpdate: widget.onChanged != null
+          ? (details) {
+              final box = context.findRenderObject() as RenderBox;
+              final localPosition = box.globalToLocal(details.globalPosition);
+              final width = box.size.width;
+              final newProgress = (localPosition.dx / width).clamp(0.0, 1.0);
+              setState(() {
+                _dragValue = newProgress * maxSafe;
+              });
+            }
+          : null,
+      onHorizontalDragEnd: widget.onChanged != null
+          ? (details) {
+              widget.onChanged!(_dragValue);
+              setState(() {
+                _isDragging = false;
+              });
+            }
+          : null,
+      onTapDown: widget.onChanged != null
+          ? (details) {
+              final box = context.findRenderObject() as RenderBox;
+              final localPosition = box.globalToLocal(details.globalPosition);
+              final width = box.size.width;
+              final newProgress = (localPosition.dx / width).clamp(0.0, 1.0);
+              widget.onChanged!(newProgress * maxSafe);
+            }
+          : null,
+      child: AnimatedBuilder(
+        animation: _thumbController,
+        builder: (context, child) {
+          return Container(
+            height: 32,
+            color: Colors.transparent,
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                // Background track
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: widget.inactiveColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Active progress
+                Container(
+                  height: 4,
+                  width: progress * 220,
+                  decoration: BoxDecoration(
+                    color: widget.activeColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Animated thumb
+                Positioned(
+                  left: (progress * 220).clamp(0.0, 220) - 6,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    curve: Curves.easeOutCubic,
+                    width: _isDragging ? 14 : 10,
+                    height: _isDragging ? 14 : 10,
+                    decoration: BoxDecoration(
+                      color: widget.activeColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.activeColor.withValues(alpha: 0.3),
+                          blurRadius: _isDragging ? 8 : 4,
+                          spreadRadius: _isDragging ? 2 : 0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -29,6 +29,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
+    required this.requiredQolips,
+    required this.qolipRequirementsStatusText,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -73,6 +75,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
+  final List<AdminProductionMapRequiredQolip> requiredQolips;
+  final String qolipRequirementsStatusText;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -147,6 +151,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 requiresQolipScan: requiresQolipScan,
                 qolipScanned: qolipScanned,
                 qolipCodes: qolipCodes,
+                requiredQolips: requiredQolips,
+                qolipRequirementsStatusText: qolipRequirementsStatusText,
                 materialsExpanded: materialsExpanded,
                 onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                 qolipsExpanded: qolipsExpanded,
@@ -632,6 +638,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.requiresQolipScan,
     required this.qolipScanned,
     required this.qolipCodes,
+    required this.requiredQolips,
+    required this.qolipRequirementsStatusText,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -677,6 +685,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool requiresQolipScan;
   final bool qolipScanned;
   final List<String> qolipCodes;
+  final List<AdminProductionMapRequiredQolip> requiredQolips;
+  final String qolipRequirementsStatusText;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -698,6 +708,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final totalCount = assignments.length;
     final materialBalances = _rawMaterialBalances(assignments);
+    final scannedQolipKeys = qolipCodes
+        .map((code) => code.trim().toLowerCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+    final qolipProgressText = requiredQolips.isEmpty
+        ? '${qolipCodes.length} ta'
+        : '${qolipCodes.length}/${requiredQolips.length} ta';
     final orderControlBlocked =
         orderControlState != AdminOrderControlState.active;
     final orderFrozen = orderControlState == AdminOrderControlState.frozen;
@@ -879,16 +896,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-qolips-expansion'),
               title: 'Qoliplar',
-              countText: '${qolipCodes.length} ta',
+              countText: qolipProgressText,
               expanded: qolipsExpanded,
-              complete: qolipCodes.isNotEmpty,
+              complete: qolipScanned,
               onTap: onToggleQolipsExpanded,
             ),
             if (qolipsExpanded) ...[
               const SizedBox(height: 12),
-              if (qolipCodes.isEmpty)
+              if (requiredQolips.isEmpty)
                 Text(
-                  'Qolip scan qilinmagan',
+                  qolipRequirementsStatusText,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -897,10 +914,15 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               else
                 Column(
                   children: [
-                    for (var index = 0; index < qolipCodes.length; index++) ...[
+                    for (var index = 0;
+                        index < requiredQolips.length;
+                        index++) ...[
                       if (index > 0) const SizedBox(height: 8),
                       _ScannedQolipTile(
-                        qolipCode: qolipCodes[index],
+                        qolip: requiredQolips[index],
+                        scanned: scannedQolipKeys.contains(
+                          requiredQolips[index].qolipCode.trim().toLowerCase(),
+                        ),
                       ),
                     ],
                   ],
@@ -950,7 +972,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 label: Text(
                   qolipCodes.isEmpty
                       ? 'Qolip QR scan'
-                      : 'Yana qolip scan qilish (${qolipCodes.length} ta)',
+                      : 'Yana qolip scan qilish ($qolipProgressText)',
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),

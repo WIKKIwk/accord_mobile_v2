@@ -67,6 +67,17 @@ void main() {
   });
 
   tearDown(() async {
+    for (final checkout in await MobileApi.instance.qolipCheckouts(
+      status: 'open',
+    )) {
+      await MobileApi.instance.qolipReturnCheckout(checkout.id);
+    }
+    await MobileApi.instance.qolipDeleteProductSpecs(const [
+      'Q-LOCKED',
+      'Q-FREE',
+      'Q-PRODUCT',
+      'Q-COLOR',
+    ]);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     await TestModeController.instance.setEnabled(false);
@@ -119,7 +130,8 @@ void main() {
       findsOneWidget,
     );
     Navigator.of(
-      tester.element(find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE'))),
+      tester
+          .element(find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE'))),
     ).pop();
     await tester.pumpAndSettle();
 
@@ -175,5 +187,38 @@ void main() {
       withQolipOnly: true,
     );
     expect(products.single.qolipColor, '#E53935');
+  });
+
+  test('duplicate qolip code create is rejected without overwriting', () async {
+    const duplicateProduct = QolipProduct(
+      code: 'DEMO-DUPLICATE',
+      name: 'Boshqa mahsulot',
+      itemGroup: 'Demo tayyor mahsulotlar',
+    );
+
+    await expectLater(
+      MobileApi.instance.qolipSaveProductSpec(
+        product: duplicateProduct,
+        qolipCode: 'q-free',
+        size: 58,
+        qolipColor: '#43A047',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'qolip_code_conflict',
+        ),
+      ),
+    );
+
+    final original = (await MobileApi.instance.qolipProducts(
+      query: 'Q-FREE',
+      withQolipOnly: true,
+    ))
+        .single;
+    expect(original.code, 'DEMO-HOTLUNCH');
+    expect(original.qolipSize, 41);
+    expect(original.qolipColor, isEmpty);
   });
 }

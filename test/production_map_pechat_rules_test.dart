@@ -19,4 +19,42 @@ void main() {
     );
     expect(productionMapApparatusRequiresQolipScan('Laminatsiya 1'), isFalse);
   });
+
+  test('all product qolips must be scanned as an exact unique set', () {
+    const required = ['QOLIP-1', 'QOLIP-2', 'QOLIP-3', 'QOLIP-4'];
+
+    expect(
+      productionMapAllRequiredQolipsScanned(
+        requiredQolipCodes: required,
+        scannedQolipCodes: const ['QOLIP-1', 'QOLIP-2', 'QOLIP-3'],
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapAllRequiredQolipsScanned(
+        requiredQolipCodes: required,
+        scannedQolipCodes: const [
+          'qolip-3',
+          'QOLIP-1',
+          'QOLIP-2',
+          'qolip-2',
+          'QOLIP-4',
+        ],
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapAllRequiredQolipsScanned(
+        requiredQolipCodes: required,
+        scannedQolipCodes: const [
+          'QOLIP-1',
+          'QOLIP-2',
+          'QOLIP-3',
+          'QOLIP-4',
+          'QOLIP-5',
+        ],
+      ),
+      isFalse,
+    );
+  });
 }

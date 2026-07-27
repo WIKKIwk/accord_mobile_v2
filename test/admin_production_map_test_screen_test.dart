@@ -4131,7 +4131,7 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   await tester.enterText(input, 'TEST-QOLIP-QR');
   await tester.tap(find.byTooltip('Qabul qilish'));
   await tester.pumpAndSettle();
-  expect(find.text('Qolip qo‘shildi (1 ta)'), findsOneWidget);
+  expect(find.text('Qolip qo‘shildi (1/1 ta)'), findsOneWidget);
   final qolipsHeader = find.byKey(
     const ValueKey('production-qolips-expansion'),
   );

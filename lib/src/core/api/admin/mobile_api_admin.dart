@@ -1593,18 +1593,56 @@ class AdminServerMonitorLiveEvent {
   }
 }
 
-class AdminProductionMapQolipValidation {
-  const AdminProductionMapQolipValidation({
+class AdminProductionMapRequiredQolip {
+  const AdminProductionMapRequiredQolip({
     required this.qolipCode,
+    required this.color,
   });
 
   final String qolipCode;
+  final String color;
+
+  factory AdminProductionMapRequiredQolip.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminProductionMapRequiredQolip(
+      qolipCode: json['qolip_code']?.toString().trim() ?? '',
+      color: json['color']?.toString().trim() ?? '',
+    );
+  }
+}
+
+class AdminProductionMapQolipValidation {
+  const AdminProductionMapQolipValidation({
+    required this.qolipCode,
+    this.requiredQolips = const [],
+  });
+
+  final String qolipCode;
+  final List<AdminProductionMapRequiredQolip> requiredQolips;
+
+  List<String> get requiredQolipCodes => [
+        for (final qolip in requiredQolips) qolip.qolipCode,
+      ];
 
   factory AdminProductionMapQolipValidation.fromJson(
     Map<String, dynamic> json,
   ) {
+    final requiredQolips = <AdminProductionMapRequiredQolip>[];
+    for (final rawQolip in json['required_qolips'] as List? ?? const []) {
+      if (rawQolip is! Map) {
+        continue;
+      }
+      final qolip = AdminProductionMapRequiredQolip.fromJson(
+        rawQolip.cast<String, dynamic>(),
+      );
+      if (qolip.qolipCode.isNotEmpty) {
+        requiredQolips.add(qolip);
+      }
+    }
     return AdminProductionMapQolipValidation(
       qolipCode: json['qolip_code']?.toString().trim() ?? '',
+      requiredQolips: requiredQolips,
     );
   }
 }
@@ -2127,6 +2165,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_order_not_active' =>
         'Yana homashyo faqat ish boshlangan yoki pauzadagi zakazga olinadi',
       'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
+      'qolip_scan_incomplete' =>
+        'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
       'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',
@@ -3888,17 +3928,73 @@ extension MobileApiAdmin on MobileApi {
   }
 
   Future<AdminProductionMapQolipValidation>
+      adminProductionMapQolipRequirements({
+    required String apparatus,
+    required String orderId,
+  }) {
+    return adminValidateProductionMapQolipDetails(
+      apparatus: apparatus,
+      orderId: orderId,
+      qolipCode: '',
+    );
+  }
+
+  Future<AdminProductionMapQolipValidation>
       adminValidateProductionMapQolipDetails({
     required String apparatus,
     required String orderId,
     required String qolipCode,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
+      if (qolipCode.trim().isEmpty) {
+        ProductionMapSaved? order;
+        for (final candidate in _testModeProductionMaps) {
+          if (candidate.map.id.trim() == orderId.trim()) {
+            order = candidate;
+            break;
+          }
+        }
+        final itemCode = order?.map.productCode.trim() ?? '';
+        final products = itemCode.isEmpty
+            ? const <QolipProduct>[]
+            : await qolipProducts(
+                query: itemCode,
+                limit: 20000,
+                withQolipOnly: true,
+              );
+        return AdminProductionMapQolipValidation(
+          qolipCode: '',
+          requiredQolips: [
+            for (final product in products)
+              if (product.code.trim().toLowerCase() == itemCode.toLowerCase() &&
+                  product.qolipCode.trim().isNotEmpty)
+                AdminProductionMapRequiredQolip(
+                  qolipCode: product.qolipCode.trim(),
+                  color: product.qolipColor.trim(),
+                ),
+          ],
+        );
+      }
       final product = await qolipProductByQr(qolipCode);
+      final products = await qolipProducts(
+        query: product.code,
+        limit: 20000,
+        withQolipOnly: true,
+      );
       return AdminProductionMapQolipValidation(
         qolipCode: product.qolipCode.trim().isEmpty
             ? qolipCode.trim()
             : product.qolipCode.trim(),
+        requiredQolips: [
+          for (final candidate in products)
+            if (candidate.code.trim().toLowerCase() ==
+                    product.code.trim().toLowerCase() &&
+                candidate.qolipCode.trim().isNotEmpty)
+              AdminProductionMapRequiredQolip(
+                qolipCode: candidate.qolipCode.trim(),
+                color: candidate.qolipColor.trim(),
+              ),
+        ],
       );
     }
     final response = await _sendAuthorized(
@@ -3921,10 +4017,9 @@ extension MobileApiAdmin on MobileApi {
     final payload = await decodeJsonMapPayload(response.body);
     final rawQolip = payload['qolip'];
     if (rawQolip is Map) {
-      final validation = AdminProductionMapQolipValidation.fromJson(
+      return AdminProductionMapQolipValidation.fromJson(
         rawQolip.cast<String, dynamic>(),
       );
-      if (validation.qolipCode.isNotEmpty) return validation;
     }
     return AdminProductionMapQolipValidation(
       qolipCode: qolipCode.trim(),
