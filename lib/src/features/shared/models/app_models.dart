@@ -249,13 +249,66 @@ class AdminWarehouseStockItem {
 }
 
 class AdminApparatus {
-  const AdminApparatus({required this.name});
+  const AdminApparatus({
+    required this.name,
+    this.id = '',
+    this.source = 'custom',
+    this.sortOrder = 10000,
+  });
 
+  final String id;
   final String name;
+  final String source;
+  final int sortOrder;
+
+  bool get isDefault => source == 'default';
 
   factory AdminApparatus.fromJson(Map<String, dynamic> json) {
+    final name =
+        (json['name'] as String?) ?? (json['warehouse'] as String?) ?? '';
     return AdminApparatus(
-      name: (json['name'] as String?) ?? (json['warehouse'] as String?) ?? '',
+      id: (json['id'] as String?)?.trim().isNotEmpty == true
+          ? (json['id'] as String).trim()
+          : 'apparatus:${name.trim().toLowerCase()}',
+      name: name,
+      source: json['source'] as String? ?? 'custom',
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 10000,
+    );
+  }
+}
+
+class AdminFactoryLocation {
+  const AdminFactoryLocation({
+    required this.id,
+    required this.name,
+    required this.active,
+    required this.apparatus,
+    required this.createdAtUnix,
+    required this.updatedAtUnix,
+  });
+
+  final String id;
+  final String name;
+  final bool active;
+  final List<AdminApparatus> apparatus;
+  final int createdAtUnix;
+  final int updatedAtUnix;
+
+  bool get isApparatusState => apparatus.isNotEmpty;
+
+  factory AdminFactoryLocation.fromJson(Map<String, dynamic> json) {
+    return AdminFactoryLocation(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      active: json['active'] != false,
+      apparatus: (json['apparatus'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => AdminApparatus.fromJson(item.cast<String, dynamic>()),
+          )
+          .toList(growable: false),
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+      updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -1572,6 +1625,7 @@ List<String> _defaultCapabilitiesForRole(UserRole role) {
         'admin.activity.read',
         'werka.code.manage',
         'production.map.manage',
+        'factory.location.manage',
         'returned_paint.request.create',
         'apparatus.queue.read',
         'gscale.catalog.read',
@@ -1589,6 +1643,7 @@ const List<String> materialTaminotchiWorkspaceCapabilities = [
   'rps.batch.manage',
   'catalog.item.create',
   'raw_material.assign',
+  'inventory.movement.manage',
 ];
 
 class AdminCapability {

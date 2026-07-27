@@ -51,6 +51,14 @@ class WerkaNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.gscaleMode,
           push: true,
         ),
+        if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
+          const RoleNavigationDrawerDestination(
+            icon: Icons.inventory_outlined,
+            selectedIcon: Icons.inventory_rounded,
+            label: 'Joylashtirish va transfer',
+            routeName: AppRoutes.inventoryMovements,
+            push: true,
+          ),
       ],
     );
   }

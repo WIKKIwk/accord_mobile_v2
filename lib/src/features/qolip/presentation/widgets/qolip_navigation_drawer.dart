@@ -44,6 +44,14 @@ class QolipNavigationDrawer extends StatelessWidget {
           label: 'Qarz daftari',
           routeName: AppRoutes.qolipCheckouts,
         ),
+        if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
+          const RoleNavigationDrawerDestination(
+            icon: Icons.swap_horiz_outlined,
+            selectedIcon: Icons.swap_horiz_rounded,
+            label: 'Joylashtirish va transfer',
+            routeName: AppRoutes.inventoryMovements,
+            push: true,
+          ),
         RoleNavigationDrawerDestination(
           icon: Icons.person_outline_rounded,
           selectedIcon: Icons.person_rounded,

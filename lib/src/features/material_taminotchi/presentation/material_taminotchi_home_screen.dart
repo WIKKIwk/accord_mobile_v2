@@ -588,6 +588,11 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       title: 'Omborlarim',
       routeName: AppRoutes.adminWarehouses,
     ),
+    const _MaterialHomeAction(
+      icon: Icons.swap_horiz_rounded,
+      title: 'Joylashtirish va transfer',
+      routeName: AppRoutes.inventoryMovements,
+    ),
   ];
   return candidates
       .where((action) => AppRouter.canOpenRoute(action.routeName))

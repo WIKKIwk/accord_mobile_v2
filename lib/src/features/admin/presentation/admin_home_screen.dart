@@ -249,6 +249,16 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminWarehouses,
     ),
     _AdminHomeAction(
+      title: l10n.adminFactoryStatesNavTitle,
+      icon: Icons.add_location_alt_outlined,
+      routeName: AppRoutes.adminFactoryLocations,
+    ),
+    const _AdminHomeAction(
+      title: 'Joylashtirish va transfer',
+      icon: Icons.swap_horiz_rounded,
+      routeName: AppRoutes.inventoryMovements,
+    ),
+    _AdminHomeAction(
       title: l10n.adminCreateItemGroupTitle,
       icon: Icons.account_tree_outlined,
       routeName: AppRoutes.adminItemGroupCreate,

@@ -65,6 +65,8 @@ class AppSession {
       'admin.activity.read',
       'werka.code.manage',
       'production.map.manage',
+      'factory.location.manage',
+      'inventory.movement.manage',
       'raw_material.rule.manage',
       'raw_material.assign',
     ])) {

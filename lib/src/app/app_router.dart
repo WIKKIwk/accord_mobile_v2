@@ -4,6 +4,7 @@ import '../features/customer/presentation/customer_delivery_detail_screen.dart';
 import '../features/customer/presentation/customer_home_screen.dart';
 import '../features/customer/presentation/customer_notifications_screen.dart';
 import '../features/customer/presentation/customer_status_detail_screen.dart';
+import '../features/inventory/presentation/inventory_movements_screen.dart';
 import '../features/chat/presentation/chat_conversations_screen.dart';
 import '../features/chat/presentation/chat_detail_screen.dart';
 import '../features/chat/presentation/chat_directory_screen.dart';
@@ -17,6 +18,7 @@ import '../features/admin/presentation/admin_calculate_screen.dart';
 import '../features/admin/presentation/admin_calculate_orders_screen.dart';
 import '../features/admin/presentation/admin_create_hub_screen.dart';
 import '../features/admin/presentation/admin_factory_map_screen.dart';
+import '../features/admin/presentation/admin_factory_locations_screen.dart';
 import '../features/admin/presentation/admin_home_screen.dart';
 import '../features/admin/presentation/admin_inactive_suppliers_screen.dart';
 import '../features/admin/presentation/admin_item_create_screen.dart';
@@ -161,6 +163,7 @@ class AppRoutes {
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
   static const String adminFactoryMap = '/admin-factory-map';
+  static const String adminFactoryLocations = '/admin-factory-locations';
   static const String adminWipBatches = '/admin-wip-batches';
   static const String adminQueuePolicies = '/admin-queue-policies';
   static const String adminApparatusSettings = '/admin-apparatus-settings';
@@ -191,6 +194,7 @@ class AppRoutes {
   static const String adminWerka = '/admin-werka';
   static const String materialHome = '/material-home';
   static const String materialHistory = '/material-history';
+  static const String inventoryMovements = '/inventory-movements';
   static const String gscaleMode = '/gscale-mode';
   static const String qolipHome = '/qolip';
   static const String qolipBlocks = '/qolip-blocks';
@@ -222,6 +226,7 @@ class AppRouter {
     AppRoutes.adminProgressQrScan,
     AppRoutes.adminServerMonitor,
     AppRoutes.adminFactoryMap,
+    AppRoutes.adminFactoryLocations,
     AppRoutes.adminWipBatches,
     AppRoutes.adminQueuePolicies,
     AppRoutes.adminApparatusSettings,
@@ -241,6 +246,7 @@ class AppRouter {
     AppRoutes.customerNotifications,
     AppRoutes.materialHome,
     AppRoutes.materialHistory,
+    AppRoutes.inventoryMovements,
     AppRoutes.qolipHome,
     AppRoutes.qolipBlocks,
     AppRoutes.qolipProducts,
@@ -452,6 +458,8 @@ class AppRouter {
         return _buildRoute(settings, const MaterialTaminotchiHomeScreen());
       case AppRoutes.materialHistory:
         return _buildRoute(settings, const MaterialTaminotchiHistoryScreen());
+      case AppRoutes.inventoryMovements:
+        return _buildRoute(settings, const InventoryMovementsScreen());
       case AppRoutes.pinSetupEntry:
         return _buildRoute(settings, const PinSetupEntryScreen());
       case AppRoutes.pinSetupConfirm:
@@ -508,6 +516,8 @@ class AppRouter {
         return _buildRoute(settings, const AdminServerMonitorScreen());
       case AppRoutes.adminFactoryMap:
         return _buildRoute(settings, const AdminFactoryMapScreen());
+      case AppRoutes.adminFactoryLocations:
+        return _buildRoute(settings, const AdminFactoryLocationsScreen());
       case AppRoutes.adminWipBatches:
         return _buildRoute(settings, const AdminWipBatchesScreen());
       case AppRoutes.adminQueuePolicies:
@@ -781,6 +791,7 @@ class AppRouter {
       'catalog.item.create',
       'raw_material.assign',
     },
+    AppRoutes.inventoryMovements: {'inventory.movement.manage'},
     AppRoutes.qolipHome: {'qolip.manage'},
     AppRoutes.qolipBlocks: {'qolip.manage'},
     AppRoutes.qolipProducts: {'qolip.manage'},
@@ -810,6 +821,8 @@ class AppRouter {
       'admin.activity.read',
       'werka.code.manage',
       'production.map.manage',
+      'factory.location.manage',
+      'inventory.movement.manage',
       'raw_material.rule.manage',
       'raw_material.assign',
       'rezka.split.manage',
@@ -840,6 +853,7 @@ class AppRouter {
     },
     AppRoutes.adminServerMonitor: {'admin.access'},
     AppRoutes.adminFactoryMap: {'admin.access'},
+    AppRoutes.adminFactoryLocations: {'factory.location.manage'},
     AppRoutes.adminWipBatches: {
       'admin.access',
       'production.map.manage',

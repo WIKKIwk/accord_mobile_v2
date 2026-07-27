@@ -141,6 +141,36 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isFalse);
   });
 
+  test('inventory movement route is capability scoped', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'aparatchi-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: [
+        'apparatus.queue.read',
+        'inventory.movement.manage',
+      ],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.inventoryMovements), isTrue);
+
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'aparatchi-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.inventoryMovements), isFalse);
+  });
+
   test('rezka split route opens with rezka capability', () {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

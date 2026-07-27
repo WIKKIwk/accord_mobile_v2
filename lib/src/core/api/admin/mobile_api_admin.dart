@@ -114,6 +114,7 @@ void resetMobileApiTestModeData() {
   _testModeProgressBatchesByQr.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
+  resetMobileApiInventoryMovementTestData();
   resetMobileApiTestModeWorkerSettingsData();
   _testModeForceSequenceSaveFailure = false;
   _testModeForceCalculateTemplateSaveFailure = false;

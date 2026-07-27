@@ -877,7 +877,10 @@ extension MobileApiAdminItems on MobileApi {
       throw Exception('Admin apparatus name required');
     }
     if (await TestModeController.instance.isEnabled()) {
-      final item = AdminApparatus(name: name);
+      final item = AdminApparatus(
+        id: 'apparatus:${name.toLowerCase()}',
+        name: name,
+      );
       final index = _testModeApparatus.indexWhere(
         (existing) => existing.name.toLowerCase() == name.toLowerCase(),
       );
@@ -1196,16 +1199,43 @@ extension MobileApiAdminItems on MobileApi {
 
 List<AdminApparatus> _testModeApparatusCatalog() {
   final seen = <String>{};
-  return [
+  final items = [
     ...TestModeDemoData.apparatus,
     ..._testModeApparatus,
-  ].where(
-    (apparatus) {
+  ];
+  return items.indexed.where(
+    (entry) {
+      final apparatus = entry.$2;
       final key = apparatus.name.trim().toLowerCase();
       return key.isNotEmpty && seen.add(key);
     },
-  ).toList(growable: false);
+  ).map((entry) {
+    final index = entry.$1;
+    final apparatus = entry.$2;
+    final defaultId = _testModeDefaultApparatusIds[apparatus.name];
+    return AdminApparatus(
+      id: apparatus.id.trim().isNotEmpty
+          ? apparatus.id
+          : defaultId ?? 'apparatus:${apparatus.name.trim().toLowerCase()}',
+      name: apparatus.name,
+      source: defaultId == null ? apparatus.source : 'default',
+      sortOrder: defaultId == null ? 10000 + index : index,
+    );
+  }).toList(growable: false);
 }
+
+const Map<String, String> _testModeDefaultApparatusIds = {
+  '7 ta rangli bosma aparat': 'apparatus:default:bosma_7',
+  '8 ta rangli bosma aparat': 'apparatus:default:bosma_8',
+  '9 ta rangli bosma aparat': 'apparatus:default:bosma_9',
+  'Extruder laminatsiya': 'apparatus:default:extruder_laminatsiya',
+  'Flexo pechat': 'apparatus:default:flexo_pechat',
+  'Holodniy kley aparat': 'apparatus:default:holodniy_kley',
+  'Laminatsiya 1': 'apparatus:default:laminatsiya_1',
+  'Laminatsiya 2': 'apparatus:default:laminatsiya_2',
+  'Paket aparat': 'apparatus:default:paket',
+  'Rezka': 'apparatus:default:rezka',
+};
 
 MobileApiException _adminItemCreateException(http.Response response) {
   return _adminItemMutationException(

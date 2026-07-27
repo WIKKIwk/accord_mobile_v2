@@ -84,6 +84,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminWarehouses,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.add_location_alt_outlined,
+      selectedIcon: Icons.add_location_alt_rounded,
+      label: l10n.adminFactoryStatesNavTitle,
+      routeName: AppRoutes.adminFactoryLocations,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.rule_outlined,
       selectedIcon: Icons.rule_rounded,
       label: l10n.adminRawMaterialRulesNavTitle,

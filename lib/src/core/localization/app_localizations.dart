@@ -761,6 +761,8 @@ class AppLocalizations {
   String get adminEquipmentNavTitle =>
       _t('Aparatlar', 'Equipment', 'Оборудование');
   String get adminWarehousesNavTitle => _t('Omborlar', 'Warehouses', 'Склады');
+  String get adminFactoryStatesNavTitle =>
+      _t('State’lar', 'Factory states', 'Зоны производства');
   String get adminRawMaterialRulesNavTitle => _t(
         'Homashyo qoidalari',
         'Raw material rules',
