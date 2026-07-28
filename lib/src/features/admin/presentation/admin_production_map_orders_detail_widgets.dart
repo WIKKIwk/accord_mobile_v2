@@ -16,6 +16,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
+    required this.intakeCandidatesExpanded,
+    required this.onToggleIntakeCandidatesExpanded,
     required this.previousProgressBatch,
     required this.inputProgressBatches,
     required this.inputProgressLoading,
@@ -64,6 +66,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
+  final bool intakeCandidatesExpanded;
+  final VoidCallback onToggleIntakeCandidatesExpanded;
   final AdminProgressBatch? previousProgressBatch;
   final List<AdminProgressBatch> inputProgressBatches;
   final bool inputProgressLoading;
@@ -130,8 +134,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 productTitle: _openedOrderPrimaryTitle(map),
                 customerName: customerName,
                 startAssignments: uiState.materialAssignments,
+                intakeCandidateAssignments: uiState.intakeCandidateAssignments,
                 assignedAssignments: uiState.assignedMaterialAssignments,
                 showStartMaterials: uiState.showStartMaterials,
+                showIntakeCandidates: uiState.showIntakeCandidates,
                 materialsLoading: materialsLoading,
                 materialsError: materialsError,
                 scannedBarcodes: uiState.confirmedMaterialBarcodes,
@@ -143,6 +149,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 actionInFlight: actionInFlight,
                 materialIntakeInFlight: materialIntakeInFlight,
                 materialIntakeMode: materialIntakeMode,
+                intakeCandidatesExpanded: intakeCandidatesExpanded,
+                onToggleIntakeCandidatesExpanded:
+                    onToggleIntakeCandidatesExpanded,
                 showPause: uiState.showPause,
                 showComplete: uiState.showComplete,
                 showResume: uiState.showResume,
@@ -622,8 +631,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.productTitle,
     required this.customerName,
     required this.startAssignments,
+    required this.intakeCandidateAssignments,
     required this.assignedAssignments,
     required this.showStartMaterials,
+    required this.showIntakeCandidates,
     required this.materialsLoading,
     required this.materialsError,
     required this.scannedBarcodes,
@@ -635,6 +646,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.actionInFlight,
     required this.materialIntakeInFlight,
     required this.materialIntakeMode,
+    required this.intakeCandidatesExpanded,
+    required this.onToggleIntakeCandidatesExpanded,
     required this.showPause,
     required this.showComplete,
     required this.showResume,
@@ -674,8 +687,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String productTitle;
   final String? customerName;
   final List<AdminRawMaterialAssignment> startAssignments;
+  final List<AdminRawMaterialAssignment> intakeCandidateAssignments;
   final List<AdminRawMaterialAssignment> assignedAssignments;
   final bool showStartMaterials;
+  final bool showIntakeCandidates;
   final bool materialsLoading;
   final String materialsError;
   final Set<String> scannedBarcodes;
@@ -687,6 +702,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool actionInFlight;
   final bool materialIntakeInFlight;
   final bool materialIntakeMode;
+  final bool intakeCandidatesExpanded;
+  final VoidCallback onToggleIntakeCandidatesExpanded;
   final bool showPause;
   final bool showComplete;
   final bool showResume;
@@ -858,6 +875,31 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 error: materialsError,
                 emptyText: 'Ish boshlash uchun homashyo topilmadi',
                 scannedBarcodes: scannedBarcodes,
+              ),
+            ],
+            Divider(
+              height: 28,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ] else if (showIntakeCandidates) ...[
+            _ScannedItemsExpansionHeader(
+              key: const ValueKey('production-intake-materials-expansion'),
+              title: 'Hali qabul qilinmagan homashyolar',
+              countText: materialsLoading
+                  ? '...'
+                  : '${intakeCandidateAssignments.length} ta',
+              expanded: intakeCandidatesExpanded,
+              complete: false,
+              onTap: onToggleIntakeCandidatesExpanded,
+            ),
+            if (intakeCandidatesExpanded) ...[
+              const SizedBox(height: 12),
+              _RawMaterialAssignmentsExpansionBody(
+                assignments: intakeCandidateAssignments,
+                loading: materialsLoading,
+                error: materialsError,
+                emptyText: 'Hali qabul qilinmagan homashyo yo‘q',
+                scannedBarcodes: const {},
               ),
             ],
             Divider(

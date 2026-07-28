@@ -421,6 +421,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
   required List<AdminRawMaterialAssignment> startMaterialAssignments,
+  required List<AdminRawMaterialAssignment> intakeCandidateAssignments,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
@@ -439,7 +440,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       ? const <AdminRawMaterialAssignment>[]
       : startMaterialAssignments;
   final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
-    assignments: stationMaterialAssignments,
+    assignments: materialAssignments,
     scannedBarcodes: scannedMaterialBarcodes,
     orderId: orderId,
   );
@@ -497,6 +498,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     orderId: orderId,
     station: station,
     materialAssignments: stationMaterialAssignments,
+    intakeCandidateAssignments: intakeCandidateAssignments,
     assignedMaterialAssignments: materialAssignments,
     confirmedMaterialBarcodes: confirmedMaterialBarcodes,
     materialRequiredCount: materialRequiredCount,
@@ -506,7 +508,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
         : materialRequirements.requiresMaterial ||
             materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
-    showStartMaterials: materialRequirements != null,
+    showStartMaterials: queueState == ApparatusQueueOrderState.pending &&
+        materialRequirements != null,
+    showIntakeCandidates: queueState == ApparatusQueueOrderState.inProgress ||
+        queueState == ApparatusQueueOrderState.paused,
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady:

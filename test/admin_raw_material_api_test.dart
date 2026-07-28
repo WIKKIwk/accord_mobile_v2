@@ -1028,6 +1028,30 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
+  test('raw material intake candidates use backend order and apparatus scope',
+      () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final candidates =
+          await MobileApi.instance.adminRawMaterialIntakeCandidates(
+        orderId: 'zakaz-1',
+        apparatus: 'Pechat',
+      );
+
+      expect(candidates.map((item) => item.barcode), ['RM-AVAILABLE']);
+      expect(candidates.single.stockStatus, 'available');
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-intake-candidates?'
+          'order_id=zakaz-1&apparatus=Pechat',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
   test('test mode intake only accepts unused assigned material at apparatus',
       () async {
     await TestModeController.instance.setEnabled(true);
@@ -1090,6 +1114,14 @@ void main() {
       barcode: 'ASSIGNED-INTAKE',
     );
 
+    expect(
+      await MobileApi.instance.adminRawMaterialIntakeCandidates(
+        orderId: 'zakaz-intake',
+        apparatus: 'Pechat intake',
+      ),
+      hasLength(1),
+    );
+
     final received =
         await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
       orderId: 'zakaz-intake',
@@ -1098,6 +1130,13 @@ void main() {
     );
     expect(received.stockStatus, 'in_use');
     expect(received.receivedQty, 25);
+    expect(
+      await MobileApi.instance.adminRawMaterialIntakeCandidates(
+        orderId: 'zakaz-intake',
+        apparatus: 'Pechat intake',
+      ),
+      isEmpty,
+    );
 
     await expectLater(
       MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
@@ -1901,6 +1940,18 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'item_code': 'KR-1',
             'item_name': 'Qora kraska',
             'item_group': 'Kraska',
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=Pechat':
+        body = const [
+          {
+            'order_id': 'zakaz-1',
+            'apparatus': 'Pechat',
+            'barcode': 'RM-AVAILABLE',
+            'item_code': 'KR-2',
+            'item_name': 'Oq kraska',
+            'item_group': 'Kraska',
+            'stock_status': 'available',
           },
         ];
       case 'POST /v1/mobile/admin/raw-material-assignments':

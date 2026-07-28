@@ -50,6 +50,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   StreamSubscription<AdminProductionMapLiveSnapshot>? _controlLiveSubscription;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminRawMaterialAssignment> _startAssignments = const [];
+  List<AdminRawMaterialAssignment> _intakeCandidateAssignments = const [];
   AdminRawMaterialStartRequirements? _materialStartRequirements;
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
@@ -71,6 +72,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
   bool _startMaterialsExpanded = false;
+  bool _intakeCandidatesExpanded = false;
   bool _materialsExpanded = false;
   bool _qolipsExpanded = false;
   bool _mapExpanded = false;
@@ -147,6 +149,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _qolipRequirementsError = '';
       _materialsExpanded = false;
       _startMaterialsExpanded = false;
+      _intakeCandidatesExpanded = false;
       _qolipsExpanded = false;
       _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
       _materialIntakeMode = false;
@@ -159,6 +162,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _returnedPaintDraft = null;
       _returnedPaintDraftScope = '';
       _materialStartRequirements = null;
+      _intakeCandidateAssignments = const [];
       _materialsError = '';
       _materialsLoading = true;
       unawaited(_loadMaterialAssignments());
@@ -192,20 +196,38 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     try {
       late final List<AdminRawMaterialAssignment> assignments;
       var startAssignments = const <AdminRawMaterialAssignment>[];
+      var intakeCandidates = const <AdminRawMaterialAssignment>[];
       AdminRawMaterialStartRequirements? requirements;
       if (apparatus.isEmpty) {
         assignments = await MobileApi.instance.adminRawMaterialAssignments(
           orderId: orderId,
         );
       } else {
-        requirements =
-            await MobileApi.instance.adminRawMaterialStartRequirements(
-          orderId: orderId,
-          apparatus: apparatus,
-          materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
+        final queueState = apparatusQueueOrderStateFromRaw(
+          _queueStates[orderId],
         );
-        assignments = requirements.assignments;
-        startAssignments = requirements.startAssignments;
+        if (queueState == ApparatusQueueOrderState.pending) {
+          requirements =
+              await MobileApi.instance.adminRawMaterialStartRequirements(
+            orderId: orderId,
+            apparatus: apparatus,
+            materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
+          );
+          assignments = requirements.assignments;
+          startAssignments = requirements.startAssignments;
+        } else {
+          assignments = await MobileApi.instance.adminRawMaterialAssignments(
+            orderId: orderId,
+          );
+          if (queueState == ApparatusQueueOrderState.inProgress ||
+              queueState == ApparatusQueueOrderState.paused) {
+            intakeCandidates =
+                await MobileApi.instance.adminRawMaterialIntakeCandidates(
+              orderId: orderId,
+              apparatus: apparatus,
+            );
+          }
+        }
       }
       if (!mounted ||
           widget.order.map.id.trim() != orderId ||
@@ -218,6 +240,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() {
         _materialAssignments = assignments;
         _startAssignments = startAssignments;
+        _intakeCandidateAssignments = intakeCandidates;
         _materialStartRequirements = requirements;
         if (eligibleBarcodes != null) {
           _scannedMaterialBarcodes.removeWhere(
@@ -235,6 +258,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       setState(() {
         _materialAssignments = const [];
         _startAssignments = const [];
+        _intakeCandidateAssignments = const [];
         _materialStartRequirements = null;
         _materialsLoading = false;
         _materialsError = error is MobileApiException
@@ -804,7 +828,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  void _toggleMaterialIntakeMode() {
+  Future<void> _toggleMaterialIntakeMode() async {
     if (_materialIntakeMode) {
       setState(() {
         _materialIntakeMode = false;
@@ -813,9 +837,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
       return;
     }
+    setState(() => _intakeCandidatesExpanded = true);
+    if (!await _loadMaterialAssignments(showLoading: false) || !mounted) {
+      return;
+    }
+    if (_intakeCandidateAssignments.isEmpty) {
+      setState(() {
+        _quickScanStatus = 'Hali qabul qilinmagan homashyo yo‘q';
+      });
+      _showSheetNotice('Hali qabul qilinmagan homashyo yo‘q');
+      return;
+    }
     setState(() {
       _materialIntakeMode = true;
-      _materialsExpanded = true;
+      _intakeCandidatesExpanded = true;
       _quickScanStatus =
           'Qo‘shimcha homashyo QR kodini yuqoridagi tirqishga olib keling';
     });
@@ -850,10 +885,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       final uom = assignment.stockUom.trim();
       final quantityLabel =
           qty > 0 && uom.isNotEmpty ? ' (${formatRawQuantity(qty)} $uom)' : '';
+      final hasRemainingCandidates = _intakeCandidateAssignments.isNotEmpty;
       setState(() {
-        _materialsExpanded = true;
-        _quickScanStatus =
-            'Homashyo qabul qilindi$quantityLabel. Yana QR scan qiling';
+        _intakeCandidatesExpanded = true;
+        _materialIntakeMode = hasRemainingCandidates;
+        _quickScanStatus = hasRemainingCandidates
+            ? 'Homashyo qabul qilindi$quantityLabel. Yana QR scan qiling'
+            : 'Barcha kutilayotgan homashyolar qabul qilindi';
       });
       _showSheetNotice('Homashyo qabul qilindi$quantityLabel');
     } catch (error) {
@@ -974,6 +1012,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       queueStatesByApparatus: widget.queueStatesByApparatus,
       materialAssignments: _materialAssignments,
       startMaterialAssignments: _startAssignments,
+      intakeCandidateAssignments: _intakeCandidateAssignments,
       materialRequirements: _materialStartRequirements,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,
@@ -1003,6 +1042,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       actionInFlight: _actionInFlight,
       materialIntakeInFlight: _materialIntakeInFlight,
       materialIntakeMode: _materialIntakeMode,
+      intakeCandidatesExpanded: _intakeCandidatesExpanded,
+      onToggleIntakeCandidatesExpanded: () {
+        setState(() {
+          _intakeCandidatesExpanded = !_intakeCandidatesExpanded;
+        });
+      },
       previousProgressBatch: _startInputProgressBatch,
       inputProgressBatches: _availableInputProgressBatches,
       inputProgressLoading: _inputProgressLoading,

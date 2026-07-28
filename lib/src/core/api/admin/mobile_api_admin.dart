@@ -1926,6 +1926,21 @@ InventoryAsset? _testModeRawMaterialAssetAtApparatus({
   return null;
 }
 
+bool _testModeRawMaterialMatchesRule(
+  AdminRawMaterialAssignment assignment,
+  AdminRawMaterialRule? rule,
+) {
+  if (rule == null) return true;
+  final itemGroup = assignment.itemGroup.trim().toLowerCase();
+  if (itemGroup.isEmpty) return false;
+  final allowedGroups = <String>{
+    for (final group in rule.itemGroups) group.trim().toLowerCase(),
+    for (final requirement in rule.requirementGroups)
+      for (final group in requirement.itemGroups) group.trim().toLowerCase(),
+  }..remove('');
+  return allowedGroups.contains(itemGroup);
+}
+
 int _testModeMatchedRawMaterialRequirementCount({
   required List<AdminRawMaterialRequirementGroup> requirementGroups,
   required List<AdminRawMaterialAssignment> assignments,
@@ -3929,6 +3944,98 @@ extension MobileApiAdmin on MobileApi {
     );
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'raw_material_assignments');
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return json
+        .map(
+          (item) => AdminRawMaterialAssignment.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<AdminRawMaterialAssignment>> adminRawMaterialIntakeCandidates({
+    required String orderId,
+    required String apparatus,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = apparatus.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final isActive = _testModeApparatusQueueStates.entries.any(
+        (entry) =>
+            productionMapWarehouseTitlesMatch(
+              entry.key,
+              normalizedApparatus,
+            ) &&
+            switch (apparatusQueueOrderStateFromRaw(
+              entry.value[normalizedOrderId],
+            )) {
+              ApparatusQueueOrderState.inProgress ||
+              ApparatusQueueOrderState.paused =>
+                true,
+              _ => false,
+            },
+      );
+      if (!isActive ||
+          _testModeOrderControls[normalizedOrderId] ==
+              AdminOrderControlState.frozen ||
+          _testModeOrderControls[normalizedOrderId] ==
+              AdminOrderControlState.freezeRequested) {
+        return const [];
+      }
+      AdminRawMaterialRule? rule;
+      for (final candidate in _testModeRawMaterialRules.values) {
+        if (productionMapWarehouseTitlesMatch(
+          candidate.apparatus,
+          normalizedApparatus,
+        )) {
+          rule = candidate;
+          break;
+        }
+      }
+      return List<AdminRawMaterialAssignment>.unmodifiable(
+        _testModeRawMaterialAssignments.where((assignment) {
+          if (assignment.orderId.trim() != normalizedOrderId ||
+              !productionMapWarehouseTitlesMatch(
+                assignment.apparatus,
+                normalizedApparatus,
+              ) ||
+              !_testModeRawMaterialMatchesRule(assignment, rule)) {
+            return false;
+          }
+          final asset = _testModeRawMaterialAssetAtApparatus(
+            barcode: assignment.barcode,
+            apparatus: normalizedApparatus,
+          );
+          if (asset == null ||
+              asset.status.trim().toLowerCase() != 'available') {
+            return false;
+          }
+          final status = assignment.stockStatus.trim().toLowerCase();
+          return (status.isEmpty || status == 'available') &&
+              assignment.reservedOrderId.trim().isEmpty;
+        }),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/raw-material-intake-candidates',
+        ).replace(
+          queryParameters: {
+            'order_id': normalizedOrderId,
+            'apparatus': normalizedApparatus,
+          },
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'raw_material_intake_candidates',
+      );
     }
     final json = await decodeJsonListPayload(response.body);
     return json

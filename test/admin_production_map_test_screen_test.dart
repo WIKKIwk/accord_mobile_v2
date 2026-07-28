@@ -3223,12 +3223,45 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
-  testWidgets('worker cannot receive unassigned material after order starts', (
+  testWidgets('worker intake shows and expands only pending assigned material',
+      (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = 'Rezka';
     const orderId = 'zakaz-worker-material-intake';
+    const candidateBarcode = 'ROLL-WORKER-ASSIGNED';
+    const stateLocation = InventoryLocation(
+      id: 'inventory_location:state:rezka-intake',
+      kind: InventoryLocationKind.state,
+      name: 'Rezka State',
+      factoryLocationId: 'state_rezka_intake',
+      apparatus: [
+        InventoryLocationApparatus(id: 'rezka-intake', name: apparatus),
+      ],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [stateLocation],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:worker-intake-assigned',
+          custodyWarehouseId: 'warehouse:material',
+          custodyWarehouse: 'Material ombor',
+          itemCode: 'ROLL-WORKER',
+          itemName: 'Worker assigned material',
+          identifier: candidateBarcode,
+          qty: 100,
+          uom: 'kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'inventory_location:state:rezka-intake',
+            kind: InventoryLocationKind.state,
+            name: 'Rezka State',
+          ),
+        ),
+      ],
+    );
     await AppSession.instance.setSession(
       token: 'worker-material-intake-token',
       profile: const SessionProfile(
@@ -3256,6 +3289,16 @@ void main() {
       apparatus: apparatus,
       orderIds: const [orderId],
     );
+    await MobileApi.instance.adminApparatusQueueAction(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: orderId,
+      apparatus: apparatus,
+      barcode: candidateBarcode,
+    );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -3280,13 +3323,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('worker-material-intake').first);
     await tester.pumpAndSettle();
+    expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+    expect(find.text('Hali qabul qilinmagan homashyolar'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('receive-additional-raw-material')),
-      findsNothing,
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('production-intake-materials-expansion'),
+        ),
+        matching: find.text('1 ta'),
+      ),
+      findsOneWidget,
     );
-
-    await tester.tap(find.text('Boshlash'));
-    await tester.pumpAndSettle();
+    expect(find.text(candidateBarcode), findsNothing);
     expect(
       find.byKey(const ValueKey('receive-additional-raw-material')),
       findsOneWidget,
@@ -3296,6 +3344,7 @@ void main() {
       find.byKey(const ValueKey('receive-additional-raw-material')),
     );
     await tester.pumpAndSettle();
+    expect(find.text(candidateBarcode), findsOneWidget);
     expect(
       find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
       findsOneWidget,
@@ -3312,6 +3361,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Homashyo biriktirilmagan'), findsWidgets);
     expect(find.text('ROLL-WORKER-1000'), findsNothing);
+    expect(find.text(candidateBarcode), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('production-quick-scanner-manual')),
+      candidateBarcode,
+    );
+    await tester.tap(find.byTooltip('Qabul qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hali qabul qilinmagan homashyo yo‘q'), findsOneWidget);
+    expect(find.text('0 ta'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('production-quick-scanner-manual')),
+      findsNothing,
+    );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
