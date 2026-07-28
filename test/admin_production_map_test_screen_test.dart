@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/features/admin/models/production_map_models
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -1775,6 +1776,191 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
+  testWidgets(
+      'generic, sequence and worker details use the correct material scope', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-sequence-state-policy';
+    const stagedBarcode = 'RM-STATE-READY';
+    const unstagedBarcode = 'RM-NOT-STAGED';
+    const stateLocation = InventoryLocation(
+      id: 'inventory_location:state:godex',
+      kind: InventoryLocationKind.state,
+      name: 'Godex State',
+      factoryLocationId: 'state_godex',
+      apparatus: [
+        InventoryLocationApparatus(id: 'godex', name: apparatus),
+      ],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [stateLocation],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:state-ready',
+          custodyWarehouseId: 'warehouse:material',
+          custodyWarehouse: 'Material ombor',
+          itemCode: 'RM-STATE',
+          itemName: 'State homashyo',
+          identifier: stagedBarcode,
+          qty: 10,
+          uom: 'kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'inventory_location:state:godex',
+            kind: InventoryLocationKind.state,
+            name: 'Godex State',
+          ),
+        ),
+      ],
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'State policy order',
+        productCode: 'STATE-1',
+        apparatus: apparatus,
+        product: 'state policy product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: apparatus,
+      startPolicy: AdminRawMaterialStartPolicy.stateAll,
+      itemGroups: const ['Kraska'],
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: orderId,
+      apparatus: apparatus,
+      barcode: stagedBarcode,
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: orderId,
+      apparatus: apparatus,
+      barcode: unstagedBarcode,
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
+    expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(stagedBarcode), findsOneWidget);
+    expect(find.text(unstagedBarcode), findsOneWidget);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ketma-ketlik'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
+    expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-start-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(stagedBarcode), findsOneWidget);
+    expect(find.text(unstagedBarcode), findsNothing);
+    expect(find.text('0/1'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-start-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('production-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(stagedBarcode), findsOneWidget);
+    expect(find.text(unstagedBarcode), findsOneWidget);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await AppSession.instance.setSession(
+      token: 'worker-state-policy-token',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Godex operatori',
+        legalName: '',
+        ref: 'worker-state-policy',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [apparatus],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(apparatus));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
+    expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-start-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(stagedBarcode), findsOneWidget);
+    expect(find.text(unstagedBarcode), findsNothing);
+    expect(find.text('0/1'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-start-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('production-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(stagedBarcode), findsOneWidget);
+    expect(find.text(unstagedBarcode), findsOneWidget);
+  });
+
   testWidgets('admin sequence excludes completed apparatus orders', (
     tester,
   ) async {
@@ -3037,7 +3223,7 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
-  testWidgets('worker can receive more raw material only after order starts', (
+  testWidgets('worker cannot receive unassigned material after order starts', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -3124,8 +3310,8 @@ void main() {
     );
     await tester.tap(find.byTooltip('Qabul qilish'));
     await tester.pumpAndSettle();
-    expect(find.text('Homashyo qabul qilindi'), findsOneWidget);
-    expect(find.text('ROLL-WORKER-1000'), findsOneWidget);
+    expect(find.text('Homashyo biriktirilmagan'), findsWidgets);
+    expect(find.text('ROLL-WORKER-1000'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });

@@ -31,6 +31,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.qolipCodes,
     required this.requiredQolips,
     required this.qolipRequirementsStatusText,
+    required this.startMaterialsExpanded,
+    required this.onToggleStartMaterialsExpanded,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -77,6 +79,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final List<String> qolipCodes;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
   final String qolipRequirementsStatusText;
+  final bool startMaterialsExpanded;
+  final VoidCallback onToggleStartMaterialsExpanded;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -125,7 +129,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 orderCode: _openedOrderDisplayCode(map),
                 productTitle: _openedOrderPrimaryTitle(map),
                 customerName: customerName,
-                assignments: uiState.materialAssignments,
+                startAssignments: uiState.materialAssignments,
+                assignedAssignments: uiState.assignedMaterialAssignments,
+                showStartMaterials: uiState.showStartMaterials,
                 materialsLoading: materialsLoading,
                 materialsError: materialsError,
                 scannedBarcodes: uiState.confirmedMaterialBarcodes,
@@ -154,6 +160,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 qolipCodes: qolipCodes,
                 requiredQolips: requiredQolips,
                 qolipRequirementsStatusText: qolipRequirementsStatusText,
+                startMaterialsExpanded: startMaterialsExpanded,
+                onToggleStartMaterialsExpanded: onToggleStartMaterialsExpanded,
                 materialsExpanded: materialsExpanded,
                 onToggleMaterialsExpanded: onToggleMaterialsExpanded,
                 qolipsExpanded: qolipsExpanded,
@@ -613,7 +621,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.orderCode,
     required this.productTitle,
     required this.customerName,
-    required this.assignments,
+    required this.startAssignments,
+    required this.assignedAssignments,
+    required this.showStartMaterials,
     required this.materialsLoading,
     required this.materialsError,
     required this.scannedBarcodes,
@@ -642,6 +652,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.qolipCodes,
     required this.requiredQolips,
     required this.qolipRequirementsStatusText,
+    required this.startMaterialsExpanded,
+    required this.onToggleStartMaterialsExpanded,
     required this.materialsExpanded,
     required this.onToggleMaterialsExpanded,
     required this.qolipsExpanded,
@@ -661,7 +673,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String orderCode;
   final String productTitle;
   final String? customerName;
-  final List<AdminRawMaterialAssignment> assignments;
+  final List<AdminRawMaterialAssignment> startAssignments;
+  final List<AdminRawMaterialAssignment> assignedAssignments;
+  final bool showStartMaterials;
   final bool materialsLoading;
   final String materialsError;
   final Set<String> scannedBarcodes;
@@ -690,6 +704,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final List<String> qolipCodes;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
   final String qolipRequirementsStatusText;
+  final bool startMaterialsExpanded;
+  final VoidCallback onToggleStartMaterialsExpanded;
   final bool materialsExpanded;
   final VoidCallback onToggleMaterialsExpanded;
   final bool qolipsExpanded;
@@ -709,8 +725,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final totalCount = requiredCount;
-    final materialBalances = _rawMaterialBalances(assignments);
     final scannedQolipKeys = qolipCodes
         .map((code) => code.trim().toLowerCase())
         .where((code) => code.isNotEmpty)
@@ -826,70 +840,49 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          if (showStartMaterials) ...[
+            _ScannedItemsExpansionHeader(
+              key: const ValueKey('production-start-materials-expansion'),
+              title: 'Ish boshlash uchun homashyolar',
+              countText:
+                  materialsLoading ? '...' : '$scannedCount/$requiredCount',
+              expanded: startMaterialsExpanded,
+              complete: requiredCount > 0 && allMaterialsScanned,
+              onTap: onToggleStartMaterialsExpanded,
+            ),
+            if (startMaterialsExpanded) ...[
+              const SizedBox(height: 12),
+              _RawMaterialAssignmentsExpansionBody(
+                assignments: startAssignments,
+                loading: materialsLoading,
+                error: materialsError,
+                emptyText: 'Ish boshlash uchun homashyo topilmadi',
+                scannedBarcodes: scannedBarcodes,
+              ),
+            ],
+            Divider(
+              height: 28,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ],
           _ScannedItemsExpansionHeader(
             key: const ValueKey('production-materials-expansion'),
             title: 'Biriktirilgan homashyolar',
-            countText: materialsLoading ? '...' : '$scannedCount/$totalCount',
+            countText:
+                materialsLoading ? '...' : '${assignedAssignments.length} ta',
             expanded: materialsExpanded,
-            complete: totalCount > 0 && scannedCount == totalCount,
+            complete: false,
             onTap: onToggleMaterialsExpanded,
           ),
           if (materialsExpanded) ...[
             const SizedBox(height: 12),
-            if (materialsLoading)
-              Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Yuklanmoqda',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              )
-            else if (materialsError.trim().isNotEmpty)
-              Text(
-                materialsError,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.error,
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            else if (assignments.isEmpty)
-              Text(
-                'Homashyo biriktirilmagan',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            else
-              Column(
-                children: [
-                  if (materialBalances.isNotEmpty) ...[
-                    _RawMaterialBalanceSummary(balances: materialBalances),
-                    const SizedBox(height: 10),
-                  ],
-                  for (var index = 0; index < assignments.length; index++) ...[
-                    if (index > 0) const SizedBox(height: 8),
-                    _AssignedMaterialTile(
-                      assignment: assignments[index],
-                      scanned: scannedBarcodes.contains(
-                        assignments[index].barcode.trim().toUpperCase(),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            _RawMaterialAssignmentsExpansionBody(
+              assignments: assignedAssignments,
+              loading: materialsLoading,
+              error: materialsError,
+              emptyText: 'Homashyo biriktirilmagan',
+              scannedBarcodes: scannedBarcodes,
+            ),
           ],
           if (showStart && requiresQolipScan) ...[
             Divider(
@@ -1130,6 +1123,85 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
+  const _RawMaterialAssignmentsExpansionBody({
+    required this.assignments,
+    required this.loading,
+    required this.error,
+    required this.emptyText,
+    required this.scannedBarcodes,
+  });
+
+  final List<AdminRawMaterialAssignment> assignments;
+  final bool loading;
+  final String error;
+  final String emptyText;
+  final Set<String> scannedBarcodes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    if (loading) {
+      return Row(
+        children: [
+          SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Yuklanmoqda',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+    if (error.trim().isNotEmpty) {
+      return Text(
+        error,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: scheme.error,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    if (assignments.isEmpty) {
+      return Text(
+        emptyText,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    final balances = _rawMaterialBalances(assignments);
+    return Column(
+      children: [
+        if (balances.isNotEmpty) ...[
+          _RawMaterialBalanceSummary(balances: balances),
+          const SizedBox(height: 10),
+        ],
+        for (var index = 0; index < assignments.length; index++) ...[
+          if (index > 0) const SizedBox(height: 8),
+          _AssignedMaterialTile(
+            assignment: assignments[index],
+            scanned: scannedBarcodes.contains(
+              assignments[index].barcode.trim().toUpperCase(),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

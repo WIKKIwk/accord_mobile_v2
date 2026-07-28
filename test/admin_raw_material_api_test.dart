@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -540,7 +541,8 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
-  test('test mode queue resume does not require progress qr', () async {
+  test('test mode resumes paused next order after previous completion',
+      () async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.aparatchi,
@@ -553,7 +555,21 @@ void main() {
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
       apparatus: 'Pechat resume',
-      orderIds: const ['zakaz-resume-1'],
+      orderIds: const ['zakaz-resume-completed', 'zakaz-resume-1'],
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat resume',
+      orderId: 'zakaz-resume-completed',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat resume',
+      orderId: 'zakaz-resume-completed',
+      action: 'complete',
+      producedQty: 1,
+      grossQty: 1,
+      uom: 'kg',
     );
 
     await MobileApi.instance.adminApparatusQueueActionResult(
@@ -574,7 +590,8 @@ void main() {
       action: 'resume',
     );
 
-    expect(resumed.states, {'zakaz-resume-1': 'in_progress'});
+    expect(resumed.states['zakaz-resume-completed'], 'completed');
+    expect(resumed.states['zakaz-resume-1'], 'in_progress');
     expect(resumed.progressBatch, isNull);
   });
 
@@ -759,7 +776,7 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
-  test('state start policy requires exactly the staged assigned subset', () {
+  test('start requirements consume backend eligibility and scan status', () {
     final requirements = AdminRawMaterialStartRequirements.fromJson(const {
       'policy': 'state_all',
       'requires_material': true,
@@ -776,42 +793,80 @@ void main() {
         'RM-10',
       ],
       'staged_barcodes': ['RM-01', 'RM-02', 'RM-03'],
+      'eligible_barcodes': ['RM-01', 'RM-02', 'RM-03'],
       'requirement_groups': [],
+      'required_scan_count': 3,
+      'matched_scan_count': 2,
+      'assignments_satisfied': true,
+      'scan_satisfied': false,
+      'assignments': [
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-01',
+          'item_code': 'RM-1',
+          'item_name': 'Rulon 1',
+          'item_group': 'Rulon',
+        },
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-02',
+          'item_code': 'RM-2',
+          'item_name': 'Rulon 2',
+          'item_group': 'Rulon',
+        },
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-03',
+          'item_code': 'RM-3',
+          'item_name': 'Rulon 3',
+          'item_group': 'Rulon',
+        },
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Laminatsiya',
+          'barcode': 'RM-04',
+          'item_code': 'RM-4',
+          'item_name': 'Kley 1',
+          'item_group': 'Kley',
+        },
+      ],
+      'start_assignments': [
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-01',
+          'item_code': 'RM-1',
+          'item_name': 'Rulon 1',
+          'item_group': 'Rulon',
+        },
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-02',
+          'item_code': 'RM-2',
+          'item_name': 'Rulon 2',
+          'item_group': 'Rulon',
+        },
+        {
+          'order_id': 'zakaz-1',
+          'apparatus': 'Pechat',
+          'barcode': 'RM-03',
+          'item_code': 'RM-3',
+          'item_name': 'Rulon 3',
+          'item_group': 'Rulon',
+        },
+      ],
     });
-    final assignments = [
-      for (var index = 1; index <= 10; index += 1)
-        AdminRawMaterialAssignment(
-          orderId: 'zakaz-1',
-          apparatus: 'Pechat',
-          barcode: 'RM-${index.toString().padLeft(2, '0')}',
-          itemCode: 'RM-$index',
-          itemName: 'Rulon $index',
-          itemGroup: 'Rulon',
-        ),
-    ];
 
-    expect(requirements.eligibleAssignments(assignments), hasLength(3));
-    expect(
-      requirements.scansSatisfy(
-        assignments: assignments,
-        scannedBarcodes: {'RM-01', 'RM-02'},
-      ),
-      isFalse,
-    );
-    expect(
-      requirements.scansSatisfy(
-        assignments: assignments,
-        scannedBarcodes: {'RM-01', 'RM-02', 'RM-03'},
-      ),
-      isTrue,
-    );
-    expect(
-      requirements.scansSatisfy(
-        assignments: assignments,
-        scannedBarcodes: {'RM-01', 'RM-02', 'RM-03', 'RM-04'},
-      ),
-      isFalse,
-    );
+    expect(requirements.assignments, hasLength(4));
+    expect(requirements.startAssignments, hasLength(3));
+    expect(requirements.requiredScanCount, 3);
+    expect(requirements.matchedScanCount, 2);
+    expect(requirements.assignmentsSatisfied, isTrue);
+    expect(requirements.scanSatisfied, isFalse);
   });
 
   test('raw material start requirements use backend state context', () async {
@@ -823,26 +878,56 @@ void main() {
           await MobileApi.instance.adminRawMaterialStartRequirements(
         orderId: 'zakaz-1',
         apparatus: 'Pechat',
+        materialBarcodes: const ['RM-01'],
       );
 
       expect(requirements.policy, AdminRawMaterialStartPolicy.stateAll);
       expect(requirements.assignedBarcodes, ['RM-01', 'RM-02', 'RM-03']);
       expect(requirements.stagedBarcodes, ['RM-01', 'RM-02']);
+      expect(requirements.assignments, hasLength(2));
+      expect(requirements.startAssignments, hasLength(2));
+      expect(requirements.requiredScanCount, 2);
+      expect(requirements.matchedScanCount, 1);
+      expect(requirements.scanSatisfied, isFalse);
       expect(
         seenRequests,
         contains(
           'GET /v1/mobile/admin/raw-material-start-requirements?'
-          'order_id=zakaz-1&apparatus=Pechat',
+          'order_id=zakaz-1&apparatus=Pechat&material_barcodes=RM-01',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
   });
 
-  test('one material cannot satisfy two required groups', () {
+  test('raw material assignments send order scope', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final assignments = await MobileApi.instance.adminRawMaterialAssignments(
+        orderId: 'zakaz-1',
+      );
+
+      expect(assignments.map((item) => item.barcode), ['RM-001']);
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments?'
+          'order_id=zakaz-1',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('requirement group validation status comes from backend', () {
     const requirements = AdminRawMaterialStartRequirements(
       policy: AdminRawMaterialStartPolicy.requirementGroups,
       requiresMaterial: true,
       assignedBarcodes: ['RM-UNIVERSAL', 'RM-KLEY'],
+      requiredScanCount: 2,
+      matchedScanCount: 1,
+      assignmentsSatisfied: true,
+      scanSatisfied: false,
       requirementGroups: [
         AdminRawMaterialRequirementGroup(
           name: 'Bo‘yoq',
@@ -854,39 +939,11 @@ void main() {
         ),
       ],
     );
-    const assignments = [
-      AdminRawMaterialAssignment(
-        orderId: 'zakaz-1',
-        apparatus: 'Pechat',
-        barcode: 'RM-UNIVERSAL',
-        itemCode: 'RM-U',
-        itemName: 'Universal',
-        itemGroup: 'Universal',
-      ),
-      AdminRawMaterialAssignment(
-        orderId: 'zakaz-1',
-        apparatus: 'Pechat',
-        barcode: 'RM-KLEY',
-        itemCode: 'RM-K',
-        itemName: 'Kley',
-        itemGroup: 'Kley',
-      ),
-    ];
 
-    expect(
-      requirements.scansSatisfy(
-        assignments: assignments,
-        scannedBarcodes: {'RM-UNIVERSAL'},
-      ),
-      isFalse,
-    );
-    expect(
-      requirements.scansSatisfy(
-        assignments: assignments,
-        scannedBarcodes: {'RM-UNIVERSAL', 'RM-KLEY'},
-      ),
-      isTrue,
-    );
+    expect(requirements.requiredScanCount, 2);
+    expect(requirements.matchedScanCount, 1);
+    expect(requirements.assignmentsSatisfied, isTrue);
+    expect(requirements.scanSatisfied, isFalse);
   });
 
   test('raw material assignment exposes apparatus choices from backend',
@@ -969,6 +1026,113 @@ void main() {
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('test mode intake only accepts unused assigned material at apparatus',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'worker-intake',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+      assignedApparatus: ['Pechat intake'],
+    );
+    const location = InventoryLocation(
+      id: 'state:pechat-intake',
+      kind: InventoryLocationKind.state,
+      name: 'Pechat oldi',
+      factoryLocationId: 'factory:pechat',
+      apparatus: [
+        InventoryLocationApparatus(
+          id: 'apparatus:pechat-intake',
+          name: 'Pechat intake',
+        ),
+      ],
+    );
+    seedMobileApiInventoryMovementTestData(
+      locations: const [location],
+      assets: const [
+        InventoryAsset(
+          kind: InventoryAssetKind.rawMaterial,
+          assetRef: 'raw:assigned-intake',
+          custodyWarehouseId: 'warehouse:material',
+          custodyWarehouse: 'Material ombor',
+          itemCode: 'INK-1',
+          itemName: 'Black ink',
+          identifier: 'ASSIGNED-INTAKE',
+          qty: 25,
+          uom: 'kg',
+          status: 'available',
+          physicalLocation: InventoryLocationReference(
+            id: 'state:pechat-intake',
+            kind: InventoryLocationKind.state,
+            name: 'Pechat oldi',
+          ),
+        ),
+      ],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Pechat intake',
+      orderIds: const ['zakaz-intake'],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat intake',
+      orderId: 'zakaz-intake',
+      action: 'start',
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: 'zakaz-intake',
+      apparatus: 'Pechat intake',
+      barcode: 'ASSIGNED-INTAKE',
+    );
+
+    final received =
+        await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
+      orderId: 'zakaz-intake',
+      apparatus: 'Pechat intake',
+      barcode: 'ASSIGNED-INTAKE',
+    );
+    expect(received.stockStatus, 'in_use');
+    expect(received.receivedQty, 25);
+
+    await expectLater(
+      MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
+        orderId: 'zakaz-intake',
+        apparatus: 'Pechat intake',
+        barcode: 'ASSIGNED-INTAKE',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'raw_material_stock_unavailable',
+        ),
+      ),
+    );
+    await expectLater(
+      MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
+        orderId: 'zakaz-intake',
+        apparatus: 'Pechat intake',
+        barcode: 'UNASSIGNED-INTAKE',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'raw_material_assignment_not_found',
+        ),
+      ),
+    );
+    expect(
+      await MobileApi.instance.adminRawMaterialAssignments(
+        orderId: 'zakaz-intake',
+      ),
+      hasLength(1),
+    );
   });
 
   test('raw material lookup returns understandable scan report data', () async {
@@ -1679,14 +1843,66 @@ class _RawMaterialApiHttpClient implements HttpClient {
             },
           ],
         };
-      case 'GET /v1/mobile/admin/raw-material-start-requirements?order_id=zakaz-1&apparatus=Pechat':
+      case 'GET /v1/mobile/admin/raw-material-start-requirements?order_id=zakaz-1&apparatus=Pechat&material_barcodes=RM-01':
         body = const {
           'policy': 'state_all',
           'requires_material': true,
           'requirement_groups': [],
           'assigned_barcodes': ['RM-01', 'RM-02', 'RM-03'],
           'staged_barcodes': ['RM-01', 'RM-02'],
+          'eligible_barcodes': ['RM-01', 'RM-02'],
+          'required_scan_count': 2,
+          'matched_scan_count': 1,
+          'assignments_satisfied': true,
+          'scan_satisfied': false,
+          'assignments': [
+            {
+              'order_id': 'zakaz-1',
+              'apparatus': 'Pechat',
+              'barcode': 'RM-01',
+              'item_code': 'RM-1',
+              'item_name': 'Rulon 1',
+              'item_group': 'Rulon',
+            },
+            {
+              'order_id': 'zakaz-1',
+              'apparatus': 'Pechat',
+              'barcode': 'RM-02',
+              'item_code': 'RM-2',
+              'item_name': 'Rulon 2',
+              'item_group': 'Rulon',
+            },
+          ],
+          'start_assignments': [
+            {
+              'order_id': 'zakaz-1',
+              'apparatus': 'Pechat',
+              'barcode': 'RM-01',
+              'item_code': 'RM-1',
+              'item_name': 'Rulon 1',
+              'item_group': 'Rulon',
+            },
+            {
+              'order_id': 'zakaz-1',
+              'apparatus': 'Pechat',
+              'barcode': 'RM-02',
+              'item_code': 'RM-2',
+              'item_name': 'Rulon 2',
+              'item_group': 'Rulon',
+            },
+          ],
         };
+      case 'GET /v1/mobile/admin/raw-material-assignments?order_id=zakaz-1':
+        body = const [
+          {
+            'order_id': 'zakaz-1',
+            'apparatus': 'Pechat',
+            'barcode': 'RM-001',
+            'item_code': 'KR-1',
+            'item_name': 'Qora kraska',
+            'item_group': 'Kraska',
+          },
+        ];
       case 'POST /v1/mobile/admin/raw-material-assignments':
         if (assignmentErrorCode.isNotEmpty) {
           body = {

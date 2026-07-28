@@ -124,11 +124,13 @@ class _ReadOnlyOrderDetailUiState {
     required this.orderId,
     required this.station,
     required this.materialAssignments,
+    required this.assignedMaterialAssignments,
     required this.confirmedMaterialBarcodes,
     required this.materialRequiredCount,
     required this.materialScannedCount,
     required this.hasMaterialAssignments,
     required this.allMaterialsScanned,
+    required this.showStartMaterials,
     required this.previousStage,
     required this.previousProgressRequired,
     required this.previousProgressReady,
@@ -141,12 +143,18 @@ class _ReadOnlyOrderDetailUiState {
 
   final String orderId;
   final String station;
+
+  /// Backend-selected assignments that participate in the start policy.
   final List<AdminRawMaterialAssignment> materialAssignments;
+
+  /// Every raw material attached to the order, across apparatus.
+  final List<AdminRawMaterialAssignment> assignedMaterialAssignments;
   final Set<String> confirmedMaterialBarcodes;
   final int materialRequiredCount;
   final int materialScannedCount;
   final bool hasMaterialAssignments;
   final bool allMaterialsScanned;
+  final bool showStartMaterials;
   final String? previousStage;
   final bool previousProgressRequired;
   final bool previousProgressReady;

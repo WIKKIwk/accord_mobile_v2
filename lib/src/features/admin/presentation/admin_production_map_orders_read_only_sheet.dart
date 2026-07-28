@@ -49,6 +49,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   late Map<String, AdminOrderControlState> _orderControls;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _controlLiveSubscription;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
+  List<AdminRawMaterialAssignment> _startAssignments = const [];
   AdminRawMaterialStartRequirements? _materialStartRequirements;
   List<AdminProgressBatch> _availableInputProgressBatches = const [];
   final Set<String> _scannedMaterialBarcodes = {};
@@ -69,6 +70,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   String _materialsError = '';
   bool _inputProgressLoading = false;
   String _inputProgressError = '';
+  bool _startMaterialsExpanded = false;
   bool _materialsExpanded = false;
   bool _qolipsExpanded = false;
   bool _mapExpanded = false;
@@ -144,6 +146,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _qolipRequirementsLoading = false;
       _qolipRequirementsError = '';
       _materialsExpanded = false;
+      _startMaterialsExpanded = false;
       _qolipsExpanded = false;
       _quickScanStatus = 'Qolip yoki homashyo QR kodini tirqishga olib keling';
       _materialIntakeMode = false;
@@ -187,38 +190,40 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       });
     }
     try {
-      final results = await Future.wait<Object>([
-        MobileApi.instance.adminRawMaterialAssignments(),
-        if (apparatus.isNotEmpty)
-          MobileApi.instance.adminRawMaterialStartRequirements(
-            orderId: orderId,
-            apparatus: apparatus,
-          )
-        else
-          Future.value(const AdminRawMaterialStartRequirements()),
-      ]);
+      late final List<AdminRawMaterialAssignment> assignments;
+      var startAssignments = const <AdminRawMaterialAssignment>[];
+      AdminRawMaterialStartRequirements? requirements;
+      if (apparatus.isEmpty) {
+        assignments = await MobileApi.instance.adminRawMaterialAssignments(
+          orderId: orderId,
+        );
+      } else {
+        requirements =
+            await MobileApi.instance.adminRawMaterialStartRequirements(
+          orderId: orderId,
+          apparatus: apparatus,
+          materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
+        );
+        assignments = requirements.assignments;
+        startAssignments = requirements.startAssignments;
+      }
       if (!mounted ||
           widget.order.map.id.trim() != orderId ||
           (widget.apparatus?.name.trim() ?? '') != apparatus) {
         return false;
       }
-      final assignments = results[0] as List<AdminRawMaterialAssignment>;
-      final requirements = results[1] as AdminRawMaterialStartRequirements;
-      final stationAssignments = _stationMaterialAssignments(
-        assignments: assignments,
-        orderId: orderId,
-        station: apparatus,
-      );
-      final eligibleBarcodes = requirements
-          .eligibleAssignments(stationAssignments)
+      final eligibleBarcodes = requirements?.startAssignments
           .map((assignment) => _materialBarcodeKey(assignment.barcode))
           .toSet();
       setState(() {
         _materialAssignments = assignments;
+        _startAssignments = startAssignments;
         _materialStartRequirements = requirements;
-        _scannedMaterialBarcodes.removeWhere(
-          (barcode) => !eligibleBarcodes.contains(barcode),
-        );
+        if (eligibleBarcodes != null) {
+          _scannedMaterialBarcodes.removeWhere(
+            (barcode) => !eligibleBarcodes.contains(barcode),
+          );
+        }
         _materialsLoading = false;
         _materialsError = '';
       });
@@ -229,6 +234,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       setState(() {
         _materialAssignments = const [];
+        _startAssignments = const [];
         _materialStartRequirements = null;
         _materialsLoading = false;
         _materialsError = error is MobileApiException
@@ -239,15 +245,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  List<AdminRawMaterialAssignment> _eligibleStationMaterialAssignments() {
-    final requirements = _materialStartRequirements;
-    if (requirements == null) return const [];
-    final assignments = _stationMaterialAssignments(
-      assignments: _materialAssignments,
-      orderId: widget.order.map.id.trim(),
-      station: widget.apparatus?.name.trim() ?? '',
-    );
-    return requirements.eligibleAssignments(assignments);
+  List<AdminRawMaterialAssignment> _startMaterialAssignments() {
+    if (_materialStartRequirements == null) return const [];
+    return _startAssignments;
   }
 
   Future<void> _loadQolipRequirements() async {
@@ -366,7 +366,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       order: widget.order,
       onQueueAction: widget.onQueueAction,
       actionInFlight: _actionInFlight,
-      materialAssignments: _materialAssignments,
+      materialAssignments: _startAssignments,
       materialRequirements: _materialStartRequirements,
       materialsLoading: _materialsLoading,
       materialsError: _materialsError,
@@ -572,7 +572,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (!mounted) return;
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.name.trim() ?? '';
-      final assignments = _eligibleStationMaterialAssignments();
+      final assignments = _startMaterialAssignments();
       final material = _materialAssignmentForScannedBarcode(
         assignments: assignments,
         barcode: normalized,
@@ -583,12 +583,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         if (!alreadyScanned && mounted) {
           setState(() => _scannedMaterialBarcodes.add(key));
         }
+        await _loadMaterialAssignments(showLoading: false);
         if (mounted) {
-          final complete = _materialScanCompleted(
-            assignments: assignments,
-            scannedBarcodes: _scannedMaterialBarcodes,
-            requirements: _materialStartRequirements!,
-          );
+          final complete = _materialStartRequirements?.scanSatisfied == true;
           setState(() {
             _quickScanStatus = complete
                 ? 'Ish boshlash uchun homashyolar tasdiqlandi'
@@ -782,7 +779,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return;
     }
     final requirements = _materialStartRequirements;
-    final materialAssignments = _eligibleStationMaterialAssignments();
+    final materialAssignments = _startMaterialAssignments();
     if (requirements == null || materialAssignments.isEmpty) {
       return;
     }
@@ -801,11 +798,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     setState(() {
       _scannedMaterialBarcodes.add(_materialBarcodeKey(match.barcode));
     });
-    if (_materialScanCompleted(
-      assignments: materialAssignments,
-      scannedBarcodes: _scannedMaterialBarcodes,
-      requirements: requirements,
-    )) {
+    await _loadMaterialAssignments(showLoading: false);
+    if (mounted && _materialStartRequirements?.scanSatisfied == true) {
       _showSheetNotice('Ish boshlash uchun homashyolar tasdiqlandi');
     }
   }
@@ -979,6 +973,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       queueStates: _queueStates,
       queueStatesByApparatus: widget.queueStatesByApparatus,
       materialAssignments: _materialAssignments,
+      startMaterialAssignments: _startAssignments,
       materialRequirements: _materialStartRequirements,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,
@@ -1022,6 +1017,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       qolipCodes: _scannedQolipCodes.values.toList(growable: false),
       requiredQolips: _requiredQolips.values.toList(growable: false),
       qolipRequirementsStatusText: _qolipRequirementsStatusText,
+      startMaterialsExpanded: _startMaterialsExpanded,
+      onToggleStartMaterialsExpanded: () {
+        setState(() => _startMaterialsExpanded = !_startMaterialsExpanded);
+      },
       materialsExpanded: _materialsExpanded,
       onToggleMaterialsExpanded: () {
         setState(() => _materialsExpanded = !_materialsExpanded);

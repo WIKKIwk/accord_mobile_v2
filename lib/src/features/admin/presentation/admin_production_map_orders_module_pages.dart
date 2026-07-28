@@ -85,6 +85,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.onInfoOrder,
+    required this.onInfoSequenceOrder,
     required this.onLongPressOrder,
   });
 
@@ -134,6 +135,10 @@ class _AdminModulesBody extends StatelessWidget {
     required AdminApparatus to,
   }) onMove;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
+  final void Function({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) onInfoSequenceOrder;
   final Map<String, String> customerNameByMapId;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
@@ -204,7 +209,10 @@ class _AdminModulesBody extends StatelessWidget {
                             ),
                       orderStatusesByOrderId: orderStatusesByOrderId,
                       orderControlsByOrderId: orderControlsByOrderId,
-                      onInfoOrder: onInfoOrder,
+                      onInfoOrder: (order) => onInfoSequenceOrder(
+                        apparatus: selectedApparatus!,
+                        order: order,
+                      ),
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(

@@ -727,6 +727,7 @@ class _AdminProductionMapOrdersScreenState
                       },
                       onMove: _moveOrdersBetweenApparatus,
                       onInfoOrder: _showOrderDetail,
+                      onInfoSequenceOrder: _showWatchOrderDetail,
                       customerNameByMapId: _customerByMapId,
                       queueStatesByApparatus: _queueStatesByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,

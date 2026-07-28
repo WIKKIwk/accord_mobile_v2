@@ -482,6 +482,7 @@ class QolipProduct {
     required this.itemGroup,
     this.customerNames = const [],
     this.qolipCode = '',
+    this.firstQolipCode = '',
     this.qolipSize = 0,
     this.qolipColor = '',
     this.hasQolipSpec = false,
@@ -493,6 +494,7 @@ class QolipProduct {
   final String itemGroup;
   final List<String> customerNames;
   final String qolipCode;
+  final String firstQolipCode;
   final int qolipSize;
   final String qolipColor;
   final bool hasQolipSpec;
@@ -508,6 +510,7 @@ class QolipProduct {
           .where((item) => item.isNotEmpty)
           .toList(growable: false),
       qolipCode: json['qolip_code']?.toString() ?? '',
+      firstQolipCode: json['first_qolip_code']?.toString() ?? '',
       qolipSize: (json['size'] as num?)?.toInt() ?? 0,
       qolipColor: json['color']?.toString() ?? '',
       hasQolipSpec: json['has_qolip_spec'] == true,

@@ -16,30 +16,6 @@ Map<String, String> _queueStatesForStation(
   return const {};
 }
 
-List<AdminRawMaterialAssignment> _stationMaterialAssignments({
-  required List<AdminRawMaterialAssignment> assignments,
-  required String orderId,
-  required String station,
-}) {
-  final result = assignments.where((assignment) {
-    if (assignment.orderId.trim() != orderId) {
-      return false;
-    }
-    if (station.isEmpty) {
-      return true;
-    }
-    return productionMapWarehouseTitlesMatch(assignment.apparatus, station);
-  }).toList();
-  result.sort((left, right) {
-    final leftTitle =
-        left.itemName.trim().isEmpty ? left.itemCode : left.itemName;
-    final rightTitle =
-        right.itemName.trim().isEmpty ? right.itemCode : right.itemName;
-    return leftTitle.toLowerCase().compareTo(rightTitle.toLowerCase());
-  });
-  return result;
-}
-
 class _RawMaterialBalance {
   const _RawMaterialBalance({
     required this.uom,
@@ -146,17 +122,6 @@ Future<_MaterialScanResult?> _scanMaterialAssignmentFromDialog({
       assignments: assignments,
       barcode: barcode,
     ),
-  );
-}
-
-bool _materialScanCompleted({
-  required List<AdminRawMaterialAssignment> assignments,
-  required Set<String> scannedBarcodes,
-  required AdminRawMaterialStartRequirements requirements,
-}) {
-  return requirements.scansSatisfy(
-    assignments: assignments,
-    scannedBarcodes: scannedBarcodes,
   );
 }
 
@@ -338,11 +303,9 @@ bool _apparatusRequiresQolipScan(String apparatus) {
 
 String? _queueActionStartBlockReason({
   required String action,
-  required List<AdminRawMaterialAssignment> materialAssignments,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required bool materialsLoading,
   required String materialsError,
-  required Set<String> scannedMaterialBarcodes,
   required ProductionMapDefinition map,
   required String station,
   required AdminProgressBatch? startInputProgressBatch,
@@ -364,16 +327,16 @@ String? _queueActionStartBlockReason({
       materialRequirements.normalizedAssignedBarcodes.isEmpty) {
     return 'Ish boshlash uchun homashyo biriktirilmagan';
   }
+  if (!materialRequirements.assignmentsSatisfied) {
+    return 'Majburiy homashyo guruhlari to‘liq biriktirilmagan';
+  }
   if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
       materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
       materialRequirements.normalizedStagedBarcodes.isEmpty) {
     return 'Apparat oldiga homashyo olib kelinmagan';
   }
   if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
-      !materialRequirements.scansSatisfy(
-        assignments: materialAssignments,
-        scannedBarcodes: scannedMaterialBarcodes,
-      )) {
+      !materialRequirements.scanSatisfied) {
     return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
         ? 'Avval state’dagi barcha homashyolarni QR scan qiling'
         : 'Avval har bir majburiy guruhdan minimum homashyo QR scan qiling';
@@ -424,16 +387,10 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
   }
-  final orderId = order.map.id.trim();
   final station = apparatus.name.trim();
-  final allStationMaterialAssignments = _stationMaterialAssignments(
-    assignments: materialAssignments,
-    orderId: orderId,
-    station: station,
-  );
-  final stationMaterialAssignments = materialRequirements
-          ?.eligibleAssignments(allStationMaterialAssignments) ??
-      const <AdminRawMaterialAssignment>[];
+  final stationMaterialAssignments = materialRequirements == null
+      ? const <AdminRawMaterialAssignment>[]
+      : materialAssignments;
   final inputProgressBatch = action == 'start' ? startInputProgressBatch : null;
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
@@ -445,11 +402,9 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
     startInputProgressBatch: inputProgressBatch,
     blockReason: _queueActionStartBlockReason(
       action: action,
-      materialAssignments: stationMaterialAssignments,
       materialRequirements: materialRequirements,
       materialsLoading: materialsLoading,
       materialsError: materialsError,
-      scannedMaterialBarcodes: scannedMaterialBarcodes,
       map: order.map,
       station: station,
       startInputProgressBatch: inputProgressBatch,
@@ -465,6 +420,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required Map<String, String> queueStates,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
+  required List<AdminRawMaterialAssignment> startMaterialAssignments,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
@@ -479,44 +435,23 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
   final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
-  final allStationMaterialAssignments = _stationMaterialAssignments(
-    assignments: materialAssignments,
-    orderId: orderId,
-    station: station,
-  );
-  final stationMaterialAssignments = materialRequirements
-          ?.eligibleAssignments(allStationMaterialAssignments) ??
-      const <AdminRawMaterialAssignment>[];
-  final allMaterialsScanned = materialRequirements?.scansSatisfy(
-        assignments: stationMaterialAssignments,
-        scannedBarcodes: scannedMaterialBarcodes,
-      ) ??
-      false;
+  final stationMaterialAssignments = materialRequirements == null
+      ? const <AdminRawMaterialAssignment>[]
+      : startMaterialAssignments;
   final confirmedMaterialBarcodes = _confirmedMaterialBarcodes(
     assignments: stationMaterialAssignments,
     scannedBarcodes: scannedMaterialBarcodes,
     orderId: orderId,
   );
+  final allMaterialsScanned = materialRequirements?.scanSatisfied ?? true;
   final materialRequiredCount = materialRequirements == null
       ? 0
       : materialRequirements.normalizedAssignedBarcodes.isEmpty &&
               !materialRequirements.requiresMaterial
           ? 0
           : materialRequirements.requiredScanCount;
-  final materialScannedCount = materialRequirements == null
-      ? 0
-      : switch (materialRequirements.policy) {
-          AdminRawMaterialStartPolicy.stateAll => confirmedMaterialBarcodes
-              .where(
-                materialRequirements.normalizedStagedBarcodes.contains,
-              )
-              .length,
-          AdminRawMaterialStartPolicy.requirementGroups =>
-            materialRequirements.matchedRequirementCount(
-              assignments: stationMaterialAssignments,
-              scannedBarcodes: confirmedMaterialBarcodes,
-            ),
-        };
+  final materialScannedCount =
+      materialRequirements == null ? 0 : materialRequirements.matchedScanCount;
   final previousStage = station.isEmpty
       ? null
       : productionMapPreviousWorkStageStation(map: map, station: station);
@@ -562,13 +497,16 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     orderId: orderId,
     station: station,
     materialAssignments: stationMaterialAssignments,
+    assignedMaterialAssignments: materialAssignments,
     confirmedMaterialBarcodes: confirmedMaterialBarcodes,
     materialRequiredCount: materialRequiredCount,
     materialScannedCount: materialScannedCount,
-    hasMaterialAssignments: materialRequirements == null ||
-        materialRequirements.requiresMaterial ||
-        allStationMaterialAssignments.isNotEmpty,
+    hasMaterialAssignments: materialRequirements == null
+        ? stationMaterialAssignments.isNotEmpty
+        : materialRequirements.requiresMaterial ||
+            materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
+    showStartMaterials: materialRequirements != null,
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady:
