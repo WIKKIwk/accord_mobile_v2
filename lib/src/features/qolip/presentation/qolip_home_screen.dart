@@ -20,6 +20,7 @@ import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../qolip_code_suggestion.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
@@ -3508,6 +3509,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     _selectedProducts = widget.initialProduct == null
         ? const <QolipProduct>[]
         : <QolipProduct>[widget.initialProduct!];
+    if (widget.mode == _QolipAttachMode.productSpec && _product != null) {
+      _applyQolipCodeSuggestion(_product!);
+    }
     _rowLetter = widget.initialRowLetter;
     _columnNumber = widget.initialColumnNumber;
     _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
@@ -3565,6 +3569,17 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     return _productsFuture ??= MobileApi.instance.qolipProducts(
       limit: 20000,
       withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
+    );
+  }
+
+  void _applyQolipCodeSuggestion(QolipProduct product) {
+    final rememberedCode = product.firstQolipCode.trim().isEmpty
+        ? product.qolipCode
+        : product.firstQolipCode;
+    final suggestion = qolipCodePrefixSuggestion(rememberedCode);
+    _qolipCode.value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
     );
   }
 
@@ -3658,9 +3673,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       setState(() {
         _product = picked.products.isEmpty ? null : picked.products.first;
         _selectedProducts = picked.products;
-        if (widget.mode == _QolipAttachMode.productSpec &&
-            _product?.hasQolipSpec == true) {
-          _qolipCode.text = _product!.qolipCode;
+        if (widget.mode == _QolipAttachMode.productSpec && _product != null) {
+          _applyQolipCodeSuggestion(_product!);
           _size.text = _product!.qolipSize > 0 ? '${_product!.qolipSize}' : '';
           _selectedColor = _product!.qolipColor.trim().isEmpty
               ? null

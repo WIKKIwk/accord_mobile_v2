@@ -2,6 +2,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/qolip/qolip_code_suggestion.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -77,6 +78,8 @@ void main() {
       'Q-FREE',
       'Q-PRODUCT',
       'Q-COLOR',
+      'Z-TEMPLATE-7',
+      'A-TEMPLATE-2',
     ]);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
@@ -175,6 +178,65 @@ void main() {
 
     expect(products, isNotEmpty);
     expect(products.every((product) => product.name == 'Hotlunch'), isTrue);
+  });
+
+  testWidgets('plus suggests the remembered first qolip code prefix', (
+    tester,
+  ) async {
+    const product = QolipProduct(
+      code: 'DEMO-PREFIX',
+      name: 'Prefix mahsulot',
+      itemGroup: 'Demo tayyor mahsulotlar',
+    );
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: product,
+      qolipCode: 'Z-TEMPLATE-7',
+      size: 42,
+    );
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: product,
+      qolipCode: 'A-TEMPLATE-2',
+      size: 42,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const QolipProductsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Prefix mahsulot'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Qolip qo‘shish'));
+    await tester.pumpAndSettle();
+
+    final codeField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Qolip code',
+      ),
+    );
+    expect(codeField.controller?.text, 'Z-TEMPLATE-');
+    expect(codeField.controller?.selection.baseOffset, 'Z-TEMPLATE-'.length);
+    Navigator.of(tester.element(find.text('Qolipni omborga biriktirish')))
+        .pop();
+    await tester.pumpAndSettle();
+  });
+
+  test('qolip code suggestion removes only one trailing digit', () {
+    expect(qolipCodePrefixSuggestion('ABC-1234'), 'ABC-123');
+    expect(qolipCodePrefixSuggestion('ABC-X'), isEmpty);
+    expect(qolipCodePrefixSuggestion('7'), isEmpty);
   });
 
   test('qolip color is saved and returned with the product', () async {

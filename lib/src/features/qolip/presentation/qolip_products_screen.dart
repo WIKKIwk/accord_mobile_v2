@@ -676,6 +676,9 @@ class QolipProductContainer {
       name: name,
       itemGroup: itemGroup,
       customerNames: first.customerNames,
+      firstQolipCode: first.firstQolipCode.trim().isEmpty
+          ? first.qolipCode
+          : first.firstQolipCode,
     );
   }
 

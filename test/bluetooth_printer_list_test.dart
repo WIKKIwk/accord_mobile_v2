@@ -59,6 +59,64 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+
+  testWidgets('starts a fresh iOS discovery after the picker is reopened',
+      (tester) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final eventSinks = <MockStreamHandlerEventSink>[];
+
+    try {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockStreamHandler(
+        discoveryChannel,
+        MockStreamHandler.inline(
+          onListen: (_, sink) {
+            eventSinks.add(sink);
+          },
+        ),
+      );
+
+      Future<void> openPicker() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: BluetoothPrinterList(
+                key: UniqueKey(),
+                onSelected: _ignoreSelection,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await openPicker();
+      expect(eventSinks, hasLength(1));
+      eventSinks.first.success(<String, Object?>{
+        'type': 'printer',
+        'name': 'XP-P323B',
+        'address': 'ios-printer-1',
+      });
+      await tester.pump();
+      expect(find.text('ios-printer-1'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await openPicker();
+
+      expect(eventSinks, hasLength(2));
+      eventSinks.last.success(<String, Object?>{
+        'type': 'printer',
+        'name': 'XP-P323B',
+        'address': 'ios-printer-1',
+      });
+      await tester.pump();
+      expect(find.text('ios-printer-1'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
 }
 
 void _ignoreSelection(BluetoothPrinterProfile printer) {}

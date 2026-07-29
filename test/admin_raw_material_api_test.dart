@@ -232,6 +232,10 @@ void main() {
       'insufficient_stock': 'Bu qolip omborda qolmagan',
       'qolip_scan_incomplete':
           'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
+      'returned_paint_astatka_exceeds_rasxot':
+          'Astatka Rasxotdan katta bo‘lishi mumkin emas',
+      'astatka cannot exceed rasxot':
+          'Astatka Rasxotdan katta bo‘lishi mumkin emas',
     };
 
     for (final entry in expectedMessages.entries) {

@@ -19,6 +19,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private var scanWorkItem: DispatchWorkItem?
   private var discoveryEventSink: FlutterEventSink?
   private var discoveryWorkItem: DispatchWorkItem?
+  private var activeDiscoverySession: Int64?
 
   private var printJob: PrintJob?
   private var printWorkItem: DispatchWorkItem?
@@ -64,18 +65,29 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     withArguments arguments: Any?,
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
+    let session = discoverySession(from: arguments)
     DispatchQueue.main.async { [weak self] in
       guard let self else {
         return
       }
+      self.activeDiscoverySession = session
       self.discoveryEventSink = events
       self.discoveredPeripherals.removeAll(keepingCapacity: true)
       self.discoveryWorkItem?.cancel()
-      self.bleManager.stopScan()
-      self.bleManager.startScan()
+
+      if self.bleManager.isConnected,
+         let connectedPeripheral = self.bleManager.writePeripheral,
+         self.isXpP323b(self.printerName(connectedPeripheral)) {
+        self.handleDiscoveredPrinter(connectedPeripheral)
+      }
+
+      if self.printJob == nil {
+        self.bleManager.stopScan()
+        self.bleManager.startScan()
+      }
 
       let workItem = DispatchWorkItem { [weak self] in
-        self?.finishDiscoveryStream()
+        self?.finishDiscoveryStream(session: session)
       }
       self.discoveryWorkItem = workItem
       DispatchQueue.main.asyncAfter(
@@ -87,11 +99,18 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    let session = discoverySession(from: arguments)
     DispatchQueue.main.async { [weak self] in
-      self?.discoveryEventSink = nil
-      self?.discoveryWorkItem?.cancel()
-      self?.discoveryWorkItem = nil
-      self?.bleManager.stopScan()
+      guard let self, self.activeDiscoverySession == session else {
+        return
+      }
+      self.activeDiscoverySession = nil
+      self.discoveryEventSink = nil
+      self.discoveryWorkItem?.cancel()
+      self.discoveryWorkItem = nil
+      if self.printJob == nil {
+        self.bleManager.stopScan()
+      }
     }
     return nil
   }
@@ -157,12 +176,15 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     result(printers)
   }
 
-  private func finishDiscoveryStream() {
-    guard let eventSink = discoveryEventSink else {
+  private func finishDiscoveryStream(session: Int64) {
+    guard activeDiscoverySession == session,
+          let eventSink = discoveryEventSink else {
       return
     }
     discoveryWorkItem = nil
-    bleManager.stopScan()
+    if printJob == nil {
+      bleManager.stopScan()
+    }
     eventSink(["type": "complete"])
   }
 
@@ -647,6 +669,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
   private func normalize(_ value: String) -> String {
     value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+  }
+
+  private func discoverySession(from arguments: Any?) -> Int64 {
+    (arguments as? NSNumber)?.int64Value ?? 0
   }
 
   private func string(_ value: Any?) -> String {

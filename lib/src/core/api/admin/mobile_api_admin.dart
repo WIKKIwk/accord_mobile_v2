@@ -2364,6 +2364,10 @@ MobileApiException _adminProductionMapException(
         'Rezka uchun barcha majburiy fieldlarni kiriting',
       'zero_metric_explanation_required' =>
         '0 qiymat kiritilganda sababini yozing',
+      'returned_paint_astatka_exceeds_rasxot' =>
+        'Astatka Rasxotdan katta bo‘lishi mumkin emas',
+      'astatka cannot exceed rasxot' =>
+        'Astatka Rasxotdan katta bo‘lishi mumkin emas',
       'raw_material_scan_required' =>
         'Ishni boshlash uchun biriktirilgan homashyoni skaner qiling',
       'raw_material_state_not_ready' =>

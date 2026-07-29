@@ -2,6 +2,7 @@ part of '../mobile_api.dart';
 
 final List<QolipLocationEntry> _testModeQolipLocations = [];
 final Map<String, QolipProduct> _testModeQolipSpecs = {};
+final Map<String, String> _testModeFirstQolipCodes = {};
 final List<QolipCheckoutEntry> _testModeQolipCheckouts = [];
 final List<QolipBlock> _testModeQolipBlocks = [
   const QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
@@ -273,6 +274,9 @@ extension MobileApiQolip on MobileApi {
                   item.code.trim().toLowerCase(),
             )
             .toList(growable: false);
+        final firstQolipCode =
+            _testModeFirstQolipCodes[item.code.trim().toLowerCase()] ??
+                (specs.isEmpty ? '' : specs.first.qolipCode);
         if (withQolipOnly && specs.isEmpty) {
           continue;
         }
@@ -289,6 +293,7 @@ extension MobileApiQolip on MobileApi {
                 name: item.name,
                 itemGroup: item.itemGroup,
                 customerNames: item.customerNames,
+                firstQolipCode: firstQolipCode,
               ),
             );
           }
@@ -317,6 +322,7 @@ extension MobileApiQolip on MobileApi {
               itemGroup: spec.itemGroup,
               customerNames: item.customerNames,
               qolipCode: spec.qolipCode,
+              firstQolipCode: firstQolipCode,
               qolipSize: spec.qolipSize,
               qolipColor: spec.qolipColor,
               hasQolipSpec: spec.hasQolipSpec,
@@ -353,6 +359,9 @@ extension MobileApiQolip on MobileApi {
             itemGroup: spec.itemGroup,
             customerNames: spec.customerNames,
             qolipCode: spec.qolipCode,
+            firstQolipCode:
+                _testModeFirstQolipCodes[spec.code.trim().toLowerCase()] ??
+                    spec.qolipCode,
             qolipSize: spec.qolipSize,
             qolipColor: spec.qolipColor,
             hasQolipSpec: spec.hasQolipSpec,
@@ -388,6 +397,9 @@ extension MobileApiQolip on MobileApi {
           itemGroup: catalogProduct?.itemGroup ?? '',
           customerNames: catalogProduct?.customerNames ?? const [],
           qolipCode: location.qolipCode,
+          firstQolipCode: _testModeFirstQolipCodes[
+                  location.itemCode.trim().toLowerCase()] ??
+              location.qolipCode,
           qolipSize: location.size,
           qolipColor: _testModeQolipSpecs[qolipKey]?.qolipColor ?? '',
           hasQolipSpec: true,
@@ -585,17 +597,36 @@ extension MobileApiQolip on MobileApi {
     String qolipColor = '',
     String? previousQolipCode,
   }) async {
-    final saved = QolipProduct(
+    var saved = QolipProduct(
       code: product.code.trim(),
       name: product.name.trim(),
       itemGroup: product.itemGroup.trim(),
       customerNames: product.customerNames,
       qolipCode: qolipCode.trim(),
+      firstQolipCode: product.firstQolipCode.trim().isEmpty
+          ? qolipCode.trim()
+          : product.firstQolipCode.trim(),
       qolipSize: size,
       qolipColor: qolipColor.trim(),
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
+      final itemKey = saved.code.trim().toLowerCase();
+      final firstQolipCode = _testModeFirstQolipCodes.putIfAbsent(
+        itemKey,
+        () => saved.firstQolipCode,
+      );
+      saved = QolipProduct(
+        code: saved.code,
+        name: saved.name,
+        itemGroup: saved.itemGroup,
+        customerNames: saved.customerNames,
+        qolipCode: saved.qolipCode,
+        firstQolipCode: firstQolipCode,
+        qolipSize: saved.qolipSize,
+        qolipColor: saved.qolipColor,
+        hasQolipSpec: saved.hasQolipSpec,
+      );
       final previous = previousQolipCode?.trim().toLowerCase() ?? '';
       final next = saved.qolipCode.trim().toLowerCase();
       if (previous.isEmpty && _testModeQolipSpecs.containsKey(next)) {

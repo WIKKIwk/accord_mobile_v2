@@ -107,6 +107,28 @@ void main() {
     expect(events.last.completed, isTrue);
   });
 
+  test('uses a new native discovery session for every scan', () async {
+    final sessions = <Object?>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockStreamHandler(
+      discoveryChannel,
+      MockStreamHandler.inline(
+        onListen: (arguments, events) {
+          sessions.add(arguments);
+          events.success(<String, Object?>{'type': 'complete'});
+        },
+      ),
+    );
+
+    await NativeBluetoothPrinter.discoverPrinters().first;
+    await NativeBluetoothPrinter.discoverPrinters().first;
+
+    expect(sessions, hasLength(2));
+    expect(sessions[0], isA<int>());
+    expect(sessions[1], isA<int>());
+    expect(sessions[1], isNot(sessions[0]));
+  });
+
   test('maps Bluetooth to the unchanged backend client-print contract', () {
     expect(PrintTransport.bluetooth.isLocal, isTrue);
     expect(PrintTransport.bluetooth.clientApiValue, 'offline');

@@ -11,6 +11,7 @@ class NativeBluetoothPrinter {
   static const EventChannel _discoveryChannel = EventChannel(
     'accord/bluetooth_printer/discovery',
   );
+  static int _discoverySession = 0;
 
   static Future<List<BluetoothPrinterProfile>> pairedPrinters() async {
     final raw = await _channel.invokeListMethod<Object?>('pairedPrinters');
@@ -26,7 +27,8 @@ class NativeBluetoothPrinter {
   }
 
   static Stream<BluetoothPrinterScanEvent> discoverPrinters() {
-    return _discoveryChannel.receiveBroadcastStream().map(
+    final session = ++_discoverySession;
+    return _discoveryChannel.receiveBroadcastStream(session).map(
           BluetoothPrinterScanEvent.fromMap,
         );
   }
