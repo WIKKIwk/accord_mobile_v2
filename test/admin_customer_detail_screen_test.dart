@@ -1,11 +1,84 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_customer_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_dock.dart';
+import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('customer detail shows direct chat action', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminCustomerDetailScreen(
+          customerRef: 'CUSTOMER-001',
+          chatTarget: const ChatDirectoryEntry(
+            role: UserRole.customer,
+            ref: 'CUSTOMER-001',
+            displayName: 'Customer',
+            avatarUrl: '',
+          ),
+          detailLoader: (_) async => const AdminCustomerDetail(
+            ref: 'CUSTOMER-001',
+            name: 'Customer',
+            phone: '+998901234567',
+            avatarUrl: '',
+            code: '',
+            codeLocked: false,
+            codeRetryAfterSec: 0,
+            assignedItems: [],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('admin-customer-detail-chat-action')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('material detail shows direct chat action', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminCustomerDetailScreen(
+          customerRef: 'MAT-001',
+          isMaterialTaminotchi: true,
+          chatTarget: const ChatDirectoryEntry(
+            role: UserRole.materialTaminotchi,
+            ref: 'MAT-001',
+            displayName: 'Materialchi',
+            avatarUrl: '',
+          ),
+          detailLoader: (_) async => const AdminCustomerDetail(
+            ref: 'MAT-001',
+            name: 'Materialchi',
+            phone: '+998901234567',
+            avatarUrl: '',
+            code: '',
+            codeLocked: false,
+            codeRetryAfterSec: 0,
+            assignedItems: [],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('admin-customer-detail-chat-action')),
+      findsOneWidget,
+    );
+    expect(find.text('Xabar yozish'), findsOneWidget);
+  });
 
   testWidgets('admin customer detail renders loaded content', (tester) async {
     await tester.pumpWidget(

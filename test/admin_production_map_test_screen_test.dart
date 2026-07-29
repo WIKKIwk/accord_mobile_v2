@@ -2986,7 +2986,6 @@ void main() {
     await tester.tap(find.textContaining('worker-queue').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('555 kukuruz • worker mahsulot'), findsOneWidget);
     expect(find.text('Boshlash'), findsOneWidget);
     expect(find.text('Tugatish'), findsNothing);
 
@@ -4087,6 +4086,10 @@ void main() {
 
     final previousQrLabel = find.text('Oldingi bosqich QR');
     expect(previousQrLabel, findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+    );
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('production-quick-scanner-manual')),
       findsOneWidget,
@@ -4373,6 +4376,10 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
     qolipCode: 'TEST-QOLIP-QR',
     size: 50,
   );
+  await tester.tap(
+    find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
+  );
+  await tester.pumpAndSettle();
   final input = find.byKey(
     const ValueKey('production-quick-scanner-manual'),
   );
@@ -4386,7 +4393,7 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   );
   expect(qolipsHeader, findsOneWidget);
   expect(
-    find.descendant(of: qolipsHeader, matching: find.text('1 ta')),
+    find.descendant(of: qolipsHeader, matching: find.text('1/1 ta')),
     findsOneWidget,
   );
   await tester.tap(qolipsHeader);

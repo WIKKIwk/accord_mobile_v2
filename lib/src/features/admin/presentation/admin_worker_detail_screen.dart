@@ -14,6 +14,8 @@ import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
+import '../../chat/models/chat_models.dart';
+import '../../chat/presentation/widgets/chat_profile_action_button.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
 import 'widgets/admin_warehouse_assignment_editor.dart';
@@ -30,6 +32,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
     super.key,
     required this.entry,
     this.readOnly = false,
+    this.chatTarget,
     this.detailLoader,
     this.warehousesLoader,
     this.warehouseAssignmentsLoader,
@@ -39,6 +42,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
 
   final AdminUserListEntry entry;
   final bool readOnly;
+  final ChatDirectoryEntry? chatTarget;
   final AdminWorkerDetailLoader? detailLoader;
   final Future<List<AdminWarehouse>> Function()? warehousesLoader;
   final Future<List<AdminWarehouseAssignment>> Function()?
@@ -327,6 +331,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 child: _WorkerProfileExpandableCard(
                   detail: detail,
                   readOnly: widget.readOnly,
+                  chatTarget: widget.chatTarget,
                   warehouseManagementEnabled: _warehouseManagementEnabled,
                   assignedWarehouses: _assignedWarehouses,
                   warehouseEditor: warehouseEditor,
@@ -381,6 +386,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   const _WorkerProfileExpandableCard({
     required this.detail,
     required this.readOnly,
+    required this.chatTarget,
     required this.warehouseManagementEnabled,
     required this.assignedWarehouses,
     required this.warehouseEditor,
@@ -396,6 +402,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
 
   final AdminWorkerDetail detail;
   final bool readOnly;
+  final ChatDirectoryEntry? chatTarget;
   final bool warehouseManagementEnabled;
   final List<String> assignedWarehouses;
   final Widget? warehouseEditor;
@@ -501,6 +508,13 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                       ProfileInfoChip(
                         icon: Icons.warehouse_outlined,
                         label: '${assignedWarehouses.length} ta ombor',
+                      ),
+                    if (chatTarget != null)
+                      ChatProfileActionButton(
+                        key: const ValueKey(
+                          'admin-worker-detail-chat-action',
+                        ),
+                        target: chatTarget!,
                       ),
                   ],
                 ),

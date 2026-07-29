@@ -10,6 +10,7 @@ import '../../models/chat_models.dart';
 import '../../state/chat_audio_playback_controller.dart';
 import '../chat_media_viewer.dart';
 import 'chat_order_freeze_request_card.dart';
+import 'chat_inventory_transfer_request_card.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
@@ -32,6 +33,10 @@ class ChatMessageBubble extends StatelessWidget {
     final freezeRequest = message.orderFreezeRequest;
     if (freezeRequest != null && freezeRequest.isValid) {
       return ChatOrderFreezeRequestCard(data: freezeRequest);
+    }
+    final transferRequest = message.inventoryTransferRequest;
+    if (transferRequest != null && transferRequest.isValid) {
+      return ChatInventoryTransferRequestCard(data: transferRequest);
     }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;

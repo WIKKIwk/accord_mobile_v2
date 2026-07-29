@@ -1,10 +1,55 @@
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('worker detail shows direct chat action', (tester) async {
+    const entry = AdminUserListEntry(
+      id: 'WORKER-001',
+      name: 'Aparatchi',
+      phone: '+998901234567',
+      kind: AdminUserKind.worker,
+      principalRole: UserRole.aparatchi,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminWorkerDetailScreen(
+          entry: entry,
+          chatTarget: const ChatDirectoryEntry(
+            role: UserRole.aparatchi,
+            ref: 'WORKER-001',
+            displayName: 'Aparatchi',
+            avatarUrl: '',
+          ),
+          detailLoader: (_) async => const AdminWorkerDetail(
+            id: 'WORKER-001',
+            name: 'Aparatchi',
+            phone: '+998901234567',
+            avatarUrl: '',
+            level: 'Aparatchi',
+            code: '',
+            codeLocked: false,
+            codeRetryAfterSec: 0,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('admin-worker-detail-chat-action')),
+      findsOneWidget,
+    );
+    expect(find.text('Xabar yozish'), findsOneWidget);
+  });
 
   testWidgets('admin manages warehouses from a qolipchi profile', (
     tester,

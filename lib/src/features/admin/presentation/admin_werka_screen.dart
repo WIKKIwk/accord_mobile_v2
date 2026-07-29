@@ -10,6 +10,8 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
+import '../../chat/models/chat_models.dart';
+import '../../chat/presentation/widgets/chat_profile_action_button.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
 import 'dart:async';
@@ -21,7 +23,9 @@ const double _werkaDetailPanelGap = 4;
 const double _werkaDetailFieldRadius = 14;
 
 class AdminWerkaScreen extends StatefulWidget {
-  const AdminWerkaScreen({super.key});
+  const AdminWerkaScreen({super.key, this.chatTarget});
+
+  final ChatDirectoryEntry? chatTarget;
 
   @override
   State<AdminWerkaScreen> createState() => _AdminWerkaScreenState();
@@ -190,6 +194,7 @@ class _AdminWerkaScreenState extends State<AdminWerkaScreen> {
                   child: _AdminWerkaDetailCard(
                     name: name,
                     phone: phone,
+                    chatTarget: widget.chatTarget,
                     avatarUrl: snapshot.data?.werkaAvatarUrl ?? '',
                     code: werkaCode,
                     retryAfterSec: _retryAfterSec,
@@ -217,6 +222,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
   const _AdminWerkaDetailCard({
     required this.name,
     required this.phone,
+    required this.chatTarget,
     required this.avatarUrl,
     required this.code,
     required this.retryAfterSec,
@@ -231,6 +237,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
 
   final TextEditingController name;
   final TextEditingController phone;
+  final ChatDirectoryEntry? chatTarget;
   final String avatarUrl;
   final String code;
   final int retryAfterSec;
@@ -333,6 +340,11 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                       icon: Icons.warehouse_rounded,
                       label: 'Omborchi',
                     ),
+                    if (chatTarget != null)
+                      ChatProfileActionButton(
+                        key: const ValueKey('admin-werka-detail-chat-action'),
+                        target: chatTarget!,
+                      ),
                   ],
                 ),
               ),

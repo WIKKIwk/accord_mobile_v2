@@ -95,6 +95,7 @@ class ChatMessage {
 
   String get previewText {
     if (orderFreezeRequest != null) return 'Buyurtmani muzlatish so‘rovi';
+    if (inventoryTransferRequest != null) return 'Ombor transferi';
     final caption = body.trim();
     if (caption.isNotEmpty) return caption;
     return switch (attachment?.kind) {
@@ -108,6 +109,11 @@ class ChatMessage {
   OrderFreezeRequestCardData? get orderFreezeRequest {
     if (type != 'order_freeze_request') return null;
     return OrderFreezeRequestCardData.fromJson(metadata);
+  }
+
+  InventoryTransferRequestCardData? get inventoryTransferRequest {
+    if (type != 'inventory_transfer_request') return null;
+    return InventoryTransferRequestCardData.fromJson(metadata);
   }
 
   bool isMine(SessionProfile profile) {
@@ -243,6 +249,110 @@ class OrderFreezeRequestCardData {
   }
 }
 
+class InventoryTransferRequestCardData {
+  const InventoryTransferRequestCardData({
+    required this.eventSequence,
+    required this.transferId,
+    required this.status,
+    required this.sourceWarehouse,
+    required this.destinationWarehouse,
+    required this.note,
+    required this.requesterRole,
+    required this.requesterRef,
+    required this.requesterDisplayName,
+    required this.targetRole,
+    required this.targetRef,
+    required this.targetDisplayName,
+    required this.approvedByName,
+    required this.dispatchedByName,
+    required this.receivedByName,
+    required this.rejectedByName,
+    required this.cancelledByName,
+    required this.createdAtUnix,
+    required this.lines,
+  });
+
+  final int eventSequence;
+  final String transferId;
+  final String status;
+  final String sourceWarehouse;
+  final String destinationWarehouse;
+  final String note;
+  final String requesterRole;
+  final String requesterRef;
+  final String requesterDisplayName;
+  final String targetRole;
+  final String targetRef;
+  final String targetDisplayName;
+  final String approvedByName;
+  final String dispatchedByName;
+  final String receivedByName;
+  final String rejectedByName;
+  final String cancelledByName;
+  final int createdAtUnix;
+  final List<InventoryTransferRequestLine> lines;
+
+  bool get isValid =>
+      transferId.trim().isNotEmpty &&
+      sourceWarehouse.trim().isNotEmpty &&
+      destinationWarehouse.trim().isNotEmpty &&
+      targetRef.trim().isNotEmpty;
+
+  factory InventoryTransferRequestCardData.fromJson(Map<String, dynamic> json) {
+    final rawLines = json['lines'];
+    return InventoryTransferRequestCardData(
+      eventSequence: (json['event_sequence'] as num?)?.toInt() ?? 0,
+      transferId: json['transfer_id']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'requested',
+      sourceWarehouse: json['source_warehouse']?.toString() ?? '',
+      destinationWarehouse: json['destination_warehouse']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      requesterRole: json['requester_role']?.toString() ?? '',
+      requesterRef: json['requester_ref']?.toString() ?? '',
+      requesterDisplayName: json['requester_display_name']?.toString() ?? '',
+      targetRole: json['target_role']?.toString() ?? '',
+      targetRef: json['target_ref']?.toString() ?? '',
+      targetDisplayName: json['target_display_name']?.toString() ?? '',
+      approvedByName: json['approved_by_name']?.toString() ?? '',
+      dispatchedByName: json['dispatched_by_name']?.toString() ?? '',
+      receivedByName: json['received_by_name']?.toString() ?? '',
+      rejectedByName: json['rejected_by_name']?.toString() ?? '',
+      cancelledByName: json['cancelled_by_name']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+      lines: rawLines is List
+          ? rawLines
+              .whereType<Map>()
+              .map(
+                (line) => InventoryTransferRequestLine.fromJson(
+                  line.cast<String, dynamic>(),
+                ),
+              )
+              .toList(growable: false)
+          : const [],
+    );
+  }
+}
+
+class InventoryTransferRequestLine {
+  const InventoryTransferRequestLine({
+    required this.itemName,
+    required this.qty,
+    required this.uom,
+  });
+
+  final String itemName;
+  final double qty;
+  final String uom;
+
+  factory InventoryTransferRequestLine.fromJson(Map<String, dynamic> json) {
+    return InventoryTransferRequestLine(
+      itemName: json['item_name']?.toString() ?? '',
+      qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      uom: json['uom']?.toString() ?? '',
+    );
+  }
+}
+
 class ChatConversation {
   const ChatConversation({
     required this.conversationId,
@@ -265,10 +375,6 @@ class ChatConversation {
   final int updatedAtUnix;
 
   bool get hasMessages => lastMessageSequence > 0 && lastMessage != null;
-
-  bool get isCustomerConversation =>
-      peer?.role == UserRole.customer ||
-      lastMessage?.senderRole == UserRole.customer;
 
   String get displayTitle {
     final peerName = peer?.displayName.trim() ?? '';
@@ -339,7 +445,6 @@ class ChatConversationPage {
           .whereType<Map>()
           .map(
               (item) => ChatConversation.fromJson(item.cast<String, dynamic>()))
-          .where((item) => !item.isCustomerConversation)
           .toList(growable: false),
       hasMore: json['has_more'] == true,
     );
@@ -432,7 +537,6 @@ class ChatDirectoryPage {
           .whereType<Map>()
           .map((item) =>
               ChatDirectoryEntry.fromJson(item.cast<String, dynamic>()))
-          .where((item) => item.role != UserRole.customer)
           .toList(growable: false),
       hasMore: json['has_more'] == true,
     );

@@ -12,6 +12,8 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
+import '../../chat/models/chat_models.dart';
+import '../../chat/presentation/widgets/chat_profile_action_button.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_profile_avatar.dart';
 import 'dart:async';
@@ -27,10 +29,12 @@ class AdminSupplierDetailScreen extends StatefulWidget {
     super.key,
     required this.supplierRef,
     this.readOnly = false,
+    this.chatTarget,
   });
 
   final String supplierRef;
   final bool readOnly;
+  final ChatDirectoryEntry? chatTarget;
 
   @override
   State<AdminSupplierDetailScreen> createState() =>
@@ -237,6 +241,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                     child: _AdminSupplierDetailCard(
                       detail: detail,
                       readOnly: widget.readOnly,
+                      chatTarget: widget.chatTarget,
                       retryAfterSec: _retryAfterSec,
                       expanded: _adminPanelExpanded,
                       savingStatus: _savingStatus,
@@ -275,6 +280,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
   const _AdminSupplierDetailCard({
     required this.detail,
     required this.readOnly,
+    required this.chatTarget,
     required this.retryAfterSec,
     required this.expanded,
     required this.savingStatus,
@@ -293,6 +299,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
 
   final AdminSupplierDetail detail;
   final bool readOnly;
+  final ChatDirectoryEntry? chatTarget;
   final int retryAfterSec;
   final bool expanded;
   final bool savingStatus;
@@ -400,6 +407,13 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                       icon: Icons.inventory_2_rounded,
                       label: '${detail.assignedItems.length} ta mahsulot',
                     ),
+                    if (chatTarget != null)
+                      ChatProfileActionButton(
+                        key: const ValueKey(
+                          'admin-supplier-detail-chat-action',
+                        ),
+                        target: chatTarget!,
+                      ),
                   ],
                 ),
               ),

@@ -54,7 +54,7 @@ void main() {
     expect(find.text('Material ta’minotchisi'), findsWidgets);
     expect(find.text('Tarozilar rejimi'), findsOneWidget);
     expect(find.text('Homashyo biriktirish'), findsOneWidget);
-    expect(find.text('Omborlarim'), findsOneWidget);
+    expect(find.text('Joylashuvlarim'), findsOneWidget);
     expect(find.text('Profil'), findsNothing);
     expect(find.text('Materialchi'), findsNothing);
     expect(find.text('Rulon'), findsNothing);

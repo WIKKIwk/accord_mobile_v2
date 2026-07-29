@@ -274,7 +274,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     } else if (item.kind == AdminUserKind.werka) {
       final result = await Navigator.of(
         context,
-      ).pushNamed(AppRoutes.adminWerka);
+      ).pushNamed(AppRoutes.adminWerka, arguments: item);
       changed = result == true;
     } else if (item.kind == AdminUserKind.customer ||
         item.kind == AdminUserKind.materialTaminotchi) {
@@ -285,7 +285,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     } else {
       final result = await Navigator.of(
         context,
-      ).pushNamed(AppRoutes.adminSupplierDetail, arguments: item.id);
+      ).pushNamed(AppRoutes.adminSupplierDetail, arguments: item);
       changed = result == true;
     }
     if (changed && mounted) {

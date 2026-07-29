@@ -163,7 +163,7 @@ void main() {
     expect(page.hasMore, isFalse);
   });
 
-  test('chat directory and conversations exclude customers', () {
+  test('chat directory and conversations include customers', () {
     final directory = ChatDirectoryPage.fromJson({
       'items': [
         {
@@ -203,8 +203,11 @@ void main() {
       'has_more': false,
     });
 
-    expect(directory.items.map((item) => item.role), [UserRole.admin]);
-    expect(conversations.items, isEmpty);
+    expect(directory.items.map((item) => item.role), [
+      UserRole.customer,
+      UserRole.admin,
+    ]);
+    expect(conversations.items.single.peer?.role, UserRole.customer);
   });
 
   test('sync page preserves durable event cursor and message payload', () {
@@ -335,5 +338,45 @@ void main() {
       page.events.single.message?.orderFreezeRequest?.eventSequence,
       18,
     );
+  });
+
+  test('inventory transfer card keeps the destination recipient binding', () {
+    final message = ChatMessage.fromJson({
+      'message_id': 'message_transfer_1',
+      'conversation_id': 'conversation_1',
+      'sender_principal_id': 'principal_material',
+      'sender_role': 'material_taminotchi',
+      'sender_ref': 'material_1',
+      'sender_display_name': 'Materialchi',
+      'client_message_id': 'inventory-transfer-request:transfer_1',
+      'sequence': 12,
+      'type': 'inventory_transfer_request',
+      'body': 'Ombor transferi',
+      'metadata': {
+        'event_sequence': 21,
+        'transfer_id': 'transfer_1',
+        'status': 'requested',
+        'source_warehouse': 'Asosiy ombor',
+        'destination_warehouse': 'Sex ombori',
+        'requester_role': 'material_taminotchi',
+        'requester_ref': 'material_1',
+        'requester_display_name': 'Materialchi',
+        'target_role': 'werka',
+        'target_ref': 'werka_1',
+        'target_display_name': 'Werka',
+        'lines': [
+          {'item_name': 'Kraska', 'qty': 58, 'uom': 'kg'},
+        ],
+      },
+      'created_at_unix': 100,
+    });
+
+    final request = message.inventoryTransferRequest;
+    expect(request, isNotNull);
+    expect(request?.isValid, isTrue);
+    expect(request?.targetRef, 'werka_1');
+    expect(request?.destinationWarehouse, 'Sex ombori');
+    expect(request?.lines.single.itemName, 'Kraska');
+    expect(message.previewText, 'Ombor transferi');
   });
 }

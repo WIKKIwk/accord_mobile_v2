@@ -9,6 +9,19 @@ final List<QolipBlock> _testModeQolipBlocks = [
   const QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
 ];
 
+void resetMobileApiQolipTestModeData() {
+  _testModeQolipLocations.clear();
+  _testModeQolipSpecs.clear();
+  _testModeFirstQolipCodes.clear();
+  _testModeQolipCheckouts.clear();
+  _testModeQolipBlocks
+    ..clear()
+    ..addAll(const [
+      QolipBlock(name: 'A', warehouse: 'Qolip ombori'),
+      QolipBlock(name: 'B', warehouse: 'Qolip ombori'),
+    ]);
+}
+
 String qolipErrorMessage(
   Object error, {
   String fallback = 'Amal bajarilmadi',

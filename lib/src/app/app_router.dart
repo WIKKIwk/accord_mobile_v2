@@ -616,6 +616,7 @@ class AppRouter {
             itemManagementEnabled: canManageCustomer && !isMaterialTaminotchi,
             removeEnabled: canManageCustomer && !isMaterialTaminotchi,
             isMaterialTaminotchi: isMaterialTaminotchi,
+            chatTarget: _adminChatTarget(entry),
             phoneUpdater: isMaterialTaminotchi
                 ? MobileApi.instance.adminUpdateMaterialTaminotchiPhone
                 : null,
@@ -631,7 +632,13 @@ class AppRouter {
         if (entry == null) {
           return _buildRoute(settings, const AdminSuppliersScreen());
         }
-        return _buildRoute(settings, AdminWorkerDetailScreen(entry: entry));
+        return _buildRoute(
+          settings,
+          AdminWorkerDetailScreen(
+            entry: entry,
+            chatTarget: _adminChatTarget(entry),
+          ),
+        );
       case AppRoutes.adminWorkerProfileDetail:
         final entry = settings.arguments is AdminUserListEntry
             ? settings.arguments as AdminUserListEntry
@@ -671,10 +678,19 @@ class AppRouter {
           const AdminItemCreateScreen(initialTabIndex: 2),
         );
       case AppRoutes.adminSupplierDetail:
-        final String supplierRef = settings.arguments as String;
+        final args = settings.arguments;
+        final entry = args is AdminUserListEntry ? args : null;
+        final supplierRef =
+            entry?.id.trim() ?? (args is String ? args.trim() : '');
+        if (supplierRef.isEmpty) {
+          return _buildRoute(settings, const AdminSuppliersScreen());
+        }
         return _buildRoute(
           settings,
-          AdminSupplierDetailScreen(supplierRef: supplierRef),
+          AdminSupplierDetailScreen(
+            supplierRef: supplierRef,
+            chatTarget: _adminChatTarget(entry),
+          ),
         );
       case AppRoutes.adminSupplierItemsView:
         final String supplierRef = settings.arguments as String;
@@ -689,7 +705,13 @@ class AppRouter {
           AdminSupplierItemsAddScreen(supplierRef: supplierRef),
         );
       case AppRoutes.adminWerka:
-        return _buildRoute(settings, const AdminWerkaScreen());
+        final entry = settings.arguments is AdminUserListEntry
+            ? settings.arguments as AdminUserListEntry
+            : null;
+        return _buildRoute(
+          settings,
+          AdminWerkaScreen(chatTarget: _adminChatTarget(entry)),
+        );
       case AppRoutes.gscaleMode:
         return _buildRoute(settings, const GScaleModeScreen());
       case AppRoutes.qolipHome:
@@ -990,6 +1012,28 @@ class AppRouter {
   static bool _usesAdminPageTransition(String? routeName) {
     return false;
   }
+}
+
+ChatDirectoryEntry? _adminChatTarget(AdminUserListEntry? entry) {
+  if (entry == null) {
+    return null;
+  }
+  final ref = entry.id.trim();
+  if (ref.isEmpty) {
+    return null;
+  }
+  final currentProfile = AppSession.instance.profile;
+  if (currentProfile != null &&
+      currentProfile.role == entry.principalRole &&
+      currentProfile.ref.trim() == ref) {
+    return null;
+  }
+  return ChatDirectoryEntry(
+    role: entry.principalRole,
+    ref: ref,
+    displayName: entry.name,
+    avatarUrl: entry.avatarUrl,
+  );
 }
 
 class _AppMaterialPageRoute<T> extends MaterialPageRoute<T> {

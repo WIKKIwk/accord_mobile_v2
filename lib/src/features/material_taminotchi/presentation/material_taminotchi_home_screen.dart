@@ -59,6 +59,17 @@ class _MaterialTaminotchiHistoryScreenState
     nav.pushReplacementNamed(AppRoutes.materialHome);
   }
 
+  Future<void> _showHistoryDetails(AdminRawMaterialEvent event) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _MaterialHistoryDetailsSheet(event: event),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
@@ -90,6 +101,7 @@ class _MaterialTaminotchiHistoryScreenState
             _MaterialHistoryPanel(
               future: _historyFuture,
               maxItems: 100,
+              onEventTap: (event) => _showHistoryDetails(event),
               onRetry: () {
                 setState(() {
                   _historyFuture = _loadHistory();
@@ -232,11 +244,13 @@ class _MaterialHistoryPanel extends StatelessWidget {
   const _MaterialHistoryPanel({
     required this.future,
     required this.onRetry,
+    required this.onEventTap,
     this.maxItems = 6,
   });
 
   final Future<List<AdminRawMaterialEvent>> future;
   final VoidCallback onRetry;
+  final ValueChanged<AdminRawMaterialEvent> onEventTap;
   final int maxItems;
 
   @override
@@ -279,6 +293,7 @@ class _MaterialHistoryPanel extends StatelessWidget {
                         visible.length,
                       ),
                       event: visible[i],
+                      onTap: () => onEventTap(visible[i]),
                     ),
                 ],
               );
@@ -361,18 +376,16 @@ class _MaterialHistoryMessage extends StatelessWidget {
   }
 }
 
-class _MaterialHistoryCard extends StatefulWidget {
-  const _MaterialHistoryCard({required this.slot, required this.event});
+class _MaterialHistoryCard extends StatelessWidget {
+  const _MaterialHistoryCard({
+    required this.slot,
+    required this.event,
+    required this.onTap,
+  });
 
   final M3SegmentVerticalSlot slot;
   final AdminRawMaterialEvent event;
-
-  @override
-  State<_MaterialHistoryCard> createState() => _MaterialHistoryCardState();
-}
-
-class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
-  bool _expanded = false;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -382,12 +395,12 @@ class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
         ? AppTheme.actionSurface(context)
         : scheme.surfaceContainerLowest;
     return M3SegmentFilledSurface(
-      slot: widget.slot,
-      cornerRadius: widget.slot == M3SegmentVerticalSlot.middle
+      slot: slot,
+      cornerRadius: slot == M3SegmentVerticalSlot.middle
           ? M3SegmentedListGeometry.cornerMiddle
           : M3SegmentedListGeometry.cornerLarge,
       backgroundColor: backgroundColor,
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
         child: Column(
@@ -396,7 +409,7 @@ class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  _materialHistoryIcon(widget.event.eventType),
+                  _materialHistoryIcon(event.eventType),
                   size: 22,
                   color: scheme.primary,
                 ),
@@ -406,7 +419,7 @@ class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _materialHistoryTitle(widget.event),
+                        _materialHistoryTitle(event),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
@@ -415,7 +428,7 @@ class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        _materialHistorySubtitle(widget.event),
+                        _materialHistorySubtitle(event),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -431,46 +444,110 @@ class _MaterialHistoryCardState extends State<_MaterialHistoryCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      _materialHistoryTime(widget.event.occurredAtUnix),
+                      _materialHistoryTime(event.occurredAtUnix),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 3),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 20,
-                        color: scheme.onSurfaceVariant,
-                      ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ],
                 ),
               ],
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _expanded
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 34, top: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final detail
-                              in _materialHistoryDetails(widget.event))
-                            _MaterialHistoryDetailLine(
-                              label: detail.label,
-                              value: detail.value,
-                            ),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialHistoryDetailsSheet extends StatelessWidget {
+  const _MaterialHistoryDetailsSheet({required this.event});
+
+  final AdminRawMaterialEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
             ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _materialHistoryIcon(event.eventType),
+                      color: scheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _materialHistoryTitle(event),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _materialHistorySubtitle(event),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            for (final detail in _materialHistoryDetails(event))
+              _MaterialHistoryDetailLine(
+                label: detail.label,
+                value: detail.value,
+              ),
           ],
         ),
       ),
@@ -748,6 +825,12 @@ List<({String label, String value})> _materialHistoryDetails(
   ].where((value) => value.isNotEmpty).join(' • ');
   add('Bajargan', actor);
   add('Rol', _materialHistoryRoleLabel(event.actorRole));
+  final owner = [
+    event.ownerDisplayName.trim(),
+    event.ownerRef.trim(),
+  ].where((value) => value.isNotEmpty).join(' • ');
+  add('Egasi', owner);
+  add('Egasi roli', _materialHistoryRoleLabel(event.ownerRole));
   add('Manba', _materialHistorySourceLabel(event.sourceType));
   add('Receipt raqami', event.sourceId);
   add('Event ID', event.eventId);

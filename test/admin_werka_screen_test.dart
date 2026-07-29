@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_werka_screen.dart';
+import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,7 +32,16 @@ void main() {
 
   testWidgets('admin werka screen uses profile standard', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: AdminWerkaScreen()),
+      const MaterialApp(
+        home: AdminWerkaScreen(
+          chatTarget: ChatDirectoryEntry(
+            role: UserRole.werka,
+            ref: 'werka',
+            displayName: 'Werka',
+            avatarUrl: '',
+          ),
+        ),
+      ),
     );
 
     await tester.pump();
@@ -42,6 +52,10 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
     expect(find.text('Omborchi profili'), findsOneWidget);
     expect(find.text('Admin boshqaruv'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('admin-werka-detail-chat-action')),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey('admin-werka-detail-admin-toggle')),

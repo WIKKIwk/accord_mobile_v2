@@ -4,6 +4,10 @@ final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
 
+void resetMobileApiCalculateTestModeData() {
+  _testModeCalculateOrderTemplates.clear();
+}
+
 extension MobileApiCalculate on MobileApi {
   Future<CalculateResponse> calculate(CalculateRequest request) async {
     if (await TestModeController.instance.isEnabled()) {

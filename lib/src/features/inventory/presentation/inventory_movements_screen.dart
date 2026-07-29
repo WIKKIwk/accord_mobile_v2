@@ -550,7 +550,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                               emptyMessage: 'Kiruvchi transfer yo‘q',
                               header: _warehouseFilter(),
                               busyKeys: _busyKeys,
-                              actionsFor: _incomingActions,
+                              actionsFor: (_) => const [],
                               onTransferTap: _showTransferDetails,
                               onRefresh: _loadAll,
                             ),
@@ -559,7 +559,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                               emptyMessage: 'Chiquvchi transfer yo‘q',
                               header: _warehouseFilter(),
                               busyKeys: _busyKeys,
-                              actionsFor: _outgoingActions,
+                              actionsFor: (_) => const [],
                               onTransferTap: _showTransferDetails,
                               onRefresh: _loadAll,
                             ),
@@ -738,38 +738,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         assigned.contains(
           transfer.destinationWarehouse.trim().toLowerCase(),
         );
-  }
-
-  List<String> _incomingActions(InventoryTransfer transfer) {
-    final canReceive = _isAdmin ||
-        _assignedWarehouseNames
-            .contains(transfer.destinationWarehouse.trim().toLowerCase());
-    if (!canReceive) {
-      return const [];
-    }
-    if (_managesTransferInternally(transfer) &&
-        transfer.status == InventoryTransferStatus.requested) {
-      return const ['approve'];
-    }
-    return switch (transfer.status) {
-      InventoryTransferStatus.requested => const ['approve', 'reject'],
-      InventoryTransferStatus.inTransit => const ['receive'],
-      _ => const [],
-    };
-  }
-
-  List<String> _outgoingActions(InventoryTransfer transfer) {
-    final canSend = _isAdmin ||
-        _assignedWarehouseNames
-            .contains(transfer.sourceWarehouse.trim().toLowerCase());
-    if (!canSend) {
-      return const [];
-    }
-    return switch (transfer.status) {
-      InventoryTransferStatus.requested => const ['cancel'],
-      InventoryTransferStatus.approved => const ['dispatch', 'cancel'],
-      _ => const [],
-    };
   }
 
   String _transferActionLabel(InventoryTransfer transfer, String action) {

@@ -99,7 +99,7 @@ CalculateOrderTemplate _template({
   String sourceMapId = '',
 }) {
   return CalculateOrderTemplate(
-    id: '',
+    id: code,
     code: code,
     name: name,
     savedAt: DateTime.utc(2026, 7, 2),

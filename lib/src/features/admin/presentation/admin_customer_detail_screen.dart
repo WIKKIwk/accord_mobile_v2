@@ -10,6 +10,8 @@ import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/profile_info_chip.dart';
+import '../../chat/models/chat_models.dart';
+import '../../chat/presentation/widgets/chat_profile_action_button.dart';
 import 'dart:async';
 
 import 'widgets/admin_aparatchi_apparatus_card.dart';
@@ -53,6 +55,7 @@ class AdminCustomerDetailScreen extends StatefulWidget {
     this.itemManagementEnabled = true,
     this.removeEnabled = true,
     this.isMaterialTaminotchi = false,
+    this.chatTarget,
     this.phoneUpdater,
     this.codeRegenerator,
     this.materialItemGroupsLoader,
@@ -72,6 +75,7 @@ class AdminCustomerDetailScreen extends StatefulWidget {
   final bool itemManagementEnabled;
   final bool removeEnabled;
   final bool isMaterialTaminotchi;
+  final ChatDirectoryEntry? chatTarget;
   final Future<AdminCustomerDetail> Function({
     required String ref,
     required String phone,
@@ -524,6 +528,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 itemManagementEnabled: widget.itemManagementEnabled,
                 removeEnabled: widget.removeEnabled,
                 isMaterialTaminotchi: widget.isMaterialTaminotchi,
+                chatTarget: widget.chatTarget,
                 warehouseEditor: materialWarehouseEditor,
                 expanded:
                     widget.customerManagementEnabled && _adminPanelExpanded,
@@ -904,6 +909,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
     required this.itemManagementEnabled,
     required this.removeEnabled,
     required this.isMaterialTaminotchi,
+    required this.chatTarget,
     required this.warehouseEditor,
     required this.expanded,
     required this.savingPhone,
@@ -930,6 +936,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
   final bool itemManagementEnabled;
   final bool removeEnabled;
   final bool isMaterialTaminotchi;
+  final ChatDirectoryEntry? chatTarget;
   final Widget? warehouseEditor;
   final bool expanded;
   final bool savingPhone;
@@ -1045,6 +1052,13 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                       ProfileInfoChip(
                         icon: Icons.shopping_bag_rounded,
                         label: '${detail.assignedItems.length} ta mahsulot',
+                      ),
+                    if (chatTarget != null)
+                      ChatProfileActionButton(
+                        key: const ValueKey(
+                          'admin-customer-detail-chat-action',
+                        ),
+                        target: chatTarget!,
                       ),
                   ],
                 ),

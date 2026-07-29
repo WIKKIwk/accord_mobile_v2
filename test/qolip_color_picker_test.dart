@@ -29,9 +29,9 @@ void main() {
 
     expect(find.byType(QolipColorPicker), findsOneWidget);
     for (final option in qolipDefaultColors) {
-      expect(find.bySemanticsLabel(option.name), findsOneWidget);
+      expect(find.text(option.name), findsOneWidget);
     }
-    expect(find.bySemanticsLabel('Panton 1'), findsOneWidget);
-    expect(find.bySemanticsLabel('Panton 2'), findsNothing);
+    expect(find.text('Panton 1'), findsOneWidget);
+    expect(find.text('Panton 2'), findsNothing);
   });
 }

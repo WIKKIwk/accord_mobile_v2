@@ -116,9 +116,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         ),
       );
     }
-    final entries = store.directory
-        .where((entry) => entry.role != UserRole.customer)
-        .toList(growable: false);
+    final entries = store.directory;
     if (entries.isEmpty) {
       return const Center(child: Text('Foydalanuvchi topilmadi'));
     }
