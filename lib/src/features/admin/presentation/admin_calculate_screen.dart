@@ -644,8 +644,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _requiredNonNegativeNumber(_wastePercent.text),
       _requiredText(_firstMaterial.text),
       _requiredPositiveNumber(_firstMicron.text),
-      _requiredText(_secondMaterial.text),
-      _requiredPositiveNumber(_secondMicron.text),
+      _optionalLayerError(_secondMaterial.text, _secondMicron.text),
+      _optionalLayerError(_thirdMaterial.text, _thirdMicron.text),
       _optionalPositiveInteger(_rollCount.text),
     ];
     if (checks.any((error) => error != null)) {
@@ -856,7 +856,6 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         material: _secondMaterial,
         micron: _secondMicron,
         materialLabel: '2-qavat',
-        required: true,
       ),
       _LayerInputs(
         material: _thirdMaterial,
@@ -1994,7 +1993,11 @@ class _LayerInputs extends StatelessWidget {
           child: _TextInput(
             controller: material,
             label: materialLabel,
-            required: required,
+            validator: required
+                ? _requiredText
+                : (value) => micron.text.trim().isEmpty
+                    ? null
+                    : _requiredText(value),
           ),
         ),
         const SizedBox(width: 10),
@@ -2004,7 +2007,11 @@ class _LayerInputs extends StatelessWidget {
             controller: micron,
             label: 'Mikron',
             suffixText: 'mkr',
-            required: required,
+            validator: required
+                ? _requiredPositiveNumber
+                : (value) => material.text.trim().isEmpty
+                    ? _optionalPositiveNumber(value)
+                    : _requiredPositiveNumber(value),
           ),
         ),
       ],
@@ -2017,6 +2024,7 @@ class _TextInput extends StatelessWidget {
     required this.controller,
     required this.label,
     this.required = false,
+    this.validator,
     this.minLines,
     this.maxLines = 1,
   });
@@ -2024,6 +2032,7 @@ class _TextInput extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final bool required;
+  final FormFieldValidator<String>? validator;
   final int? minLines;
   final int maxLines;
 
@@ -2038,7 +2047,7 @@ class _TextInput extends StatelessWidget {
         textInputAction:
             maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
         decoration: appSurfaceInputDecoration(context, labelText: label),
-        validator: required ? _requiredText : null,
+        validator: validator ?? (required ? _requiredText : null),
       ),
     );
   }
@@ -2051,6 +2060,7 @@ class _NumberInput extends StatelessWidget {
     required this.suffixText,
     this.required = false,
     this.allowZero = false,
+    this.validator,
   });
 
   final TextEditingController controller;
@@ -2058,6 +2068,7 @@ class _NumberInput extends StatelessWidget {
   final String suffixText;
   final bool required;
   final bool allowZero;
+  final FormFieldValidator<String>? validator;
 
   @override
   Widget build(BuildContext context) {
@@ -2075,11 +2086,14 @@ class _NumberInput extends StatelessWidget {
           labelText: label,
           suffixText: suffixText,
         ),
-        validator: required
-            ? (allowZero ? _requiredNonNegativeNumber : _requiredPositiveNumber)
-            : (allowZero
-                ? _optionalNonNegativeNumber
-                : _optionalPositiveNumber),
+        validator: validator ??
+            (required
+                ? (allowZero
+                    ? _requiredNonNegativeNumber
+                    : _requiredPositiveNumber)
+                : (allowZero
+                    ? _optionalNonNegativeNumber
+                    : _optionalPositiveNumber)),
       ),
     );
   }
@@ -2121,6 +2135,13 @@ String? _requiredText(String? value) {
     return 'Majburiy';
   }
   return null;
+}
+
+String? _optionalLayerError(String material, String micron) {
+  if (material.trim().isEmpty && micron.trim().isEmpty) {
+    return null;
+  }
+  return _requiredText(material) ?? _requiredPositiveNumber(micron);
 }
 
 String? _requiredPositiveNumber(String? value) {

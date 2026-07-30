@@ -50,14 +50,6 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
             routeName: AppRoutes.adminRawMaterialAssignments,
             push: true,
           ),
-        if (AppRouter.canOpenRoute(AppRoutes.adminWarehouses))
-          const RoleNavigationDrawerDestination(
-            icon: Icons.location_on_outlined,
-            selectedIcon: Icons.location_on_rounded,
-            label: 'Joylashuvlarim',
-            routeName: AppRoutes.adminWarehouses,
-            push: true,
-          ),
         if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
           const RoleNavigationDrawerDestination(
             icon: Icons.swap_horiz_outlined,

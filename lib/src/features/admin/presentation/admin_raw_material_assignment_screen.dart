@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
@@ -18,6 +20,7 @@ import '../models/production_map_models.dart';
 import 'raw_material_scan_dialog.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
@@ -103,9 +106,12 @@ class AdminRawMaterialAssignmentPanel extends StatefulWidget {
 }
 
 class _AdminRawMaterialAssignmentPanelState
-    extends State<AdminRawMaterialAssignmentPanel> {
+    extends State<AdminRawMaterialAssignmentPanel>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   late Future<_RawMaterialAssignmentData> _future;
   List<AdminRawMaterialAssignment> _assignments = const [];
+  List<AdminRawMaterialAssignmentCandidate> _manualCandidates = const [];
   String _selectedOrderId = '';
   String _scannedBarcode = '';
   AdminRawMaterialLookup? _scannedMaterial;
@@ -114,15 +120,35 @@ class _AdminRawMaterialAssignmentPanelState
   bool _saving = false;
   String? _expandedAssignmentKey;
   String _unlinkingAssignmentKey = '';
+  String _manualCandidatesOrderId = '';
+  String _manualAssigningBarcode = '';
+  Object? _manualCandidatesError;
+  bool _manualCandidatesLoading = false;
   bool _initialBarcodeHandled = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(_handleTabChanged);
     _future = widget.groupScopeReady
         ? _load()
         : Future.value(const _RawMaterialAssignmentData.empty());
     _scheduleInitialBarcodeLookup();
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleTabChanged() {
+    if (_tabController.index == 1 && !_tabController.indexIsChanging) {
+      unawaited(_loadManualCandidates());
+    }
   }
 
   @override
@@ -152,7 +178,7 @@ class _AdminRawMaterialAssignmentPanelState
 
   Future<_RawMaterialAssignmentData> _load() async {
     final results = await Future.wait<Object>([
-      MobileApi.instance.adminProductionMaps(),
+      MobileApi.instance.adminRawMaterialAssignmentOrders(),
       MobileApi.instance.adminRawMaterialAssignments(),
     ]);
     final orders = results[0] as List<ProductionMapSaved>;
@@ -165,6 +191,43 @@ class _AdminRawMaterialAssignmentPanelState
       orders: orders,
       assignments: assignments,
     );
+  }
+
+  Future<void> _loadManualCandidates({bool force = false}) async {
+    final orderId = _selectedOrderId.trim();
+    if (orderId.isEmpty ||
+        (_manualCandidatesLoading && _manualCandidatesOrderId == orderId) ||
+        (!force &&
+            _manualCandidatesOrderId == orderId &&
+            _manualCandidatesError == null)) {
+      return;
+    }
+    setState(() {
+      _manualCandidatesOrderId = orderId;
+      _manualCandidatesLoading = true;
+      _manualCandidatesError = null;
+      _manualCandidates = const [];
+    });
+    try {
+      final candidates = await MobileApi.instance
+          .adminRawMaterialAssignmentCandidates(orderId: orderId);
+      if (!mounted || _selectedOrderId.trim() != orderId) {
+        return;
+      }
+      setState(() {
+        _manualCandidates = candidates;
+        _manualCandidatesError = null;
+      });
+    } catch (error) {
+      if (!mounted || _selectedOrderId.trim() != orderId) {
+        return;
+      }
+      setState(() => _manualCandidatesError = error);
+    } finally {
+      if (mounted && _selectedOrderId.trim() == orderId) {
+        setState(() => _manualCandidatesLoading = false);
+      }
+    }
   }
 
   String _selectedOrderLabel(List<ProductionMapSaved> orders) {
@@ -220,7 +283,15 @@ class _AdminRawMaterialAssignmentPanelState
     if (picked == null || !mounted) {
       return;
     }
-    setState(() => _selectedOrderId = picked.map.id.trim());
+    setState(() {
+      _selectedOrderId = picked.map.id.trim();
+      _manualCandidatesOrderId = '';
+      _manualCandidates = const [];
+      _manualCandidatesError = null;
+    });
+    if (_tabController.index == 1) {
+      await _loadManualCandidates(force: true);
+    }
   }
 
   Future<void> _scan() async {
@@ -430,6 +501,97 @@ class _AdminRawMaterialAssignmentPanelState
     );
   }
 
+  Future<void> _openManualCandidate(
+    AdminRawMaterialAssignmentCandidate candidate,
+  ) async {
+    if (_manualAssigningBarcode.isNotEmpty || _saving) {
+      return;
+    }
+    final shouldAssign = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _ManualCandidateDetailsSheet(
+        candidate: candidate,
+        onAssign: () => Navigator.of(sheetContext).pop(true),
+      ),
+    );
+    if (shouldAssign != true || !mounted) {
+      return;
+    }
+    setState(() => _manualAssigningBarcode = candidate.barcode.trim());
+    try {
+      final apparatusOptions = candidate.apparatusOptions;
+      String apparatus;
+      if (apparatusOptions.length == 1) {
+        apparatus = apparatusOptions.single;
+      } else {
+        final selected = await _showApparatusChoice(apparatusOptions);
+        if (selected == null || !mounted) {
+          return;
+        }
+        apparatus = selected;
+      }
+      final saved = await MobileApi.instance.adminAssignRawMaterialToOrder(
+        orderId: _selectedOrderId,
+        barcode: candidate.barcode,
+        apparatus: apparatus,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _manualCandidates = [
+          for (final item in _manualCandidates)
+            if (item.barcode.trim().toUpperCase() !=
+                candidate.barcode.trim().toUpperCase())
+              item,
+        ];
+        _assignments = [
+          saved,
+          for (final item in _assignments)
+            if (_assignmentKey(item) != _assignmentKey(saved)) item,
+        ];
+      });
+      showAdminTopNotice(context, 'Homashyo zakazga ulandi');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAdminTopNotice(
+        context,
+        error is MobileApiException ? error.message : 'Homashyo ulanmadi',
+      );
+      await _loadManualCandidates(force: true);
+    } finally {
+      if (mounted) {
+        setState(() => _manualAssigningBarcode = '');
+      }
+    }
+  }
+
+  Future<void> _openManualAssignment(
+    AdminRawMaterialAssignment assignment,
+  ) async {
+    final shouldUnlink = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _ManualAssignmentDetailsSheet(
+        assignment: assignment,
+        unlinking: _unlinkingAssignmentKey == _assignmentKey(assignment),
+        onUnlink: () => Navigator.of(sheetContext).pop(true),
+      ),
+    );
+    if (shouldUnlink == true && mounted) {
+      await _unlink(assignment);
+    }
+  }
+
   Future<void> _unlink(AdminRawMaterialAssignment assignment) async {
     final key = _assignmentKey(assignment);
     if (_saving || _unlinkingAssignmentKey.isNotEmpty) {
@@ -476,6 +638,9 @@ class _AdminRawMaterialAssignmentPanelState
         }
       });
       showAdminTopNotice(context, 'Homashyo zakazdan uzildi');
+      if (_manualCandidatesOrderId == assignment.orderId.trim()) {
+        await _loadManualCandidates(force: true);
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -489,6 +654,164 @@ class _AdminRawMaterialAssignmentPanelState
         setState(() => _unlinkingAssignmentKey = '');
       }
     }
+  }
+
+  Widget _buildQrTab(_RawMaterialAssignmentData data) {
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        _rawMaterialAssignmentPanelGap,
+        10,
+        _rawMaterialAssignmentPanelGap,
+        widget.bottomPadding,
+      ),
+      children: [
+        _AssignmentEditor(
+          orders: data.orders,
+          selectedOrderLabel: _selectedOrderLabel(data.orders),
+          scannedBarcode: _scannedBarcode,
+          scannedMaterial: _scannedMaterial,
+          scanLookupError: _scanLookupError,
+          scanLookupLoading: _scanLookupLoading,
+          saving: _saving,
+          onPickOrder: () => _openOrderPicker(data.orders),
+          onScan: _scan,
+          onSave: _save,
+        ),
+        if (_assignments.isEmpty) ...[
+          const SizedBox(height: 10),
+          const Center(
+            child: Text('Ulangan homashyo topilmadi'),
+          ),
+        ] else ...[
+          const SizedBox(height: 10),
+          M3SegmentSpacedColumn(
+            padding: EdgeInsets.zero,
+            children: [
+              for (var index = 0; index < _assignments.length; index++)
+                _AssignmentTile(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    _assignments.length,
+                  ),
+                  assignment: _assignments[index],
+                  expanded: _expandedAssignmentKey ==
+                      _assignmentKey(_assignments[index]),
+                  unlinking: _unlinkingAssignmentKey ==
+                      _assignmentKey(_assignments[index]),
+                  onExpandedChanged: (expanded) {
+                    setState(() {
+                      _expandedAssignmentKey =
+                          expanded ? _assignmentKey(_assignments[index]) : null;
+                    });
+                  },
+                  onUnlink: () => _unlink(_assignments[index]),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildManualTab(_RawMaterialAssignmentData data) {
+    final linked = _assignments
+        .where(
+          (assignment) => assignment.orderId.trim() == _selectedOrderId.trim(),
+        )
+        .toList(growable: false);
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        _rawMaterialAssignmentPanelGap,
+        10,
+        _rawMaterialAssignmentPanelGap,
+        widget.bottomPadding,
+      ),
+      children: [
+        AppSegmentSurfaceCard(
+          child: _AssignmentOrderPicker(
+            orders: data.orders,
+            selectedOrderLabel: _selectedOrderLabel(data.orders),
+            disabled: _saving || _manualAssigningBarcode.isNotEmpty,
+            onPickOrder: () => _openOrderPicker(data.orders),
+          ),
+        ),
+        const _ManualListSectionTitle(title: 'Ulanmagan'),
+        if (_manualCandidatesLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(child: AppLoadingIndicator()),
+          )
+        else if (_manualCandidatesError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            child: Column(
+              children: [
+                const Text(
+                  'Mos homashyolar yuklanmadi',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => _loadManualCandidates(force: true),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Qayta urinish'),
+                ),
+              ],
+            ),
+          )
+        else if (_manualCandidates.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            child: Text(
+              'Bu zakazga ulash mumkin bo‘lgan homashyo topilmadi',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          M3SegmentSpacedColumn(
+            padding: EdgeInsets.zero,
+            children: [
+              for (var index = 0; index < _manualCandidates.length; index++)
+                _ManualCandidateListRow(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    _manualCandidates.length,
+                  ),
+                  candidate: _manualCandidates[index],
+                  busy: _manualAssigningBarcode.trim().toUpperCase() ==
+                      _manualCandidates[index].barcode.trim().toUpperCase(),
+                  onTap: () => _openManualCandidate(_manualCandidates[index]),
+                ),
+            ],
+          ),
+        const _ManualListSectionTitle(title: 'Ulangan'),
+        if (linked.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            child: Text(
+              'Bu zakazga hali homashyo ulanmagan',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          M3SegmentSpacedColumn(
+            padding: EdgeInsets.zero,
+            children: [
+              for (var index = 0; index < linked.length; index++)
+                _ManualAssignmentListRow(
+                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                    index,
+                    linked.length,
+                  ),
+                  assignment: linked[index],
+                  busy:
+                      _unlinkingAssignmentKey == _assignmentKey(linked[index]),
+                  onTap: () => _openManualAssignment(linked[index]),
+                ),
+            ],
+          ),
+      ],
+    );
   }
 
   @override
@@ -514,60 +837,24 @@ class _AdminRawMaterialAssignmentPanelState
         final data = snapshot.data!;
         return ColoredBox(
           color: AppTheme.shellStart(context),
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              _rawMaterialAssignmentPanelGap,
-              10,
-              _rawMaterialAssignmentPanelGap,
-              widget.bottomPadding,
-            ),
+          child: Column(
             children: [
-              _AssignmentEditor(
-                orders: data.orders,
-                selectedOrderLabel: _selectedOrderLabel(data.orders),
-                scannedBarcode: _scannedBarcode,
-                scannedMaterial: _scannedMaterial,
-                scanLookupError: _scanLookupError,
-                scanLookupLoading: _scanLookupLoading,
-                saving: _saving,
-                onPickOrder: () => _openOrderPicker(data.orders),
-                onScan: _scan,
-                onSave: _save,
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'QR orqali'),
+                  Tab(text: 'Ro‘yxatdan'),
+                ],
               ),
-              if (_assignments.isEmpty) ...[
-                const SizedBox(height: 10),
-                const Center(
-                  child: Text('Ulangan homashyo topilmadi'),
-                ),
-              ] else ...[
-                const SizedBox(height: 10),
-                M3SegmentSpacedColumn(
-                  padding: EdgeInsets.zero,
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
                   children: [
-                    for (var index = 0; index < _assignments.length; index++)
-                      _AssignmentTile(
-                        slot:
-                            M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index,
-                          _assignments.length,
-                        ),
-                        assignment: _assignments[index],
-                        expanded: _expandedAssignmentKey ==
-                            _assignmentKey(_assignments[index]),
-                        unlinking: _unlinkingAssignmentKey ==
-                            _assignmentKey(_assignments[index]),
-                        onExpandedChanged: (expanded) {
-                          setState(() {
-                            _expandedAssignmentKey = expanded
-                                ? _assignmentKey(_assignments[index])
-                                : null;
-                          });
-                        },
-                        onUnlink: () => _unlink(_assignments[index]),
-                      ),
+                    _buildQrTab(data),
+                    _buildManualTab(data),
                   ],
                 ),
-              ],
+              ),
             ],
           ),
         );
@@ -648,6 +935,45 @@ class _MaterialGroupScopeMissingState extends StatelessWidget {
   }
 }
 
+class _AssignmentOrderPicker extends StatelessWidget {
+  const _AssignmentOrderPicker({
+    required this.orders,
+    required this.selectedOrderLabel,
+    required this.disabled,
+    required this.onPickOrder,
+  });
+
+  final List<ProductionMapSaved> orders;
+  final String selectedOrderLabel;
+  final bool disabled;
+  final VoidCallback onPickOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: disabled || orders.isEmpty ? null : onPickOrder,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: 'Zakaz',
+        ).copyWith(
+          suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+        ),
+        isEmpty: selectedOrderLabel.trim().isEmpty,
+        child: Text(
+          selectedOrderLabel.trim().isEmpty
+              ? (orders.isEmpty ? 'Zakaz topilmadi' : 'Tanlang')
+              : selectedOrderLabel,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+}
+
 class _AssignmentEditor extends StatelessWidget {
   const _AssignmentEditor({
     required this.orders,
@@ -679,26 +1005,11 @@ class _AssignmentEditor extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: saving || orders.isEmpty ? null : onPickOrder,
-            borderRadius: BorderRadius.circular(12),
-            child: InputDecorator(
-              decoration: appSurfaceInputDecoration(
-                context,
-                labelText: 'Zakaz',
-              ).copyWith(
-                suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
-              ),
-              isEmpty: selectedOrderLabel.trim().isEmpty,
-              child: Text(
-                selectedOrderLabel.trim().isEmpty
-                    ? (orders.isEmpty ? 'Zakaz topilmadi' : 'Tanlang')
-                    : selectedOrderLabel,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ),
+          _AssignmentOrderPicker(
+            orders: orders,
+            selectedOrderLabel: selectedOrderLabel,
+            disabled: saving,
+            onPickOrder: onPickOrder,
           ),
           const SizedBox(height: 10),
           FilledButton.icon(
@@ -728,6 +1039,361 @@ class _AssignmentEditor extends StatelessWidget {
             label: const Text('Ulash'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ManualListSectionTitle extends StatelessWidget {
+  const _ManualListSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _ManualCandidateListRow extends StatelessWidget {
+  const _ManualCandidateListRow({
+    required this.slot,
+    required this.candidate,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final AdminRawMaterialAssignmentCandidate candidate;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = candidate.itemName.trim().isEmpty
+        ? candidate.itemCode
+        : candidate.itemName;
+    final subtitle = [
+      candidate.barcode.trim(),
+      _formatQty(candidate.qty, candidate.uom),
+      candidate.warehouse.trim(),
+    ].where((item) => item.isNotEmpty).join(' • ');
+    return AdminSummaryCard(
+      key: ValueKey('raw-material-candidate-${candidate.barcode}'),
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: busy ? null : onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.inventory_2_outlined,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      trailing: busy
+          ? const AppLoadingIndicator(size: 30, glyphSize: 18)
+          : Icon(Icons.add_link_rounded, color: scheme.primary),
+      title: title,
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      elevation: 1,
+    );
+  }
+}
+
+class _ManualAssignmentListRow extends StatelessWidget {
+  const _ManualAssignmentListRow({
+    required this.slot,
+    required this.assignment,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final M3SegmentVerticalSlot slot;
+  final AdminRawMaterialAssignment assignment;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = assignment.itemName.trim().isEmpty
+        ? assignment.itemCode
+        : assignment.itemName;
+    final subtitle = [
+      assignment.barcode.trim(),
+      if (assignment.stockQty > 0)
+        _formatQty(assignment.stockQty, assignment.stockUom),
+      assignment.stockWarehouse.trim(),
+    ].where((item) => item.isNotEmpty).join(' • ');
+    return AdminSummaryCard(
+      key: ValueKey('manual-raw-material-${_assignmentKey(assignment)}'),
+      slot: slot,
+      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
+      onTap: busy ? null : onTap,
+      backgroundColor: scheme.surfaceContainerLowest,
+      fixedHeight: 61,
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      value: '',
+      showChevron: false,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.link_rounded,
+            size: 16,
+            color: scheme.onPrimaryContainer,
+          ),
+        ),
+      ),
+      trailing: busy
+          ? const AppLoadingIndicator(size: 30, glyphSize: 18)
+          : Icon(Icons.link_rounded, color: scheme.primary),
+      title: title,
+      subtitle: subtitle,
+      titleMaxLines: 1,
+      subtitleMaxLines: 1,
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      elevation: 1,
+    );
+  }
+}
+
+class _ManualCandidateDetailsSheet extends StatelessWidget {
+  const _ManualCandidateDetailsSheet({
+    required this.candidate,
+    required this.onAssign,
+  });
+
+  final AdminRawMaterialAssignmentCandidate candidate;
+  final VoidCallback onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = candidate.itemName.trim().isEmpty
+        ? candidate.itemCode
+        : candidate.itemName;
+    return _ManualMaterialSheetSurface(
+      icon: Icons.inventory_2_outlined,
+      title: title,
+      subtitle: candidate.itemCode,
+      details: [
+        _MaterialInfoRow(label: 'QR', value: candidate.barcode),
+        _MaterialInfoRow(label: 'Ombor', value: candidate.warehouse),
+        _MaterialInfoRow(label: 'Guruh', value: candidate.itemGroup),
+        _MaterialInfoRow(
+          label: 'Miqdor',
+          value: _formatQty(candidate.qty, candidate.uom),
+        ),
+        _MaterialInfoRow(
+          label: 'Aparat',
+          value: candidate.apparatusOptions.join(', '),
+        ),
+      ],
+      action: FilledButton.icon(
+        onPressed: onAssign,
+        icon: const Icon(Icons.link_rounded),
+        label: const Text('Orderga ulash'),
+      ),
+      iconColor: scheme.onSecondaryContainer,
+      iconBackground: scheme.secondaryContainer,
+    );
+  }
+}
+
+class _ManualAssignmentDetailsSheet extends StatelessWidget {
+  const _ManualAssignmentDetailsSheet({
+    required this.assignment,
+    required this.unlinking,
+    required this.onUnlink,
+  });
+
+  final AdminRawMaterialAssignment assignment;
+  final bool unlinking;
+  final VoidCallback onUnlink;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = assignment.itemName.trim().isEmpty
+        ? assignment.itemCode
+        : assignment.itemName;
+    final status = assignment.stockStatus.trim().toLowerCase();
+    final canUnlink = status.isEmpty || status == 'available';
+    return _ManualMaterialSheetSurface(
+      icon: Icons.link_rounded,
+      title: title,
+      subtitle: assignment.itemCode,
+      details: [
+        _MaterialInfoRow(label: 'QR', value: assignment.barcode),
+        _MaterialInfoRow(label: 'Zakaz', value: assignment.orderId),
+        _MaterialInfoRow(label: 'Aparat', value: assignment.apparatus),
+        _MaterialInfoRow(label: 'Ombor', value: assignment.stockWarehouse),
+        _MaterialInfoRow(label: 'Guruh', value: assignment.itemGroup),
+        if (assignment.stockQty > 0)
+          _MaterialInfoRow(
+            label: 'Miqdor',
+            value: _formatQty(assignment.stockQty, assignment.stockUom),
+          ),
+        _MaterialInfoRow(
+          label: 'Status',
+          value: _assignmentStockStatusLabel(assignment.stockStatus),
+        ),
+      ],
+      action: OutlinedButton.icon(
+        onPressed: canUnlink && !unlinking ? onUnlink : null,
+        style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+        icon: unlinking
+            ? const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.link_off_rounded),
+        label: Text(canUnlink ? 'Ulanishni uzish' : 'Uzib bo‘lmaydi'),
+      ),
+      iconColor: scheme.onPrimaryContainer,
+      iconBackground: scheme.primaryContainer,
+    );
+  }
+}
+
+class _ManualMaterialSheetSurface extends StatelessWidget {
+  const _ManualMaterialSheetSurface({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.details,
+    required this.action,
+    required this.iconColor,
+    required this.iconBackground,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Widget> details;
+  final Widget action;
+  final Color iconColor;
+  final Color iconBackground;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox.square(
+                  dimension: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: iconBackground,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: iconColor),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (subtitle.trim().isNotEmpty &&
+                          subtitle.trim() != title.trim()) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            ...details,
+            const SizedBox(height: 14),
+            action,
+          ],
+        ),
       ),
     );
   }

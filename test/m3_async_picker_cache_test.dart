@@ -203,6 +203,47 @@ void main() {
     expect(selected?.subtitle, 'Yangi mahsulot');
   });
 
+  testWidgets('async picker loads the next page after scrolling', (
+    tester,
+  ) async {
+    final requests = <({int offset, int limit})>[];
+
+    await tester.pumpWidget(
+      _wrap(
+        M3AsyncPickerSheet<_PickerItem>(
+          title: 'Mahsulot tanlang',
+          hintText: 'Mahsulot qidiring',
+          pageSize: 50,
+          loadPage: (query, offset, limit) async {
+            requests.add((offset: offset, limit: limit));
+            final count = offset == 0 ? 50 : (offset == 50 ? 10 : 0);
+            return List.generate(
+              count,
+              (index) => _PickerItem(
+                'Mahsulot ${offset + index}',
+                'ITEM-${offset + index}',
+              ),
+            );
+          },
+          itemTitle: (item) => item.title,
+          itemSubtitle: (item) => item.subtitle,
+          onSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, [(offset: 0, limit: 50)]);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -5000));
+    await tester.pumpAndSettle();
+
+    expect(requests, [
+      (offset: 0, limit: 50),
+      (offset: 50, limit: 50),
+    ]);
+  });
+
   testWidgets('long press enables multi-select and check confirms selection', (
     tester,
   ) async {

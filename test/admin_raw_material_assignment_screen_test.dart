@@ -58,7 +58,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(seenRequests, contains('GET /v1/mobile/admin/production-maps'));
+      expect(
+        seenRequests,
+        contains('GET /v1/mobile/admin/raw-material-assignments/orders'),
+      );
       expect(
         seenRequests,
         contains('GET /v1/mobile/admin/raw-material-assignments'),
@@ -71,6 +74,91 @@ void main() {
       expect(find.text('Item code'), findsNothing);
       expect(find.text('Item nomi'), findsNothing);
       expect(find.text('Item group'), findsNothing);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
+
+  testWidgets('assignment order picker uses server active orders', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Z-1 · Zakaz 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Zakaz tanlang'), findsOneWidget);
+      expect(find.text('Z-1 · Zakaz 1'), findsWidgets);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
+
+  testWidgets('manual assignment tab lists and links eligible stock', (
+    tester,
+  ) async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ro‘yxatdan'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1',
+        ),
+      );
+      expect(find.text('Ulanmagan'), findsOneWidget);
+      expect(find.text('Black ink'), findsOneWidget);
+      expect(find.text('30AA • 12 Kg • Kalidor'), findsOneWidget);
+
+      await tester.tap(find.text('Black ink'));
+      await tester.pumpAndSettle();
+      expect(find.text('Orderga ulash'), findsOneWidget);
+
+      await tester.tap(find.text('Orderga ulash'));
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'BODY POST /v1/mobile/admin/raw-material-assignments '
+          '{"order_id":"zakaz-1","barcode":"30AA","apparatus":"Pechat"}',
+        ),
+      );
+      expect(find.text('Ulangan'), findsOneWidget);
+      expect(find.byIcon(Icons.link_rounded), findsWidgets);
+      await tester.pump(const Duration(seconds: 2));
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 
@@ -216,6 +304,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Homashyo ma’lumoti'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Ulash'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ulash'));
       await tester.pumpAndSettle();
 
@@ -370,7 +460,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
 
     Object body;
     switch (key) {
-      case 'GET /v1/mobile/admin/production-maps':
+      case 'GET /v1/mobile/admin/raw-material-assignments/orders':
         body = const [
           {
             'map': {
@@ -390,6 +480,19 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments':
         body = _deleted ? const [] : initialAssignments;
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1':
+        body = const [
+          {
+            'barcode': '30AA',
+            'warehouse': 'Kalidor',
+            'item_code': 'INK-BLACK',
+            'item_name': 'Black ink',
+            'item_group': 'Kraska',
+            'qty': 12,
+            'uom': 'Kg',
+            'apparatus_options': ['Pechat'],
+          },
+        ];
       case 'GET /v1/mobile/admin/raw-material-assignments/lookup?barcode=30AA':
         body = const {
           'barcode': '30AA',

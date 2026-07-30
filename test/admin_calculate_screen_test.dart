@@ -364,6 +364,41 @@ void main() {
     expect(openedArgs!.savedMap?.id, sourceMapId);
   });
 
+  testWidgets('single-layer order can be calculated and linked to a map', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    Object? openedArgs;
+    await _pumpCalculateScreen(
+      tester,
+      template: _template(
+        itemCode: 'ITEM-1',
+        secondLayerMaterial: '',
+        secondLayerMicron: '',
+      ),
+      onProductionMapArguments: (arguments) => openedArgs = arguments,
+    );
+
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
+    await tester.tap(find.text('Hisoblash'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Production mapga ulash'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Production mapga ulash'));
+    await tester.pumpAndSettle();
+
+    expect(openedArgs, isA<ProductionMapTestArgs>());
+  });
+
   testWidgets(
       'quick order details hide duplicate customer and product subtitles',
       (tester) async {
@@ -430,6 +465,8 @@ CalculateOrderTemplate _template({
   String customer = 'Mijoz',
   String customerRef = 'CUST-001',
   String product = 'zenit frutto ninja 70 gr',
+  String secondLayerMaterial = 'pe oq',
+  String secondLayerMicron = '30',
 }) {
   return CalculateOrderTemplate(
     id: 'template-1',
@@ -456,8 +493,8 @@ CalculateOrderTemplate _template({
     rollCount: 7,
     firstLayerMaterial: 'pet',
     firstLayerMicron: '12',
-    secondLayerMaterial: 'pe oq',
-    secondLayerMicron: '30',
+    secondLayerMaterial: secondLayerMaterial,
+    secondLayerMicron: secondLayerMicron,
     thirdLayerMaterial: '',
     thirdLayerMicron: '',
     note: '',

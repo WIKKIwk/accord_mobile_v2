@@ -5,9 +5,11 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_raw_mater
 import 'package:accord_mobile_v2/src/features/gscale/presentation/gscale_mode_screen.dart';
 import 'package:accord_mobile_v2/src/features/material_taminotchi/presentation/material_taminotchi_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   tearDown(() {
@@ -32,6 +34,7 @@ void main() {
         'rps.batch.manage',
         'catalog.item.create',
         'raw_material.assign',
+        'inventory.movement.manage',
       ],
       assignedItemGroups: ['Rulon', 'Kley'],
     );
@@ -54,7 +57,8 @@ void main() {
     expect(find.text('Material ta’minotchisi'), findsWidgets);
     expect(find.text('Tarozilar rejimi'), findsOneWidget);
     expect(find.text('Homashyo biriktirish'), findsOneWidget);
-    expect(find.text('Joylashuvlarim'), findsOneWidget);
+    expect(find.text('Joylashuvlarim'), findsNothing);
+    expect(find.text('Joylashtirish va transfer'), findsOneWidget);
     expect(find.text('Profil'), findsNothing);
     expect(find.text('Materialchi'), findsNothing);
     expect(find.text('Rulon'), findsNothing);
@@ -182,6 +186,7 @@ void main() {
   testWidgets('material gscale mode shows print and print history tabs', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues({'test_mode_enabled': true});
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.materialTaminotchi,
@@ -226,6 +231,17 @@ void main() {
     expect(find.text('Boshqaruv'), findsNothing);
     expect(find.text('Arxiv'), findsNothing);
     expect(find.text('Server'), findsNothing);
+
+    await tester.tap(find.text('Mahsulot tanlang'), warnIfMissed: false);
+    await tester.pump();
+
+    final picker = tester.widget<M3AsyncPickerSheet<SupplierItem>>(
+      find.byType(M3AsyncPickerSheet<SupplierItem>),
+    );
+    expect(picker.pageSize, 50);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(Tab, 'Print tarixi'));
     await tester.pumpAndSettle();

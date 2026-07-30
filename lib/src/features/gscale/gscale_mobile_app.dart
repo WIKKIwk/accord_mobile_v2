@@ -55,7 +55,7 @@ const _platformDiscoveryServiceTypes = <String>[
   '_rp-scale._tcp.',
 ];
 const _minManualPrintKg = 0.100;
-const _catalogPickerPageSize = 200;
+const _catalogPickerPageSize = 50;
 const _configuredApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: _defaultWifiServerAddress,

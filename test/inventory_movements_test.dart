@@ -327,6 +327,68 @@ void main() {
     expect(find.text('Bosma oldi'), findsOneWidget);
   });
 
+  testWidgets('material movement page keeps the existing state return flow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await MobileApi.instance.inventoryRelocate(
+      assetKind: InventoryAssetKind.rawMaterial,
+      assetRef: asset.assetRef,
+      physicalLocationId: factoryState.id,
+      idempotencyKey: 'movement-state-placement',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tabLabels = tester
+        .widgetList<Tab>(find.byType(Tab))
+        .map((tab) => tab.text)
+        .whereType<String>()
+        .toList(growable: false);
+    expect(
+      tabLabels,
+      containsAllInOrder(['Mahsulotlar', 'State’lar', 'Kiruvchi', 'Chiquvchi']),
+    );
+
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bosma oldi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Polietilen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Omborga qaytarish'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-return-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ha'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('warehouse filter is available on all movement tabs', (
     tester,
   ) async {
@@ -425,6 +487,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sinov transferi'), findsOneWidget);
-    expect(find.text('Ko‘chirishni yakunlash'), findsOneWidget);
+    expect(find.text('Ko‘chirishni yakunlash'), findsNothing);
   });
 }

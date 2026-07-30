@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
+import '../../material_taminotchi/presentation/widgets/material_state_locations_tab.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
@@ -40,6 +41,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   bool _warehouseFilterExpanded = false;
   String _error = '';
   final Set<String> _busyKeys = {};
+  final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
+      GlobalKey<MaterialStateLocationsTabState>();
 
   @override
   void initState() {
@@ -170,6 +173,14 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         setState(() => _assetsLoading = false);
         _showMessage(_message(error));
       }
+    }
+  }
+
+  Future<void> _handleStateAssetReturned() async {
+    final stateReload = _materialStateLocationsKey.currentState?.reload();
+    await _loadAssets();
+    if (stateReload != null) {
+      await stateReload;
     }
   }
 
@@ -492,8 +503,41 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tabs = <Tab>[
+      const Tab(text: 'Mahsulotlar'),
+      if (_materialScoped) const Tab(text: 'State’lar'),
+      const Tab(text: 'Kiruvchi'),
+      const Tab(text: 'Chiquvchi'),
+    ];
+    final tabViews = <Widget>[
+      _buildAssetsTab(),
+      if (_materialScoped)
+        MaterialStateLocationsTab(
+          key: _materialStateLocationsKey,
+          bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 128,
+          onAssetReturned: _handleStateAssetReturned,
+        ),
+      _TransferList(
+        transfers: _incoming,
+        emptyMessage: 'Kiruvchi transfer yo‘q',
+        header: _warehouseFilter(),
+        busyKeys: _busyKeys,
+        actionsFor: (_) => const [],
+        onTransferTap: _showTransferDetails,
+        onRefresh: _loadAll,
+      ),
+      _TransferList(
+        transfers: _outgoing,
+        emptyMessage: 'Chiquvchi transfer yo‘q',
+        header: _warehouseFilter(),
+        busyKeys: _busyKeys,
+        actionsFor: (_) => const [],
+        onTransferTap: _showTransferDetails,
+        onRefresh: _loadAll,
+      ),
+    ];
     return DefaultTabController(
-      length: 3,
+      length: tabs.length,
       child: AppShell(
         animateOnEnter: false,
         title: '',
@@ -506,10 +550,16 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           controller: _searchController,
           focusNode: _searchFocusNode,
           hintText: 'Mahsulot, kod yoki QR qidirish',
-          onChanged: _onSearchChanged,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            _materialStateLocationsKey.currentState
+                ?.handleItemsSearchChanged(value);
+          },
           onClear: () {
             _searchController.clear();
             _onSearchChanged('');
+            _materialStateLocationsKey.currentState
+                ?.handleItemsSearchChanged('');
           },
           onBack: _goBack,
         ),
@@ -527,13 +577,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         contentPadding: EdgeInsets.zero,
         child: Column(
           children: [
-            const TabBar(
-              tabs: [
-                Tab(text: 'Mahsulotlar'),
-                Tab(text: 'Kiruvchi'),
-                Tab(text: 'Chiquvchi'),
-              ],
-            ),
+            TabBar(tabs: tabs),
             Expanded(
               child: _loading
                   ? const Center(child: AppLoadingIndicator())
@@ -542,29 +586,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                           message: _error,
                           onRetry: _loadAll,
                         )
-                      : TabBarView(
-                          children: [
-                            _buildAssetsTab(),
-                            _TransferList(
-                              transfers: _incoming,
-                              emptyMessage: 'Kiruvchi transfer yo‘q',
-                              header: _warehouseFilter(),
-                              busyKeys: _busyKeys,
-                              actionsFor: (_) => const [],
-                              onTransferTap: _showTransferDetails,
-                              onRefresh: _loadAll,
-                            ),
-                            _TransferList(
-                              transfers: _outgoing,
-                              emptyMessage: 'Chiquvchi transfer yo‘q',
-                              header: _warehouseFilter(),
-                              busyKeys: _busyKeys,
-                              actionsFor: (_) => const [],
-                              onTransferTap: _showTransferDetails,
-                              onRefresh: _loadAll,
-                            ),
-                          ],
-                        ),
+                      : TabBarView(children: tabViews),
             ),
           ],
         ),
