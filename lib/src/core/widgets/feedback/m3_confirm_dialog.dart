@@ -14,6 +14,9 @@ Future<bool?> showM3ConfirmDialog({
   double buttonRadius = 20,
   Color? confirmBackgroundColor,
   Color? confirmForegroundColor,
+  bool verticalActions = false,
+  Key? confirmButtonKey,
+  Key? cancelButtonKey,
 }) {
   return showDialog<bool>(
     context: context,
@@ -41,6 +44,35 @@ Future<bool?> showM3ConfirmDialog({
         ),
       );
 
+      final cancelButton = OutlinedButton(
+        key: cancelButtonKey,
+        style: cancelStyle,
+        onPressed: () => Navigator.of(dialogContext).pop(false),
+        child: Text(cancelLabel),
+      );
+      final confirmButton = FilledButton(
+        key: confirmButtonKey,
+        onPressed: () => Navigator.of(dialogContext).pop(true),
+        style: confirmStyle,
+        child: Text(confirmLabel),
+      );
+      final actions = verticalActions
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                confirmButton,
+                const SizedBox(height: 10),
+                cancelButton,
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: cancelButton),
+                const SizedBox(width: 12),
+                Expanded(child: confirmButton),
+              ],
+            );
+
       Widget dialog = Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         backgroundColor: scheme.surfaceContainerHigh,
@@ -51,7 +83,10 @@ Future<bool?> showM3ConfirmDialog({
           ),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: BoxConstraints(
+            minWidth: verticalActions ? 320 : 0,
+            maxWidth: 420,
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
             child: Column(
@@ -68,25 +103,7 @@ Future<bool?> showM3ConfirmDialog({
                   ),
                 ),
                 const SizedBox(height: 22),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: cancelStyle,
-                        onPressed: () => Navigator.of(dialogContext).pop(false),
-                        child: Text(cancelLabel),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(true),
-                        style: confirmStyle,
-                        child: Text(confirmLabel),
-                      ),
-                    ),
-                  ],
-                ),
+                actions,
               ],
             ),
           ),

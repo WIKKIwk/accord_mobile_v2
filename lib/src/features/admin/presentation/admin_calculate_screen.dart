@@ -43,12 +43,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _frameCount = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();
-  final _firstMaterial = TextEditingController();
-  final _firstMicron = TextEditingController();
-  final _secondMaterial = TextEditingController();
-  final _secondMicron = TextEditingController();
-  final _thirdMaterial = TextEditingController();
-  final _thirdMicron = TextEditingController();
+  final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
 
   String _customerRef = '';
@@ -62,6 +57,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   bool _uploadingImage = false;
   bool _editingAllFields = true;
   bool _applyingTemplate = false;
+  bool _calculationListenersAttached = false;
   String _imageId = '';
   String _imageName = '';
   String _imageMime = '';
@@ -80,6 +76,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     for (final controller in _calculationInputControllers) {
       controller.addListener(_handleCalculationInputChanged);
     }
+    _calculationListenersAttached = true;
     unawaited(_warmQuickOrderTemplates());
   }
 
@@ -88,6 +85,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     for (final controller in _calculationInputControllers) {
       controller.removeListener(_handleCalculationInputChanged);
     }
+    _calculationListenersAttached = false;
     _customer.dispose();
     _product.dispose();
     _status.dispose();
@@ -96,12 +94,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _frameCount.dispose();
     _wastePercent.dispose();
     _rollCount.dispose();
-    _firstMaterial.dispose();
-    _firstMicron.dispose();
-    _secondMaterial.dispose();
-    _secondMicron.dispose();
-    _thirdMaterial.dispose();
-    _thirdMicron.dispose();
+    for (final layer in _layers) {
+      layer.dispose();
+    }
     _note.dispose();
     super.dispose();
   }
@@ -113,13 +108,70 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         _frameCount,
         _wastePercent,
         _rollCount,
-        _firstMaterial,
-        _firstMicron,
-        _secondMaterial,
-        _secondMicron,
-        _thirdMaterial,
-        _thirdMicron,
+        for (final layer in _layers) ...[
+          layer.material,
+          layer.micron,
+        ],
       ];
+
+  List<CalculateLayerInput> get _layerInputs => _layers
+      .map(
+        (layer) => CalculateLayerInput(
+          material: layer.material.text.trim(),
+          micron: layer.micron.text.trim(),
+        ),
+      )
+      .toList(growable: false);
+
+  CalculateLayerInput _legacyLayer(int index) => index < _layers.length
+      ? CalculateLayerInput(
+          material: _layers[index].material.text.trim(),
+          micron: _layers[index].micron.text.trim(),
+        )
+      : const CalculateLayerInput();
+
+  void _replaceLayers(List<CalculateLayerInput> layers) {
+    if (_calculationListenersAttached) {
+      for (final layer in _layers) {
+        layer.removeListener(_handleCalculationInputChanged);
+      }
+    }
+    for (final layer in _layers) {
+      layer.dispose();
+    }
+    _layers
+      ..clear()
+      ..addAll(
+        (layers.isEmpty ? const [CalculateLayerInput()] : layers)
+            .map(_LayerControllers.fromInput),
+      );
+    if (_calculationListenersAttached) {
+      for (final layer in _layers) {
+        layer.addListener(_handleCalculationInputChanged);
+      }
+    }
+  }
+
+  void _addLayer() {
+    final layer = _LayerControllers();
+    if (_calculationListenersAttached) {
+      layer.addListener(_handleCalculationInputChanged);
+    }
+    setState(() => _layers.add(layer));
+  }
+
+  void _removeLayer(int index) {
+    if (_layers.length == 1 || index < 0 || index >= _layers.length) {
+      return;
+    }
+    setState(() {
+      final layer = _layers.removeAt(index);
+      if (_calculationListenersAttached) {
+        layer.removeListener(_handleCalculationInputChanged);
+      }
+      layer.dispose();
+    });
+  }
 
   void _handleCalculationInputChanged() {
     if (_applyingTemplate || !mounted) {
@@ -157,12 +209,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _wastePercent.text = _fmtInput(template.wastePercent);
       _rollCount.text =
           template.rollCount == null ? '' : _fmtInput(template.rollCount!);
-      _firstMaterial.text = template.firstLayerMaterial;
-      _firstMicron.text = template.firstLayerMicron;
-      _secondMaterial.text = template.secondLayerMaterial;
-      _secondMicron.text = template.secondLayerMicron;
-      _thirdMaterial.text = template.thirdLayerMaterial;
-      _thirdMicron.text = template.thirdLayerMicron;
+      _replaceLayers(template.effectiveLayers);
       _note.text = template.note;
       _result = null;
       _lastCalculatedSignature = '';
@@ -450,6 +497,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   }
 
   CalculateOrderTemplate _buildTemplateDraft() {
+    final layers = _layerInputs;
+    final firstLayer = _legacyLayer(0);
+    final secondLayer = _legacyLayer(1);
+    final thirdLayer = _legacyLayer(2);
     return CalculateOrderTemplate(
       id: _templateId,
       code: _orderCode,
@@ -474,12 +525,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       widthMm: _derivedWidthMm(),
       wastePercent: _parseRequiredDouble(_wastePercent.text),
       rollCount: _parseOptionalDouble(_rollCount.text),
-      firstLayerMaterial: _firstMaterial.text.trim(),
-      firstLayerMicron: _firstMicron.text.trim(),
-      secondLayerMaterial: _secondMaterial.text.trim(),
-      secondLayerMicron: _secondMicron.text.trim(),
-      thirdLayerMaterial: _thirdMaterial.text.trim(),
-      thirdLayerMicron: _thirdMicron.text.trim(),
+      layers: layers,
+      firstLayerMaterial: firstLayer.material,
+      firstLayerMicron: firstLayer.micron,
+      secondLayerMaterial: secondLayer.material,
+      secondLayerMicron: secondLayer.micron,
+      thirdLayerMaterial: thirdLayer.material,
+      thirdLayerMicron: thirdLayer.micron,
       note: _note.text.trim(),
       kg: _kg.text.trim().isEmpty ? 0 : _parseRequiredDouble(_kg.text),
       sourceMapId: _sourceMapId,
@@ -642,10 +694,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _requiredPositiveNumber(_frameProductSizeMm.text),
       _requiredPositiveNumber(_frameCount.text),
       _requiredNonNegativeNumber(_wastePercent.text),
-      _requiredText(_firstMaterial.text),
-      _requiredPositiveNumber(_firstMicron.text),
-      _optionalLayerError(_secondMaterial.text, _secondMicron.text),
-      _optionalLayerError(_thirdMaterial.text, _thirdMicron.text),
+      for (final layer in _layers) ...[
+        _requiredText(layer.material.text),
+        _requiredPositiveNumber(layer.micron.text),
+      ],
       _optionalPositiveInteger(_rollCount.text),
     ];
     if (checks.any((error) => error != null)) {
@@ -683,18 +735,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           edgeAllowanceMm: kCalculateEdgeAllowanceMm,
           wastePercent: _parseRequiredDouble(_wastePercent.text),
           rollCount: _parseOptionalDouble(_rollCount.text),
-          firstLayer: CalculateLayerInput(
-            material: _firstMaterial.text,
-            micron: _firstMicron.text,
-          ),
-          secondLayer: CalculateLayerInput(
-            material: _secondMaterial.text,
-            micron: _secondMicron.text,
-          ),
-          thirdLayer: CalculateLayerInput(
-            material: _thirdMaterial.text,
-            micron: _thirdMicron.text,
-          ),
+          layers: _layerInputs,
           note: _note.text,
         ),
       );
@@ -846,21 +887,20 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       ),
       const SizedBox(height: 18),
       const _SectionHeader(title: 'Qavatlar'),
-      _LayerInputs(
-        material: _firstMaterial,
-        micron: _firstMicron,
-        materialLabel: '1-qavat',
-        required: true,
-      ),
-      _LayerInputs(
-        material: _secondMaterial,
-        micron: _secondMicron,
-        materialLabel: '2-qavat',
-      ),
-      _LayerInputs(
-        material: _thirdMaterial,
-        micron: _thirdMicron,
-        materialLabel: '3-qavat',
+      for (var index = 0; index < _layers.length; index++)
+        _LayerInputs(
+          material: _layers[index].material,
+          micron: _layers[index].micron,
+          materialLabel: '${index + 1}-qavat',
+          onRemove: index == 0 ? null : () => _removeLayer(index),
+        ),
+      OutlinedButton.icon(
+        onPressed: _addLayer,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Qavat qo‘shish'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+        ),
       ),
       const SizedBox(height: 18),
       _TextInput(controller: _note, label: 'Izoh', minLines: 3, maxLines: 5),
@@ -884,12 +924,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         frameCount: _frameCount.text,
         widthMm: _fmtInput(_derivedWidthMm()),
         rollCount: _rollCount.text,
-        firstLayerMaterial: _firstMaterial.text,
-        firstLayerMicron: _firstMicron.text,
-        secondLayerMaterial: _secondMaterial.text,
-        secondLayerMicron: _secondMicron.text,
-        thirdLayerMaterial: _thirdMaterial.text,
-        thirdLayerMicron: _thirdMicron.text,
+        layers: _layerInputs,
         note: _note.text,
       ),
       const SizedBox(height: 18),
@@ -974,12 +1009,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       _frameCount.text.trim(),
       _wastePercent.text.trim(),
       _rollCount.text.trim(),
-      _firstMaterial.text.trim(),
-      _firstMicron.text.trim(),
-      _secondMaterial.text.trim(),
-      _secondMicron.text.trim(),
-      _thirdMaterial.text.trim(),
-      _thirdMicron.text.trim(),
+      for (final layer in _layers) ...[
+        layer.material.text.trim(),
+        layer.micron.text.trim(),
+      ],
     ].join('\u001f');
   }
 
@@ -1136,12 +1169,7 @@ class _SavedTemplateSummary extends StatelessWidget {
     required this.frameCount,
     required this.widthMm,
     required this.rollCount,
-    required this.firstLayerMaterial,
-    required this.firstLayerMicron,
-    required this.secondLayerMaterial,
-    required this.secondLayerMicron,
-    required this.thirdLayerMaterial,
-    required this.thirdLayerMicron,
+    required this.layers,
     required this.note,
   });
 
@@ -1158,12 +1186,7 @@ class _SavedTemplateSummary extends StatelessWidget {
   final String frameCount;
   final String widthMm;
   final String rollCount;
-  final String firstLayerMaterial;
-  final String firstLayerMicron;
-  final String secondLayerMaterial;
-  final String secondLayerMicron;
-  final String thirdLayerMaterial;
-  final String thirdLayerMicron;
+  final List<CalculateLayerInput> layers;
   final String note;
 
   @override
@@ -1250,19 +1273,13 @@ class _SavedTemplateSummary extends StatelessWidget {
             _ChecklistSection(
               title: 'Qavatlar',
               rows: [
-                _ChecklistRowData(
-                  '1-qavat',
-                  _layerValue(firstLayerMaterial, firstLayerMicron),
-                ),
-                _ChecklistRowData(
-                  '2-qavat',
-                  _layerValue(secondLayerMaterial, secondLayerMicron),
-                ),
-                if (thirdLayerMaterial.trim().isNotEmpty ||
-                    thirdLayerMicron.trim().isNotEmpty)
+                for (var index = 0; index < layers.length; index++)
                   _ChecklistRowData(
-                    '3-qavat',
-                    _layerValue(thirdLayerMaterial, thirdLayerMicron),
+                    '${index + 1}-qavat',
+                    _layerValue(
+                      layers[index].material,
+                      layers[index].micron,
+                    ),
                   ),
               ],
             ),
@@ -1975,13 +1992,13 @@ class _LayerInputs extends StatelessWidget {
     required this.material,
     required this.micron,
     required this.materialLabel,
-    this.required = false,
+    this.onRemove,
   });
 
   final TextEditingController material;
   final TextEditingController micron;
   final String materialLabel;
-  final bool required;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1993,11 +2010,7 @@ class _LayerInputs extends StatelessWidget {
           child: _TextInput(
             controller: material,
             label: materialLabel,
-            validator: required
-                ? _requiredText
-                : (value) => micron.text.trim().isEmpty
-                    ? null
-                    : _requiredText(value),
+            validator: _requiredText,
           ),
         ),
         const SizedBox(width: 10),
@@ -2007,15 +2020,50 @@ class _LayerInputs extends StatelessWidget {
             controller: micron,
             label: 'Mikron',
             suffixText: 'mkr',
-            validator: required
-                ? _requiredPositiveNumber
-                : (value) => material.text.trim().isEmpty
-                    ? _optionalPositiveNumber(value)
-                    : _requiredPositiveNumber(value),
+            validator: _requiredPositiveNumber,
           ),
         ),
+        if (onRemove != null) ...[
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: IconButton(
+              onPressed: onRemove,
+              tooltip: 'Qavatni olib tashlash',
+              icon: const Icon(Icons.remove_circle_outline_rounded),
+            ),
+          ),
+        ],
       ],
     );
+  }
+}
+
+class _LayerControllers {
+  _LayerControllers({String material = '', String micron = ''})
+      : material = TextEditingController(text: material),
+        micron = TextEditingController(text: micron);
+
+  factory _LayerControllers.fromInput(CalculateLayerInput input) {
+    return _LayerControllers(material: input.material, micron: input.micron);
+  }
+
+  final TextEditingController material;
+  final TextEditingController micron;
+
+  void addListener(VoidCallback listener) {
+    material.addListener(listener);
+    micron.addListener(listener);
+  }
+
+  void removeListener(VoidCallback listener) {
+    material.removeListener(listener);
+    micron.removeListener(listener);
+  }
+
+  void dispose() {
+    material.dispose();
+    micron.dispose();
   }
 }
 
@@ -2023,7 +2071,6 @@ class _TextInput extends StatelessWidget {
   const _TextInput({
     required this.controller,
     required this.label,
-    this.required = false,
     this.validator,
     this.minLines,
     this.maxLines = 1,
@@ -2031,7 +2078,6 @@ class _TextInput extends StatelessWidget {
 
   final TextEditingController controller;
   final String label;
-  final bool required;
   final FormFieldValidator<String>? validator;
   final int? minLines;
   final int maxLines;
@@ -2047,7 +2093,7 @@ class _TextInput extends StatelessWidget {
         textInputAction:
             maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
         decoration: appSurfaceInputDecoration(context, labelText: label),
-        validator: validator ?? (required ? _requiredText : null),
+        validator: validator,
       ),
     );
   }
@@ -2135,13 +2181,6 @@ String? _requiredText(String? value) {
     return 'Majburiy';
   }
   return null;
-}
-
-String? _optionalLayerError(String material, String micron) {
-  if (material.trim().isEmpty && micron.trim().isEmpty) {
-    return null;
-  }
-  return _requiredText(material) ?? _requiredPositiveNumber(micron);
 }
 
 String? _requiredPositiveNumber(String? value) {

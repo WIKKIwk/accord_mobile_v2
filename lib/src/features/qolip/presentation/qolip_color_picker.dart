@@ -23,6 +23,7 @@ const qolipDefaultColors = <QolipColorOption>[
   QolipColorOption(name: 'Jigarrang', value: '#6D4C41'),
   QolipColorOption(name: 'Kulrang', value: '#757575'),
   QolipColorOption(name: 'Qora', value: '#212121'),
+  QolipColorOption(name: 'Oq', value: '#FFFFFF'),
 ];
 
 const qolipPantonPrefix = 'PANTON';
@@ -138,10 +139,14 @@ class _QolipColorTile extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check_rounded,
                         size: 25,
-                        color: Colors.white,
+                        color:
+                            qolipColorValue(option.value).computeLuminance() >
+                                    0.65
+                                ? scheme.onSurface
+                                : Colors.white,
                       )
                     : null,
               ),

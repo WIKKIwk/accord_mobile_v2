@@ -9,6 +9,7 @@ class AdminSummaryCard extends StatelessWidget {
     required this.title,
     required this.value,
     this.onTap,
+    this.onLongPress,
     this.subtitle,
     this.leading,
     this.showChevron = true,
@@ -34,6 +35,7 @@ class AdminSummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final String? subtitle;
   final Widget? leading;
   final bool showChevron;
@@ -144,8 +146,13 @@ class AdminSummaryCard extends StatelessWidget {
       surfaceTintColor: surfaceTintColor ?? Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: onTap != null
-          ? InkWell(onTap: onTap, borderRadius: radius, child: ink)
+      child: onTap != null || onLongPress != null
+          ? InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              borderRadius: radius,
+              child: ink,
+            )
           : ink,
     );
   }

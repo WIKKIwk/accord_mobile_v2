@@ -94,18 +94,7 @@ CalculateRequest _calculateRequestForOrder({
     edgeAllowanceMm: template.edgeAllowanceMm,
     wastePercent: template.wastePercent,
     rollCount: template.rollCount ?? map.rollCount,
-    firstLayer: CalculateLayerInput(
-      material: template.firstLayerMaterial,
-      micron: template.firstLayerMicron,
-    ),
-    secondLayer: CalculateLayerInput(
-      material: template.secondLayerMaterial,
-      micron: template.secondLayerMicron,
-    ),
-    thirdLayer: CalculateLayerInput(
-      material: template.thirdLayerMaterial,
-      micron: template.thirdLayerMicron,
-    ),
+    layers: template.effectiveLayers,
     note: template.note,
   );
 }

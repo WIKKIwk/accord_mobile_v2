@@ -107,12 +107,10 @@ class _AdminCalculateOrdersScreenState
         template.itemCode,
         template.status,
         template.color,
-        template.firstLayerMaterial,
-        template.firstLayerMicron,
-        template.secondLayerMaterial,
-        template.secondLayerMicron,
-        template.thirdLayerMaterial,
-        template.thirdLayerMicron,
+        for (final layer in template.effectiveLayers) ...[
+          layer.material,
+          layer.micron,
+        ],
         template.note,
       ].join(' ').toLowerCase();
       return haystack.contains(query);

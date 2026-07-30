@@ -7,6 +7,7 @@ import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/lists/lists.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -129,8 +130,11 @@ class _AdminRawMaterialAssignmentPanelState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(_handleTabChanged);
+    _tabController = TabController(
+      length: 2,
+      initialIndex: widget.initialBarcode.trim().isEmpty ? 0 : 1,
+      vsync: this,
+    )..addListener(_handleTabChanged);
     _future = widget.groupScopeReady
         ? _load()
         : Future.value(const _RawMaterialAssignmentData.empty());
@@ -146,7 +150,7 @@ class _AdminRawMaterialAssignmentPanelState
   }
 
   void _handleTabChanged() {
-    if (_tabController.index == 1 && !_tabController.indexIsChanging) {
+    if (_tabController.index == 0 && !_tabController.indexIsChanging) {
       unawaited(_loadManualCandidates());
     }
   }
@@ -156,6 +160,9 @@ class _AdminRawMaterialAssignmentPanelState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialBarcode.trim() != widget.initialBarcode.trim()) {
       _initialBarcodeHandled = false;
+      if (widget.initialBarcode.trim().isNotEmpty) {
+        _tabController.animateTo(1);
+      }
     }
     if (!oldWidget.groupScopeReady && widget.groupScopeReady) {
       _future = _load();
@@ -187,10 +194,18 @@ class _AdminRawMaterialAssignmentPanelState
     if (_selectedOrderId.isEmpty && orders.isNotEmpty) {
       _selectedOrderId = orders.first.map.id.trim();
     }
-    return _RawMaterialAssignmentData(
+    final data = _RawMaterialAssignmentData(
       orders: orders,
       assignments: assignments,
     );
+    if (_tabController.index == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tabController.index == 0) {
+          unawaited(_loadManualCandidates(force: true));
+        }
+      });
+    }
+    return data;
   }
 
   Future<void> _loadManualCandidates({bool force = false}) async {
@@ -597,24 +612,15 @@ class _AdminRawMaterialAssignmentPanelState
     if (_saving || _unlinkingAssignmentKey.isNotEmpty) {
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showM3ConfirmDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Homashyoni uzish'),
-          content: const Text('Bu homashyoni zakazdan uzasizmi?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Uzish'),
-            ),
-          ],
-        );
-      },
+      title: 'Homashyoni uzish',
+      message: 'Bu homashyoni zakazdan uzasizmi?',
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'Uzish',
+      destructive: true,
+      verticalActions: true,
+      confirmButtonKey: const ValueKey('manual-assignment-confirm-unlink'),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -842,16 +848,16 @@ class _AdminRawMaterialAssignmentPanelState
               TabBar(
                 controller: _tabController,
                 tabs: const [
-                  Tab(text: 'QR orqali'),
                   Tab(text: 'Ro‘yxatdan'),
+                  Tab(text: 'QR orqali'),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildQrTab(data),
                     _buildManualTab(data),
+                    _buildQrTab(data),
                   ],
                 ),
               ),

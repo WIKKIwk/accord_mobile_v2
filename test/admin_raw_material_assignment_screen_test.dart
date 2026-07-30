@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
@@ -38,7 +39,26 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('assignment screen only asks for scan and order', (tester) async {
+  test('candidate orders endpoint returns parsed eligible orders', () async {
+    final seenRequests = <String>[];
+
+    await HttpOverrides.runZoned(() async {
+      final candidates = await MobileApi.instance
+          .adminRawMaterialAssignmentCandidateOrders(barcode: '30AA');
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/'
+          'candidate-orders?barcode=30AA',
+        ),
+      );
+      expect(candidates.single.order.map.id, 'zakaz-1');
+      expect(candidates.single.apparatusOptions, ['Pechat']);
+    }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
+  });
+
+  testWidgets('manual assignment tab comes before QR tab', (tester) async {
     final seenRequests = <String>[];
 
     await HttpOverrides.runZoned(() async {
@@ -67,8 +87,15 @@ void main() {
         contains('GET /v1/mobile/admin/raw-material-assignments'),
       );
       expect(seenRequests, isNot(contains('GET /v1/mobile/admin/items')));
+      final tabLabels = tester
+          .widgetList<Tab>(find.byType(Tab))
+          .map((tab) => tab.text)
+          .whereType<String>()
+          .toList(growable: false);
+      expect(tabLabels, containsAllInOrder(['Ro‘yxatdan', 'QR orqali']));
       expect(find.text('Zakaz'), findsOneWidget);
-      expect(find.text('QR skanerlash'), findsOneWidget);
+      expect(find.text('Black ink'), findsOneWidget);
+      expect(find.text('QR skanerlash'), findsNothing);
       expect(find.text('Homashyo QR / barcode'), findsNothing);
       expect(find.text('Homashyo'), findsNothing);
       expect(find.text('Item code'), findsNothing);
@@ -129,9 +156,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Ro‘yxatdan'));
-      await tester.pumpAndSettle();
-
       expect(
         seenRequests,
         contains(
@@ -184,6 +208,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('QR orqali'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('QR skanerlash'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '30AA');
@@ -297,6 +323,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('QR orqali'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('QR skanerlash'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '30AA');
@@ -372,20 +400,30 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('zakaz-1'), findsOneWidget);
-      expect(find.text('30AA'), findsOneWidget);
+      final assignmentRow = find.byKey(
+        const ValueKey('manual-raw-material-zakaz-1|30AA'),
+      );
+      expect(assignmentRow, findsOneWidget);
 
-      await tester.tap(find.text('zakaz-1'));
+      await tester.tap(assignmentRow);
       await tester.pumpAndSettle();
-      expect(find.text('Uzish'), findsOneWidget);
+      expect(find.text('Ulanishni uzish'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Uzish'));
+      await tester.ensureVisible(find.text('Ulanishni uzish'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Uzish'));
+      await tester.tap(find.text('Ulanishni uzish'));
       await tester.pumpAndSettle();
       expect(find.text('Bu homashyoni zakazdan uzasizmi?'), findsOneWidget);
 
-      await tester.tap(find.text('Uzish').last);
+      final confirmButton = find.byKey(
+        const ValueKey('manual-assignment-confirm-unlink'),
+      );
+      expect(
+        tester.getCenter(confirmButton).dy,
+        lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
+      );
+      expect(tester.getSize(confirmButton).width, greaterThan(250));
+      await tester.tap(confirmButton);
       await tester.pumpAndSettle();
 
       expect(
@@ -395,8 +433,8 @@ void main() {
           '{"order_id":"zakaz-1","barcode":"30AA"}',
         ),
       );
-      expect(find.text('Ulangan homashyo topilmadi'), findsOneWidget);
-      expect(find.text('30AA'), findsNothing);
+      expect(find.text('Bu zakazga hali homashyo ulanmagan'), findsOneWidget);
+      expect(assignmentRow, findsNothing);
       await tester.pump(const Duration(seconds: 2));
     }, createHttpClient: (_) => client);
   });
@@ -490,6 +528,27 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'item_group': 'Kraska',
             'qty': 12,
             'uom': 'Kg',
+            'apparatus_options': ['Pechat'],
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidate-orders?barcode=30AA':
+        body = const [
+          {
+            'order': {
+              'map': {
+                'id': 'zakaz-1',
+                'product_code': 'PR-1',
+                'title': 'Zakaz 1',
+                'code': 'Z-1',
+                'nodes': [],
+                'edges': [],
+              },
+              'program': {
+                'map_id': 'zakaz-1',
+                'product_code': 'PR-1',
+                'operations': [],
+              },
+            },
             'apparatus_options': ['Pechat'],
           },
         ];

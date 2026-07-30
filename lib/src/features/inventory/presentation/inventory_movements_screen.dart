@@ -3,16 +3,20 @@ import 'dart:async';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/models/production_map_models.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../material_taminotchi/presentation/widgets/material_state_locations_tab.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../material_taminotchi/presentation/widgets/raw_material_list_assignment.dart';
+import '../../material_taminotchi/presentation/widgets/raw_material_order_assignment_section.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
@@ -35,12 +39,16 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   List<InventoryTransfer> _allOutgoing = const [];
   List<InventoryTransfer> _incoming = const [];
   List<InventoryTransfer> _outgoing = const [];
+  Map<String, RawMaterialListAssignment> _rawMaterialOrderAssignments =
+      const {};
   String _selectedWarehouseId = '';
   bool _loading = true;
   bool _assetsLoading = false;
   bool _warehouseFilterExpanded = false;
   String _error = '';
   final Set<String> _busyKeys = {};
+  final Set<String> _selectedAssetKeys = {};
+  int _selectedStateAssetCount = 0;
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
 
@@ -77,6 +85,27 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
+  bool get _stateSelectionMode => _selectedStateAssetCount > 0;
+
+  bool get _selectionMode =>
+      _selectedAssetKeys.isNotEmpty || _stateSelectionMode;
+
+  int get _selectionCount => _stateSelectionMode
+      ? _selectedStateAssetCount
+      : _selectedAssetKeys.length;
+
+  String _selectionKey(InventoryAsset asset) =>
+      '${asset.kind.apiValue}:${asset.assetRef.toLowerCase()}';
+
+  bool _canBulkRelocate(InventoryAsset asset) =>
+      asset.isAvailable &&
+      asset.physicalLocation.kind == InventoryLocationKind.warehouse &&
+      asset.custodyWarehouseId == _selectedWarehouseId;
+
+  List<InventoryAsset> get _selectedAssets => _assets
+      .where((asset) => _selectedAssetKeys.contains(_selectionKey(asset)))
+      .toList(growable: false);
+
   Future<void> _loadAll() async {
     if (mounted) {
       setState(() {
@@ -101,7 +130,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                 ? warehouses.first.warehouseId
                 : '');
       }
-      final results = await Future.wait([
+      final results = await Future.wait<Object>([
         MobileApi.instance.inventoryTransfers(direction: 'incoming'),
         MobileApi.instance.inventoryTransfers(direction: 'outgoing'),
         if (selected.isNotEmpty)
@@ -111,6 +140,10 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           )
         else
           Future.value(const <InventoryAsset>[]),
+        if (_materialScoped)
+          _loadRawMaterialOrderAssignments()
+        else
+          Future.value(const <String, RawMaterialListAssignment>{}),
       ]);
       if (!mounted) {
         return;
@@ -138,6 +171,10 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         _incoming = incoming;
         _outgoing = outgoing;
         _assets = results[2] as List<InventoryAsset>;
+        final visibleKeys = _assets.map(_selectionKey).toSet();
+        _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
+        _rawMaterialOrderAssignments =
+            results[3] as Map<String, RawMaterialListAssignment>;
         _loading = false;
       });
     } catch (error) {
@@ -158,13 +195,23 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     }
     setState(() => _assetsLoading = true);
     try {
-      final assets = await MobileApi.instance.inventoryAssets(
-        warehouseId: _selectedWarehouseId,
-        query: _searchController.text,
-      );
+      final results = await Future.wait<Object>([
+        MobileApi.instance.inventoryAssets(
+          warehouseId: _selectedWarehouseId,
+          query: _searchController.text,
+        ),
+        if (_materialScoped)
+          _loadRawMaterialOrderAssignments()
+        else
+          Future.value(const <String, RawMaterialListAssignment>{}),
+      ]);
       if (mounted) {
         setState(() {
-          _assets = assets;
+          _assets = results[0] as List<InventoryAsset>;
+          final visibleKeys = _assets.map(_selectionKey).toSet();
+          _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
+          _rawMaterialOrderAssignments =
+              results[1] as Map<String, RawMaterialListAssignment>;
           _assetsLoading = false;
         });
       }
@@ -174,6 +221,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         _showMessage(_message(error));
       }
     }
+  }
+
+  Future<Map<String, RawMaterialListAssignment>>
+      _loadRawMaterialOrderAssignments() async {
+    final results = await Future.wait<Object>([
+      MobileApi.instance.adminRawMaterialAssignments(),
+      MobileApi.instance.adminRawMaterialAssignmentOrders(),
+    ]);
+    return rawMaterialListAssignmentsByBarcode(
+      assignments: results[0] as List<AdminRawMaterialAssignment>,
+      orders: results[1] as List<ProductionMapSaved>,
+    );
   }
 
   Future<void> _handleStateAssetReturned() async {
@@ -188,6 +247,101 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     _refreshTransferFilters();
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), _loadAssets);
+  }
+
+  void _toggleAssetSelection(InventoryAsset asset) {
+    if (!_canBulkRelocate(asset)) {
+      return;
+    }
+    if (_stateSelectionMode) {
+      _materialStateLocationsKey.currentState?.clearSelection();
+    }
+    _searchFocusNode.unfocus();
+    final key = _selectionKey(asset);
+    setState(() {
+      if (!_selectedAssetKeys.add(key)) {
+        _selectedAssetKeys.remove(key);
+      }
+    });
+  }
+
+  void _clearAssetSelection() {
+    if (_selectedAssetKeys.isEmpty) {
+      return;
+    }
+    setState(_selectedAssetKeys.clear);
+  }
+
+  void _clearSelection() {
+    if (_stateSelectionMode) {
+      _materialStateLocationsKey.currentState?.clearSelection();
+      return;
+    }
+    _clearAssetSelection();
+  }
+
+  void _handleStateSelectionChanged(int count) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedStateAssetCount = count;
+      if (count > 0) {
+        _selectedAssetKeys.clear();
+      }
+    });
+  }
+
+  Future<void> _runSelectionAction() async {
+    if (_stateSelectionMode) {
+      await _materialStateLocationsKey.currentState?.returnSelectedAssets();
+      return;
+    }
+    await _relocateSelectedAssets();
+  }
+
+  Future<void> _relocateSelectedAssets() async {
+    final assets = _selectedAssets;
+    if (assets.isEmpty) {
+      _clearAssetSelection();
+      return;
+    }
+    final selected = await _pickLocation(
+      title: 'Qaysi State’ga ko‘chirasiz?',
+      locations: _stateLocations,
+      emptyMessage: 'Faol State topilmadi',
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'State’ga ko‘chirish',
+          message: '${assets.length} ta mahsulot ${selected.name} State’ga '
+              'ko‘chirilsinmi?',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'Ko‘chirish',
+          verticalActions: true,
+          confirmButtonKey: const ValueKey(
+            'inventory-selection-relocate-confirm',
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _runBusy('relocate-batch', () async {
+      await MobileApi.instance.inventoryRelocateBatch(
+        assets: assets,
+        physicalLocationId: selected.id,
+        idempotencyKey: _idempotencyKey('relocate-batch'),
+      );
+      if (mounted) {
+        setState(_selectedAssetKeys.clear);
+      }
+      _showMessage('${assets.length} ta mahsulot — ${selected.name}');
+      await _handleStateAssetReturned();
+    });
   }
 
   void _refreshTransferFilters() {
@@ -286,30 +440,15 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             'qabul qiluvchi omborga ko‘chiriladi.'
         : 'Qabul qiluvchi tasdiqlamaguncha mahsulot manba omborda '
             'band holatda qoladi.';
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showM3ConfirmDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: Text(
-              internalTransfer ? 'Ichki ko‘chirish' : 'Transfer so‘rovi',
-            ),
-            content: Text(
-              '${asset.itemName} (${_qty(asset.qty)} ${asset.uom})\n'
+          title: internalTransfer ? 'Ichki ko‘chirish' : 'Transfer so‘rovi',
+          message: '${asset.itemName} (${_qty(asset.qty)} ${asset.uom})\n'
               '${asset.custodyWarehouse} → ${selected.name}\n\n'
               '$transferExplanation',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Bekor qilish'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(
-                  internalTransfer ? 'Ko‘chirish' : 'So‘rov yuborish',
-                ),
-              ),
-            ],
-          ),
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: internalTransfer ? 'Ko‘chirish' : 'So‘rov yuborish',
+          verticalActions: true,
         ) ??
         false;
     if (!confirmed || !mounted) {
@@ -347,6 +486,14 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         asset: asset,
         busy: busy,
         transferRequiresWarehouseLocation: !physicallyInWarehouse,
+        showOrderAssignment:
+            _materialScoped && asset.kind == InventoryAssetKind.rawMaterial,
+        allowOrderAssignment: _materialScoped &&
+            asset.kind == InventoryAssetKind.rawMaterial &&
+            asset.isAvailable &&
+            physicallyInWarehouse &&
+            !busy,
+        onOrderAssignmentChanged: _loadAssets,
         onRelocate: asset.isAvailable && !busy
             ? () async {
                 Navigator.of(sheetContext).pop();
@@ -516,6 +663,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
           key: _materialStateLocationsKey,
           bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 128,
           onAssetReturned: _handleStateAssetReturned,
+          orderAssignments: _rawMaterialOrderAssignments,
+          onOrderAssignmentChanged: _loadAssets,
+          onSelectionChanged: _handleStateSelectionChanged,
         ),
       _TransferList(
         transfers: _incoming,
@@ -544,25 +694,69 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         subtitle: '',
         nativeTopBar: true,
         automaticallyImplyNativeLeading: false,
+        showProfileAction: !_selectionMode,
         profileActionListenable: _searchFocusNode,
         showProfileActionResolver: () => !_searchFocusNode.hasFocus,
-        titleWidget: AdminCatalogSearchField(
-          controller: _searchController,
-          focusNode: _searchFocusNode,
-          hintText: 'Mahsulot, kod yoki QR qidirish',
-          onChanged: (value) {
-            _onSearchChanged(value);
-            _materialStateLocationsKey.currentState
-                ?.handleItemsSearchChanged(value);
-          },
-          onClear: () {
-            _searchController.clear();
-            _onSearchChanged('');
-            _materialStateLocationsKey.currentState
-                ?.handleItemsSearchChanged('');
-          },
-          onBack: _goBack,
-        ),
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  key: ValueKey(
+                    _stateSelectionMode
+                        ? 'material-state-selection-return'
+                        : 'inventory-selection-relocate',
+                  ),
+                  tooltip: _stateSelectionMode
+                      ? 'Omborga qaytarish'
+                      : 'State’ga ko‘chirish',
+                  onPressed: _busyKeys.contains('relocate-batch')
+                      ? null
+                      : _runSelectionAction,
+                  icon: _busyKeys.contains('relocate-batch')
+                      ? const AppLoadingIndicator(size: 24, glyphSize: 16)
+                      : Icon(
+                          _stateSelectionMode
+                              ? Icons.keyboard_return_rounded
+                              : Icons.swap_horiz_rounded,
+                        ),
+                ),
+              ]
+            : null,
+        titleWidget: _selectionMode
+            ? Row(
+                children: [
+                  IconButton(
+                    key: const ValueKey('inventory-selection-close'),
+                    tooltip: 'Tanlashni bekor qilish',
+                    onPressed: _clearSelection,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_selectionCount ta tanlandi',
+                    key: const ValueKey('inventory-selection-count'),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              )
+            : AdminCatalogSearchField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                hintText: 'Mahsulot, kod yoki QR qidirish',
+                onChanged: (value) {
+                  _onSearchChanged(value);
+                  _materialStateLocationsKey.currentState
+                      ?.handleItemsSearchChanged(value);
+                },
+                onClear: () {
+                  _searchController.clear();
+                  _onSearchChanged('');
+                  _materialStateLocationsKey.currentState
+                      ?.handleItemsSearchChanged('');
+                },
+                onBack: _goBack,
+              ),
         drawer: _materialScoped
             ? MaterialTaminotchiNavigationDrawer(
                 selectedRouteName: AppRoutes.inventoryMovements,
@@ -634,6 +828,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                   final asset = _assets[index];
                   final key = '${asset.kind.apiValue}:${asset.assetRef}';
                   final busy = _busyKeys.any((item) => item.contains(key));
+                  final orderAssignment = _rawMaterialOrderAssignments[
+                      rawMaterialAssetBarcode(asset)];
+                  final selected = _selectedAssetKeys.contains(
+                    _selectionKey(asset),
+                  );
+                  final selectable = _canBulkRelocate(asset) && !busy;
                   return Padding(
                     padding: EdgeInsets.only(
                       top: index == 0 ? 0 : M3SegmentedListGeometry.gap,
@@ -645,8 +845,17 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                         _assets.length,
                       ),
                       asset: asset,
+                      orderAssignment: orderAssignment,
                       busy: busy,
-                      onTap: () => _showAssetDetails(asset),
+                      selected: selected,
+                      onTap: _selectionMode
+                          ? (selectable
+                              ? () => _toggleAssetSelection(asset)
+                              : null)
+                          : () => _showAssetDetails(asset),
+                      onLongPress: selectable
+                          ? () => _toggleAssetSelection(asset)
+                          : null,
                     ),
                   );
                 },
@@ -705,6 +914,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     }
     final warehouseName = location.first.name;
     setState(() {
+      _selectedAssetKeys.clear();
       _selectedWarehouseId = selected;
       _warehouseFilterExpanded = false;
       _incoming = _filterTransfersByWarehouse(
@@ -800,45 +1010,75 @@ class _InventoryAssetListRow extends StatelessWidget {
     super.key,
     required this.slot,
     required this.asset,
+    required this.orderAssignment,
     required this.busy,
+    required this.selected,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final InventoryAsset asset;
+  final RawMaterialListAssignment? orderAssignment;
   final bool busy;
-  final VoidCallback onTap;
+  final bool selected;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final title =
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final materialTitle =
         asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    final assigned = orderAssignment != null;
+    final title = orderAssignment?.orderLabel ?? materialTitle;
     final subtitle = [
-      if (asset.identifier.trim().isNotEmpty) asset.identifier.trim(),
+      if (assigned)
+        materialTitle
+      else if (asset.identifier.trim().isNotEmpty)
+        asset.identifier.trim(),
       '${_qty(asset.qty)} ${asset.uom}',
       _statusLabel(asset.status),
     ].join(' • ');
+    final assignedGreen = theme.brightness == Brightness.dark
+        ? const Color(0xFF81C784)
+        : const Color(0xFF2E7D32);
+    final backgroundColor = assigned
+        ? Color.alphaBlend(
+            assignedGreen.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
+            ),
+            scheme.surfaceContainerLowest,
+          )
+        : scheme.surfaceContainerLowest;
     return AdminSummaryCard(
+      key: ValueKey('inventory-asset-card-${asset.assetRef}'),
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
-      backgroundColor: scheme.surfaceContainerLowest,
+      onLongPress: onLongPress,
+      backgroundColor: backgroundColor,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(
+        key: selected
+            ? ValueKey('inventory-asset-selected-${asset.assetRef}')
+            : null,
         dimension: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
+            color: assigned
+                ? assignedGreen.withValues(alpha: 0.18)
+                : scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            _assetIcon(asset.kind),
+            selected ? Icons.check_rounded : _assetIcon(asset.kind),
             size: 16,
-            color: scheme.onSecondaryContainer,
+            color: assigned ? assignedGreen : scheme.onSecondaryContainer,
           ),
         ),
       ),
@@ -848,13 +1088,13 @@ class _InventoryAssetListRow extends StatelessWidget {
       subtitle: subtitle,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
+      titleStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      subtitleStyle: theme.textTheme.bodySmall?.copyWith(
+        color: scheme.onSurfaceVariant,
+        height: 1.05,
+      ),
       elevation: 1,
     );
   }
@@ -865,6 +1105,9 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
     required this.asset,
     required this.busy,
     required this.transferRequiresWarehouseLocation,
+    required this.showOrderAssignment,
+    required this.allowOrderAssignment,
+    required this.onOrderAssignmentChanged,
     required this.onRelocate,
     required this.onTransfer,
   });
@@ -872,6 +1115,9 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
   final InventoryAsset asset;
   final bool busy;
   final bool transferRequiresWarehouseLocation;
+  final bool showOrderAssignment;
+  final bool allowOrderAssignment;
+  final Future<void> Function() onOrderAssignmentChanged;
   final Future<void> Function()? onRelocate;
   final Future<void> Function()? onTransfer;
 
@@ -967,6 +1213,17 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               label: 'Fizik joy',
               value: asset.physicalLocation.name,
             ),
+            if (showOrderAssignment) ...[
+              const SizedBox(height: 10),
+              RawMaterialOrderAssignmentSection(
+                key: ValueKey(
+                  'inventory-raw-material-assignment-${asset.assetRef}',
+                ),
+                barcode: _rawMaterialAssetBarcode(asset),
+                allowAssignment: allowOrderAssignment,
+                onAssignmentChanged: onOrderAssignmentChanged,
+              ),
+            ],
             if (transferRequiresWarehouseLocation) ...[
               const SizedBox(height: 8),
               Text(
@@ -1432,6 +1689,16 @@ String _transferTimestamp(InventoryTransfer transfer) {
   String two(int value) => value.toString().padLeft(2, '0');
   return '${two(date.day)}.${two(date.month)}.${date.year} '
       '${two(date.hour)}:${two(date.minute)}';
+}
+
+String _rawMaterialAssetBarcode(InventoryAsset asset) {
+  final identifier = asset.identifier.trim();
+  if (identifier.isNotEmpty) {
+    return identifier;
+  }
+  final assetRef = asset.assetRef.trim();
+  final separator = assetRef.indexOf(':');
+  return separator < 0 ? assetRef : assetRef.substring(separator + 1).trim();
 }
 
 String _transferSummary(InventoryTransfer transfer) {

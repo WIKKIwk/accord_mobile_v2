@@ -239,6 +239,240 @@ extension MobileApiInventoryMovements on MobileApi {
     );
   }
 
+  Future<List<InventoryAsset>> inventoryRelocateBatch({
+    required List<InventoryAsset> assets,
+    required String physicalLocationId,
+    required String idempotencyKey,
+    String note = '',
+  }) async {
+    final normalizedLocationId = physicalLocationId.trim();
+    final normalizedKey = idempotencyKey.trim();
+    final uniqueAssets = <String, InventoryAsset>{};
+    for (final asset in assets) {
+      final assetRef = asset.assetRef.trim();
+      if (assetRef.isNotEmpty) {
+        uniqueAssets[_inventoryAssetKey(asset.kind, assetRef)] = asset;
+      }
+    }
+    if (uniqueAssets.isEmpty ||
+        normalizedLocationId.isEmpty ||
+        normalizedKey.isEmpty) {
+      throw const MobileApiException(
+        code: 'inventory_relocation_invalid',
+        message: 'Mahsulot va joylashuvni tanlang',
+      );
+    }
+    final selectedAssets = uniqueAssets.values.toList(growable: false);
+    if (await TestModeController.instance.isEnabled()) {
+      final locations = _testModeInventoryLocations.where(
+        (item) => item.id == normalizedLocationId && item.active,
+      );
+      if (locations.isEmpty) {
+        throw const MobileApiException(
+          code: 'inventory_asset_or_location_not_found',
+          message: 'Mahsulot yoki joylashuv topilmadi',
+          statusCode: 404,
+        );
+      }
+      final destination = locations.first;
+      final indexed = <int, InventoryAsset>{};
+      for (final selected in selectedAssets) {
+        final index = _testModeInventoryAssets.indexWhere(
+          (asset) =>
+              asset.kind == selected.kind &&
+              asset.assetRef.toLowerCase() == selected.assetRef.toLowerCase(),
+        );
+        if (index < 0) {
+          throw const MobileApiException(
+            code: 'inventory_asset_or_location_not_found',
+            message: 'Mahsulot yoki joylashuv topilmadi',
+            statusCode: 404,
+          );
+        }
+        final current = _testModeInventoryAssets[index];
+        if (!current.isAvailable) {
+          throw const MobileApiException(
+            code: 'inventory_asset_unavailable',
+            message: 'Mahsulot hozir ko‘chirish uchun mavjud emas',
+            statusCode: 409,
+          );
+        }
+        if (destination.isWarehouse &&
+            destination.warehouseId != current.custodyWarehouseId) {
+          throw const MobileApiException(
+            code: 'inventory_cross_warehouse_requires_transfer',
+            message: 'Boshqa omborga faqat transfer orqali yuboriladi',
+            statusCode: 409,
+          );
+        }
+        indexed[index] = current;
+      }
+      final updatedAssets = <InventoryAsset>[];
+      for (final entry in indexed.entries) {
+        final updated = entry.value.copyWith(
+          physicalLocation: InventoryLocationReference(
+            id: destination.id,
+            kind: destination.kind,
+            name: destination.name,
+          ),
+          placementVersion: entry.value.placementVersion + 1,
+        );
+        _testModeInventoryAssets[entry.key] = updated;
+        _testModeInventoryPlacementOwnerRefs[
+                _inventoryAssetKey(updated.kind, updated.assetRef)] =
+            AppSession.instance.profile?.ref.trim() ?? '';
+        updatedAssets.add(updated);
+      }
+      return updatedAssets;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/inventory/relocations/batch',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'assets': [
+            for (final asset in selectedAssets)
+              {
+                'asset_kind': asset.kind.apiValue,
+                'asset_ref': asset.assetRef.trim(),
+              },
+          ],
+          'physical_location_id': normalizedLocationId,
+          'idempotency_key': normalizedKey,
+          if (note.trim().isNotEmpty) 'note': note.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _inventoryApiException(
+        response,
+        fallbackCode: 'inventory_relocation_failed',
+        fallbackMessage: 'Joylashuv o‘zgartirilmadi',
+      );
+    }
+    final payload = await decodeJsonListPayload(response.body);
+    return payload
+        .whereType<Map>()
+        .map((item) => InventoryAsset.fromJson(item.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  Future<List<InventoryAsset>> inventoryReturnToWarehousesBatch({
+    required List<InventoryAsset> assets,
+    required String idempotencyKey,
+    String note = '',
+  }) async {
+    final normalizedKey = idempotencyKey.trim();
+    final uniqueAssets = <String, InventoryAsset>{};
+    for (final asset in assets) {
+      final assetRef = asset.assetRef.trim();
+      if (assetRef.isNotEmpty) {
+        uniqueAssets[_inventoryAssetKey(asset.kind, assetRef)] = asset;
+      }
+    }
+    if (uniqueAssets.isEmpty || normalizedKey.isEmpty) {
+      throw const MobileApiException(
+        code: 'inventory_relocation_invalid',
+        message: 'Qaytariladigan mahsulotlarni tanlang',
+      );
+    }
+    final selectedAssets = uniqueAssets.values.toList(growable: false);
+    if (await TestModeController.instance.isEnabled()) {
+      final indexed = <int, (InventoryAsset, InventoryLocation)>{};
+      for (final selected in selectedAssets) {
+        final index = _testModeInventoryAssets.indexWhere(
+          (asset) =>
+              asset.kind == selected.kind &&
+              asset.assetRef.toLowerCase() == selected.assetRef.toLowerCase(),
+        );
+        if (index < 0) {
+          throw const MobileApiException(
+            code: 'inventory_asset_not_found',
+            message: 'Mahsulot topilmadi',
+            statusCode: 404,
+          );
+        }
+        final current = _testModeInventoryAssets[index];
+        if (!current.isAvailable ||
+            current.physicalLocation.kind != InventoryLocationKind.state) {
+          throw const MobileApiException(
+            code: 'inventory_asset_unavailable',
+            message: 'Mahsulotni hozir omborga qaytarib bo‘lmaydi',
+            statusCode: 409,
+          );
+        }
+        final destinations = _testModeInventoryLocations.where(
+          (location) =>
+              location.active &&
+              location.isWarehouse &&
+              location.warehouseId == current.custodyWarehouseId,
+        );
+        if (destinations.isEmpty) {
+          throw const MobileApiException(
+            code: 'inventory_location_not_found',
+            message: 'Mahsulotning ombor joylashuvi topilmadi',
+            statusCode: 404,
+          );
+        }
+        indexed[index] = (current, destinations.first);
+      }
+      final updatedAssets = <InventoryAsset>[];
+      for (final entry in indexed.entries) {
+        final current = entry.value.$1;
+        final destination = entry.value.$2;
+        final updated = current.copyWith(
+          physicalLocation: InventoryLocationReference(
+            id: destination.id,
+            kind: destination.kind,
+            name: destination.name,
+          ),
+          placementVersion: current.placementVersion + 1,
+        );
+        _testModeInventoryAssets[entry.key] = updated;
+        _testModeInventoryPlacementOwnerRefs[
+                _inventoryAssetKey(updated.kind, updated.assetRef)] =
+            AppSession.instance.profile?.ref.trim() ?? '';
+        updatedAssets.add(updated);
+      }
+      return updatedAssets;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/admin/inventory/returns/batch',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'assets': [
+            for (final asset in selectedAssets)
+              {
+                'asset_kind': asset.kind.apiValue,
+                'asset_ref': asset.assetRef.trim(),
+              },
+          ],
+          'idempotency_key': normalizedKey,
+          if (note.trim().isNotEmpty) 'note': note.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _inventoryApiException(
+        response,
+        fallbackCode: 'inventory_return_failed',
+        fallbackMessage: 'Mahsulotlar omborga qaytarilmadi',
+      );
+    }
+    final payload = await decodeJsonListPayload(response.body);
+    return payload
+        .whereType<Map>()
+        .map((item) => InventoryAsset.fromJson(item.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
   Future<List<InventoryTransfer>> inventoryTransfers({
     String direction = 'all',
     InventoryTransferStatus? status,

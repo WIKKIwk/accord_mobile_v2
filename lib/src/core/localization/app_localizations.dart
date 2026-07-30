@@ -290,6 +290,16 @@ class AppLocalizations {
         'Allow “Install unknown apps” for Accord Mobile, then tap Update again.',
         'Разрешите Accord Mobile устанавливать неизвестные приложения, затем снова нажмите «Обновить».',
       );
+  String get appUpdateInstallerLaunched => _t(
+        'APK tayyor. Android o‘rnatuvchisi ochildi — o‘rnatishni tizim oynasida tasdiqlang.',
+        'The APK is ready. Android Installer opened — confirm the installation in the system window.',
+        'APK готов. Установщик Android открыт — подтвердите установку в системном окне.',
+      );
+  String get appUpdateOpenInstaller => _t(
+        'O‘rnatuvchini qayta ochish',
+        'Open Installer again',
+        'Открыть установщик снова',
+      );
   String appUpdateDownloadProgress(double downloadedMb, double totalMb) => _t(
         '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',
         '${downloadedMb.toStringAsFixed(1)} / ${totalMb.toStringAsFixed(1)} MB',

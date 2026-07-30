@@ -107,8 +107,8 @@ class TestModeDemoData {
     AdminRawMaterialStockEntry(
       id: 'raw:30aa',
       warehouse: 'Xomashyo ombori - DEMO',
-      itemCode: 'DEMO-RAW-001',
-      itemName: 'Demo xomashyo rulon',
+      itemCode: 'DEMO-INK',
+      itemName: 'Demo kraska',
       barcode: '30AA',
       qty: 12,
       uom: 'Kg',

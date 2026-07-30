@@ -399,6 +399,49 @@ void main() {
     expect(openedArgs, isA<ProductionMapTestArgs>());
   });
 
+  testWidgets('admin can add more than five layers and remove them', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _pumpCalculateScreen(tester);
+
+    for (var index = 0; index < 6; index++) {
+      await tester.scrollUntilVisible(
+        find.text('Qavat qo‘shish'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Qavat qo‘shish'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('7-qavat'), findsOneWidget);
+    expect(find.byTooltip('Qavatni olib tashlash'), findsNWidgets(6));
+
+    await tester.tap(find.byTooltip('Qavatni olib tashlash').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('7-qavat'), findsNothing);
+  });
+
+  test('template layers serialize without a fixed upper limit', () {
+    final layers = List.generate(
+      8,
+      (index) => CalculateLayerInput(
+        material: 'material-${index + 1}',
+        micron: '${index + 10}',
+      ),
+    );
+    final template = _template(itemCode: 'ITEM-1').copyWith(layers: layers);
+
+    final json = template.toJson();
+    final decoded = CalculateOrderTemplate.fromJson(json);
+
+    expect((json['layers'] as List).length, 8);
+    expect(decoded.effectiveLayers.length, 8);
+    expect(decoded.effectiveLayers.last.material, 'material-8');
+  });
+
   testWidgets(
       'quick order details hide duplicate customer and product subtitles',
       (tester) async {

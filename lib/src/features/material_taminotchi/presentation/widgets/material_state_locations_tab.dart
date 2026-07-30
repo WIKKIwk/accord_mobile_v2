@@ -4,12 +4,15 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../../core/widgets/shell/app_retry_state.dart';
 import '../../../../core/widgets/shell/app_shell.dart';
 import '../../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../../shared/models/inventory_movement_models.dart';
+import 'raw_material_list_assignment.dart';
+import 'raw_material_order_assignment_section.dart';
 import 'package:flutter/material.dart';
 
 class _MaterialStateLocationsData {
@@ -27,10 +30,16 @@ class MaterialStateLocationsTab extends StatefulWidget {
     super.key,
     required this.bottomPadding,
     required this.onAssetReturned,
+    this.orderAssignments = const {},
+    this.onOrderAssignmentChanged,
+    this.onSelectionChanged,
   });
 
   final double bottomPadding;
   final Future<void> Function() onAssetReturned;
+  final Map<String, RawMaterialListAssignment> orderAssignments;
+  final Future<void> Function()? onOrderAssignmentChanged;
+  final ValueChanged<int>? onSelectionChanged;
 
   @override
   State<MaterialStateLocationsTab> createState() =>
@@ -44,6 +53,9 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   String _selectedStateId = '';
   String _busyAssetKey = '';
   bool _filterExpanded = false;
+  final Set<String> _selectedAssetKeys = {};
+
+  bool get _selectionMode => _selectedAssetKeys.isNotEmpty;
 
   @override
   void initState() {
@@ -81,6 +93,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   }
 
   Future<void> reload() async {
+    clearSelection();
     final future = _load();
     if (mounted) {
       setState(() {
@@ -88,6 +101,127 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
       });
     }
     await future;
+  }
+
+  void clearSelection() {
+    if (_selectedAssetKeys.isEmpty) {
+      return;
+    }
+    setState(_selectedAssetKeys.clear);
+    widget.onSelectionChanged?.call(0);
+  }
+
+  InventoryLocation? _returnLocation(
+    InventoryAsset asset,
+    List<InventoryLocation> locations,
+  ) {
+    for (final location in locations) {
+      if (location.isWarehouse &&
+          location.active &&
+          location.warehouseId == asset.custodyWarehouseId) {
+        return location;
+      }
+    }
+    return null;
+  }
+
+  void _toggleSelection(
+    InventoryAsset asset,
+    List<InventoryLocation> locations,
+  ) {
+    if (widget.onSelectionChanged == null ||
+        !asset.isAvailable ||
+        _returnLocation(asset, locations) == null ||
+        _busyAssetKey.isNotEmpty) {
+      return;
+    }
+    final key = _inventoryStateAssetKey(asset);
+    setState(() {
+      if (!_selectedAssetKeys.add(key)) {
+        _selectedAssetKeys.remove(key);
+      }
+    });
+    widget.onSelectionChanged?.call(_selectedAssetKeys.length);
+  }
+
+  Future<void> returnSelectedAssets() async {
+    if (_selectedAssetKeys.isEmpty || _busyAssetKey.isNotEmpty) {
+      return;
+    }
+    final data = await _future;
+    if (!mounted) {
+      return;
+    }
+    final assets = data.assets
+        .where(
+          (asset) =>
+              _selectedAssetKeys.contains(_inventoryStateAssetKey(asset)),
+        )
+        .toList(growable: false);
+    final allReturnable = assets.isNotEmpty &&
+        assets.every(
+          (asset) =>
+              asset.isAvailable &&
+              _returnLocation(asset, data.locations) != null,
+        );
+    if (!allReturnable) {
+      if (mounted) {
+        _showMaterialStateNotice(
+          context,
+          'Tanlangan mahsulotlardan birini omborga qaytarib bo‘lmaydi',
+        );
+      }
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Omborga qaytarish',
+          message: '${assets.length} ta mahsulot o‘z omborlariga '
+              'qaytarilsinmi?',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'Qaytarish',
+          verticalActions: true,
+          confirmButtonKey: const ValueKey(
+            'material-state-selection-return-confirm',
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() => _busyAssetKey = 'return-batch');
+    try {
+      await MobileApi.instance.inventoryReturnToWarehousesBatch(
+        assets: assets,
+        idempotencyKey:
+            'state-return-batch-${DateTime.now().microsecondsSinceEpoch}',
+        note: 'State’dan o‘z omborlariga qaytarildi',
+      );
+      _selectedAssetKeys.clear();
+      widget.onSelectionChanged?.call(0);
+      await widget.onAssetReturned();
+      if (mounted) {
+        _showMaterialStateNotice(
+          context,
+          '${assets.length} ta mahsulot o‘z omboriga qaytarildi',
+        );
+      }
+    } on MobileApiException catch (error) {
+      if (mounted) {
+        _showMaterialStateNotice(context, error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMaterialStateNotice(
+          context,
+          'Mahsulotlarni omborga qaytarib bo‘lmadi',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyAssetKey = '');
+      }
+    }
   }
 
   void handleItemsSearchChanged(String value) {
@@ -104,14 +238,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     InventoryAsset asset,
     List<InventoryLocation> locations,
   ) async {
-    InventoryLocation? returnLocation;
-    for (final location in locations) {
-      if (location.isWarehouse &&
-          location.warehouseId == asset.custodyWarehouseId) {
-        returnLocation = location;
-        break;
-      }
-    }
+    final returnLocation = _returnLocation(asset, locations);
     final assetKey = _inventoryStateAssetKey(asset);
     final busy = _busyAssetKey == assetKey;
     await showModalBottomSheet<void>(
@@ -124,11 +251,12 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
         asset: asset,
         busy: busy,
         canReturn: asset.isAvailable && returnLocation != null && !busy,
+        onOrderAssignmentChanged: widget.onOrderAssignmentChanged,
         onReturn: returnLocation == null
             ? null
             : () async {
                 Navigator.of(sheetContext).pop();
-                await _returnToWarehouse(asset, returnLocation!);
+                await _returnToWarehouse(asset, returnLocation);
               },
       ),
     );
@@ -138,25 +266,15 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
     InventoryAsset asset,
     InventoryLocation warehouseLocation,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showM3ConfirmDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Omborga qaytarish'),
-            content: Text(
+          title: 'Omborga qaytarish',
+          message:
               '${asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName} '
               '${warehouseLocation.name} omboriga qaytarilsinmi?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Yo‘q'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Ha'),
-              ),
-            ],
-          ),
+          cancelLabel: 'Yo‘q',
+          confirmLabel: 'Ha',
+          verticalActions: true,
         ) ??
         false;
     if (!confirmed || !mounted) {
@@ -230,11 +348,14 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
           if (_query.isEmpty) {
             return true;
           }
+          final orderAssignment =
+              widget.orderAssignments[rawMaterialAssetBarcode(asset)];
           return [
             asset.itemName,
             asset.itemCode,
             asset.identifier,
             asset.assetRef,
+            if (orderAssignment != null) orderAssignment.orderLabel,
           ].any((value) => value.toLowerCase().contains(_query));
         }).toList(growable: false);
         return ColoredBox(
@@ -267,6 +388,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
                     () => _filterExpanded = !_filterExpanded,
                   ),
                   onSelect: (stateId) {
+                    clearSelection();
                     setState(() {
                       _selectedStateId = stateId;
                       _filterExpanded = false;
@@ -298,12 +420,36 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
                             visibleAssets.length,
                           ),
                           asset: visibleAssets[index],
+                          orderAssignment: widget.orderAssignments[
+                              rawMaterialAssetBarcode(visibleAssets[index])],
                           busy: _busyAssetKey ==
-                              _inventoryStateAssetKey(visibleAssets[index]),
-                          onTap: () => _showAssetDetails(
-                            visibleAssets[index],
-                            data.locations,
+                                  _inventoryStateAssetKey(
+                                    visibleAssets[index],
+                                  ) ||
+                              (_busyAssetKey == 'return-batch' &&
+                                  _selectedAssetKeys.contains(
+                                    _inventoryStateAssetKey(
+                                      visibleAssets[index],
+                                    ),
+                                  )),
+                          selected: _selectedAssetKeys.contains(
+                            _inventoryStateAssetKey(visibleAssets[index]),
                           ),
+                          onTap: _selectionMode
+                              ? () => _toggleSelection(
+                                    visibleAssets[index],
+                                    data.locations,
+                                  )
+                              : () => _showAssetDetails(
+                                    visibleAssets[index],
+                                    data.locations,
+                                  ),
+                          onLongPress: widget.onSelectionChanged != null
+                              ? () => _toggleSelection(
+                                    visibleAssets[index],
+                                    data.locations,
+                                  )
+                              : null,
                         ),
                     ],
                   ),
@@ -335,44 +481,75 @@ class _MaterialStateAssetRow extends StatelessWidget {
     super.key,
     required this.slot,
     required this.asset,
+    required this.orderAssignment,
     required this.busy,
+    required this.selected,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final InventoryAsset asset;
+  final RawMaterialListAssignment? orderAssignment;
   final bool busy;
+  final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final title =
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final materialTitle =
         asset.itemName.trim().isEmpty ? asset.itemCode : asset.itemName;
+    final assigned = orderAssignment != null;
+    final title = orderAssignment?.orderLabel ?? materialTitle;
     final subtitle = [
-      if (asset.identifier.trim().isNotEmpty) asset.identifier.trim(),
+      if (assigned)
+        materialTitle
+      else if (asset.identifier.trim().isNotEmpty)
+        asset.identifier.trim(),
       '${formatRawQuantity(asset.qty)} ${asset.uom}'.trim(),
+      _materialStateStatusLabel(asset.status),
     ].join(' • ');
+    final assignedGreen = theme.brightness == Brightness.dark
+        ? const Color(0xFF81C784)
+        : const Color(0xFF2E7D32);
+    final backgroundColor = assigned
+        ? Color.alphaBlend(
+            assignedGreen.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
+            ),
+            scheme.surfaceContainerLowest,
+          )
+        : scheme.surfaceContainerLowest;
     return AdminSummaryCard(
+      key: ValueKey('material-state-asset-card-${asset.assetRef}'),
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
-      backgroundColor: scheme.surfaceContainerLowest,
+      onLongPress: onLongPress,
+      backgroundColor: backgroundColor,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       value: '',
       showChevron: false,
       leading: SizedBox.square(
+        key: selected
+            ? ValueKey('material-state-asset-selected-${asset.assetRef}')
+            : null,
         dimension: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
+            color: assigned
+                ? assignedGreen.withValues(alpha: 0.18)
+                : scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.category_outlined,
+            selected ? Icons.check_rounded : Icons.category_outlined,
             size: 16,
-            color: scheme.onSecondaryContainer,
+            color: assigned ? assignedGreen : scheme.onSecondaryContainer,
           ),
         ),
       ),
@@ -382,12 +559,12 @@ class _MaterialStateAssetRow extends StatelessWidget {
       subtitle: subtitle,
       titleMaxLines: 1,
       subtitleMaxLines: 1,
-      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+      titleStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      subtitleStyle: theme.textTheme.bodySmall?.copyWith(
+        color: scheme.onSurfaceVariant,
+      ),
       elevation: 1,
     );
   }
@@ -399,12 +576,14 @@ class _MaterialStateAssetSheet extends StatelessWidget {
     required this.busy,
     required this.canReturn,
     required this.onReturn,
+    required this.onOrderAssignmentChanged,
   });
 
   final InventoryAsset asset;
   final bool busy;
   final bool canReturn;
   final Future<void> Function()? onReturn;
+  final Future<void> Function()? onOrderAssignmentChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -470,6 +649,15 @@ class _MaterialStateAssetSheet extends StatelessWidget {
               icon: Icons.location_on_outlined,
               label: 'State',
               value: asset.physicalLocation.name,
+            ),
+            const SizedBox(height: 10),
+            RawMaterialOrderAssignmentSection(
+              key: ValueKey(
+                'material-state-raw-assignment-${asset.assetRef}',
+              ),
+              barcode: rawMaterialAssetBarcode(asset),
+              allowAssignment: true,
+              onAssignmentChanged: onOrderAssignmentChanged,
             ),
             const SizedBox(height: 18),
             if (busy)
@@ -548,6 +736,15 @@ class _MaterialStateAssetDetail extends StatelessWidget {
 
 String _inventoryStateAssetKey(InventoryAsset asset) =>
     '${asset.kind.apiValue}:${asset.assetRef.trim().toLowerCase()}';
+
+String _materialStateStatusLabel(String status) =>
+    switch (status.trim().toLowerCase()) {
+      'available' => 'Mavjud',
+      'reserved' => 'Band',
+      'in_use' => 'Ishlatilmoqda',
+      'consumed' => 'Sarflangan',
+      _ => status.trim().isEmpty ? 'Noma’lum' : status.trim(),
+    };
 
 void _showMaterialStateNotice(BuildContext context, String message) {
   ScaffoldMessenger.maybeOf(context)?.showSnackBar(

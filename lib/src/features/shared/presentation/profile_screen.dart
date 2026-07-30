@@ -464,7 +464,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         onRemovePin: _removePin,
                         onToggleBiometric: _toggleBiometric,
                         onCheckForUpdate: () async {
-                          Navigator.of(sheetContext).pop();
                           await AppUpdateCoordinator.instance.checkAndPrompt(
                             context,
                             manual: true,

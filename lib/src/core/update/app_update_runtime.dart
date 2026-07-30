@@ -61,9 +61,15 @@ class AppUpdateCoordinator {
     BuildContext context, {
     required bool manual,
   }) async {
-    if (_checking || !_service.isSupported) {
+    if (_checking) {
       if (manual && context.mounted) {
-        _showMessage(context, context.l10n.appUpdateUnsupported);
+        await _showMessage(context, context.l10n.checking);
+      }
+      return;
+    }
+    if (!_service.isSupported) {
+      if (manual && context.mounted) {
+        await _showMessage(context, context.l10n.appUpdateUnsupported);
       }
       return;
     }
@@ -75,7 +81,7 @@ class AppUpdateCoordinator {
       }
       if (!result.updateAvailable) {
         if (manual) {
-          _showMessage(context, context.l10n.appUpdateCurrent);
+          await _showMessage(context, context.l10n.appUpdateCurrent);
         }
         return;
       }
@@ -98,16 +104,29 @@ class AppUpdateCoordinator {
         final message = error is AppUpdateException
             ? error.message
             : context.l10n.appUpdateCheckFailed;
-        _showMessage(context, message);
+        await _showMessage(context, message);
       }
     } finally {
       _checking = false;
     }
   }
 
-  void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(message)),
+  Future<void> _showMessage(BuildContext context, String message) {
+    final l10n = context.l10n;
+    return showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.system_update_rounded),
+        title: Text(l10n.appUpdateSettingsTitle),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.closeAction),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -127,6 +146,7 @@ class _AppUpdateDialog extends StatefulWidget {
 
 class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   bool _downloading = false;
+  bool _installerLaunched = false;
   int _receivedBytes = 0;
   String? _message;
   AppUpdateCancellation? _cancellation;
@@ -144,6 +164,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     final cancellation = AppUpdateCancellation();
     setState(() {
       _downloading = true;
+      _installerLaunched = false;
       _receivedBytes = 0;
       _message = null;
       _cancellation = cancellation;
@@ -165,7 +186,11 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
         return;
       }
       if (result == AppInstallLaunchResult.installerLaunched) {
-        Navigator.of(context).pop();
+        setState(() {
+          _downloading = false;
+          _installerLaunched = true;
+          _message = context.l10n.appUpdateInstallerLaunched;
+        });
         return;
       }
       setState(() {
@@ -239,7 +264,9 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 Text(
                   _message!,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+                    color: _installerLaunched
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.error,
                   ),
                 ),
               ],
@@ -252,7 +279,17 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
               onPressed: _cancellation?.cancel,
               child: Text(l10n.appUpdateCancel),
             )
-          else ...[
+          else if (_installerLaunched) ...[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.closeAction),
+            ),
+            FilledButton.icon(
+              onPressed: _install,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: Text(l10n.appUpdateOpenInstaller),
+            ),
+          ] else ...[
             if (!required)
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),

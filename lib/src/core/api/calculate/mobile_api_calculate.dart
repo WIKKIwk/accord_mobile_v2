@@ -198,21 +198,14 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     minMoldSizeMm: request.minMoldSizeMm,
     rubberSizeMm: rubberSize,
     wastePercent: request.wastePercent,
-    layers: [
-      CalculateLayer(
-        material: request.firstLayer.material,
-        micron: request.firstLayer.micron,
-      ),
-      CalculateLayer(
-        material: request.secondLayer.material,
-        micron: request.secondLayer.micron,
-      ),
-      if (!request.thirdLayer.isEmpty)
-        CalculateLayer(
-          material: request.thirdLayer.material,
-          micron: request.thirdLayer.micron,
-        ),
-    ],
+    layers: request.effectiveLayers
+        .map(
+          (layer) => CalculateLayer(
+            material: layer.material,
+            micron: layer.micron,
+          ),
+        )
+        .toList(growable: false),
     results: [
       CalculateResult(
         firstCoeff: 1,
@@ -241,8 +234,9 @@ class CalculateRequest {
     this.edgeAllowanceMm = kCalculateEdgeAllowanceMm,
     this.wastePercent = 5,
     this.rollCount,
-    required this.firstLayer,
-    required this.secondLayer,
+    this.layers = const <CalculateLayerInput>[],
+    this.firstLayer = const CalculateLayerInput(),
+    this.secondLayer = const CalculateLayerInput(),
     this.thirdLayer = const CalculateLayerInput(),
     this.note = '',
   });
@@ -259,6 +253,7 @@ class CalculateRequest {
   final double edgeAllowanceMm;
   final double wastePercent;
   final double? rollCount;
+  final List<CalculateLayerInput> layers;
   final CalculateLayerInput firstLayer;
   final CalculateLayerInput secondLayer;
   final CalculateLayerInput thirdLayer;
@@ -270,7 +265,20 @@ class CalculateRequest {
   double get minMoldSizeMm =>
       _deriveCalculateMinMoldSizeMm(frameProductSizeMm, frameCount);
 
+  List<CalculateLayerInput> get effectiveLayers {
+    if (layers.isNotEmpty) {
+      return layers;
+    }
+    return [firstLayer, secondLayer, thirdLayer]
+        .where((layer) => !layer.isEmpty)
+        .toList(growable: false);
+  }
+
   Map<String, dynamic> toJson() {
+    final effective = effectiveLayers;
+    CalculateLayerInput legacy(int index) => index < effective.length
+        ? effective[index]
+        : const CalculateLayerInput();
     return {
       if (orderNumber.trim().isNotEmpty) 'order_number': orderNumber.trim(),
       if (customer.trim().isNotEmpty) 'customer': customer.trim(),
@@ -285,9 +293,11 @@ class CalculateRequest {
       'edge_allowance_mm': edgeAllowanceMm,
       'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
-      'first_layer': firstLayer.toJson(),
-      'second_layer': secondLayer.toJson(),
-      if (!thirdLayer.isEmpty) 'third_layer': thirdLayer.toJson(),
+      'layers':
+          effective.map((layer) => layer.toJson()).toList(growable: false),
+      'first_layer': legacy(0).toJson(),
+      'second_layer': legacy(1).toJson(),
+      if (!legacy(2).isEmpty) 'third_layer': legacy(2).toJson(),
       if (note.trim().isNotEmpty) 'note': note.trim(),
     };
   }
@@ -446,6 +456,7 @@ class CalculateOrderTemplate {
     required this.widthMm,
     required this.wastePercent,
     required this.rollCount,
+    this.layers = const <CalculateLayerInput>[],
     required this.firstLayerMaterial,
     required this.firstLayerMicron,
     required this.secondLayerMaterial,
@@ -458,6 +469,16 @@ class CalculateOrderTemplate {
   });
 
   factory CalculateOrderTemplate.fromJson(Map<String, dynamic> json) {
+    final layers = (json['layers'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (item) => CalculateLayerInput(
+            material: _calculateText(item['material']),
+            micron: _calculateText(item['micron']),
+          ),
+        )
+        .where((layer) => !layer.isEmpty)
+        .toList(growable: false);
     final widthMm = _calculateNumber(json['width_mm']);
     final frameProductSizeMm = _calculateNumber(
       json['frame_product_size_mm'],
@@ -496,6 +517,7 @@ class CalculateOrderTemplate {
       widthMm: widthMm,
       wastePercent: _calculateNumber(json['waste_percent'], fallback: 5),
       rollCount: _calculateOptionalNumber(json['roll_count']),
+      layers: layers,
       firstLayerMaterial: _calculateText(json['first_layer_material']),
       firstLayerMicron: _calculateText(json['first_layer_micron']),
       secondLayerMaterial: _calculateText(json['second_layer_material']),
@@ -531,6 +553,7 @@ class CalculateOrderTemplate {
   final double widthMm;
   final double wastePercent;
   final double? rollCount;
+  final List<CalculateLayerInput> layers;
   final String firstLayerMaterial;
   final String firstLayerMicron;
   final String secondLayerMaterial;
@@ -541,7 +564,31 @@ class CalculateOrderTemplate {
   final double kg;
   final String sourceMapId;
 
+  List<CalculateLayerInput> get effectiveLayers {
+    if (layers.isNotEmpty) {
+      return layers;
+    }
+    return [
+      CalculateLayerInput(
+        material: firstLayerMaterial,
+        micron: firstLayerMicron,
+      ),
+      CalculateLayerInput(
+        material: secondLayerMaterial,
+        micron: secondLayerMicron,
+      ),
+      CalculateLayerInput(
+        material: thirdLayerMaterial,
+        micron: thirdLayerMicron,
+      ),
+    ].where((layer) => !layer.isEmpty).toList(growable: false);
+  }
+
   Map<String, dynamic> toJson() {
+    final effective = effectiveLayers;
+    CalculateLayerInput legacy(int index) => index < effective.length
+        ? effective[index]
+        : const CalculateLayerInput();
     return {
       if (id.trim().isNotEmpty) 'id': id.trim(),
       if (code.trim().isNotEmpty) 'code': code.trim(),
@@ -567,12 +614,14 @@ class CalculateOrderTemplate {
       'width_mm': widthMm,
       'waste_percent': wastePercent,
       if (rollCount != null) 'roll_count': rollCount,
-      'first_layer_material': firstLayerMaterial.trim(),
-      'first_layer_micron': firstLayerMicron.trim(),
-      'second_layer_material': secondLayerMaterial.trim(),
-      'second_layer_micron': secondLayerMicron.trim(),
-      'third_layer_material': thirdLayerMaterial.trim(),
-      'third_layer_micron': thirdLayerMicron.trim(),
+      'layers':
+          effective.map((layer) => layer.toJson()).toList(growable: false),
+      'first_layer_material': legacy(0).material.trim(),
+      'first_layer_micron': legacy(0).micron.trim(),
+      'second_layer_material': legacy(1).material.trim(),
+      'second_layer_micron': legacy(1).micron.trim(),
+      'third_layer_material': legacy(2).material.trim(),
+      'third_layer_micron': legacy(2).micron.trim(),
       'note': note.trim(),
       if (kg > 0) 'kg': kg,
       if (sourceMapId.trim().isNotEmpty) 'source_map_id': sourceMapId.trim(),
@@ -603,6 +652,7 @@ class CalculateOrderTemplate {
     double? widthMm,
     double? wastePercent,
     double? rollCount,
+    List<CalculateLayerInput>? layers,
     String? firstLayerMaterial,
     String? firstLayerMicron,
     String? secondLayerMaterial,
@@ -637,6 +687,7 @@ class CalculateOrderTemplate {
       widthMm: widthMm ?? this.widthMm,
       wastePercent: wastePercent ?? this.wastePercent,
       rollCount: rollCount ?? this.rollCount,
+      layers: layers ?? this.layers,
       firstLayerMaterial: firstLayerMaterial ?? this.firstLayerMaterial,
       firstLayerMicron: firstLayerMicron ?? this.firstLayerMicron,
       secondLayerMaterial: secondLayerMaterial ?? this.secondLayerMaterial,
@@ -713,6 +764,7 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
     widthMm: template.widthMm,
     wastePercent: template.wastePercent,
     rollCount: template.rollCount,
+    layers: template.effectiveLayers,
     firstLayerMaterial: template.firstLayerMaterial,
     firstLayerMicron: template.firstLayerMicron,
     secondLayerMaterial: template.secondLayerMaterial,

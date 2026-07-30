@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('qolip has twelve default color options', () {
-    expect(qolipDefaultColors, hasLength(12));
+  test('qolip has thirteen default color options including white', () {
+    expect(qolipDefaultColors, hasLength(13));
     expect(qolipDefaultColors.map((option) => option.value).toSet(),
-        hasLength(12));
+        hasLength(13));
+    expect(
+      qolipDefaultColors,
+      contains(const QolipColorOption(name: 'Oq', value: '#FFFFFF')),
+    );
   });
 
   test('qolip Panton numbers are limited to one through seven', () {
@@ -33,5 +37,24 @@ void main() {
     }
     expect(find.text('Panton 1'), findsOneWidget);
     expect(find.text('Panton 2'), findsNothing);
+  });
+
+  testWidgets('qolip color picker returns white when white is selected',
+      (tester) async {
+    String? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QolipColorPicker(
+            selectedColor: selected,
+            onChanged: (value) => selected = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Oq'));
+
+    expect(selected, '#FFFFFF');
   });
 }

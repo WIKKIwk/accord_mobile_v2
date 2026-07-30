@@ -2,6 +2,8 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/inventory/presentation/inventory_movements_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
@@ -38,7 +40,7 @@ void main() {
     custodyWarehouse: 'Material ombor',
     itemCode: 'PE-1',
     itemName: 'Polietilen',
-    identifier: 'QR-001',
+    identifier: '30AA',
     qty: 10,
     uom: 'kg',
     status: 'available',
@@ -46,6 +48,40 @@ void main() {
       id: 'inventory_location:warehouse:a',
       kind: InventoryLocationKind.warehouse,
       name: 'Material ombor',
+    ),
+  );
+  const secondAsset = InventoryAsset(
+    kind: InventoryAssetKind.rawMaterial,
+    assetRef: 'raw:2',
+    custodyWarehouseId: 'warehouse:a',
+    custodyWarehouse: 'Material ombor',
+    itemCode: 'PE-2',
+    itemName: 'Polietilen 2',
+    identifier: '30BB',
+    qty: 8,
+    uom: 'kg',
+    status: 'available',
+    physicalLocation: InventoryLocationReference(
+      id: 'inventory_location:warehouse:a',
+      kind: InventoryLocationKind.warehouse,
+      name: 'Material ombor',
+    ),
+  );
+  const otherWarehouseAsset = InventoryAsset(
+    kind: InventoryAssetKind.rawMaterial,
+    assetRef: 'raw:b',
+    custodyWarehouseId: 'warehouse:b',
+    custodyWarehouse: 'Qolip ombor',
+    itemCode: 'PP-B',
+    itemName: 'Polipropilen',
+    identifier: '30CC',
+    qty: 6,
+    uom: 'kg',
+    status: 'available',
+    physicalLocation: InventoryLocationReference(
+      id: 'inventory_location:warehouse:b',
+      kind: InventoryLocationKind.warehouse,
+      name: 'Qolip ombor',
     ),
   );
   const transfer = InventoryTransfer(
@@ -80,6 +116,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
     AppSession.instance.token = 'test-mode-token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.materialTaminotchi,
@@ -99,7 +136,7 @@ void main() {
   });
 
   tearDown(() async {
-    resetMobileApiInventoryMovementTestData();
+    resetMobileApiTestModeData();
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
@@ -311,6 +348,18 @@ void main() {
     expect(find.byIcon(Icons.refresh_rounded), findsNothing);
     expect(find.text('Joylashtirish'), findsNothing);
     expect(find.text('Transfer'), findsNothing);
+    final unassignedCardFinder =
+        find.byKey(const ValueKey('inventory-asset-card-raw:1'));
+    final unassignedCard =
+        tester.widget<AdminSummaryCard>(unassignedCardFinder);
+    expect(unassignedCard.title, 'Polietilen');
+    expect(unassignedCard.subtitle, '30AA • 10 kg • Mavjud');
+    expect(
+      unassignedCard.backgroundColor,
+      Theme.of(
+        tester.element(unassignedCardFinder),
+      ).colorScheme.surfaceContainerLowest,
+    );
 
     await tester.tap(find.text('Polietilen'));
     await tester.pumpAndSettle();
@@ -320,11 +369,453 @@ void main() {
     expect(find.text('Joylashtirish'), findsOneWidget);
     expect(find.text('Transfer'), findsOneWidget);
 
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'material-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['inventory.movement.manage'],
+      assignedWarehouses: ['Material ombor', 'Qolip ombor'],
+    );
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('inventory-location-inventory_location:warehouse:b'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ichki ko‘chirish'), findsOneWidget);
+    final transferConfirm = find.text('Ko‘chirish');
+    expect(
+      tester.getCenter(transferConfirm).dy,
+      lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
+    );
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Polietilen'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Joylashtirish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Fizik joylashuv'), findsOneWidget);
     expect(find.text('Bosma oldi'), findsOneWidget);
+  });
+
+  testWidgets('warehouse assets can be selected and moved to a state in bulk', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+      transfers: const [transfer],
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstCardFinder =
+        find.byKey(const ValueKey('inventory-asset-card-raw:1'));
+    final initialBackground =
+        tester.widget<AdminSummaryCard>(firstCardFinder).backgroundColor;
+    await tester.longPress(
+      find.byKey(const ValueKey('inventory-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mahsulot, kod yoki QR qidirish'), findsNothing);
+    expect(find.text('1 ta tanlandi'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('inventory-asset-selected-raw:1')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<AdminSummaryCard>(firstCardFinder).backgroundColor,
+      initialBackground,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('inventory-asset-raw:2')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 ta tanlandi'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('inventory-asset-selected-raw:2')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-selection-relocate')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Qaysi State’ga ko‘chirasiz?'), findsOneWidget);
+    await tester.tap(
+      find.byKey(
+        const ValueKey(
+          'inventory-location-inventory_location:state:bosma',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('2 ta mahsulot Bosma oldi State’ga ko‘chirilsinmi?'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-selection-relocate-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mahsulot, kod yoki QR qidirish'), findsOneWidget);
+    expect(find.text('2 ta tanlandi'), findsNothing);
+    expect(find.text('Omborda harakatlantiriladigan mahsulot yo‘q'),
+        findsOneWidget);
+    final stateAssets = await MobileApi.instance.inventoryAssets(
+      currentUserStatesOnly: true,
+    );
+    expect(stateAssets.map((item) => item.assetRef),
+        containsAll(['raw:1', 'raw:2']));
+  });
+
+  testWidgets('warehouse raw material links only to an eligible order', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-attach',
+        productCode: 'P-1',
+        title: 'Test zakaz',
+        code: 'Z-100',
+        nodes: [],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: 'Pechat',
+      requiresMaterial: true,
+      itemGroups: const ['Kraska'],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Polietilen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ulanmagan'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('raw-material-assign-order-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-assign-order-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zakaz tanlang'), findsOneWidget);
+    await tester.tap(find.text('Z-100 · Test zakaz'));
+    await tester.pumpAndSettle();
+    final confirmAssignment = find.byKey(
+      const ValueKey('raw-material-confirm-assignment'),
+    );
+    expect(
+      tester.getCenter(confirmAssignment).dy,
+      lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
+    );
+    expect(tester.getSize(confirmAssignment).width, greaterThan(250));
+    await tester.tap(confirmAssignment);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('raw-material-current-assignment')),
+      findsOneWidget,
+    );
+    expect(find.text('Z-100 · Test zakaz'), findsWidgets);
+    expect(find.text('Pechat'), findsOneWidget);
+
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('raw-material-current-assignment')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+    final assignedWarehouseCardFinder =
+        find.byKey(const ValueKey('inventory-asset-card-raw:1'));
+    final assignedWarehouseCard =
+        tester.widget<AdminSummaryCard>(assignedWarehouseCardFinder);
+    expect(assignedWarehouseCard.title, 'Z-100 · Test zakaz');
+    expect(assignedWarehouseCard.subtitle, 'Polietilen • 10 kg • Mavjud');
+    expect(assignedWarehouseCard.subtitle, isNot(contains('30AA')));
+    expect(
+      assignedWarehouseCard.backgroundColor,
+      isNot(
+        Theme.of(
+          tester.element(assignedWarehouseCardFinder),
+        ).colorScheme.surfaceContainerLowest,
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('inventory-asset-raw:1')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-unlink-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Bu homashyoni zakazdan uzasizmi?'), findsOneWidget);
+    final confirmUnlink = find.byKey(
+      const ValueKey('raw-material-confirm-unlink'),
+    );
+    expect(
+      tester.getCenter(confirmUnlink).dy,
+      lessThan(tester.getCenter(find.text('Bekor qilish')).dy),
+    );
+    expect(tester.getSize(confirmUnlink).width, greaterThan(250));
+    await tester.tap(confirmUnlink);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ulanmagan'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('raw-material-unlink-button')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('selected state assets return to their own warehouses', (
+    tester,
+  ) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, otherWarehouseAsset],
+      transfers: const [],
+    );
+    await MobileApi.instance.inventoryRelocate(
+      assetKind: asset.kind,
+      assetRef: asset.assetRef,
+      physicalLocationId: factoryState.id,
+      idempotencyKey: 'state-multi-return-a',
+    );
+    await MobileApi.instance.inventoryRelocate(
+      assetKind: otherWarehouseAsset.kind,
+      assetRef: otherWarehouseAsset.assetRef,
+      physicalLocationId: factoryState.id,
+      idempotencyKey: 'state-multi-return-b',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bosma oldi'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(
+      find.byKey(const ValueKey('material-state-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Mahsulot, kod yoki QR qidirish'), findsNothing);
+    expect(find.text('1 ta tanlandi'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('material-state-asset-selected-raw:1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-asset-raw:b')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2 ta tanlandi'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-selection-return')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('2 ta mahsulot o‘z omborlariga qaytarilsinmi?'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey('material-state-selection-return-confirm'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Siz joylashtirgan State’dagi mahsulot topilmadi'),
+      findsOneWidget,
+    );
+    final sourceAssets = await MobileApi.instance.inventoryAssets(
+      warehouseId: source.warehouseId,
+    );
+    final destinationAssets = await MobileApi.instance.inventoryAssets(
+      warehouseId: destination.warehouseId,
+    );
+    expect(sourceAssets.single.assetRef, asset.assetRef);
+    expect(destinationAssets.single.assetRef, otherWarehouseAsset.assetRef);
+  });
+
+  testWidgets('state raw material can be unlinked and linked to an order', (
+    tester,
+  ) async {
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-state',
+        productCode: 'P-2',
+        title: 'State zakaz',
+        code: 'Z-200',
+        nodes: [],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: 'Laminatsiya',
+      requiresMaterial: true,
+      itemGroups: const ['Kraska'],
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: 'zakaz-state',
+      barcode: '30AA',
+      apparatus: 'Laminatsiya',
+    );
+    await MobileApi.instance.inventoryRelocate(
+      assetKind: InventoryAssetKind.rawMaterial,
+      assetRef: asset.assetRef,
+      physicalLocationId: factoryState.id,
+      idempotencyKey: 'assigned-state-placement',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('State’lar'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-filter-chip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bosma oldi'));
+    await tester.pumpAndSettle();
+    final assignedStateCardFinder =
+        find.byKey(const ValueKey('material-state-asset-card-raw:1'));
+    final assignedStateCard =
+        tester.widget<AdminSummaryCard>(assignedStateCardFinder);
+    expect(assignedStateCard.title, 'Z-200 · State zakaz');
+    expect(assignedStateCard.subtitle, 'Polietilen • 10 kg • Mavjud');
+    expect(assignedStateCard.subtitle, isNot(contains('30AA')));
+    expect(
+      assignedStateCard.backgroundColor,
+      isNot(
+        Theme.of(
+          tester.element(assignedStateCardFinder),
+        ).colorScheme.surfaceContainerLowest,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('material-state-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('raw-material-current-assignment')),
+      findsOneWidget,
+    );
+    expect(find.text('Z-200 · State zakaz'), findsWidgets);
+    expect(find.text('Laminatsiya'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('raw-material-assign-order-button')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-unlink-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-confirm-unlink')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ulanmagan'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('raw-material-assign-order-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-assign-order-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Z-200 · State zakaz'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('raw-material-confirm-assignment')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('raw-material-current-assignment')),
+      findsOneWidget,
+    );
+    expect(find.text('Z-200 · State zakaz'), findsWidgets);
   });
 
   testWidgets('material movement page keeps the existing state return flow', (

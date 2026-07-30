@@ -2124,6 +2124,30 @@ class AdminRawMaterialAssignmentCandidate {
   }
 }
 
+class AdminRawMaterialAssignmentOrderCandidate {
+  const AdminRawMaterialAssignmentOrderCandidate({
+    required this.order,
+    required this.apparatusOptions,
+  });
+
+  final ProductionMapSaved order;
+  final List<String> apparatusOptions;
+
+  factory AdminRawMaterialAssignmentOrderCandidate.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminRawMaterialAssignmentOrderCandidate(
+      order: ProductionMapSaved.fromJson(
+        (json['order'] as Map).cast<String, dynamic>(),
+      ),
+      apparatusOptions: (json['apparatus_options'] as List? ?? const [])
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+}
+
 class AdminRawMaterialEvent {
   const AdminRawMaterialEvent({
     required this.eventId,
@@ -4111,6 +4135,66 @@ extension MobileApiAdmin on MobileApi {
         .toList();
   }
 
+  Future<List<AdminRawMaterialAssignmentOrderCandidate>>
+      adminRawMaterialAssignmentCandidateOrders({
+    required String barcode,
+  }) async {
+    final normalizedBarcode = barcode.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      final assigned = _testModeRawMaterialAssignments.any(
+        (assignment) =>
+            assignment.barcode.trim().toUpperCase() ==
+            normalizedBarcode.toUpperCase(),
+      );
+      if (assigned) {
+        return const [];
+      }
+      final candidates = <AdminRawMaterialAssignmentOrderCandidate>[];
+      for (final order in await adminRawMaterialAssignmentOrders()) {
+        final materials = await adminRawMaterialAssignmentCandidates(
+          orderId: order.map.id,
+        );
+        for (final material in materials) {
+          if (material.barcode.trim().toUpperCase() ==
+              normalizedBarcode.toUpperCase()) {
+            candidates.add(
+              AdminRawMaterialAssignmentOrderCandidate(
+                order: order,
+                apparatusOptions: material.apparatusOptions,
+              ),
+            );
+            break;
+          }
+        }
+      }
+      return List<AdminRawMaterialAssignmentOrderCandidate>.unmodifiable(
+        candidates,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/raw-material-assignments/candidate-orders',
+        ).replace(queryParameters: {'barcode': normalizedBarcode}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'raw_material_assignment_candidate_orders',
+      );
+    }
+    final json = await decodeJsonListPayload(response.body);
+    return json
+        .map(
+          (item) => AdminRawMaterialAssignmentOrderCandidate.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
   Future<List<AdminRawMaterialAssignment>> adminRawMaterialIntakeCandidates({
     required String orderId,
     required String apparatus,
@@ -4463,6 +4547,22 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final normalized = barcode.trim();
     if (await TestModeController.instance.isEnabled()) {
+      AdminRawMaterialAssignment? assignment;
+      for (final item in _testModeRawMaterialAssignments) {
+        if (item.barcode.trim().toUpperCase() == normalized.toUpperCase()) {
+          assignment = item;
+          break;
+        }
+      }
+      ProductionMapDefinition? order;
+      if (assignment != null) {
+        for (final saved in _testModeProductionMaps) {
+          if (saved.map.id.trim() == assignment.orderId.trim()) {
+            order = saved.map;
+            break;
+          }
+        }
+      }
       return AdminRawMaterialLookup(
         barcode: normalized,
         warehouse: '',
@@ -4471,6 +4571,8 @@ extension MobileApiAdmin on MobileApi {
         itemGroup: '',
         qty: 0,
         uom: '',
+        assignment: assignment,
+        order: order,
       );
     }
     final response = await _sendAuthorized(
