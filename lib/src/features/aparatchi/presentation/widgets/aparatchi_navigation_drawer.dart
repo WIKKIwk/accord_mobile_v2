@@ -8,16 +8,19 @@ class AparatchiNavigationDrawer extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onNavigate,
+    this.selectedRouteName,
   });
 
   final int selectedIndex;
   final ValueChanged<String> onNavigate;
+  final String? selectedRouteName;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return RoleNavigationDrawer(
       selectedIndex: selectedIndex,
+      selectedRouteName: selectedRouteName,
       onNavigate: onNavigate,
       destinations: [
         RoleNavigationDrawerDestination(
@@ -25,6 +28,12 @@ class AparatchiNavigationDrawer extends StatelessWidget {
           selectedIcon: Icons.view_list_rounded,
           label: l10n.monitoringNavTitle,
           routeName: AppRoutes.apparatusQueue,
+        ),
+        const RoleNavigationDrawerDestination(
+          icon: Icons.menu_book_outlined,
+          selectedIcon: Icons.menu_book_rounded,
+          label: 'App yo‘riqnomasi',
+          routeName: AppRoutes.apparatusWorkInstructions,
         ),
         if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
           const RoleNavigationDrawerDestination(

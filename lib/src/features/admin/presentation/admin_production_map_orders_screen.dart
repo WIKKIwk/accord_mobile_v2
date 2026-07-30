@@ -599,6 +599,7 @@ class _AdminProductionMapOrdersScreenState
       drawer: widget.workerMode
           ? AparatchiNavigationDrawer(
               selectedIndex: 0,
+              selectedRouteName: AppRoutes.apparatusQueue,
               onNavigate: _openDrawerRoute,
             )
           : AdminNavigationDrawer(

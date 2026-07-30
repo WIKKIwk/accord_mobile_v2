@@ -137,6 +137,7 @@ void main() {
 
     expect(AppSession.instance.homeRoute, AppRoutes.apparatusQueue);
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusWorkInstructions), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapOrders), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isFalse);
   });

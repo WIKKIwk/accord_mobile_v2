@@ -1,5 +1,6 @@
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/app_entry_screen.dart';
+import '../features/aparatchi/presentation/aparatchi_work_instructions_screen.dart';
 import '../features/customer/presentation/customer_delivery_detail_screen.dart';
 import '../features/customer/presentation/customer_home_screen.dart';
 import '../features/customer/presentation/customer_notifications_screen.dart';
@@ -175,6 +176,8 @@ class AppRoutes {
       '/admin-raw-material-assignments';
   static const String adminApparatusCreate = '/admin-apparatus-create';
   static const String apparatusQueue = '/apparatus-queue';
+  static const String apparatusWorkInstructions =
+      '/apparatus-work-instructions';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminWorkerSettings = '/admin-worker-settings';
   static const String adminWarehouses = '/admin-warehouses';
@@ -238,6 +241,7 @@ class AppRouter {
     AppRoutes.adminRawMaterialAssignments,
     AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
+    AppRoutes.apparatusWorkInstructions,
     AppRoutes.adminSuppliers,
     AppRoutes.adminWorkerSettings,
     AppRoutes.adminUserCreate,
@@ -569,6 +573,11 @@ class AppRouter {
             readOnly: true,
             workerMode: true,
           ),
+        );
+      case AppRoutes.apparatusWorkInstructions:
+        return _buildRoute(
+          settings,
+          const AparatchiWorkInstructionsScreen(),
         );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
@@ -907,6 +916,10 @@ class AppRouter {
     },
     AppRoutes.adminApparatusCreate: {'admin.access', 'production.map.manage'},
     AppRoutes.apparatusQueue: {
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
+    },
+    AppRoutes.apparatusWorkInstructions: {
       'apparatus.queue.read',
       'apparatus.queue.manage',
     },

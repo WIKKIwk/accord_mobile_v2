@@ -565,11 +565,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 onNavigate: _openMaterialTaminotchiDrawerRoute,
               ),
             _ProfileShellKind.aparatchi => AparatchiNavigationDrawer(
-                selectedIndex: AppRouter.canOpenRoute(
-                  AppRoutes.inventoryMovements,
-                )
-                    ? 2
-                    : 1,
+                selectedIndex: 0,
+                selectedRouteName: AppRoutes.profile,
                 onNavigate: _openAparatchiDrawerRoute,
               ),
             _ProfileShellKind.qolip => QolipNavigationDrawer(
