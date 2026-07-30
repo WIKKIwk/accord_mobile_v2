@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import '../models/production_map_models.dart';
 
 int productionMapRubberSizeFromWidth(double widthMm) {
-  return (widthMm / 50).ceil().clamp(1, 26).toInt() * 50;
+  return (widthMm / 50).ceil().clamp(1, 27).toInt() * 50;
 }
 
 String productionMapPechatTabLabel(String warehouse) {
@@ -74,12 +74,12 @@ int? productionMapRecommendedPechatColorCount({
   }
   if (hasWidth) {
     final rubberSize = productionMapRubberSizeFromWidth(widthMm);
-    if (rubberSize > 1300) {
+    if (rubberSize > 1350) {
       return null;
     }
-    final rubberColorCount = rubberSize > 1000
+    final rubberColorCount = rubberSize > 1050
         ? 9
-        : rubberSize > 800
+        : rubberSize > 850
             ? 8
             : 7;
     requiredColorCount = math.max(requiredColorCount, rubberColorCount);
@@ -100,9 +100,9 @@ bool productionMapPechatCanHandleOrder({
   }
   final rubberSize = productionMapRubberSizeFromWidth(widthMm);
   return switch (apparatusColorCount) {
-    7 => rubberSize <= 800,
-    8 => rubberSize >= 150 && rubberSize <= 1000,
-    9 => rubberSize >= 800 && rubberSize <= 1300,
+    7 => rubberSize <= 850,
+    8 => rubberSize >= 150 && rubberSize <= 1050,
+    9 => rubberSize >= 800 && rubberSize <= 1350,
     _ => false,
   };
 }

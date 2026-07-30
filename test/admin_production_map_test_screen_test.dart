@@ -1005,6 +1005,10 @@ void main() {
       7,
     );
     expect(
+      productionMapRecommendedPechatColorCount(rollCount: 7, widthMm: 815),
+      7,
+    );
+    expect(
       productionMapRecommendedPechatColorCount(rollCount: 7, widthMm: 900),
       8,
     );
@@ -1023,6 +1027,65 @@ void main() {
     expect(
       productionMapRecommendedPechatColorCount(rollCount: 10, widthMm: 700),
       isNull,
+    );
+  });
+
+  test('production map pechat filter uses expanded rubber limits', () {
+    expect(productionMapRubberSizeFromWidth(815), 850);
+    const screenshotOrderContext = ProductionMapOrderContext(
+      orderName: 'alanga guruch qora',
+      productName: 'alanga guruch qora',
+      itemCode: 'ITEM-815',
+      rollCount: 7,
+      widthMm: 815,
+    );
+    expect(
+      productionMapApparatusMatchesOrder(
+        const AdminApparatus(name: '7 ta rangli bosma aparat'),
+        screenshotOrderContext,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapPechatCanHandleOrder(
+        apparatusColorCount: 7,
+        rollCount: 7,
+        widthMm: 815,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapPechatCanHandleOrder(
+        apparatusColorCount: 7,
+        rollCount: 7,
+        widthMm: 851,
+      ),
+      isFalse,
+    );
+    expect(
+      productionMapPechatCanHandleOrder(
+        apparatusColorCount: 8,
+        rollCount: 8,
+        widthMm: 1050,
+      ),
+      isTrue,
+    );
+    expect(
+      productionMapPechatCanHandleOrder(
+        apparatusColorCount: 8,
+        rollCount: 8,
+        widthMm: 1051,
+      ),
+      isFalse,
+    );
+    expect(productionMapRubberSizeFromWidth(1500), 1350);
+    expect(
+      productionMapPechatCanHandleOrder(
+        apparatusColorCount: 9,
+        rollCount: 9,
+        widthMm: 1350,
+      ),
+      isTrue,
     );
   });
 
