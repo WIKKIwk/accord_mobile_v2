@@ -87,9 +87,9 @@ void main() {
             endMinute: 1020,
           ),
           AdminApparatusWorkingWindow(
-            weekday: 2,
-            startMinute: 480,
-            endMinute: 1020,
+            weekday: 1,
+            startMinute: 1080,
+            endMinute: 1200,
           ),
         ],
       ),

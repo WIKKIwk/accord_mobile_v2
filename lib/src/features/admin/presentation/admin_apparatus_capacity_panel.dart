@@ -170,7 +170,7 @@ class _AdminApparatusCapacityPanelState
   bool _workingWindowsInputIsValid(String raw) {
     final normalized = raw.trim();
     if (normalized.isEmpty) return true;
-    final weekdays = <int>{};
+    final windowsByWeekday = <int, List<List<int>>>{};
     final pattern = RegExp(
       r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$',
     );
@@ -180,11 +180,19 @@ class _AdminApparatusCapacityPanelState
       final weekday = int.parse(match.group(1)!);
       final startMinute = int.parse(match.group(2)!);
       final endMinute = int.parse(match.group(3)!);
-      if (!weekdays.add(weekday) ||
-          startMinute < 0 ||
-          endMinute > 1440 ||
-          startMinute >= endMinute) {
+      if (startMinute < 0 || endMinute > 1440 || startMinute >= endMinute) {
         return false;
+      }
+      windowsByWeekday
+          .putIfAbsent(weekday, () => <List<int>>[])
+          .add([startMinute, endMinute]);
+    }
+    for (final windows in windowsByWeekday.values) {
+      windows.sort((left, right) => left.first.compareTo(right.first));
+      for (var index = 1; index < windows.length; index++) {
+        if (windows[index].first < windows[index - 1].last) {
+          return false;
+        }
       }
     }
     return true;
