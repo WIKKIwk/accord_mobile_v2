@@ -133,6 +133,92 @@ void main() {
     expect(snapshot.reservations, hasLength(2));
   });
 
+  test('capacity API selects a compatible alternative when the primary is full',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    final primary = await MobileApi.instance.adminCreateApparatus(
+      'Flexo primary',
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: const ['print', 'pechat', 'flexo'],
+      capabilityProfiles: const [
+        AdminApparatusCapabilityProfile(code: 'flexo', level: 3),
+      ],
+    );
+    final alternative = await MobileApi.instance.adminCreateApparatus(
+      'Flexo alternative',
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: const ['print', 'pechat', 'flexo'],
+      capabilityProfiles: const [
+        AdminApparatusCapabilityProfile(code: 'flexo', level: 3),
+      ],
+    );
+    for (final orderId in const [
+      'zakaz-capacity-primary',
+      'zakaz-capacity-alternative',
+    ]) {
+      await MobileApi.instance.adminSaveProductionMap(
+        ProductionMapDefinition(
+          id: orderId,
+          productCode: orderId,
+          title: orderId,
+          orderNumber: orderId,
+          nodes: [
+            ProductionMapNode(
+              id: 'apparatus',
+              kind: 'apparatus',
+              title: primary.name,
+            ),
+          ],
+          edges: const [],
+        ),
+      );
+    }
+    for (final apparatus in [primary, alternative]) {
+      await MobileApi.instance.adminSaveApparatusCapacityProfile(
+        AdminApparatusCapacityProfile(
+          apparatusId: apparatus.id,
+          apparatus: apparatus.name,
+          capacitySlots: 1,
+          capabilities: const ['flexo'],
+          capabilityLevels: const {'flexo': 3},
+        ),
+      );
+    }
+
+    const start = 1700000040;
+    final first = await MobileApi.instance.adminScheduleApparatusOrder(
+      orderId: 'zakaz-capacity-primary',
+      apparatusId: primary.id,
+      apparatus: primary.name,
+      earliestStartUnix: start,
+      durationMinutes: 30,
+      idempotencyKey: 'capacity-mobile-primary',
+    );
+    final second = await MobileApi.instance.adminScheduleApparatusOrder(
+      orderId: 'zakaz-capacity-alternative',
+      apparatusId: primary.id,
+      apparatus: primary.name,
+      earliestStartUnix: start,
+      durationMinutes: 30,
+      idempotencyKey: 'capacity-mobile-alternative',
+      candidateApparatuses: [
+        AdminApparatusScheduleCandidate(
+          apparatusId: alternative.id,
+          apparatus: alternative.name,
+        ),
+      ],
+      capabilityRequirements: const [
+        AdminApparatusCapabilityRequirement(code: 'flexo', minLevel: 2),
+      ],
+    );
+
+    expect(first.apparatusId, primary.id);
+    expect(second.apparatusId, alternative.id);
+    expect(second.startsAtUnix, first.startsAtUnix);
+  });
+
   test('workflow audit API exposes a clean report in test mode', () async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(

@@ -260,6 +260,126 @@ bool _testModeFitsWorkingWindow(
   );
 }
 
+class _TestModeScheduledCandidate {
+  const _TestModeScheduledCandidate({
+    required this.index,
+    required this.candidate,
+    required this.profile,
+    required this.reservedDurationMinutes,
+    required this.startsAtUnix,
+    required this.endsAtUnix,
+  });
+
+  final int index;
+  final AdminApparatusScheduleCandidate candidate;
+  final AdminApparatusCapacityProfile profile;
+  final int reservedDurationMinutes;
+  final int startsAtUnix;
+  final int endsAtUnix;
+}
+
+({int startsAtUnix, int endsAtUnix})? _testModeFindScheduleSlot({
+  required AdminApparatusCapacityProfile profile,
+  required String apparatusId,
+  required int earliestStartUnix,
+  required int? latestEndUnix,
+  required int reservedDurationMinutes,
+}) {
+  var cursor = earliestStartUnix < 60 ? 60 : earliestStartUnix;
+  cursor = ((cursor + 59) ~/ 60) * 60;
+  final horizon = cursor + 366 * 24 * 60 * 60;
+  while (cursor < horizon) {
+    final end = cursor + reservedDurationMinutes * 60;
+    if (latestEndUnix != null && end > latestEndUnix) {
+      return null;
+    }
+    if (!_testModeFitsWorkingWindow(profile, cursor, end)) {
+      cursor += 60;
+      continue;
+    }
+    final downtime = _testModeApparatusDowntimes.values.any(
+      (item) =>
+          item.active &&
+          item.apparatusId.toLowerCase() == apparatusId.toLowerCase() &&
+          _testModeIntervalsOverlap(
+            cursor,
+            end,
+            item.startsAtUnix,
+            item.endsAtUnix,
+          ),
+    );
+    if (downtime) {
+      cursor += 60;
+      continue;
+    }
+    final conflicts = _testModeApparatusScheduleReservations.values
+        .where(
+          (item) =>
+              (item.status == 'planned' || item.status == 'active') &&
+              item.apparatusId.toLowerCase() == apparatusId.toLowerCase() &&
+              _testModeIntervalsOverlap(
+                cursor,
+                end,
+                item.startsAtUnix,
+                item.endsAtUnix,
+              ),
+        )
+        .length;
+    if (profile.finiteCapacity && conflicts >= profile.capacitySlots) {
+      cursor += 60;
+      continue;
+    }
+    return (startsAtUnix: cursor, endsAtUnix: end);
+  }
+  return null;
+}
+
+String? _testModeKnownApparatusFamily(String title) {
+  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
+  if (productionMapIsPechatApparatus(normalized)) return 'pechat';
+  for (final entry in const {
+    'laminatsiya': 'laminatsiya',
+    'rezka': 'rezka',
+    'paket': 'paket',
+    'kley': 'kley',
+  }.entries) {
+    if (normalized.contains(entry.key)) return entry.value;
+  }
+  return null;
+}
+
+bool _testModeCandidateAllowedForOrder(
+  ProductionMapDefinition map,
+  String candidate,
+) {
+  final apparatusNodes = map.nodes
+      .where((node) => node.kind == 'apparatus')
+      .map((node) => node.title.trim())
+      .where((title) => title.isNotEmpty)
+      .toList(growable: false);
+  if (apparatusNodes.isEmpty) return true;
+  return apparatusNodes.any((source) {
+    final sourceFamily = _testModeKnownApparatusFamily(source);
+    final candidateFamily = _testModeKnownApparatusFamily(candidate);
+    if (sourceFamily != null &&
+        candidateFamily != null &&
+        sourceFamily != candidateFamily) {
+      return false;
+    }
+    final sourceIsFlexo = productionMapIsFlexoApparatus(source);
+    final candidateIsFlexo = productionMapIsFlexoApparatus(candidate);
+    if (sourceIsFlexo != candidateIsFlexo) return false;
+    return productionMapCanMoveOrderToApparatus(
+      nodes: map.nodes,
+      fromApparatus: source,
+      toApparatus: candidate,
+      rollCount: map.rollCount,
+      widthMm: map.widthMm,
+      isFlexoOrder: productionMapIsFlexoOrder(map),
+    );
+  });
+}
+
 AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
   required String orderId,
   required String apparatusId,
@@ -272,6 +392,7 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
   required String reason,
   required String idempotencyKey,
   required List<AdminApparatusCapabilityRequirement> capabilityRequirements,
+  required List<AdminApparatusScheduleCandidate> candidateApparatuses,
 }) {
   final normalizedOrderId = orderId.trim();
   final normalizedId = apparatusId.trim().isEmpty
@@ -308,91 +429,125 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
       return existing;
     }
   }
-  final profile = _testModeProfileForApparatus(
-    apparatusId: normalizedId,
-    apparatus: normalizedApparatus,
-  );
-  for (final requirement in capabilityRequirements) {
-    final code = requirement.code.trim().toLowerCase();
-    if (code.isEmpty) continue;
-    final level = profile.capabilityLevels[code] ??
-        (profile.capabilities.any((item) => item.toLowerCase() == code)
-            ? 1
-            : 0);
-    if (level == 0) {
+  final map = _testModeProductionMaps
+      .firstWhere((saved) => saved.map.id.trim() == normalizedOrderId)
+      .map;
+  final candidates = <AdminApparatusScheduleCandidate>[];
+  final seenCandidateKeys = <String>{};
+  void addCandidate(String id, String name) {
+    final normalizedCandidateId = id.trim().isEmpty
+        ? 'apparatus:${name.trim().toLowerCase()}'
+        : id.trim();
+    final normalizedCandidateName =
+        name.trim().isEmpty ? normalizedCandidateId : name.trim();
+    final key = normalizedCandidateId.toLowerCase();
+    if (key.isEmpty || !seenCandidateKeys.add(key)) return;
+    candidates.add(
+      AdminApparatusScheduleCandidate(
+        apparatusId: normalizedCandidateId,
+        apparatus: normalizedCandidateName,
+      ),
+    );
+  }
+
+  addCandidate(normalizedId, normalizedApparatus);
+  for (final candidate in candidateApparatuses) {
+    addCandidate(candidate.apparatusId, candidate.apparatus);
+  }
+
+  var routeCandidateCount = 0;
+  var supportedCandidateCount = 0;
+  var capabilityNotSupported = false;
+  var capabilityLevelInsufficient = false;
+  _TestModeScheduledCandidate? best;
+  for (var index = 0; index < candidates.length; index++) {
+    final candidate = candidates[index];
+    if (!_testModeCandidateAllowedForOrder(map, candidate.apparatus)) {
+      continue;
+    }
+    routeCandidateCount++;
+    final profile = _testModeProfileForApparatus(
+      apparatusId: candidate.apparatusId,
+      apparatus: candidate.apparatus,
+    );
+    var supported = true;
+    for (final requirement in capabilityRequirements) {
+      final code = requirement.code.trim().toLowerCase();
+      if (code.isEmpty) continue;
+      final level = profile.capabilityLevels[code] ??
+          (profile.capabilities.any((item) => item.toLowerCase() == code)
+              ? 1
+              : 0);
+      if (level == 0) {
+        capabilityNotSupported = true;
+        supported = false;
+        break;
+      }
+      if (level < requirement.minLevel) {
+        capabilityLevelInsufficient = true;
+        supported = false;
+        break;
+      }
+    }
+    if (!supported) continue;
+    supportedCandidateCount++;
+    final efficiency = profile.efficiencyPercent.clamp(1, 200);
+    final runMinutes = (durationMinutes * 100 + efficiency - 1) ~/ efficiency;
+    final reservedDuration =
+        runMinutes + profile.setupMinutes + profile.cleanupMinutes;
+    final slot = _testModeFindScheduleSlot(
+      profile: profile,
+      apparatusId: candidate.apparatusId,
+      earliestStartUnix: earliestStartUnix,
+      latestEndUnix: latestEndUnix,
+      reservedDurationMinutes: reservedDuration,
+    );
+    if (slot == null) continue;
+    final isBetter = best == null ||
+        slot.startsAtUnix < best!.startsAtUnix ||
+        (slot.startsAtUnix == best!.startsAtUnix && index < best!.index);
+    if (isBetter) {
+      best = _TestModeScheduledCandidate(
+        index: index,
+        candidate: candidate,
+        profile: profile,
+        reservedDurationMinutes: reservedDuration,
+        startsAtUnix: slot.startsAtUnix,
+        endsAtUnix: slot.endsAtUnix,
+      );
+    }
+  }
+  if (routeCandidateCount == 0) {
+    throw const MobileApiException(
+      code: 'move_not_allowed',
+      message: 'Aparat bu order yo‘nalishiga mos emas',
+    );
+  }
+  if (best == null) {
+    if (supportedCandidateCount == 0 && capabilityNotSupported) {
       throw const MobileApiException(
         code: 'capability_not_supported',
         message: 'Aparat bu capability’ni qo‘llamaydi',
       );
     }
-    if (level < requirement.minLevel) {
+    if (supportedCandidateCount == 0 && capabilityLevelInsufficient) {
       throw const MobileApiException(
         code: 'capability_level_insufficient',
         message: 'Aparat capability darajasi yetarli emas',
       );
     }
-  }
-  final efficiency = profile.efficiencyPercent.clamp(1, 200);
-  final runMinutes = (durationMinutes * 100 + efficiency - 1) ~/ efficiency;
-  final reservedDuration =
-      runMinutes + profile.setupMinutes + profile.cleanupMinutes;
-  var cursor = earliestStartUnix < 60 ? 60 : earliestStartUnix;
-  cursor = ((cursor + 59) ~/ 60) * 60;
-  final horizon = cursor + 366 * 24 * 60 * 60;
-  while (cursor < horizon) {
-    final end = cursor + reservedDuration * 60;
-    if (latestEndUnix != null && end > latestEndUnix) {
-      throw const MobileApiException(
-        code: 'capacity_no_working_window',
-        message: 'Belgilangan muddat ichida bo‘sh slot topilmadi',
-      );
-    }
-    if (!_testModeFitsWorkingWindow(profile, cursor, end)) {
-      cursor += 60;
-      continue;
-    }
-    final downtime = _testModeApparatusDowntimes.values.any(
-      (item) =>
-          item.active &&
-          item.apparatusId.toLowerCase() == normalizedId.toLowerCase() &&
-          _testModeIntervalsOverlap(
-            cursor,
-            end,
-            item.startsAtUnix,
-            item.endsAtUnix,
-          ),
-    );
-    if (downtime) {
-      cursor += 60;
-      continue;
-    }
-    final conflicts = _testModeApparatusScheduleReservations.values
-        .where(
-          (item) =>
-              (item.status == 'planned' || item.status == 'active') &&
-              item.apparatusId.toLowerCase() == normalizedId.toLowerCase() &&
-              _testModeIntervalsOverlap(
-                cursor,
-                end,
-                item.startsAtUnix,
-                item.endsAtUnix,
-              ),
-        )
-        .length;
-    if (profile.finiteCapacity && conflicts >= profile.capacitySlots) {
-      cursor += 60;
-      continue;
-    }
+  } else {
+    final selected = best!;
     final reservation = AdminApparatusScheduleReservation(
       reservationId: 'apparatus-reservation:${idempotencyKey.trim()}',
       idempotencyKey: idempotencyKey.trim(),
       orderId: normalizedOrderId,
-      apparatusId: normalizedId,
-      apparatus: normalizedApparatus,
-      startsAtUnix: cursor,
-      endsAtUnix: end,
+      apparatusId: selected.candidate.apparatusId,
+      apparatus: selected.candidate.apparatus,
+      startsAtUnix: selected.startsAtUnix,
+      endsAtUnix: selected.endsAtUnix,
       requestedDurationMinutes: durationMinutes,
-      reservedDurationMinutes: reservedDuration,
+      reservedDurationMinutes: selected.reservedDurationMinutes,
       status: 'planned',
       priority: priority,
       source: source.trim(),
@@ -3115,6 +3270,30 @@ class AdminApparatusCapabilityRequirement {
       };
 }
 
+class AdminApparatusScheduleCandidate {
+  const AdminApparatusScheduleCandidate({
+    required this.apparatusId,
+    required this.apparatus,
+  });
+
+  final String apparatusId;
+  final String apparatus;
+
+  factory AdminApparatusScheduleCandidate.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminApparatusScheduleCandidate(
+      apparatusId: json['apparatus_id']?.toString().trim() ?? '',
+      apparatus: json['apparatus']?.toString().trim() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'apparatus_id': apparatusId.trim(),
+        'apparatus': apparatus.trim(),
+      };
+}
+
 class AdminApparatusScheduleReservation {
   const AdminApparatusScheduleReservation({
     required this.reservationId,
@@ -4782,6 +4961,7 @@ extension MobileApiAdmin on MobileApi {
     String reason = '',
     String idempotencyKey = '',
     List<AdminApparatusCapabilityRequirement> capabilityRequirements = const [],
+    List<AdminApparatusScheduleCandidate> candidateApparatuses = const [],
   }) async {
     final key = idempotencyKey.trim().isEmpty
         ? 'mobile-schedule:${orderId.trim()}:${DateTime.now().microsecondsSinceEpoch}'
@@ -4799,6 +4979,7 @@ extension MobileApiAdmin on MobileApi {
         reason: reason,
         idempotencyKey: key,
         capabilityRequirements: capabilityRequirements,
+        candidateApparatuses: candidateApparatuses,
       );
     }
     final response = await _sendAuthorized(
@@ -4819,6 +5000,9 @@ extension MobileApiAdmin on MobileApi {
           'idempotency_key': key,
           'capability_requirements': [
             for (final item in capabilityRequirements) item.toJson(),
+          ],
+          'candidate_apparatuses': [
+            for (final item in candidateApparatuses) item.toJson(),
           ],
         }),
       ),

@@ -48,6 +48,7 @@ class _AdminApparatusCapacityPanelState
   bool _loading = true;
   bool _saving = false;
   bool _finiteCapacity = true;
+  bool _scheduleWithAlternatives = true;
   String? _error;
 
   AdminApparatus? get _selectedApparatus {
@@ -233,6 +234,28 @@ class _AdminApparatusCapacityPanelState
     ];
   }
 
+  List<AdminApparatusScheduleCandidate> _scheduleCandidates() {
+    final selected = _selectedApparatus;
+    if (selected == null) return const [];
+    return [
+      for (final item in widget.apparatus)
+        if (item.id != selected.id && _sameSchedulingFamily(selected, item))
+          AdminApparatusScheduleCandidate(
+            apparatusId: item.id,
+            apparatus: item.name,
+          ),
+    ];
+  }
+
+  bool _sameSchedulingFamily(AdminApparatus left, AdminApparatus right) {
+    if (left.isPechat || right.isPechat) {
+      return left.isPechat && right.isPechat && left.isFlexo == right.isFlexo;
+    }
+    final leftFamily = left.family.trim().toLowerCase();
+    final rightFamily = right.family.trim().toLowerCase();
+    return leftFamily.isNotEmpty && leftFamily == rightFamily;
+  }
+
   Future<void> _saveProfile() async {
     final apparatus = _selectedApparatus;
     if (apparatus == null || _saving) return;
@@ -294,6 +317,12 @@ class _AdminApparatusCapacityPanelState
       showAdminTopNotice(context, 'Order va davomiylikni kiriting');
       return;
     }
+    final candidateApparatuses = _scheduleWithAlternatives
+        ? _scheduleCandidates()
+        : const <AdminApparatusScheduleCandidate>[];
+    final candidateKey = candidateApparatuses
+        .map((candidate) => candidate.apparatusId)
+        .join(',');
     setState(() => _saving = true);
     try {
       await MobileApi.instance.adminScheduleApparatusOrder(
@@ -305,8 +334,9 @@ class _AdminApparatusCapacityPanelState
         source: 'admin_capacity_panel',
         reason: _scheduleReason.text,
         capabilityRequirements: _parseRequirements(),
+        candidateApparatuses: candidateApparatuses,
         idempotencyKey:
-            'admin:$orderId:${apparatus.id}:${_scheduleStart.millisecondsSinceEpoch}',
+            'admin:$orderId:${apparatus.id}:${_scheduleStart.millisecondsSinceEpoch}:$candidateKey',
       );
       await _load(showLoading: false);
       if (mounted) showAdminTopNotice(context, 'Order jadvalga qo‘yildi');
@@ -576,6 +606,20 @@ class _AdminApparatusCapacityPanelState
                   ],
                   onChanged: (value) =>
                       setState(() => _orderId.text = value ?? ''),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _scheduleWithAlternatives,
+                  onChanged: _saving
+                      ? null
+                      : (value) =>
+                          setState(() => _scheduleWithAlternatives = value),
+                  title: const Text('Mos alternativ aparatni ham ko‘rish'),
+                  subtitle: Text(
+                    _scheduleCandidates().isEmpty
+                        ? 'Tanlangan oilada boshqa aparat topilmadi'
+                        : 'Eng erta bo‘sh slot topilgan mos aparat tanlanadi',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
