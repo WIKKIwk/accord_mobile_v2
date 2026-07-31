@@ -73,6 +73,7 @@ class _AdminApparatusSettingsScreenState
   String? _loadError;
   String? _editingGroupName;
   String? _editingApparatusId;
+  List<AdminApparatusCapabilityProfile> _editingCapabilityProfiles = const [];
   String? _expandedGroupName;
 
   @override
@@ -234,7 +235,13 @@ class _AdminApparatusSettingsScreenState
       _apparatusName.text = apparatus.name;
       _apparatusFamily.text = apparatus.family;
       _apparatusKind.text = apparatus.kind;
-      _apparatusCapabilities.text = apparatus.capabilities.join(', ');
+      _editingCapabilityProfiles = apparatus.capabilityProfiles;
+      _apparatusCapabilities.text = apparatus.capabilityProfiles.isEmpty
+          ? apparatus.capabilities.join(', ')
+          : apparatus.capabilityProfiles.map((profile) {
+              final level = profile.level <= 1 ? '' : ':${profile.level}';
+              return '${profile.code}$level';
+            }).join(', ');
       _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
     });
     if (_tabController.index != 0) {
@@ -255,6 +262,7 @@ class _AdminApparatusSettingsScreenState
       _apparatusKind.clear();
       _apparatusCapabilities.clear();
       _apparatusColorStations.clear();
+      _editingCapabilityProfiles = const [];
     });
   }
 
@@ -347,10 +355,35 @@ class _AdminApparatusSettingsScreenState
           context, 'Rang stansiyalari 1-24 oralig\'ida bo\'lsin');
       return;
     }
-    final capabilities = _apparatusCapabilities.text
+    final capabilityTokens = _apparatusCapabilities.text
         .split(RegExp(r'[,;\n]'))
         .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
+        .where((item) => item.isNotEmpty);
+    final previousProfiles = {
+      for (final profile in _editingCapabilityProfiles)
+        profile.code.trim().toLowerCase(): profile,
+    };
+    final capabilityProfiles = <AdminApparatusCapabilityProfile>[];
+    for (final token in capabilityTokens) {
+      final parts = token.split(':');
+      final code = parts.first.trim().toLowerCase();
+      if (code.isEmpty) continue;
+      final previous = previousProfiles[code];
+      capabilityProfiles.add(
+        AdminApparatusCapabilityProfile(
+          code: code,
+          level: (int.tryParse(parts.length > 1 ? parts[1].trim() : '') ??
+                  previous?.level ??
+                  1)
+              .clamp(1, 100),
+          validFromUnix: previous?.validFromUnix,
+          validToUnix: previous?.validToUnix,
+          enabled: previous?.enabled ?? true,
+        ),
+      );
+    }
+    final capabilities = capabilityProfiles
+        .map((profile) => profile.code)
         .toSet()
         .toList(growable: false);
     final previousId = _editingApparatusId;
@@ -371,6 +404,7 @@ class _AdminApparatusSettingsScreenState
         family: _apparatusFamily.text,
         kind: _apparatusKind.text,
         capabilities: capabilities,
+        capabilityProfiles: capabilityProfiles,
         colorStations: colorStations,
       );
       if (!mounted) {
@@ -404,6 +438,7 @@ class _AdminApparatusSettingsScreenState
         _apparatusKind.clear();
         _apparatusCapabilities.clear();
         _apparatusColorStations.clear();
+        _editingCapabilityProfiles = const [];
       });
       _saveCache();
       showAdminTopNotice(

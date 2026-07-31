@@ -130,11 +130,20 @@ class _AdminApparatusCapacityPanelState
     _setupMinutes.text = '${profile?.setupMinutes ?? 0}';
     _cleanupMinutes.text = '${profile?.cleanupMinutes ?? 0}';
     _efficiency.text = '${profile?.efficiencyPercent ?? 100}';
+    final masterCapabilities = apparatus.capabilityProfiles.isEmpty
+        ? apparatus.capabilities
+            .map((capability) => MapEntry<String, int>(capability, 1))
+        : apparatus.capabilityProfiles.map(
+            (profile) => MapEntry<String, int>(profile.code, profile.level),
+          );
     final capabilities = profile?.capabilityLevels.entries.map((entry) {
           final level = entry.value <= 1 ? '' : ':${entry.value}';
           return '${entry.key}$level';
         }).toList() ??
-        apparatus.capabilities;
+        masterCapabilities.map((entry) {
+          final level = entry.value <= 1 ? '' : ':${entry.value}';
+          return '${entry.key}$level';
+        }).toList(growable: false);
     _capabilities.text = capabilities.join(', ');
     _notes.text = profile?.notes ?? '';
   }

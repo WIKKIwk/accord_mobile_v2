@@ -248,6 +248,48 @@ class AdminWarehouseStockItem {
   }
 }
 
+class AdminApparatusCapabilityProfile {
+  const AdminApparatusCapabilityProfile({
+    required this.code,
+    this.level = 1,
+    this.validFromUnix,
+    this.validToUnix,
+    this.enabled = true,
+  });
+
+  final String code;
+  final int level;
+  final int? validFromUnix;
+  final int? validToUnix;
+  final bool enabled;
+
+  bool isValidAt(int unixSeconds) {
+    return enabled &&
+        (validFromUnix == null || unixSeconds >= validFromUnix!) &&
+        (validToUnix == null || unixSeconds < validToUnix!);
+  }
+
+  factory AdminApparatusCapabilityProfile.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminApparatusCapabilityProfile(
+      code: json['code']?.toString().trim().toLowerCase() ?? '',
+      level: (json['level'] as num?)?.toInt() ?? 1,
+      validFromUnix: (json['valid_from_unix'] as num?)?.toInt(),
+      validToUnix: (json['valid_to_unix'] as num?)?.toInt(),
+      enabled: json['enabled'] != false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'code': code.trim().toLowerCase(),
+        'level': level,
+        if (validFromUnix != null) 'valid_from_unix': validFromUnix,
+        if (validToUnix != null) 'valid_to_unix': validToUnix,
+        'enabled': enabled,
+      };
+}
+
 class AdminApparatus {
   const AdminApparatus({
     required this.name,
@@ -257,6 +299,7 @@ class AdminApparatus {
     this.family = 'other',
     this.kind = 'other',
     this.capabilities = const [],
+    this.capabilityProfiles = const [],
     this.colorStations,
   });
 
@@ -267,15 +310,18 @@ class AdminApparatus {
   final String family;
   final String kind;
   final List<String> capabilities;
+  final List<AdminApparatusCapabilityProfile> capabilityProfiles;
   final int? colorStations;
 
   bool get isDefault => source == 'default';
   bool get isPechat =>
       family.trim().toLowerCase() == 'pechat' ||
-      capabilities.any((item) => item.trim().toLowerCase() == 'print');
+      capabilities.any((item) => item.trim().toLowerCase() == 'print') ||
+      capabilityProfiles.any((item) => item.code == 'print' && item.enabled);
   bool get isFlexo =>
       kind.trim().toLowerCase() == 'flexo' ||
-      capabilities.any((item) => item.trim().toLowerCase() == 'flexo');
+      capabilities.any((item) => item.trim().toLowerCase() == 'flexo') ||
+      capabilityProfiles.any((item) => item.code == 'flexo' && item.enabled);
 
   factory AdminApparatus.fromJson(Map<String, dynamic> json) {
     final name =
@@ -288,6 +334,21 @@ class AdminApparatus {
         .toList(growable: false);
     final family = (json['family'] as String?)?.trim() ?? '';
     final kind = (json['kind'] as String?)?.trim() ?? '';
+    final capabilityProfiles = [
+      if (json['capability_profiles'] is List)
+        for (final item in json['capability_profiles'] as List)
+          if (item is Map)
+            AdminApparatusCapabilityProfile.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+    ];
+    final effectiveProfiles = capabilityProfiles.isEmpty
+        ? [
+            for (final capability
+                in capabilities.isEmpty ? inferred.capabilities : capabilities)
+              AdminApparatusCapabilityProfile(code: capability),
+          ]
+        : capabilityProfiles;
     return AdminApparatus(
       id: (json['id'] as String?)?.trim().isNotEmpty == true
           ? (json['id'] as String).trim()
@@ -298,6 +359,7 @@ class AdminApparatus {
       family: family.isEmpty ? inferred.family : family.toLowerCase(),
       kind: kind.isEmpty ? inferred.kind : kind.toLowerCase(),
       capabilities: capabilities.isEmpty ? inferred.capabilities : capabilities,
+      capabilityProfiles: effectiveProfiles,
       colorStations:
           (json['color_stations'] as num?)?.toInt() ?? inferred.colorStations,
     );
@@ -312,6 +374,9 @@ class AdminApparatus {
       'family': family,
       'kind': kind,
       'capabilities': capabilities,
+      'capability_profiles': [
+        for (final profile in capabilityProfiles) profile.toJson(),
+      ],
       if (colorStations != null) 'color_stations': colorStations,
     };
   }

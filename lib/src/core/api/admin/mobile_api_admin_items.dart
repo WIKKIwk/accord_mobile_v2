@@ -877,6 +877,8 @@ extension MobileApiAdminItems on MobileApi {
     String family = '',
     String kind = '',
     Iterable<String> capabilities = const <String>[],
+    Iterable<AdminApparatusCapabilityProfile> capabilityProfiles =
+        const <AdminApparatusCapabilityProfile>[],
     int? colorStations,
   }) async {
     final name = apparatusName.trim();
@@ -889,11 +891,25 @@ extension MobileApiAdminItems on MobileApi {
     }
     final normalizedFamily = family.trim().toLowerCase();
     final normalizedKind = kind.trim().toLowerCase();
-    final normalizedCapabilities = capabilities
-        .map((item) => item.trim().toLowerCase())
-        .where((item) => item.isNotEmpty)
-        .toSet()
+    final normalizedProfiles = capabilityProfiles
+        .map(
+          (profile) => AdminApparatusCapabilityProfile(
+            code: profile.code.trim().toLowerCase(),
+            level: profile.level.clamp(1, 100),
+            validFromUnix: profile.validFromUnix,
+            validToUnix: profile.validToUnix,
+            enabled: profile.enabled,
+          ),
+        )
+        .where((profile) => profile.code.isNotEmpty)
         .toList(growable: false);
+    final normalizedCapabilities = {
+      ...capabilities
+          .map((item) => item.trim().toLowerCase())
+          .where((item) => item.isNotEmpty)
+          .toSet(),
+      ...normalizedProfiles.map((profile) => profile.code),
+    }.toList(growable: false);
     if (await TestModeController.instance.isEnabled()) {
       final inferred = AdminApparatus.fromJson({'name': name});
       final existingIndex = _testModeApparatus.indexWhere(
@@ -903,6 +919,14 @@ extension MobileApiAdminItems on MobileApi {
       );
       final existing =
           existingIndex >= 0 ? _testModeApparatus[existingIndex] : null;
+      final effectiveProfiles = normalizedProfiles.isEmpty
+          ? (normalizedCapabilities.isEmpty
+              ? inferred.capabilityProfiles
+              : [
+                  for (final capability in normalizedCapabilities)
+                    AdminApparatusCapabilityProfile(code: capability),
+                ])
+          : normalizedProfiles;
       final item = AdminApparatus(
         id: normalizedId.isNotEmpty
             ? normalizedId
@@ -913,6 +937,7 @@ extension MobileApiAdminItems on MobileApi {
         capabilities: normalizedCapabilities.isEmpty
             ? inferred.capabilities
             : normalizedCapabilities,
+        capabilityProfiles: effectiveProfiles,
         colorStations: colorStations ?? inferred.colorStations,
       );
       if (existingIndex >= 0) {
@@ -939,6 +964,10 @@ extension MobileApiAdminItems on MobileApi {
           if (normalizedKind.isNotEmpty) 'kind': normalizedKind,
           if (normalizedCapabilities.isNotEmpty)
             'capabilities': normalizedCapabilities,
+          if (normalizedProfiles.isNotEmpty)
+            'capability_profiles': [
+              for (final profile in normalizedProfiles) profile.toJson(),
+            ],
           if (colorStations != null) 'color_stations': colorStations,
         }),
       ),
@@ -1262,6 +1291,7 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       family: apparatus.family,
       kind: apparatus.kind,
       capabilities: apparatus.capabilities,
+      capabilityProfiles: apparatus.capabilityProfiles,
       colorStations: apparatus.colorStations,
     );
   }).toList(growable: false);

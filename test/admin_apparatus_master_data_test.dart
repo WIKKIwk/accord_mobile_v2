@@ -1,6 +1,7 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,6 +55,9 @@ void main() {
       family: 'pechat',
       kind: 'flexo',
       capabilities: const ['print', 'pechat', 'flexo'],
+      capabilityProfiles: const [
+        AdminApparatusCapabilityProfile(code: 'flexo', level: 3),
+      ],
     );
     for (final orderId in const ['zakaz-capacity-1', 'zakaz-capacity-2']) {
       await MobileApi.instance.adminSaveProductionMap(
@@ -92,6 +96,7 @@ void main() {
       ],
     );
     expect(first.reservedDurationMinutes, 20);
+    expect(apparatus.capabilityProfiles.single.level, 3);
 
     final second = await MobileApi.instance.adminScheduleApparatusOrder(
       orderId: 'zakaz-capacity-2',

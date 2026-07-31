@@ -211,15 +211,22 @@ AdminApparatusCapacityProfile _testModeProfileForApparatus({
     }
   }
   final inferredCapabilities = catalogItem?.capabilities ?? const <String>[];
+  final inferredProfiles = catalogItem?.capabilityProfiles ?? const [];
   return AdminApparatusCapacityProfile(
     apparatusId: apparatusId.trim().isEmpty
         ? 'apparatus:${apparatus.trim().toLowerCase()}'
         : apparatusId.trim(),
     apparatus: apparatus.trim(),
     capabilities: inferredCapabilities,
-    capabilityLevels: {
-      for (final capability in inferredCapabilities) capability: 1,
-    },
+    capabilityLevels: inferredProfiles.isEmpty
+        ? {
+            for (final capability in inferredCapabilities) capability: 1,
+          }
+        : {
+            for (final profile in inferredProfiles)
+              if (profile.isValidAt(_testModeUnixSeconds()))
+                profile.code: profile.level,
+          },
   );
 }
 
