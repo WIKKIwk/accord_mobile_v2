@@ -281,6 +281,7 @@ class _TestModeScheduledCandidate {
 ({int startsAtUnix, int endsAtUnix})? _testModeFindScheduleSlot({
   required AdminApparatusCapacityProfile profile,
   required String apparatusId,
+  required String apparatus,
   required int earliestStartUnix,
   required int? latestEndUnix,
   required int reservedDurationMinutes,
@@ -325,7 +326,30 @@ class _TestModeScheduledCandidate {
               ),
         )
         .length;
-    if (profile.finiteCapacity && conflicts >= profile.capacitySlots) {
+    final activeQueueOrderIds = <String>{};
+    for (final entry in _testModeApparatusQueueStates.entries) {
+      if (!productionMapWarehouseTitlesMatch(entry.key, apparatus)) continue;
+      for (final state in entry.value.entries) {
+        if (apparatusQueueOrderStateFromRaw(state.value) ==
+            ApparatusQueueOrderState.inProgress) {
+          activeQueueOrderIds.add(state.key.trim());
+        }
+      }
+    }
+    final scheduledActiveOrderIds =
+        _testModeApparatusScheduleReservations.values
+            .where(
+              (item) =>
+                  item.status == 'active' &&
+                  productionMapWarehouseTitlesMatch(item.apparatus, apparatus),
+            )
+            .map((item) => item.orderId.trim())
+            .toSet();
+    final unscheduledActiveRuns = activeQueueOrderIds
+        .where((orderId) => !scheduledActiveOrderIds.contains(orderId))
+        .length;
+    if (profile.finiteCapacity &&
+        conflicts + unscheduledActiveRuns >= profile.capacitySlots) {
       cursor += 60;
       continue;
     }
@@ -508,6 +532,7 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
     final slot = _testModeFindScheduleSlot(
       profile: profile,
       apparatusId: candidate.apparatusId,
+      apparatus: candidate.apparatus,
       earliestStartUnix: earliestStartUnix,
       latestEndUnix: latestEndUnix,
       reservedDurationMinutes: reservedDuration,
