@@ -247,13 +247,43 @@ bool productionMapTextIsFlexoOrder(Iterable<String> values) {
 }
 
 bool productionMapIsFlexoOrder(ProductionMapDefinition map) {
-  return productionMapTextIsFlexoOrder([
+  if (productionMapTextIsFlexoOrder([
     map.title,
     map.productCode,
     map.code,
-    for (final node in map.nodes)
-      if (node.kind != 'apparatus') ...[node.title, node.itemCode],
-  ]);
+  ])) {
+    return true;
+  }
+  for (final node in map.nodes) {
+    if (node.kind == 'apparatus') {
+      if (productionMapIsFlexoApparatus(node.title)) {
+        return true;
+      }
+      continue;
+    }
+    if (productionMapTextIsFlexoOrder([node.title, node.itemCode])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String? _productionMapKnownApparatusFamily(String title) {
+  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
+  if (productionMapIsPechatApparatus(normalized)) {
+    return 'pechat';
+  }
+  for (final entry in const {
+    'laminatsiya': 'laminatsiya',
+    'rezka': 'rezka',
+    'paket': 'paket',
+    'kley': 'kley',
+  }.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+  return null;
 }
 
 bool productionMapWarehouseTitlesMatch(String left, String right) {
@@ -357,6 +387,16 @@ bool productionMapCanMoveOrderToApparatus({
           fromApparatus: fromApparatus,
           toApparatus: toApparatus,
         );
+  }
+  final fromFamily = _productionMapKnownApparatusFamily(fromApparatus);
+  final toFamily = _productionMapKnownApparatusFamily(toApparatus);
+  if (fromFamily != null && toFamily != null && fromFamily != toFamily) {
+    return false;
+  }
+  final fromIsFlexo = productionMapIsFlexoApparatus(fromApparatus);
+  final toIsFlexo = productionMapIsFlexoApparatus(toApparatus);
+  if (fromIsFlexo != toIsFlexo || (fromIsFlexo || toIsFlexo) && !isFlexoOrder) {
+    return false;
   }
   final targetColorCount = productionMapPechatColorCount(toApparatus);
   if (targetColorCount == null) {

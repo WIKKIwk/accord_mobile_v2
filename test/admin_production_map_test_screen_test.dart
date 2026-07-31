@@ -2470,6 +2470,70 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets(
+    'opened orders move module hides cross-family Flexo and color orders',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: 'zakaz-ui-flexo-node-only',
+          title: 'ABCD Family',
+          productCode: 'ABCD Family',
+          apparatus: 'Flexo pechat',
+          product: 'ABCD Family',
+          orderNumber: '1119',
+          rollCount: 7,
+          widthMm: 765,
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: 'zakaz-ui-color-node-only',
+          title: 'Imperator salyami',
+          productCode: 'Imperator salyami',
+          apparatus: '7 ta rangli bosma aparat',
+          product: 'Imperator salyami',
+          orderNumber: '0002',
+          rollCount: 7,
+          widthMm: 515,
+        ),
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ko‘chirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('move-boundary-apparatus-picker')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Flexo pechat').last);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('ABCD Family'), findsNothing);
+      expect(find.textContaining('Imperator salyami'), findsNothing);
+      expect(
+        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'),
+        findsOneWidget,
+      );
+      expect(find.text('Flexo pechat uchun zakaz yo‘q'), findsOneWidget);
+    },
+  );
+
   testWidgets('opened orders move module transfers paused order with reason', (
     tester,
   ) async {
