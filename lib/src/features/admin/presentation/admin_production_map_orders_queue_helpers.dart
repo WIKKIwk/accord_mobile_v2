@@ -177,7 +177,7 @@ ApparatusQueuePolicy _queuePolicyForApparatus(
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
 }) {
   final title = apparatus.name.trim();
-  if (productionMapPechatColorCount(title) != null) {
+  if (productionMapIsPechatApparatus(title)) {
     return ApparatusQueuePolicy.strictSequence;
   }
   final direct = queuePoliciesByApparatus[title];

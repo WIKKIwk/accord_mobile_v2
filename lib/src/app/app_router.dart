@@ -162,6 +162,7 @@ class AppRoutes {
   static const String adminNotifications = '/admin-notifications';
   static const String adminProductionMapTest = '/admin-production-map-test';
   static const String adminProductionMapOrders = '/admin-production-map-orders';
+  static const String supplySequence = '/supply-sequence';
   static const String adminProgressQrScan = '/admin-progress-qr-scan';
   static const String adminServerMonitor = '/admin-server-monitor';
   static const String adminFactoryMap = '/admin-factory-map';
@@ -228,6 +229,7 @@ class AppRouter {
     AppRoutes.adminNotifications,
     AppRoutes.adminProductionMapTest,
     AppRoutes.adminProductionMapOrders,
+    AppRoutes.supplySequence,
     AppRoutes.adminProgressQrScan,
     AppRoutes.adminServerMonitor,
     AppRoutes.adminFactoryMap,
@@ -517,6 +519,14 @@ class AppRouter {
         );
       case AppRoutes.adminProductionMapOrders:
         return _buildRoute(settings, const AdminProductionMapOrdersScreen());
+      case AppRoutes.supplySequence:
+        return _buildRoute(
+          settings,
+          const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            supplyViewerMode: true,
+          ),
+        );
       case AppRoutes.adminProgressQrScan:
         return _buildRoute(settings, const AdminProgressQrScanScreen());
       case AppRoutes.adminServerMonitor:
@@ -883,6 +893,10 @@ class AppRouter {
     AppRoutes.adminProductionMapOrders: {
       'admin.access',
       'production.map.manage',
+    },
+    AppRoutes.supplySequence: {
+      'qolip.manage',
+      'raw_material.assign',
     },
     AppRoutes.adminProgressQrScan: {
       'admin.access',

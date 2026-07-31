@@ -266,10 +266,12 @@ class _ApparatusGuide {
 
   factory _ApparatusGuide.forApparatus(String apparatus) {
     final colorCount = productionMapPechatColorCount(apparatus);
-    if (colorCount != null) {
+    if (productionMapIsPechatApparatus(apparatus)) {
       return _ApparatusGuide(
         apparatus: apparatus,
-        kindLabel: '$colorCount ta rangli bosma uchun app yo‘riqnomasi',
+        kindLabel: colorCount == null
+            ? 'Flexo bosma uchun app yo‘riqnomasi'
+            : '$colorCount ta rangli bosma uchun app yo‘riqnomasi',
         startChecks: const [
           'Ish boshlash uchun homashyolar qatorini oching. Sarlavhadagi son barcha majburiy homashyo QR kodi tasdiqlanganda to‘ladi.',
           'Qoliplar qatorini oching va talab qilingan qoliplarning hammasini QR orqali tasdiqlang. Qoliplar soni to‘lmaguncha Boshlash faol bo‘lmaydi.',

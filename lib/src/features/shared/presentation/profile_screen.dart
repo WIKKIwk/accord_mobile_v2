@@ -569,7 +569,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 onNavigate: _openAparatchiDrawerRoute,
               ),
             _ProfileShellKind.qolip => QolipNavigationDrawer(
-                selectedIndex: 5,
+                selectedIndex: 0,
+                selectedRouteName: AppRoutes.profile,
                 onNavigate: _openQolipDrawerRoute,
               ),
             _ProfileShellKind.boyoqchi => BoyoqchiNavigationDrawer(

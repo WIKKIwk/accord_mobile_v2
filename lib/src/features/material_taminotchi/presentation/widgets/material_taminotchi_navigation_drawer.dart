@@ -29,6 +29,13 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.materialHome,
         ),
         const RoleNavigationDrawerDestination(
+          icon: Icons.format_list_numbered_outlined,
+          selectedIcon: Icons.format_list_numbered_rounded,
+          label: 'Ketma-ketlik',
+          routeName: AppRoutes.supplySequence,
+          push: true,
+        ),
+        const RoleNavigationDrawerDestination(
           icon: Icons.scale_outlined,
           selectedIcon: Icons.scale_rounded,
           label: 'Tarozilar rejimi',

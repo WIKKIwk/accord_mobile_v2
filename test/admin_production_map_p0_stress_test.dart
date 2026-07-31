@@ -126,6 +126,88 @@ void main() {
     },
   );
 
+  test('paused pechat order transfers with queue state and idempotency',
+      () async {
+    resetMobileApiTestModeData();
+    addTearDown(resetMobileApiTestModeData);
+    const orderId = 'zakaz-paused-transfer';
+    const source = '7 ta rangli pechat';
+    const target = '8 ta rangli pechat';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Paused transfer order',
+        productCode: 'TRANSFER-1',
+        apparatus: source,
+        product: 'paused transfer product',
+        orderNumber: '7601',
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: source,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: target,
+      orderIds: const [],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'start',
+    );
+
+    MobileApiException? normalMoveError;
+    try {
+      await MobileApi.instance.adminMoveProductionMapOrdersBatch(
+        mapIds: const [orderId],
+        fromApparatus: source,
+        toApparatus: target,
+      );
+      fail('started order was moved with the normal endpoint');
+    } on MobileApiException catch (error) {
+      normalMoveError = error;
+    }
+    expect(normalMoveError.code, 'started_order_move_requires_transfer');
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 11,
+    );
+    final moved = await MobileApi.instance.adminTransferProductionMapOrder(
+      orderId: orderId,
+      fromApparatus: source,
+      toApparatus: target,
+      reason: '7 rangli pechat apparati buzildi',
+      idempotencyKey: 'transfer-test-$orderId',
+    );
+    final replay = await MobileApi.instance.adminTransferProductionMapOrder(
+      orderId: orderId,
+      fromApparatus: source,
+      toApparatus: target,
+      reason: 'boshqa sabab',
+      idempotencyKey: 'transfer-test-$orderId',
+    );
+
+    expect(moved.map.id, orderId);
+    expect(
+      moved.map.nodes
+          .where((node) => node.kind == 'apparatus')
+          .map((node) => node.title),
+      contains(target),
+    );
+    expect(replay.map.nodes, moved.map.nodes);
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(snapshot.queueStates[source]?[orderId], isNull);
+    expect(snapshot.queueStates[target]?[orderId], 'paused');
+    expect(snapshot.sequences[source], isNot(contains(orderId)));
+    expect(snapshot.sequences[target], contains(orderId));
+  });
+
   test('flexo orders cannot move to color pechat apparatus', () {
     final map = _productionOrderMap(
       id: 'zakaz-flexo-1',

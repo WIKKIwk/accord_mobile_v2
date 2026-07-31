@@ -27,6 +27,10 @@ import '../../boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import '../../boyoqchi/state/returned_paint_draft_store.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../qolip/presentation/widgets/qolip_dock.dart';
+import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../logic/apparatus_queue_state.dart';
 import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';
@@ -151,11 +155,13 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     super.key,
     this.readOnly = false,
     this.workerMode = false,
+    this.supplyViewerMode = false,
     this.progressDriverUrlPicker,
-  });
+  }) : assert(!(workerMode && supplyViewerMode));
 
   final bool readOnly;
   final bool workerMode;
+  final bool supplyViewerMode;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
 
   @override
@@ -206,6 +212,9 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.supplyViewerMode) {
+      _module = _OpenedOrderModule.sequence;
+    }
     if (widget.workerMode) {
       _tabController = TabController(length: 1, vsync: this);
     } else {
@@ -251,7 +260,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   List<_OpenedOrderModule> get _modules {
-    return widget.workerMode
+    return widget.workerMode || widget.supplyViewerMode
         ? const [_OpenedOrderModule.sequence]
         : _OpenedOrderModule.values;
   }
@@ -328,6 +337,10 @@ class _AdminProductionMapOrdersScreenState
     if (current == routeName) {
       return;
     }
+    if (widget.supplyViewerMode) {
+      Navigator.of(context).pushReplacementNamed(routeName);
+      return;
+    }
     AdminDrawerNavigation.openRoute(context, routeName);
   }
 
@@ -392,7 +405,10 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _showOrderActions(ProductionMapSaved order) async {
-    if (widget.readOnly || widget.workerMode || _orderControlActionInFlight) {
+    if (widget.readOnly ||
+        widget.workerMode ||
+        widget.supplyViewerMode ||
+        _orderControlActionInFlight) {
       return;
     }
     final orderId = order.map.id.trim();
@@ -595,18 +611,39 @@ class _AdminProductionMapOrdersScreenState
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final role = AppSession.instance.profile?.role;
+    final supplyDrawer = switch (role) {
+      UserRole.qolipchi => QolipNavigationDrawer(
+          selectedIndex: 0,
+          selectedRouteName: AppRoutes.supplySequence,
+          onNavigate: _openDrawerRoute,
+        ),
+      UserRole.materialTaminotchi => MaterialTaminotchiNavigationDrawer(
+          selectedRouteName: AppRoutes.supplySequence,
+          onNavigate: _openDrawerRoute,
+        ),
+      _ => null,
+    };
+    final supplyDock = switch (role) {
+      UserRole.qolipchi => const QolipDock(activeTab: null),
+      UserRole.materialTaminotchi =>
+        const MaterialTaminotchiDock(activeTab: null),
+      _ => null,
+    };
     return AppShell(
-      drawer: widget.workerMode
-          ? AparatchiNavigationDrawer(
-              selectedIndex: 0,
-              selectedRouteName: AppRoutes.apparatusQueue,
-              onNavigate: _openDrawerRoute,
-            )
-          : AdminNavigationDrawer(
-              selectedIndex: 0,
-              selectedRouteName: AppRoutes.adminProductionMapOrders,
-              onNavigate: _openDrawerRoute,
-            ),
+      drawer: widget.supplyViewerMode
+          ? supplyDrawer
+          : widget.workerMode
+              ? AparatchiNavigationDrawer(
+                  selectedIndex: 0,
+                  selectedRouteName: AppRoutes.apparatusQueue,
+                  onNavigate: _openDrawerRoute,
+                )
+              : AdminNavigationDrawer(
+                  selectedIndex: 0,
+                  selectedRouteName: AppRoutes.adminProductionMapOrders,
+                  onNavigate: _openDrawerRoute,
+                ),
       title: '',
       subtitle: '',
       nativeTopBar: true,
@@ -617,13 +654,15 @@ class _AdminProductionMapOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Ochilgan zakaz qidirish',
+        hintText: widget.supplyViewerMode
+            ? 'Ketma-ketlikdan zakaz qidirish'
+            : 'Ochilgan zakaz qidirish',
         onChanged: (value) => setState(() => _searchQuery = value),
         onClear: () {
           _searchController.clear();
           setState(() => _searchQuery = '');
         },
-        onBack: widget.workerMode
+        onBack: widget.workerMode || widget.supplyViewerMode
             ? null
             : () {
                 final nav = Navigator.of(context);
@@ -636,22 +675,25 @@ class _AdminProductionMapOrdersScreenState
                   (route) => false,
                 );
               },
-        onBackWithContext: widget.workerMode
+        onBackWithContext: widget.workerMode || widget.supplyViewerMode
             ? (context) => AppShellDrawerScope.maybeOf(context)?.openDrawer()
             : null,
-        leadingIcon:
-            widget.workerMode ? Icons.menu_rounded : Icons.arrow_back_rounded,
-        leadingTooltip: widget.workerMode
+        leadingIcon: widget.workerMode || widget.supplyViewerMode
+            ? Icons.menu_rounded
+            : Icons.arrow_back_rounded,
+        leadingTooltip: widget.workerMode || widget.supplyViewerMode
             ? MaterialLocalizations.of(context).openAppDrawerTooltip
             : null,
       ),
-      bottom: widget.workerMode
-          ? const AparatchiDock(activeTab: AparatchiDockTab.home)
-          : AdminDock(
-              activeTab: AdminDockTab.home,
-              showPrimaryFab: _module != _OpenedOrderModule.sequence &&
-                  _module != _OpenedOrderModule.move,
-            ),
+      bottom: widget.supplyViewerMode
+          ? supplyDock
+          : widget.workerMode
+              ? const AparatchiDock(activeTab: AparatchiDockTab.home)
+              : AdminDock(
+                  activeTab: AdminDockTab.home,
+                  showPrimaryFab: _module != _OpenedOrderModule.sequence &&
+                      _module != _OpenedOrderModule.move,
+                ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
       child: _loading
@@ -691,7 +733,7 @@ class _AdminProductionMapOrdersScreenState
                       apparatus: _apparatus,
                       selectedApparatus: _selectedApparatus,
                       completionRequests: _completionRequests,
-                      readOnly: widget.readOnly,
+                      readOnly: widget.readOnly || widget.supplyViewerMode,
                       moveTopApparatus: _moveTopApparatus,
                       moveBottomApparatus: _moveBottomApparatus,
                       selectedMoveOrderIds: _selectedMoveOrderIds,
@@ -728,7 +770,9 @@ class _AdminProductionMapOrdersScreenState
                       },
                       onMove: _moveOrdersBetweenApparatus,
                       onInfoOrder: _showOrderDetail,
-                      onInfoSequenceOrder: _showWatchOrderDetail,
+                      onInfoSequenceOrder: widget.supplyViewerMode
+                          ? null
+                          : _showWatchOrderDetail,
                       customerNameByMapId: _customerByMapId,
                       queueStatesByApparatus: _queueStatesByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,

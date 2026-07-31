@@ -20,6 +20,13 @@ void main() {
     expect(productionMapApparatusRequiresQolipScan('Laminatsiya 1'), isFalse);
   });
 
+  test('flexo belongs to the bosma family without a color count', () {
+    expect(productionMapPechatColorCount('Flexo pechat - A'), isNull);
+    expect(productionMapIsFlexoApparatus('Flexo pechat - A'), isTrue);
+    expect(productionMapIsPechatApparatus('Flexo bosma aparat'), isTrue);
+    expect(productionMapApparatusRequiresQolipScan('Flexo pechat'), isTrue);
+  });
+
   test('all product qolips must be scanned as an exact unique set', () {
     const required = ['QOLIP-1', 'QOLIP-2', 'QOLIP-3', 'QOLIP-4'];
 

@@ -83,7 +83,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     action,
     order: order,
     apparatus: title,
-    isBosma: productionMapPechatColorCount(title) != null,
+    isBosma: productionMapIsPechatApparatus(title),
     isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
     isRezka: productionMapIsRezkaApparatus(title),
     returnedPaintDraft: returnedPaintDraft,

@@ -6,7 +6,7 @@ _MoveApparatusDefaults _moveApparatusDefaults({
   required AdminApparatus? currentBottom,
 }) {
   final pechat = source
-      .where((item) => productionMapPechatColorCount(item.name) != null)
+      .where((item) => productionMapIsPechatApparatus(item.name))
       .toList(growable: false);
   final candidates = pechat.isEmpty ? source : pechat;
   if (candidates.isEmpty) {

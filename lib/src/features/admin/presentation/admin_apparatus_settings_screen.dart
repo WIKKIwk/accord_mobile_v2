@@ -789,7 +789,7 @@ class _AdminApparatusSettingsScreenState
 }
 
 IconData _apparatusIcon(String title) {
-  if (productionMapPechatColorCount(title) != null) {
+  if (productionMapIsPechatApparatus(title)) {
     return Icons.print_outlined;
   }
   if (productionMapIsLaminatsiyaApparatus(title)) {
@@ -802,7 +802,7 @@ IconData _apparatusIcon(String title) {
 }
 
 String _apparatusKindLabel(String title) {
-  if (productionMapPechatColorCount(title) != null) {
+  if (productionMapIsPechatApparatus(title)) {
     return 'Bosma aparat';
   }
   if (productionMapIsLaminatsiyaApparatus(title)) {

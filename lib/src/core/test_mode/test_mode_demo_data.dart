@@ -118,6 +118,12 @@ class TestModeDemoData {
       colorStations: 9,
     ),
     AdminApparatus(
+      name: 'Flexo pechat',
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: ['print', 'pechat', 'flexo'],
+    ),
+    AdminApparatus(
       name: 'Laminatsiya 1',
       family: 'laminatsiya',
       kind: 'laminatsiya',
@@ -153,6 +159,7 @@ class TestModeDemoData {
         '7 ta rangli bosma aparat',
         '8 ta rangli bosma aparat',
         '9 ta rangli bosma aparat',
+        'Flexo pechat',
       ],
     ),
     AdminApparatusGroup(

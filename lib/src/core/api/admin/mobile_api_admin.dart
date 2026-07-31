@@ -12,6 +12,8 @@ final Set<String> _testModeDeletedWarehouseNames = {};
 final List<AdminServerMonitorBackupSnapshot> _testModeBackupSnapshots = [];
 final Map<String, List<String>> _testModeApparatusSequences = {};
 final Map<String, Map<String, String>> _testModeApparatusQueueStates = {};
+final Map<String, _TestModeApparatusTransferReceipt>
+    _testModeApparatusTransfers = {};
 final Map<String, AdminOrderControlState> _testModeOrderControls = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
@@ -31,6 +33,20 @@ bool _testModeForceSequenceSaveFailure = false;
 bool _testModeForceCalculateTemplateSaveFailure = false;
 bool _testModeForceProductionMapMenuLoadFailure = false;
 
+class _TestModeApparatusTransferReceipt {
+  const _TestModeApparatusTransferReceipt({
+    required this.orderId,
+    required this.fromApparatus,
+    required this.toApparatus,
+    required this.saved,
+  });
+
+  final String orderId;
+  final String fromApparatus;
+  final String toApparatus;
+  final ProductionMapSaved saved;
+}
+
 const _defaultBosmaApparatusGroupName = 'Bosma aparat';
 
 String _defaultBosmaApparatusName(int colorCount) {
@@ -38,11 +54,11 @@ String _defaultBosmaApparatusName(int colorCount) {
 }
 
 bool _adminApparatusGroupIsBosma(AdminApparatusGroup group) {
-  if (productionMapPechatColorCount(group.name) != null) {
+  if (productionMapIsPechatApparatus(group.name)) {
     return true;
   }
   return group.apparatus.any(
-    (apparatus) => productionMapPechatColorCount(apparatus) != null,
+    productionMapIsPechatApparatus,
   );
 }
 
@@ -72,7 +88,10 @@ List<AdminApparatusGroup> _normalizeDefaultAdminApparatusGroups(
   if (hasBosma) {
     final bosmaGroup = AdminApparatusGroup(
       name: _defaultBosmaApparatusGroupName,
-      apparatus: [7, 8, 9].map(_defaultBosmaApparatusName).toList(),
+      apparatus: [
+        ...[7, 8, 9].map(_defaultBosmaApparatusName),
+        'Flexo pechat',
+      ],
     );
     normalized.insert(bosmaInsertIndex < 0 ? 0 : bosmaInsertIndex, bosmaGroup);
   }
@@ -106,6 +125,7 @@ void resetMobileApiTestModeData() {
   _testModeBackupSnapshots.clear();
   _testModeApparatusSequences.clear();
   _testModeApparatusQueueStates.clear();
+  _testModeApparatusTransfers.clear();
   _testModeOrderControls.clear();
   _testModeApparatusQueuePolicies.clear();
   _testModeCompletedQueueOrders.clear();
@@ -121,6 +141,27 @@ void resetMobileApiTestModeData() {
   _testModeForceSequenceSaveFailure = false;
   _testModeForceCalculateTemplateSaveFailure = false;
   _testModeForceProductionMapMenuLoadFailure = false;
+}
+
+void _testModeEnsurePendingApparatusMove({
+  required String orderId,
+  required String fromApparatus,
+}) {
+  final knownKeys = {
+    ..._testModeApparatusSequences.keys,
+    ..._testModeApparatusQueueStates.keys,
+  };
+  final storageKey = resolveApparatusStorageKey(fromApparatus, knownKeys);
+  final rawState = _testModeApparatusQueueStates[storageKey]?[orderId.trim()];
+  if (rawState == null ||
+      apparatusQueueOrderStateFromRaw(rawState) ==
+          ApparatusQueueOrderState.pending) {
+    return;
+  }
+  throw const MobileApiException(
+    code: 'started_order_move_requires_transfer',
+    message: 'Ish boshlangan orderni avval pause qilib avariyaviy ko‘chiring',
+  );
 }
 
 void resetMobileApiTestModeWorkerSettingsData() {
@@ -2404,6 +2445,27 @@ MobileApiException _adminProductionMapException(
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
       'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
+      'started_order_move_requires_transfer' =>
+        'Ish boshlangan orderni avval pause qilib avariyaviy ko‘chiring',
+      'apparatus_transfer_reason_required' => 'Avariya sababini kiriting',
+      'apparatus_transfer_idempotency_required' =>
+        'Avariya ko‘chirish identifikatori mavjud emas',
+      'apparatus_transfer_idempotency_conflict' =>
+        'Avariya ko‘chirish identifikatori boshqa amalda ishlatilgan',
+      'apparatus_transfer_order_not_paused' =>
+        'Ko‘chirishdan oldin orderni pause qiling',
+      'apparatus_transfer_session_not_found' =>
+        'Orderning ish sessiyasi topilmadi',
+      'apparatus_transfer_progress_not_found' =>
+        'Orderning pause progressi topilmadi',
+      'apparatus_transfer_session_mismatch' =>
+        'Order sessiyasi apparat bilan mos emas',
+      'apparatus_transfer_progress_mismatch' =>
+        'Order progressi apparat bilan mos emas',
+      'apparatus_transfer_target_conflict' =>
+        'Order tanlangan apparatda allaqachon mavjud',
+      'apparatus_transfer_invalid_response' =>
+        'Avariya ko‘chirish javobi noto‘g‘ri',
       'queue_action_not_allowed' =>
         'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
       'order_not_started' => 'Boshlanmagan buyurtmani muzlatib bo‘lmaydi',
@@ -3153,6 +3215,10 @@ extension MobileApiAdmin on MobileApi {
       }
       final updated = <ProductionMapSaved>[];
       for (final current in originals) {
+        _testModeEnsurePendingApparatusMove(
+          orderId: current.map.id,
+          fromApparatus: fromApparatus,
+        );
         if (!productionMapCanMoveOrderToApparatus(
           nodes: current.map.nodes,
           fromApparatus: fromApparatus,
@@ -3226,6 +3292,198 @@ extension MobileApiAdmin on MobileApi {
     ];
   }
 
+  Future<ProductionMapSaved> adminTransferProductionMapOrder({
+    required String orderId,
+    required String fromApparatus,
+    required String toApparatus,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedFrom = fromApparatus.trim();
+    final normalizedTo = toApparatus.trim();
+    final normalizedReason = reason.trim();
+    final normalizedKey = idempotencyKey.trim();
+    if (normalizedOrderId.isEmpty ||
+        normalizedFrom.isEmpty ||
+        normalizedTo.isEmpty) {
+      throw const MobileApiException(
+        code: 'apparatus_transfer_order_not_paused',
+        message: 'Avariya ko‘chirish ma’lumotlari to‘liq emas',
+      );
+    }
+    if (normalizedReason.isEmpty) {
+      throw const MobileApiException(
+        code: 'apparatus_transfer_reason_required',
+        message: 'Avariya sababini kiriting',
+      );
+    }
+    if (normalizedKey.isEmpty || normalizedKey.length > 200) {
+      throw const MobileApiException(
+        code: 'apparatus_transfer_idempotency_required',
+        message: 'Avariya ko‘chirish identifikatori mavjud emas',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final existing = _testModeApparatusTransfers[normalizedKey];
+      if (existing != null) {
+        if (existing.orderId != normalizedOrderId ||
+            !productionMapWarehouseTitlesMatch(
+              existing.fromApparatus,
+              normalizedFrom,
+            ) ||
+            !productionMapWarehouseTitlesMatch(
+              existing.toApparatus,
+              normalizedTo,
+            )) {
+          throw const MobileApiException(
+            code: 'apparatus_transfer_idempotency_conflict',
+            message:
+                'Avariya ko‘chirish identifikatori boshqa amalda ishlatilgan',
+          );
+        }
+        return existing.saved;
+      }
+      if (normalizedFrom == normalizedTo) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz shu apparatda qolmoqda',
+        );
+      }
+      final knownKeys = {
+        ..._testModeApparatusSequences.keys,
+        ..._testModeApparatusQueueStates.keys,
+      };
+      final sourceKey = resolveApparatusStorageKey(
+        normalizedFrom,
+        knownKeys,
+      );
+      final targetKey = resolveApparatusStorageKey(
+        normalizedTo,
+        knownKeys,
+      );
+      if (sourceKey == targetKey) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz shu apparatda qolmoqda',
+        );
+      }
+      final sourceStates = Map<String, String>.from(
+        _testModeApparatusQueueStates[sourceKey] ?? const {},
+      );
+      final targetStates = Map<String, String>.from(
+        _testModeApparatusQueueStates[targetKey] ?? const {},
+      );
+      if (apparatusQueueOrderStateFromRaw(sourceStates[normalizedOrderId]) !=
+          ApparatusQueueOrderState.paused) {
+        throw const MobileApiException(
+          code: 'apparatus_transfer_order_not_paused',
+          message: 'Ko‘chirishdan oldin orderni pause qiling',
+        );
+      }
+      if (targetStates.containsKey(normalizedOrderId)) {
+        throw const MobileApiException(
+          code: 'apparatus_transfer_target_conflict',
+          message: 'Order tanlangan apparatda allaqachon mavjud',
+        );
+      }
+      final index = _testModeProductionMaps.indexWhere(
+        (item) => item.map.id.trim() == normalizedOrderId,
+      );
+      if (index < 0) {
+        throw const MobileApiException(
+          code: 'map_not_found',
+          message: 'Zakaz topilmadi',
+        );
+      }
+      final current = _testModeProductionMaps[index];
+      if (!productionMapCanMoveOrderToApparatus(
+        nodes: current.map.nodes,
+        fromApparatus: normalizedFrom,
+        toApparatus: normalizedTo,
+        rollCount: current.map.rollCount,
+        widthMm: current.map.widthMm,
+        isFlexoOrder: productionMapIsFlexoOrder(current.map),
+      )) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz bu aparatga tushmaydi',
+        );
+      }
+      final nodes = productionMapReassignAlternativeApparatusAssignment(
+            nodes: current.map.nodes,
+            fromApparatus: normalizedFrom,
+            toApparatus: normalizedTo,
+          ) ??
+          productionMapReassignApparatusNodes(
+            nodes: current.map.nodes,
+            fromApparatus: normalizedFrom,
+            toApparatus: normalizedTo,
+          );
+      if (nodes == null) {
+        throw const MobileApiException(
+          code: 'move_not_allowed',
+          message: 'Zakaz bu aparatga tushmaydi',
+        );
+      }
+      final saved = ProductionMapSaved(
+        map: current.map.copyWith(nodes: nodes),
+        program: current.program,
+      );
+      final sourceSequence = List<String>.from(
+        _testModeApparatusSequences[sourceKey] ?? const [],
+      )..removeWhere((id) => id.trim() == normalizedOrderId);
+      final targetSequence = List<String>.from(
+        _testModeApparatusSequences[targetKey] ?? const [],
+      )
+        ..removeWhere((id) => id.trim() == normalizedOrderId)
+        ..add(normalizedOrderId);
+      sourceStates.remove(normalizedOrderId);
+      targetStates[normalizedOrderId] = 'paused';
+      _testModeProductionMaps[index] = saved;
+      _testModeApparatusSequences[sourceKey] = sourceSequence;
+      _testModeApparatusSequences[targetKey] = targetSequence;
+      _testModeApparatusQueueStates[sourceKey] = sourceStates;
+      _testModeApparatusQueueStates[targetKey] = targetStates;
+      _testModeApparatusTransfers[normalizedKey] =
+          _TestModeApparatusTransferReceipt(
+        orderId: normalizedOrderId,
+        fromApparatus: normalizedFrom,
+        toApparatus: normalizedTo,
+        saved: saved,
+      );
+      return saved;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/apparatus-transfer',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'order_id': normalizedOrderId,
+          'from_apparatus': normalizedFrom,
+          'to_apparatus': normalizedTo,
+          'reason': normalizedReason,
+          'idempotency_key': normalizedKey,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_transfer');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawSaved = payload['saved'];
+    if (rawSaved is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_transfer_invalid_response',
+        message: 'Avariya ko‘chirish javobi noto‘g‘ri',
+      );
+    }
+    return ProductionMapSaved.fromJson(rawSaved.cast<String, dynamic>());
+  }
+
   Future<ProductionMapSaved> adminMoveProductionMapOrder({
     required String mapId,
     required String fromApparatus,
@@ -3242,6 +3500,10 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       final current = _testModeProductionMaps[index];
+      _testModeEnsurePendingApparatusMove(
+        orderId: current.map.id,
+        fromApparatus: fromApparatus,
+      );
       if (!productionMapCanMoveOrderToApparatus(
         nodes: current.map.nodes,
         fromApparatus: fromApparatus,
@@ -3681,7 +3943,7 @@ extension MobileApiAdmin on MobileApi {
   }) async {
     final normalized = apparatus.trim();
     if (await TestModeController.instance.isEnabled()) {
-      final locked = productionMapPechatColorCount(normalized) != null;
+      final locked = productionMapIsPechatApparatus(normalized);
       if (locked && policy != ApparatusQueuePolicy.strictSequence) {
         throw const MobileApiException(
           code: 'queue_policy_locked',
@@ -6952,8 +7214,8 @@ AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
 ) {
   final title =
       storageKey.trim().isEmpty ? apparatus.trim() : storageKey.trim();
-  final locked = productionMapPechatColorCount(title) != null ||
-      productionMapPechatColorCount(apparatus) != null;
+  final locked = productionMapIsPechatApparatus(title) ||
+      productionMapIsPechatApparatus(apparatus);
   if (locked) {
     return AdminApparatusQueuePolicy(
       apparatus: title,

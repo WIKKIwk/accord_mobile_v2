@@ -172,7 +172,7 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
 
   AdminApparatusQueuePolicy _effectivePolicy(AdminApparatus apparatus) {
     final title = apparatus.name.trim();
-    final pechatLocked = productionMapPechatColorCount(title) != null;
+    final pechatLocked = productionMapIsPechatApparatus(title);
     if (pechatLocked) {
       return AdminApparatusQueuePolicy(
         apparatus: title,

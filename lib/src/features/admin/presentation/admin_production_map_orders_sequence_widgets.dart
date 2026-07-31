@@ -30,7 +30,7 @@ class _SequenceModulePage extends StatefulWidget {
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
-  final ValueChanged<ProductionMapSaved> onInfoOrder;
+  final ValueChanged<ProductionMapSaved>? onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
@@ -86,7 +86,9 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             widget.queueStates[order.map.id.trim()],
           ),
         ),
-        onInfo: () => widget.onInfoOrder(order),
+        onInfo: widget.onInfoOrder == null
+            ? null
+            : () => widget.onInfoOrder!(order),
         onLongPress: () => widget.onLongPressOrder(order),
       );
     }
@@ -113,6 +115,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                     availableApparatus: widget.availableApparatus,
                     apparatus: selected,
                     orderCount: orders.length,
+                    readOnly: widget.readOnly,
                     expanded: _apparatusFilterExpanded,
                     onToggleExpanded: () {
                       setState(() {
@@ -187,6 +190,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             availableApparatus: widget.availableApparatus,
             apparatus: selected,
             orderCount: orders.length,
+            readOnly: widget.readOnly,
             expanded: _apparatusFilterExpanded,
             onToggleExpanded: () {
               setState(() {
@@ -232,6 +236,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
     required this.availableApparatus,
     required this.apparatus,
     required this.orderCount,
+    required this.readOnly,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onSelectApparatus,
@@ -240,6 +245,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   final List<AdminApparatus> availableApparatus;
   final AdminApparatus? apparatus;
   final int orderCount;
+  final bool readOnly;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final ValueChanged<AdminApparatus> onSelectApparatus;
@@ -287,7 +293,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
                   ),
             ),
           ),
-        if (orderCount > 0) ...[
+        if (orderCount > 0 && !readOnly) ...[
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),

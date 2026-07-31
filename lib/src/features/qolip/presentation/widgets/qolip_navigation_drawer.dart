@@ -8,16 +8,19 @@ class QolipNavigationDrawer extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onNavigate,
+    this.selectedRouteName,
   });
 
   final int selectedIndex;
   final ValueChanged<String> onNavigate;
+  final String? selectedRouteName;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return RoleNavigationDrawer(
       selectedIndex: selectedIndex,
+      selectedRouteName: selectedRouteName,
       onNavigate: onNavigate,
       destinations: [
         RoleNavigationDrawerDestination(
@@ -49,6 +52,12 @@ class QolipNavigationDrawer extends StatelessWidget {
           selectedIcon: Icons.swap_horiz_rounded,
           label: 'Joylashuv transferi',
           routeName: AppRoutes.qolipLocationTransfer,
+        ),
+        const RoleNavigationDrawerDestination(
+          icon: Icons.format_list_numbered_outlined,
+          selectedIcon: Icons.format_list_numbered_rounded,
+          label: 'Ketma-ketlik',
+          routeName: AppRoutes.supplySequence,
         ),
         RoleNavigationDrawerDestination(
           icon: Icons.person_outline_rounded,

@@ -61,8 +61,23 @@ void main() {
       '7 ta rangli bosma aparat',
       '8 ta rangli bosma aparat',
       '9 ta rangli bosma aparat',
+      'Flexo pechat',
     ]);
     expect(groups.any((group) => group.name == 'pechat'), isFalse);
+  });
+
+  test('flexo-only apparatus group normalizes to bosma', () async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveApparatusGroup(
+      const AdminApparatusGroup(
+        name: 'Flexo bosma',
+        apparatus: ['Flexo pechat'],
+      ),
+    );
+
+    final groups = await MobileApi.instance.adminApparatusGroups();
+    final bosma = groups.singleWhere((group) => group.name == 'Bosma aparat');
+    expect(bosma.apparatus, contains('Flexo pechat'));
   });
 
   testWidgets('production map page can add and select an apparatus node', (
@@ -560,7 +575,7 @@ void main() {
     },
   );
 
-  testWidgets('production map order flow hides color pechat group for flex', (
+  testWidgets('production map order flow offers flexo bosma for flex orders', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -593,12 +608,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')),
-        findsNothing);
+        findsOneWidget);
     expect(
       find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('admin-fab-menu-Ishlov')), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('admin-fab-menu-Bosma aparat')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Flexo pechat'), findsOneWidget);
+    expect(find.text('7 ta rangli bosma aparat'), findsNothing);
+    expect(find.text('8 ta rangli bosma aparat'), findsNothing);
+    expect(find.text('9 ta rangli bosma aparat'), findsNothing);
   });
 
   testWidgets(
@@ -1839,6 +1863,110 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
+  testWidgets('supply sequence page is shared and read only for supply roles', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: 'zakaz-supply-sequence-order',
+        title: 'Supply sequence order',
+        productCode: 'SUPPLY-SEQ',
+        apparatus: 'Godex aparat - DEMO',
+        product: 'supply product',
+      ),
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.qolipchi,
+      displayName: 'Qolipchi',
+      legalName: '',
+      ref: 'qolipchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['qolip.manage'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ketma-ketlikdan zakaz qidirish'), findsOneWidget);
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('admin-filter-option-Godex aparat - DEMO'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Supply sequence order'), findsOneWidget);
+    expect(find.text('Buyurtmalar'), findsNothing);
+    expect(find.text('Ko‘chirish'), findsNothing);
+    expect(find.text('Yopilgan'), findsNothing);
+    expect(find.byType(ReorderableListView), findsNothing);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(
+      find.text('Tartibni o‘zgartirish uchun zakazni ushlab torting'),
+      findsNothing,
+    );
+    expect(find.byTooltip('Buyurtma ma’lumotlari'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Qoliplar'), findsWidgets);
+    expect(find.text('Ketma-ketlik'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Material ta’minotchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarozilar rejimi'), findsOneWidget);
+    expect(find.text('Ketma-ketlik'), findsOneWidget);
+  });
+
   testWidgets(
       'generic, sequence and worker details use the correct material scope', (
     tester,
@@ -2339,6 +2467,96 @@ void main() {
     maps = await MobileApi.instance.adminProductionMaps();
     expect(_apparatusTitle(maps, 'zakaz-move-blocked'),
         '8 ta rangli bosma aparat');
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('opened orders move module transfers paused order with reason', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const source = '7 ta rangli bosma aparat';
+    const target = '8 ta rangli bosma aparat';
+    const orderId = 'zakaz-paused-ui-transfer';
+    const targetOrderId = 'zakaz-paused-ui-target';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Paused UI transfer order',
+        productCode: 'PUT-1',
+        apparatus: source,
+        product: 'paused UI transfer product',
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: targetOrderId,
+        title: 'Paused UI target order',
+        productCode: 'PUT-2',
+        apparatus: target,
+        product: 'paused UI target product',
+        rollCount: 7,
+        widthMm: 650,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: source,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: target,
+      orderIds: const [targetOrderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 4,
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ko‘chirish'));
+    await tester.pumpAndSettle();
+
+    await _dragOrderHandleToBottomZone(
+      tester,
+      orderTitle: 'Paused UI transfer order',
+      targetText: 'Paused UI target order',
+    );
+    expect(find.text('Avariya sababini kiriting'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('apparatus-transfer-reason')),
+      '7 rangli pechat apparati buzildi',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+    await tester.pumpAndSettle();
+
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    expect(snapshot.queueStates[source]?[orderId], isNull);
+    expect(snapshot.queueStates[target]?[orderId], 'paused');
+    final maps = await MobileApi.instance.adminProductionMaps();
+    expect(_apparatusTitle(maps, orderId), target);
     await tester.pump(const Duration(seconds: 3));
   });
 

@@ -25,8 +25,22 @@ int? productionMapPechatColorCount(String title) {
   return int.tryParse(match.group(1) ?? '');
 }
 
+/// Flexo is a printing apparatus even though its title has no 7/8/9 color
+/// count. Keep this family classifier separate from color-specific capacity
+/// rules below.
+bool productionMapIsFlexoApparatus(String title) {
+  final normalized = productionMapWarehouseBaseTitle(title).toLowerCase();
+  return const ['fleksa', 'fleska', 'flex', 'flexe', 'flexo']
+      .any(normalized.contains);
+}
+
+bool productionMapIsPechatApparatus(String title) {
+  return productionMapPechatColorCount(title) != null ||
+      productionMapIsFlexoApparatus(title);
+}
+
 bool productionMapApparatusRequiresQolipScan(String title) {
-  return productionMapPechatColorCount(title) != null;
+  return productionMapIsPechatApparatus(title);
 }
 
 bool productionMapQolipScanAllowsStart(String title, String qolipCode) {

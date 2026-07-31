@@ -171,6 +171,11 @@ void main() {
 
     expect(AppSession.instance.homeRoute, AppRoutes.qolipHome);
     expect(AppSession.instance.can('qolip.manage'), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.supplySequence), isTrue);
+    expect(
+      AppRouter.canOpenRoute(AppRoutes.adminProductionMapOrders),
+      isFalse,
+    );
   });
 
   test('qolipchi home wins when the role also has admin capability', () async {
@@ -242,6 +247,11 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.gscaleMode), isTrue);
     expect(
         AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.supplySequence), isTrue);
+    expect(
+      AppRouter.canOpenRoute(AppRoutes.adminProductionMapOrders),
+      isFalse,
+    );
     expect(AppRouter.canOpenRoute(AppRoutes.adminRoles), isFalse);
     expect(
         userRoleFromJson('material_taminotchi'), UserRole.materialTaminotchi);

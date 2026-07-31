@@ -154,13 +154,12 @@ extension _AdminProductionMapTestGraphState
     if (groupNames.contains(apparatusName.toLowerCase())) {
       return true;
     }
-    final apparatusColorCount = productionMapPechatColorCount(apparatusName);
-    if (apparatusColorCount == null) {
+    if (!productionMapIsPechatApparatus(apparatusName)) {
       return false;
     }
     return group.apparatus.any(
       (apparatus) =>
-          productionMapPechatColorCount(apparatus) == apparatusColorCount,
+          productionMapWarehouseTitlesMatch(apparatus, apparatusName),
     );
   }
 

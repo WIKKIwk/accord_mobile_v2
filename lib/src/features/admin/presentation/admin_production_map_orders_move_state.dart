@@ -157,6 +157,32 @@ extension _AdminProductionMapOrdersMoveState
     await _load();
   }
 
+  ApparatusQueueOrderState _moveOrderQueueState(
+    ProductionMapSaved order,
+    AdminApparatus apparatus,
+  ) {
+    final states = _queueStatesForApparatus(
+      apparatus,
+      queueStatesByApparatus: _queueStatesByApparatus,
+    );
+    return apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]);
+  }
+
+  Future<String?> _askApparatusTransferReason({
+    required int orderCount,
+    required AdminApparatus from,
+    required AdminApparatus to,
+  }) async {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => _ApparatusTransferReasonDialog(
+        orderCount: orderCount,
+        from: from,
+        to: to,
+      ),
+    );
+  }
+
   Future<void> _moveOrdersBetweenApparatus({
     required List<ProductionMapSaved> orders,
     required AdminApparatus from,
@@ -185,22 +211,95 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
     final orderIds = _productionMapOrderIdSet(orders);
-    _clearMoveDragState();
-    try {
-      final saved = await MobileApi.instance.adminMoveProductionMapOrdersBatch(
-        mapIds: orders.map((order) => order.map.id).toList(growable: false),
-        fromApparatus: from.name,
-        toApparatus: to.name,
+    final inProgressOrders = orders
+        .where(
+          (order) =>
+              _moveOrderQueueState(order, from) ==
+              ApparatusQueueOrderState.inProgress,
+        )
+        .toList(growable: false);
+    if (inProgressOrders.isNotEmpty) {
+      _clearMoveDragState();
+      showAdminTopNotice(
+        context,
+        'Ishlayotgan zakazni ko‘chirish mumkin emas. Avval Pause qiling.',
       );
+      return;
+    }
+    final pausedOrders = orders
+        .where(
+          (order) =>
+              _moveOrderQueueState(order, from) ==
+              ApparatusQueueOrderState.paused,
+        )
+        .toList(growable: false);
+    final pendingOrders = orders
+        .where(
+          (order) =>
+              _moveOrderQueueState(order, from) ==
+              ApparatusQueueOrderState.pending,
+        )
+        .toList(growable: false);
+    _clearMoveDragState();
+    String? transferReason;
+    if (pausedOrders.isNotEmpty) {
+      transferReason = await _askApparatusTransferReason(
+        orderCount: pausedOrders.length,
+        from: from,
+        to: to,
+      );
+      if (transferReason == null || !mounted) {
+        return;
+      }
+    }
+    try {
+      final savedById = <String, ProductionMapSaved>{};
+      final transferTimestamp = DateTime.now().microsecondsSinceEpoch;
+      for (var index = 0; index < pausedOrders.length; index++) {
+        final order = pausedOrders[index];
+        final saved = await MobileApi.instance.adminTransferProductionMapOrder(
+          orderId: order.map.id,
+          fromApparatus: from.name,
+          toApparatus: to.name,
+          reason: transferReason!,
+          idempotencyKey:
+              'app-transfer-${order.map.id.trim()}-$transferTimestamp-$index',
+        );
+        savedById[order.map.id.trim()] = saved;
+      }
+      if (pendingOrders.isNotEmpty) {
+        final saved =
+            await MobileApi.instance.adminMoveProductionMapOrdersBatch(
+          mapIds: pendingOrders
+              .map((order) => order.map.id)
+              .toList(growable: false),
+          fromApparatus: from.name,
+          toApparatus: to.name,
+        );
+        savedById.addAll(
+          _savedProductionMapOrdersByIdOrThrow(
+            saved: saved,
+            expectedOrderIds: _productionMapOrderIdSet(pendingOrders),
+            incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
+          ),
+        );
+      }
       if (!mounted) {
         return;
       }
-      final savedById = _savedProductionMapOrdersByIdOrThrow(
-        saved: saved,
+      final completeSavedById = _savedProductionMapOrdersByIdOrThrow(
+        saved: savedById.values.toList(growable: false),
         expectedOrderIds: orderIds,
         incompleteMessage: 'Zakazlar to‘liq ko‘chirilmadi',
       );
-      _applySavedMoveOrders(orderIds: orderIds, savedById: savedById);
+      _applySavedMoveOrders(
+        orderIds: orderIds,
+        savedById: completeSavedById,
+      );
+      await _refreshLive();
+      if (!mounted) {
+        return;
+      }
       showAdminTopNotice(context, _moveOrdersSuccessText(orders.length));
     } catch (error) {
       await _resyncAfterMoveActionError(error, 'Zakaz ko‘chirilmadi');
@@ -333,6 +432,92 @@ extension _AdminProductionMapOrdersMoveState
     return _alternativeOrdersForApparatusList(
       orders: _orders,
       apparatus: apparatus,
+    );
+  }
+}
+
+class _ApparatusTransferReasonDialog extends StatefulWidget {
+  const _ApparatusTransferReasonDialog({
+    required this.orderCount,
+    required this.from,
+    required this.to,
+  });
+
+  final int orderCount;
+  final AdminApparatus from;
+  final AdminApparatus to;
+
+  @override
+  State<_ApparatusTransferReasonDialog> createState() =>
+      _ApparatusTransferReasonDialogState();
+}
+
+class _ApparatusTransferReasonDialogState
+    extends State<_ApparatusTransferReasonDialog> {
+  late final TextEditingController _controller;
+  String _validationMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Avariya sababini kiriting'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${widget.orderCount} ta zakazni ${widget.from.name} dan '
+              '${widget.to.name} ga pause holatda ko‘chirish',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('apparatus-transfer-reason'),
+              controller: _controller,
+              autofocus: true,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                labelText: 'Sabab',
+                hintText: 'Masalan: aparat buzildi',
+                errorText:
+                    _validationMessage.isEmpty ? null : _validationMessage,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Bekor qilish'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final reason = _controller.text.trim();
+            if (reason.isEmpty) {
+              setState(() {
+                _validationMessage = 'Sabab majburiy';
+              });
+              return;
+            }
+            Navigator.of(context).pop(reason);
+          },
+          child: const Text('Ko‘chirish'),
+        ),
+      ],
     );
   }
 }

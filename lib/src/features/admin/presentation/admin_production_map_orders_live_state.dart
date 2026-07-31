@@ -150,6 +150,18 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshAdminLiveBatch({required bool initial}) async {
+    if (widget.supplyViewerMode) {
+      if (initial) {
+        await _refreshMapsAndApparatus(initial: true);
+        await _refreshQueueSnapshot();
+        return;
+      }
+      await Future.wait([
+        _refreshMapsAndApparatus(),
+        _refreshQueueSnapshot(),
+      ]);
+      return;
+    }
     if (initial) {
       await _refreshMapsAndApparatus(initial: initial);
       await _refreshQueueSnapshot();
@@ -360,7 +372,9 @@ extension _AdminProductionMapOrdersLiveState
         apparatus: apparatus,
         initial: initial,
       );
-      unawaited(_refreshOrderBaseMetraj(orders));
+      if (!widget.supplyViewerMode) {
+        unawaited(_refreshOrderBaseMetraj(orders));
+      }
     } catch (_) {
       if (mounted && initial) {
         _applyInitialProductionMapLoadError();

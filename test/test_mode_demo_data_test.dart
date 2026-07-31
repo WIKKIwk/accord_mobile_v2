@@ -87,6 +87,7 @@ void main() {
       '7 ta rangli bosma aparat',
       '8 ta rangli bosma aparat',
       '9 ta rangli bosma aparat',
+      'Flexo pechat',
       'Laminatsiya 1',
       'Laminatsiya 2',
     ]);
