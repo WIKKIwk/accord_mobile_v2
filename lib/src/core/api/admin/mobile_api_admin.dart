@@ -2856,6 +2856,68 @@ String _adminErrorMessage(String code) {
   };
 }
 
+class AdminProductionWorkflowAuditViolation {
+  const AdminProductionWorkflowAuditViolation({
+    required this.code,
+    required this.orderId,
+    required this.subject,
+    required this.detail,
+  });
+
+  final String code;
+  final String orderId;
+  final String subject;
+  final String detail;
+
+  factory AdminProductionWorkflowAuditViolation.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminProductionWorkflowAuditViolation(
+      code: json['code']?.toString().trim() ?? '',
+      orderId: json['order_id']?.toString().trim() ?? '',
+      subject: json['subject']?.toString().trim() ?? '',
+      detail: json['detail']?.toString().trim() ?? '',
+    );
+  }
+}
+
+class AdminProductionWorkflowAuditReport {
+  const AdminProductionWorkflowAuditReport({
+    required this.ok,
+    required this.checkedOrderCount,
+    required this.checkedBatchCount,
+    required this.checkedSessionCount,
+    required this.violations,
+  });
+
+  final bool ok;
+  final int checkedOrderCount;
+  final int checkedBatchCount;
+  final int checkedSessionCount;
+  final List<AdminProductionWorkflowAuditViolation> violations;
+
+  factory AdminProductionWorkflowAuditReport.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawViolations = json['violations'];
+    return AdminProductionWorkflowAuditReport(
+      ok: json['ok'] == true,
+      checkedOrderCount: (json['checked_order_count'] as num?)?.toInt() ?? 0,
+      checkedBatchCount: (json['checked_batch_count'] as num?)?.toInt() ?? 0,
+      checkedSessionCount:
+          (json['checked_session_count'] as num?)?.toInt() ?? 0,
+      violations: [
+        if (rawViolations is List)
+          for (final item in rawViolations)
+            if (item is Map)
+              AdminProductionWorkflowAuditViolation.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+    );
+  }
+}
+
 class AdminApparatusWorkingWindow {
   const AdminApparatusWorkingWindow({
     required this.weekday,
@@ -3610,6 +3672,30 @@ extension MobileApiAdmin on MobileApi {
           (item) => ProductionMapSaved.fromJson(item as Map<String, dynamic>),
         )
         .toList();
+  }
+
+  Future<AdminProductionWorkflowAuditReport> adminProductionMapAudit() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminProductionWorkflowAuditReport(
+        ok: true,
+        checkedOrderCount: _testModeProductionMaps.length,
+        checkedBatchCount: 0,
+        checkedSessionCount: 0,
+        violations: const [],
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/audit'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'production_map_audit');
+    }
+    return AdminProductionWorkflowAuditReport.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<ProductionMapSaved> adminProductionMap(String id) async {

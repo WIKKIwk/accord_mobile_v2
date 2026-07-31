@@ -84,6 +84,10 @@ class _AdminModulesBody extends StatelessWidget {
     required this.queueStatesByApparatus,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.workflowAudit,
+    required this.workflowAuditError,
+    required this.workflowAuditLoading,
+    required this.onRefreshWorkflowAudit,
     required this.onInfoOrder,
     required this.onInfoSequenceOrder,
     required this.onLongPressOrder,
@@ -143,6 +147,10 @@ class _AdminModulesBody extends StatelessWidget {
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final AdminProductionWorkflowAuditReport? workflowAudit;
+  final String? workflowAuditError;
+  final bool workflowAuditLoading;
+  final Future<void> Function() onRefreshWorkflowAudit;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   String _moduleLabel(_OpenedOrderModule module) {
@@ -151,6 +159,7 @@ class _AdminModulesBody extends StatelessWidget {
       _OpenedOrderModule.sequence => 'Ketma-ketlik',
       _OpenedOrderModule.move => 'Ko‘chirish',
       _OpenedOrderModule.closed => 'Yopilgan',
+      _OpenedOrderModule.audit => 'Audit',
     };
   }
 
@@ -258,11 +267,198 @@ class _AdminModulesBody extends StatelessWidget {
                         query: searchQuery,
                       ),
                     ),
+                  _OpenedOrderModule.audit => _WorkflowAuditModulePage(
+                      bottomPadding: bottomPadding,
+                      report: workflowAudit,
+                      errorMessage: workflowAuditError,
+                      loading: workflowAuditLoading,
+                      onRefresh: onRefreshWorkflowAudit,
+                    ),
                 },
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _WorkflowAuditModulePage extends StatelessWidget {
+  const _WorkflowAuditModulePage({
+    required this.bottomPadding,
+    required this.report,
+    required this.errorMessage,
+    required this.loading,
+    required this.onRefresh,
+  });
+
+  final double bottomPadding;
+  final AdminProductionWorkflowAuditReport? report;
+  final String? errorMessage;
+  final bool loading;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final currentReport = report;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(8, 8, 8, bottomPadding),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      currentReport?.ok == true
+                          ? Icons.verified_outlined
+                          : Icons.warning_amber_rounded,
+                      color: currentReport?.ok == true
+                          ? scheme.primary
+                          : scheme.error,
+                      size: 30,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currentReport == null
+                                ? 'Workflow audit'
+                                : currentReport.ok
+                                    ? 'Workflow audit toza'
+                                    : 'Workflow audit violationlari bor',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Queue, WIP, session, transfer va capacity invariantlari tekshiriladi.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Auditni yangilash',
+                      onPressed: loading ? null : onRefresh,
+                      icon: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                    ),
+                  ],
+                ),
+                if (currentReport != null) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _AuditCountChip(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'Order',
+                        value: currentReport.checkedOrderCount,
+                      ),
+                      _AuditCountChip(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Batch',
+                        value: currentReport.checkedBatchCount,
+                      ),
+                      _AuditCountChip(
+                        icon: Icons.play_circle_outline,
+                        label: 'Session',
+                        value: currentReport.checkedSessionCount,
+                      ),
+                      _AuditCountChip(
+                        icon: Icons.report_problem_outlined,
+                        label: 'Violation',
+                        value: currentReport.violations.length,
+                      ),
+                    ],
+                  ),
+                ],
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorMessage!,
+                    style: TextStyle(color: scheme.error),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (currentReport?.violations.isNotEmpty == true)
+          for (final violation in currentReport!.violations)
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.error_outline, color: scheme.error),
+                title: Text(
+                  violation.code.isEmpty
+                      ? 'Workflow violation'
+                      : violation.code,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  [
+                    if (violation.orderId.isNotEmpty) violation.orderId,
+                    if (violation.subject.isNotEmpty) violation.subject,
+                    if (violation.detail.isNotEmpty) violation.detail,
+                  ].join(' • '),
+                ),
+              ),
+            ),
+        if (currentReport?.ok == true)
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.check_circle_outline, color: scheme.primary),
+              title: const Text('Barcha tekshiruvlar muvaffaqiyatli'),
+              subtitle: const Text(
+                'Yashirin queue/WIP nomuvofiqligi aniqlanmadi.',
+              ),
+            ),
+          ),
+        if (currentReport == null && errorMessage == null)
+          const Padding(
+            padding: EdgeInsets.only(top: 32),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    );
+  }
+}
+
+class _AuditCountChip extends StatelessWidget {
+  const _AuditCountChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 17),
+      label: Text('$label: $value'),
     );
   }
 }

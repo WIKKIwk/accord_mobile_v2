@@ -80,6 +80,18 @@ void main() {
         cleanupMinutes: 5,
         capabilities: const ['flexo'],
         capabilityLevels: const {'flexo': 3},
+        workingWindows: const [
+          AdminApparatusWorkingWindow(
+            weekday: 1,
+            startMinute: 480,
+            endMinute: 1020,
+          ),
+          AdminApparatusWorkingWindow(
+            weekday: 2,
+            startMinute: 480,
+            endMinute: 1020,
+          ),
+        ],
       ),
     );
 
@@ -116,6 +128,53 @@ void main() {
     expect(cancelled.status, 'cancelled');
     final snapshot = await MobileApi.instance.adminApparatusCapacitySnapshot();
     expect(snapshot.profiles.single.apparatusId, apparatus.id);
+    expect(snapshot.profiles.single.finiteCapacity, isTrue);
+    expect(snapshot.profiles.single.workingWindows, hasLength(2));
     expect(snapshot.reservations, hasLength(2));
+  });
+
+  test('workflow audit API exposes a clean report in test mode', () async {
+    await TestModeController.instance.setEnabled(true);
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-audit-mobile',
+        productCode: 'audit-mobile',
+        title: 'Audit mobile',
+        orderNumber: 'audit-mobile',
+        nodes: [],
+        edges: [],
+      ),
+    );
+
+    final report = await MobileApi.instance.adminProductionMapAudit();
+
+    expect(report.ok, isTrue);
+    expect(report.checkedOrderCount, 1);
+    expect(report.checkedBatchCount, 0);
+    expect(report.checkedSessionCount, 0);
+    expect(report.violations, isEmpty);
+  });
+
+  test('workflow audit violation preserves backend fields', () {
+    final report = AdminProductionWorkflowAuditReport.fromJson(const {
+      'ok': false,
+      'checked_order_count': 2,
+      'checked_batch_count': 3,
+      'checked_session_count': 1,
+      'violations': [
+        {
+          'code': 'duplicate_qr_payload',
+          'order_id': 'zakaz-1',
+          'subject': 'QR-1',
+          'detail': 'duplicate progress QR',
+        },
+      ],
+    });
+
+    expect(report.ok, isFalse);
+    expect(report.violations.single.code, 'duplicate_qr_payload');
+    expect(report.violations.single.orderId, 'zakaz-1');
+    expect(report.violations.single.subject, 'QR-1');
+    expect(report.violations.single.detail, 'duplicate progress QR');
   });
 }

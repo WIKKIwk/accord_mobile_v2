@@ -78,7 +78,7 @@ part 'admin_production_map_orders_worker_helpers.dart';
 part 'admin_production_map_orders_apparatus_helpers.dart';
 part 'admin_production_map_orders_live_helpers.dart';
 
-enum _OpenedOrderModule { orders, move, sequence, closed }
+enum _OpenedOrderModule { orders, move, sequence, closed, audit }
 
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
@@ -203,6 +203,9 @@ class _AdminProductionMapOrdersScreenState
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
   List<AdminClosedProductionOrder> _closedOrders = const [];
+  AdminProductionWorkflowAuditReport? _workflowAudit;
+  String? _workflowAuditError;
+  bool _workflowAuditLoading = false;
   bool _queueActionInFlight = false;
   bool _orderControlActionInFlight = false;
   Map<String, double> _baseMetrajByMapId = const {};
@@ -587,12 +590,18 @@ class _AdminProductionMapOrdersScreenState
         curve: Curves.easeOutCubic,
       );
     }
+    if (module == _OpenedOrderModule.audit) {
+      unawaited(_refreshWorkflowAudit());
+    }
   }
 
   void _syncModuleFromTab() {
     final module = _modules[_tabController.index];
     if (_module != module) {
       setState(() => _module = module);
+    }
+    if (module == _OpenedOrderModule.audit) {
+      unawaited(_refreshWorkflowAudit());
     }
   }
 
@@ -777,6 +786,11 @@ class _AdminProductionMapOrdersScreenState
                       queueStatesByApparatus: _queueStatesByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,
                       orderControlsByOrderId: _orderControlsByOrderId,
+                      workflowAudit: _workflowAudit,
+                      workflowAuditError: _workflowAuditError,
+                      workflowAuditLoading: _workflowAuditLoading,
+                      onRefreshWorkflowAudit: () =>
+                          _refreshWorkflowAudit(force: true),
                       onLongPressOrder: (order) {
                         unawaited(_showOrderActions(order));
                       },

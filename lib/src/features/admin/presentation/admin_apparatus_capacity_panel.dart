@@ -30,6 +30,7 @@ class _AdminApparatusCapacityPanelState
   final TextEditingController _cleanupMinutes =
       TextEditingController(text: '0');
   final TextEditingController _efficiency = TextEditingController(text: '100');
+  final TextEditingController _workingWindows = TextEditingController();
   final TextEditingController _capabilities = TextEditingController();
   final TextEditingController _notes = TextEditingController();
   final TextEditingController _orderId = TextEditingController();
@@ -46,6 +47,7 @@ class _AdminApparatusCapacityPanelState
   DateTime _scheduleStart = DateTime.now();
   bool _loading = true;
   bool _saving = false;
+  bool _finiteCapacity = true;
   String? _error;
 
   AdminApparatus? get _selectedApparatus {
@@ -82,6 +84,7 @@ class _AdminApparatusCapacityPanelState
     _setupMinutes.dispose();
     _cleanupMinutes.dispose();
     _efficiency.dispose();
+    _workingWindows.dispose();
     _capabilities.dispose();
     _notes.dispose();
     _orderId.dispose();
@@ -130,6 +133,10 @@ class _AdminApparatusCapacityPanelState
     _setupMinutes.text = '${profile?.setupMinutes ?? 0}';
     _cleanupMinutes.text = '${profile?.cleanupMinutes ?? 0}';
     _efficiency.text = '${profile?.efficiencyPercent ?? 100}';
+    _finiteCapacity = profile?.finiteCapacity ?? true;
+    _workingWindows.text = _formatWorkingWindows(
+      profile?.workingWindows ?? const [],
+    );
     final masterCapabilities = apparatus.capabilityProfiles.isEmpty
         ? apparatus.capabilities
             .map((capability) => MapEntry<String, int>(capability, 1))
@@ -160,6 +167,54 @@ class _AdminApparatusCapacityPanelState
     return result.entries.toList(growable: false);
   }
 
+  bool _workingWindowsInputIsValid(String raw) {
+    final normalized = raw.trim();
+    if (normalized.isEmpty) return true;
+    final weekdays = <int>{};
+    final pattern = RegExp(
+      r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$',
+    );
+    for (final token in normalized.split(RegExp(r'[;\n]'))) {
+      final match = pattern.firstMatch(token);
+      if (match == null) return false;
+      final weekday = int.parse(match.group(1)!);
+      final startMinute = int.parse(match.group(2)!);
+      final endMinute = int.parse(match.group(3)!);
+      if (!weekdays.add(weekday) ||
+          startMinute < 0 ||
+          endMinute > 1440 ||
+          startMinute >= endMinute) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<AdminApparatusWorkingWindow> _parseWorkingWindows(String raw) {
+    if (raw.trim().isEmpty) return const [];
+    final pattern = RegExp(
+      r'^\s*([1-7])\s*:\s*(\d{1,4})\s*-\s*(\d{1,4})\s*$',
+    );
+    return [
+      for (final token in raw.trim().split(RegExp(r'[;\n]')))
+        if (pattern.firstMatch(token) case final match?)
+          AdminApparatusWorkingWindow(
+            weekday: int.parse(match.group(1)!),
+            startMinute: int.parse(match.group(2)!),
+            endMinute: int.parse(match.group(3)!),
+          ),
+    ];
+  }
+
+  String _formatWorkingWindows(List<AdminApparatusWorkingWindow> windows) {
+    return windows
+        .map(
+          (window) =>
+              '${window.weekday}:${window.startMinute}-${window.endMinute}',
+        )
+        .join('; ');
+  }
+
   List<AdminApparatusCapabilityRequirement> _parseRequirements() {
     return [
       for (final entry in _parseCapabilities(_requirements.text))
@@ -184,6 +239,13 @@ class _AdminApparatusCapacityPanelState
       showAdminTopNotice(context, 'Quvvat qiymatlarini to‘g‘ri kiriting');
       return;
     }
+    if (!_workingWindowsInputIsValid(_workingWindows.text)) {
+      showAdminTopNotice(
+        context,
+        'Ish vaqti 1:480-1020;2:480-1020 ko‘rinishida bo‘lsin',
+      );
+      return;
+    }
     final capabilityEntries = _parseCapabilities(_capabilities.text);
     setState(() => _saving = true);
     try {
@@ -195,6 +257,8 @@ class _AdminApparatusCapacityPanelState
           setupMinutes: setup,
           cleanupMinutes: cleanup,
           efficiencyPercent: efficiency,
+          finiteCapacity: _finiteCapacity,
+          workingWindows: _parseWorkingWindows(_workingWindows.text),
           capabilities: [for (final entry in capabilityEntries) entry.key],
           capabilityLevels: {
             for (final entry in capabilityEntries) entry.key: entry.value,
@@ -428,6 +492,27 @@ class _AdminApparatusCapacityPanelState
                       ),
                     ),
                   ],
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _finiteCapacity,
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _finiteCapacity = value),
+                  title: const Text('Finite capacity'),
+                  subtitle: const Text(
+                    'O‘chirilsa, shu aparat parallel jadvalni cheklamaydi.',
+                  ),
+                ),
+                TextField(
+                  controller: _workingWindows,
+                  maxLines: 2,
+                  decoration: _decoration(
+                    'Ish vaqti: 1:480-1020;2:480-1020',
+                  ).copyWith(
+                    helperText:
+                        '1=Dushanba, 7=Yakshanba; bo‘sh qoldirilsa 24/7',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(

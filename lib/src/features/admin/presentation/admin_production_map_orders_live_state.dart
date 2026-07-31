@@ -168,6 +168,7 @@ extension _AdminProductionMapOrdersLiveState
       await Future.wait([
         _refreshCompletionRequests(),
         _refreshClosedOrders(),
+        _refreshWorkflowAudit(force: true),
       ]);
       return;
     }
@@ -336,6 +337,43 @@ extension _AdminProductionMapOrdersLiveState
       });
     } catch (_) {
       return;
+    }
+  }
+
+  Future<void> _refreshWorkflowAudit({bool force = false}) async {
+    if (_workflowAuditLoading ||
+        (!force && _workflowAudit != null && _workflowAuditError == null)) {
+      return;
+    }
+    _workflowAuditLoading = true;
+    if (mounted) {
+      _updateScreenState(() {
+        _workflowAuditError = null;
+      });
+    }
+    try {
+      final report = await MobileApi.instance.adminProductionMapAudit();
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _workflowAudit = report;
+        _workflowAuditError = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _updateScreenState(() {
+        _workflowAuditError = error is MobileApiException
+            ? error.message
+            : 'Workflow audit yuklanmadi';
+      });
+    } finally {
+      _workflowAuditLoading = false;
+      if (mounted) {
+        _updateScreenState(() {});
+      }
     }
   }
 
