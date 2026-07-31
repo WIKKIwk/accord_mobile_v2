@@ -17,6 +17,11 @@ final Map<String, _TestModeApparatusTransferReceipt>
 final Map<String, AdminOrderControlState> _testModeOrderControls = {};
 final Map<String, AdminApparatusQueuePolicy> _testModeApparatusQueuePolicies =
     {};
+final Map<String, AdminApparatusCapacityProfile>
+    _testModeApparatusCapacityProfiles = {};
+final Map<String, AdminApparatusDowntime> _testModeApparatusDowntimes = {};
+final Map<String, AdminApparatusScheduleReservation>
+    _testModeApparatusScheduleReservations = {};
 final List<_TestModeCompletedQueueOrder> _testModeCompletedQueueOrders = [];
 final List<AdminCompletionRequestNotification> _testModeCompletionRequests = [];
 final List<AdminCompletionRequestDecisionNotification>
@@ -128,6 +133,9 @@ void resetMobileApiTestModeData() {
   _testModeApparatusTransfers.clear();
   _testModeOrderControls.clear();
   _testModeApparatusQueuePolicies.clear();
+  _testModeApparatusCapacityProfiles.clear();
+  _testModeApparatusDowntimes.clear();
+  _testModeApparatusScheduleReservations.clear();
   _testModeCompletedQueueOrders.clear();
   _testModeCompletionRequests.clear();
   _testModeCompletionRequestDecisions.clear();
@@ -141,6 +149,258 @@ void resetMobileApiTestModeData() {
   _testModeForceSequenceSaveFailure = false;
   _testModeForceCalculateTemplateSaveFailure = false;
   _testModeForceProductionMapMenuLoadFailure = false;
+}
+
+int _testModeUnixSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+AdminApparatusCapacityProfile _normalizeTestModeCapacityProfile(
+  AdminApparatusCapacityProfile profile,
+) {
+  final apparatusId = profile.apparatusId.trim().isEmpty
+      ? 'apparatus:${profile.apparatus.trim().toLowerCase()}'
+      : profile.apparatusId.trim();
+  final apparatus =
+      profile.apparatus.trim().isEmpty ? apparatusId : profile.apparatus.trim();
+  final capabilities = profile.capabilities
+      .map((item) => item.trim().toLowerCase())
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+  final levels = <String, int>{
+    for (final entry in profile.capabilityLevels.entries)
+      if (entry.key.trim().isNotEmpty)
+        entry.key.trim().toLowerCase(): entry.value.clamp(1, 100),
+  };
+  for (final capability in capabilities) {
+    levels.putIfAbsent(capability, () => 1);
+  }
+  return AdminApparatusCapacityProfile(
+    apparatusId: apparatusId,
+    apparatus: apparatus,
+    capacitySlots: profile.capacitySlots.clamp(1, 64),
+    setupMinutes: profile.setupMinutes.clamp(0, 30 * 24 * 60),
+    cleanupMinutes: profile.cleanupMinutes.clamp(0, 30 * 24 * 60),
+    efficiencyPercent: profile.efficiencyPercent.clamp(1, 200),
+    finiteCapacity: profile.finiteCapacity,
+    workingWindows: profile.workingWindows,
+    capabilities: capabilities,
+    capabilityLevels: levels,
+    notes: profile.notes.trim(),
+    updatedAtUnix: _testModeUnixSeconds(),
+  );
+}
+
+AdminApparatusCapacityProfile _testModeProfileForApparatus({
+  required String apparatusId,
+  required String apparatus,
+}) {
+  final normalizedId = apparatusId.trim().toLowerCase();
+  final normalizedName = apparatus.trim().toLowerCase();
+  for (final profile in _testModeApparatusCapacityProfiles.values) {
+    if (profile.apparatusId.trim().toLowerCase() == normalizedId ||
+        (normalizedName.isNotEmpty &&
+            profile.apparatus.trim().toLowerCase() == normalizedName)) {
+      return profile;
+    }
+  }
+  AdminApparatus? catalogItem;
+  for (final item in _testModeApparatusCatalog()) {
+    if (item.name.trim().toLowerCase() == normalizedName) {
+      catalogItem = item;
+      break;
+    }
+  }
+  final inferredCapabilities = catalogItem?.capabilities ?? const <String>[];
+  return AdminApparatusCapacityProfile(
+    apparatusId: apparatusId.trim().isEmpty
+        ? 'apparatus:${apparatus.trim().toLowerCase()}'
+        : apparatusId.trim(),
+    apparatus: apparatus.trim(),
+    capabilities: inferredCapabilities,
+    capabilityLevels: {
+      for (final capability in inferredCapabilities) capability: 1,
+    },
+  );
+}
+
+bool _testModeIntervalsOverlap(
+  int leftStart,
+  int leftEnd,
+  int rightStart,
+  int rightEnd,
+) {
+  return leftStart < rightEnd && rightStart < leftEnd;
+}
+
+bool _testModeFitsWorkingWindow(
+  AdminApparatusCapacityProfile profile,
+  int start,
+  int end,
+) {
+  if (profile.workingWindows.isEmpty) return true;
+  final startTime =
+      DateTime.fromMillisecondsSinceEpoch(start * 1000, isUtc: true);
+  final endTime =
+      DateTime.fromMillisecondsSinceEpoch((end - 1) * 1000, isUtc: true);
+  if (startTime.weekday != endTime.weekday) return false;
+  final startMinute = startTime.hour * 60 + startTime.minute;
+  final endMinute = endTime.hour * 60 + endTime.minute + 1;
+  return profile.workingWindows.any(
+    (window) =>
+        window.weekday == startTime.weekday &&
+        startMinute >= window.startMinute &&
+        endMinute <= window.endMinute,
+  );
+}
+
+AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
+  required String orderId,
+  required String apparatusId,
+  required String apparatus,
+  required int earliestStartUnix,
+  required int? latestEndUnix,
+  required int durationMinutes,
+  required int priority,
+  required String source,
+  required String reason,
+  required String idempotencyKey,
+  required List<AdminApparatusCapabilityRequirement> capabilityRequirements,
+}) {
+  final normalizedOrderId = orderId.trim();
+  final normalizedId = apparatusId.trim().isEmpty
+      ? 'apparatus:${apparatus.trim().toLowerCase()}'
+      : apparatusId.trim();
+  final normalizedApparatus =
+      apparatus.trim().isEmpty ? normalizedId : apparatus.trim();
+  if (normalizedOrderId.isEmpty ||
+      durationMinutes <= 0 ||
+      earliestStartUnix <= 0 ||
+      idempotencyKey.trim().isEmpty) {
+    throw const MobileApiException(
+      code: 'schedule_input_invalid',
+      message: 'Jadval ma’lumotlari to‘liq emas',
+    );
+  }
+  if (!_testModeProductionMaps.any(
+    (saved) => saved.map.id.trim() == normalizedOrderId,
+  )) {
+    throw const MobileApiException(
+      code: 'map_not_found',
+      message: 'Zakaz topilmadi',
+    );
+  }
+  for (final existing in _testModeApparatusScheduleReservations.values) {
+    if (existing.idempotencyKey.trim() == idempotencyKey.trim()) {
+      if (existing.orderId != normalizedOrderId ||
+          existing.apparatusId != normalizedId) {
+        throw const MobileApiException(
+          code: 'schedule_idempotency_conflict',
+          message: 'Bu idempotency kaliti boshqa jadvalga tegishli',
+        );
+      }
+      return existing;
+    }
+  }
+  final profile = _testModeProfileForApparatus(
+    apparatusId: normalizedId,
+    apparatus: normalizedApparatus,
+  );
+  for (final requirement in capabilityRequirements) {
+    final code = requirement.code.trim().toLowerCase();
+    if (code.isEmpty) continue;
+    final level = profile.capabilityLevels[code] ??
+        (profile.capabilities.any((item) => item.toLowerCase() == code)
+            ? 1
+            : 0);
+    if (level == 0) {
+      throw const MobileApiException(
+        code: 'capability_not_supported',
+        message: 'Aparat bu capability’ni qo‘llamaydi',
+      );
+    }
+    if (level < requirement.minLevel) {
+      throw const MobileApiException(
+        code: 'capability_level_insufficient',
+        message: 'Aparat capability darajasi yetarli emas',
+      );
+    }
+  }
+  final efficiency = profile.efficiencyPercent.clamp(1, 200);
+  final runMinutes = (durationMinutes * 100 + efficiency - 1) ~/ efficiency;
+  final reservedDuration =
+      runMinutes + profile.setupMinutes + profile.cleanupMinutes;
+  var cursor = earliestStartUnix < 60 ? 60 : earliestStartUnix;
+  cursor = ((cursor + 59) ~/ 60) * 60;
+  final horizon = cursor + 366 * 24 * 60 * 60;
+  while (cursor < horizon) {
+    final end = cursor + reservedDuration * 60;
+    if (latestEndUnix != null && end > latestEndUnix) {
+      throw const MobileApiException(
+        code: 'capacity_no_working_window',
+        message: 'Belgilangan muddat ichida bo‘sh slot topilmadi',
+      );
+    }
+    if (!_testModeFitsWorkingWindow(profile, cursor, end)) {
+      cursor += 60;
+      continue;
+    }
+    final downtime = _testModeApparatusDowntimes.values.any(
+      (item) =>
+          item.active &&
+          item.apparatusId.toLowerCase() == normalizedId.toLowerCase() &&
+          _testModeIntervalsOverlap(
+            cursor,
+            end,
+            item.startsAtUnix,
+            item.endsAtUnix,
+          ),
+    );
+    if (downtime) {
+      cursor += 60;
+      continue;
+    }
+    final conflicts = _testModeApparatusScheduleReservations.values
+        .where(
+          (item) =>
+              (item.status == 'planned' || item.status == 'active') &&
+              item.apparatusId.toLowerCase() == normalizedId.toLowerCase() &&
+              _testModeIntervalsOverlap(
+                cursor,
+                end,
+                item.startsAtUnix,
+                item.endsAtUnix,
+              ),
+        )
+        .length;
+    if (profile.finiteCapacity && conflicts >= profile.capacitySlots) {
+      cursor += 60;
+      continue;
+    }
+    final reservation = AdminApparatusScheduleReservation(
+      reservationId: 'apparatus-reservation:${idempotencyKey.trim()}',
+      idempotencyKey: idempotencyKey.trim(),
+      orderId: normalizedOrderId,
+      apparatusId: normalizedId,
+      apparatus: normalizedApparatus,
+      startsAtUnix: cursor,
+      endsAtUnix: end,
+      requestedDurationMinutes: durationMinutes,
+      reservedDurationMinutes: reservedDuration,
+      status: 'planned',
+      priority: priority,
+      source: source.trim(),
+      reason: reason.trim(),
+      capabilityRequirements: capabilityRequirements,
+      createdAtUnix: _testModeUnixSeconds(),
+    );
+    _testModeApparatusScheduleReservations[reservation.reservationId] =
+        reservation;
+    return reservation;
+  }
+  throw const MobileApiException(
+    code: 'capacity_no_working_window',
+    message: 'Aparat uchun bo‘sh slot topilmadi',
+  );
 }
 
 void _testModeEnsurePendingApparatusMove({
@@ -2589,6 +2849,329 @@ String _adminErrorMessage(String code) {
   };
 }
 
+class AdminApparatusWorkingWindow {
+  const AdminApparatusWorkingWindow({
+    required this.weekday,
+    required this.startMinute,
+    required this.endMinute,
+  });
+
+  final int weekday;
+  final int startMinute;
+  final int endMinute;
+
+  factory AdminApparatusWorkingWindow.fromJson(Map<String, dynamic> json) {
+    return AdminApparatusWorkingWindow(
+      weekday: (json['weekday'] as num?)?.toInt() ?? 1,
+      startMinute: (json['start_minute'] as num?)?.toInt() ?? 0,
+      endMinute: (json['end_minute'] as num?)?.toInt() ?? 1440,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'weekday': weekday,
+        'start_minute': startMinute,
+        'end_minute': endMinute,
+      };
+}
+
+class AdminApparatusCapacityProfile {
+  const AdminApparatusCapacityProfile({
+    required this.apparatusId,
+    required this.apparatus,
+    this.capacitySlots = 1,
+    this.setupMinutes = 0,
+    this.cleanupMinutes = 0,
+    this.efficiencyPercent = 100,
+    this.finiteCapacity = true,
+    this.workingWindows = const [],
+    this.capabilities = const [],
+    this.capabilityLevels = const {},
+    this.notes = '',
+    this.updatedAtUnix = 0,
+  });
+
+  final String apparatusId;
+  final String apparatus;
+  final int capacitySlots;
+  final int setupMinutes;
+  final int cleanupMinutes;
+  final int efficiencyPercent;
+  final bool finiteCapacity;
+  final List<AdminApparatusWorkingWindow> workingWindows;
+  final List<String> capabilities;
+  final Map<String, int> capabilityLevels;
+  final String notes;
+  final int updatedAtUnix;
+
+  factory AdminApparatusCapacityProfile.fromJson(Map<String, dynamic> json) {
+    final rawLevels = json['capability_levels'];
+    return AdminApparatusCapacityProfile(
+      apparatusId: json['apparatus_id']?.toString().trim() ?? '',
+      apparatus: json['apparatus']?.toString().trim() ?? '',
+      capacitySlots: (json['capacity_slots'] as num?)?.toInt() ?? 1,
+      setupMinutes: (json['setup_minutes'] as num?)?.toInt() ?? 0,
+      cleanupMinutes: (json['cleanup_minutes'] as num?)?.toInt() ?? 0,
+      efficiencyPercent: (json['efficiency_percent'] as num?)?.toInt() ?? 100,
+      finiteCapacity: json['finite_capacity'] != false,
+      workingWindows: [
+        if (json['working_windows'] is List)
+          for (final item in json['working_windows'] as List)
+            if (item is Map)
+              AdminApparatusWorkingWindow.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+      capabilities: [
+        if (json['capabilities'] is List)
+          for (final item in json['capabilities'] as List)
+            if (item.toString().trim().isNotEmpty)
+              item.toString().trim().toLowerCase(),
+      ],
+      capabilityLevels: {
+        if (rawLevels is Map)
+          for (final entry in rawLevels.entries)
+            if (entry.key.toString().trim().isNotEmpty)
+              entry.key.toString().trim().toLowerCase():
+                  (entry.value as num?)?.toInt() ??
+                      int.tryParse(entry.value.toString()) ??
+                      1,
+      },
+      notes: json['notes']?.toString() ?? '',
+      updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'apparatus_id': apparatusId.trim(),
+        'apparatus': apparatus.trim(),
+        'capacity_slots': capacitySlots,
+        'setup_minutes': setupMinutes,
+        'cleanup_minutes': cleanupMinutes,
+        'efficiency_percent': efficiencyPercent,
+        'finite_capacity': finiteCapacity,
+        'working_windows': [
+          for (final window in workingWindows) window.toJson(),
+        ],
+        'capabilities': capabilities,
+        'capability_levels': capabilityLevels,
+        'notes': notes,
+        'updated_at_unix': updatedAtUnix,
+      };
+}
+
+class AdminApparatusDowntime {
+  const AdminApparatusDowntime({
+    required this.id,
+    required this.apparatusId,
+    required this.apparatus,
+    required this.startsAtUnix,
+    required this.endsAtUnix,
+    required this.reason,
+    this.active = true,
+    this.actorRole = '',
+    this.actorRef = '',
+    this.actorDisplayName = '',
+    this.createdAtUnix = 0,
+  });
+
+  final String id;
+  final String apparatusId;
+  final String apparatus;
+  final int startsAtUnix;
+  final int endsAtUnix;
+  final String reason;
+  final bool active;
+  final String actorRole;
+  final String actorRef;
+  final String actorDisplayName;
+  final int createdAtUnix;
+
+  factory AdminApparatusDowntime.fromJson(Map<String, dynamic> json) {
+    final actor = json['actor'];
+    final actorMap = actor is Map ? actor.cast<String, dynamic>() : const {};
+    return AdminApparatusDowntime(
+      id: json['id']?.toString() ?? '',
+      apparatusId: json['apparatus_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      startsAtUnix: (json['starts_at_unix'] as num?)?.toInt() ?? 0,
+      endsAtUnix: (json['ends_at_unix'] as num?)?.toInt() ?? 0,
+      reason: json['reason']?.toString() ?? '',
+      active: json['active'] != false,
+      actorRole: actorMap['role']?.toString() ?? '',
+      actorRef: actorMap['ref']?.toString() ?? '',
+      actorDisplayName: actorMap['display_name']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'apparatus_id': apparatusId,
+        'apparatus': apparatus,
+        'starts_at_unix': startsAtUnix,
+        'ends_at_unix': endsAtUnix,
+        'reason': reason,
+        'active': active,
+        'actor': {
+          'role': actorRole,
+          'ref': actorRef,
+          'display_name': actorDisplayName,
+        },
+        'created_at_unix': createdAtUnix,
+      };
+}
+
+class AdminApparatusCapabilityRequirement {
+  const AdminApparatusCapabilityRequirement({
+    required this.code,
+    this.minLevel = 1,
+  });
+
+  final String code;
+  final int minLevel;
+
+  factory AdminApparatusCapabilityRequirement.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminApparatusCapabilityRequirement(
+      code: json['code']?.toString().trim() ?? '',
+      minLevel: (json['min_level'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'code': code.trim(),
+        'min_level': minLevel,
+      };
+}
+
+class AdminApparatusScheduleReservation {
+  const AdminApparatusScheduleReservation({
+    required this.reservationId,
+    required this.idempotencyKey,
+    required this.orderId,
+    required this.apparatusId,
+    required this.apparatus,
+    required this.startsAtUnix,
+    required this.endsAtUnix,
+    required this.requestedDurationMinutes,
+    required this.reservedDurationMinutes,
+    required this.status,
+    this.priority = 0,
+    this.source = '',
+    this.reason = '',
+    this.capabilityRequirements = const [],
+    this.createdAtUnix = 0,
+  });
+
+  final String reservationId;
+  final String idempotencyKey;
+  final String orderId;
+  final String apparatusId;
+  final String apparatus;
+  final int startsAtUnix;
+  final int endsAtUnix;
+  final int requestedDurationMinutes;
+  final int reservedDurationMinutes;
+  final String status;
+  final int priority;
+  final String source;
+  final String reason;
+  final List<AdminApparatusCapabilityRequirement> capabilityRequirements;
+  final int createdAtUnix;
+
+  factory AdminApparatusScheduleReservation.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminApparatusScheduleReservation(
+      reservationId: json['reservation_id']?.toString() ?? '',
+      idempotencyKey: json['idempotency_key']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      apparatusId: json['apparatus_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      startsAtUnix: (json['starts_at_unix'] as num?)?.toInt() ?? 0,
+      endsAtUnix: (json['ends_at_unix'] as num?)?.toInt() ?? 0,
+      requestedDurationMinutes:
+          (json['requested_duration_minutes'] as num?)?.toInt() ?? 0,
+      reservedDurationMinutes:
+          (json['reserved_duration_minutes'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? 'planned',
+      priority: (json['priority'] as num?)?.toInt() ?? 0,
+      source: json['source']?.toString() ?? '',
+      reason: json['reason']?.toString() ?? '',
+      capabilityRequirements: [
+        if (json['capability_requirements'] is List)
+          for (final item in json['capability_requirements'] as List)
+            if (item is Map)
+              AdminApparatusCapabilityRequirement.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'reservation_id': reservationId,
+        'idempotency_key': idempotencyKey,
+        'order_id': orderId,
+        'apparatus_id': apparatusId,
+        'apparatus': apparatus,
+        'starts_at_unix': startsAtUnix,
+        'ends_at_unix': endsAtUnix,
+        'requested_duration_minutes': requestedDurationMinutes,
+        'reserved_duration_minutes': reservedDurationMinutes,
+        'status': status,
+        'priority': priority,
+        'source': source,
+        'reason': reason,
+        'capability_requirements': [
+          for (final item in capabilityRequirements) item.toJson(),
+        ],
+        'created_at_unix': createdAtUnix,
+      };
+}
+
+class AdminApparatusCapacitySnapshot {
+  const AdminApparatusCapacitySnapshot({
+    this.profiles = const [],
+    this.downtimes = const [],
+    this.reservations = const [],
+  });
+
+  final List<AdminApparatusCapacityProfile> profiles;
+  final List<AdminApparatusDowntime> downtimes;
+  final List<AdminApparatusScheduleReservation> reservations;
+
+  factory AdminApparatusCapacitySnapshot.fromJson(Map<String, dynamic> json) {
+    return AdminApparatusCapacitySnapshot(
+      profiles: [
+        if (json['profiles'] is List)
+          for (final item in json['profiles'] as List)
+            if (item is Map)
+              AdminApparatusCapacityProfile.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+      downtimes: [
+        if (json['downtimes'] is List)
+          for (final item in json['downtimes'] as List)
+            if (item is Map)
+              AdminApparatusDowntime.fromJson(item.cast<String, dynamic>()),
+      ],
+      reservations: [
+        if (json['reservations'] is List)
+          for (final item in json['reservations'] as List)
+            if (item is Map)
+              AdminApparatusScheduleReservation.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+      ],
+    );
+  }
+}
+
 extension MobileApiAdmin on MobileApi {
   String get baseUrl => MobileApi.baseUrl;
 
@@ -3982,6 +4565,257 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     return AdminApparatusQueuePolicy.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<AdminApparatusCapacitySnapshot>
+      adminApparatusCapacitySnapshot() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminApparatusCapacitySnapshot(
+        profiles: List<AdminApparatusCapacityProfile>.unmodifiable(
+          _testModeApparatusCapacityProfiles.values,
+        ),
+        downtimes: List<AdminApparatusDowntime>.unmodifiable(
+          _testModeApparatusDowntimes.values,
+        ),
+        reservations: List<AdminApparatusScheduleReservation>.unmodifiable(
+          _testModeApparatusScheduleReservations.values,
+        ),
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/capacity'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_capacity');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['capacity'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_capacity_invalid_response',
+        message: 'Aparat quvvati olinmadi',
+      );
+    }
+    return AdminApparatusCapacitySnapshot.fromJson(
+      raw.cast<String, dynamic>(),
+    );
+  }
+
+  Future<AdminApparatusCapacityProfile> adminSaveApparatusCapacityProfile(
+    AdminApparatusCapacityProfile profile,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalized = _normalizeTestModeCapacityProfile(profile);
+      _testModeApparatusCapacityProfiles[normalized.apparatusId] = normalized;
+      return normalized;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/capacity'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(profile.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_capacity');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['profile'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_capacity_invalid_response',
+        message: 'Aparat profili saqlanmadi',
+      );
+    }
+    return AdminApparatusCapacityProfile.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<AdminApparatusDowntime> adminSaveApparatusDowntime(
+    AdminApparatusDowntime downtime,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final normalized = downtime.id.trim().isEmpty
+          ? AdminApparatusDowntime(
+              id: 'apparatus-downtime:${DateTime.now().millisecondsSinceEpoch}',
+              apparatusId: downtime.apparatusId,
+              apparatus: downtime.apparatus,
+              startsAtUnix: downtime.startsAtUnix,
+              endsAtUnix: downtime.endsAtUnix,
+              reason: downtime.reason,
+              active: downtime.active,
+              createdAtUnix: _testModeUnixSeconds(),
+            )
+          : downtime;
+      _testModeApparatusDowntimes[normalized.id] = normalized;
+      return normalized;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/capacity/downtime',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(downtime.toJson()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_downtime');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['downtime'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_downtime_invalid_response',
+        message: 'Aparat downtime saqlanmadi',
+      );
+    }
+    return AdminApparatusDowntime.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<AdminApparatusScheduleReservation> adminScheduleApparatusOrder({
+    required String orderId,
+    required String apparatusId,
+    required String apparatus,
+    required int earliestStartUnix,
+    int? latestEndUnix,
+    required int durationMinutes,
+    int priority = 0,
+    String source = 'admin',
+    String reason = '',
+    String idempotencyKey = '',
+    List<AdminApparatusCapabilityRequirement> capabilityRequirements = const [],
+  }) async {
+    final key = idempotencyKey.trim().isEmpty
+        ? 'mobile-schedule:${orderId.trim()}:${DateTime.now().microsecondsSinceEpoch}'
+        : idempotencyKey.trim();
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeScheduleApparatusOrder(
+        orderId: orderId,
+        apparatusId: apparatusId,
+        apparatus: apparatus,
+        earliestStartUnix: earliestStartUnix,
+        latestEndUnix: latestEndUnix,
+        durationMinutes: durationMinutes,
+        priority: priority,
+        source: source,
+        reason: reason,
+        idempotencyKey: key,
+        capabilityRequirements: capabilityRequirements,
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('$baseUrl/v1/mobile/admin/production-maps/schedule'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'order_id': orderId.trim(),
+          'apparatus_id': apparatusId.trim(),
+          'apparatus': apparatus.trim(),
+          'earliest_start_unix': earliestStartUnix,
+          'latest_end_unix': latestEndUnix,
+          'duration_minutes': durationMinutes,
+          'priority': priority,
+          'source': source,
+          'reason': reason,
+          'idempotency_key': key,
+          'capability_requirements': [
+            for (final item in capabilityRequirements) item.toJson(),
+          ],
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_schedule');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['reservation'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_schedule_invalid_response',
+        message: 'Aparat jadvali saqlanmadi',
+      );
+    }
+    return AdminApparatusScheduleReservation.fromJson(
+      raw.cast<String, dynamic>(),
+    );
+  }
+
+  Future<AdminApparatusScheduleReservation>
+      adminCancelApparatusScheduleReservation({
+    required String reservationId,
+    String reason = '',
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final reservation =
+          _testModeApparatusScheduleReservations[reservationId.trim()];
+      if (reservation == null) {
+        throw const MobileApiException(
+          code: 'schedule_reservation_not_found',
+          message: 'Jadval bandi topilmadi',
+        );
+      }
+      if (reservation.status != 'planned') {
+        throw const MobileApiException(
+          code: 'schedule_reservation_locked',
+          message: 'Bu jadval bandini bekor qilib bo‘lmaydi',
+        );
+      }
+      final cancelled = AdminApparatusScheduleReservation(
+        reservationId: reservation.reservationId,
+        idempotencyKey: reservation.idempotencyKey,
+        orderId: reservation.orderId,
+        apparatusId: reservation.apparatusId,
+        apparatus: reservation.apparatus,
+        startsAtUnix: reservation.startsAtUnix,
+        endsAtUnix: reservation.endsAtUnix,
+        requestedDurationMinutes: reservation.requestedDurationMinutes,
+        reservedDurationMinutes: reservation.reservedDurationMinutes,
+        status: 'cancelled',
+        priority: reservation.priority,
+        source: reservation.source,
+        reason: reason.trim().isEmpty
+            ? reservation.reason
+            : '${reservation.reason}; cancelled: ${reason.trim()}',
+        capabilityRequirements: reservation.capabilityRequirements,
+        createdAtUnix: reservation.createdAtUnix,
+      );
+      _testModeApparatusScheduleReservations[cancelled.reservationId] =
+          cancelled;
+      return cancelled;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/schedule/cancel',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'reservation_id': reservationId.trim(),
+          'reason': reason,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'apparatus_schedule_cancel');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['reservation'];
+    if (raw is! Map) {
+      throw const MobileApiException(
+        code: 'apparatus_schedule_invalid_response',
+        message: 'Jadval bandi bekor qilinmadi',
+      );
+    }
+    return AdminApparatusScheduleReservation.fromJson(
+      raw.cast<String, dynamic>(),
+    );
   }
 
   Uri adminProductionMapLiveUri() {

@@ -8,6 +8,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../logic/production_map_pechat_rules.dart';
+import 'admin_apparatus_capacity_panel.dart';
 import 'admin_queue_policy_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
@@ -21,13 +22,14 @@ import 'package:flutter/material.dart';
 const double _apparatusSettingsPanelGap = 4;
 const double _apparatusSettingsPanelTopGap = 8;
 
-enum AdminApparatusSettingsTab { create, groups, queue }
+enum AdminApparatusSettingsTab { create, groups, queue, capacity }
 
 int _apparatusSettingsTabIndex(AdminApparatusSettingsTab tab) {
   return switch (tab) {
     AdminApparatusSettingsTab.create => 0,
     AdminApparatusSettingsTab.groups => 1,
     AdminApparatusSettingsTab.queue => 2,
+    AdminApparatusSettingsTab.capacity => 3,
   };
 }
 
@@ -77,7 +79,7 @@ class _AdminApparatusSettingsScreenState
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
+      length: 4,
       initialIndex: _apparatusSettingsTabIndex(widget.initialTab),
       vsync: this,
     );
@@ -765,6 +767,7 @@ class _AdminApparatusSettingsScreenState
                         Tab(height: 38, text: 'Aparat qo\'shish'),
                         Tab(height: 38, text: 'Aparat guruhlari'),
                         Tab(height: 38, text: 'Aparat navbati'),
+                        Tab(height: 38, text: 'Quvvat / jadval'),
                       ],
                     ),
                     Expanded(
@@ -778,6 +781,10 @@ class _AdminApparatusSettingsScreenState
                             child: AdminQueuePolicyPanel(
                               bottomPadding: bottomPadding,
                             ),
+                          ),
+                          AdminApparatusCapacityPanel(
+                            apparatus: _apparatus,
+                            bottomPadding: bottomPadding,
                           ),
                         ],
                       ),
