@@ -350,34 +350,40 @@ String? _testModeKnownApparatusFamily(String title) {
 
 bool _testModeCandidateAllowedForOrder(
   ProductionMapDefinition map,
+  String source,
   String candidate,
 ) {
+  source = source.trim();
+  if (source.isEmpty) return false;
   final apparatusNodes = map.nodes
       .where((node) => node.kind == 'apparatus')
       .map((node) => node.title.trim())
       .where((title) => title.isNotEmpty)
       .toList(growable: false);
   if (apparatusNodes.isEmpty) return true;
-  return apparatusNodes.any((source) {
-    final sourceFamily = _testModeKnownApparatusFamily(source);
-    final candidateFamily = _testModeKnownApparatusFamily(candidate);
-    if (sourceFamily != null &&
-        candidateFamily != null &&
-        sourceFamily != candidateFamily) {
-      return false;
-    }
-    final sourceIsFlexo = productionMapIsFlexoApparatus(source);
-    final candidateIsFlexo = productionMapIsFlexoApparatus(candidate);
-    if (sourceIsFlexo != candidateIsFlexo) return false;
-    return productionMapCanMoveOrderToApparatus(
-      nodes: map.nodes,
-      fromApparatus: source,
-      toApparatus: candidate,
-      rollCount: map.rollCount,
-      widthMm: map.widthMm,
-      isFlexoOrder: productionMapIsFlexoOrder(map),
-    );
-  });
+  if (!apparatusNodes.any(
+    (title) => productionMapWarehouseTitlesMatch(title, source),
+  )) {
+    return false;
+  }
+  final sourceFamily = _testModeKnownApparatusFamily(source);
+  final candidateFamily = _testModeKnownApparatusFamily(candidate);
+  if (sourceFamily != null &&
+      candidateFamily != null &&
+      sourceFamily != candidateFamily) {
+    return false;
+  }
+  final sourceIsFlexo = productionMapIsFlexoApparatus(source);
+  final candidateIsFlexo = productionMapIsFlexoApparatus(candidate);
+  if (sourceIsFlexo != candidateIsFlexo) return false;
+  return productionMapCanMoveOrderToApparatus(
+    nodes: map.nodes,
+    fromApparatus: source,
+    toApparatus: candidate,
+    rollCount: map.rollCount,
+    widthMm: map.widthMm,
+    isFlexoOrder: productionMapIsFlexoOrder(map),
+  );
 }
 
 AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
@@ -462,7 +468,11 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
   _TestModeScheduledCandidate? best;
   for (var index = 0; index < candidates.length; index++) {
     final candidate = candidates[index];
-    if (!_testModeCandidateAllowedForOrder(map, candidate.apparatus)) {
+    if (!_testModeCandidateAllowedForOrder(
+      map,
+      normalizedApparatus,
+      candidate.apparatus,
+    )) {
       continue;
     }
     routeCandidateCount++;
