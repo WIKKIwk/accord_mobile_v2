@@ -873,6 +873,7 @@ extension MobileApiAdminItems on MobileApi {
 
   Future<AdminApparatus> adminCreateApparatus(
     String apparatusName, {
+    String id = '',
     String family = '',
     String kind = '',
     Iterable<String> capabilities = const <String>[],
@@ -881,6 +882,10 @@ extension MobileApiAdminItems on MobileApi {
     final name = apparatusName.trim();
     if (name.isEmpty) {
       throw Exception('Admin apparatus name required');
+    }
+    final normalizedId = id.trim();
+    if (normalizedId.startsWith('apparatus:default:')) {
+      throw Exception('Default apparatus master data is immutable');
     }
     final normalizedFamily = family.trim().toLowerCase();
     final normalizedKind = kind.trim().toLowerCase();
@@ -891,8 +896,17 @@ extension MobileApiAdminItems on MobileApi {
         .toList(growable: false);
     if (await TestModeController.instance.isEnabled()) {
       final inferred = AdminApparatus.fromJson({'name': name});
+      final existingIndex = _testModeApparatus.indexWhere(
+        (existing) => normalizedId.isNotEmpty
+            ? existing.id == normalizedId
+            : existing.name.toLowerCase() == name.toLowerCase(),
+      );
+      final existing =
+          existingIndex >= 0 ? _testModeApparatus[existingIndex] : null;
       final item = AdminApparatus(
-        id: 'apparatus:${name.toLowerCase()}',
+        id: normalizedId.isNotEmpty
+            ? normalizedId
+            : existing?.id ?? 'apparatus:${name.toLowerCase()}',
         name: name,
         family: normalizedFamily.isEmpty ? inferred.family : normalizedFamily,
         kind: normalizedKind.isEmpty ? inferred.kind : normalizedKind,
@@ -901,11 +915,8 @@ extension MobileApiAdminItems on MobileApi {
             : normalizedCapabilities,
         colorStations: colorStations ?? inferred.colorStations,
       );
-      final index = _testModeApparatus.indexWhere(
-        (existing) => existing.name.toLowerCase() == name.toLowerCase(),
-      );
-      if (index >= 0) {
-        _testModeApparatus[index] = item;
+      if (existingIndex >= 0) {
+        _testModeApparatus[existingIndex] = item;
       } else {
         _testModeApparatus.add(item);
       }
@@ -922,6 +933,7 @@ extension MobileApiAdminItems on MobileApi {
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
+          if (normalizedId.isNotEmpty) 'id': normalizedId,
           'name': name,
           if (normalizedFamily.isNotEmpty) 'family': normalizedFamily,
           if (normalizedKind.isNotEmpty) 'kind': normalizedKind,

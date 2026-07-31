@@ -53,6 +53,10 @@ class _AdminApparatusSettingsScreenState
 
   final TextEditingController _name = TextEditingController();
   final TextEditingController _apparatusName = TextEditingController();
+  final TextEditingController _apparatusFamily = TextEditingController();
+  final TextEditingController _apparatusKind = TextEditingController();
+  final TextEditingController _apparatusCapabilities = TextEditingController();
+  final TextEditingController _apparatusColorStations = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _apparatusNameFocus = FocusNode();
   final ScrollController _createScrollController = ScrollController();
@@ -66,6 +70,7 @@ class _AdminApparatusSettingsScreenState
   bool _creatingApparatus = false;
   String? _loadError;
   String? _editingGroupName;
+  String? _editingApparatusId;
   String? _expandedGroupName;
 
   @override
@@ -95,6 +100,10 @@ class _AdminApparatusSettingsScreenState
     _tabController.dispose();
     _name.dispose();
     _apparatusName.dispose();
+    _apparatusFamily.dispose();
+    _apparatusKind.dispose();
+    _apparatusCapabilities.dispose();
+    _apparatusColorStations.dispose();
     _nameFocus.dispose();
     _apparatusNameFocus.dispose();
     _createScrollController.dispose();
@@ -212,6 +221,41 @@ class _AdminApparatusSettingsScreenState
     });
   }
 
+  void _editApparatus(AdminApparatus apparatus) {
+    if (apparatus.isDefault) {
+      showAdminTopNotice(
+          context, 'Standart aparat master-data\'si o\'zgarmaydi');
+      return;
+    }
+    setState(() {
+      _editingApparatusId = apparatus.id;
+      _apparatusName.text = apparatus.name;
+      _apparatusFamily.text = apparatus.family;
+      _apparatusKind.text = apparatus.kind;
+      _apparatusCapabilities.text = apparatus.capabilities.join(', ');
+      _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
+    });
+    if (_tabController.index != 0) {
+      _tabController.animateTo(0);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _apparatusNameFocus.requestFocus();
+      }
+    });
+  }
+
+  void _clearApparatusEditor() {
+    setState(() {
+      _editingApparatusId = null;
+      _apparatusName.clear();
+      _apparatusFamily.clear();
+      _apparatusKind.clear();
+      _apparatusCapabilities.clear();
+      _apparatusColorStations.clear();
+    });
+  }
+
   void _toggleGroupExpanded(AdminApparatusGroup group) {
     final key = group.name.trim().toLowerCase();
     setState(() {
@@ -292,17 +336,53 @@ class _AdminApparatusSettingsScreenState
       showAdminTopNotice(context, 'Aparat nomi kerak');
       return;
     }
+    final colorStationsText = _apparatusColorStations.text.trim();
+    final colorStations =
+        colorStationsText.isEmpty ? null : int.tryParse(colorStationsText);
+    if (colorStationsText.isNotEmpty &&
+        (colorStations == null || colorStations <= 0 || colorStations > 24)) {
+      showAdminTopNotice(
+          context, 'Rang stansiyalari 1-24 oralig\'ida bo\'lsin');
+      return;
+    }
+    final capabilities = _apparatusCapabilities.text
+        .split(RegExp(r'[,;\n]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final previousId = _editingApparatusId;
+    AdminApparatus? previous;
+    if (previousId != null) {
+      for (final item in _apparatus) {
+        if (item.id == previousId) {
+          previous = item;
+          break;
+        }
+      }
+    }
     setState(() => _creatingApparatus = true);
     try {
-      final created = await MobileApi.instance.adminCreateApparatus(name);
+      final created = await MobileApi.instance.adminCreateApparatus(
+        name,
+        id: previousId ?? '',
+        family: _apparatusFamily.text,
+        kind: _apparatusKind.text,
+        capabilities: capabilities,
+        colorStations: colorStations,
+      );
       if (!mounted) {
         return;
       }
       setState(() {
-        final key = created.name.toLowerCase();
+        final key = created.id.trim();
         final next = [
           for (final item in _apparatus)
-            if (item.name.toLowerCase() != key) item,
+            if (previousId != null
+                ? item.id != previousId
+                : item.id != key &&
+                    item.name.toLowerCase() != created.name.toLowerCase())
+              item,
           created,
         ]..sort(
             (left, right) => left.name.toLowerCase().compareTo(
@@ -310,11 +390,26 @@ class _AdminApparatusSettingsScreenState
                 ),
           );
         _apparatus = next;
+        if (previous != null && previous.name != created.name) {
+          _selected
+            ..remove(previous.name)
+            ..add(created.name);
+        }
         _selected.add(created.name);
+        _editingApparatusId = null;
         _apparatusName.clear();
+        _apparatusFamily.clear();
+        _apparatusKind.clear();
+        _apparatusCapabilities.clear();
+        _apparatusColorStations.clear();
       });
       _saveCache();
-      showAdminTopNotice(context, 'Aparat qo\'shildi');
+      showAdminTopNotice(
+        context,
+        previousId == null
+            ? 'Aparat qo\'shildi'
+            : 'Aparat master-data\'si saqlandi',
+      );
     } catch (_) {
       if (mounted) {
         showAdminTopNotice(context, 'Aparat qo\'shilmadi');
@@ -339,6 +434,36 @@ class _AdminApparatusSettingsScreenState
           bottomPadding,
         ),
         children: [
+          if (_editingApparatusId != null) ...[
+            Material(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Master-data tahriri',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: scheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _clearApparatusEditor,
+                      child: const Text('Bekor qilish'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           TextField(
             controller: _apparatusName,
             focusNode: _apparatusNameFocus,
@@ -351,11 +476,52 @@ class _AdminApparatusSettingsScreenState
             ),
           ),
           const SizedBox(height: 8),
+          TextField(
+            controller: _apparatusFamily,
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Aparat oilasi (family)',
+              hintText: 'pechat, laminatsiya, rezka',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _apparatusKind,
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Aparat turi (kind)',
+              hintText: 'flexo, color_pechat',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _apparatusCapabilities,
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Capability lar',
+              hintText: 'print, pechat, flexo',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _apparatusColorStations,
+            keyboardType: TextInputType.number,
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Rang stansiyalari (ixtiyoriy)',
+              hintText: '7',
+            ),
+          ),
+          const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: _creatingApparatus ? null : _createApparatus,
             icon: const Icon(Icons.precision_manufacturing_outlined),
             label: Text(
-              _creatingApparatus ? 'Qo\'shilmoqda...' : 'Aparat qo\'shish',
+              _creatingApparatus
+                  ? 'Saqlanmoqda...'
+                  : _editingApparatusId == null
+                      ? 'Aparat qo\'shish'
+                      : 'Master-data\'ni saqlash',
             ),
           ),
           const SizedBox(height: 16),
@@ -387,7 +553,10 @@ class _AdminApparatusSettingsScreenState
                       index,
                       _apparatus.length,
                     ),
-                    title: _apparatus[index].name,
+                    apparatus: _apparatus[index],
+                    onEdit: _apparatus[index].isDefault
+                        ? null
+                        : () => _editApparatus(_apparatus[index]),
                   ),
               ],
             ),
@@ -645,6 +814,18 @@ String _apparatusKindLabel(String title) {
   return 'Aparat';
 }
 
+String _apparatusMetadataLabel(AdminApparatus apparatus) {
+  final kind = apparatus.kind.trim();
+  final capabilities = apparatus.capabilities.join(', ');
+  if (kind.isNotEmpty && capabilities.isNotEmpty) {
+    return '$kind • $capabilities';
+  }
+  if (kind.isNotEmpty) {
+    return kind;
+  }
+  return _apparatusKindLabel(apparatus.name);
+}
+
 Widget _apparatusLeading(BuildContext context, String title) {
   final scheme = Theme.of(context).colorScheme;
   return SizedBox.square(
@@ -666,25 +847,35 @@ Widget _apparatusLeading(BuildContext context, String title) {
 class _ApparatusListRow extends StatelessWidget {
   const _ApparatusListRow({
     required this.slot,
-    required this.title,
+    required this.apparatus,
+    this.onEdit,
   });
 
   final M3SegmentVerticalSlot slot;
-  final String title;
+  final AdminApparatus apparatus;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      title: title,
-      subtitle: _apparatusKindLabel(title),
+      title: apparatus.name,
+      subtitle: _apparatusMetadataLabel(apparatus),
       value: '',
       showChevron: false,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       elevation: 4,
-      leading: _apparatusLeading(context, title),
+      leading: _apparatusLeading(context, apparatus.name),
+      trailing: onEdit == null
+          ? null
+          : IconButton(
+              tooltip: 'Master-data tahriri',
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+              visualDensity: VisualDensity.compact,
+            ),
       titleMaxLines: 1,
       subtitleMaxLines: 1,
       titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
