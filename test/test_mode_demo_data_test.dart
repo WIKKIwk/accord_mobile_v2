@@ -103,6 +103,23 @@ void main() {
     );
   });
 
+  test('apparatus catalog preserves semantic master metadata', () async {
+    await TestModeController.instance.setEnabled(true);
+
+    final apparatus = await MobileApi.instance.adminApparatus();
+    final flexo = apparatus.singleWhere((item) => item.name == 'Flexo pechat');
+    final sevenColor = apparatus.singleWhere(
+      (item) => item.name == '7 ta rangli bosma aparat',
+    );
+
+    expect(flexo.family, 'pechat');
+    expect(flexo.kind, 'flexo');
+    expect(flexo.isPechat, isTrue);
+    expect(flexo.isFlexo, isTrue);
+    expect(sevenColor.kind, 'color_pechat');
+    expect(sevenColor.colorStations, 7);
+  });
+
   test('warehouse and apparatus can safely have the same name', () async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminCreateApparatus('Xomashyo ombori - DEMO');

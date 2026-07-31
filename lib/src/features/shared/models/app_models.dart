@@ -254,18 +254,40 @@ class AdminApparatus {
     this.id = '',
     this.source = 'custom',
     this.sortOrder = 10000,
+    this.family = 'other',
+    this.kind = 'other',
+    this.capabilities = const [],
+    this.colorStations,
   });
 
   final String id;
   final String name;
   final String source;
   final int sortOrder;
+  final String family;
+  final String kind;
+  final List<String> capabilities;
+  final int? colorStations;
 
   bool get isDefault => source == 'default';
+  bool get isPechat =>
+      family.trim().toLowerCase() == 'pechat' ||
+      capabilities.any((item) => item.trim().toLowerCase() == 'print');
+  bool get isFlexo =>
+      kind.trim().toLowerCase() == 'flexo' ||
+      capabilities.any((item) => item.trim().toLowerCase() == 'flexo');
 
   factory AdminApparatus.fromJson(Map<String, dynamic> json) {
     final name =
         (json['name'] as String?) ?? (json['warehouse'] as String?) ?? '';
+    final inferred = _inferAdminApparatusMasterData(name);
+    final capabilities = (json['capabilities'] as List<dynamic>? ?? const [])
+        .map((item) => item.toString().trim().toLowerCase())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final family = (json['family'] as String?)?.trim() ?? '';
+    final kind = (json['kind'] as String?)?.trim() ?? '';
     return AdminApparatus(
       id: (json['id'] as String?)?.trim().isNotEmpty == true
           ? (json['id'] as String).trim()
@@ -273,8 +295,104 @@ class AdminApparatus {
       name: name,
       source: json['source'] as String? ?? 'custom',
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 10000,
+      family: family.isEmpty ? inferred.family : family.toLowerCase(),
+      kind: kind.isEmpty ? inferred.kind : kind.toLowerCase(),
+      capabilities: capabilities.isEmpty ? inferred.capabilities : capabilities,
+      colorStations:
+          (json['color_stations'] as num?)?.toInt() ?? inferred.colorStations,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'source': source,
+      'sort_order': sortOrder,
+      'family': family,
+      'kind': kind,
+      'capabilities': capabilities,
+      if (colorStations != null) 'color_stations': colorStations,
+    };
+  }
+}
+
+class _AdminApparatusMasterData {
+  const _AdminApparatusMasterData({
+    required this.family,
+    required this.kind,
+    required this.capabilities,
+    this.colorStations,
+  });
+
+  final String family;
+  final String kind;
+  final List<String> capabilities;
+  final int? colorStations;
+}
+
+_AdminApparatusMasterData _inferAdminApparatusMasterData(String name) {
+  final normalized = name.trim().toLowerCase();
+  if (const ['fleksa', 'fleska', 'flex', 'flexe', 'flexo']
+      .any(normalized.contains)) {
+    return const _AdminApparatusMasterData(
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: ['print', 'pechat', 'flexo'],
+    );
+  }
+  final colorMatch = RegExp(
+    r'\b([789])\s*(?:ta)?\s*rangli(?:\s*(?:pechat|val|aparat))?\b',
+    caseSensitive: false,
+  ).firstMatch(normalized);
+  if (colorMatch != null) {
+    return _AdminApparatusMasterData(
+      family: 'pechat',
+      kind: 'color_pechat',
+      capabilities: const ['print', 'pechat'],
+      colorStations: int.tryParse(colorMatch.group(1) ?? ''),
+    );
+  }
+  if (normalized.contains('extruder') && normalized.contains('laminatsiya')) {
+    return const _AdminApparatusMasterData(
+      family: 'laminatsiya',
+      kind: 'extruder_laminatsiya',
+      capabilities: ['laminate'],
+    );
+  }
+  if (normalized.contains('laminatsiya')) {
+    return const _AdminApparatusMasterData(
+      family: 'laminatsiya',
+      kind: 'laminatsiya',
+      capabilities: ['laminate'],
+    );
+  }
+  if (normalized.contains('rezka')) {
+    return const _AdminApparatusMasterData(
+      family: 'rezka',
+      kind: 'rezka',
+      capabilities: ['cut'],
+    );
+  }
+  if (normalized.contains('paket')) {
+    return const _AdminApparatusMasterData(
+      family: 'paket',
+      kind: 'paket',
+      capabilities: ['package'],
+    );
+  }
+  if (normalized.contains('kley')) {
+    return const _AdminApparatusMasterData(
+      family: 'kley',
+      kind: 'holodniy_kley',
+      capabilities: ['glue'],
+    );
+  }
+  return const _AdminApparatusMasterData(
+    family: 'other',
+    kind: 'other',
+    capabilities: ['apparatus'],
+  );
 }
 
 class AdminFactoryLocation {

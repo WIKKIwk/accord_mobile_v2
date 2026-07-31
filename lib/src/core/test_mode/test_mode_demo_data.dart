@@ -96,11 +96,39 @@ class TestModeDemoData {
 
   static const List<AdminApparatus> apparatus = [
     AdminApparatus(name: 'Godex aparat - DEMO'),
-    AdminApparatus(name: '7 ta rangli bosma aparat'),
-    AdminApparatus(name: '8 ta rangli bosma aparat'),
-    AdminApparatus(name: '9 ta rangli bosma aparat'),
-    AdminApparatus(name: 'Laminatsiya 1'),
-    AdminApparatus(name: 'Laminatsiya 2'),
+    AdminApparatus(
+      name: '7 ta rangli bosma aparat',
+      family: 'pechat',
+      kind: 'color_pechat',
+      capabilities: ['print', 'pechat'],
+      colorStations: 7,
+    ),
+    AdminApparatus(
+      name: '8 ta rangli bosma aparat',
+      family: 'pechat',
+      kind: 'color_pechat',
+      capabilities: ['print', 'pechat'],
+      colorStations: 8,
+    ),
+    AdminApparatus(
+      name: '9 ta rangli bosma aparat',
+      family: 'pechat',
+      kind: 'color_pechat',
+      capabilities: ['print', 'pechat'],
+      colorStations: 9,
+    ),
+    AdminApparatus(
+      name: 'Laminatsiya 1',
+      family: 'laminatsiya',
+      kind: 'laminatsiya',
+      capabilities: ['laminate'],
+    ),
+    AdminApparatus(
+      name: 'Laminatsiya 2',
+      family: 'laminatsiya',
+      kind: 'laminatsiya',
+      capabilities: ['laminate'],
+    ),
   ];
 
   static const List<AdminRawMaterialStockEntry> rawMaterialStock = [

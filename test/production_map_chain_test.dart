@@ -150,6 +150,19 @@ void main() {
     });
   });
 
+  test('legacy apparatus json receives deterministic master metadata', () {
+    final flexo = AdminApparatus.fromJson(const {'name': 'Flexo pechat'});
+    final sevenColor = AdminApparatus.fromJson(
+      const {'name': '7 ta rangli bosma aparat'},
+    );
+
+    expect(flexo.family, 'pechat');
+    expect(flexo.kind, 'flexo');
+    expect(flexo.isPechat, isTrue);
+    expect(flexo.isFlexo, isTrue);
+    expect(sevenColor.colorStations, 7);
+  });
+
   test('warehouse suffix titles match', () {
     expect(
       productionMapWarehouseTitlesMatch('Laminatsiya - A', 'Laminatsiya'),

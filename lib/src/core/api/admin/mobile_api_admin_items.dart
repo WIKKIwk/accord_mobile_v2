@@ -871,15 +871,35 @@ extension MobileApiAdminItems on MobileApi {
     );
   }
 
-  Future<AdminApparatus> adminCreateApparatus(String apparatusName) async {
+  Future<AdminApparatus> adminCreateApparatus(
+    String apparatusName, {
+    String family = '',
+    String kind = '',
+    Iterable<String> capabilities = const <String>[],
+    int? colorStations,
+  }) async {
     final name = apparatusName.trim();
     if (name.isEmpty) {
       throw Exception('Admin apparatus name required');
     }
+    final normalizedFamily = family.trim().toLowerCase();
+    final normalizedKind = kind.trim().toLowerCase();
+    final normalizedCapabilities = capabilities
+        .map((item) => item.trim().toLowerCase())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
     if (await TestModeController.instance.isEnabled()) {
+      final inferred = AdminApparatus.fromJson({'name': name});
       final item = AdminApparatus(
         id: 'apparatus:${name.toLowerCase()}',
         name: name,
+        family: normalizedFamily.isEmpty ? inferred.family : normalizedFamily,
+        kind: normalizedKind.isEmpty ? inferred.kind : normalizedKind,
+        capabilities: normalizedCapabilities.isEmpty
+            ? inferred.capabilities
+            : normalizedCapabilities,
+        colorStations: colorStations ?? inferred.colorStations,
       );
       final index = _testModeApparatus.indexWhere(
         (existing) => existing.name.toLowerCase() == name.toLowerCase(),
@@ -901,7 +921,14 @@ extension MobileApiAdminItems on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'name': name}),
+        body: jsonEncode({
+          'name': name,
+          if (normalizedFamily.isNotEmpty) 'family': normalizedFamily,
+          if (normalizedKind.isNotEmpty) 'kind': normalizedKind,
+          if (normalizedCapabilities.isNotEmpty)
+            'capabilities': normalizedCapabilities,
+          if (colorStations != null) 'color_stations': colorStations,
+        }),
       ),
     );
     if (response.statusCode != 200) {
@@ -1220,6 +1247,10 @@ List<AdminApparatus> _testModeApparatusCatalog() {
       name: apparatus.name,
       source: defaultId == null ? apparatus.source : 'default',
       sortOrder: defaultId == null ? 10000 + index : index,
+      family: apparatus.family,
+      kind: apparatus.kind,
+      capabilities: apparatus.capabilities,
+      colorStations: apparatus.colorStations,
     );
   }).toList(growable: false);
 }
