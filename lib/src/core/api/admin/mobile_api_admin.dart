@@ -3059,7 +3059,7 @@ MobileApiException _adminProductionMapException(
     code: code,
     apparatusOptions: apparatusOptions,
     details: details,
-    message: switch (code) {
+    message: switch (code.trim().toLowerCase()) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
       'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
@@ -3163,11 +3163,118 @@ MobileApiException _adminProductionMapException(
       'progress_batch_not_resumable' =>
         'Bu progress QR davom ettirishga yaramaydi',
       'scale_driver_not_configured' => 'Printer ulanmagan',
+      'unauthorized' => 'Sessiya tugagan. Qayta login qiling',
+      'forbidden' => 'Bu amal sizning rolingiz uchun ruxsat etilmagan',
+      'method not allowed' => 'Bu amal bu usulda qo‘llanmaydi',
+      'invalid json' => 'Yuborilgan ma’lumot noto‘g‘ri',
+      'production maps fetch failed' => 'Production maplar yuklanmadi',
+      'map_id_required' => 'Production map ID sini kiriting',
+      'map_product_code_required' => 'Mahsulot kodi kiritilmagan',
+      'map_title_required' => 'Production map nomi kiritilmagan',
+      'map_start_required' =>
+        'Production mapda boshlang‘ich nuqta bo‘lishi kerak',
+      'map_end_required' => 'Production mapda yakuniy nuqta bo‘lishi kerak',
+      'duplicate_node_id' => 'Production mapda node ID takrorlangan',
+      'missing_edge_node' => 'Production mapdagi bog‘lanish nuqtasi topilmadi',
+      'production_map_cycle' => 'Production map ketma-ketligida aylanish bor',
+      'formula_target_required' => 'Formula maqsadi kiritilmagan',
+      'formula_expression_required' => 'Formula ifodasi kiritilmagan',
+      'invalid_formula_target' => 'Formula maqsadi noto‘g‘ri',
+      'invalid_formula_expression' => 'Formula ifodasi noto‘g‘ri',
+      'invalid_order_qty' => 'Zakaz miqdori 0 dan katta bo‘lishi kerak',
+      'invalid_node_qty' => 'Bosqich miqdori noto‘g‘ri',
+      'invalid_location' => 'Joylashuv noto‘g‘ri',
+      'unknown_formula_variable' => 'Formula ichidagi o‘zgaruvchi topilmadi',
+      'formula_division_by_zero' => 'Formula 0 ga bo‘lishni o‘z ichiga oladi',
+      'condition_branch_required' =>
+        'Shart uchun true va false yo‘nalishlari kerak',
+      'order_freeze_target_not_found' =>
+        'Buyurtmani muzlatish uchun faol ish sessiyasi topilmadi',
+      'order_freeze_target_ambiguous' =>
+        'Buyurtmani muzlatish uchun bir nechta faol sessiya topildi',
+      'order_freeze_request_mismatch' =>
+        'Muzlatish so‘rovi bu ish sessiyasiga tegishli emas',
+      'store_failed' ||
+      'production_map_store_failed' =>
+        'Production map ma’lumotlarini saqlashda server xatosi',
+      'capacity_profile_invalid' => 'Aparat quvvati profili noto‘g‘ri',
+      'capacity_profile_not_found' => 'Aparat quvvati profili topilmadi',
+      'capability_not_supported' => 'Bu aparat kerakli ish turini qo‘llamaydi',
+      'capability_level_insufficient' =>
+        'Bu aparatning imkoniyat darajasi yetarli emas',
+      'capacity_conflict' => 'Bu aparatning quvvati tanlangan vaqt uchun band',
+      'capacity_no_working_window' =>
+        'Bu aparat uchun tanlangan vaqt oralig‘ida ish vaqti yo‘q',
+      'capacity_unavailable' => 'Bu aparat tanlangan vaqtda ishlamaydi',
+      'schedule_input_invalid' => 'Jadval ma’lumotlari noto‘g‘ri',
+      'schedule_idempotency_conflict' =>
+        'Bu jadval identifikatori boshqa orderga tegishli',
+      'schedule_reservation_not_found' => 'Jadval bandlovi topilmadi',
+      'schedule_reservation_locked' =>
+        'Bu jadval bandlovini bekor qilib bo‘lmaydi',
       'map_not_found' => 'Zakaz topilmadi',
-      _ => 'Production map amali bajarilmadi',
+      _ => _adminProductionMapUnknownErrorMessage(
+          code: code,
+          fallbackCode: fallbackCode,
+          statusCode: response.statusCode,
+        ),
     },
     statusCode: response.statusCode,
   );
+}
+
+String _adminProductionMapUnknownErrorMessage({
+  required String code,
+  required String fallbackCode,
+  required int statusCode,
+}) {
+  final operation = switch (fallbackCode.trim().toLowerCase()) {
+    'production_maps_list' => 'Production maplar yuklanmadi',
+    'production_map_audit' => 'Workflow audit yuklanmadi',
+    'production_map_save' => 'Production map saqlanmadi',
+    'production_map_save_with_order' => 'Zakaz va production map saqlanmadi',
+    'production_map_move_batch' => 'WIP batch ko‘chirilmagan',
+    'apparatus_transfer' =>
+      'Orderni boshqa apparatga ko‘chirish amalga oshmadi',
+    'production_map_move' => 'Order apparati o‘zgartirilmadi',
+    'production_map_sequence' => 'Orderlar ketma-ketligi saqlanmadi',
+    'order_control_failed' => 'Order holati o‘zgartirilmadi',
+    'wip_batches' => 'WIP batchlar yuklanmadi',
+    'completed_orders' => 'Yakunlangan orderlar yuklanmadi',
+    'completion_requests' => 'Tugatish so‘rovlari yuklanmadi',
+    'completion_request_decision' => 'Tugatish so‘rovi qarori saqlanmadi',
+    'completion_request_decisions' => 'Tugatish qarorlari yuklanmadi',
+    'queue_policies' => 'Aparat navbat qoidalari yuklanmadi',
+    'apparatus_capacity' => 'Aparat quvvati ma’lumotlari olinmadi',
+    'apparatus_downtime' => 'Aparat downtime ma’lumoti saqlanmadi',
+    'apparatus_schedule' => 'Aparat jadvali saqlanmadi',
+    'apparatus_schedule_cancel' => 'Aparat jadvali bekor qilinmadi',
+    'raw_material_rules' => 'Homashyo qoidalari yuklanmadi',
+    'raw_material_start_requirements' =>
+      'Homashyo ish boshlash talablari yuklanmadi',
+    'raw_material_assignments' => 'Homashyo biriktirmalari yuklanmadi',
+    'raw_material_assignment_orders' => 'Homashyo uchun orderlar yuklanmadi',
+    'raw_material_assignment_candidates' => 'Homashyo nomzodlari yuklanmadi',
+    'raw_material_assignment_candidate_orders' =>
+      'Homashyo uchun mos orderlar yuklanmadi',
+    'raw_material_intake' => 'Homashyo qabul qilinmadi',
+    'raw_material_intake_candidates' =>
+      'Qabul qilinadigan homashyolar yuklanmadi',
+    'raw_material_history' => 'Homashyo tarixi yuklanmadi',
+    'qolip_code_not_found' => 'Qolip ma’lumotlari tekshirilmadi',
+    'queue_action_not_allowed' => 'Order navbat amali bajarilmadi',
+    'progress_batch_not_found' => 'Progress QR amali bajarilmadi',
+    'production_map_live_failed' => 'Production map jonli holati olinmadi',
+    'production_map_run' => 'Production map ishga tushirilmadi',
+    _ => 'So‘ralgan amal bajarilmadi',
+  };
+  final statusSuffix = statusCode > 0 ? ' (HTTP $statusCode)' : '';
+  final normalizedCode = code.trim().toLowerCase();
+  if (normalizedCode.isEmpty ||
+      normalizedCode == fallbackCode.trim().toLowerCase()) {
+    return '$operation$statusSuffix';
+  }
+  return '$operation: $code$statusSuffix';
 }
 
 MobileApiException _adminApiException(
@@ -4028,7 +4135,10 @@ extension MobileApiAdmin on MobileApi {
   Future<List<ProductionMapSaved>> adminProductionMaps() async {
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeForceProductionMapMenuLoadFailure) {
-        throw Exception('Admin production maps failed');
+        throw const MobileApiException(
+          code: 'production_maps_list',
+          message: 'Production maplar yuklanmadi',
+        );
       }
       return List<ProductionMapSaved>.unmodifiable(_testModeProductionMaps);
     }
@@ -4039,7 +4149,7 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin production maps failed');
+      throw _adminProductionMapException(response, 'production_maps_list');
     }
     final json = await decodeJsonListPayload(response.body);
     return json
@@ -4068,8 +4178,15 @@ extension MobileApiAdmin on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'production_map_audit');
     }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map) {
+      throw const MobileApiException(
+        code: 'production_map_audit_invalid_response',
+        message: 'Workflow audit javobi noto‘g‘ri',
+      );
+    }
     return AdminProductionWorkflowAuditReport.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
+      payload.cast<String, dynamic>(),
     );
   }
 
@@ -5033,8 +5150,8 @@ extension MobileApiAdmin on MobileApi {
     final raw = payload['policy'];
     if (raw is! Map) {
       throw const MobileApiException(
-        code: 'queue_policies',
-        message: 'Production map amali bajarilmadi',
+        code: 'queue_policies_invalid_response',
+        message: 'Aparat navbat qoidasi javobi noto‘g‘ri',
       );
     }
     return AdminApparatusQueuePolicy.fromJson(raw.cast<String, dynamic>());
@@ -5316,11 +5433,14 @@ extension MobileApiAdmin on MobileApi {
         yield AdminProductionMapLiveSnapshot.fromJson(event);
         continue;
       }
+      final errorCode = event['error']?.toString().trim() ?? '';
       throw MobileApiException(
-        code: 'production_map_live_failed',
-        message: event['error']?.toString().trim().isNotEmpty == true
-            ? event['error'].toString().trim()
-            : 'Production map jonli holati olinmadi',
+        code: errorCode.isEmpty ? 'production_map_live_failed' : errorCode,
+        message: _adminProductionMapUnknownErrorMessage(
+          code: errorCode,
+          fallbackCode: 'production_map_live_failed',
+          statusCode: 0,
+        ),
       );
     }
   }
@@ -6877,7 +6997,7 @@ extension MobileApiAdmin on MobileApi {
       } else {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
-          message: 'Production map amali bajarilmadi',
+          message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
         );
       }
       if (action == 'start') {
@@ -7112,7 +7232,7 @@ extension MobileApiAdmin on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin production map run failed');
+      throw _adminProductionMapException(response, 'production_map_run');
     }
     return ProductionMapRunResult.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

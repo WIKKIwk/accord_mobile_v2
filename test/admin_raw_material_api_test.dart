@@ -236,6 +236,17 @@ void main() {
           'Astatka Rasxotdan katta bo‘lishi mumkin emas',
       'astatka cannot exceed rasxot':
           'Astatka Rasxotdan katta bo‘lishi mumkin emas',
+      'map_id_required': 'Production map ID sini kiriting',
+      'production_map_cycle': 'Production map ketma-ketligida aylanish bor',
+      'capacity_conflict': 'Bu aparatning quvvati tanlangan vaqt uchun band',
+      'capacity_no_working_window':
+          'Bu aparat uchun tanlangan vaqt oralig‘ida ish vaqti yo‘q',
+      'schedule_reservation_not_found': 'Jadval bandlovi topilmadi',
+      'order_freeze_target_ambiguous':
+          'Buyurtmani muzlatish uchun bir nechta faol sessiya topildi',
+      'store_failed': 'Production map ma’lumotlarini saqlashda server xatosi',
+      'forbidden': 'Bu amal sizning rolingiz uchun ruxsat etilmagan',
+      'unauthorized': 'Sessiya tugagan. Qayta login qiling',
     };
 
     for (final entry in expectedMessages.entries) {
@@ -258,6 +269,27 @@ void main() {
                 queueActionErrorCode: entry.key,
               ));
     }
+
+    await HttpOverrides.runZoned(() async {
+      await expectLater(
+        MobileApi.instance.adminApparatusQueueAction(
+          apparatus: 'Laminatsiya 1',
+          orderId: 'zakaz-1',
+          action: 'complete',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.message,
+            'message',
+            'Order navbat amali bajarilmadi: backend_timeout (HTTP 400)',
+          ),
+        ),
+      );
+    },
+        createHttpClient: (_) => _RawMaterialApiHttpClient(
+              <String>[],
+              queueActionErrorCode: 'backend_timeout',
+            ));
   });
 
   test('queue progress action sends qty and reads progress batch', () async {
