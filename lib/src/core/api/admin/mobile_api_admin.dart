@@ -513,9 +513,11 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
       reservedDurationMinutes: reservedDuration,
     );
     if (slot == null) continue;
-    final isBetter = best == null ||
-        slot.startsAtUnix < best!.startsAtUnix ||
-        (slot.startsAtUnix == best!.startsAtUnix && index < best!.index);
+    final currentBest = best;
+    final isBetter = currentBest == null ||
+        slot.startsAtUnix < currentBest.startsAtUnix ||
+        (slot.startsAtUnix == currentBest.startsAtUnix &&
+            index < currentBest.index);
     if (isBetter) {
       best = _TestModeScheduledCandidate(
         index: index,
@@ -533,7 +535,8 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
       message: 'Aparat bu order yo‘nalishiga mos emas',
     );
   }
-  if (best == null) {
+  final selected = best;
+  if (selected == null) {
     if (supportedCandidateCount == 0 && capabilityNotSupported) {
       throw const MobileApiException(
         code: 'capability_not_supported',
@@ -547,7 +550,6 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
       );
     }
   } else {
-    final selected = best!;
     final reservation = AdminApparatusScheduleReservation(
       reservationId: 'apparatus-reservation:${idempotencyKey.trim()}',
       idempotencyKey: idempotencyKey.trim(),
@@ -573,6 +575,100 @@ AdminApparatusScheduleReservation _testModeScheduleApparatusOrder({
     code: 'capacity_no_working_window',
     message: 'Aparat uchun bo‘sh slot topilmadi',
   );
+}
+
+void _testModeSyncScheduleReservationStatus({
+  required String orderId,
+  required String apparatus,
+  required String status,
+}) {
+  final normalizedOrderId = orderId.trim();
+  final normalizedApparatus = apparatus.trim();
+  for (final entry in _testModeApparatusScheduleReservations.entries.toList()) {
+    final reservation = entry.value;
+    if (reservation.orderId.trim() != normalizedOrderId ||
+        !productionMapWarehouseTitlesMatch(
+          reservation.apparatus,
+          normalizedApparatus,
+        )) {
+      continue;
+    }
+    final current = reservation.status.trim().toLowerCase();
+    final next = status.trim().toLowerCase();
+    final allowed = current == next ||
+        (next == 'active' && (current == 'planned' || current == 'paused')) ||
+        (next == 'paused' && current == 'active') ||
+        (next == 'completed' &&
+            (current == 'planned' ||
+                current == 'active' ||
+                current == 'paused'));
+    if (!allowed) continue;
+    _testModeApparatusScheduleReservations[entry.key] =
+        AdminApparatusScheduleReservation(
+      reservationId: reservation.reservationId,
+      idempotencyKey: reservation.idempotencyKey,
+      orderId: reservation.orderId,
+      apparatusId: reservation.apparatusId,
+      apparatus: reservation.apparatus,
+      startsAtUnix: reservation.startsAtUnix,
+      endsAtUnix: reservation.endsAtUnix,
+      requestedDurationMinutes: reservation.requestedDurationMinutes,
+      reservedDurationMinutes: reservation.reservedDurationMinutes,
+      status: next,
+      priority: reservation.priority,
+      source: reservation.source,
+      reason: reservation.reason,
+      capabilityRequirements: reservation.capabilityRequirements,
+      createdAtUnix: reservation.createdAtUnix,
+    );
+  }
+}
+
+void _testModeMoveScheduleReservations({
+  required String orderId,
+  required String fromApparatus,
+  required String toApparatus,
+}) {
+  final targetName = toApparatus.trim();
+  if (targetName.isEmpty) return;
+  final targetId = _testModeApparatusCatalog()
+      .where(
+        (item) => item.name.trim().toLowerCase() == targetName.toLowerCase(),
+      )
+      .map((item) => item.id.trim())
+      .firstWhere(
+        (id) => id.isNotEmpty,
+        orElse: () => 'apparatus:${targetName.toLowerCase()}',
+      );
+  for (final entry in _testModeApparatusScheduleReservations.entries.toList()) {
+    final reservation = entry.value;
+    if (reservation.orderId.trim() != orderId.trim() ||
+        reservation.status != 'paused' ||
+        !productionMapWarehouseTitlesMatch(
+          reservation.apparatus,
+          fromApparatus,
+        )) {
+      continue;
+    }
+    _testModeApparatusScheduleReservations[entry.key] =
+        AdminApparatusScheduleReservation(
+      reservationId: reservation.reservationId,
+      idempotencyKey: reservation.idempotencyKey,
+      orderId: reservation.orderId,
+      apparatusId: targetId,
+      apparatus: targetName,
+      startsAtUnix: reservation.startsAtUnix,
+      endsAtUnix: reservation.endsAtUnix,
+      requestedDurationMinutes: reservation.requestedDurationMinutes,
+      reservedDurationMinutes: reservation.reservedDurationMinutes,
+      status: reservation.status,
+      priority: reservation.priority,
+      source: reservation.source,
+      reason: reservation.reason,
+      capabilityRequirements: reservation.capabilityRequirements,
+      createdAtUnix: reservation.createdAtUnix,
+    );
+  }
 }
 
 void _testModeEnsurePendingApparatusMove({
@@ -4310,6 +4406,11 @@ extension MobileApiAdmin on MobileApi {
       _testModeApparatusSequences[targetKey] = targetSequence;
       _testModeApparatusQueueStates[sourceKey] = sourceStates;
       _testModeApparatusQueueStates[targetKey] = targetStates;
+      _testModeMoveScheduleReservations(
+        orderId: normalizedOrderId,
+        fromApparatus: sourceKey,
+        toApparatus: targetKey,
+      );
       _testModeApparatusTransfers[normalizedKey] =
           _TestModeApparatusTransferReceipt(
         orderId: normalizedOrderId,
@@ -6441,6 +6542,11 @@ extension MobileApiAdmin on MobileApi {
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'paused';
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: storageKey,
+          status: 'paused',
+        );
         if (control == AdminOrderControlState.freezeRequested) {
           _testModeOrderControls[orderId.trim()] =
               AdminOrderControlState.frozen;
@@ -6473,6 +6579,11 @@ extension MobileApiAdmin on MobileApi {
           _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
         }
         states[orderId.trim()] = 'in_progress';
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: storageKey,
+          status: 'active',
+        );
         _testModeApparatusQueueStates[storageKey] = states;
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
@@ -6654,6 +6765,11 @@ extension MobileApiAdmin on MobileApi {
           }
         }
         _testModeApparatusQueueStates[storageKey] = states;
+        _testModeSyncScheduleReservationStatus(
+          orderId: completedOrderId,
+          apparatus: storageKey,
+          status: 'completed',
+        );
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
           progressBatch: batch,
@@ -6662,6 +6778,13 @@ extension MobileApiAdmin on MobileApi {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
           message: 'Production map amali bajarilmadi',
+        );
+      }
+      if (action == 'start') {
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: storageKey,
+          status: 'active',
         );
       }
       _testModeApparatusQueueStates[storageKey] = states;

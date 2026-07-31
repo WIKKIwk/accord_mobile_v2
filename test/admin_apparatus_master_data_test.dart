@@ -219,6 +219,112 @@ void main() {
     expect(second.startsAtUnix, first.startsAtUnix);
   });
 
+  test('capacity reservation follows queue execution and emergency transfer',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    const orderId = 'zakaz-capacity-lifecycle-mobile';
+    const source = 'Flexo lifecycle source';
+    const target = 'Flexo lifecycle target';
+    final sourceApparatus = await MobileApi.instance.adminCreateApparatus(
+      source,
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: const ['print', 'pechat', 'flexo'],
+    );
+    final targetApparatus = await MobileApi.instance.adminCreateApparatus(
+      target,
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: const ['print', 'pechat', 'flexo'],
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: orderId,
+        title: orderId,
+        orderNumber: orderId,
+        nodes: [
+          ProductionMapNode(
+            id: 'apparatus',
+            kind: 'apparatus',
+            title: source,
+          ),
+        ],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminSaveApparatusCapacityProfile(
+      AdminApparatusCapacityProfile(
+        apparatusId: sourceApparatus.id,
+        apparatus: source,
+        capabilities: const ['flexo'],
+        capabilityLevels: const {'flexo': 3},
+      ),
+    );
+    await MobileApi.instance.adminSaveApparatusCapacityProfile(
+      AdminApparatusCapacityProfile(
+        apparatusId: targetApparatus.id,
+        apparatus: target,
+        capabilities: const ['flexo'],
+        capabilityLevels: const {'flexo': 3},
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: source,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: target,
+      orderIds: const [],
+    );
+    final reservation = await MobileApi.instance.adminScheduleApparatusOrder(
+      orderId: orderId,
+      apparatusId: sourceApparatus.id,
+      apparatus: source,
+      earliestStartUnix: 1700000040,
+      durationMinutes: 20,
+      idempotencyKey: 'capacity-mobile-lifecycle',
+    );
+    expect(reservation.status, 'planned');
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'start',
+    );
+    var snapshot = await MobileApi.instance.adminApparatusCapacitySnapshot();
+    expect(snapshot.reservations.single.status, 'active');
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: source,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 1,
+    );
+    snapshot = await MobileApi.instance.adminApparatusCapacitySnapshot();
+    expect(snapshot.reservations.single.status, 'paused');
+
+    await MobileApi.instance.adminTransferProductionMapOrder(
+      orderId: orderId,
+      fromApparatus: source,
+      toApparatus: target,
+      reason: 'source apparatus breakdown',
+      idempotencyKey: 'capacity-mobile-transfer',
+    );
+    snapshot = await MobileApi.instance.adminApparatusCapacitySnapshot();
+    expect(snapshot.reservations.single.status, 'paused');
+    expect(snapshot.reservations.single.apparatus, target);
+    expect(snapshot.reservations.single.apparatusId, targetApparatus.id);
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: target,
+      orderId: orderId,
+      action: 'resume',
+    );
+    snapshot = await MobileApi.instance.adminApparatusCapacitySnapshot();
+    expect(snapshot.reservations.single.status, 'active');
+  });
+
   test('workflow audit API exposes a clean report in test mode', () async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(
