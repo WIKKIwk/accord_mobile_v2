@@ -696,6 +696,71 @@ void _testModeMoveScheduleReservations({
   }
 }
 
+void _testModeEnsureApparatusExecutionCapacity({
+  required String apparatusId,
+  required String apparatus,
+  required String orderId,
+}) {
+  final profile = _testModeProfileForApparatus(
+    apparatusId: apparatusId,
+    apparatus: apparatus,
+  );
+  final now = _testModeUnixSeconds();
+  bool isSameApparatus(String candidateId, String candidateName) {
+    return candidateId.trim().toLowerCase() ==
+            profile.apparatusId.trim().toLowerCase() ||
+        productionMapWarehouseTitlesMatch(candidateName, apparatus);
+  }
+
+  if (_testModeApparatusDowntimes.values.any(
+    (downtime) =>
+        downtime.active &&
+        isSameApparatus(downtime.apparatusId, downtime.apparatus) &&
+        downtime.startsAtUnix <= now &&
+        now < downtime.endsAtUnix,
+  )) {
+    throw const MobileApiException(
+      code: 'capacity_unavailable',
+      message: 'Aparat hozir nosozlik yoki downtime sababli mavjud emas',
+    );
+  }
+  if (!_testModeFitsWorkingWindow(profile, now, now + 60)) {
+    throw const MobileApiException(
+      code: 'capacity_no_working_window',
+      message: 'Aparatning hozirgi vaqtda ish oynasi yo‘q',
+    );
+  }
+  final occupiedOrders = <String>{};
+  for (final entry in _testModeApparatusQueueStates.entries) {
+    if (!productionMapWarehouseTitlesMatch(entry.key, apparatus)) continue;
+    for (final state in entry.value.entries) {
+      if (apparatusQueueOrderStateFromRaw(state.value) ==
+          ApparatusQueueOrderState.inProgress) {
+        if (state.key.trim() != orderId.trim()) {
+          occupiedOrders.add(state.key.trim());
+        }
+      }
+    }
+  }
+  for (final reservation in _testModeApparatusScheduleReservations.values) {
+    if ((reservation.status != 'planned' && reservation.status != 'active') ||
+        reservation.orderId.trim() == orderId.trim() ||
+        !isSameApparatus(reservation.apparatusId, reservation.apparatus) ||
+        reservation.startsAtUnix > now ||
+        now >= reservation.endsAtUnix) {
+      continue;
+    }
+    occupiedOrders.add(reservation.orderId.trim());
+  }
+  if (profile.finiteCapacity &&
+      occupiedOrders.length >= profile.capacitySlots) {
+    throw const MobileApiException(
+      code: 'capacity_conflict',
+      message: 'Aparatning mavjud quvvati hozir band',
+    );
+  }
+}
+
 void _testModeEnsurePendingApparatusMove({
   required String orderId,
   required String fromApparatus,
@@ -6523,6 +6588,11 @@ extension MobileApiAdmin on MobileApi {
                 : 'Har bir majburiy guruhdan minimum homashyo skaner qiling',
           );
         }
+        _testModeEnsureApparatusExecutionCapacity(
+          apparatusId: '',
+          apparatus: storageKey,
+          orderId: orderId,
+        );
         states[orderId.trim()] = 'in_progress';
         for (var index = 0;
             index < _testModeRawMaterialAssignments.length;
@@ -6603,6 +6673,11 @@ extension MobileApiAdmin on MobileApi {
           resumed = batch.copyWith(status: 'resumed');
           _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
         }
+        _testModeEnsureApparatusExecutionCapacity(
+          apparatusId: '',
+          apparatus: storageKey,
+          orderId: orderId,
+        );
         states[orderId.trim()] = 'in_progress';
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,

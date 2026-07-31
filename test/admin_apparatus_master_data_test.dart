@@ -325,6 +325,66 @@ void main() {
     expect(snapshot.reservations.single.status, 'active');
   });
 
+  test('queue start rejects an apparatus during active downtime', () async {
+    await TestModeController.instance.setEnabled(true);
+    const orderId = 'zakaz-capacity-downtime-mobile';
+    const apparatusName = 'Flexo downtime mobile';
+    final apparatus = await MobileApi.instance.adminCreateApparatus(
+      apparatusName,
+      family: 'pechat',
+      kind: 'flexo',
+      capabilities: const ['print', 'pechat', 'flexo'],
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: orderId,
+        productCode: orderId,
+        title: orderId,
+        orderNumber: orderId,
+        nodes: [],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatusName,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveApparatusCapacityProfile(
+      AdminApparatusCapacityProfile(
+        apparatusId: apparatus.id,
+        apparatus: apparatusName,
+        capabilities: const ['flexo'],
+        capabilityLevels: const {'flexo': 3},
+      ),
+    );
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await MobileApi.instance.adminSaveApparatusDowntime(
+      AdminApparatusDowntime(
+        id: 'downtime-mobile-active',
+        apparatusId: apparatus.id,
+        apparatus: apparatusName,
+        startsAtUnix: now - 60,
+        endsAtUnix: now + 3600,
+        reason: 'planned maintenance',
+      ),
+    );
+
+    await expectLater(
+      MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: apparatusName,
+        orderId: orderId,
+        action: 'start',
+      ),
+      throwsA(
+        isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'capacity_unavailable',
+        ),
+      ),
+    );
+  });
+
   test('workflow audit API exposes a clean report in test mode', () async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(
