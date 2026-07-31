@@ -17,6 +17,7 @@ import '../print_transport.dart';
 import '../realtime/warehouse_live_client.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
+import '../network/server_endpoint_store.dart';
 import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
@@ -42,6 +43,7 @@ part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
 part 'qolip/mobile_api_qolip.dart';
 part 'rezka/mobile_api_rezka.dart';
+part 'server/mobile_api_server.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';
 part 'werka/mobile_api_werka.dart';
 
@@ -90,17 +92,17 @@ class MobileApi {
   static const String _lastPhoneKey = 'last_login_phone';
   static const int werkaPickerLimit = 50;
 
-  static const String baseUrl = String.fromEnvironment(
-    'MOBILE_API_BASE_URL',
-    defaultValue: 'https://mini-rs-erp-test.wspace.sbs',
-  );
+  static const String compiledBaseUrl = ServerEndpointStore.compiledBaseUrl;
+
+  static String get baseUrl => ServerEndpointStore.instance.baseUrl;
 
   Map<String, String> _headers(String token) {
     return {'Authorization': 'Bearer $token'};
   }
 
   Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) {
-    if (NativeIrohTransport.hasEndpointTicket) {
+    if (NativeIrohTransport.hasEndpointTicket &&
+        !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'GET',
         uri: uri,
@@ -115,7 +117,8 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    if (NativeIrohTransport.hasEndpointTicket) {
+    if (NativeIrohTransport.hasEndpointTicket &&
+        !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'POST',
         uri: uri,
@@ -131,7 +134,8 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    if (NativeIrohTransport.hasEndpointTicket) {
+    if (NativeIrohTransport.hasEndpointTicket &&
+        !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'PUT',
         uri: uri,
@@ -147,7 +151,8 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    if (NativeIrohTransport.hasEndpointTicket) {
+    if (NativeIrohTransport.hasEndpointTicket &&
+        !ServerEndpointStore.instance.isRuntimeOverride) {
       return NativeIrohTransport.send(
         method: 'DELETE',
         uri: uri,
@@ -156,6 +161,20 @@ class MobileApi {
       );
     }
     return http.delete(uri, headers: headers, body: body);
+  }
+
+  Future<http.Response> _directGet(Uri uri) {
+    return http.get(uri).timeout(const Duration(seconds: 7));
+  }
+
+  Future<http.Response> _directPost(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    return http
+        .post(uri, headers: headers, body: body)
+        .timeout(const Duration(seconds: 7));
   }
 
   String requireToken() {
@@ -200,6 +219,12 @@ class MobileApi {
   }
 
   Future<http.StreamedResponse> _sendMultipartAuthorized(
+    Future<http.StreamedResponse> Function() send,
+  ) async {
+    return _sendStreamedAuthorized(send);
+  }
+
+  Future<http.StreamedResponse> _sendStreamedAuthorized(
     Future<http.StreamedResponse> Function() send,
   ) async {
     final http.StreamedResponse response = await send();

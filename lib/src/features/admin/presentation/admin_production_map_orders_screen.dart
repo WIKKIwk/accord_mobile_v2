@@ -64,6 +64,7 @@ part 'admin_production_map_orders_apparatus_picker.dart';
 part 'admin_production_map_orders_opened_widgets.dart';
 part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
+part 'admin_production_map_orders_sequence_assignment_sheet.dart';
 part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';
@@ -407,6 +408,20 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
+  Future<void> _showSupplyRawMaterialAssignment(
+    ProductionMapSaved order,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _SequenceRawMaterialAssignmentSheet(
+        order: order,
+      ),
+    );
+  }
+
   Future<void> _showOrderActions(ProductionMapSaved order) async {
     if (widget.readOnly ||
         widget.workerMode ||
@@ -621,6 +636,7 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
+    final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
     final supplyDrawer = switch (role) {
       UserRole.qolipchi => QolipNavigationDrawer(
           selectedIndex: 0,
@@ -779,9 +795,10 @@ class _AdminProductionMapOrdersScreenState
                       },
                       onMove: _moveOrdersBetweenApparatus,
                       onInfoOrder: _showOrderDetail,
-                      onInfoSequenceOrder: widget.supplyViewerMode
-                          ? null
-                          : _showWatchOrderDetail,
+                      onInfoSequenceOrder:
+                          widget.supplyViewerMode && !isMaterialTaminotchi
+                              ? null
+                              : _showWatchOrderDetail,
                       customerNameByMapId: _customerByMapId,
                       queueStatesByApparatus: _queueStatesByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,
@@ -792,7 +809,11 @@ class _AdminProductionMapOrdersScreenState
                       onRefreshWorkflowAudit: () =>
                           _refreshWorkflowAudit(force: true),
                       onLongPressOrder: (order) {
-                        unawaited(_showOrderActions(order));
+                        unawaited(
+                          widget.supplyViewerMode && isMaterialTaminotchi
+                              ? _showSupplyRawMaterialAssignment(order)
+                              : _showOrderActions(order),
+                        );
                       },
                     ),
     );

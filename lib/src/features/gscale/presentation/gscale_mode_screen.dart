@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../gscale_mobile_app.dart';
 import '../../../app/app_router.dart';
 import '../../../core/session/session.dart';
@@ -48,6 +50,37 @@ class _MaterialGScaleControlScreenState
   UsbPrinterProfile? _offlinePrinter;
   BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
+  bool _deviceNeedsAttention = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreLastPrintDevice());
+  }
+
+  Future<void> _restoreLastPrintDevice() async {
+    final saved = await loadLastPrintDevice();
+    if (saved == null) {
+      return;
+    }
+    final selection = await restoreLastPrintDevice(saved);
+    if (!mounted) {
+      return;
+    }
+    if (selection == null) {
+      setState(() {
+        _deviceNeedsAttention = true;
+      });
+      return;
+    }
+    setState(() {
+      _printTransport = selection.transport;
+      _offlinePrinter = selection.offlinePrinter;
+      _bluetoothPrinter = selection.bluetoothPrinter;
+      _selectedServer = selection.server;
+      _deviceNeedsAttention = false;
+    });
+  }
 
   Future<void> _applyDeviceSelection(PrintDeviceSelection selection) async {
     if (!mounted) {
@@ -55,24 +88,21 @@ class _MaterialGScaleControlScreenState
     }
     setState(() {
       _printTransport = selection.transport;
-      if (selection.offlinePrinter != null) {
-        _offlinePrinter = selection.offlinePrinter;
-      }
-      if (selection.bluetoothPrinter != null) {
-        _bluetoothPrinter = selection.bluetoothPrinter;
-      }
-      if (selection.server != null) {
-        _selectedServer = selection.server;
-      }
+      _offlinePrinter = selection.offlinePrinter;
+      _bluetoothPrinter = selection.bluetoothPrinter;
+      _selectedServer = selection.server;
+      _deviceNeedsAttention = false;
     });
+    await saveLastPrintDevice(selection);
   }
 
   void _clearSelectedServer() {
-    if (!mounted || _selectedServer == null) {
+    if (!mounted) {
       return;
     }
     setState(() {
       _selectedServer = null;
+      _deviceNeedsAttention = true;
     });
   }
 
@@ -108,7 +138,7 @@ class _MaterialGScaleControlScreenState
       actions: [
         IconButton(
           onPressed: () => _openServerPicker(),
-          icon: const Icon(Icons.add_link_rounded),
+          icon: DevicePickerIcon(attention: _deviceNeedsAttention),
           tooltip: 'Printer yoki tarozi tanlash',
         ),
       ],
@@ -120,6 +150,7 @@ class _MaterialGScaleControlScreenState
         printTransport: _printTransport,
         offlinePrinter: _offlinePrinter,
         bluetoothPrinter: _bluetoothPrinter,
+        deviceNeedsAttention: _deviceNeedsAttention,
         onExitMode: () async {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();

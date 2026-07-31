@@ -187,6 +187,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<bool> _loadMaterialAssignments({bool showLoading = true}) async {
     final orderId = widget.order.map.id.trim();
     final apparatus = widget.apparatus?.name.trim() ?? '';
+    final isMaterialTaminotchi =
+        AppSession.instance.profile?.role == UserRole.materialTaminotchi;
     if (showLoading && mounted) {
       setState(() {
         _materialsLoading = true;
@@ -198,9 +200,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       var startAssignments = const <AdminRawMaterialAssignment>[];
       var intakeCandidates = const <AdminRawMaterialAssignment>[];
       AdminRawMaterialStartRequirements? requirements;
-      if (apparatus.isEmpty) {
+      if (apparatus.isEmpty || isMaterialTaminotchi) {
         assignments = await MobileApi.instance.adminRawMaterialAssignments(
           orderId: orderId,
+          apparatus: apparatus,
         );
       } else {
         final queueState = apparatusQueueOrderStateFromRaw(
@@ -218,6 +221,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         } else {
           assignments = await MobileApi.instance.adminRawMaterialAssignments(
             orderId: orderId,
+            apparatus: apparatus,
           );
           if (queueState == ApparatusQueueOrderState.inProgress ||
               queueState == ApparatusQueueOrderState.paused) {

@@ -64,6 +64,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Backupni yuklab olish'), findsOneWidget);
+    expect(find.text('Bugun yana backup olish'), findsOneWidget);
     Navigator.of(tester.element(find.text('Backupni yuklab olish'))).pop();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -75,8 +76,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Backup olish'), findsWidgets);
+    expect(find.text('Bu kun uchun backup yo‘q'), findsOneWidget);
     expect(find.byKey(const ValueKey('server-backup-start-confirm')),
-        findsOneWidget);
+        findsNothing);
   });
 }

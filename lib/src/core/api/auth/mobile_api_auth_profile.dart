@@ -14,14 +14,36 @@ extension MobileApiAuthProfile on MobileApi {
     required String phone,
     required String code,
   }) async {
-    final http.Response response = await _post(
-      Uri.parse('$baseUrl/v1/mobile/auth/login'),
+    final result = await _loginAt(
+      targetBaseUrl: baseUrl,
+      phone: phone,
+      code: code,
+    );
+    await AppSession.instance.setSession(
+      token: result.token,
+      profile: result.profile,
+      werkaHomeBootstrap: result.werkaHome,
+    );
+    await _storeLoginCredentials(phone: phone, code: code);
+    return result.profile;
+  }
+
+  Future<_MobileLoginResult> _loginAt({
+    required String targetBaseUrl,
+    required String phone,
+    required String code,
+    bool directTransport = false,
+  }) async {
+    final uri = Uri.parse('$targetBaseUrl/v1/mobile/auth/login');
+    final request = directTransport ? _directPost : _post;
+    final http.Response response = await request(
+      uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phone': phone, 'code': code}),
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Login failed');
+      throw _MobileLoginException(response.statusCode);
     }
 
     final Map<String, dynamic> json =
@@ -46,15 +68,23 @@ extension MobileApiAuthProfile on MobileApi {
             json['werka_home'] is Map<String, dynamic>
         ? WerkaHomeData.fromJson(json['werka_home'] as Map<String, dynamic>)
         : null;
-    await AppSession.instance.setSession(
+    if (token.trim().isEmpty) {
+      throw _MobileLoginException(response.statusCode);
+    }
+    return _MobileLoginResult(
       token: token,
       profile: profile,
-      werkaHomeBootstrap: werkaHome,
+      werkaHome: werkaHome,
     );
+  }
+
+  Future<void> _storeLoginCredentials({
+    required String phone,
+    required String code,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(MobileApi._lastPhoneKey, phone);
     await prefs.setString(MobileApi._lastCodeKey, code);
-    return profile;
   }
 
   Future<void> registerPushToken({
@@ -202,4 +232,22 @@ extension MobileApiAuthProfile on MobileApi {
     }
     return SessionProfile.fromJson(json);
   }
+}
+
+class _MobileLoginResult {
+  const _MobileLoginResult({
+    required this.token,
+    required this.profile,
+    required this.werkaHome,
+  });
+
+  final String token;
+  final SessionProfile profile;
+  final WerkaHomeData? werkaHome;
+}
+
+class _MobileLoginException implements Exception {
+  const _MobileLoginException(this.statusCode);
+
+  final int statusCode;
 }

@@ -2753,6 +2753,10 @@ class AdminRawMaterialAssignmentCandidate {
     required this.qty,
     required this.uom,
     required this.apparatusOptions,
+    this.orderWidthMm,
+    this.rollWidthMm,
+    this.leftoverWidthMm,
+    this.matchType = 'compatible',
   });
 
   final String barcode;
@@ -2763,10 +2767,15 @@ class AdminRawMaterialAssignmentCandidate {
   final double qty;
   final String uom;
   final List<String> apparatusOptions;
+  final double? orderWidthMm;
+  final double? rollWidthMm;
+  final double? leftoverWidthMm;
+  final String matchType;
 
   factory AdminRawMaterialAssignmentCandidate.fromJson(
     Map<String, dynamic> json,
   ) {
+    final matchType = json['match_type']?.toString().trim() ?? '';
     return AdminRawMaterialAssignmentCandidate(
       barcode: json['barcode']?.toString() ?? '',
       warehouse: json['warehouse']?.toString() ?? '',
@@ -2779,6 +2788,10 @@ class AdminRawMaterialAssignmentCandidate {
           .map((item) => item.toString().trim())
           .where((item) => item.isNotEmpty)
           .toList(growable: false),
+      orderWidthMm: (json['order_width_mm'] as num?)?.toDouble(),
+      rollWidthMm: (json['roll_width_mm'] as num?)?.toDouble(),
+      leftoverWidthMm: (json['leftover_width_mm'] as num?)?.toDouble(),
+      matchType: matchType.isEmpty ? 'compatible' : matchType,
     );
   }
 }
@@ -3886,7 +3899,7 @@ extension MobileApiAdmin on MobileApi {
   Future<AdminServerMonitorBackupSnapshot> adminStartBackup() async {
     if (await TestModeController.instance.isEnabled()) {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final id = 'test-backup-$now';
+      final id = 'test-backup-$now-${_testModeBackupSnapshots.length}';
       final ready = AdminServerMonitorBackupSnapshot(
         id: id,
         status: 'ready',
@@ -3936,6 +3949,117 @@ extension MobileApiAdmin on MobileApi {
         code: payload['error']?.toString() ?? 'backup_start_failed',
         message: _backupErrorMessage(payload['error']?.toString() ?? ''),
         statusCode: response.statusCode,
+      );
+    }
+    return AdminServerMonitorBackupSnapshot.fromJson(payload);
+  }
+
+  Future<AdminServerMonitorBackupSnapshot> adminImportBackup({
+    required String filename,
+    required int contentLength,
+    required Stream<List<int>> Function() openStream,
+    void Function(int received, int total)? onProgress,
+  }) async {
+    final normalizedFilename = filename.trim();
+    if (normalizedFilename.isEmpty ||
+        contentLength <= 0 ||
+        !normalizedFilename.toLowerCase().endsWith('.dump')) {
+      throw const MobileApiException(
+        code: 'backup_import_invalid',
+        message: 'Backup fayli noto‘g‘ri',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      var received = 0;
+      await for (final chunk in openStream()) {
+        received += chunk.length;
+        onProgress?.call(received, contentLength);
+      }
+      if (received != contentLength) {
+        throw const MobileApiException(
+          code: 'backup_import_invalid',
+          message: 'Backup fayli to‘liq o‘qilmadi',
+        );
+      }
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final id = 'test-import-$now-${_testModeBackupSnapshots.length}';
+      final ready = AdminServerMonitorBackupSnapshot(
+        id: id,
+        status: 'ready',
+        source: 'imported',
+        requestedBy: AppSession.instance.profile?.displayName ?? 'Admin',
+        createdAtUnix: now,
+        startedAtUnix: now,
+        completedAtUnix: now,
+        sizeBytes: contentLength,
+        artifactName: normalizedFilename,
+        checksumSha256: List<String>.filled(64, 'c').join(),
+        verified: true,
+        error: '',
+      );
+      _testModeBackupSnapshots.insert(0, ready);
+      return ready;
+    }
+
+    final response = await _sendStreamedAuthorized(() async {
+      final request = http.StreamedRequest(
+        'POST',
+        Uri.parse('$baseUrl/v1/mobile/admin/system/backups/import'),
+      )
+        ..headers.addAll(_headers(requireToken()))
+        ..headers['Content-Type'] = 'application/octet-stream'
+        ..headers['X-Backup-Filename'] = normalizedFilename
+        ..contentLength = contentLength;
+      // Start the request before closing the sink. StreamedRequest.close() may
+      // wait for a listener, so awaiting close before send() deadlocks forever.
+      final responseFuture = request.send();
+      var received = 0;
+      try {
+        await request.sink.addStream(
+          openStream().map((chunk) {
+            received += chunk.length;
+            onProgress?.call(received, contentLength);
+            if (received > contentLength) {
+              throw const MobileApiException(
+                code: 'backup_import_invalid',
+                message: 'Backup fayli kutilgan hajmdan katta',
+              );
+            }
+            return chunk;
+          }),
+        );
+        if (received != contentLength) {
+          throw const MobileApiException(
+            code: 'backup_import_invalid',
+            message: 'Backup fayli to‘liq o‘qilmadi',
+          );
+        }
+        await request.sink.close();
+      } catch (_) {
+        try {
+          await request.sink.close();
+        } catch (_) {
+          // Preserve the original upload error.
+        }
+        rethrow;
+      }
+      return responseFuture;
+    });
+    final body = await http.Response.fromStream(response);
+    Map<String, dynamic> payload = const {};
+    if (body.body.trim().isNotEmpty) {
+      try {
+        payload = jsonDecode(body.body) as Map<String, dynamic>;
+      } catch (_) {
+        payload = const {};
+      }
+    }
+    if (body.statusCode != 202) {
+      final code = payload['error']?.toString() ?? 'backup_import_failed';
+      throw MobileApiException(
+        code: code,
+        message: _backupErrorMessage(code),
+        statusCode: body.statusCode,
       );
     }
     return AdminServerMonitorBackupSnapshot.fromJson(payload);
@@ -4009,6 +4133,14 @@ extension MobileApiAdmin on MobileApi {
       'backup_not_ready' => 'Backup hali yuklab olishga tayyor emas',
       'backup_not_found' => 'Backup topilmadi',
       'backup_download_failed' => 'Backup yuklab olinmadi',
+      'backup_import_invalid' =>
+        'Backup fayli noto‘g‘ri yoki qo‘llab-quvvatlanmaydi',
+      'backup_import_too_large' => 'Backup fayli juda katta',
+      'backup_import_upload_failed' => 'Backup serverga yuklanmadi',
+      'backup_import_upload_timeout' =>
+        'Backup yuklash uzoq vaqt javobsiz qoldi',
+      'backup_import_failed' => 'Backup import qilinmadi',
+      'backup_service_failed' => 'Backup xizmati xatolik berdi',
       _ => 'Backup olish boshlanmadi',
     };
   }

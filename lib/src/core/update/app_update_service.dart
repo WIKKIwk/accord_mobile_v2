@@ -33,7 +33,7 @@ class AppUpdateService {
         _platform = platform ?? const NativeAppUpdatePlatform(),
         _temporaryDirectoryProvider =
             temporaryDirectoryProvider ?? getTemporaryDirectory,
-        _baseUri = baseUri ?? Uri.parse(MobileApi.baseUrl);
+        _baseUriOverride = baseUri;
 
   static final AppUpdateService instance = AppUpdateService();
   static const int _maximumManifestBytes = 128 * 1024;
@@ -42,7 +42,9 @@ class AppUpdateService {
   final http.Client _client;
   final AppUpdatePlatform _platform;
   final TemporaryDirectoryProvider _temporaryDirectoryProvider;
-  final Uri _baseUri;
+  final Uri? _baseUriOverride;
+
+  Uri get _baseUri => _baseUriOverride ?? Uri.parse(MobileApi.baseUrl);
 
   bool get isSupported => _platform.isSupported;
 

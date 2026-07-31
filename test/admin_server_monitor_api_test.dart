@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -70,6 +72,63 @@ void main() {
         'test-backup-bytes');
   });
 
+  test('admin can repeat today backup and import an exported dump', () async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+    addTearDown(() async {
+      resetMobileApiTestModeData();
+      await TestModeController.instance.setEnabled(false);
+    });
+
+    final first = await MobileApi.instance.adminStartBackup();
+    final second = await MobileApi.instance.adminStartBackup();
+    expect(first.id, isNot(second.id));
+
+    final imported = await MobileApi.instance.adminImportBackup(
+      filename: 'mini_rs_erp.dump',
+      contentLength: 13,
+      openStream: () => Stream<List<int>>.value(
+        utf8.encode('exported-dump'),
+      ),
+    );
+    final report = await MobileApi.instance.adminServerMonitor();
+
+    expect(imported.source, 'imported');
+    expect(
+      report.backups.snapshots.any(
+        (snapshot) => snapshot.id == imported.id && snapshot.ready,
+      ),
+      isTrue,
+    );
+  });
+
+  test('admin import starts the streamed request before closing its body',
+      () async {
+    await TestModeController.instance.setEnabled(false);
+    AppSession.instance.token = 'token';
+    addTearDown(() async {
+      AppSession.instance.token = null;
+      await TestModeController.instance.setEnabled(false);
+    });
+
+    final client = _RecordingBackupImportClient();
+    final imported = await http.runWithClient(
+      () => MobileApi.instance
+          .adminImportBackup(
+            filename: 'mobile-export.dump',
+            contentLength: 13,
+            openStream: () => Stream<List<int>>.value(
+              utf8.encode('exported-dump'),
+            ),
+          )
+          .timeout(const Duration(seconds: 1)),
+      () => client,
+    );
+
+    expect(imported.id, 'import-1');
+    expect(client.receivedBody, utf8.encode('exported-dump'));
+  });
+
   test('live stream watchdog fails silent streams so screen reconnects',
       () async {
     final controller = StreamController<int>();
@@ -93,4 +152,32 @@ void main() {
     expect(event.report, isNull);
     expect(event.latencyMs, 42);
   });
+}
+
+class _RecordingBackupImportClient extends http.BaseClient {
+  List<int>? receivedBody;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    receivedBody = await request.finalize().toBytes();
+    final body = jsonEncode({
+      'id': 'import-1',
+      'status': 'queued',
+      'source': 'imported',
+      'requested_by': 'Admin',
+      'created_at_unix': 1,
+      'started_at_unix': 0,
+      'completed_at_unix': 0,
+      'size_bytes': 0,
+      'artifact_name': 'mobile-export.dump',
+      'checksum_sha256': '',
+      'verified': false,
+      'error': '',
+    });
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode(body)),
+      202,
+      contentLength: utf8.encode(body).length,
+    );
+  }
 }

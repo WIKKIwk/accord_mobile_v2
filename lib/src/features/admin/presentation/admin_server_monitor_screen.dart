@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'widgets/admin_shell.dart';
 
@@ -33,6 +34,11 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   bool _startingBackup = false;
   String? _downloadingBackupId;
   double _downloadProgress = 0;
+  bool _importingBackup = false;
+  double _importProgress = 0;
+  final TextEditingController _serverEndpointController =
+      TextEditingController(text: MobileApi.baseUrl);
+  bool _switchingServer = false;
 
   @override
   void initState() {
@@ -45,6 +51,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   void dispose() {
     _liveGeneration++;
     unawaited(_liveSubscription?.cancel());
+    _serverEndpointController.dispose();
     super.dispose();
   }
 
@@ -53,16 +60,131 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     _startLiveStream();
   }
 
-  Future<void> _openBackupDay(_BackupDay day) async {
-    unawaited(HapticFeedback.mediumImpact());
-    final ready = day.snapshots.where((snapshot) => snapshot.ready).toList()
-      ..sort(
-        (left, right) => right.completedAtUnix.compareTo(left.completedAtUnix),
-      );
-    if (ready.isNotEmpty) {
-      await _showReadyBackups(day, ready);
+  Future<void> _stopLiveStream() async {
+    _liveGeneration++;
+    final subscription = _liveSubscription;
+    _liveSubscription = null;
+    await subscription?.cancel();
+    if (mounted) {
+      setState(() => _liveConnected = false);
+    }
+  }
+
+  Future<void> _switchServerEndpoint() async {
+    if (_switchingServer) {
       return;
     }
+    final raw = _serverEndpointController.text.trim();
+    if (raw.isEmpty) {
+      _showNotice('ERP domenini kiriting');
+      return;
+    }
+
+    setState(() => _switchingServer = true);
+    await _stopLiveStream();
+    try {
+      final result = await MobileApi.instance.switchServerEndpoint(raw);
+      if (!mounted) {
+        return;
+      }
+      switch (result.status) {
+        case MobileServerSwitchStatus.switched:
+          _serverEndpointController.text = result.baseUrl;
+          setState(() {
+            _report = null;
+            _loading = true;
+            _error = null;
+            _latencySamples.clear();
+          });
+          _showNotice('Mini RS ERP topildi va server almashtirildi');
+          await _loadSnapshot();
+          _startLiveStream();
+          return;
+        case MobileServerSwitchStatus.alreadyActive:
+          _serverEndpointController.text = result.baseUrl;
+          _showNotice('Bu domen allaqachon faol');
+          await _loadSnapshot();
+          _startLiveStream();
+          return;
+        case MobileServerSwitchStatus.credentialsNotFound:
+          final confirmed = await _confirmMissingCredentials(result.baseUrl);
+          if (!mounted) {
+            return;
+          }
+          if (confirmed) {
+            await MobileApi.instance.confirmServerEndpointWithoutLogin(
+              result.baseUrl,
+            );
+            if (!mounted) {
+              return;
+            }
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRoutes.login,
+              (route) => false,
+            );
+          } else {
+            _startLiveStream();
+          }
+          return;
+        case MobileServerSwitchStatus.invalidEndpoint:
+          _showNotice(
+            'Domen noto‘g‘ri. Masalan: https://erp.example.com',
+          );
+          _startLiveStream();
+          return;
+        case MobileServerSwitchStatus.notMiniRsErp:
+          _showNotice('Bu domen Mini RS ERP serveri emas');
+          _startLiveStream();
+          return;
+        case MobileServerSwitchStatus.unavailable:
+          _showNotice('Bu domen bilan serverga ulanib bo‘lmadi');
+          _startLiveStream();
+          return;
+      }
+    } catch (error) {
+      if (mounted) {
+        _showNotice('Server almashtirilmadi: $error');
+        _startLiveStream();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _switchingServer = false);
+      }
+    }
+  }
+
+  Future<bool> _confirmMissingCredentials(String baseUrl) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.person_off_outlined),
+          title: const Text('Login bu domenda topilmadi'),
+          content: Text(
+            'Sizning hozirgi login raqamingiz va kodingiz $baseUrl domenidagi '
+            'Mini RS ERP’da mavjud emas. Domenni tekshirib ko‘ring.\n\n'
+            'Tasdiqlasangiz, hozirgi tizimdan chiqib, yangi domenning login '
+            'oynasiga o‘tasiz.',
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              key: const ValueKey('server-endpoint-logout-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Ha, chiqish'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _openBackupDay(_BackupDay day) async {
+    unawaited(HapticFeedback.mediumImpact());
     AdminServerMonitorBackupSnapshot? active;
     for (final snapshot in day.snapshots) {
       if (snapshot.running) {
@@ -74,6 +196,14 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       await _showBackupStatus(active);
       return;
     }
+    final ready = day.snapshots.where((snapshot) => snapshot.ready).toList()
+      ..sort(
+        (left, right) => right.completedAtUnix.compareTo(left.completedAtUnix),
+      );
+    if (ready.isNotEmpty) {
+      await _showReadyBackups(day, ready);
+      return;
+    }
     AdminServerMonitorBackupSnapshot? failed;
     for (final snapshot in day.snapshots) {
       if (snapshot.status == 'failed') {
@@ -81,7 +211,11 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         break;
       }
     }
-    await _confirmAndStartBackup(day.date, failed: failed);
+    if (day.isToday) {
+      await _confirmAndStartBackup(day.date, failed: failed);
+      return;
+    }
+    await _showUnavailablePastBackup(day.date);
   }
 
   Future<void> _showReadyBackups(
@@ -156,8 +290,45 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+              if (day.isToday) ...[
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  key: const ValueKey('server-backup-start-another'),
+                  onPressed: _startingBackup
+                      ? null
+                      : () {
+                          Navigator.of(sheetContext).pop();
+                          unawaited(_confirmAndStartBackup(day.date));
+                        },
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  label: const Text('Bugun yana backup olish'),
+                ),
+              ],
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showUnavailablePastBackup(DateTime day) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.history_rounded),
+          title: const Text('Bu kun uchun backup yo‘q'),
+          content: Text(
+            '${_formatBackupDay(day)} kunidagi database holati saqlanmagan. '
+            'O‘tgan holatni bugun qayta yaratib bo‘lmaydi. '
+            'Bugungi holat uchun esa alohida yangi backup olishingiz mumkin.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Tushunarli'),
+            ),
+          ],
         );
       },
     );
@@ -177,7 +348,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Backup tayyorlanmoqda',
+                snapshot.source == 'imported'
+                    ? 'Backup import qilinmoqda'
+                    : 'Backup tayyorlanmoqda',
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -199,7 +372,10 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   }) async {
     final today = DateUtils.dateOnly(DateTime.now());
     final selected = DateUtils.dateOnly(selectedDay);
-    final isToday = selected == today;
+    if (selected != today) {
+      await _showUnavailablePastBackup(selectedDay);
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -209,9 +385,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
           content: Text(
             failed != null && failed.error.isNotEmpty
                 ? '${failed.error}\n\nYangi backup hozirgi database holatidan olinsinmi?'
-                : isToday
-                    ? 'Database’ning hozirgi holatidan backup olinsinmi?'
-                    : 'Bu sana uchun backup yo‘q. O‘tgan holatni qayta yaratib bo‘lmaydi. Yangi backup hozirgi database holatidan olinadi.',
+                : 'Database’ning hozirgi holatidan backup olinsinmi?',
           ),
           actions: [
             OutlinedButton(
@@ -293,6 +467,115 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         setState(() {
           _downloadingBackupId = null;
           _downloadProgress = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _importBackup() async {
+    if (_importingBackup) {
+      return;
+    }
+    final result = await FilePicker.platform.pickFiles(
+      // Some iOS document providers do not expose unknown PostgreSQL
+      // extensions as a selectable custom UTI. Pick the file first and apply
+      // the .dump validation below in the app.
+      type: FileType.any,
+      withData: kIsWeb,
+    );
+    if (result == null || result.files.isEmpty || !mounted) {
+      return;
+    }
+    final picked = result.files.single;
+    final filename = picked.name.trim();
+    if (!filename.toLowerCase().endsWith('.dump')) {
+      _showNotice('Faqat PostgreSQL .dump backup fayli import qilinadi');
+      return;
+    }
+    final source = picked.bytes != null
+        ? XFile.fromData(picked.bytes!, name: filename)
+        : picked.path == null
+            ? null
+            : XFile(picked.path!);
+    if (source == null) {
+      _showNotice('Backup fayliga kirish imkoni bo‘lmadi');
+      return;
+    }
+    final contentLength = picked.size > 0 ? picked.size : await source.length();
+    if (!mounted) {
+      return;
+    }
+    if (contentLength <= 0) {
+      _showNotice('Backup fayli bo‘sh');
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.restore_rounded),
+          title: const Text('Backupni import qilish'),
+          content: Text(
+            '$filename serverga yuboriladi va serverdagi PostgreSQL '
+            'ma’lumotlari shu backup holatiga qaytariladi. Davom etilsinmi?',
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              key: const ValueKey('server-backup-import-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Import qilish'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() {
+      _importingBackup = true;
+      _importProgress = 0;
+    });
+    _showNotice('Backup serverga yuborilmoqda…');
+    try {
+      await MobileApi.instance.adminImportBackup(
+        filename: filename,
+        contentLength: contentLength,
+        openStream: source.openRead,
+        onProgress: (received, total) {
+          if (!mounted || total <= 0) {
+            return;
+          }
+          setState(() {
+            _importProgress = (received / total).clamp(0, 1);
+          });
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      // The API returns after the upload is durably staged and the restore job
+      // is queued. Do not keep the import button blocked while a monitor
+      // refresh waits on a slow network or database response.
+      setState(() {
+        _importingBackup = false;
+        _importProgress = 0;
+      });
+      _showNotice('Backup qabul qilindi, server restore jarayoni boshlandi');
+      unawaited(_loadSnapshot());
+    } catch (error) {
+      if (mounted) {
+        _showNotice(_backupActionError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _importingBackup = false;
+          _importProgress = 0;
         });
       }
     }
@@ -483,14 +766,35 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
 
   Widget _buildBody(BuildContext context) {
     final report = _report;
+    final endpointPanel = _ServerEndpointPanel(
+      controller: _serverEndpointController,
+      currentBaseUrl: MobileApi.baseUrl,
+      busy: _switchingServer,
+      onSubmit: _switchServerEndpoint,
+    );
     if (_loading && report == null) {
-      return const Center(child: AppLoadingIndicator());
+      return Column(
+        children: [
+          endpointPanel,
+          const Expanded(child: Center(child: AppLoadingIndicator())),
+        ],
+      );
     }
     if (_error != null && report == null) {
-      return AppRetryState(onRetry: _reload);
+      return Column(
+        children: [
+          endpointPanel,
+          Expanded(child: AppRetryState(onRetry: _reload)),
+        ],
+      );
     }
     if (report == null) {
-      return AppRetryState(onRetry: _reload);
+      return Column(
+        children: [
+          endpointPanel,
+          Expanded(child: AppRetryState(onRetry: _reload)),
+        ],
+      );
     }
 
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 128;
@@ -499,14 +803,18 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(4, 8, 4, bottomPadding),
         children: [
+          endpointPanel,
+          const SizedBox(height: 10),
           _StatusSummaryPanel(
             report: report,
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
             latencySamples: _latencySamples,
             onBackupDayPressed: _openBackupDay,
+            onImportBackup: _importBackup,
             backupDownloadProgress:
                 _downloadingBackupId == null ? null : _downloadProgress,
+            backupImportProgress: _importingBackup ? _importProgress : null,
           ),
           if (_error != null) ...[
             const SizedBox(height: 10),
@@ -523,6 +831,86 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   }
 }
 
+class _ServerEndpointPanel extends StatelessWidget {
+  const _ServerEndpointPanel({
+    required this.controller,
+    required this.currentBaseUrl,
+    required this.busy,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final String currentBaseUrl;
+  final bool busy;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'ERP serverini almashtirish',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Build domeni saqlanadi. Yangi domen shu yerda tekshiriladi va '
+              'Mini RS ERP bo‘lsa faol serverga almashtiriladi.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Hozirgi server: $currentBaseUrl',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('server-endpoint-input'),
+              controller: controller,
+              enabled: !busy,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onSubmit(),
+              decoration: const InputDecoration(
+                labelText: 'Yangi ERP domeni',
+                hintText: 'https://erp.example.com',
+                prefixIcon: Icon(Icons.language_rounded),
+              ),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              key: const ValueKey('server-endpoint-switch'),
+              onPressed: busy ? null : onSubmit,
+              icon: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.swap_horiz_rounded),
+              label: Text(
+                busy
+                    ? 'Server tekshirilmoqda…'
+                    : 'Domenni tekshirish va ulanish',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StatusSummaryPanel extends StatelessWidget {
   const _StatusSummaryPanel({
     required this.report,
@@ -530,7 +918,9 @@ class _StatusSummaryPanel extends StatelessWidget {
     required this.lastUpdated,
     required this.latencySamples,
     required this.onBackupDayPressed,
+    required this.onImportBackup,
     required this.backupDownloadProgress,
+    required this.backupImportProgress,
   });
 
   final AdminServerMonitorReport report;
@@ -538,7 +928,9 @@ class _StatusSummaryPanel extends StatelessWidget {
   final DateTime? lastUpdated;
   final List<int> latencySamples;
   final ValueChanged<_BackupDay> onBackupDayPressed;
+  final VoidCallback onImportBackup;
   final double? backupDownloadProgress;
+  final double? backupImportProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -654,9 +1046,24 @@ class _StatusSummaryPanel extends StatelessWidget {
               backups: report.backups,
               onDayPressed: onBackupDayPressed,
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const ValueKey('server-backup-import'),
+              onPressed: backupImportProgress == null ? onImportBackup : null,
+              icon: const Icon(Icons.file_upload_outlined),
+              label: Text(
+                backupImportProgress == null
+                    ? 'Backupni import qilish'
+                    : 'Backup import qilinmoqda…',
+              ),
+            ),
             if (backupDownloadProgress != null) ...[
               const SizedBox(height: 8),
               LinearProgressIndicator(value: backupDownloadProgress),
+            ],
+            if (backupImportProgress != null) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(value: backupImportProgress),
             ],
             const SizedBox(height: 12),
             _KeyValueLine(
@@ -1883,6 +2290,7 @@ String _backupSourceLabel(String source) {
     'automatic' => 'Avtomatik',
     'manual' => 'Qo‘lda',
     'legacy' => 'Avvalgi',
+    'imported' => 'Import qilingan',
     _ => 'Backup Doctor',
   };
 }

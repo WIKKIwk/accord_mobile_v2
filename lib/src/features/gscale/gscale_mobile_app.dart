@@ -45,6 +45,7 @@ const _enableAutomaticSubnetSweep = false;
 const _lastServerKey = 'last_server_base_url';
 const _cachedServersKey = 'cached_servers_v1';
 const _controlDraftKey = 'operator_control_draft_v1';
+const _lastPrintDeviceKey = 'gscale_last_print_device_v1';
 const _defaultWifiServerAddress = 'http://gscale.local:39117';
 const _platformDiscoveryTimeout = Duration(milliseconds: 900);
 const _bonjourDiscoveryChannel = MethodChannel('gscale/bonjour');
@@ -81,6 +82,162 @@ class PrintDeviceSelection {
   final DiscoveredServer? server;
   final UsbPrinterProfile? offlinePrinter;
   final BluetoothPrinterProfile? bluetoothPrinter;
+}
+
+class SavedPrintDevice {
+  const SavedPrintDevice({
+    required this.transport,
+    this.serverBaseUrl = '',
+    this.serverName = '',
+    this.serverDisplayName = '',
+    this.serverRole = '',
+    this.serverRef = '',
+    this.bluetoothName = '',
+    this.bluetoothAddress = '',
+    this.usbKind = '',
+    this.usbDeviceName = '',
+    this.usbVendorId = 0,
+    this.usbProductId = 0,
+    this.usbManufacturerName = '',
+    this.usbProductName = '',
+  });
+
+  final PrintTransport transport;
+  final String serverBaseUrl;
+  final String serverName;
+  final String serverDisplayName;
+  final String serverRole;
+  final String serverRef;
+  final String bluetoothName;
+  final String bluetoothAddress;
+  final String usbKind;
+  final String usbDeviceName;
+  final int usbVendorId;
+  final int usbProductId;
+  final String usbManufacturerName;
+  final String usbProductName;
+
+  static SavedPrintDevice? fromSelection(PrintDeviceSelection selection) {
+    switch (selection.transport) {
+      case PrintTransport.wifi:
+        final server = selection.server;
+        if (server == null) {
+          return null;
+        }
+        return SavedPrintDevice(
+          transport: PrintTransport.wifi,
+          serverBaseUrl: server.endpoint.baseUrl,
+          serverName: server.handshake.serverName,
+          serverDisplayName: server.handshake.displayName,
+          serverRole: server.handshake.role,
+          serverRef: server.handshake.serverRef,
+        );
+      case PrintTransport.bluetooth:
+        final printer = selection.bluetoothPrinter;
+        if (printer == null || printer.address.trim().isEmpty) {
+          return null;
+        }
+        return SavedPrintDevice(
+          transport: PrintTransport.bluetooth,
+          bluetoothName: printer.name,
+          bluetoothAddress: printer.address,
+        );
+      case PrintTransport.offline:
+        final printer = selection.offlinePrinter;
+        if (printer == null) {
+          return null;
+        }
+        return SavedPrintDevice(
+          transport: PrintTransport.offline,
+          usbKind: printer.kind.apiValue,
+          usbDeviceName: printer.deviceName,
+          usbVendorId: printer.vendorId,
+          usbProductId: printer.productId,
+          usbManufacturerName: printer.manufacturerName,
+          usbProductName: printer.productName,
+        );
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'transport': transport.apiValue,
+      'server_base_url': serverBaseUrl,
+      'server_name': serverName,
+      'server_display_name': serverDisplayName,
+      'server_role': serverRole,
+      'server_ref': serverRef,
+      'bluetooth_name': bluetoothName,
+      'bluetooth_address': bluetoothAddress,
+      'usb_kind': usbKind,
+      'usb_device_name': usbDeviceName,
+      'usb_vendor_id': usbVendorId,
+      'usb_product_id': usbProductId,
+      'usb_manufacturer_name': usbManufacturerName,
+      'usb_product_name': usbProductName,
+    };
+  }
+
+  static SavedPrintDevice? fromJson(Map<String, dynamic> json) {
+    final transport = switch (_text(json['transport']).toLowerCase()) {
+      'wifi' => PrintTransport.wifi,
+      'bluetooth' => PrintTransport.bluetooth,
+      'offline' => PrintTransport.offline,
+      _ => null,
+    };
+    if (transport == null) {
+      return null;
+    }
+    return SavedPrintDevice(
+      transport: transport,
+      serverBaseUrl: _text(json['server_base_url']),
+      serverName: _text(json['server_name']),
+      serverDisplayName: _text(json['server_display_name']),
+      serverRole: _text(json['server_role']),
+      serverRef: _text(json['server_ref']),
+      bluetoothName: _text(json['bluetooth_name']),
+      bluetoothAddress: _text(json['bluetooth_address']),
+      usbKind: _text(json['usb_kind']),
+      usbDeviceName: _text(json['usb_device_name']),
+      usbVendorId: _intValue(json['usb_vendor_id']) ?? 0,
+      usbProductId: _intValue(json['usb_product_id']) ?? 0,
+      usbManufacturerName: _text(json['usb_manufacturer_name']),
+      usbProductName: _text(json['usb_product_name']),
+    );
+  }
+}
+
+class DevicePickerIcon extends StatelessWidget {
+  const DevicePickerIcon({required this.attention, super.key});
+
+  final bool attention;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.add_link_rounded),
+        if (attention)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: DecoratedBox(
+              key: const ValueKey('gscale-device-attention'),
+              decoration: BoxDecoration(
+                color: scheme.error,
+                shape: BoxShape.circle,
+                border: Border.fromBorderSide(
+                  BorderSide(color: scheme.surface, width: 2),
+                ),
+              ),
+              child: const SizedBox(width: 10, height: 10),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 Future<void> selectOfflinePrintDevice(BuildContext context) async {
@@ -173,6 +330,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
   UsbPrinterProfile? _offlinePrinter;
   BluetoothPrinterProfile? _bluetoothPrinter;
   PrintTransport _printTransport = PrintTransport.wifi;
+  bool _deviceNeedsAttention = false;
 
   @override
   void initState() {
@@ -186,9 +344,30 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
       LocaleController.instance.load(),
       ThemeController.instance.load(),
     ]);
+    await _restoreLastPrintDevice();
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _restoreLastPrintDevice() async {
+    final saved = await loadLastPrintDevice();
+    if (saved == null) {
+      return;
+    }
+    final selection = await restoreLastPrintDevice(saved);
+    if (!mounted) {
+      return;
+    }
+    if (selection == null) {
+      _deviceNeedsAttention = true;
+      return;
+    }
+    _printTransport = selection.transport;
+    _offlinePrinter = selection.offlinePrinter;
+    _bluetoothPrinter = selection.bluetoothPrinter;
+    _selectedServer = selection.server;
+    _deviceNeedsAttention = false;
   }
 
   Future<void> _openServerPicker(BuildContext context) async {
@@ -205,24 +384,21 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
     }
     setState(() {
       _printTransport = selection.transport;
-      if (selection.offlinePrinter != null) {
-        _offlinePrinter = selection.offlinePrinter;
-      }
-      if (selection.bluetoothPrinter != null) {
-        _bluetoothPrinter = selection.bluetoothPrinter;
-      }
-      if (selection.server != null) {
-        _selectedServer = selection.server;
-      }
+      _deviceNeedsAttention = false;
+      _offlinePrinter = selection.offlinePrinter;
+      _bluetoothPrinter = selection.bluetoothPrinter;
+      _selectedServer = selection.server;
     });
+    await saveLastPrintDevice(selection);
   }
 
   void _clearSelectedServer() {
-    if (!mounted || _selectedServer == null) {
+    if (!mounted) {
       return;
     }
     setState(() {
       _selectedServer = null;
+      _deviceNeedsAttention = true;
     });
   }
 
@@ -240,6 +416,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
             printTransport: _printTransport,
             offlinePrinter: _offlinePrinter,
             bluetoothPrinter: _bluetoothPrinter,
+            deviceNeedsAttention: _deviceNeedsAttention,
             onExitMode: widget.onExitMode,
             onChangeServer: () => _openServerPicker(context),
             onServerUnavailable: _clearSelectedServer,
@@ -269,6 +446,7 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
                 printTransport: _printTransport,
                 offlinePrinter: _offlinePrinter,
                 bluetoothPrinter: _bluetoothPrinter,
+                deviceNeedsAttention: _deviceNeedsAttention,
                 onExitMode: widget.onExitMode,
                 onChangeServer: () => _openServerPicker(context),
                 onServerUnavailable: _clearSelectedServer,
@@ -684,6 +862,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.printTransport = PrintTransport.wifi,
     this.offlinePrinter,
     this.bluetoothPrinter,
+    this.deviceNeedsAttention = false,
     this.controlOnly = false,
     this.onServerUnavailable,
     this.rpsBatchStateLoader,
@@ -695,6 +874,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final PrintTransport printTransport;
   final UsbPrinterProfile? offlinePrinter;
   final BluetoothPrinterProfile? bluetoothPrinter;
+  final bool deviceNeedsAttention;
   final Future<void> Function() onExitMode;
   final Future<void> Function() onChangeServer;
   final bool controlOnly;
@@ -901,11 +1081,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final scheme = Theme.of(context).colorScheme;
     return ButtonStyle(
       padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       ),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       side: WidgetStatePropertyAll(
         BorderSide(color: scheme.outlineVariant, width: 1),
@@ -1349,6 +1530,10 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     return _defaultWarehouse.trim();
   }
 
+  bool get _warehouseIndependentOfItem {
+    return AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+  }
+
   void _applySnapshot(MonitorSnapshot snapshot) {
     final previous = _snapshot;
     final merged = mergeLiveMonitorWithRsBatch(snapshot, previous);
@@ -1554,7 +1739,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       _warehousesError = '';
     });
     try {
-      final warehouses = await _fetchWarehouses(itemCode: itemCode);
+      final warehouses = _warehouseIndependentOfItem
+          ? await _fetchAllWarehouses()
+          : await _fetchWarehouses(itemCode: itemCode);
       if (!mounted) {
         return;
       }
@@ -1658,7 +1845,9 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   void _selectItem(MobileItem item) {
     setState(() {
       _selectedItem = item;
-      _selectedWarehouse = null;
+      if (!_warehouseIndependentOfItem) {
+        _selectedWarehouse = null;
+      }
       _warehousesError = '';
     });
     _scheduleSaveControlPrefs();
@@ -1814,14 +2003,16 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       barrierColor: Colors.black.withValues(alpha: 0.32),
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) => M3AsyncPickerSheet<MobileWarehouse>(
-        title: 'Warehouse tanlang',
-        hintText: 'Warehouse qidiring',
+        title: 'Ombor tanlang',
+        hintText: 'Ombor qidiring',
         pageSize: 200,
         loadPage: (query, offset, limit) async {
-          final warehouses = await _fetchWarehouses(
-            itemCode: selectedItem.itemCode,
-            query: query,
-          );
+          final warehouses = _warehouseIndependentOfItem
+              ? await _fetchAllWarehouses(query: query)
+              : await _fetchWarehouses(
+                  itemCode: selectedItem.itemCode,
+                  query: query,
+                );
           return warehouses.skip(offset).take(limit).toList(growable: false);
         },
         itemTitle: (warehouse) => warehouse.warehouse,
@@ -1862,7 +2053,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     }
     final warehouse = _selectedPrintWarehouse();
     if (warehouse == null || warehouse.trim().isEmpty) {
-      throw Exception('Warehouse tanlang');
+      throw Exception('Ombor tanlang');
     }
     if (!await _materialWarehouseAllowed(warehouse)) {
       throw Exception('Bu ombor sizga biriktirilmagan');
@@ -2148,7 +2339,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   Widget _buildCurrentBatchPrints(ThemeData theme, ColorScheme scheme) {
     return ExpansionTile(
       key: const PageStorageKey<String>('current_batch_prints'),
-      initiallyExpanded: true,
+      initiallyExpanded: false,
       maintainState: true,
       tilePadding: EdgeInsets.zero,
       childrenPadding: EdgeInsets.zero,
@@ -2662,7 +2853,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           actions: [
             IconButton(
               onPressed: () => unawaited(widget.onChangeServer()),
-              icon: const Icon(Icons.add_link_rounded),
+              icon: DevicePickerIcon(attention: widget.deviceNeedsAttention),
               tooltip: 'Printer yoki tarozi tanlash',
             ),
             Padding(
@@ -2746,10 +2937,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (server == null) ...[
-          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
-          const SizedBox(height: 24),
-        ] else ...[
+        if (server != null) ...[
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -2783,7 +2971,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         const SizedBox(height: 28),
         const _SectionLabel(title: 'RS / ERP boshqaruvi', subtitle: ''),
         const SizedBox(height: 12),
-        const _MiniIconRow(icon: Icons.cloud_outlined, text: MobileApi.baseUrl),
+        _MiniIconRow(icon: Icons.cloud_outlined, text: MobileApi.baseUrl),
         const SizedBox(height: 10),
         Text(
           'ERP URL, API key, Stock Entry draft/submit va delete flow RS serverda '
@@ -2919,10 +3107,6 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        if (!widget.controlOnly && server == null) ...[
-          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
-          const SizedBox(height: 20),
-        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3175,22 +3359,75 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         ? 'Printer holati olinmoqda'
                         : 'Printer holati olinmadi'
                     : _snapshot.printerLabel;
+    final batchActionStyle = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      visualDensity: const VisualDensity(horizontal: -1, vertical: 0),
+    );
+    final batchActionTextStyle = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
-        if (!hasPrintDevice) ...[
-          _DeviceRequiredPanel(onSelectDevice: widget.onChangeServer),
-          const SizedBox(height: 18),
-        ],
-        if (!_rpsBatchStateResolved) ...[
-          Text(
-            'Batch holati serverdan tasdiqlanmoqda. Start, stop va print vaqtincha bloklangan.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+        const SizedBox(height: 8),
+        if (hasPrintDevice) ...[
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                size: 18,
+                color: scheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  printerStatusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: widget.onChangeServer,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: const VisualDensity(
+                    horizontal: -2,
+                    vertical: -2,
+                  ),
+                ),
+                child: const Text('Almashtirish'),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+        ],
+        if (!_rpsBatchStateResolved && hasPrintDevice) ...[
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                size: 16,
+                color: scheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Batch holati tekshirilmoqda…',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
         ],
         if (widget.printTransport.isLocal && !hasScaleDevice) ...[
           _OfflinePrintStatus(
@@ -3199,57 +3436,56 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             bluetoothPrinter: widget.bluetoothPrinter,
             transport: widget.printTransport,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 8),
         ],
         if (hasScaleDevice) ...[
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _MetricSummary(
-                  title: 'Joriy kg',
-                  value: _snapshot.scaleValue,
-                  caption: _snapshot.scaleCaption,
-                  icon: Icons.scale_outlined,
-                ),
+              Icon(Icons.scale_outlined, size: 22, color: scheme.primary),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Joriy kg',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    _snapshot.scaleValue,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _MiniIconRow(
-                        icon: Icons.print_outlined,
-                        text: printerStatusText,
-                      ),
-                      const SizedBox(height: 8),
-                      _MiniIconRow(
-                        icon: Icons.scale_outlined,
-                        text: _snapshot.scaleConnectionLabel,
-                      ),
-                      const SizedBox(height: 8),
-                      _MiniIconRow(
-                        icon: Icons.link_rounded,
-                        text: widget.printTransport.isLocal
-                            ? 'Scale • ${server.endpoint.label}'
-                            : '${printTargetLabel(server)} • ${server.endpoint.label}',
-                      ),
-                    ],
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  _snapshot.scaleConnectionLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
         if (_errorText.isNotEmpty) ...[
           Text(
             _errorText,
-            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.error,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
         ],
         if (_snapshot.batchActive) ...[
           _MiniIconRow(
@@ -3261,7 +3497,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               if (_snapshot.batchWarehouse.isNotEmpty) _snapshot.batchWarehouse,
             ].where((part) => part.trim().isNotEmpty).join(' • '),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
         _PickerField(
           icon: Icons.search_rounded,
@@ -3270,7 +3506,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           subtitle: null,
           onTap: modeLocked ? null : _openItemPicker,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         if (defaultMode) ...[
           if (defaultWarehouse.isEmpty)
             Text(
@@ -3283,7 +3519,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               text: 'Standart ombor: $defaultWarehouse',
             ),
         ] else if (selectedProduct == null) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
             'Avval mahsulot tanlang, keyin ombor chiqadi.',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -3293,29 +3529,75 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         ] else ...[
           _PickerField(
             icon: Icons.warehouse_outlined,
-            label: 'Warehouse tanlang',
+            label: 'Ombor tanlang',
             value: selectedWarehouse?.warehouse,
             subtitle: null,
             onTap: modeLocked ? null : _openWarehousePicker,
           ),
           if (_warehousesError.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
               _warehousesError,
               style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
             ),
           ],
         ],
-        const SizedBox(height: 18),
-        Text(
-          'Babina',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+        const SizedBox(height: 8),
+        IgnorePointer(
+          ignoring: printerLocked,
+          child: Opacity(
+            opacity: printerLocked ? 0.6 : 1,
+            child: Row(
+              children: [
+                Text(
+                  'Miqdor',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SegmentedButton<String>(
+                    style: _segmentStyle(context),
+                    segments: const [
+                      ButtonSegment<String>(
+                        value: 'scale',
+                        label: Text('Tarozidan kg'),
+                        icon: Icon(Icons.scale_outlined),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'manual',
+                        label: Text('Qo‘lda kg'),
+                        icon: Icon(Icons.edit_note_rounded),
+                      ),
+                    ],
+                    selected: <String>{selectedQuantitySource},
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) {
+                        return;
+                      }
+                      setState(() {
+                        _quantitySource =
+                            normalizeQuantitySource(selection.first);
+                      });
+                      _scheduleSaveControlPrefs();
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
+            Text(
+              'Babina',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 8),
             SegmentedButton<bool>(
               style: _segmentStyle(context),
               segments: const [
@@ -3346,110 +3628,43 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
           ],
         ),
         if (_babinaEnabled) ...[
-          const SizedBox(height: 10),
-          TextField(
-            controller: _babinaWeightController,
-            enabled: !printerLocked,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-            ],
-            maxLines: 1,
-            minLines: 1,
-            textAlignVertical: TextAlignVertical.center,
-            decoration: InputDecoration(
-              labelText: 'Babina',
-              suffixText: 'kg',
-              hintText: '0.78',
-              errorText: babinaInvalid ? 'Masalan: 0.78' : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: babinaInvalid ? 72 : 50,
+            child: TextField(
+              controller: _babinaWeightController,
+              enabled: !printerLocked,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              maxLines: 1,
+              minLines: 1,
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: 'Babina',
+                suffixText: 'kg',
+                hintText: '0.78',
+                errorText: babinaInvalid ? 'Masalan: 0.78' : null,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: const OutlineInputBorder(),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              onChanged: (_) => setState(() {}),
             ),
-            onChanged: (_) => setState(() {}),
           ),
         ],
-        const SizedBox(height: 14),
-        IgnorePointer(
-          ignoring: printerLocked,
-          child: Opacity(
-            opacity: printerLocked ? 0.6 : 1,
-            child: SegmentedButton<String>(
-              style: _segmentStyle(context),
-              segments: const [
-                ButtonSegment<String>(
-                  value: 'scale',
-                  label: Text('Tarozidan kg'),
-                  icon: Icon(Icons.scale_outlined),
-                ),
-                ButtonSegment<String>(
-                  value: 'manual',
-                  label: Text('Qo‘lda kg'),
-                  icon: Icon(Icons.edit_note_rounded),
-                ),
-              ],
-              selected: <String>{selectedQuantitySource},
-              onSelectionChanged: (selection) {
-                if (selection.isEmpty) {
-                  return;
-                }
-                setState(() {
-                  _quantitySource = normalizeQuantitySource(selection.first);
-                });
-                _scheduleSaveControlPrefs();
-              },
-            ),
-          ),
-        ),
         if (selectedQuantitySource == 'manual') ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: manualBatchStartEnabled
-                      ? () => unawaited(
-                            _startBatch(autoPrintStable: false),
-                          )
-                      : null,
-                  icon: const Icon(Icons.play_circle_outline_rounded),
-                  label: const Text('Batch start'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: manualBatchStopEnabled
-                      ? () => unawaited(_stopRsBatch())
-                      : null,
-                  icon: const Icon(Icons.stop_circle_outlined),
-                  label: const Text('Batch stop'),
-                ),
-              ),
-            ],
-          ),
-          if (!_snapshot.batchActive) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Play orqali chop etishdan oldin Batch start ni bosing.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 56,
+                  height: manualQtyInvalid ? 72 : 50,
                   child: TextField(
                     controller: _manualQtyController,
                     enabled: !_batchActionLoading && !_manualPrintLoading,
@@ -3461,27 +3676,63 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                     ],
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
+                      isDense: true,
                       labelText: 'Qo‘lda brutto kg',
                       suffixText: 'kg',
                       hintText: '5',
                       errorText:
                           manualQtyInvalid ? 'Masalan: 5 yoki 4.22' : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: SizedBox(
-                  height: 56,
-                  width: 56,
-                  child: IconButton.filled(
-                    tooltip: 'Chop etish',
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    height: duplicateInvalid ? 72 : 50,
+                    child: TextField(
+                      controller: _manualDuplicateController,
+                      enabled: !_batchActionLoading && !_manualPrintLoading,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        labelText: 'Duplicate soni',
+                        suffixText: 'ta',
+                        hintText: '1',
+                        errorText:
+                            duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_snapshot.batchActive)
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    style: batchActionStyle,
                     onPressed: hasPrintDevice &&
-                            _snapshot.batchActive &&
                             selectedQuantitySource == 'manual' &&
                             manualPrintReady &&
                             !_manualPrintLoading &&
@@ -3490,34 +3741,73 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         : null,
                     icon: _manualPrintLoading
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            height: 22,
+                            width: 22,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.play_arrow_rounded),
+                        : const Icon(Icons.print_rounded, size: 23),
+                    label: Text(
+                      'Chop etish',
+                      style: batchActionTextStyle,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    style: batchActionStyle,
+                    onPressed: manualBatchStopEnabled
+                        ? () => unawaited(_stopRsBatch())
+                        : null,
+                    icon: const Icon(Icons.stop_circle_outlined, size: 23),
+                    label: Text(
+                      'Batch stop',
+                      style: batchActionTextStyle,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                style: batchActionStyle,
+                onPressed: manualBatchStartEnabled
+                    ? () => unawaited(
+                          _startBatch(autoPrintStable: false),
+                        )
+                    : null,
+                icon: const Icon(Icons.play_circle_outline_rounded, size: 23),
+                label: Text(
+                  'Batch start',
+                  style: batchActionTextStyle,
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _manualDuplicateController,
-            enabled: !_batchActionLoading && !_manualPrintLoading,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            textAlignVertical: TextAlignVertical.center,
-            decoration: InputDecoration(
-              labelText: 'Duplicate soni',
-              suffixText: 'ta',
-              hintText: '1',
-              errorText: duplicateInvalid ? 'Masalan: 1 yoki 5' : null,
-              border: const OutlineInputBorder(),
             ),
-            onChanged: (_) => setState(() {}),
-          ),
+          if (!_snapshot.batchActive) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 15,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Avval Batch start, keyin Chop etish orqali print qiling.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (_manualPrintLoading) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               'Chop etish yuborilmoqda...',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -3525,15 +3815,16 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
         ],
         if (selectedQuantitySource == 'scale') ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
+              minimumSize: const Size.fromHeight(48),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
             onPressed: scaleBatchActionEnabled
@@ -3560,7 +3851,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             ),
           ),
           if (_snapshot.batchActive) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               scalePrintReady
                   ? 'Stable kg avtomatik chop etiladi.'
@@ -3570,7 +3861,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               ),
             ),
           ] else if (hasScaleDevice && scaleQtyKg == null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               'Scale ulangan va kg kelganda tugma aktiv bo‘ladi.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -3578,11 +3869,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
         ],
         if (_batchPrints.isNotEmpty) ...[
           _buildCurrentBatchPrints(theme, scheme),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
         ],
         ExpansionTile(
           key: const PageStorageKey<String>('batch_actions_tile'),
@@ -3776,9 +4067,22 @@ class _PickerField extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: InputDecorator(
         decoration: InputDecoration(
-          prefixIcon: Icon(icon),
-          suffixIcon: const Icon(Icons.expand_more_rounded),
+          isDense: true,
+          prefixIcon: Icon(icon, size: 20),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
+          suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
           labelText: label,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 9,
+          ),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
@@ -3811,63 +4115,6 @@ class _PickerField extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MetricSummary extends StatelessWidget {
-  const _MetricSummary({
-    required this.title,
-    required this.value,
-    required this.caption,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String caption;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: scheme.primary, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                caption,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -4237,30 +4484,6 @@ class _OfflinePrintStatus extends StatelessWidget {
               tooltip: 'Print rejimini almashtirish',
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeviceRequiredPanel extends StatelessWidget {
-  const _DeviceRequiredPanel({required this.onSelectDevice});
-
-  final Future<void> Function() onSelectDevice;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: () => unawaited(onSelectDevice()),
-        icon: const Icon(Icons.add_link_rounded),
-        label: const Text('Qurilma tanlash'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
         ),
       ),
     );
@@ -6906,6 +7129,105 @@ Future<OperatorControlDraft> loadOperatorControlDraft() async {
 Future<void> saveLastUsedServer(ServerEndpoint endpoint) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(_lastServerKey, endpoint.baseUrl);
+}
+
+Future<void> saveLastPrintDevice(PrintDeviceSelection selection) async {
+  final saved = SavedPrintDevice.fromSelection(selection);
+  if (saved == null) {
+    return;
+  }
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_lastPrintDeviceKey, jsonEncode(saved.toJson()));
+  if (selection.server != null) {
+    await saveLastUsedServer(selection.server!.endpoint);
+  }
+}
+
+Future<SavedPrintDevice?> loadLastPrintDevice() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_lastPrintDeviceKey);
+  if (raw == null || raw.trim().isEmpty) {
+    final endpoint = await loadLastUsedServer();
+    return endpoint == null
+        ? null
+        : SavedPrintDevice(
+            transport: PrintTransport.wifi,
+            serverBaseUrl: endpoint.baseUrl,
+          );
+  }
+  try {
+    final payload = jsonDecode(raw);
+    final json = (payload as Map?)?.cast<String, dynamic>();
+    final saved = json == null ? null : SavedPrintDevice.fromJson(json);
+    if (saved == null) {
+      await prefs.remove(_lastPrintDeviceKey);
+    }
+    return saved;
+  } catch (_) {
+    await prefs.remove(_lastPrintDeviceKey);
+    return null;
+  }
+}
+
+Future<PrintDeviceSelection?> restoreLastPrintDevice(
+  SavedPrintDevice saved,
+) async {
+  switch (saved.transport) {
+    case PrintTransport.wifi:
+      final endpoint = parseServerEndpoint(saved.serverBaseUrl);
+      if (endpoint == null || _shouldSkipDiscoveryHost(endpoint.host)) {
+        return null;
+      }
+      final client = http.Client();
+      try {
+        final server = await probeServer(
+          client,
+          endpoint,
+          timeout: _manualProbeTimeout,
+        );
+        return server == null ? null : PrintDeviceSelection.wifi(server);
+      } catch (_) {
+        return null;
+      } finally {
+        client.close();
+      }
+    case PrintTransport.bluetooth:
+      final address = _normalizeBluetoothAddress(saved.bluetoothAddress);
+      if (address.isEmpty) {
+        return null;
+      }
+      try {
+        final paired = await NativeBluetoothPrinter.pairedPrinters();
+        for (final printer in paired) {
+          if (_normalizeBluetoothAddress(printer.address) == address) {
+            return PrintDeviceSelection.bluetooth(printer);
+          }
+        }
+      } catch (_) {
+        return null;
+      }
+      return null;
+    case PrintTransport.offline:
+      try {
+        final printer = await PrintService.detectOfflinePrinter();
+        final sameKind =
+            saved.usbKind.isEmpty || printer.kind.apiValue == saved.usbKind;
+        final sameVendor =
+            saved.usbVendorId == 0 || printer.vendorId == saved.usbVendorId;
+        final sameProduct =
+            saved.usbProductId == 0 || printer.productId == saved.usbProductId;
+        if (sameKind && sameVendor && sameProduct) {
+          return PrintDeviceSelection.offline(printer);
+        }
+      } catch (_) {
+        return null;
+      }
+      return null;
+  }
+}
+
+String _normalizeBluetoothAddress(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-f0-9]'), '');
 }
 
 Future<ServerEndpoint?> loadLastUsedServer() async {

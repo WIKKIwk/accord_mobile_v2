@@ -550,19 +550,15 @@ void main() {
       expect(find.text('Wrong warehouse'), findsNothing);
       expect(
         tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Batch start'),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
             .widget<FilledButton>(
               find.widgetWithText(FilledButton, 'Batch stop'),
             )
             .onPressed,
         isNotNull,
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'Batch start'),
+        findsNothing,
       );
 
       await tester.enterText(
@@ -573,8 +569,8 @@ void main() {
 
       expect(
         tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.play_arrow_rounded),
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Chop etish'),
             )
             .onPressed,
         isNotNull,
@@ -670,8 +666,8 @@ void main() {
       expect(stateLoadCount, 1);
       expect(
         tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Batch start'),
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Batch start'),
             )
             .onPressed,
         isNotNull,

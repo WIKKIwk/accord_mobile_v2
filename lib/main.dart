@@ -7,6 +7,7 @@ import 'src/core/native_dock_bridge.dart';
 import 'src/core/notifications/service/local_notification_service.dart';
 import 'src/core/notifications/service/push_messaging_service.dart';
 import 'src/core/notifications/store/notification_unread_store.dart';
+import 'src/core/network/server_endpoint_store.dart';
 import 'src/core/security/state/security_controller.dart';
 import 'src/core/session/session.dart';
 import 'src/core/theme/theme_controller.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
     'local notifications',
     LocalNotificationService.instance.initialize,
   );
+  await _runStartupStep('server endpoint', ServerEndpointStore.instance.load);
   await _runStartupStep('session', AppSession.instance.load);
   await _runStartupStep(
     'notification unread store',

@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../native_iroh_transport.dart';
+import '../network/server_endpoint_store.dart';
 
 Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri) async* {
-  if (NativeIrohTransport.hasEndpointTicket) {
+  if (NativeIrohTransport.hasEndpointTicket &&
+      !ServerEndpointStore.instance.isRuntimeOverride) {
     try {
       yield* NativeIrohTransport.liveEvents(uri: uri);
       return;
@@ -47,7 +49,8 @@ Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) {
 
   controller.onListen = () async {
     try {
-      if (NativeIrohTransport.hasEndpointTicket) {
+      if (NativeIrohTransport.hasEndpointTicket &&
+          !ServerEndpointStore.instance.isRuntimeOverride) {
         try {
           await for (final event in NativeIrohTransport.liveEvents(
             uri: uri,

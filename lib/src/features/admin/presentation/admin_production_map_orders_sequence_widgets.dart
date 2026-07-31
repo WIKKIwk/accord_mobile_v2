@@ -86,6 +86,9 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             widget.queueStates[order.map.id.trim()],
           ),
         ),
+        onTap: widget.onInfoOrder == null
+            ? null
+            : () => widget.onInfoOrder!(order),
         onInfo: widget.onInfoOrder == null
             ? null
             : () => widget.onInfoOrder!(order),
@@ -116,6 +119,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                     apparatus: selected,
                     orderCount: orders.length,
                     readOnly: widget.readOnly,
+                    showInteractionHint: widget.onInfoOrder != null,
                     expanded: _apparatusFilterExpanded,
                     onToggleExpanded: () {
                       setState(() {
@@ -191,6 +195,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             apparatus: selected,
             orderCount: orders.length,
             readOnly: widget.readOnly,
+            showInteractionHint: widget.onInfoOrder != null,
             expanded: _apparatusFilterExpanded,
             onToggleExpanded: () {
               setState(() {
@@ -237,6 +242,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
     required this.apparatus,
     required this.orderCount,
     required this.readOnly,
+    required this.showInteractionHint,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onSelectApparatus,
@@ -246,6 +252,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   final AdminApparatus? apparatus;
   final int orderCount;
   final bool readOnly;
+  final bool showInteractionHint;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final ValueChanged<AdminApparatus> onSelectApparatus;
@@ -305,6 +312,16 @@ class _SequenceHeaderSelectors extends StatelessWidget {
             ),
           ),
         ],
+        if (orderCount > 0 && readOnly && showInteractionHint)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
         const SizedBox(height: 10),
       ],
     );

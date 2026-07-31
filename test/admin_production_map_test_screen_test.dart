@@ -1968,6 +1968,101 @@ void main() {
   });
 
   testWidgets(
+      'material supplier sequence opens details on tap and assignment on long press',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-supply-sequence-actions';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Material action order',
+        productCode: 'SUPPLY-ACTIONS',
+        apparatus: apparatus,
+        product: 'material action product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: apparatus,
+      itemGroups: const ['Kraska'],
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Material ta’minotchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-filter-option-Godex aparat - DEMO')),
+    );
+    await tester.pumpAndSettle();
+
+    final orderFinder = find.textContaining('Material action order');
+    expect(orderFinder, findsOneWidget);
+    expect(
+      find.text('Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(orderFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Zakaz kodi'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Zakaz kodi'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.textContaining('Material action order'));
+    await tester.pumpAndSettle();
+    expect(find.text('Orderga homashyo ulash'), findsOneWidget);
+    expect(find.text('1 ta mos homashyo'), findsOneWidget);
+    expect(find.text('Demo kraska'), findsOneWidget);
+    await tester.tap(find.text('Demo kraska'));
+    await tester.pumpAndSettle();
+    expect(find.text('Homashyo orderga ulandi'), findsOneWidget);
+    expect(find.text('Demo kraska'), findsNothing);
+
+    await tester.tap(find.byTooltip('Yopish'));
+    await tester.pumpAndSettle();
+    await tester.tap(orderFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('30AA'), findsOneWidget);
+    expect(find.text('Bu amal sizning rolingiz uchun ruxsat etilmagan'),
+        findsNothing);
+  });
+
+  testWidgets(
       'generic, sequence and worker details use the correct material scope', (
     tester,
   ) async {

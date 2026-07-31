@@ -1,4 +1,6 @@
 import 'package:accord_mobile_v2/src/features/gscale/gscale_mobile_app.dart';
+import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
+import 'package:accord_mobile_v2/src/core/print_transport.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -240,6 +242,38 @@ void main() {
     expect(copy.secondaryActionLabel, 'Manzil qo‘shish');
   });
 
+  test('last Bluetooth printer is persisted by stable address', () async {
+    SharedPreferences.setMockInitialValues({});
+    const printer = BluetoothPrinterProfile(
+      name: 'XP-P323B',
+      address: '00:11:22:33:44:55',
+    );
+
+    await saveLastPrintDevice(const PrintDeviceSelection.bluetooth(printer));
+    final saved = await loadLastPrintDevice();
+
+    expect(saved, isNotNull);
+    expect(saved!.transport, PrintTransport.bluetooth);
+    expect(saved.bluetoothAddress, printer.address);
+
+    final restored = await restoreLastPrintDevice(saved);
+    expect(restored?.transport, PrintTransport.bluetooth);
+    expect(restored?.bluetoothPrinter?.address, printer.address);
+  });
+
+  testWidgets('device picker icon exposes the unavailable-device warning', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: DevicePickerIcon(attention: true)),
+      ),
+    );
+
+    expect(
+        find.byKey(const ValueKey('gscale-device-attention')), findsOneWidget);
+  });
+
   testWidgets('GScale mode opens dashboard shell before server is selected', (
     tester,
   ) async {
@@ -252,7 +286,7 @@ void main() {
     expect(find.text('Arxiv'), findsOneWidget);
     expect(find.text('Server'), findsOneWidget);
     expect(find.text('Printer yoki tarozi tanlanmagan'), findsNothing);
-    expect(find.text('Qurilma tanlash'), findsOneWidget);
+    expect(find.byIcon(Icons.add_link_rounded), findsOneWidget);
     expect(find.text('Mahsulot tanlang'), findsOneWidget);
     expect(find.text('Babina'), findsOneWidget);
     expect(find.text('Joriy kg'), findsNothing);
@@ -270,10 +304,10 @@ void main() {
 
       await tester.pumpWidget(GScaleMobileApp(onExitMode: () async {}));
       await tester.pump();
-      await tester.tap(find.text('Qurilma tanlash'));
+      await tester.tap(find.byIcon(Icons.add_link_rounded));
       await tester.pumpAndSettle();
 
-      expect(find.text('Qurilma tanlash'), findsNWidgets(2));
+      expect(find.text('Qurilma tanlash'), findsOneWidget);
       expect(find.text('USB'), findsOneWidget);
       expect(find.text('Bluetooth'), findsOneWidget);
       expect(find.text('Wi-Fi'), findsOneWidget);
@@ -281,11 +315,11 @@ void main() {
       await tester.tap(find.byIcon(Icons.bluetooth_rounded));
       await tester.pumpAndSettle();
       expect(find.text('Bluetooth printer'), findsOneWidget);
-      expect(find.text('Qurilma tanlash'), findsOneWidget);
+      expect(find.text('Qurilma tanlash'), findsNothing);
 
       await tester.tap(find.byIcon(Icons.arrow_back_rounded).last);
       await tester.pump();
-      expect(find.text('Qurilma tanlash'), findsNWidgets(2));
+      expect(find.text('Qurilma tanlash'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.usb_rounded));
       await tester.pump();

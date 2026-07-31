@@ -137,13 +137,15 @@ class AppSession {
     required String token,
     required SessionProfile profile,
     WerkaHomeData? werkaHomeBootstrap,
+    bool forceResetSessionScopedState = false,
   }) async {
     final previousProfile = this.profile;
     final previousKey = previousProfile == null
         ? ''
         : '${previousProfile.accessRole?.name ?? 'custom'}:${previousProfile.ref}';
     final nextKey = '${profile.accessRole?.name ?? 'custom'}:${profile.ref}';
-    if (previousKey.isNotEmpty && previousKey != nextKey) {
+    if (forceResetSessionScopedState ||
+        (previousKey.isNotEmpty && previousKey != nextKey)) {
       await AppRuntimeReset.instance.resetSessionScopedState(
         previousProfile: previousProfile,
       );
