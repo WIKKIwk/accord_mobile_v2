@@ -79,8 +79,9 @@ class _AdminApparatusSettingsScreenState
   String? _editingApparatusId;
   List<AdminApparatusCapabilityProfile> _editingCapabilityProfiles = const [];
   String? _expandedGroupName;
-  AdminApparatus? _expandedApparatusSettings;
-  bool _createEditorVisible = false;
+  StateSetter? _createEditorDialogSetState;
+  VoidCallback? _closeCreateEditorDialog;
+  bool _createEditorDialogOpen = false;
   bool _focusEditorOpened = false;
 
   @override
@@ -259,8 +260,6 @@ class _AdminApparatusSettingsScreenState
           .toSet();
       _editingCapabilityProfiles = apparatus.capabilityProfiles;
       _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
-      _expandedApparatusSettings = null;
-      _createEditorVisible = true;
     });
     if (_tabController.index != 0) {
       _tabController.animateTo(0);
@@ -276,6 +275,7 @@ class _AdminApparatusSettingsScreenState
     if (mounted) {
       setState(update);
     }
+    _createEditorDialogSetState?.call(() {});
   }
 
   void _maybeOpenFocusedEditor() {
@@ -302,21 +302,57 @@ class _AdminApparatusSettingsScreenState
     });
   }
 
-  void _showApparatusEditor() {
-    _updateCreateEditorState(() {
-      _expandedApparatusSettings = null;
-      _createEditorVisible = true;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _apparatusNameFocus.requestFocus();
-      }
-    });
+  Future<void> _showApparatusEditor() async {
+    if (_createEditorDialogOpen) {
+      return;
+    }
+    _createEditorDialogOpen = true;
+    var focusRequested = false;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              _createEditorDialogSetState = setDialogState;
+              _closeCreateEditorDialog = () =>
+                  Navigator.of(dialogContext).pop();
+              if (!focusRequested) {
+                focusRequested = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _apparatusNameFocus.requestFocus();
+                  }
+                });
+              }
+              final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
+              return Dialog(
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: _buildCreateEditorCard(context),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _createEditorDialogSetState = null;
+      _closeCreateEditorDialog = null;
+      _createEditorDialogOpen = false;
+    }
   }
 
   void _closeCreateEditor() {
     _updateCreateEditorState(() {
-      _createEditorVisible = false;
       _editingApparatusId = null;
       _apparatusName.clear();
       _apparatusColorStations.clear();
@@ -325,6 +361,10 @@ class _AdminApparatusSettingsScreenState
       _selectedApparatusCapabilities = {};
       _editingCapabilityProfiles = const [];
     });
+    final closeDialog = _closeCreateEditorDialog;
+    _createEditorDialogSetState = null;
+    _closeCreateEditorDialog = null;
+    closeDialog?.call();
   }
 
   Future<void> _pickApparatusFamily() async {
@@ -483,12 +523,27 @@ class _AdminApparatusSettingsScreenState
     }
   }
 
-  void _toggleApparatusSettings(AdminApparatus apparatus) {
-    _updateCreateEditorState(() {
-      _createEditorVisible = false;
-      _expandedApparatusSettings =
-          _expandedApparatusSettings?.id == apparatus.id ? null : apparatus;
-    });
+  Future<void> _showApparatusSettings(AdminApparatus apparatus) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
+          child: _ApparatusSettingsCard(
+            apparatus: apparatus,
+            groups: _groups,
+            currentGroupName: _groupOwningApparatus(apparatus.name),
+            onClose: () => Navigator.of(dialogContext).pop(),
+            onAssignGroup: (groupName) =>
+                _assignApparatusToGroup(apparatus, groupName),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -634,10 +689,12 @@ class _AdminApparatusSettingsScreenState
         _selectedApparatusKind = null;
         _selectedApparatusCapabilities = {};
         _editingCapabilityProfiles = const [];
-        _createEditorVisible = false;
-        _expandedApparatusSettings = null;
       });
       _saveCache();
+      final closeDialog = _closeCreateEditorDialog;
+      _createEditorDialogSetState = null;
+      _closeCreateEditorDialog = null;
+      closeDialog?.call();
       showAdminTopNotice(
         context,
         previousId == null
@@ -657,7 +714,6 @@ class _AdminApparatusSettingsScreenState
 
   Widget _buildCreateTab(BuildContext context, double bottomPadding) {
     final scheme = Theme.of(context).colorScheme;
-    final selectedApparatus = _expandedApparatusSettings;
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
@@ -674,31 +730,11 @@ class _AdminApparatusSettingsScreenState
                 ? null
                 : () {
                     _clearApparatusEditor();
-                    _showApparatusEditor();
+                    unawaited(_showApparatusEditor());
                   },
             icon: const Icon(Icons.add_circle_outline_rounded),
             label: const Text('Aparat qo\'shish'),
           ),
-          if (_createEditorVisible) ...[
-            const SizedBox(height: 10),
-            _buildCreateEditorCard(context),
-          ],
-          if (selectedApparatus != null) ...[
-            const SizedBox(height: 10),
-            _ApparatusSettingsCard(
-              key: ValueKey(selectedApparatus.id),
-              apparatus: selectedApparatus,
-              groups: _groups,
-              currentGroupName: _groupOwningApparatus(selectedApparatus.name),
-              onClose: () => _updateCreateEditorState(
-                () => _expandedApparatusSettings = null,
-              ),
-              onAssignGroup: (groupName) => _assignApparatusToGroup(
-                selectedApparatus,
-                groupName,
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Text(
             'Mavjud aparatlar',
@@ -729,7 +765,8 @@ class _AdminApparatusSettingsScreenState
                       _apparatus.length,
                     ),
                     apparatus: _apparatus[index],
-                    onTap: () => _toggleApparatusSettings(_apparatus[index]),
+                    onLongPress: () =>
+                        unawaited(_showApparatusSettings(_apparatus[index])),
                     onEdit: _apparatus[index].isDefault
                         ? null
                         : () => _editApparatus(_apparatus[index]),
@@ -1428,12 +1465,14 @@ class _ApparatusListRow extends StatelessWidget {
     required this.slot,
     required this.apparatus,
     this.onTap,
+    this.onLongPress,
     this.onEdit,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminApparatus apparatus;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback? onEdit;
 
   @override
@@ -1444,8 +1483,9 @@ class _ApparatusListRow extends StatelessWidget {
       title: apparatus.name,
       subtitle: _apparatusMetadataLabel(apparatus),
       value: '',
-      showChevron: onTap != null,
+      showChevron: onTap != null || onLongPress != null,
       onTap: onTap,
+      onLongPress: onLongPress,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       elevation: 4,
