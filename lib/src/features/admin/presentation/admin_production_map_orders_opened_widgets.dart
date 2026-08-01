@@ -6,6 +6,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.queueStatesByApparatus,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -14,6 +15,7 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -23,6 +25,7 @@ class _OpenedOrderList extends StatelessWidget {
       children: [
         for (var index = 0; index < orders.length; index++)
           _OpenedOrderRow(
+            key: ValueKey('opened-order-${orders[index].map.id.trim()}'),
             slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
               index,
               orders.length,
@@ -35,6 +38,10 @@ class _OpenedOrderList extends StatelessWidget {
               orderControl:
                   orderControlsByOrderId[orders[index].map.id.trim()] ??
                       AdminOrderControlState.active,
+              apparatusState: queueActivityStateForOrder(
+                orderId: orders[index].map.id,
+                queueStatesByApparatus: queueStatesByApparatus,
+              ),
             ),
             onInfo: () => onInfoOrder(orders[index]),
             onLongPress: () => onLongPressOrder(orders[index]),
@@ -46,6 +53,7 @@ class _OpenedOrderList extends StatelessWidget {
 
 class _OpenedOrderRow extends StatelessWidget {
   const _OpenedOrderRow({
+    super.key,
     required this.slot,
     required this.order,
     required this.customerName,

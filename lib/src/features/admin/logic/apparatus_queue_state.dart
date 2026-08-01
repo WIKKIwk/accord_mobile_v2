@@ -15,6 +15,33 @@ ApparatusQueueOrderState apparatusQueueOrderStateFromRaw(String? raw) {
   }
 }
 
+ApparatusQueueOrderState? queueActivityStateForOrder({
+  required String orderId,
+  required Map<String, Map<String, String>> queueStatesByApparatus,
+}) {
+  final normalizedOrderId = orderId.trim();
+  if (normalizedOrderId.isEmpty) {
+    return null;
+  }
+
+  var activityState = false;
+  for (final states in queueStatesByApparatus.values) {
+    for (final entry in states.entries) {
+      if (entry.key.trim() != normalizedOrderId) {
+        continue;
+      }
+      final state = apparatusQueueOrderStateFromRaw(entry.value);
+      if (state == ApparatusQueueOrderState.paused) {
+        return ApparatusQueueOrderState.paused;
+      }
+      if (state == ApparatusQueueOrderState.inProgress) {
+        activityState = true;
+      }
+    }
+  }
+  return activityState ? ApparatusQueueOrderState.inProgress : null;
+}
+
 List<String> effectiveQueueSequence({
   required List<String> sequence,
   required Iterable<String> visibleOrderIds,

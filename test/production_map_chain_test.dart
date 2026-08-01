@@ -56,6 +56,48 @@ ProductionMapDefinition _pechatOnlyMap() {
 }
 
 void main() {
+  test('queue activity state scans every apparatus stage', () {
+    expect(
+      queueActivityStateForOrder(
+        orderId: 'zakaz-laminatsiya-active',
+        queueStatesByApparatus: const {
+          '7 ta rangli bosma aparat': {
+            'zakaz-laminatsiya-active': 'completed',
+          },
+          'Laminatsiya 1': {
+            'zakaz-laminatsiya-active': 'in_progress',
+          },
+        },
+      ),
+      ApparatusQueueOrderState.inProgress,
+    );
+    expect(
+      queueActivityStateForOrder(
+        orderId: 'zakaz-laminatsiya-paused',
+        queueStatesByApparatus: const {
+          '7 ta rangli bosma aparat': {
+            'zakaz-laminatsiya-paused': 'completed',
+          },
+          'Laminatsiya 1': {
+            'zakaz-laminatsiya-paused': 'paused',
+          },
+        },
+      ),
+      ApparatusQueueOrderState.paused,
+    );
+    expect(
+      queueActivityStateForOrder(
+        orderId: 'zakaz-laminatsiya-done',
+        queueStatesByApparatus: const {
+          'Laminatsiya 1': {
+            'zakaz-laminatsiya-done': 'completed',
+          },
+        },
+      ),
+      isNull,
+    );
+  });
+
   test('production map node preserves alternative group metadata', () {
     const node = ProductionMapNode(
       id: 'apparatus-7',

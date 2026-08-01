@@ -8,6 +8,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.customerNameByMapId,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.queueStatesByApparatus,
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -18,6 +19,7 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, String> customerNameByMapId;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final Map<String, Map<String, String>> queueStatesByApparatus;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -41,6 +43,7 @@ class _OrdersModulePage extends StatelessWidget {
             customerNameByMapId: customerNameByMapId,
             orderStatusesByOrderId: orderStatusesByOrderId,
             orderControlsByOrderId: orderControlsByOrderId,
+            queueStatesByApparatus: queueStatesByApparatus,
             onInfoOrder: onInfoOrder,
             onLongPressOrder: onLongPressOrder,
           ),
@@ -195,6 +198,7 @@ class _AdminModulesBody extends StatelessWidget {
                       customerNameByMapId: customerNameByMapId,
                       orderStatusesByOrderId: orderStatusesByOrderId,
                       orderControlsByOrderId: orderControlsByOrderId,
+                      queueStatesByApparatus: queueStatesByApparatus,
                       onInfoOrder: onInfoOrder,
                       onLongPressOrder: onLongPressOrder,
                     ),
