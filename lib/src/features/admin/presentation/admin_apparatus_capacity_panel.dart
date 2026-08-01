@@ -13,10 +13,12 @@ class AdminApparatusCapacityPanel extends StatefulWidget {
     super.key,
     required this.apparatus,
     required this.bottomPadding,
+    this.showApparatusSelector = true,
   });
 
   final List<AdminApparatus> apparatus;
   final double bottomPadding;
+  final bool showApparatusSelector;
 
   @override
   State<AdminApparatusCapacityPanel> createState() =>
@@ -453,6 +455,23 @@ class _AdminApparatusCapacityPanelState
       );
     }
     final selected = _selectedApparatus;
+    final selectedKey = selected?.name.trim().toLowerCase();
+    final reservations = _snapshot.reservations
+        .where(
+          (reservation) =>
+              selected == null ||
+              reservation.apparatusId == selected.id ||
+              reservation.apparatus.trim().toLowerCase() == selectedKey,
+        )
+        .toList(growable: false);
+    final downtimes = _snapshot.downtimes
+        .where(
+          (downtime) =>
+              selected == null ||
+              downtime.apparatusId == selected.id ||
+              downtime.apparatus.trim().toLowerCase() == selectedKey,
+        )
+        .toList(growable: false);
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
@@ -476,22 +495,24 @@ class _AdminApparatusCapacityPanelState
                       ),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selected?.id,
-                  decoration: _decoration('Aparat'),
-                  items: [
-                    for (final item in widget.apparatus)
-                      DropdownMenuItem(
-                        value: item.id,
-                        child: Text(item.name),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _selectedApparatusId = value);
-                    _applySelectedProfile();
-                  },
-                ),
-                const SizedBox(height: 8),
+                if (widget.showApparatusSelector) ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: selected?.id,
+                    decoration: _decoration('Aparat'),
+                    items: [
+                      for (final item in widget.apparatus)
+                        DropdownMenuItem(
+                          value: item.id,
+                          child: Text(item.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedApparatusId = value);
+                      _applySelectedProfile();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -675,13 +696,13 @@ class _AdminApparatusCapacityPanelState
                       ),
                 ),
                 const SizedBox(height: 8),
-                if (_snapshot.reservations.isEmpty)
+                if (reservations.isEmpty)
                   Text(
                     'Hozircha reservation yo‘q',
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   )
                 else
-                  for (final reservation in _snapshot.reservations)
+                  for (final reservation in reservations)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
@@ -747,7 +768,7 @@ class _AdminApparatusCapacityPanelState
                   ],
                 ),
                 const SizedBox(height: 8),
-                for (final downtime in _snapshot.downtimes.take(8))
+                for (final downtime in downtimes.take(8))
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,

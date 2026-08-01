@@ -47,9 +47,11 @@ class AdminQueuePolicyPanel extends StatefulWidget {
   const AdminQueuePolicyPanel({
     super.key,
     required this.bottomPadding,
+    this.apparatusName,
   });
 
   final double bottomPadding;
+  final String? apparatusName;
 
   @override
   State<AdminQueuePolicyPanel> createState() => _AdminQueuePolicyPanelState();
@@ -209,7 +211,15 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
     if (data == null) {
       return const SizedBox.shrink();
     }
-    final apparatus = data.apparatus;
+    final filter = widget.apparatusName?.trim() ?? '';
+    final apparatus = filter.isEmpty
+        ? data.apparatus
+        : data.apparatus
+            .where((item) => productionMapWarehouseTitlesMatch(
+                  item.name,
+                  filter,
+                ))
+            .toList(growable: false);
     if (apparatus.isEmpty) {
       return ListView(
         padding: EdgeInsets.fromLTRB(

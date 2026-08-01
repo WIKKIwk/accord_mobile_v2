@@ -13,11 +13,13 @@ import 'admin_queue_policy_screen.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_navigation_drawer.dart';
+import 'widgets/admin_picker_field.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_surface_tab_bar.dart';
 import 'widgets/admin_top_notice.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const double _apparatusSettingsPanelGap = 4;
 const double _apparatusSettingsPanelTopGap = 8;
@@ -55,9 +57,6 @@ class _AdminApparatusSettingsScreenState
 
   final TextEditingController _name = TextEditingController();
   final TextEditingController _apparatusName = TextEditingController();
-  final TextEditingController _apparatusFamily = TextEditingController();
-  final TextEditingController _apparatusKind = TextEditingController();
-  final TextEditingController _apparatusCapabilities = TextEditingController();
   final TextEditingController _apparatusColorStations = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _apparatusNameFocus = FocusNode();
@@ -66,7 +65,12 @@ class _AdminApparatusSettingsScreenState
   late final TabController _tabController;
   List<AdminApparatus> _apparatus = const [];
   List<AdminApparatusGroup> _groups = const [];
+  AdminApparatusMasterOptions _apparatusOptions =
+      AdminApparatusMasterOptions.fallback();
   final Set<String> _selected = {};
+  String? _selectedApparatusFamily;
+  String? _selectedApparatusKind;
+  Set<String> _selectedApparatusCapabilities = {};
   bool _loading = true;
   bool _saving = false;
   bool _creatingApparatus = false;
@@ -75,6 +79,10 @@ class _AdminApparatusSettingsScreenState
   String? _editingApparatusId;
   List<AdminApparatusCapabilityProfile> _editingCapabilityProfiles = const [];
   String? _expandedGroupName;
+  StateSetter? _createEditorSheetSetState;
+  VoidCallback? _closeCreateEditorSheet;
+  bool _createEditorSheetOpen = false;
+  bool _focusEditorOpened = false;
 
   @override
   void initState() {
@@ -84,17 +92,12 @@ class _AdminApparatusSettingsScreenState
       initialIndex: _apparatusSettingsTabIndex(widget.initialTab),
       vsync: this,
     );
-    if (!_restoreCache()) {
+    final restored = _restoreCache();
+    if (!restored) {
       _load();
     } else {
+      _maybeOpenFocusedEditor();
       unawaited(_load(showLoading: false));
-    }
-    if (widget.focusApparatusName) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _apparatusNameFocus.requestFocus();
-        }
-      });
     }
   }
 
@@ -103,9 +106,6 @@ class _AdminApparatusSettingsScreenState
     _tabController.dispose();
     _name.dispose();
     _apparatusName.dispose();
-    _apparatusFamily.dispose();
-    _apparatusKind.dispose();
-    _apparatusCapabilities.dispose();
     _apparatusColorStations.dispose();
     _nameFocus.dispose();
     _apparatusNameFocus.dispose();
@@ -121,6 +121,7 @@ class _AdminApparatusSettingsScreenState
     }
     _groups = cache.groups;
     _apparatus = cache.apparatus;
+    _apparatusOptions = cache.options;
     _loading = false;
     _loadError = null;
     return true;
@@ -130,6 +131,7 @@ class _AdminApparatusSettingsScreenState
     _cache = _AdminApparatusSettingsCache(
       groups: _groups,
       apparatus: _apparatus,
+      options: _apparatusOptions,
     );
   }
 
@@ -144,6 +146,7 @@ class _AdminApparatusSettingsScreenState
       final results = await Future.wait<Object>([
         MobileApi.instance.adminApparatusGroups(),
         MobileApi.instance.adminApparatus(limit: 200),
+        MobileApi.instance.adminApparatusMasterOptions(),
       ]);
       if (!mounted) {
         return;
@@ -151,10 +154,12 @@ class _AdminApparatusSettingsScreenState
       setState(() {
         _groups = results[0] as List<AdminApparatusGroup>;
         _apparatus = results[1] as List<AdminApparatus>;
+        _apparatusOptions = results[2] as AdminApparatusMasterOptions;
         _loading = false;
         _loadError = null;
       });
       _saveCache();
+      _maybeOpenFocusedEditor();
     } catch (_) {
       if (!mounted) {
         return;
@@ -233,15 +238,27 @@ class _AdminApparatusSettingsScreenState
     setState(() {
       _editingApparatusId = apparatus.id;
       _apparatusName.text = apparatus.name;
-      _apparatusFamily.text = apparatus.family;
-      _apparatusKind.text = apparatus.kind;
+      final family = _apparatusOptions.families.contains(
+        apparatus.family.trim().toLowerCase(),
+      )
+          ? apparatus.family.trim().toLowerCase()
+          : null;
+      final kind = _apparatusOptions
+              .kindsForFamily(family)
+              .contains(apparatus.kind.trim().toLowerCase())
+          ? apparatus.kind.trim().toLowerCase()
+          : null;
+      final storedCapabilities = {
+        ...apparatus.capabilities.map((item) => item.trim().toLowerCase()),
+        ...apparatus.capabilityProfiles
+            .map((profile) => profile.code.trim().toLowerCase()),
+      };
+      _selectedApparatusFamily = family;
+      _selectedApparatusKind = kind;
+      _selectedApparatusCapabilities = _apparatusOptions.capabilities
+          .where(storedCapabilities.contains)
+          .toSet();
       _editingCapabilityProfiles = apparatus.capabilityProfiles;
-      _apparatusCapabilities.text = apparatus.capabilityProfiles.isEmpty
-          ? apparatus.capabilities.join(', ')
-          : apparatus.capabilityProfiles.map((profile) {
-              final level = profile.level <= 1 ? '' : ':${profile.level}';
-              return '${profile.code}$level';
-            }).join(', ');
       _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
     });
     if (_tabController.index != 0) {
@@ -249,21 +266,169 @@ class _AdminApparatusSettingsScreenState
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _apparatusNameFocus.requestFocus();
+        unawaited(_showApparatusEditor());
+      }
+    });
+  }
+
+  void _updateCreateEditorState(VoidCallback update) {
+    if (mounted) {
+      setState(update);
+    }
+    _createEditorSheetSetState?.call(() {});
+  }
+
+  void _maybeOpenFocusedEditor() {
+    if (!widget.focusApparatusName || _focusEditorOpened || _loading) {
+      return;
+    }
+    _focusEditorOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_showApparatusEditor());
       }
     });
   }
 
   void _clearApparatusEditor() {
-    setState(() {
+    _updateCreateEditorState(() {
       _editingApparatusId = null;
       _apparatusName.clear();
-      _apparatusFamily.clear();
-      _apparatusKind.clear();
-      _apparatusCapabilities.clear();
       _apparatusColorStations.clear();
+      _selectedApparatusFamily = null;
+      _selectedApparatusKind = null;
+      _selectedApparatusCapabilities = {};
       _editingCapabilityProfiles = const [];
     });
+  }
+
+  Future<void> _showApparatusEditor() async {
+    if (_createEditorSheetOpen) {
+      return;
+    }
+    _createEditorSheetOpen = true;
+    var focusRequested = false;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              _createEditorSheetSetState = setSheetState;
+              _closeCreateEditorSheet = () => Navigator.of(sheetContext).pop();
+              if (!focusRequested) {
+                focusRequested = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _apparatusNameFocus.requestFocus();
+                  }
+                });
+              }
+              final height = MediaQuery.sizeOf(context).height;
+              final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+              return Padding(
+                padding: EdgeInsets.only(bottom: keyboardInset),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: height * 0.9),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _editingApparatusId == null
+                                  ? 'Aparat qo\'shish'
+                                  : 'Aparatni tahrirlash',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Yopish',
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      _buildCreateEditor(context),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _createEditorSheetSetState = null;
+      _closeCreateEditorSheet = null;
+      _createEditorSheetOpen = false;
+    }
+  }
+
+  Future<void> _pickApparatusFamily() async {
+    final picked = await _showApparatusSinglePicker(
+      context,
+      title: 'Aparat oilasi tanlang',
+      options: _apparatusOptions.families,
+      selected: _selectedApparatusFamily,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    _updateCreateEditorState(() {
+      _selectedApparatusFamily = picked;
+      if (!_apparatusOptions.kindsForFamily(picked).contains(
+            _selectedApparatusKind,
+          )) {
+        _selectedApparatusKind = null;
+      }
+      if (_selectedApparatusKind != 'color_pechat') {
+        _apparatusColorStations.clear();
+      }
+    });
+  }
+
+  Future<void> _pickApparatusKind() async {
+    final family = _selectedApparatusFamily;
+    if (family == null) {
+      showAdminTopNotice(context, 'Avval aparat oilasini tanlang');
+      return;
+    }
+    final picked = await _showApparatusSinglePicker(
+      context,
+      title: 'Aparat turi tanlang',
+      options: _apparatusOptions.kindsForFamily(family),
+      selected: _selectedApparatusKind,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    _updateCreateEditorState(() {
+      _selectedApparatusKind = picked;
+      if (picked != 'color_pechat') {
+        _apparatusColorStations.clear();
+      }
+    });
+  }
+
+  Future<void> _pickApparatusCapabilities() async {
+    final picked = await _showApparatusCapabilitiesPicker(
+      context,
+      options: _apparatusOptions.capabilities,
+      selected: _selectedApparatusCapabilities,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    _updateCreateEditorState(() => _selectedApparatusCapabilities = picked);
   }
 
   void _toggleGroupExpanded(AdminApparatusGroup group) {
@@ -297,6 +462,87 @@ class _AdminApparatusSettingsScreenState
       }
       return editingKey.isNotEmpty && owner.trim().toLowerCase() == editingKey;
     }).toList(growable: false);
+  }
+
+  Future<void> _assignApparatusToGroup(
+    AdminApparatus apparatus,
+    String? groupName,
+  ) async {
+    final targetKey = groupName?.trim().toLowerCase() ?? '';
+    if (targetKey.isNotEmpty &&
+        !_groups.any((group) => group.name.trim().toLowerCase() == targetKey)) {
+      showAdminTopNotice(context, 'Bunday guruh topilmadi');
+      return;
+    }
+
+    final changedGroups = <AdminApparatusGroup>[];
+    final nextGroups = <AdminApparatusGroup>[];
+    for (final group in _groups) {
+      final nextApparatus = [
+        for (final item in group.apparatus)
+          if (!productionMapWarehouseTitlesMatch(item, apparatus.name)) item,
+      ];
+      if (group.name.trim().toLowerCase() == targetKey) {
+        nextApparatus.add(apparatus.name);
+      }
+      final next = AdminApparatusGroup(
+        name: group.name,
+        apparatus: nextApparatus,
+      );
+      nextGroups.add(next);
+      if (next.apparatus.length != group.apparatus.length ||
+          next.apparatus.asMap().entries.any(
+                (entry) => entry.value != group.apparatus[entry.key],
+              )) {
+        changedGroups.add(next);
+      }
+    }
+    if (changedGroups.isEmpty) {
+      showAdminTopNotice(
+        context,
+        targetKey.isEmpty
+            ? 'Aparat guruhdan chiqarilgan'
+            : 'Aparat shu guruhda allaqachon bor',
+      );
+      return;
+    }
+
+    setState(() => _groups = nextGroups);
+    try {
+      for (final group in changedGroups) {
+        await MobileApi.instance.adminSaveApparatusGroup(group);
+      }
+      _saveCache();
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          targetKey.isEmpty
+              ? 'Aparat guruhdan chiqarildi'
+              : 'Aparat guruhga biriktirildi',
+        );
+      }
+    } catch (_) {
+      await _load(showLoading: false);
+      if (mounted) {
+        showAdminTopNotice(context, 'Aparat guruhi saqlanmadi');
+      }
+    }
+  }
+
+  Future<void> _showApparatusSettings(AdminApparatus apparatus) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _ApparatusSettingsSheet(
+        apparatus: apparatus,
+        groups: _groups,
+        currentGroupName: _groupOwningApparatus(apparatus.name),
+        onAssignGroup: (groupName) =>
+            _assignApparatusToGroup(apparatus, groupName),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -346,46 +592,49 @@ class _AdminApparatusSettingsScreenState
       showAdminTopNotice(context, 'Aparat nomi kerak');
       return;
     }
-    final colorStationsText = _apparatusColorStations.text.trim();
-    final colorStations =
-        colorStationsText.isEmpty ? null : int.tryParse(colorStationsText);
-    if (colorStationsText.isNotEmpty &&
-        (colorStations == null || colorStations <= 0 || colorStations > 24)) {
+    final family = _selectedApparatusFamily;
+    final kind = _selectedApparatusKind;
+    if (family == null || kind == null || _selectedApparatusCapabilities.isEmpty) {
       showAdminTopNotice(
-          context, 'Rang stansiyalari 1-24 oralig\'ida bo\'lsin');
+          context, 'Aparat oilasi, turi va capability tanlang');
       return;
     }
-    final capabilityTokens = _apparatusCapabilities.text
-        .split(RegExp(r'[,;\n]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty);
+    final colorStationsText = _apparatusColorStations.text.trim();
+    final parsedColorStations =
+        colorStationsText.isEmpty ? null : int.tryParse(colorStationsText);
+    final colorStations = kind == 'color_pechat' ? parsedColorStations : null;
+    if (colorStationsText.isNotEmpty &&
+        kind == 'color_pechat' &&
+        (colorStations == null ||
+            colorStations < _apparatusOptions.colorStationsMin ||
+            colorStations > _apparatusOptions.colorStationsMax)) {
+      showAdminTopNotice(
+        context,
+        'Rang stansiyalari ${_apparatusOptions.colorStationsMin}-'
+        '${_apparatusOptions.colorStationsMax} oralig\'ida bo\'lsin',
+      );
+      return;
+    }
+    final capabilities = _apparatusOptions.capabilities
+        .where(_selectedApparatusCapabilities.contains)
+        .toList(growable: false);
     final previousProfiles = {
       for (final profile in _editingCapabilityProfiles)
         profile.code.trim().toLowerCase(): profile,
     };
     final capabilityProfiles = <AdminApparatusCapabilityProfile>[];
-    for (final token in capabilityTokens) {
-      final parts = token.split(':');
-      final code = parts.first.trim().toLowerCase();
-      if (code.isEmpty) continue;
+    for (final code in capabilities) {
       final previous = previousProfiles[code];
       capabilityProfiles.add(
         AdminApparatusCapabilityProfile(
           code: code,
-          level: (int.tryParse(parts.length > 1 ? parts[1].trim() : '') ??
-                  previous?.level ??
-                  1)
-              .clamp(1, 100),
+          level: previous?.level ?? 1,
           validFromUnix: previous?.validFromUnix,
           validToUnix: previous?.validToUnix,
           enabled: previous?.enabled ?? true,
         ),
       );
     }
-    final capabilities = capabilityProfiles
-        .map((profile) => profile.code)
-        .toSet()
-        .toList(growable: false);
     final previousId = _editingApparatusId;
     AdminApparatus? previous;
     if (previousId != null) {
@@ -396,13 +645,13 @@ class _AdminApparatusSettingsScreenState
         }
       }
     }
-    setState(() => _creatingApparatus = true);
+    _updateCreateEditorState(() => _creatingApparatus = true);
     try {
       final created = await MobileApi.instance.adminCreateApparatus(
         name,
         id: previousId ?? '',
-        family: _apparatusFamily.text,
-        kind: _apparatusKind.text,
+        family: family,
+        kind: kind,
         capabilities: capabilities,
         capabilityProfiles: capabilityProfiles,
         colorStations: colorStations,
@@ -434,13 +683,17 @@ class _AdminApparatusSettingsScreenState
         _selected.add(created.name);
         _editingApparatusId = null;
         _apparatusName.clear();
-        _apparatusFamily.clear();
-        _apparatusKind.clear();
-        _apparatusCapabilities.clear();
         _apparatusColorStations.clear();
+        _selectedApparatusFamily = null;
+        _selectedApparatusKind = null;
+        _selectedApparatusCapabilities = {};
         _editingCapabilityProfiles = const [];
       });
       _saveCache();
+      final closeEditor = _closeCreateEditorSheet;
+      _createEditorSheetSetState = null;
+      _closeCreateEditorSheet = null;
+      closeEditor?.call();
       showAdminTopNotice(
         context,
         previousId == null
@@ -453,7 +706,7 @@ class _AdminApparatusSettingsScreenState
       }
     } finally {
       if (mounted) {
-        setState(() => _creatingApparatus = false);
+        _updateCreateEditorState(() => _creatingApparatus = false);
       }
     }
   }
@@ -471,95 +724,15 @@ class _AdminApparatusSettingsScreenState
           bottomPadding,
         ),
         children: [
-          if (_editingApparatusId != null) ...[
-            Material(
-              color: scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Master-data tahriri',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: scheme.onSecondaryContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _clearApparatusEditor,
-                      child: const Text('Bekor qilish'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          TextField(
-            controller: _apparatusName,
-            focusNode: _apparatusNameFocus,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _createApparatus(),
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Aparat nomi',
-              hintText: 'Bobst 1',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _apparatusFamily,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Aparat oilasi (family)',
-              hintText: 'pechat, laminatsiya, rezka',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _apparatusKind,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Aparat turi (kind)',
-              hintText: 'flexo, color_pechat',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _apparatusCapabilities,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Capability lar',
-              hintText: 'print, pechat, flexo',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _apparatusColorStations,
-            keyboardType: TextInputType.number,
-            decoration: appSurfaceInputDecoration(
-              context,
-              labelText: 'Rang stansiyalari (ixtiyoriy)',
-              hintText: '7',
-            ),
-          ),
-          const SizedBox(height: 8),
           FilledButton.icon(
-            onPressed: _creatingApparatus ? null : _createApparatus,
-            icon: const Icon(Icons.precision_manufacturing_outlined),
-            label: Text(
-              _creatingApparatus
-                  ? 'Saqlanmoqda...'
-                  : _editingApparatusId == null
-                      ? 'Aparat qo\'shish'
-                      : 'Master-data\'ni saqlash',
-            ),
+            onPressed: _creatingApparatus
+                ? null
+                : () {
+                    _clearApparatusEditor();
+                    unawaited(_showApparatusEditor());
+                  },
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            label: const Text('Aparat qo\'shish'),
           ),
           const SizedBox(height: 16),
           Text(
@@ -591,6 +764,7 @@ class _AdminApparatusSettingsScreenState
                       _apparatus.length,
                     ),
                     apparatus: _apparatus[index],
+                    onTap: () => _showApparatusSettings(_apparatus[index]),
                     onEdit: _apparatus[index].isDefault
                         ? null
                         : () => _editApparatus(_apparatus[index]),
@@ -599,6 +773,120 @@ class _AdminApparatusSettingsScreenState
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCreateEditor(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_editingApparatusId != null) ...[
+          Material(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Master-data tahriri',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: scheme.onSecondaryContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _clearApparatusEditor();
+                      _closeCreateEditorSheet?.call();
+                    },
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        TextField(
+          controller: _apparatusName,
+          focusNode: _apparatusNameFocus,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _createApparatus(),
+          decoration: appSurfaceInputDecoration(
+            context,
+            labelText: 'Aparat nomi',
+            hintText: 'Bobst 1',
+          ),
+        ),
+        const SizedBox(height: 8),
+        AdminPickerField(
+          label: 'Aparat oilasi (family)',
+          value: _selectedApparatusFamily == null
+              ? null
+              : _apparatusOptionLabel(_selectedApparatusFamily!),
+          placeholder: 'Aparat oilasini tanlang',
+          enabled: !_creatingApparatus,
+          onTap: _pickApparatusFamily,
+        ),
+        const SizedBox(height: 8),
+        AdminPickerField(
+          label: 'Aparat turi (kind)',
+          value: _selectedApparatusKind == null
+              ? null
+              : _apparatusOptionLabel(_selectedApparatusKind!),
+          placeholder: _selectedApparatusFamily == null
+              ? 'Avval oilani tanlang'
+              : 'Aparat turini tanlang',
+          enabled: !_creatingApparatus && _selectedApparatusFamily != null,
+          onTap: _pickApparatusKind,
+        ),
+        const SizedBox(height: 8),
+        AdminPickerField(
+          label: 'Capability lar',
+          value: _selectedApparatusCapabilities.isEmpty
+              ? null
+              : _selectedApparatusCapabilities
+                  .map(_apparatusOptionLabel)
+                  .join(', '),
+          placeholder: 'Capability tanlang',
+          enabled: !_creatingApparatus,
+          onTap: _pickApparatusCapabilities,
+        ),
+        if (_selectedApparatusKind == 'color_pechat') ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _apparatusColorStations,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Rang stansiyalari (ixtiyoriy)',
+              hintText:
+                  '${_apparatusOptions.colorStationsMin}-'
+                  '${_apparatusOptions.colorStationsMax}',
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _creatingApparatus ? null : _createApparatus,
+          icon: const Icon(Icons.precision_manufacturing_outlined),
+          label: Text(
+            _creatingApparatus
+                ? 'Saqlanmoqda...'
+                : _editingApparatusId == null
+                    ? 'Aparat qo\'shish'
+                    : 'Master-data\'ni saqlash',
+          ),
+        ),
+      ],
     );
   }
 
@@ -830,6 +1118,256 @@ class _AdminApparatusSettingsScreenState
   }
 }
 
+String _apparatusOptionLabel(String value) {
+  return switch (value) {
+    'pechat' => 'Pechat',
+    'laminatsiya' => 'Laminatsiya',
+    'rezka' => 'Rezka',
+    'paket' => 'Paket',
+    'kley' => 'Kley',
+    'other' => 'Boshqa',
+    'color_pechat' => 'Rangli pechat',
+    'flexo' => 'Flexo',
+    'extruder_laminatsiya' => 'Extruder laminatsiya',
+    'holodniy_kley' => 'Holodniy kley',
+    'print' => 'Bosma (print)',
+    'laminate' => 'Laminatsiya (laminate)',
+    'cut' => 'Rezka (cut)',
+    'package' => 'Paket (package)',
+    'glue' => 'Kley (glue)',
+    'apparatus' => 'Aparat',
+    _ => value,
+  };
+}
+
+Future<String?> _showApparatusSinglePicker(
+  BuildContext context, {
+  required String title,
+  required List<String> options,
+  String? selected,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ApparatusSinglePickerSheet(
+      title: title,
+      options: options,
+      selected: selected,
+    ),
+  );
+}
+
+class _ApparatusSinglePickerSheet extends StatelessWidget {
+  const _ApparatusSinglePickerSheet({
+    required this.title,
+    required this.options,
+    required this.selected,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FractionallySizedBox(
+      heightFactor: 0.58,
+      child: Material(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                itemCount: options.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final option = options[index];
+                  final isSelected = option == selected;
+                  return ListTile(
+                    title: Text(_apparatusOptionLabel(option)),
+                    subtitle: Text(option),
+                    selected: isSelected,
+                    trailing: Icon(
+                      isSelected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    tileColor: scheme.surfaceContainerHighest,
+                    selectedTileColor: scheme.primaryContainer,
+                    onTap: () => Navigator.of(context).pop(option),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<Set<String>?> _showApparatusCapabilitiesPicker(
+  BuildContext context, {
+  required List<String> options,
+  required Set<String> selected,
+}) {
+  return showModalBottomSheet<Set<String>>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ApparatusCapabilitiesPickerSheet(
+      options: options,
+      selected: selected,
+    ),
+  );
+}
+
+class _ApparatusCapabilitiesPickerSheet extends StatefulWidget {
+  const _ApparatusCapabilitiesPickerSheet({
+    required this.options,
+    required this.selected,
+  });
+
+  final List<String> options;
+  final Set<String> selected;
+
+  @override
+  State<_ApparatusCapabilitiesPickerSheet> createState() =>
+      _ApparatusCapabilitiesPickerSheetState();
+}
+
+class _ApparatusCapabilitiesPickerSheetState
+    extends State<_ApparatusCapabilitiesPickerSheet> {
+  late final Set<String> _selected = {...widget.selected};
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FractionallySizedBox(
+      heightFactor: 0.72,
+      child: Material(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Capability tanlang',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                itemCount: widget.options.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final option = widget.options[index];
+                  final isSelected = _selected.contains(option);
+                  return CheckboxListTile(
+                    title: Text(_apparatusOptionLabel(option)),
+                    subtitle: Text(option),
+                    value: isSelected,
+                    selected: isSelected,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    tileColor: scheme.surfaceContainerHighest,
+                    selectedTileColor: scheme.primaryContainer,
+                    onChanged: (value) {
+                      setState(() {
+                        if (value == true) {
+                          _selected.add(option);
+                        } else {
+                          _selected.remove(option);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop({..._selected}),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Tasdiqlash'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 IconData _apparatusIcon(String title) {
   if (productionMapIsPechatApparatus(title)) {
     return Icons.print_outlined;
@@ -890,11 +1428,13 @@ class _ApparatusListRow extends StatelessWidget {
   const _ApparatusListRow({
     required this.slot,
     required this.apparatus,
+    this.onTap,
     this.onEdit,
   });
 
   final M3SegmentVerticalSlot slot;
   final AdminApparatus apparatus;
+  final VoidCallback? onTap;
   final VoidCallback? onEdit;
 
   @override
@@ -905,7 +1445,8 @@ class _ApparatusListRow extends StatelessWidget {
       title: apparatus.name,
       subtitle: _apparatusMetadataLabel(apparatus),
       value: '',
-      showChevron: false,
+      showChevron: onTap != null,
+      onTap: onTap,
       fixedHeight: 61,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       elevation: 4,
@@ -981,14 +1522,217 @@ class _ApparatusSelectRow extends StatelessWidget {
   }
 }
 
+class _ApparatusSettingsSheet extends StatefulWidget {
+  const _ApparatusSettingsSheet({
+    required this.apparatus,
+    required this.groups,
+    required this.currentGroupName,
+    required this.onAssignGroup,
+  });
+
+  final AdminApparatus apparatus;
+  final List<AdminApparatusGroup> groups;
+  final String? currentGroupName;
+  final Future<void> Function(String? groupName) onAssignGroup;
+
+  @override
+  State<_ApparatusSettingsSheet> createState() =>
+      _ApparatusSettingsSheetState();
+}
+
+class _ApparatusSettingsSheetState extends State<_ApparatusSettingsSheet> {
+  late String _selectedGroupName;
+  bool _savingGroup = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final current = widget.currentGroupName?.trim() ?? '';
+    _selectedGroupName = widget.groups.any(
+      (group) => group.name.trim().toLowerCase() == current.toLowerCase(),
+    )
+        ? current
+        : '';
+  }
+
+  Future<void> _saveGroup() async {
+    if (_savingGroup) {
+      return;
+    }
+    setState(() => _savingGroup = true);
+    try {
+      await widget.onAssignGroup(
+        _selectedGroupName.trim().isEmpty ? null : _selectedGroupName,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingGroup = false);
+      }
+    }
+  }
+
+  Widget _buildGroupTab(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      children: [
+        Text(
+          'Aparatni qaysi guruhda ishlatishni belgilang.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.3,
+              ),
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedGroupName,
+          decoration: const InputDecoration(
+            labelText: 'Aparat guruhi',
+            prefixIcon: Icon(Icons.folder_copy_outlined),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: '',
+              child: Text('Guruhsiz'),
+            ),
+            for (final group in widget.groups)
+              DropdownMenuItem(
+                value: group.name,
+                child: Text(group.name),
+              ),
+          ],
+          onChanged: _savingGroup
+              ? null
+              : (value) => setState(() => _selectedGroupName = value ?? ''),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: _savingGroup ? null : _saveGroup,
+          icon: _savingGroup
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.link_rounded),
+          label: Text(_savingGroup ? 'Saqlanmoqda...' : 'Guruhni saqlash'),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Mavjud guruhlar',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 8),
+        if (widget.groups.isEmpty)
+          Text(
+            'Hali guruh yaratilmagan.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          )
+        else
+          for (final group in widget.groups)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.folder_outlined),
+              title: Text(group.name),
+              subtitle: Text('${group.apparatus.length} ta aparat'),
+            ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 24;
+    return DefaultTabController(
+      length: 3,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        child: Material(
+          color: scheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Row(
+                  children: [
+                    _apparatusLeading(context, widget.apparatus.name),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Aparat sozlamalari',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.apparatus.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const TabBar(
+                tabs: [
+                  Tab(text: 'Guruh'),
+                  Tab(text: 'Navbat'),
+                  Tab(text: 'Quvvat / jadval'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildGroupTab(context),
+                    AdminQueuePolicyPanel(
+                      bottomPadding: bottomPadding,
+                      apparatusName: widget.apparatus.name,
+                    ),
+                    AdminApparatusCapacityPanel(
+                      apparatus: [widget.apparatus],
+                      bottomPadding: bottomPadding,
+                      showApparatusSelector: false,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AdminApparatusSettingsCache {
   const _AdminApparatusSettingsCache({
     required this.groups,
     required this.apparatus,
+    required this.options,
   });
 
   final List<AdminApparatusGroup> groups;
   final List<AdminApparatus> apparatus;
+  final AdminApparatusMasterOptions options;
 }
 
 class _ApparatusGroupListTile extends StatelessWidget {
