@@ -21,12 +21,26 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
+    _startQueueSnapshotPolling();
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
     _stopWorkerLiveStream();
     _liveStreamGeneration++;
     unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+  }
+
+  void _startQueueSnapshotPolling() {
+    _queueSnapshotPollTimer?.cancel();
+    _queueSnapshotPollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) {
+        if (!mounted || _queueSnapshotRefreshInFlight) {
+          return;
+        }
+        unawaited(_refreshQueueSnapshot());
+      },
+    );
   }
 
   void _stopWorkerLiveStream() {
@@ -181,6 +195,10 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshQueueSnapshot() async {
+    if (_queueSnapshotRefreshInFlight) {
+      return;
+    }
+    _queueSnapshotRefreshInFlight = true;
     try {
       final queueSnapshot = await _loadQueueSnapshot();
       if (!mounted) {
@@ -219,6 +237,8 @@ extension _AdminProductionMapOrdersLiveState
         });
       }
       return;
+    } finally {
+      _queueSnapshotRefreshInFlight = false;
     }
   }
 

@@ -181,8 +181,10 @@ class _AdminProductionMapOrdersScreenState
   bool _liveRefreshInFlight = false;
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
+  bool _queueSnapshotRefreshInFlight = false;
   int _liveStreamGeneration = 0;
   StreamSubscription<AdminProductionMapLiveSnapshot>? _liveStreamSubscription;
+  Timer? _queueSnapshotPollTimer;
   String _searchQuery = '';
   _OpenedOrderModule _module = _OpenedOrderModule.orders;
   AdminApparatus? _selectedApparatus;
@@ -243,6 +245,8 @@ class _AdminProductionMapOrdersScreenState
       WidgetsBinding.instance.removeObserver(this);
     }
     _stopWorkerLiveStream();
+    _queueSnapshotPollTimer?.cancel();
+    _queueSnapshotPollTimer = null;
     if (!widget.workerMode) {
       _tabController.removeListener(_syncModuleFromTab);
     }

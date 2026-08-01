@@ -4003,6 +4003,79 @@ void main() {
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
   });
 
+  testWidgets('opened order cards refresh after another worker pauses', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Laminatsiya 1';
+    const orderId = 'zakaz-opened-laminatsiya-live-pause';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Opened laminatsiya live pause',
+        productCode: 'OLLP',
+        apparatus: apparatus,
+        product: 'opened laminatsiya live pause product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    await _usePhoneViewport(tester);
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Color cardColor() {
+      final row = find.byKey(const ValueKey('opened-order-$orderId'));
+      expect(row, findsOneWidget);
+      return tester
+          .widget<Material>(
+            find.descendant(of: row, matching: find.byType(Material)).first,
+          )
+          .color!;
+    }
+
+    Color expectedTint(Color accent) {
+      return Color.alphaBlend(
+        accent.withValues(alpha: 0.16),
+        theme.colorScheme.surfaceContainerLowest,
+      );
+    }
+
+    expect(cardColor(), expectedTint(const Color(0xFF2E7D32)));
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'pause',
+      producedQty: 1,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
+  });
+
   testWidgets('worker completed orders move to own completed tab', (
     tester,
   ) async {
