@@ -380,6 +380,10 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           icon: const Icon(Icons.backup_outlined),
           title: Text(failed == null ? 'Backup olish' : 'Backupni qayta olish'),
           content: Text(
@@ -387,15 +391,25 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
                 ? '${failed.error}\n\nYangi backup hozirgi database holatidan olinsinmi?'
                 : 'Database’ning hozirgi holatidan backup olinsinmi?',
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              key: const ValueKey('server-backup-start-confirm'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Backup olish'),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    key: const ValueKey('server-backup-start-confirm'),
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: const Text('Backup olish'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -768,31 +782,40 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     final report = _report;
     final endpointPanel = _ServerEndpointPanel(
       controller: _serverEndpointController,
-      currentBaseUrl: MobileApi.baseUrl,
       busy: _switchingServer,
       onSubmit: _switchServerEndpoint,
+    );
+    final currentServerLabel = Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Text(
+        'Hozirgi server: ${MobileApi.baseUrl}',
+        style: Theme.of(context).textTheme.labelMedium,
+      ),
     );
     if (_loading && report == null) {
       return Column(
         children: [
-          endpointPanel,
+          currentServerLabel,
           const Expanded(child: Center(child: AppLoadingIndicator())),
+          endpointPanel,
         ],
       );
     }
     if (_error != null && report == null) {
       return Column(
         children: [
-          endpointPanel,
+          currentServerLabel,
           Expanded(child: AppRetryState(onRetry: _reload)),
+          endpointPanel,
         ],
       );
     }
     if (report == null) {
       return Column(
         children: [
-          endpointPanel,
+          currentServerLabel,
           Expanded(child: AppRetryState(onRetry: _reload)),
+          endpointPanel,
         ],
       );
     }
@@ -803,8 +826,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(4, 8, 4, bottomPadding),
         children: [
-          endpointPanel,
-          const SizedBox(height: 10),
+          currentServerLabel,
           _StatusSummaryPanel(
             report: report,
             liveConnected: _liveConnected,
@@ -825,6 +847,8 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
             liveConnected: _liveConnected,
             lastUpdated: _lastUpdated,
           ),
+          const SizedBox(height: 10),
+          endpointPanel,
         ],
       ),
     );
@@ -834,13 +858,11 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
 class _ServerEndpointPanel extends StatelessWidget {
   const _ServerEndpointPanel({
     required this.controller,
-    required this.currentBaseUrl,
     required this.busy,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
-  final String currentBaseUrl;
   final bool busy;
   final VoidCallback onSubmit;
 
@@ -869,11 +891,6 @@ class _ServerEndpointPanel extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 10),
-            Text(
-              'Hozirgi server: $currentBaseUrl',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-            const SizedBox(height: 8),
             TextField(
               key: const ValueKey('server-endpoint-input'),
               controller: controller,
