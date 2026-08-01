@@ -151,6 +151,58 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('worker group name can be renamed from edit mode', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(Tab, 'Guruhlar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-hub-custom-Guruh qo‘shish')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('worker-group-code-dialog-input')),
+      'ab',
+    );
+    await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('AB guruh'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.edit_outlined).last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('worker-group-name-field')),
+      'A laminatsiya',
+    );
+    await tester.tap(find.text('Saqlash').last);
+    await tester.pumpAndSettle();
+
+    final groups = await MobileApi.instance.adminWorkerGroups();
+    expect(groups.map((group) => group.groupCode), contains('A LAMINATSIYA'));
+    expect(groups.map((group) => group.groupCode), isNot(contains('AB')));
+    expect(find.text('A LAMINATSIYA guruh'), findsOneWidget);
+  });
+
   testWidgets('worker groups allow custom codes and hide assigned workers', (
     tester,
   ) async {

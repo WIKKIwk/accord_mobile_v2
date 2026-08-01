@@ -868,6 +868,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
   final Set<String> _savingCodes = <String>{};
   String? _selectedGroupCode;
   String? _editingGroupCode;
+  AdminWorkerGroup? _editingOriginalGroup;
   int _loadedWorkersVersion = -1;
   int _loadedGroupsVersion = -1;
 
@@ -922,6 +923,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         if (_editingGroupCode != null &&
             !_groupsByCode.containsKey(_editingGroupCode)) {
           _editingGroupCode = null;
+          _editingOriginalGroup = null;
         }
         _loading = false;
       });
@@ -974,6 +976,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
         if (_editingGroupCode != null &&
             !_groupsByCode.containsKey(_editingGroupCode)) {
           _editingGroupCode = null;
+          _editingOriginalGroup = null;
         }
       });
     } catch (_) {
@@ -986,12 +989,62 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
   String _groupKey(String code) => _workerGroupCodeKey(code);
 
   void _setGroup(AdminWorkerGroup group) {
+    final currentCode = _editingGroupCode ?? _selectedGroupCode;
+    final code = _groupKey(group.groupCode);
+    final editingExistingGroup = _editingOriginalGroup != null &&
+        currentCode != null;
+    final mapKey = editingExistingGroup
+        ? currentCode!
+        : code.isEmpty
+            ? currentCode ?? code
+            : code;
+    setState(() {
+      final groups = {..._groupsByCode};
+      if (currentCode != null && currentCode != mapKey) {
+        groups.remove(currentCode);
+      }
+      groups[mapKey] = group;
+      _groupsByCode = groups;
+      if (!editingExistingGroup && code.isNotEmpty) {
+        _selectedGroupCode = code;
+        _editingGroupCode = code;
+      }
+    });
+  }
+
+  void _startEditingGroup(AdminWorkerGroup group) {
     final code = _groupKey(group.groupCode);
     setState(() {
-      _groupsByCode = {
-        ..._groupsByCode,
-        code: group.copyWith(groupCode: code),
-      };
+      _selectedGroupCode = code;
+      _editingGroupCode = code;
+      _editingOriginalGroup = group;
+    });
+  }
+
+  void _cancelEditingGroup({bool collapse = false}) {
+    final original = _editingOriginalGroup;
+    final currentCode = _editingGroupCode;
+    if (original == null) {
+      setState(() {
+        _editingGroupCode = null;
+        if (collapse) {
+          _selectedGroupCode = null;
+        }
+      });
+      return;
+    }
+    final originalCode = _groupKey(original.groupCode);
+    final groups = {..._groupsByCode};
+    if (currentCode != null) {
+      groups.remove(currentCode);
+    }
+    groups.remove(originalCode);
+    groups[originalCode] = original;
+    setState(() {
+      _groupsByCode = groups;
+      _selectedGroupCode = collapse ? null : originalCode;
+      _editingGroupCode = null;
+      _editingOriginalGroup = null;
     });
   }
 
@@ -1000,6 +1053,11 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     if (code.isEmpty) {
       return;
     }
+    final original = _editingOriginalGroup;
+    final previousGroupCode = original == null
+        ? null
+        : _groupKey(original.groupCode);
+    final previousApparatus = original?.apparatus.trim();
     setState(() => _savingCodes.add(code));
     try {
       final saved = await MobileApi.instance.adminSaveWorkerGroup(
@@ -1009,17 +1067,24 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
               : group.apparatus.trim(),
           groupCode: code,
         ),
+        previousApparatus: previousApparatus,
+        previousGroupCode: previousGroupCode,
       );
       if (!mounted) {
         return;
       }
+      final originalCode = previousGroupCode ?? code;
       setState(() {
+        final groups = {..._groupsByCode};
+        groups.remove(originalCode);
+        groups.remove(code);
+        groups[_groupKey(saved.groupCode)] = saved;
         _groupsByCode = {
-          ..._groupsByCode,
-          _groupKey(saved.groupCode): saved,
+          ...groups,
         };
         _selectedGroupCode = _groupKey(saved.groupCode);
         _editingGroupCode = null;
+        _editingOriginalGroup = null;
       });
       showAdminTopNotice(context, '${saved.groupCode} guruh saqlandi');
       await _loadGroups();
@@ -1050,15 +1115,17 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
     return result;
   }
 
-  List<AdminWorkerGroup> _sortedGroups() {
-    final groups = _groupsByCode.values.toList();
-    groups.sort((left, right) => left.groupCode.compareTo(right.groupCode));
+  List<MapEntry<String, AdminWorkerGroup>> _sortedGroupEntries() {
+    final groups = _groupsByCode.entries.toList();
+    groups.sort((left, right) =>
+        left.value.groupCode.compareTo(right.value.groupCode));
     return groups;
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final groups = _sortedGroupEntries();
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: AppRefreshIndicator(
@@ -1090,45 +1157,40 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
               M3SegmentSpacedColumn(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (var index = 0; index < _sortedGroups().length; index++)
+                  for (final entry in groups)
                     _WorkerGroupExpandableCard(
-                      group: _sortedGroups()[index],
+                      group: entry.value,
+                      identityKey: entry.key,
                       apparatus: _apparatus,
                       workers: _workers,
                       assignedWorkerGroups: _assignedWorkerGroups(
-                        exceptGroupCode: _sortedGroups()[index].groupCode,
+                        exceptGroupCode: entry.value.groupCode,
                       ),
-                      expanded: _selectedGroupCode ==
-                          _groupKey(_sortedGroups()[index].groupCode),
-                      editing: _editingGroupCode ==
-                          _groupKey(_sortedGroups()[index].groupCode),
-                      saving: _savingCodes.contains(
-                        _groupKey(_sortedGroups()[index].groupCode),
-                      ),
+                      expanded: _selectedGroupCode == entry.key,
+                      editing: _editingGroupCode == entry.key,
+                      saving: _savingCodes.contains(entry.key),
                       onExpandedChanged: (expanded) {
+                        final code = entry.key;
+                        if (!expanded && _editingGroupCode == code) {
+                          _cancelEditingGroup(collapse: true);
+                          return;
+                        }
                         setState(() {
-                          final code =
-                              _groupKey(_sortedGroups()[index].groupCode);
                           _selectedGroupCode = expanded ? code : null;
-                          if (!expanded && _editingGroupCode == code) {
-                            _editingGroupCode = null;
-                          }
                         });
                       },
                       onEditChanged: (editing) {
-                        setState(() {
-                          final code =
-                              _groupKey(_sortedGroups()[index].groupCode);
-                          _selectedGroupCode = code;
-                          _editingGroupCode = editing ? code : null;
-                        });
+                        if (editing) {
+                          _startEditingGroup(entry.value);
+                        } else {
+                          _cancelEditingGroup();
+                        }
                       },
                       onChanged: _setGroup,
-                      onSave: () =>
-                          unawaited(_saveGroup(_sortedGroups()[index])),
+                      onSave: () => unawaited(_saveGroup(entry.value)),
                       slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        index,
-                        _sortedGroups().length,
+                        groups.indexOf(entry),
+                        groups.length,
                       ),
                     ),
                 ],
@@ -1143,6 +1205,7 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
 class _WorkerGroupExpandableCard extends StatelessWidget {
   const _WorkerGroupExpandableCard({
     required this.group,
+    required this.identityKey,
     required this.apparatus,
     required this.workers,
     required this.assignedWorkerGroups,
@@ -1157,6 +1220,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
   });
 
   final AdminWorkerGroup group;
+  final String identityKey;
   final List<AdminApparatus> apparatus;
   final List<AdminWorker> workers;
   final Map<String, String> assignedWorkerGroups;
@@ -1181,7 +1245,7 @@ class _WorkerGroupExpandableCard extends StatelessWidget {
         '${group.workDaysPerWeek} kun • ${group.workerIds.length} odam';
 
     return Material(
-      key: ValueKey('worker-group-card-${group.groupCode}'),
+      key: ValueKey('worker-group-card-$identityKey'),
       color: scheme.surfaceContainerLowest,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
@@ -1606,6 +1670,17 @@ class _WorkerGroupScheduleFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        TextFormField(
+          key: const Key('worker-group-name-field'),
+          initialValue: group.groupCode,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Guruh nomi',
+            filled: true,
+          ),
+          onChanged: (value) => onChanged(group.copyWith(groupCode: value)),
+        ),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           key: const Key('worker-group-apparatus-picker'),
           initialValue: selectedApparatus,

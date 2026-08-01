@@ -7929,15 +7929,63 @@ extension MobileApiAdmin on MobileApi {
         .toList(growable: false);
   }
 
-  Future<AdminWorkerGroup> adminSaveWorkerGroup(AdminWorkerGroup group) async {
+  Future<AdminWorkerGroup> adminSaveWorkerGroup(
+    AdminWorkerGroup group, {
+    String? previousApparatus,
+    String? previousGroupCode,
+  }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = _normalizeTestModeWorkerGroup(group);
       final key = normalized.apparatus.trim().toLowerCase();
       final code = normalized.groupCode.trim().toUpperCase();
+      final previousKey = previousApparatus?.trim().toLowerCase();
+      final previousCode = previousGroupCode == null
+          ? null
+          : previousGroupCode
+              .trim()
+              .split(RegExp(r'\s+'))
+              .join(' ')
+              .toUpperCase();
+      final hasPreviousIdentity =
+          previousKey != null &&
+          previousKey.isNotEmpty &&
+          previousCode != null &&
+          previousCode.isNotEmpty;
+      final previousExists = !hasPreviousIdentity ||
+          _testModeWorkerGroups.any(
+            (item) =>
+                item.apparatus.trim().toLowerCase() == previousKey &&
+                item.groupCode.trim().toUpperCase() == previousCode,
+          );
+      if (!previousExists) {
+        throw const MobileApiException(
+          code: 'worker_group_not_found',
+          message: 'Guruh topilmadi',
+        );
+      }
+      final isPreviousGroup = (AdminWorkerGroup item) {
+        if (hasPreviousIdentity) {
+          return item.apparatus.trim().toLowerCase() == previousKey &&
+              item.groupCode.trim().toUpperCase() == previousCode;
+        }
+        return item.groupCode.trim().toUpperCase() == code;
+      };
+      final duplicateName = _testModeWorkerGroups.any(
+        (item) =>
+            item.apparatus.trim().toLowerCase() == key &&
+            item.groupCode.trim().toUpperCase() == code &&
+            !isPreviousGroup(item),
+      );
+      if (duplicateName) {
+        throw const MobileApiException(
+          code: 'worker_group_name_exists',
+          message: 'Bu guruh nomi allaqachon bor',
+        );
+      }
       final duplicate = _testModeWorkerGroups.any(
         (item) =>
             item.apparatus.trim().toLowerCase() == key &&
-            item.groupCode.trim().toUpperCase() != code &&
+            !isPreviousGroup(item) &&
             item.workerIds.any(normalized.workerIds.toSet().contains),
       );
       if (duplicate) {
@@ -7947,17 +7995,26 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       _testModeWorkerGroups.removeWhere(
-        (item) => item.groupCode.trim().toUpperCase() == code,
+        isPreviousGroup,
       );
       _testModeWorkerGroups.add(normalized);
       return _hydrateTestModeWorkerGroup(normalized);
+    }
+    final payload = group.toJson();
+    final normalizedPreviousApparatus = previousApparatus?.trim() ?? '';
+    final normalizedPreviousGroupCode = previousGroupCode?.trim() ?? '';
+    if (normalizedPreviousApparatus.isNotEmpty) {
+      payload['previous_apparatus'] = normalizedPreviousApparatus;
+    }
+    if (normalizedPreviousGroupCode.isNotEmpty) {
+      payload['previous_group_code'] = normalizedPreviousGroupCode;
     }
     final response = await _sendAuthorized(
       () => _put(
         Uri.parse('$baseUrl/v1/mobile/admin/worker-groups'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode(group.toJson()),
+        body: jsonEncode(payload),
       ),
     );
     if (response.statusCode != 200) {
