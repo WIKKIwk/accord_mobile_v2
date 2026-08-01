@@ -424,6 +424,23 @@ void main() {
     );
   });
 
+  test('effective queue sequence appends unsequenced orders oldest first', () {
+    expect(
+      effectiveQueueSequence(
+        sequence: const [],
+        visibleOrderIds: const ['zakaz-new', 'zakaz-old'],
+      ),
+      const ['zakaz-old', 'zakaz-new'],
+    );
+    expect(
+      effectiveQueueSequence(
+        sequence: const ['zakaz-old'],
+        visibleOrderIds: const ['zakaz-newer', 'zakaz-new', 'zakaz-old'],
+      ),
+      const ['zakaz-old', 'zakaz-new', 'zakaz-newer'],
+    );
+  });
+
   test('backend visible order ids resolve by apparatus title', () {
     const visible = {
       '7 ta rangli pechat': ['zakaz-visible-alt'],

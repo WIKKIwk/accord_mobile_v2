@@ -47,7 +47,9 @@ List<String> effectiveQueueSequence({
       effective.add(normalized);
     }
   }
-  for (final id in visible) {
+  // Backend order ids are loaded newest-first. Keep saved sequence entries in
+  // their explicit order, then append any new entries oldest-first.
+  for (final id in visible.reversed) {
     if (seen.add(id)) {
       effective.add(id);
     }
