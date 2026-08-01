@@ -66,6 +66,34 @@ List<_RawMaterialBalance> _rawMaterialBalances(
   return balances;
 }
 
+bool _rawMaterialAssignmentIsConsumed(AdminRawMaterialAssignment assignment) {
+  return assignment.stockStatus.trim().toLowerCase() == 'consumed' ||
+      assignment.consumedQty > 0;
+}
+
+bool _rawMaterialAssignmentIsLocked(AdminRawMaterialAssignment assignment) {
+  final status = assignment.stockStatus.trim().toLowerCase();
+  return _rawMaterialAssignmentIsConsumed(assignment) ||
+      (status.isNotEmpty && status != 'available');
+}
+
+bool _rawMaterialAssignmentCanBeUnlinked(
+  AdminRawMaterialAssignment assignment,
+) {
+  return !_rawMaterialAssignmentIsLocked(assignment);
+}
+
+String _rawMaterialAssignmentStatusText(AdminRawMaterialAssignment assignment) {
+  if (_rawMaterialAssignmentIsConsumed(assignment)) {
+    return 'Sarf qilingan';
+  }
+  return switch (assignment.stockStatus.trim().toLowerCase()) {
+    'in_use' => 'Ishlatilmoqda',
+    'available' || '' => '',
+    _ => 'Band',
+  };
+}
+
 Set<String> _confirmedMaterialBarcodes({
   required List<AdminRawMaterialAssignment> assignments,
   required Set<String> scannedBarcodes,
@@ -154,6 +182,46 @@ bool _progressBatchCanFeedStation({
 
 bool _progressBatchCanBeScanned(AdminProgressBatch batch) {
   return batch.wipStatus.trim().toLowerCase() != 'processed';
+}
+
+bool _laminatsiyaMaterialScanCanBeSkippedForWip({
+  required String station,
+  required String? previousStage,
+  required List<AdminProgressBatch> inputProgressBatches,
+}) {
+  if (!productionMapIsLaminatsiyaApparatus(station) ||
+      previousStage == null) {
+    return false;
+  }
+  return inputProgressBatches.any((batch) {
+    final nextApparatus = batch.nextApparatus.trim();
+    if (batch.wipStatus.trim().toLowerCase() != 'processed' ||
+        !productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) ||
+        (nextApparatus.isNotEmpty &&
+            !productionMapNextStageTitleMatchesApparatus(
+              nextApparatus,
+              station,
+            ))) {
+      return false;
+    }
+    final processedBy = batch.processedByApparatus.trim().isEmpty
+        ? batch.currentApparatus
+        : batch.processedByApparatus;
+    return productionMapWarehouseTitlesMatch(processedBy, station);
+  });
+}
+
+bool _laminatsiyaMaterialGateBypassed({
+  required String station,
+  required AdminRawMaterialStartRequirements? materialRequirements,
+  required bool skipStartMaterialScan,
+}) {
+  if (skipStartMaterialScan) {
+    return true;
+  }
+  return productionMapIsLaminatsiyaApparatus(station) &&
+      materialRequirements != null &&
+      materialRequirements.normalizedAssignedBarcodes.isEmpty;
 }
 
 AdminProgressBatch? _matchingInputProgressBatch({
@@ -260,11 +328,13 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     apparatus: prepared.apparatus,
     order: order,
     action: action,
-    materialBarcodes: _queueActionMaterialBarcodes(
-      action: action,
-      assignments: prepared.materialAssignments,
-      scannedBarcodes: prepared.scannedMaterialBarcodes,
-    ),
+    materialBarcodes: prepared.bypassStartMaterialScan && action == 'start'
+        ? const []
+        : _queueActionMaterialBarcodes(
+            action: action,
+            assignments: prepared.materialAssignments,
+            scannedBarcodes: prepared.scannedMaterialBarcodes,
+          ),
     qolipCodes: qolipCodes,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
@@ -311,35 +381,43 @@ String? _queueActionStartBlockReason({
   required AdminProgressBatch? startInputProgressBatch,
   required bool qolipScanRequired,
   required bool qolipScanned,
+  required bool skipStartMaterialScan,
 }) {
   if (action != 'start') {
     return null;
   }
-  if (materialsLoading) {
-    return 'Homashyo qoidasi yuklanmoqda';
-  }
-  if (materialsError.trim().isNotEmpty || materialRequirements == null) {
-    return materialsError.trim().isEmpty
-        ? 'Homashyo qoidasi yuklanmadi'
-        : materialsError.trim();
-  }
-  if (materialRequirements.requiresMaterial &&
-      materialRequirements.normalizedAssignedBarcodes.isEmpty) {
-    return 'Ish boshlash uchun homashyo biriktirilmagan';
-  }
-  if (!materialRequirements.assignmentsSatisfied) {
-    return 'Majburiy homashyo guruhlari to‘liq biriktirilmagan';
-  }
-  if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
-      materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
-      materialRequirements.normalizedStagedBarcodes.isEmpty) {
-    return 'Apparat oldiga homashyo olib kelinmagan';
-  }
-  if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
-      !materialRequirements.scanSatisfied) {
-    return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
-        ? 'Avval state’dagi barcha homashyolarni QR scan qiling'
-        : 'Avval har bir majburiy guruhdan minimum homashyo QR scan qiling';
+  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
+    station: station,
+    materialRequirements: materialRequirements,
+    skipStartMaterialScan: skipStartMaterialScan,
+  );
+  if (!bypassMaterialGate) {
+    if (materialsLoading) {
+      return 'Homashyo qoidasi yuklanmoqda';
+    }
+    if (materialsError.trim().isNotEmpty || materialRequirements == null) {
+      return materialsError.trim().isEmpty
+          ? 'Homashyo qoidasi yuklanmadi'
+          : materialsError.trim();
+    }
+    if (materialRequirements.requiresMaterial &&
+        materialRequirements.normalizedAssignedBarcodes.isEmpty) {
+      return 'Ish boshlash uchun homashyo biriktirilmagan';
+    }
+    if (!materialRequirements.assignmentsSatisfied) {
+      return 'Majburiy homashyo guruhlari to‘liq biriktirilmagan';
+    }
+    if (materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll &&
+        materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
+        materialRequirements.normalizedStagedBarcodes.isEmpty) {
+      return 'Apparat oldiga homashyo olib kelinmagan';
+    }
+    if (materialRequirements.normalizedAssignedBarcodes.isNotEmpty &&
+        !materialRequirements.scanSatisfied) {
+      return materialRequirements.policy == AdminRawMaterialStartPolicy.stateAll
+          ? 'Avval state’dagi barcha homashyolarni QR scan qiling'
+          : 'Avval har bir majburiy guruhdan minimum homashyo QR scan qiling';
+    }
   }
   if (qolipScanRequired && !qolipScanned) {
     return 'Avval qolip QR scan qiling';
@@ -383,12 +461,19 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   required Set<String> scannedMaterialBarcodes,
   required AdminProgressBatch? startInputProgressBatch,
   required bool qolipScanned,
+  required bool skipStartMaterialScan,
 }) {
   if (apparatus == null || onQueueAction == null || actionInFlight) {
     return null;
   }
   final station = apparatus.name.trim();
-  final stationMaterialAssignments = materialRequirements == null
+  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
+    station: station,
+    materialRequirements: materialRequirements,
+    skipStartMaterialScan: skipStartMaterialScan,
+  );
+  final stationMaterialAssignments =
+      (materialRequirements == null || bypassMaterialGate)
       ? const <AdminRawMaterialAssignment>[]
       : materialAssignments;
   final inputProgressBatch = action == 'start' ? startInputProgressBatch : null;
@@ -397,9 +482,10 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
     onQueueAction: onQueueAction,
     materialAssignments: stationMaterialAssignments,
     scannedMaterialBarcodes: Set<String>.unmodifiable(
-      scannedMaterialBarcodes,
+      bypassMaterialGate ? const <String>{} : scannedMaterialBarcodes,
     ),
     startInputProgressBatch: inputProgressBatch,
+    bypassStartMaterialScan: bypassMaterialGate,
     blockReason: _queueActionStartBlockReason(
       action: action,
       materialRequirements: materialRequirements,
@@ -410,6 +496,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       startInputProgressBatch: inputProgressBatch,
       qolipScanRequired: _apparatusRequiresQolipScan(station),
       qolipScanned: qolipScanned,
+      skipStartMaterialScan: skipStartMaterialScan,
     ),
   );
 }
@@ -429,6 +516,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required List<String> visibleOrderIds,
   required ApparatusQueuePolicy queuePolicy,
   required AdminProgressBatch? startInputProgressBatch,
+  required bool skipStartMaterialScan,
   required AdminOrderControlState orderControlState,
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
 }) {
@@ -436,6 +524,14 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
   final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
+  final previousStage = station.isEmpty
+      ? null
+      : productionMapPreviousWorkStageStation(map: map, station: station);
+  final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
+    station: station,
+    materialRequirements: materialRequirements,
+    skipStartMaterialScan: skipStartMaterialScan,
+  );
   final stationMaterialAssignments = materialRequirements == null
       ? const <AdminRawMaterialAssignment>[]
       : startMaterialAssignments;
@@ -444,18 +540,21 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     scannedBarcodes: scannedMaterialBarcodes,
     orderId: orderId,
   );
-  final allMaterialsScanned = materialRequirements?.scanSatisfied ?? true;
+  final allMaterialsScanned = bypassMaterialGate
+      ? true
+      : materialRequirements?.scanSatisfied ?? true;
   final materialRequiredCount = materialRequirements == null
       ? 0
-      : materialRequirements.normalizedAssignedBarcodes.isEmpty &&
-              !materialRequirements.requiresMaterial
+      : bypassMaterialGate
           ? 0
-          : materialRequirements.requiredScanCount;
+          : materialRequirements.normalizedAssignedBarcodes.isEmpty &&
+                  !materialRequirements.requiresMaterial
+              ? 0
+              : materialRequirements.requiredScanCount;
   final materialScannedCount =
-      materialRequirements == null ? 0 : materialRequirements.matchedScanCount;
-  final previousStage = station.isEmpty
-      ? null
-      : productionMapPreviousWorkStageStation(map: map, station: station);
+      materialRequirements == null || bypassMaterialGate
+          ? 0
+          : materialRequirements.matchedScanCount;
   final previousStageReady = productionMapOrderReadyForStation(
     map: map,
     orderId: orderId,
@@ -503,10 +602,12 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     confirmedMaterialBarcodes: confirmedMaterialBarcodes,
     materialRequiredCount: materialRequiredCount,
     materialScannedCount: materialScannedCount,
-    hasMaterialAssignments: materialRequirements == null
-        ? stationMaterialAssignments.isNotEmpty
-        : materialRequirements.requiresMaterial ||
-            materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
+    hasMaterialAssignments: bypassMaterialGate
+        ? false
+        : materialRequirements == null
+            ? stationMaterialAssignments.isNotEmpty
+            : materialRequirements.requiresMaterial ||
+                materialRequirements.normalizedAssignedBarcodes.isNotEmpty,
     allMaterialsScanned: allMaterialsScanned,
     showStartMaterials: queueState == ApparatusQueueOrderState.pending &&
         materialRequirements != null,

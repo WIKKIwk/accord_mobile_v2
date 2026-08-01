@@ -125,7 +125,7 @@ class _MaterialGScaleControlScreenState
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: 'Tarozilar rejimi',
+      title: 'Homashyo kirimi',
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),

@@ -1,5 +1,6 @@
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/app_entry_screen.dart';
+import '../features/aparatchi/presentation/aparatchi_daily_work_screen.dart';
 import '../features/aparatchi/presentation/aparatchi_work_instructions_screen.dart';
 import '../features/customer/presentation/customer_delivery_detail_screen.dart';
 import '../features/customer/presentation/customer_home_screen.dart';
@@ -179,6 +180,7 @@ class AppRoutes {
   static const String apparatusQueue = '/apparatus-queue';
   static const String apparatusWorkInstructions =
       '/apparatus-work-instructions';
+  static const String apparatusDailyWork = '/apparatus-daily-work';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminWorkerSettings = '/admin-worker-settings';
   static const String adminWarehouses = '/admin-warehouses';
@@ -244,6 +246,7 @@ class AppRouter {
     AppRoutes.adminApparatusCreate,
     AppRoutes.apparatusQueue,
     AppRoutes.apparatusWorkInstructions,
+    AppRoutes.apparatusDailyWork,
     AppRoutes.adminSuppliers,
     AppRoutes.adminWorkerSettings,
     AppRoutes.adminUserCreate,
@@ -515,6 +518,7 @@ class AppRouter {
             savedMap: args?.savedMap ?? savedMap?.map,
             readOnly: args?.readOnly ?? false,
             templateOnly: args?.templateOnly ?? false,
+            lockedNodeIds: args?.lockedNodeIds ?? const {},
           ),
         );
       case AppRoutes.adminProductionMapOrders:
@@ -588,6 +592,11 @@ class AppRouter {
         return _buildRoute(
           settings,
           const AparatchiWorkInstructionsScreen(),
+        );
+      case AppRoutes.apparatusDailyWork:
+        return _buildRoute(
+          settings,
+          const AparatchiDailyWorkScreen(),
         );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
@@ -934,6 +943,10 @@ class AppRouter {
       'apparatus.queue.manage',
     },
     AppRoutes.apparatusWorkInstructions: {
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
+    },
+    AppRoutes.apparatusDailyWork: {
       'apparatus.queue.read',
       'apparatus.queue.manage',
     },

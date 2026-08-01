@@ -55,16 +55,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Material ta’minotchisi'), findsWidgets);
-    expect(find.text('Tarozilar rejimi'), findsOneWidget);
-    expect(find.text('Homashyo biriktirish'), findsOneWidget);
+    expect(find.text('Kirim'), findsWidgets);
+    expect(find.text('Homashyo biriktirish').first, findsOneWidget);
     expect(find.text('Joylashuvlarim'), findsNothing);
-    expect(find.text('Joylashtirish va transfer'), findsOneWidget);
+    expect(find.text('Joylashtirish va transfer').first, findsOneWidget);
     expect(find.text('Profil'), findsNothing);
     expect(find.text('Materialchi'), findsNothing);
     expect(find.text('Rulon'), findsNothing);
     expect(find.text('Kley'), findsNothing);
     expect(
       find.byKey(const ValueKey('material-raw-material-scan-fab')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.bySemanticsLabel('Amallar'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('admin-fab-menu-Kirim')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-fab-menu-QR skanerlash')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-fab-menu-Homashyo biriktirish')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('admin-fab-menu-Joylashtirish va transfer'),
+      ),
       findsOneWidget,
     );
   });
@@ -117,8 +138,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.bySemanticsLabel('Amallar'));
+    await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(const ValueKey('material-raw-material-scan-fab')),
+      find.byKey(const ValueKey('admin-fab-menu-QR skanerlash')),
     );
     await tester.pumpAndSettle();
 
@@ -173,7 +196,7 @@ void main() {
 
     expect(find.text('Mahsulot guruhi biriktirilmagan'), findsOneWidget);
 
-    await tester.tap(find.text('Homashyo biriktirish'));
+    await tester.tap(find.text('Homashyo biriktirish').first);
     await tester.pumpAndSettle();
 
     expect(
@@ -219,12 +242,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Tarozilar rejimi'), findsWidgets);
+    expect(find.text('Homashyo kirimi'), findsWidgets);
     expect(find.widgetWithText(Tab, 'Print'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Print tarixi'), findsOneWidget);
     expect(find.byKey(const ValueKey('control-section')), findsOneWidget);
-    expect(find.text('Tarozi'), findsOneWidget);
-    expect(find.text('Qurilma tanlash'), findsOneWidget);
+    expect(find.text('Kirim'), findsOneWidget);
+    expect(
+      find.byTooltip('Printer yoki tarozi tanlash'),
+      findsOneWidget,
+    );
     expect(find.text('Mahsulot tanlang'), findsOneWidget);
     expect(find.text('Babina'), findsOneWidget);
     expect(find.text('Joriy kg'), findsNothing);

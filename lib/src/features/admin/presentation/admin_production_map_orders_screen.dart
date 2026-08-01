@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -13,6 +12,7 @@ import '../../../core/session/state/app_session.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/forms/forms.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
 import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
@@ -25,31 +25,34 @@ import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
 import '../../boyoqchi/models/returned_paint_models.dart';
 import '../../boyoqchi/presentation/widgets/returned_paint_sheet.dart';
 import '../../boyoqchi/state/returned_paint_draft_store.dart';
-import '../../gscale/gscale_mobile_app.dart'
-    show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../qolip/presentation/qolip_home_screen.dart'
+    show showQolipProductSpecSheet;
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../logic/apparatus_queue_state.dart';
+import '../logic/production_map_edit_policy.dart';
 import '../logic/production_map_chain.dart';
 import '../logic/production_map_pechat_rules.dart';
 import '../models/production_map_models.dart';
 import '../state/calculate_order_store.dart';
 import '../../shared/models/app_models.dart';
 import 'raw_material_scan_dialog.dart';
+import 'admin_production_map_test_screen.dart'
+    show ProductionMapOrderContext, ProductionMapTestArgs;
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_top_notice.dart';
+import 'progress_printer_picker.dart';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 
 part 'admin_production_map_orders_helpers.dart';
 part 'admin_production_map_orders_detail_widgets.dart';
@@ -65,10 +68,12 @@ part 'admin_production_map_orders_opened_widgets.dart';
 part 'admin_production_map_orders_completion_widgets.dart';
 part 'admin_production_map_orders_sequence_widgets.dart';
 part 'admin_production_map_orders_sequence_assignment_sheet.dart';
+part 'admin_production_map_orders_sequence_qolip_note_sheet.dart';
 part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';
 part 'admin_production_map_orders_module_pages.dart';
+part 'admin_production_map_orders_wip_history_sheet.dart';
 part 'admin_production_map_orders_models.dart';
 part 'admin_production_map_orders_calculation_helpers.dart';
 part 'admin_production_map_orders_read_only_helpers.dart';
@@ -80,6 +85,14 @@ part 'admin_production_map_orders_apparatus_helpers.dart';
 part 'admin_production_map_orders_live_helpers.dart';
 
 enum _OpenedOrderModule { orders, move, sequence, closed, audit }
+
+enum _OrderLongPressAction {
+  freeze,
+  cancelFreeze,
+  unfreeze,
+  delete,
+  editMap,
+}
 
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;
@@ -202,6 +215,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
+  final Map<String, AdminQolipOrderNote> _qolipOrderNotesByOrderId = {};
   List<AdminCompletedQueueOrder> _completedWorkerOrders = const [];
   List<AdminCompletionRequestNotification> _completionRequests = const [];
   final Set<String> _shownCompletionDecisionIds = {};
@@ -384,11 +398,13 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         apparatus: apparatus,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
-        canManageQueue: _isAssignedWatchApparatus(
-          apparatus,
-          assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
-              const <String>[],
-        ),
+        canManageQueue: widget.workerMode &&
+            _isAssignedWatchApparatus(
+              apparatus,
+              assignedApparatus:
+                  AppSession.instance.profile?.assignedApparatus ??
+                      const <String>[],
+            ),
         initialQueueStates: _queueStatesForApparatus(
           apparatus,
           queueStatesByApparatus: _queueStatesByApparatus,
@@ -415,6 +431,7 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _showSupplyRawMaterialAssignment(
     ProductionMapSaved order,
   ) async {
+    final profile = AppSession.instance.profile;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -422,8 +439,72 @@ class _AdminProductionMapOrdersScreenState
       showDragHandle: true,
       builder: (context) => _SequenceRawMaterialAssignmentSheet(
         order: order,
+        initialApparatus: _selectedApparatus?.name ?? '',
+        assignedApparatus: profile?.assignedApparatus ?? const <String>[],
       ),
     );
+  }
+
+  Future<void> _showQolipOrderNote(ProductionMapSaved order) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _SequenceQolipOrderNoteSheet(order: order),
+    );
+    if (changed == true && mounted) {
+      unawaited(_refreshLive());
+    }
+  }
+
+  Future<void> _openOrderProductionMapEditor(
+    ProductionMapSaved selectedOrder,
+  ) async {
+    final orderId = selectedOrder.map.id.trim();
+    try {
+      final result = await Future.wait<Object>([
+        MobileApi.instance.adminProductionMap(orderId),
+        MobileApi.instance.adminProductionMapQueueSnapshot(),
+      ]);
+      if (!mounted) {
+        return;
+      }
+      final order = result[0] as ProductionMapSaved;
+      final snapshot = result[1] as AdminApparatusQueueSnapshot;
+      final map = order.map;
+      final lockedNodeIds = productionMapLockedNodeIds(
+        map: map,
+        queueStatesByApparatus: snapshot.queueStates,
+      );
+      await Navigator.of(context).pushNamed(
+        AppRoutes.adminProductionMapTest,
+        arguments: ProductionMapTestArgs(
+          orderContext: ProductionMapOrderContext(
+            orderCode: map.code,
+            orderName: map.title,
+            productName: map.title,
+            itemCode: map.productCode,
+            rollCount: map.rollCount,
+            widthMm: map.widthMm,
+          ),
+          savedMap: map,
+          lockedNodeIds: lockedNodeIds,
+        ),
+      );
+      if (mounted) {
+        await _refreshLive();
+      }
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Production mapni ochib bo‘lmadi',
+        );
+      }
+    }
   }
 
   Future<void> _showOrderActions(ProductionMapSaved order) async {
@@ -436,7 +517,7 @@ class _AdminProductionMapOrdersScreenState
     final orderId = order.map.id.trim();
     final control =
         _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
-    final action = await showModalBottomSheet<AdminOrderControlAction>(
+    final action = await showModalBottomSheet<_OrderLongPressAction>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -449,7 +530,7 @@ class _AdminProductionMapOrdersScreenState
                 title: const Text('Muzlatish'),
                 onTap: () => Navigator.pop(
                   context,
-                  AdminOrderControlAction.freeze,
+                  _OrderLongPressAction.freeze,
                 ),
               ),
               ListTile(
@@ -465,7 +546,7 @@ class _AdminProductionMapOrdersScreenState
                 ),
                 onTap: () => Navigator.pop(
                   context,
-                  AdminOrderControlAction.delete,
+                  _OrderLongPressAction.delete,
                 ),
               ),
             ],
@@ -475,7 +556,7 @@ class _AdminProductionMapOrdersScreenState
                 title: const Text('Muzlatish so‘rovini bekor qilish'),
                 onTap: () => Navigator.pop(
                   context,
-                  AdminOrderControlAction.cancelFreeze,
+                  _OrderLongPressAction.cancelFreeze,
                 ),
               ),
             if (control == AdminOrderControlState.frozen)
@@ -484,15 +565,38 @@ class _AdminProductionMapOrdersScreenState
                 title: const Text('Muzdan chiqarish'),
                 onTap: () => Navigator.pop(
                   context,
-                  AdminOrderControlAction.unfreeze,
+                  _OrderLongPressAction.unfreeze,
                 ),
               ),
+            ListTile(
+              leading: const Icon(Icons.account_tree_outlined),
+              title: const Text('Mapni o‘zgartirish'),
+              onTap: () => Navigator.pop(
+                context,
+                _OrderLongPressAction.editMap,
+              ),
+            ),
           ],
         ),
       ),
     );
     if (!mounted || action == null) return;
-    if (action == AdminOrderControlAction.delete) {
+    if (action == _OrderLongPressAction.editMap) {
+      await _openOrderProductionMapEditor(order);
+      return;
+    }
+    final controlAction = switch (action) {
+      _OrderLongPressAction.freeze => AdminOrderControlAction.freeze,
+      _OrderLongPressAction.cancelFreeze =>
+        AdminOrderControlAction.cancelFreeze,
+      _OrderLongPressAction.unfreeze => AdminOrderControlAction.unfreeze,
+      _OrderLongPressAction.delete => AdminOrderControlAction.delete,
+      _OrderLongPressAction.editMap => null,
+    };
+    if (controlAction == null) {
+      return;
+    }
+    if (controlAction == AdminOrderControlAction.delete) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -526,7 +630,7 @@ class _AdminProductionMapOrdersScreenState
       );
       if (!mounted || confirmed != true) return;
     }
-    await _runOrderControlAction(order, action);
+    await _runOrderControlAction(order, controlAction);
   }
 
   Future<void> _runOrderControlAction(
@@ -586,12 +690,29 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
+    if (entry.isInProgress) {
+      _showWorkerWipHistory(entry);
+      return;
+    }
     final apparatus = entry.apparatus;
     if (apparatus == null) {
       _showOrderDetail(entry.order);
       return;
     }
     _showWatchOrderDetail(apparatus: apparatus, order: entry.order);
+  }
+
+  void _showWorkerWipHistory(_WorkerCompletedOrderEntry entry) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _WorkerWipHistorySheet(
+        order: entry.order,
+        apparatus: entry.apparatus,
+      ),
+    );
   }
 
   void _setModule(_OpenedOrderModule module) {
@@ -640,7 +761,10 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
+    final isQolipchi = role == UserRole.qolipchi;
     final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
+    final canViewSupplyOrderInfo =
+        role == UserRole.qolipchi || isMaterialTaminotchi;
     final supplyDrawer = switch (role) {
       UserRole.qolipchi => QolipNavigationDrawer(
           selectedIndex: 0,
@@ -800,12 +924,16 @@ class _AdminProductionMapOrdersScreenState
                       onMove: _moveOrdersBetweenApparatus,
                       onInfoOrder: _showOrderDetail,
                       onInfoSequenceOrder:
-                          widget.supplyViewerMode && !isMaterialTaminotchi
+                          widget.supplyViewerMode && !canViewSupplyOrderInfo
                               ? null
                               : _showWatchOrderDetail,
                       customerNameByMapId: _customerByMapId,
                       queueStatesByApparatus: _queueStatesByApparatus,
                       orderStatusesByOrderId: _orderStatusesByOrderId,
+                      qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
+                      sequenceInteractionHint: isQolipchi
+                          ? 'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.'
+                          : null,
                       orderControlsByOrderId: _orderControlsByOrderId,
                       workflowAudit: _workflowAudit,
                       workflowAuditError: _workflowAuditError,
@@ -814,9 +942,11 @@ class _AdminProductionMapOrdersScreenState
                           _refreshWorkflowAudit(force: true),
                       onLongPressOrder: (order) {
                         unawaited(
-                          widget.supplyViewerMode && isMaterialTaminotchi
-                              ? _showSupplyRawMaterialAssignment(order)
-                              : _showOrderActions(order),
+                          widget.supplyViewerMode && isQolipchi
+                              ? _showQolipOrderNote(order)
+                              : widget.supplyViewerMode && isMaterialTaminotchi
+                                  ? _showSupplyRawMaterialAssignment(order)
+                                  : _showOrderActions(order),
                         );
                       },
                     ),

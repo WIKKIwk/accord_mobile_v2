@@ -631,6 +631,58 @@ void main() {
     expect(resumed.progressBatch, isNull);
   });
 
+  test('test mode completed queue history includes paused work in progress',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Aparatchi',
+      legalName: '',
+      ref: 'ap-history',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.manage'],
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: 'Pechat history',
+      orderIds: const ['zakaz-history-complete', 'zakaz-history-paused'],
+    );
+
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat history',
+      orderId: 'zakaz-history-complete',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat history',
+      orderId: 'zakaz-history-complete',
+      action: 'complete',
+      producedQty: 1,
+      grossQty: 1,
+      uom: 'kg',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat history',
+      orderId: 'zakaz-history-paused',
+      action: 'start',
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: 'Pechat history',
+      orderId: 'zakaz-history-paused',
+      action: 'pause',
+      producedQty: 1,
+      uom: 'kg',
+    );
+
+    final history =
+        await MobileApi.instance.adminCompletedProductionMapOrders();
+    expect(history, hasLength(2));
+    expect(history[0].orderId, 'zakaz-history-paused');
+    expect(history[0].status, 'in_progress');
+    expect(history[1].orderId, 'zakaz-history-complete');
+    expect(history[1].status, 'completed');
+  });
+
   test('wip batches endpoint sends filters and parses current location',
       () async {
     final seenRequests = <String>[];
@@ -950,6 +1002,29 @@ void main() {
         contains(
           'GET /v1/mobile/admin/raw-material-assignments?'
           'order_id=zakaz-1',
+        ),
+      );
+    }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
+  });
+
+  test('raw material candidates send selected apparatus scope', () async {
+    final seenRequests = <String>[];
+    AppSession.instance.token = 'token';
+
+    await HttpOverrides.runZoned(() async {
+      final candidates =
+          await MobileApi.instance.adminRawMaterialAssignmentCandidates(
+        orderId: 'zakaz-1',
+        apparatus: 'Laminatsiya - A',
+      );
+
+      expect(candidates.map((item) => item.barcode), ['RM-001']);
+      expect(candidates.single.apparatusOptions, ['Laminatsiya - A']);
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/candidates?'
+          'order_id=zakaz-1&apparatus=Laminatsiya+-+A',
         ),
       );
     }, createHttpClient: (_) => _RawMaterialApiHttpClient(seenRequests));
@@ -1976,6 +2051,23 @@ class _RawMaterialApiHttpClient implements HttpClient {
             'item_code': 'KR-1',
             'item_name': 'Qora kraska',
             'item_group': 'Kraska',
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Laminatsiya+-+A':
+        body = const [
+          {
+            'barcode': 'RM-001',
+            'warehouse': 'Kalidor',
+            'item_code': 'ROLL-690',
+            'item_name': 'CPP 690/35',
+            'item_group': 'Rulon eni',
+            'qty': 11,
+            'uom': 'Kg',
+            'apparatus_options': ['Laminatsiya - A'],
+            'order_width_mm': 660,
+            'roll_width_mm': 690,
+            'leftover_width_mm': 30,
+            'match_type': 'closest_width',
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-intake-candidates?order_id=zakaz-1&apparatus=Pechat':

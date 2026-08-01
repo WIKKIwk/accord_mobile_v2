@@ -69,7 +69,7 @@ class MaterialTaminotchiDock extends StatelessWidget {
             ),
             RoleDockDestination(
               id: 'material-scale',
-              label: 'Tarozi',
+              label: 'Kirim',
               icon: Icons.scale_outlined,
               selectedIcon: Icons.scale_rounded,
               active: activeTab == MaterialTaminotchiDockTab.scale,

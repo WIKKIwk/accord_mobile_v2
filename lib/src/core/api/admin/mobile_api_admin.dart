@@ -29,6 +29,7 @@ final List<AdminCompletionRequestDecisionNotification>
 final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
+final Map<String, AdminQolipOrderNote> _testModeQolipOrderNotes = {};
 final List<AdminWorker> _testModeWorkers = [];
 final List<AdminWorkerGroup> _testModeWorkerGroups = [];
 final Map<String, String> _testModeWorkerCodes = {};
@@ -142,6 +143,7 @@ void resetMobileApiTestModeData() {
   _testModeProgressBatchesByQr.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
+  _testModeQolipOrderNotes.clear();
   resetMobileApiCalculateTestModeData();
   resetMobileApiQolipTestModeData();
   resetMobileApiInventoryMovementTestData();
@@ -888,6 +890,77 @@ class ProductionMapSaveWithOrderResult {
   final CalculateOrderTemplate? template;
 }
 
+class AdminQolipOrderNote {
+  const AdminQolipOrderNote({
+    required this.orderId,
+    required this.itemCode,
+    required this.itemName,
+    required this.qolipCodes,
+    required this.status,
+    this.updatedAt = '',
+  });
+
+  final String orderId;
+  final String itemCode;
+  final String itemName;
+  final List<String> qolipCodes;
+  final String status;
+  final String updatedAt;
+
+  bool get isGiven => status.trim().toLowerCase() == 'given';
+  bool get isReturned => status.trim().toLowerCase() == 'returned';
+
+  factory AdminQolipOrderNote.fromJson(Map<String, dynamic> json) {
+    return AdminQolipOrderNote(
+      orderId: json['order_id']?.toString().trim() ?? '',
+      itemCode: json['item_code']?.toString().trim() ?? '',
+      itemName: json['item_name']?.toString().trim() ?? '',
+      qolipCodes: (json['qolip_codes'] as List? ?? const [])
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+      status: json['status']?.toString().trim() ?? '',
+      updatedAt: json['updated_at']?.toString().trim() ?? '',
+    );
+  }
+}
+
+class AdminQolipOrderNoteDetails {
+  const AdminQolipOrderNoteDetails({
+    required this.orderId,
+    required this.itemCode,
+    required this.itemName,
+    required this.requiredQolips,
+    this.note,
+  });
+
+  final String orderId;
+  final String itemCode;
+  final String itemName;
+  final List<AdminProductionMapRequiredQolip> requiredQolips;
+  final AdminQolipOrderNote? note;
+
+  factory AdminQolipOrderNoteDetails.fromJson(Map<String, dynamic> json) {
+    return AdminQolipOrderNoteDetails(
+      orderId: json['order_id']?.toString().trim() ?? '',
+      itemCode: json['item_code']?.toString().trim() ?? '',
+      itemName: json['item_name']?.toString().trim() ?? '',
+      requiredQolips: [
+        for (final item in json['required_qolips'] as List? ?? const [])
+          if (item is Map)
+            AdminProductionMapRequiredQolip.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+      ],
+      note: json['note'] is Map
+          ? AdminQolipOrderNote.fromJson(
+              (json['note'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+}
+
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
@@ -897,6 +970,7 @@ class AdminApparatusQueueSnapshot {
     required this.orderControls,
     this.orderCustomers = const {},
     this.orderStatuses = const {},
+    this.qolipOrderNotes = const {},
   });
 
   final Map<String, List<String>> sequences;
@@ -906,6 +980,7 @@ class AdminApparatusQueueSnapshot {
   final Map<String, AdminOrderControlState> orderControls;
   final Map<String, String> orderCustomers;
   final Map<String, AdminProductionOrderStatusDetail> orderStatuses;
+  final Map<String, AdminQolipOrderNote> qolipOrderNotes;
 }
 
 enum AdminOrderControlState {
@@ -1090,6 +1165,23 @@ Map<String, AdminProductionOrderStatusDetail> _parseAdminOrderStatuses(
   };
 }
 
+Map<String, AdminQolipOrderNote> _parseAdminQolipOrderNotes(Object? raw) {
+  if (raw is! List) {
+    return const {};
+  }
+  final notes = <String, AdminQolipOrderNote>{};
+  for (final item in raw) {
+    if (item is! Map) {
+      continue;
+    }
+    final note = AdminQolipOrderNote.fromJson(item.cast<String, dynamic>());
+    if (note.orderId.isNotEmpty) {
+      notes[note.orderId] = note;
+    }
+  }
+  return notes;
+}
+
 Map<String, List<String>> _parseRequiredProductionMapVisibleOrderIds(
   Map<String, dynamic> json,
 ) {
@@ -1110,17 +1202,21 @@ class AdminCompletedQueueOrder {
     required this.apparatus,
     required this.orderId,
     required this.completedAtUnix,
+    this.status = 'completed',
   });
 
   final String apparatus;
   final String orderId;
   final int completedAtUnix;
+  final String status;
 
   factory AdminCompletedQueueOrder.fromJson(Map<String, dynamic> json) {
+    final status = json['status']?.toString().trim() ?? '';
     return AdminCompletedQueueOrder(
       apparatus: json['apparatus']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+      status: status.isEmpty ? 'completed' : status,
     );
   }
 }
@@ -1390,6 +1486,8 @@ class AdminProgressBatch {
     this.usedByApparatus = '',
     this.processedBySessionId = '',
     this.processedByApparatus = '',
+    this.startedAtUnix = 0,
+    this.completedAtUnix = 0,
   });
 
   final String batchId;
@@ -1428,6 +1526,8 @@ class AdminProgressBatch {
   final String usedByApparatus;
   final String processedBySessionId;
   final String processedByApparatus;
+  final int startedAtUnix;
+  final int completedAtUnix;
 
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
     return AdminProgressBatch(
@@ -1470,10 +1570,22 @@ class AdminProgressBatch {
       usedByApparatus: json['used_by_apparatus']?.toString() ?? '',
       processedBySessionId: json['processed_by_session_id']?.toString() ?? '',
       processedByApparatus: json['processed_by_apparatus']?.toString() ?? '',
+      startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
+      completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 
-  AdminProgressBatch copyWith({String? status}) {
+  AdminProgressBatch copyWith({
+    String? status,
+    String? wipStatus,
+    String? currentApparatus,
+    String? currentLocation,
+    String? nextApparatus,
+    String? usedBySessionId,
+    String? usedByApparatus,
+    String? processedBySessionId,
+    String? processedByApparatus,
+  }) {
     return AdminProgressBatch(
       batchId: batchId,
       sessionId: sessionId,
@@ -1500,19 +1612,35 @@ class AdminProgressBatch {
       workerRole: workerRole,
       workerRef: workerRef,
       workerDisplayName: workerDisplayName,
-      wipStatus: wipStatus,
+      wipStatus: wipStatus ?? this.wipStatus,
       statusDetail: statusDetail,
-      currentApparatus: currentApparatus,
+      currentApparatus: currentApparatus ?? this.currentApparatus,
       currentApparatusKey: currentApparatusKey,
-      currentLocation: currentLocation,
-      nextApparatus: nextApparatus,
+      currentLocation: currentLocation ?? this.currentLocation,
+      nextApparatus: nextApparatus ?? this.nextApparatus,
       parentBatchId: parentBatchId,
-      usedBySessionId: usedBySessionId,
-      usedByApparatus: usedByApparatus,
-      processedBySessionId: processedBySessionId,
-      processedByApparatus: processedByApparatus,
+      usedBySessionId: usedBySessionId ?? this.usedBySessionId,
+      usedByApparatus: usedByApparatus ?? this.usedByApparatus,
+      processedBySessionId: processedBySessionId ?? this.processedBySessionId,
+      processedByApparatus: processedByApparatus ?? this.processedByApparatus,
+      startedAtUnix: startedAtUnix,
+      completedAtUnix: completedAtUnix,
     );
   }
+}
+
+class AdminProgressQrReprintResult {
+  const AdminProgressQrReprintResult({
+    required this.ok,
+    required this.batch,
+    this.printJob,
+    this.printStatus = '',
+  });
+
+  final bool ok;
+  final AdminProgressBatch batch;
+  final UsbRpsPrintRequest? printJob;
+  final String printStatus;
 }
 
 class AdminProgressBatchStatusDetail {
@@ -2258,10 +2386,12 @@ class AdminProductionMapRequiredQolip {
   const AdminProductionMapRequiredQolip({
     required this.qolipCode,
     required this.color,
+    this.isInUse = false,
   });
 
   final String qolipCode;
   final String color;
+  final bool isInUse;
 
   factory AdminProductionMapRequiredQolip.fromJson(
     Map<String, dynamic> json,
@@ -2269,6 +2399,7 @@ class AdminProductionMapRequiredQolip {
     return AdminProductionMapRequiredQolip(
       qolipCode: json['qolip_code']?.toString().trim() ?? '',
       color: json['color']?.toString().trim() ?? '',
+      isInUse: json['in_use'] == true,
     );
   }
 }
@@ -3078,6 +3209,8 @@ MobileApiException _adminProductionMapException(
       'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
       'started_order_move_requires_transfer' =>
         'Ish boshlangan orderni avval pause qilib avariyaviy ko‘chiring',
+      'production_map_started_stage_locked' =>
+        'Ish boshlangan aparat bosqichlarini o‘zgartirib bo‘lmaydi',
       'apparatus_transfer_reason_required' => 'Avariya sababini kiriting',
       'apparatus_transfer_idempotency_required' =>
         'Avariya ko‘chirish identifikatori mavjud emas',
@@ -3145,6 +3278,13 @@ MobileApiException _adminProductionMapException(
         'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
+      'qolip_code_required' => 'Kamida bitta qolipni tanlang',
+      'qolip_order_note_not_found' =>
+        'Bu order uchun berilgan qolip qaydi topilmadi',
+      'qolip_order_note_status_invalid' => 'Qolip qaydi holati noto‘g‘ri',
+      'qolip_order_note_in_use' => 'Bu qolip boshqa order uchun band qilingan',
+      'qolip_order_note_load_failed' => 'Qolip qaydi yuklanmadi',
+      'qolip_order_note_save_failed' => 'Qolip qaydi saqlanmadi',
       'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',
       'qolip_location_not_found' => 'Bu qolip hozir ombor yachaykasida emas',
       'insufficient_stock' => 'Bu qolip omborda qolmagan',
@@ -3277,6 +3417,7 @@ String _adminProductionMapUnknownErrorMessage({
     'qolip_code_not_found' => 'Qolip ma’lumotlari tekshirilmadi',
     'queue_action_not_allowed' => 'Order navbat amali bajarilmadi',
     'progress_batch_not_found' => 'Progress QR amali bajarilmadi',
+    'progress_qr_reprint' => 'WIP QR qayta chop etilmadi',
     'production_map_live_failed' => 'Production map jonli holati olinmadi',
     'production_map_run' => 'Production map ishga tushirilmadi',
     _ => 'So‘ralgan amal bajarilmadi',
@@ -4896,6 +5037,9 @@ extension MobileApiAdmin on MobileApi {
               saved.map.id.trim(): saved.map.customerName.trim(),
         },
         orderStatuses: const {},
+        qolipOrderNotes: Map<String, AdminQolipOrderNote>.unmodifiable(
+          _testModeQolipOrderNotes,
+        ),
       );
     }
     final response = await _sendAuthorized(
@@ -4916,6 +5060,9 @@ extension MobileApiAdmin on MobileApi {
       orderControls: _parseAdminOrderControls(payload['order_controls']),
       orderCustomers: _stringMapOfStrings(payload['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),
+      qolipOrderNotes: _parseAdminQolipOrderNotes(
+        payload['qolip_order_notes'],
+      ),
     );
   }
 
@@ -4979,11 +5126,22 @@ extension MobileApiAdmin on MobileApi {
               return false;
             }
             if (normalizedApparatus.isNotEmpty &&
-                batch.currentApparatus.trim() != normalizedApparatus) {
+                !productionMapWarehouseTitlesMatch(
+                  batch.currentApparatus,
+                  normalizedApparatus,
+                ) &&
+                !productionMapWarehouseTitlesMatch(
+                  batch.apparatus,
+                  normalizedApparatus,
+                )) {
               return false;
             }
             if (normalizedNextApparatus.isNotEmpty &&
-                batch.nextApparatus.trim() != normalizedNextApparatus) {
+                batch.nextApparatus.trim().isNotEmpty &&
+                !productionMapNextStageTitleMatchesApparatus(
+                  batch.nextApparatus,
+                  normalizedNextApparatus,
+                )) {
               return false;
             }
             if (normalizedCurrentLocation.isNotEmpty &&
@@ -5886,9 +6044,28 @@ extension MobileApiAdmin on MobileApi {
   Future<List<AdminRawMaterialAssignmentCandidate>>
       adminRawMaterialAssignmentCandidates({
     required String orderId,
+    String apparatus = '',
   }) async {
     final normalizedOrderId = orderId.trim();
+    final normalizedApparatus = apparatus.trim();
     if (await TestModeController.instance.isEnabled()) {
+      final profile = AppSession.instance.profile;
+      final assignedApparatus = profile?.role == UserRole.materialTaminotchi
+          ? profile?.assignedApparatus ?? const <String>[]
+          : null;
+      if (assignedApparatus != null &&
+          normalizedApparatus.isNotEmpty &&
+          !assignedApparatus.any(
+            (assigned) => productionMapWarehouseTitlesMatch(
+              assigned,
+              normalizedApparatus,
+            ),
+          )) {
+        throw const MobileApiException(
+          code: 'apparatus_not_assigned',
+          message: 'Bu aparat sizga biriktirilmagan',
+        );
+      }
       final assignedBarcodes = _testModeRawMaterialAssignments
           .map((assignment) => assignment.barcode.trim().toUpperCase())
           .toSet();
@@ -5915,6 +6092,24 @@ extension MobileApiAdmin on MobileApi {
             )
             .map((rule) => rule.apparatus.trim())
             .where((apparatus) => apparatus.isNotEmpty)
+            .where(
+              (apparatus) =>
+                  assignedApparatus == null ||
+                  assignedApparatus.any(
+                    (assigned) => productionMapWarehouseTitlesMatch(
+                      apparatus,
+                      assigned,
+                    ),
+                  ),
+            )
+            .where(
+              (apparatus) =>
+                  normalizedApparatus.isEmpty ||
+                  productionMapWarehouseTitlesMatch(
+                    apparatus,
+                    normalizedApparatus,
+                  ),
+            )
             .toSet()
             .toList(growable: false);
         if (apparatusOptions.isEmpty) {
@@ -5941,7 +6136,13 @@ extension MobileApiAdmin on MobileApi {
       () => _get(
         Uri.parse(
           '$baseUrl/v1/mobile/admin/raw-material-assignments/candidates',
-        ).replace(queryParameters: {'order_id': normalizedOrderId}),
+        ).replace(
+          queryParameters: {
+            'order_id': normalizedOrderId,
+            if (normalizedApparatus.isNotEmpty)
+              'apparatus': normalizedApparatus,
+          },
+        ),
         headers: _headers(requireToken()),
       ),
     );
@@ -6659,6 +6860,240 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminQolipOrderNoteDetails> adminProductionMapQolipOrderNoteDetails({
+    required String orderId,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    if (normalizedOrderId.isEmpty) {
+      throw const MobileApiException(
+        code: 'order_id_required',
+        message: 'Order identifikatori topilmadi',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      ProductionMapSaved? order;
+      for (final candidate in _testModeProductionMaps) {
+        if (candidate.map.id.trim() == normalizedOrderId) {
+          order = candidate;
+          break;
+        }
+      }
+      if (order == null) {
+        throw const MobileApiException(
+          code: 'map_not_found',
+          message: 'Order topilmadi',
+        );
+      }
+      final itemCode = order.map.productCode.trim();
+      final products = itemCode.isEmpty
+          ? const <QolipProduct>[]
+          : await qolipProducts(
+              query: itemCode,
+              limit: 20000,
+              withQolipOnly: true,
+            );
+      final requiredQolips = <AdminProductionMapRequiredQolip>[];
+      final seen = <String>{};
+      final inUseCodes = <String>{};
+      for (final entry in _testModeQolipOrderNotes.entries) {
+        if (entry.key == normalizedOrderId || !entry.value.isGiven) {
+          continue;
+        }
+        inUseCodes.addAll(
+          entry.value.qolipCodes.map((code) => code.trim().toLowerCase()),
+        );
+      }
+      for (final product in products) {
+        final code = product.qolipCode.trim();
+        if (product.code.trim().toLowerCase() != itemCode.toLowerCase() ||
+            code.isEmpty ||
+            !seen.add(code.toLowerCase())) {
+          continue;
+        }
+        requiredQolips.add(
+          AdminProductionMapRequiredQolip(
+            qolipCode: code,
+            color: product.qolipColor.trim(),
+            isInUse: inUseCodes.contains(code.toLowerCase()),
+          ),
+        );
+      }
+      return AdminQolipOrderNoteDetails(
+        orderId: normalizedOrderId,
+        itemCode: itemCode,
+        itemName: order.map.title.trim(),
+        requiredQolips: requiredQolips,
+        note: _testModeQolipOrderNotes[normalizedOrderId],
+      );
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes',
+        ).replace(queryParameters: {'order_id': normalizedOrderId}),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'qolip_order_note_load_failed',
+      );
+    }
+    return AdminQolipOrderNoteDetails.fromJson(
+      await decodeJsonMapPayload(response.body),
+    );
+  }
+
+  Future<List<AdminQolipOrderNote>> adminProductionMapQolipOrderNotes() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return _testModeQolipOrderNotes.values.toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes',
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'qolip_order_notes_load_failed',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final rawNotes = payload['notes'];
+    return [
+      if (rawNotes is List)
+        for (final item in rawNotes)
+          if (item is Map)
+            AdminQolipOrderNote.fromJson(item.cast<String, dynamic>()),
+    ];
+  }
+
+  Future<AdminQolipOrderNote> adminSaveProductionMapQolipOrderNote({
+    required String orderId,
+    required String status,
+    List<String> qolipCodes = const [],
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedStatus = status.trim().toLowerCase();
+    if (await TestModeController.instance.isEnabled()) {
+      final details = await adminProductionMapQolipOrderNoteDetails(
+        orderId: normalizedOrderId,
+      );
+      if (normalizedStatus == 'returned') {
+        final existing = details.note;
+        if (existing == null) {
+          throw const MobileApiException(
+            code: 'qolip_order_note_not_found',
+            message: 'Bu order uchun berilgan qolip qaydi topilmadi',
+          );
+        }
+        final returned = AdminQolipOrderNote(
+          orderId: existing.orderId,
+          itemCode: existing.itemCode,
+          itemName: existing.itemName,
+          qolipCodes: existing.qolipCodes,
+          status: 'returned',
+        );
+        _testModeQolipOrderNotes[normalizedOrderId] = returned;
+        return returned;
+      }
+      if (normalizedStatus != 'given') {
+        throw const MobileApiException(
+          code: 'qolip_order_note_status_invalid',
+          message: 'Qolip qaydi holati noto‘g‘ri',
+        );
+      }
+      final requiredCodes = details.requiredQolips
+          .map((item) => item.qolipCode.trim().toLowerCase())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+      final selectedCodes = <String>[];
+      for (final rawCode in qolipCodes) {
+        final code = rawCode.trim();
+        if (code.isEmpty) continue;
+        if (!requiredCodes.contains(code.toLowerCase())) {
+          throw const MobileApiException(
+            code: 'qolip_code_mismatch',
+            message: 'Tanlangan qolip bu order mahsulotiga tegishli emas',
+          );
+        }
+        if (!selectedCodes.any(
+          (saved) => saved.toLowerCase() == code.toLowerCase(),
+        )) {
+          selectedCodes.add(code);
+        }
+      }
+      if (selectedCodes.isEmpty) {
+        throw const MobileApiException(
+          code: 'qolip_code_required',
+          message: 'Kamida bitta qolipni tanlang',
+        );
+      }
+      for (final entry in _testModeQolipOrderNotes.entries) {
+        if (entry.key == normalizedOrderId || !entry.value.isGiven) {
+          continue;
+        }
+        final occupied = entry.value.qolipCodes.any(
+          (saved) => selectedCodes.any(
+            (selected) => saved.trim().toLowerCase() == selected.toLowerCase(),
+          ),
+        );
+        if (occupied) {
+          throw const MobileApiException(
+            code: 'qolip_order_note_in_use',
+            message: 'Bu qolip boshqa order uchun band qilingan',
+          );
+        }
+      }
+      final note = AdminQolipOrderNote(
+        orderId: details.orderId,
+        itemCode: details.itemCode,
+        itemName: details.itemName,
+        qolipCodes: selectedCodes,
+        status: 'given',
+      );
+      _testModeQolipOrderNotes[normalizedOrderId] = note;
+      return note;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/qolip-order-notes',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'order_id': normalizedOrderId,
+          'status': normalizedStatus,
+          'qolip_codes': qolipCodes
+              .map((code) => code.trim())
+              .where((code) => code.isNotEmpty)
+              .toList(growable: false),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'qolip_order_note_save_failed',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final rawNote = payload['note'];
+    if (rawNote is! Map) {
+      throw const MobileApiException(
+        code: 'qolip_order_note_invalid_response',
+        message: 'Qolip qaydi javobi noto‘g‘ri',
+      );
+    }
+    return AdminQolipOrderNote.fromJson(rawNote.cast<String, dynamic>());
+  }
+
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
@@ -6726,6 +7161,20 @@ extension MobileApiAdmin on MobileApi {
           qrPayload.trim().isEmpty ? progressBatchId.trim() : qrPayload.trim();
       final startUsesProgressQr =
           action == 'start' && qrPayload.trim().isNotEmpty;
+      final startInputBatch = startUsesProgressQr
+          ? _testModeProgressBatchesByQr[qrPayload.trim()]
+          : null;
+      final isLaminatsiya = productionMapIsLaminatsiyaApparatus(apparatus);
+      final laminatsiyaWipCanReuseMaterial = isLaminatsiya &&
+          startInputBatch != null &&
+          _testModeProgressBatchesByQr.values.any((batch) {
+            final processedBy = batch.processedByApparatus.trim().isEmpty
+                ? batch.currentApparatus
+                : batch.processedByApparatus;
+            return batch.orderId.trim() == orderId.trim() &&
+                batch.wipStatus.trim().toLowerCase() == 'processed' &&
+                productionMapWarehouseTitlesMatch(processedBy, apparatus);
+          });
       if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
@@ -6746,15 +7195,38 @@ extension MobileApiAdmin on MobileApi {
         }
       }
       final current = apparatusQueueOrderStateFromRaw(states[orderId.trim()]);
+      final isRezka = apparatus.trim().toLowerCase().contains('rezka');
+      bool isPositive(double? value) =>
+          value != null && value.isFinite && value > 0;
+      final hasRezkaProgressMetrics = isPositive(
+            producedQty ?? finishedGoodsMeter,
+          ) &&
+          isPositive(grossQty ?? finishedGoodsKg) &&
+          [
+            totalWaste,
+            rezkaBosmaWaste,
+            rezkaLaminationWaste,
+            rezkaEdgeWaste,
+          ].any(isPositive);
+      if (isRezka &&
+          (action == 'pause' || action == 'complete') &&
+          !hasRezkaProgressMetrics) {
+        throw const MobileApiException(
+          code: 'rezka_progress_metrics_required',
+          message:
+              'Rezka uchun metraj, og‘irlik va chiqindi miqdorini kiriting',
+        );
+      }
       if (action == 'start') {
         if (qrPayload.trim().isNotEmpty) {
-          final batch = _testModeProgressBatchesByQr[qrPayload.trim()];
-          final batchAction = batch?.action.trim().toLowerCase() ?? '';
-          final batchStatus = batch?.status.trim().toLowerCase() ?? '';
-          if (batch == null ||
+          final batchAction =
+              startInputBatch?.action.trim().toLowerCase() ?? '';
+          final batchStatus =
+              startInputBatch?.status.trim().toLowerCase() ?? '';
+          if (startInputBatch == null ||
               (progressBatchId.trim().isNotEmpty &&
-                  batch.batchId.trim() != progressBatchId.trim()) ||
-              batch.orderId.trim() != orderId.trim() ||
+                  startInputBatch.batchId.trim() != progressBatchId.trim()) ||
+              startInputBatch.orderId.trim() != orderId.trim() ||
               (batchAction != 'pause' && batchAction != 'complete') ||
               (batchStatus != 'paused' &&
                   batchStatus != 'completed' &&
@@ -6792,52 +7264,68 @@ extension MobileApiAdmin on MobileApi {
           ])
             _normalizeRawMaterialBarcode(barcode),
         }..remove('');
-        final requirements = await adminRawMaterialStartRequirements(
-          orderId: orderId,
-          apparatus: apparatus,
-          materialBarcodes: scannedBarcodes.toList(growable: false),
-        );
-        if (requiredBarcodes.isEmpty && requirements.requiresMaterial) {
-          throw const MobileApiException(
-            code: 'raw_material_assignment_not_found',
-            message: 'Homashyo biriktirilmagan',
+        if (!laminatsiyaWipCanReuseMaterial) {
+          final requirements = await adminRawMaterialStartRequirements(
+            orderId: orderId,
+            apparatus: apparatus,
+            materialBarcodes: scannedBarcodes.toList(growable: false),
           );
+          if (requiredBarcodes.isEmpty &&
+              requirements.requiresMaterial &&
+              !isLaminatsiya) {
+            throw const MobileApiException(
+              code: 'raw_material_assignment_not_found',
+              message: 'Homashyo biriktirilmagan',
+            );
+          }
+          if (requiredBarcodes.isNotEmpty && scannedBarcodes.isEmpty) {
+            throw const MobileApiException(
+              code: 'raw_material_scan_required',
+              message:
+                  'Ishni boshlash uchun biriktirilgan homashyolarni skaner qiling',
+            );
+          }
+          if (!requiredBarcodes.containsAll(scannedBarcodes)) {
+            throw const MobileApiException(
+              code: 'raw_material_mismatch',
+              message: 'Bu homashyo ish boshlash uchun mos emas',
+            );
+          }
+          if (requirements.policy == AdminRawMaterialStartPolicy.stateAll &&
+              requiredBarcodes.isNotEmpty &&
+              requirements.normalizedStagedBarcodes.isEmpty) {
+            throw const MobileApiException(
+              code: 'raw_material_state_not_ready',
+              message: 'Apparat oldiga homashyo olib kelinmagan',
+            );
+          }
+          if (!requirements.assignmentsSatisfied &&
+              !(isLaminatsiya && requiredBarcodes.isEmpty)) {
+            throw const MobileApiException(
+              code: 'raw_material_assignment_not_found',
+              message: 'Majburiy homashyo guruhlari to‘liq biriktirilmagan',
+            );
+          }
+          if (requiredBarcodes.isNotEmpty && !requirements.scanSatisfied) {
+            throw MobileApiException(
+              code: requirements.policy == AdminRawMaterialStartPolicy.stateAll
+                  ? 'raw_material_scan_incomplete'
+                  : 'raw_material_requirement_not_met',
+              message: requirements.policy ==
+                      AdminRawMaterialStartPolicy.stateAll
+                  ? 'Apparat oldidagi barcha homashyolarni skaner qiling'
+                  : 'Har bir majburiy guruhdan minimum homashyo skaner qiling',
+            );
+          }
         }
-        if (requiredBarcodes.isNotEmpty && scannedBarcodes.isEmpty) {
-          throw const MobileApiException(
-            code: 'raw_material_scan_required',
-            message:
-                'Ishni boshlash uchun biriktirilgan homashyolarni skaner qiling',
-          );
-        }
-        if (!requiredBarcodes.containsAll(scannedBarcodes)) {
-          throw const MobileApiException(
-            code: 'raw_material_mismatch',
-            message: 'Bu homashyo ish boshlash uchun mos emas',
-          );
-        }
-        if (requirements.policy == AdminRawMaterialStartPolicy.stateAll &&
-            requiredBarcodes.isNotEmpty &&
-            requirements.normalizedStagedBarcodes.isEmpty) {
-          throw const MobileApiException(
-            code: 'raw_material_state_not_ready',
-            message: 'Apparat oldiga homashyo olib kelinmagan',
-          );
-        }
-        if (!requirements.assignmentsSatisfied) {
-          throw const MobileApiException(
-            code: 'raw_material_assignment_not_found',
-            message: 'Majburiy homashyo guruhlari to‘liq biriktirilmagan',
-          );
-        }
-        if (requiredBarcodes.isNotEmpty && !requirements.scanSatisfied) {
-          throw MobileApiException(
-            code: requirements.policy == AdminRawMaterialStartPolicy.stateAll
-                ? 'raw_material_scan_incomplete'
-                : 'raw_material_requirement_not_met',
-            message: requirements.policy == AdminRawMaterialStartPolicy.stateAll
-                ? 'Apparat oldidagi barcha homashyolarni skaner qiling'
-                : 'Har bir majburiy guruhdan minimum homashyo skaner qiling',
+        if (isLaminatsiya && startInputBatch != null) {
+          _testModeProgressBatchesByQr[startInputBatch.qrPayload] =
+              startInputBatch.copyWith(
+            wipStatus: 'processed',
+            currentApparatus: apparatus,
+            currentLocation: apparatus,
+            processedBySessionId: 'test-session-${orderId.trim()}',
+            processedByApparatus: apparatus,
           );
         }
         _testModeEnsureApparatusExecutionCapacity(
@@ -6889,6 +7377,12 @@ extension MobileApiAdmin on MobileApi {
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'paused';
+        _testModeRecordCompletedQueueOrder(
+          actorRef: AppSession.instance.profile?.ref.trim() ?? '',
+          apparatus: storageKey,
+          orderId: orderId.trim(),
+          status: 'in_progress',
+        );
         _testModeSyncScheduleReservationStatus(
           orderId: orderId,
           apparatus: storageKey,
@@ -6962,9 +7456,6 @@ extension MobileApiAdmin on MobileApi {
                 totalWaste != null &&
                 finishedGoodsKg != null &&
                 finishedGoodsMeter != null;
-        final hasRezkaProgressMetrics = rezkaBosmaWaste != null &&
-            rezkaLaminationWaste != null &&
-            rezkaEdgeWaste != null;
         final zeroMetricCodes = <String>[
           if (producedQty == 0) 'produced_qty',
           if (grossQty == 0) 'gross_qty',
@@ -7041,23 +7532,17 @@ extension MobileApiAdmin on MobileApi {
         );
         _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         states[orderId.trim()] = 'completed';
+        _testModeApparatusQueueStates[storageKey] = states;
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
         if (actorRef.isNotEmpty && completedOrderId.isNotEmpty) {
-          _testModeCompletedQueueOrders.removeWhere(
-            (item) =>
-                item.actorRef == actorRef &&
-                item.order.orderId == completedOrderId,
-          );
-          _testModeCompletedQueueOrders.insert(
-            0,
-            _TestModeCompletedQueueOrder(
-              actorRef: actorRef,
-              order: AdminCompletedQueueOrder(
-                apparatus: storageKey,
-                orderId: completedOrderId,
-                completedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-              ),
+          _testModeRecordCompletedQueueOrder(
+            actorRef: actorRef,
+            apparatus: storageKey,
+            orderId: completedOrderId,
+            status: _testModeQueueHistoryStatus(
+              orderId: completedOrderId,
+              fallbackStatus: 'completed',
             ),
           );
         }
@@ -7116,7 +7601,6 @@ extension MobileApiAdmin on MobileApi {
             );
           }
         }
-        _testModeApparatusQueueStates[storageKey] = states;
         _testModeSyncScheduleReservationStatus(
           orderId: completedOrderId,
           apparatus: storageKey,
@@ -7283,6 +7767,159 @@ extension MobileApiAdmin on MobileApi {
       );
     }
     return AdminProgressBatch.fromJson(raw.cast<String, dynamic>());
+  }
+
+  Future<List<AdminProgressBatch>> adminProgressQrHistory({
+    int limit = 200,
+  }) async {
+    final boundedLimit = limit.clamp(1, 200).toInt();
+    final profile = AppSession.instance.profile;
+    final workerRef = profile?.ref.trim() ?? '';
+    final workerName = profile?.displayName.trim() ?? '';
+    if (await TestModeController.instance.isEnabled()) {
+      if (workerRef.isEmpty && workerName.isEmpty) {
+        return const [];
+      }
+      return _testModeProgressBatchesByQr.values
+          .where(
+            (batch) =>
+                (workerRef.isNotEmpty && batch.workerRef.trim() == workerRef) ||
+                (workerName.isNotEmpty &&
+                    (batch.workerDisplayName.trim() == workerName ||
+                        batch.executorName.trim() == workerName)),
+          )
+          .take(boundedLimit)
+          .toList(growable: false);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/progress-qr/history',
+        ).replace(
+          queryParameters: {'limit': boundedLimit.toString()},
+        ),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'progress_qr_history');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = payload['batches'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  Future<AdminProgressQrReprintResult> adminProgressQrReprint({
+    required String qrPayload,
+    String progressBatchId = '',
+    String driverUrl = '',
+    String printer = '',
+    String printMode = '',
+    int printCount = 1,
+    PrintTransport printTransport = PrintTransport.wifi,
+  }) async {
+    final normalizedQrPayload = qrPayload.trim();
+    final normalizedBatchId = progressBatchId.trim();
+    if (normalizedQrPayload.isEmpty && normalizedBatchId.isEmpty) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_found',
+        message: 'Progress QR topilmadi',
+      );
+    }
+    final boundedPrintCount = printCount.clamp(1, 100).toInt();
+    final normalizedDriverUrl =
+        driverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final normalizedPrinter = printer.trim();
+    final normalizedPrintMode = printMode.trim();
+
+    if (await TestModeController.instance.isEnabled()) {
+      AdminProgressBatch? batch;
+      if (normalizedQrPayload.isNotEmpty) {
+        batch = _testModeProgressBatchesByQr[normalizedQrPayload];
+      } else {
+        for (final candidate in _testModeProgressBatchesByQr.values) {
+          if (candidate.batchId.trim() == normalizedBatchId) {
+            batch = candidate;
+            break;
+          }
+        }
+      }
+      if (batch == null) {
+        throw const MobileApiException(
+          code: 'progress_batch_not_found',
+          message: 'Progress QR topilmadi',
+        );
+      }
+      final printJob = UsbRpsPrintRequest(
+        epc: batch.qrPayload,
+        itemCode: batch.labelItemCode,
+        itemName: batch.labelItemName,
+        warehouse: 'Ijrochi: ${batch.executorName}',
+        printer: normalizedPrinter.isEmpty ? 'godex' : normalizedPrinter,
+        printMode: normalizedPrintMode.isEmpty ? 'label' : normalizedPrintMode,
+        grossQty: batch.finishedGoodsKg ?? batch.producedQty,
+        unit: 'kg',
+        printCount: boundedPrintCount,
+        labelKind: 'progress',
+        executorName: batch.executorName,
+        progressQty: batch.producedQty,
+        progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
+      );
+      return AdminProgressQrReprintResult(
+        ok: true,
+        batch: batch,
+        printJob: printJob,
+        printStatus: 'prepared',
+      );
+    }
+
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/progress-qr/reprint',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          if (normalizedBatchId.isNotEmpty)
+            'progress_batch_id': normalizedBatchId,
+          if (normalizedQrPayload.isNotEmpty) 'qr_payload': normalizedQrPayload,
+          if (normalizedDriverUrl.isNotEmpty) 'driver_url': normalizedDriverUrl,
+          if (printTransport.isLocal)
+            'print_transport': printTransport.clientApiValue,
+          if (normalizedPrinter.isNotEmpty) 'printer': normalizedPrinter,
+          if (normalizedPrintMode.isNotEmpty) 'print_mode': normalizedPrintMode,
+          'print_count': boundedPrintCount,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'progress_qr_reprint');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawBatch = payload['batch'];
+    if (rawBatch is! Map) {
+      throw const MobileApiException(
+        code: 'progress_batch_not_found',
+        message: 'Progress QR topilmadi',
+      );
+    }
+    final rawPrint = payload['print'];
+    final printMap = rawPrint is Map
+        ? rawPrint.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    return AdminProgressQrReprintResult(
+      ok: payload['ok'] == true,
+      batch: AdminProgressBatch.fromJson(rawBatch.cast<String, dynamic>()),
+      printJob: printMap['ok'] == true
+          ? UsbRpsPrintRequest.fromPrintJson(printMap)
+          : null,
+      printStatus: printMap['status']?.toString() ?? '',
+    );
   }
 
   Future<AdminProgressQrReport> adminProgressQrReport(String qrPayload) async {
@@ -7650,6 +8287,43 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminWorker> adminUpdateWorkerName({
+    required String id,
+    required String name,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      throw Exception('Admin worker name is required');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final index = _testModeWorkers.indexWhere((worker) => worker.id == id);
+      if (index < 0) {
+        throw Exception('Admin worker not found');
+      }
+      final updated = _testModeWorkers[index].copyWith(name: trimmedName);
+      _testModeWorkers[index] = updated;
+      return updated;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('$baseUrl/v1/mobile/admin/workers'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({'id': id, 'name': trimmedName}),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminApiException(
+        response,
+        fallbackCode: 'admin_worker_name_update_failed',
+        fallbackMessage: 'Ishchi ismi saqlanmadi',
+      );
+    }
+    return AdminWorker.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AdminWorker> adminUpdateWorkerPhone({
     required String id,
     required String phone,
@@ -7946,8 +8620,7 @@ extension MobileApiAdmin on MobileApi {
               .split(RegExp(r'\s+'))
               .join(' ')
               .toUpperCase();
-      final hasPreviousIdentity =
-          previousKey != null &&
+      final hasPreviousIdentity = previousKey != null &&
           previousKey.isNotEmpty &&
           previousCode != null &&
           previousCode.isNotEmpty;
@@ -8885,6 +9558,80 @@ AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
       );
 }
 
+String _testModeQueueHistoryStatus({
+  required String orderId,
+  required String fallbackStatus,
+}) {
+  final normalizedOrderId = orderId.trim();
+  final normalizedFallback = fallbackStatus.trim().toLowerCase();
+  if (normalizedFallback != 'completed') {
+    return 'in_progress';
+  }
+  ProductionMapSaved? saved;
+  for (final candidate in _testModeProductionMaps) {
+    if (candidate.map.id.trim() == normalizedOrderId) {
+      saved = candidate;
+      break;
+    }
+  }
+  if (saved == null) {
+    return normalizedFallback;
+  }
+  final apparatusTitles = <String>[];
+  final seenTitles = <String>{};
+  for (final node in saved.map.nodes) {
+    if (node.kind != 'apparatus') continue;
+    final title = (node.alternativeAssignedTitle.trim().isEmpty
+            ? node.title
+            : node.alternativeAssignedTitle)
+        .trim();
+    if (title.isNotEmpty && seenTitles.add(title.toLowerCase())) {
+      apparatusTitles.add(title);
+    }
+  }
+  if (apparatusTitles.isEmpty) {
+    return normalizedFallback;
+  }
+  final fullyCompleted = apparatusTitles.every(
+    (title) => _testModeApparatusQueueStates.entries.any(
+      (entry) =>
+          productionMapWarehouseTitlesMatch(entry.key, title) &&
+          entry.value[normalizedOrderId]?.trim().toLowerCase() == 'completed',
+    ),
+  );
+  return fullyCompleted ? 'completed' : 'in_progress';
+}
+
+void _testModeRecordCompletedQueueOrder({
+  required String actorRef,
+  required String apparatus,
+  required String orderId,
+  required String status,
+}) {
+  final normalizedActorRef = actorRef.trim();
+  final normalizedOrderId = orderId.trim();
+  if (normalizedActorRef.isEmpty || normalizedOrderId.isEmpty) {
+    return;
+  }
+  _testModeCompletedQueueOrders.removeWhere(
+    (item) =>
+        item.actorRef == normalizedActorRef &&
+        item.order.orderId == normalizedOrderId,
+  );
+  _testModeCompletedQueueOrders.insert(
+    0,
+    _TestModeCompletedQueueOrder(
+      actorRef: normalizedActorRef,
+      order: AdminCompletedQueueOrder(
+        apparatus: apparatus.trim(),
+        orderId: normalizedOrderId,
+        completedAtUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        status: status.trim().isEmpty ? 'completed' : status.trim(),
+      ),
+    ),
+  );
+}
+
 AdminProgressBatch _testModeProgressBatch({
   required String apparatus,
   required String orderId,
@@ -8902,6 +9649,7 @@ AdminProgressBatch _testModeProgressBatch({
   double? finishedGoodsKg,
   double? finishedGoodsMeter,
 }) {
+  final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final stamp = DateTime.now().microsecondsSinceEpoch;
   final batchId = 'test-progress-$stamp-$orderId-$action';
   final qrPayload = 'GSP:$batchId'.toUpperCase();
@@ -8928,5 +9676,10 @@ AdminProgressBatch _testModeProgressBatch({
     totalWaste: totalWaste,
     finishedGoodsKg: finishedGoodsKg,
     finishedGoodsMeter: finishedGoodsMeter,
+    wipStatus: 'waiting',
+    currentApparatus: apparatus,
+    currentLocation: apparatus,
+    startedAtUnix: nowUnix,
+    completedAtUnix: nowUnix,
   );
 }

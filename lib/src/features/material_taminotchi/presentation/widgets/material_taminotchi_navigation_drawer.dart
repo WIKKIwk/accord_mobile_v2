@@ -38,7 +38,7 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
         const RoleNavigationDrawerDestination(
           icon: Icons.scale_outlined,
           selectedIcon: Icons.scale_rounded,
-          label: 'Tarozilar rejimi',
+          label: 'Kirim',
           routeName: AppRoutes.gscaleMode,
           push: true,
         ),

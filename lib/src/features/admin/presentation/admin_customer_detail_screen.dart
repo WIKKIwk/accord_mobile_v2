@@ -550,11 +550,11 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
                 onRemove: _removeCustomer,
               ),
             ),
-            if (widget.customerManagementEnabled &&
-                !widget.isMaterialTaminotchi) ...[
+            if (widget.customerManagementEnabled) ...[
               const SizedBox(height: 12),
               AdminAparatchiApparatusCard(
                 customerRef: widget.customerRef,
+                materialTaminotchi: widget.isMaterialTaminotchi,
                 onChanged: () => _changed = true,
               ),
             ],

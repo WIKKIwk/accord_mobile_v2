@@ -382,6 +382,115 @@ class AdminApparatus {
   }
 }
 
+class AdminApparatusMasterOptions {
+  const AdminApparatusMasterOptions({
+    required this.families,
+    required this.kindsByFamily,
+    required this.capabilities,
+    required this.colorStationsMin,
+    required this.colorStationsMax,
+  });
+
+  final List<String> families;
+  final Map<String, List<String>> kindsByFamily;
+  final List<String> capabilities;
+  final int colorStationsMin;
+  final int colorStationsMax;
+
+  List<String> kindsForFamily(String? family) {
+    final key = family?.trim().toLowerCase() ?? '';
+    return kindsByFamily[key] ?? const <String>[];
+  }
+
+  bool supportsCapability(String capability) {
+    return capabilities.contains(capability.trim().toLowerCase());
+  }
+
+  factory AdminApparatusMasterOptions.fromJson(Map<String, dynamic> json) {
+    final families = <String>[];
+    final rawFamilies = json['families'];
+    if (rawFamilies is List) {
+      for (final item in rawFamilies) {
+        final value = item.toString().trim().toLowerCase();
+        if (value.isNotEmpty && !families.contains(value)) {
+          families.add(value);
+        }
+      }
+    }
+
+    final kindsByFamily = <String, List<String>>{};
+    final rawKinds = json['kinds_by_family'];
+    if (rawKinds is Map) {
+      for (final entry in rawKinds.entries) {
+        final family = entry.key.toString().trim().toLowerCase();
+        if (family.isEmpty || entry.value is! List) {
+          continue;
+        }
+        final kinds = <String>[];
+        for (final item in entry.value as List) {
+          final value = item.toString().trim().toLowerCase();
+          if (value.isNotEmpty && !kinds.contains(value)) {
+            kinds.add(value);
+          }
+        }
+        kindsByFamily[family] = kinds;
+      }
+    }
+
+    final capabilities = <String>[];
+    final rawCapabilities = json['capabilities'];
+    if (rawCapabilities is List) {
+      for (final item in rawCapabilities) {
+        final value = item.toString().trim().toLowerCase();
+        if (value.isNotEmpty && !capabilities.contains(value)) {
+          capabilities.add(value);
+        }
+      }
+    }
+
+    return AdminApparatusMasterOptions(
+      families: families,
+      kindsByFamily: kindsByFamily,
+      capabilities: capabilities,
+      colorStationsMin: (json['color_stations_min'] as num?)?.toInt() ?? 1,
+      colorStationsMax: (json['color_stations_max'] as num?)?.toInt() ?? 24,
+    );
+  }
+
+  factory AdminApparatusMasterOptions.fallback() {
+    return const AdminApparatusMasterOptions(
+      families: [
+        'pechat',
+        'laminatsiya',
+        'rezka',
+        'paket',
+        'kley',
+        'other',
+      ],
+      kindsByFamily: {
+        'pechat': ['color_pechat', 'flexo'],
+        'laminatsiya': ['laminatsiya', 'extruder_laminatsiya'],
+        'rezka': ['rezka'],
+        'paket': ['paket'],
+        'kley': ['holodniy_kley'],
+        'other': ['other'],
+      },
+      capabilities: [
+        'print',
+        'pechat',
+        'flexo',
+        'laminate',
+        'cut',
+        'package',
+        'glue',
+        'apparatus',
+      ],
+      colorStationsMin: 1,
+      colorStationsMax: 24,
+    );
+  }
+}
+
 class _AdminApparatusMasterData {
   const _AdminApparatusMasterData({
     required this.family,

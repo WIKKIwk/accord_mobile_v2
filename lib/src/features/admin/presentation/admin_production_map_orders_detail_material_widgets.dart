@@ -570,10 +570,16 @@ class _AssignedMaterialTile extends StatelessWidget {
   const _AssignedMaterialTile({
     required this.assignment,
     required this.scanned,
+    required this.allowUnlink,
+    required this.onUnlink,
+    required this.unlinking,
   });
 
   final AdminRawMaterialAssignment assignment;
   final bool scanned;
+  final bool allowUnlink;
+  final VoidCallback? onUnlink;
+  final bool unlinking;
 
   @override
   Widget build(BuildContext context) {
@@ -605,17 +611,32 @@ class _AssignedMaterialTile extends StatelessWidget {
     }
     addDetail(assignment.itemGroup);
     addDetail(assignment.barcode);
+    final materialStateVisible = allowUnlink;
+    final statusText = materialStateVisible
+        ? _rawMaterialAssignmentStatusText(assignment)
+        : '';
 
     var primary = title;
     if (primary.isEmpty && details.isNotEmpty) {
       primary = details.removeAt(0);
     }
+    final consumed =
+        materialStateVisible && _rawMaterialAssignmentIsConsumed(assignment);
+    final locked =
+        materialStateVisible && _rawMaterialAssignmentIsLocked(assignment);
+    final canUnlink = allowUnlink &&
+        onUnlink != null &&
+        _rawMaterialAssignmentCanBeUnlinked(assignment);
+    final muted = consumed || (locked && !scanned);
+    final normalizedBarcode = assignment.barcode.trim().toUpperCase();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: scanned
-            ? scheme.primaryContainer.withValues(alpha: 0.45)
-            : scheme.surfaceContainerHighest,
+        color: muted
+            ? scheme.surface.withValues(alpha: 0.5)
+            : scanned
+                ? scheme.primaryContainer.withValues(alpha: 0.45)
+                : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -625,14 +646,24 @@ class _AssignedMaterialTile extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: scanned
-                  ? scheme.primary.withValues(alpha: 0.14)
-                  : scheme.surface,
+              color: muted
+                  ? scheme.surface.withValues(alpha: 0.7)
+                  : scanned
+                      ? scheme.primary.withValues(alpha: 0.14)
+                      : scheme.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              scanned ? Icons.check_rounded : Icons.science_outlined,
-              color: scanned ? scheme.primary : scheme.onSurfaceVariant,
+              consumed
+                  ? Icons.check_circle_outline_rounded
+                  : scanned
+                      ? Icons.check_rounded
+                      : Icons.science_outlined,
+              color: consumed
+                  ? scheme.onSurfaceVariant.withValues(alpha: 0.65)
+                  : scanned
+                      ? scheme.primary
+                      : scheme.onSurfaceVariant,
               size: 20,
             ),
           ),
@@ -648,6 +679,9 @@ class _AssignedMaterialTile extends StatelessWidget {
                         TextSpan(
                           text: primary,
                           style: theme.textTheme.bodyMedium?.copyWith(
+                            color: muted
+                                ? scheme.onSurface.withValues(alpha: 0.55)
+                                : null,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -665,9 +699,37 @@ class _AssignedMaterialTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (statusText.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    statusText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: muted
+                          ? scheme.onSurfaceVariant.withValues(alpha: 0.65)
+                          : scheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          if (allowUnlink) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              key: ValueKey('raw-material-unlink-$normalizedBarcode'),
+              tooltip: canUnlink
+                  ? 'Ulanishni uzish'
+                  : '${statusText.isEmpty ? 'Homashyo' : statusText}: uzib bo‘lmaydi',
+              onPressed: canUnlink && !unlinking ? onUnlink : null,
+              icon: unlinking
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_off_rounded),
+            ),
+          ],
         ],
       ),
     );

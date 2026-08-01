@@ -27,6 +27,9 @@ typedef AdminWorkerDetailLoader = Future<AdminWorkerDetail> Function(
   AdminUserListEntry entry,
 );
 
+typedef AdminWorkerProfileDetailLoader =
+    Future<AdminWorkerProfileDetail> Function(AdminUserListEntry entry);
+
 class AdminWorkerDetailScreen extends StatefulWidget {
   const AdminWorkerDetailScreen({
     super.key,
@@ -34,6 +37,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
     this.readOnly = false,
     this.chatTarget,
     this.detailLoader,
+    this.profileDetailLoader,
     this.warehousesLoader,
     this.warehouseAssignmentsLoader,
     this.warehouseAssigner,
@@ -44,6 +48,7 @@ class AdminWorkerDetailScreen extends StatefulWidget {
   final bool readOnly;
   final ChatDirectoryEntry? chatTarget;
   final AdminWorkerDetailLoader? detailLoader;
+  final AdminWorkerProfileDetailLoader? profileDetailLoader;
   final Future<List<AdminWarehouse>> Function()? warehousesLoader;
   final Future<List<AdminWarehouseAssignment>> Function()?
       warehouseAssignmentsLoader;
@@ -57,8 +62,11 @@ class AdminWorkerDetailScreen extends StatefulWidget {
 
 class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   AdminWorkerDetail? _detail;
+  AdminWorkerProfileDetail? _profileDetail;
+  Object? _profileDetailError;
   Object? _loadError;
   bool _loading = true;
+  bool _profileLoading = false;
   bool _savingPhone = false;
   bool _regeneratingCode = false;
   bool _adminPanelExpanded = false;
@@ -118,6 +126,48 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     return MobileApi.instance.adminWorkerDetail(_workerId);
   }
 
+  Future<AdminWorkerProfileDetail> _loadProfileDetail() {
+    final loadProfileDetail = widget.profileDetailLoader;
+    if (loadProfileDetail != null) {
+      return loadProfileDetail(widget.entry);
+    }
+    return MobileApi.instance.adminWorkerProfileDetail(_workerId);
+  }
+
+  Future<void> _reloadProfileDetail() async {
+    if (_isSystemUser) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _profileLoading = true;
+        _profileDetailError = null;
+      });
+    }
+    try {
+      final profileDetail = await _loadProfileDetail().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Ish faoliyati yuklash vaqti tugadi'),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _profileDetail = profileDetail;
+        _profileDetailError = null;
+        _profileLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _profileDetailError = error;
+        _profileLoading = false;
+      });
+    }
+  }
+
   Future<List<String>> _loadAssignedWarehouses() async {
     final loadAssignments = widget.warehouseAssignmentsLoader;
     final assignments = loadAssignments == null
@@ -139,6 +189,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
     setState(() {
       _loading = true;
       _loadError = null;
+      _profileDetail = null;
+      _profileDetailError = null;
+      _profileLoading = !_isSystemUser;
     });
     try {
       final detail = await _loadDetail().timeout(
@@ -161,6 +214,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
         _loadError = null;
         _loading = false;
       });
+      if (!_isSystemUser) {
+        await _reloadProfileDetail();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -168,6 +224,8 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       setState(() {
         _loadError = error;
         _loading = false;
+        _profileDetailError = _isSystemUser ? null : error;
+        _profileLoading = false;
       });
     }
   }
@@ -351,6 +409,15 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                   onCopyCode: _copyCode,
                 ),
               ),
+              if (!_isSystemUser) ...[
+                const SizedBox(height: 12),
+                _WorkerAssignmentSummaryCard(
+                  detail: _profileDetail,
+                  loading: _profileLoading,
+                  error: _profileDetailError,
+                  onRetry: _reloadProfileDetail,
+                ),
+              ],
               if (!widget.readOnly && !_isSystemUser) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(
@@ -380,6 +447,139 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       ),
     );
   }
+}
+
+class _WorkerAssignmentSummaryCard extends StatelessWidget {
+  const _WorkerAssignmentSummaryCard({
+    required this.detail,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final AdminWorkerProfileDetail? detail;
+  final bool loading;
+  final Object? error;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading && detail == null) {
+      return const AppSegmentSurfaceCard(
+        key: ValueKey('admin-worker-detail-activity-summary'),
+        child: Row(
+          children: [
+            SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Ish faoliyati yuklanmoqda...'),
+          ],
+        ),
+      );
+    }
+
+    if (error != null && detail == null) {
+      return AppSegmentSurfaceCard(
+        key: const ValueKey('admin-worker-detail-activity-summary'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Ish faoliyati yuklanmadi',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => onRetry(),
+              child: const Text('Qayta urinish'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final groups = detail?.assignedGroups ?? const <AdminWorkerGroup>[];
+    return AppSegmentSurfaceCard(
+      key: const ValueKey('admin-worker-detail-activity-summary'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Ish faoliyati',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          if (groups.isEmpty)
+            const _WorkerAssignmentSummaryLine(
+              label: 'Aparat',
+              value: 'Aparat biriktirilmagan',
+            )
+          else
+            for (var index = 0; index < groups.length; index++) ...[
+              if (index > 0) const Divider(height: 20),
+              _WorkerAssignmentSummaryLine(
+                label: 'Aparat',
+                value: _workerGroupSummary(groups[index]),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkerAssignmentSummaryLine extends StatelessWidget {
+  const _WorkerAssignmentSummaryLine({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value.trim().isEmpty ? 'Kiritilmagan' : value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+String _workerGroupSummary(AdminWorkerGroup group) {
+  final apparatus = group.apparatus.trim();
+  final schedule = [
+    if (group.groupCode.trim().isNotEmpty) 'Guruh ${group.groupCode.trim()}',
+    if (group.shift.trim().isNotEmpty) group.shift.trim(),
+    if (group.startTime.trim().isNotEmpty && group.endTime.trim().isNotEmpty)
+      '${group.startTime.trim()}–${group.endTime.trim()}',
+    if (group.workDaysPerWeek > 0) '${group.workDaysPerWeek} kun/hafta',
+  ];
+  return [apparatus, ...schedule]
+      .where((item) => item.isNotEmpty)
+      .join(' • ');
 }
 
 class _WorkerProfileExpandableCard extends StatelessWidget {

@@ -15,6 +15,36 @@ import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
+class _QolipDebtEntry {
+  const _QolipDebtEntry.checkout(this.checkout) : orderNote = null;
+
+  const _QolipDebtEntry.draft(this.orderNote) : checkout = null;
+
+  final QolipCheckoutEntry? checkout;
+  final AdminQolipOrderNote? orderNote;
+
+  bool get isDraft => orderNote != null;
+
+  String get id => checkout?.id ?? 'order-note:${orderNote!.orderId}';
+
+  String get title {
+    final itemName = checkout?.itemName ?? orderNote!.itemName;
+    if (itemName.trim().isNotEmpty) {
+      return itemName.trim();
+    }
+    return checkout?.itemCode ?? orderNote!.itemCode;
+  }
+
+  String get itemCode => checkout?.itemCode ?? orderNote!.itemCode;
+
+  int get quantity => checkout?.quantity ?? orderNote!.qolipCodes.length;
+
+  String get issuedAt => checkout?.issuedAt ?? orderNote!.updatedAt;
+
+  List<String> get qolipCodes =>
+      checkout == null ? orderNote!.qolipCodes : <String>[checkout!.qolipCode];
+}
+
 class QolipCheckoutsScreen extends StatefulWidget {
   const QolipCheckoutsScreen({super.key});
 
@@ -23,7 +53,7 @@ class QolipCheckoutsScreen extends StatefulWidget {
 }
 
 class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
-  late Future<List<QolipCheckoutEntry>> _checkoutsFuture;
+  late Future<List<_QolipDebtEntry>> _debtsFuture;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final Set<String> _returning = {};
@@ -32,7 +62,7 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
   @override
   void initState() {
     super.initState();
-    _checkoutsFuture = _loadCheckouts();
+    _debtsFuture = _loadDebts();
   }
 
   @override
@@ -42,15 +72,29 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
     super.dispose();
   }
 
-  Future<List<QolipCheckoutEntry>> _loadCheckouts() {
-    return MobileApi.instance.qolipCheckouts(status: 'open', limit: 200);
+  Future<List<_QolipDebtEntry>> _loadDebts() async {
+    final checkoutsFuture = MobileApi.instance.qolipCheckouts(
+      status: 'open',
+      limit: 200,
+    );
+    // Sequence cards receive the current principal's order notes as part of
+    // the queue snapshot. Reuse that same source here so the debt book cannot
+    // disagree with the status already shown on the sequence page.
+    final snapshotFuture = MobileApi.instance.adminProductionMapQueueSnapshot();
+    final checkouts = await checkoutsFuture;
+    final snapshot = await snapshotFuture;
+    return [
+      for (final checkout in checkouts) _QolipDebtEntry.checkout(checkout),
+      for (final note in snapshot.qolipOrderNotes.values)
+        if (note.isGiven) _QolipDebtEntry.draft(note),
+    ];
   }
 
   Future<void> _reload() async {
     setState(() {
-      _checkoutsFuture = _loadCheckouts();
+      _debtsFuture = _loadDebts();
     });
-    await _checkoutsFuture;
+    await _debtsFuture;
   }
 
   void _openDrawerRoute(String route) {
@@ -112,6 +156,55 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
     }
   }
 
+  Future<void> _returnDraft(_QolipDebtEntry debt) async {
+    final note = debt.orderNote;
+    if (note == null || _returning.contains(debt.id)) {
+      return;
+    }
+    setState(() => _returning.add(debt.id));
+    try {
+      await MobileApi.instance.adminSaveProductionMapQolipOrderNote(
+        orderId: note.orderId,
+        status: 'returned',
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${debt.title} qoliplari qaytarildi')),
+      );
+      await _reload();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is MobileApiException
+                ? error.message
+                : 'Qolip qaydi qaytarilmadi',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _returning.remove(debt.id));
+      }
+    }
+  }
+
+  Future<void> _returnDebt(_QolipDebtEntry debt) async {
+    if (debt.isDraft) {
+      await _returnDraft(debt);
+      return;
+    }
+    final checkout = debt.checkout;
+    if (checkout != null) {
+      await _returnCheckout(checkout);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -145,8 +238,8 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
       ),
       bottom: const QolipDock(activeTab: null),
       contentPadding: EdgeInsets.zero,
-      child: FutureBuilder<List<QolipCheckoutEntry>>(
-        future: _checkoutsFuture,
+      child: FutureBuilder<List<_QolipDebtEntry>>(
+        future: _debtsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done &&
               !snapshot.hasData) {
@@ -158,9 +251,9 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
               message: 'Qarz daftari yuklanmadi',
             );
           }
-          final checkouts = snapshot.data ?? const <QolipCheckoutEntry>[];
-          final visible = _filterCheckouts(checkouts, _query);
-          if (checkouts.isEmpty) {
+          final debts = snapshot.data ?? const <_QolipDebtEntry>[];
+          final visible = _filterDebts(debts, _query);
+          if (debts.isEmpty) {
             return RefreshIndicator(
               onRefresh: _reload,
               child: const _QolipDebtEmptyState(message: 'Qarzda qolip yo‘q'),
@@ -175,10 +268,10 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
           return RefreshIndicator(
             onRefresh: _reload,
             child: _QolipDebtList(
-              checkouts: visible,
+              debts: visible,
               returning: _returning,
-              onReturn: (checkout) {
-                unawaited(_returnCheckout(checkout));
+              onReturn: (debt) {
+                unawaited(_returnDebt(debt));
               },
             ),
           );
@@ -188,39 +281,49 @@ class _QolipCheckoutsScreenState extends State<QolipCheckoutsScreen> {
   }
 }
 
-List<QolipCheckoutEntry> _filterCheckouts(
-  List<QolipCheckoutEntry> checkouts,
+List<_QolipDebtEntry> _filterDebts(
+  List<_QolipDebtEntry> debts,
   String query,
 ) {
   if (query.isEmpty) {
-    return checkouts;
+    return debts;
   }
-  return checkouts
-      .where((checkout) => qolipCheckoutSearchMatches(query, checkout))
-      .toList(growable: false);
+  return debts.where((debt) {
+    final checkout = debt.checkout;
+    if (checkout != null) {
+      return qolipCheckoutSearchMatches(query, checkout);
+    }
+    final note = debt.orderNote!;
+    return qolipSearchMatches(query, [
+      note.orderId,
+      note.itemCode,
+      note.itemName,
+      ...note.qolipCodes,
+    ]);
+  }).toList(growable: false);
 }
 
 class _QolipDebtList extends StatefulWidget {
   const _QolipDebtList({
-    required this.checkouts,
+    required this.debts,
     required this.returning,
     required this.onReturn,
   });
 
-  final List<QolipCheckoutEntry> checkouts;
+  final List<_QolipDebtEntry> debts;
   final Set<String> returning;
-  final ValueChanged<QolipCheckoutEntry> onReturn;
+  final ValueChanged<_QolipDebtEntry> onReturn;
 
   @override
   State<_QolipDebtList> createState() => _QolipDebtListState();
 }
 
 class _QolipDebtListState extends State<_QolipDebtList> {
-  String? _expandedCheckoutId;
+  String? _expandedDebtId;
 
   @override
   Widget build(BuildContext context) {
-    final checkouts = widget.checkouts;
+    final debts = widget.debts;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
@@ -232,22 +335,22 @@ class _QolipDebtListState extends State<_QolipDebtList> {
       children: [
         M3SegmentSpacedColumn(
           children: [
-            for (var index = 0; index < checkouts.length; index++)
+            for (var index = 0; index < debts.length; index++)
               _QolipDebtRow(
                 slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                   index,
-                  checkouts.length,
+                  debts.length,
                 ),
-                checkout: checkouts[index],
+                debt: debts[index],
                 index: index,
-                expanded: _expandedCheckoutId == checkouts[index].id,
-                returning: widget.returning.contains(checkouts[index].id),
+                expanded: _expandedDebtId == debts[index].id,
+                returning: widget.returning.contains(debts[index].id),
                 onExpandedChanged: (expanded) {
                   setState(() {
-                    _expandedCheckoutId = expanded ? checkouts[index].id : null;
+                    _expandedDebtId = expanded ? debts[index].id : null;
                   });
                 },
-                onReturn: () => widget.onReturn(checkouts[index]),
+                onReturn: () => widget.onReturn(debts[index]),
               ),
           ],
         ),
@@ -259,7 +362,7 @@ class _QolipDebtListState extends State<_QolipDebtList> {
 class _QolipDebtRow extends StatelessWidget {
   const _QolipDebtRow({
     required this.slot,
-    required this.checkout,
+    required this.debt,
     required this.index,
     required this.expanded,
     required this.returning,
@@ -268,7 +371,7 @@ class _QolipDebtRow extends StatelessWidget {
   });
 
   final M3SegmentVerticalSlot slot;
-  final QolipCheckoutEntry checkout;
+  final _QolipDebtEntry debt;
   final int index;
   final bool expanded;
   final bool returning;
@@ -279,28 +382,36 @@ class _QolipDebtRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final location = checkout.locationLabel.isNotEmpty
-        ? checkout.locationLabel
-        : checkout.block;
+    final checkout = debt.checkout;
+    final note = debt.orderNote;
+    final location = checkout == null
+        ? ''
+        : checkout.locationLabel.isNotEmpty
+            ? checkout.locationLabel
+            : checkout.block;
+    final subtitle = note != null
+        ? <String>[
+            'Draft',
+            'Order: ${note.orderId}',
+            '${debt.quantity} ta qolip',
+            _formatIssuedAt(note.updatedAt),
+          ].where((value) => value.trim().isNotEmpty).join(' • ')
+        : <String>[
+            checkout!.issuedToName.trim().isEmpty
+                ? 'Noma’lum qolipchi'
+                : checkout.issuedToName.trim(),
+            location,
+            checkout.qolipCode,
+            '${checkout.size}',
+            _formatIssuedAt(checkout.issuedAt),
+          ].where((value) => value.trim().isNotEmpty).join(' • ');
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
-    final subtitle = <String>[
-      checkout.issuedToName.trim().isEmpty
-          ? 'Noma’lum qolipchi'
-          : checkout.issuedToName.trim(),
-      location,
-      checkout.qolipCode,
-      '${checkout.size}',
-      _formatIssuedAt(checkout.issuedAt),
-    ].where((value) => value.trim().isNotEmpty).join(' • ');
-    final title = checkout.itemName.trim().isEmpty
-        ? checkout.itemCode.trim()
-        : checkout.itemName.trim();
 
     return Material(
-      color: scheme.surface,
+      color: note != null ? scheme.tertiaryContainer : scheme.surface,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
@@ -325,7 +436,7 @@ class _QolipDebtRow extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            title,
+                            debt.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
@@ -349,7 +460,7 @@ class _QolipDebtRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      '${checkout.quantity} ta',
+                      '${debt.quantity} ta',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -378,7 +489,7 @@ class _QolipDebtRow extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: expanded
                 ? _QolipDebtDetail(
-                    checkout: checkout,
+                    debt: debt,
                     returning: returning,
                     onReturn: onReturn,
                   )
@@ -421,12 +532,12 @@ class _QolipDebtIndexBadge extends StatelessWidget {
 
 class _QolipDebtDetail extends StatelessWidget {
   const _QolipDebtDetail({
-    required this.checkout,
+    required this.debt,
     required this.returning,
     required this.onReturn,
   });
 
-  final QolipCheckoutEntry checkout;
+  final _QolipDebtEntry debt;
   final bool returning;
   final VoidCallback onReturn;
 
@@ -434,30 +545,63 @@ class _QolipDebtDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final location = checkout.locationLabel.isNotEmpty
-        ? checkout.locationLabel
-        : checkout.block;
+    final checkout = debt.checkout;
+    final note = debt.orderNote;
+    final location = checkout == null
+        ? ''
+        : checkout.locationLabel.isNotEmpty
+            ? checkout.locationLabel
+            : checkout.block;
+    final detailLines = note != null
+        ? <Widget>[
+            const _QolipDebtDetailLine(
+              label: 'Qarz turi',
+              value: 'Order drafti',
+            ),
+            _QolipDebtDetailLine(label: 'Order', value: note.orderId),
+            _QolipDebtDetailLine(label: 'Mahsulot', value: note.itemName),
+            _QolipDebtDetailLine(label: 'Item kodi', value: note.itemCode),
+            _QolipDebtDetailLine(
+              label: 'Qolip kodlari',
+              value: note.qolipCodes.join(', '),
+            ),
+            _QolipDebtDetailLine(
+              label: 'Soni',
+              value: '${note.qolipCodes.length} ta',
+            ),
+            _QolipDebtDetailLine(
+              label: 'Berilgan vaqt',
+              value: _formatIssuedAt(note.updatedAt),
+            ),
+          ]
+        : <Widget>[
+            _QolipDebtDetailLine(
+              label: 'Kimga berilgan',
+              value: checkout!.issuedToName,
+            ),
+            _QolipDebtDetailLine(label: 'Mahsulot', value: checkout.itemName),
+            _QolipDebtDetailLine(label: 'Item kodi', value: checkout.itemCode),
+            _QolipDebtDetailLine(
+                label: 'Qolip kodi', value: checkout.qolipCode),
+            _QolipDebtDetailLine(label: 'Razmer', value: '${checkout.size}'),
+            _QolipDebtDetailLine(
+              label: 'Soni',
+              value: '${checkout.quantity} ta',
+            ),
+            _QolipDebtDetailLine(label: 'Blok', value: checkout.block),
+            _QolipDebtDetailLine(label: 'Joy', value: location),
+            _QolipDebtDetailLine(label: 'Ombor', value: checkout.warehouse),
+            _QolipDebtDetailLine(
+              label: 'Berilgan vaqt',
+              value: _formatIssuedAt(checkout.issuedAt),
+            ),
+          ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(58, 4, 10, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _QolipDebtDetailLine(
-            label: 'Kimga berilgan',
-            value: checkout.issuedToName,
-          ),
-          _QolipDebtDetailLine(label: 'Mahsulot', value: checkout.itemName),
-          _QolipDebtDetailLine(label: 'Item kodi', value: checkout.itemCode),
-          _QolipDebtDetailLine(label: 'Qolip kodi', value: checkout.qolipCode),
-          _QolipDebtDetailLine(label: 'Razmer', value: '${checkout.size}'),
-          _QolipDebtDetailLine(label: 'Soni', value: '${checkout.quantity} ta'),
-          _QolipDebtDetailLine(label: 'Blok', value: checkout.block),
-          _QolipDebtDetailLine(label: 'Joy', value: location),
-          _QolipDebtDetailLine(label: 'Ombor', value: checkout.warehouse),
-          _QolipDebtDetailLine(
-            label: 'Berilgan vaqt',
-            value: _formatIssuedAt(checkout.issuedAt),
-          ),
+          ...detailLines,
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -469,11 +613,13 @@ class _QolipDebtDetail extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.keyboard_return_rounded, size: 18),
-              label: const Text('Qaytar'),
+              label: Text(
+                note != null ? 'Qoliplarni qaytarib oldim' : 'Qaytar',
+              ),
             ),
           ),
           Text(
-            'Checkout ID: ${checkout.id}',
+            '${note != null ? 'Order ID' : 'Checkout ID'}: ${debt.id.replaceFirst('order-note:', '')}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(

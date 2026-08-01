@@ -101,6 +101,8 @@ class _MoveModulePageState extends State<_MoveModulePage> {
       return const _EmptyOpenedOrders(message: 'Ko‘chirish uchun aparat yo‘q');
     }
     final viewMetrics = MediaQueryData.fromView(View.of(context));
+    final allowUnassignedAlternativeMove =
+        !_isMoveUnassignedApparatus(top) && !_isMoveUnassignedApparatus(bottom);
     final dockInset = dockLayoutBottomInset(
       viewMetrics,
       thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
@@ -141,6 +143,8 @@ class _MoveModulePageState extends State<_MoveModulePage> {
                         draggingOrders: draggingOrders,
                         draggingSource: draggingSource,
                         canMoveTo: canMoveTo,
+                        allowUnassignedAlternativeMove:
+                            allowUnassignedAlternativeMove,
                         onToggleSelect: onToggleSelect,
                         buildDragPayload: buildDragPayload,
                         onDragStarted: onDragStarted,
@@ -170,6 +174,8 @@ class _MoveModulePageState extends State<_MoveModulePage> {
                   draggingOrders: draggingOrders,
                   draggingSource: draggingSource,
                   canMoveTo: canMoveTo,
+                  allowUnassignedAlternativeMove:
+                      allowUnassignedAlternativeMove,
                   onToggleSelect: onToggleSelect,
                   buildDragPayload: buildDragPayload,
                   onDragStarted: onDragStarted,

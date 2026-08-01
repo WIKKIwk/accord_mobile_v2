@@ -185,6 +185,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     required String label,
     required String error,
     String suffix = '',
+    bool? requiredField,
+    bool positive = false,
   }) {
     return TextFormField(
       controller: controller,
@@ -199,19 +201,25 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       ),
       validator: (value) {
         final trimmed = (value ?? '').trim();
+        final fieldMustBeFilled = requiredField ?? !_isComplete;
         if (trimmed.isEmpty) {
-          return _isComplete ? null : error;
+          return fieldMustBeFilled ? error : null;
         }
         final qty = _parseQty(trimmed);
         if (qty == null || !qty.isFinite || qty < 0) {
           return 'To‘g‘ri raqam kiriting';
         }
-        if (!_isComplete && qty == 0) {
+        if ((positive || !_isComplete) && qty == 0) {
           return '0 dan katta raqam kiriting';
         }
         return null;
       },
     );
+  }
+
+  bool _hasPositiveQty(TextEditingController controller) {
+    final qty = _parseQty(controller.text);
+    return qty != null && qty.isFinite && qty > 0;
   }
 
   void _submit() {
@@ -293,9 +301,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasFilmLeftover && hasWaste && hasMeter && hasKg;
-    final rezkaMetricsReady = hasRezkaBosmaWaste &&
-        hasRezkaLaminationWaste &&
-        hasRezkaEdgeWaste &&
+    final hasRezkaWaste = hasWaste ||
+        hasRezkaBosmaWaste ||
+        hasRezkaLaminationWaste ||
+        hasRezkaEdgeWaste;
+    final rezkaMetricsReady = hasRezkaWaste &&
         hasMeter &&
         hasKg;
     if (!widget.isBosma &&
@@ -329,6 +339,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _ProgressQtyInput(
           meterQty: meterQty,
           kgQty: kgQty,
+          totalWaste: totalWaste,
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
           rezkaEdgeWaste: rezkaEdgeWaste,
@@ -421,6 +432,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return _ProgressQtyInput(
         meterQty: meterQty,
         kgQty: kgQty,
+        totalWaste: totalWaste,
         rezkaBosmaWaste: rezkaBosmaWaste,
         rezkaLaminationWaste: rezkaLaminationWaste,
         rezkaEdgeWaste: rezkaEdgeWaste,
@@ -545,10 +557,21 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                         if (isRezka) ...[
                           _progressQtySectionLabel(context, 'Chiqindilar'),
                           _qtyField(
+                            controller: _wasteController,
+                            label: 'Chiqindi',
+                            error: 'Chiqindi miqdorini kiriting',
+                            suffix: 'kg',
+                            requiredField: false,
+                            positive: true,
+                          ),
+                          const SizedBox(height: 10),
+                          _qtyField(
                             controller: _rezkaBosmaWasteController,
                             label: 'Bosmachining chiqindisi',
                             error: 'Bosmachining chiqindisini kiriting',
                             suffix: 'kg',
+                            requiredField: false,
+                            positive: true,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -556,6 +579,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             label: 'Laminatsiya chiqindisi',
                             error: 'Laminatsiya chiqindisini kiriting',
                             suffix: 'kg',
+                            requiredField: false,
+                            positive: true,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -564,8 +589,38 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             error:
                                 'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
                             suffix: 'kg',
+                            requiredField: false,
+                            positive: true,
                           ),
                           const SizedBox(height: 10),
+                          FormField<void>(
+                            validator: (_) {
+                              final hasWaste = [
+                                _wasteController,
+                                _rezkaBosmaWasteController,
+                                _rezkaLaminationWasteController,
+                                _rezkaEdgeWasteController,
+                              ].any(_hasPositiveQty);
+                              return hasWaste
+                                  ? null
+                                  : 'Kamida bitta chiqindi maydonini to‘ldiring';
+                            },
+                            builder: (field) {
+                              if (!field.hasError) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  field.errorText!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                         if (hasDetailedMetrics &&
                             !(isBosma && _isComplete)) ...[
@@ -589,6 +644,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               ? 'Tayyor mahsulot metr kiriting'
                               : 'Metraj kiriting',
                           suffix: 'metr',
+                          requiredField: isRezka ? true : null,
+                          positive: isRezka,
                         ),
                         const SizedBox(height: 10),
                         _qtyField(
@@ -598,6 +655,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               ? 'Tayyor mahsulot kg kiriting'
                               : 'Kg kiriting',
                           suffix: 'kg',
+                          requiredField: isRezka ? true : null,
+                          positive: isRezka,
                         ),
                         if (_isComplete && isBosma) ...[
                           const SizedBox(height: 10),

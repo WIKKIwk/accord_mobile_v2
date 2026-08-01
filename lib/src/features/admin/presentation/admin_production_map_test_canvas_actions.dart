@@ -62,9 +62,14 @@ class _BranchAddButton extends StatelessWidget {
 }
 
 class _EdgeDeleteButton extends StatelessWidget {
-  const _EdgeDeleteButton({required this.edge, required this.onTap});
+  const _EdgeDeleteButton({
+    required this.edge,
+    required this.enabled,
+    required this.onTap,
+  });
 
   final ProductionMapEdge edge;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
@@ -77,7 +82,9 @@ class _EdgeDeleteButton extends StatelessWidget {
       _ => scheme.onSurfaceVariant,
     };
     return Tooltip(
-      message: 'Yo‘lni uzish',
+      message: enabled
+          ? 'Yo‘lni uzish'
+          : 'Boshlangan bosqichga kirish yo‘li qulflangan',
       child: Material(
         key: ValueKey(
           'production-map-edge-delete-${edge.from}-${edge.to}-${edge.branch}',
@@ -88,10 +95,16 @@ class _EdgeDeleteButton extends StatelessWidget {
         shadowColor: scheme.shadow.withValues(alpha: 0.16),
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           child: SizedBox.square(
             dimension: 26,
-            child: Icon(Icons.close_rounded, size: 17, color: color),
+            child: Icon(
+              enabled ? Icons.close_rounded : Icons.lock_outline_rounded,
+              size: 17,
+              color: enabled
+                  ? color
+                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+            ),
           ),
         ),
       ),

@@ -843,7 +843,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         required: true,
         onTap: _openProductPicker,
       ),
-      _TextInput(controller: _status, label: 'Status'),
+      _TextInput(controller: _status, label: 'Holat'),
       _ImageUploadInput(
         localPath: _imageLocalPath,
         imageUrl: _imageUrl,
@@ -1252,7 +1252,7 @@ class _SavedTemplateSummary extends StatelessWidget {
               rows: [
                 _ChecklistRowData('Mijoz', customer, subtitle: customerRef),
                 _ChecklistRowData('Mahsulot', product, subtitle: itemCode),
-                _ChecklistRowData('Status', status),
+                _ChecklistRowData('Holat', status),
               ],
             ),
             const _ReceiptDivider(),

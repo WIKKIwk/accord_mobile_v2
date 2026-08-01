@@ -3367,6 +3367,19 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     final batchActionTextStyle = theme.textTheme.titleMedium?.copyWith(
       fontWeight: FontWeight.w800,
     );
+    final controlInputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: scheme.outlineVariant),
+    );
+    final controlFocusedInputBorder = controlInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.primary, width: 1.6),
+    );
+    final controlErrorInputBorder = controlInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.error),
+    );
+    final controlFocusedErrorInputBorder = controlInputBorder.copyWith(
+      borderSide: BorderSide(color: scheme.error, width: 1.6),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3652,7 +3665,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                   horizontal: 12,
                   vertical: 10,
                 ),
-                border: const OutlineInputBorder(),
+                border: controlInputBorder,
+                enabledBorder: controlInputBorder,
+                focusedBorder: controlFocusedInputBorder,
+                errorBorder: controlErrorInputBorder,
+                focusedErrorBorder: controlFocusedErrorInputBorder,
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -3686,7 +3703,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                         horizontal: 12,
                         vertical: 10,
                       ),
-                      border: const OutlineInputBorder(),
+                      border: controlInputBorder,
+                      enabledBorder: controlInputBorder,
+                      focusedBorder: controlFocusedInputBorder,
+                      errorBorder: controlErrorInputBorder,
+                      focusedErrorBorder: controlFocusedErrorInputBorder,
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -3716,7 +3737,11 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
                           horizontal: 12,
                           vertical: 10,
                         ),
-                        border: const OutlineInputBorder(),
+                        border: controlInputBorder,
+                        enabledBorder: controlInputBorder,
+                        focusedBorder: controlFocusedInputBorder,
+                        errorBorder: controlErrorInputBorder,
+                        focusedErrorBorder: controlFocusedErrorInputBorder,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),

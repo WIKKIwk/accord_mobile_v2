@@ -211,20 +211,26 @@ class _OpenedOrderTitleLine extends StatelessWidget {
     required this.map,
     required this.theme,
     required this.scheme,
+    this.titleColor,
+    this.secondaryColor,
   });
 
   final ProductionMapDefinition map;
   final ThemeData theme;
   final ColorScheme scheme;
+  final Color? titleColor;
+  final Color? secondaryColor;
 
   @override
   Widget build(BuildContext context) {
     final code = _openedOrderDisplayCode(map);
     final title = _openedOrderPrimaryTitle(map);
-    final resolvedTitleStyle =
-        theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
+    final resolvedTitleStyle = theme.textTheme.titleMedium?.copyWith(
+      color: titleColor,
+      fontWeight: FontWeight.w700,
+    );
     final resolvedCodeStyle = theme.textTheme.labelMedium?.copyWith(
-      color: scheme.onSurfaceVariant,
+      color: secondaryColor ?? scheme.onSurfaceVariant,
       fontWeight: FontWeight.w800,
       letterSpacing: 0.2,
     );
@@ -243,7 +249,7 @@ class _OpenedOrderTitleLine extends StatelessWidget {
           TextSpan(
             text: ' • ',
             style: resolvedCodeStyle?.copyWith(
-              color: scheme.outline,
+              color: secondaryColor ?? scheme.outline,
               fontWeight: FontWeight.w700,
             ),
           ),

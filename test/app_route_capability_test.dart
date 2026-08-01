@@ -142,6 +142,22 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isFalse);
   });
 
+  test('laminatsiya daily work route uses apparatus queue capability', () {
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Laminatsiya operator',
+      legalName: '',
+      ref: 'laminatsiya-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['Laminatsiya 1'],
+    );
+
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusDailyWork), isTrue);
+  });
+
   test('inventory movement route is capability scoped', () {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

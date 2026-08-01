@@ -97,6 +97,46 @@ void main() {
     expect(find.text('Ishchilar'), findsWidgets);
   });
 
+  testWidgets('worker name can be edited from worker settings', (tester) async {
+    await MobileApi.instance.adminCreateWorker(
+      name: 'Eski ism',
+      level: 'Master',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminWorkerSettingsScreen(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eski ism'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Ismni o‘zgartirish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('worker-name-field')),
+      'Yangi ism',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ishchi ismi saqlandi'), findsOneWidget);
+    expect(find.text('Yangi ism'), findsWidgets);
+    expect(find.text('Eski ism'), findsNothing);
+    expect((await MobileApi.instance.adminWorkers()).single.name, 'Yangi ism');
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('worker group can be assigned to an apparatus from edit mode', (
     tester,
   ) async {
@@ -151,7 +191,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('worker group name can be renamed from edit mode', (tester) async {
+  testWidgets('worker group name can be renamed from edit mode',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 

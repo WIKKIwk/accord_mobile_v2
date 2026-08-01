@@ -1,9 +1,11 @@
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_policy.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
@@ -78,6 +80,44 @@ void main() {
     final groups = await MobileApi.instance.adminApparatusGroups();
     final bosma = groups.singleWhere((group) => group.name == 'Bosma aparat');
     expect(bosma.apparatus, contains('Flexo pechat'));
+  });
+
+  test('started alternative apparatus locks the whole alternative group', () {
+    const map = ProductionMapDefinition(
+      id: 'zakaz-edit-policy-group',
+      productCode: 'EDIT-GROUP',
+      title: 'Edit group',
+      nodes: [
+        ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+        ProductionMapNode(
+          id: 'seven-color',
+          kind: 'apparatus',
+          title: '7 ta rangli bosma aparat',
+          alternativeGroupId: 'bosma',
+          alternativeAssignedTitle: '7 ta rangli bosma aparat',
+        ),
+        ProductionMapNode(
+          id: 'eight-color',
+          kind: 'apparatus',
+          title: '8 ta rangli bosma aparat',
+          alternativeGroupId: 'bosma',
+          alternativeAssignedTitle: '7 ta rangli bosma aparat',
+        ),
+        ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+      ],
+      edges: [],
+    );
+
+    final locked = productionMapLockedNodeIds(
+      map: map,
+      queueStatesByApparatus: const {
+        '7 ta rangli bosma aparat': {
+          'zakaz-edit-policy-group': 'completed',
+        },
+      },
+    );
+
+    expect(locked, {'seven-color', 'eight-color'});
   });
 
   testWidgets('production map page can add and select an apparatus node', (
@@ -1924,7 +1964,12 @@ void main() {
       find.text('Tartibni o‘zgartirish uchun zakazni ushlab torting'),
       findsNothing,
     );
-    expect(find.byTooltip('Buyurtma ma’lumotlari'), findsNothing);
+    expect(find.byTooltip('Buyurtma ma’lumotlari'), findsOneWidget);
+    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zakaz kodi'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Zakaz kodi'))).pop();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
@@ -1941,6 +1986,7 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['raw_material.assign'],
+      assignedApparatus: ['Godex aparat - DEMO'],
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -1967,19 +2013,248 @@ void main() {
     expect(find.text('Ketma-ketlik'), findsOneWidget);
   });
 
+  testWidgets('qolipchi sequence long press keeps a returned qolip note',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-qolip-sequence-note';
+    const product = QolipProduct(
+      code: 'QOLIP-SEQUENCE-ITEM',
+      name: 'Qolip sequence product',
+      itemGroup: 'Tayyor mahsulotlar',
+    );
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: product,
+      qolipCode: 'QOLIP-SEQUENCE-1',
+      size: 40,
+    );
+    await MobileApi.instance.qolipSaveProductSpec(
+      product: product,
+      qolipCode: 'QOLIP-SEQUENCE-2',
+      size: 41,
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Qolip sequence order',
+        productCode: product.code,
+        apparatus: apparatus,
+        product: product.name,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.qolipchi,
+      displayName: 'Qolipchi',
+      legalName: '',
+      ref: 'qolipchi-sequence-note',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['qolip.manage'],
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-filter-option-Godex aparat - DEMO')),
+    );
+    await tester.pumpAndSettle();
+
+    final orderFinder = find.textContaining('Qolip sequence order');
+    expect(
+      find.text(
+        'Bir marta bosing — ma’lumot. Uzoq bosing — qolip qaydini ochish.',
+      ),
+      findsOneWidget,
+    );
+    await tester.longPress(orderFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Order qoliplarini qayd qilish'), findsOneWidget);
+    expect(find.text('Hammasini berish'), findsOneWidget);
+
+    await tester.tap(find.byType(CheckboxListTile).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tanlangan qoliplarni berdim'));
+    await tester.pumpAndSettle();
+    final given = await MobileApi.instance
+        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
+    expect(given.note?.isGiven, isTrue);
+    expect(given.note?.qolipCodes, ['QOLIP-SEQUENCE-1']);
+
+    await tester.longPress(orderFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Qoliplarni qaytarib oldim'), findsOneWidget);
+    final givenTiles = tester
+        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+        .toList(growable: false);
+    expect(givenTiles, hasLength(2));
+    expect(givenTiles[0].value, isTrue);
+    expect(givenTiles[0].onChanged, isNull);
+    expect(givenTiles[1].value, isFalse);
+    expect(givenTiles[1].onChanged, isNotNull);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Hammasini berish'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byType(CheckboxListTile).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tanlangan qoliplarni berdim'));
+    await tester.pumpAndSettle();
+    final givenAll = await MobileApi.instance
+        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
+    expect(givenAll.note?.qolipCodes, [
+      'QOLIP-SEQUENCE-1',
+      'QOLIP-SEQUENCE-2',
+    ]);
+
+    await tester.longPress(orderFinder);
+    await tester.pumpAndSettle();
+    final allGivenTiles = tester
+        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+        .toList(growable: false);
+    expect(allGivenTiles.every((tile) => tile.onChanged == null), isTrue);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Yangi qolip tanlang'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Qolip qo‘shish'), findsOneWidget);
+    await tester.tap(find.text('Qoliplarni qaytarib oldim'));
+    await tester.pumpAndSettle();
+    final returned = await MobileApi.instance
+        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
+    expect(returned.note?.isReturned, isTrue);
+    expect(returned.note?.qolipCodes, [
+      'QOLIP-SEQUENCE-1',
+      'QOLIP-SEQUENCE-2',
+    ]);
+  });
+
+  testWidgets('qolipchi can add a qolip from an empty order note sheet',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-qolip-inline-add';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Inline qolip order',
+        productCode: 'DEMO-HOTLUNCH',
+        apparatus: apparatus,
+        product: 'Hotlunch',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.qolipchi,
+      displayName: 'Qolipchi',
+      legalName: '',
+      ref: 'qolipchi-inline-add',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['qolip.manage'],
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-filter-option-Godex aparat - DEMO')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.textContaining('Inline qolip order'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Bu tayyor mahsulotga hali qolip biriktirilmagan.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Qolip qo‘shish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Qolipni omborga biriktirish'), findsOneWidget);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'INLINE-Q-1');
+    await tester.enterText(fields.at(1), '40');
+    await tester.pump();
+    await tester.tap(find.text('Saqlash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INLINE-Q-1'), findsOneWidget);
+    expect(find.text('Qolip qo‘shish'), findsOneWidget);
+    final details = await MobileApi.instance
+        .adminProductionMapQolipOrderNoteDetails(orderId: orderId);
+    expect(
+      details.requiredQolips.map((item) => item.qolipCode),
+      ['INLINE-Q-1'],
+    );
+  });
+
   testWidgets(
       'material supplier sequence opens details on tap and assignment on long press',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     const apparatus = 'Godex aparat - DEMO';
+    const secondApparatus = 'Laminatsiya 1';
     const orderId = 'zakaz-supply-sequence-actions';
     await MobileApi.instance.adminSaveProductionMap(
-      _productionOrderMap(
+      _twoStageProductionOrderMap(
         id: orderId,
         title: 'Material action order',
         productCode: 'SUPPLY-ACTIONS',
-        apparatus: apparatus,
         product: 'material action product',
+        firstApparatus: apparatus,
+        secondApparatus: secondApparatus,
       ),
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
@@ -1998,6 +2273,7 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['raw_material.assign'],
+      assignedApparatus: [apparatus, secondApparatus],
     );
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
@@ -2035,18 +2311,54 @@ void main() {
     await tester.tap(orderFinder);
     await tester.pumpAndSettle();
     expect(find.text('Zakaz kodi'), findsOneWidget);
+    expect(
+      find.text('Qolip yoki homashyo QR kodini tirqishga olib keling'),
+      findsNothing,
+    );
     Navigator.of(tester.element(find.text('Zakaz kodi'))).pop();
     await tester.pumpAndSettle();
 
     await tester.longPress(find.textContaining('Material action order'));
     await tester.pumpAndSettle();
     expect(find.text('Orderga homashyo ulash'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('sequence-apparatus-filter')),
+        matching: find.text('Aparat: $apparatus'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('1 ta mos homashyo'), findsOneWidget);
     expect(find.text('Demo kraska'), findsOneWidget);
-    await tester.tap(find.text('Demo kraska'));
+    expect(find.text('Ombor: Xomashyo ombori - DEMO'), findsOneWidget);
+    final candidateCardFinder = find
+        .ancestor(
+          of: find.text('Demo kraska'),
+          matching: find.byType(Card),
+        )
+        .first;
+    final candidateColorScheme =
+        Theme.of(tester.element(find.text('Demo kraska'))).colorScheme;
+    expect(
+      tester.widget<Card>(candidateCardFinder).color,
+      candidateColorScheme.surfaceContainerLow,
+    );
+    await tester.longPress(find.text('Demo kraska'));
     await tester.pumpAndSettle();
-    expect(find.text('Homashyo orderga ulandi'), findsOneWidget);
+    expect(
+      tester.widget<Card>(candidateCardFinder).color,
+      candidateColorScheme.primaryContainer.withValues(alpha: 0.62),
+    );
+    expect(find.text('Ulash · 1'), findsOneWidget);
+    await tester.tap(find.text('Ulash · 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 ta homashyo orderga ulandi'), findsOneWidget);
     expect(find.text('Demo kraska'), findsNothing);
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: orderId,
+      apparatus: secondApparatus,
+      barcode: '30BB',
+    );
 
     await tester.tap(find.byTooltip('Yopish'));
     await tester.pumpAndSettle();
@@ -2058,8 +2370,177 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('30AA'), findsOneWidget);
+    expect(find.text('30BB'), findsOneWidget);
+    expect(
+        find.text('Godex aparat - DEMO uchun biriktirilgan'), findsOneWidget);
+    expect(find.text('Laminatsiya uchun biriktirilgan'), findsOneWidget);
     expect(find.text('Bu amal sizning rolingiz uchun ruxsat etilmagan'),
         findsNothing);
+  });
+
+  testWidgets(
+      'material supplier can unlink an available material from sequence details',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-supply-sequence-unlink';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Material unlink order',
+        productCode: 'SUPPLY-UNLINK',
+        apparatus: apparatus,
+        product: 'material unlink product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: apparatus,
+      itemGroups: const ['Kraska'],
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: orderId,
+      apparatus: apparatus,
+      barcode: '30AA',
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Material ta’minotchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+      assignedApparatus: [apparatus],
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-filter-option-Godex aparat - DEMO')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Material unlink order'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('production-materials-expansion')),
+    );
+    await tester.pumpAndSettle();
+
+    final unlinkButton = find.byKey(
+      const ValueKey('raw-material-unlink-30AA'),
+    );
+    expect(unlinkButton, findsOneWidget);
+    expect(tester.widget<IconButton>(unlinkButton).onPressed, isNotNull);
+    await tester.tap(unlinkButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Homashyoni uzish'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('production-material-confirm-unlink')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Homashyo zakazdan uzildi'), findsOneWidget);
+    expect(find.text('30AA'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets(
+      'material supplier empty assignment explains the minimum roll width',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = '8 ta rangli bosma aparat';
+    const orderId = 'zakaz-supply-sequence-empty';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Material empty order',
+        productCode: 'SUPPLY-EMPTY',
+        apparatus: apparatus,
+        product: 'material empty product',
+        rollCount: 8,
+        widthMm: 987,
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminSaveRawMaterialRule(
+      apparatus: apparatus,
+      itemGroups: const ['Rulon'],
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Material ta’minotchi',
+      legalName: '',
+      ref: 'material_taminotchi',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+      assignedApparatus: [apparatus],
+    );
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapOrdersScreen(
+          readOnly: true,
+          supplyViewerMode: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterChip).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+          const ValueKey('admin-filter-option-8 ta rangli bosma aparat')),
+    );
+    await tester.pumpAndSettle();
+
+    final orderFinder = find.textContaining('Material empty order');
+    expect(orderFinder, findsOneWidget);
+    await tester.longPress(orderFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mos homashyo topilmadi'), findsOneWidget);
+    expect(
+      find.text(
+        'Tizim qabul qiladigan rulon eni: 987 mm dan 1007 mm gacha.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -2377,6 +2858,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Muzlatish'), findsOneWidget);
     expect(find.text('O‘chirish'), findsOneWidget);
+    expect(find.text('Mapni o‘zgartirish'), findsOneWidget);
     Navigator.of(tester.element(find.text('Muzlatish'))).pop();
     await tester.pumpAndSettle();
 
@@ -2386,6 +2868,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Muzlatish'), findsOneWidget);
     expect(find.text('O‘chirish'), findsOneWidget);
+    expect(find.text('Mapni o‘zgartirish'), findsOneWidget);
+  });
+
+  testWidgets('map action opens the selected order with started nodes locked', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    const apparatus = 'Godex aparat - DEMO';
+    const orderId = 'zakaz-map-action-selected';
+    await MobileApi.instance.adminSaveProductionMap(
+      _productionOrderMap(
+        id: orderId,
+        title: 'Selected map action order',
+        productCode: 'MAP-ACTION-1',
+        apparatus: apparatus,
+        product: 'selected product',
+      ),
+    );
+    await MobileApi.instance.adminSaveProductionMapSequence(
+      apparatus: apparatus,
+      orderIds: const [orderId],
+    );
+    await MobileApi.instance.adminApparatusQueueActionResult(
+      apparatus: apparatus,
+      orderId: orderId,
+      action: 'start',
+    );
+    ProductionMapTestArgs? openedArgs;
+
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        onGenerateRoute: (settings) {
+          if (settings.name == AppRoutes.adminProductionMapTest) {
+            openedArgs = settings.arguments as ProductionMapTestArgs?;
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => const Scaffold(body: Text('Selected editor')),
+            );
+          }
+          return null;
+        },
+        home: const AdminProductionMapOrdersScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(
+      find.textContaining('Selected map action order').first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapni o‘zgartirish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selected editor'), findsOneWidget);
+    expect(openedArgs?.savedMap?.id, orderId);
+    expect(openedArgs?.lockedNodeIds, contains('apparatus'));
   });
 
   testWidgets('order action menu follows requested and frozen states', (
@@ -2930,6 +3478,74 @@ void main() {
       expect(_apparatusTitles(maps, 'zakaz-direct-pechat'), [
         '7 ta rangli bosma aparat',
       ]);
+    },
+  );
+
+  testWidgets(
+    'opened orders move module can assign an unassigned alternative to target',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      await MobileApi.instance.adminSaveProductionMap(
+        _alternativeProductionOrderMap(
+          id: 'zakaz-alt-unassigned-move',
+          title: 'Unassigned alternative move order',
+          productCode: 'ALT-UNASSIGNED-MOVE',
+          product: 'unassigned alternative move product',
+          apparatus: const [
+            '7 ta rangli bosma aparat',
+            '8 ta rangli bosma aparat',
+          ],
+          rollCount: 7,
+          widthMm: 650,
+        ),
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ko‘chirish'));
+      await tester.pumpAndSettle();
+      const orderKey = ValueKey(
+        'move-order-7 ta rangli bosma aparat-zakaz-alt-unassigned-move',
+      );
+      expect(find.byKey(orderKey), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey(
+            'move-order-disabled-7 ta rangli bosma aparat-'
+            'zakaz-alt-unassigned-move',
+          ),
+        ),
+        findsNothing,
+      );
+
+      await _dragOrderHandleForKeyToBottomZone(
+        tester,
+        key: orderKey,
+      );
+
+      final maps = await MobileApi.instance.adminProductionMaps();
+      expect(
+        _alternativeAssignedTitles(maps, 'zakaz-alt-unassigned-move'),
+        [
+          '8 ta rangli bosma aparat',
+          '8 ta rangli bosma aparat',
+        ],
+      );
+      await tester.pump(const Duration(seconds: 2));
     },
   );
 
@@ -4515,7 +5131,7 @@ void main() {
     expect(find.textContaining('2-bo‘lak: 1 kadr'), findsOneWidget);
   });
 
-  testWidgets('worker completed detail keeps completed apparatus context', (
+  testWidgets('worker in-progress history opens WIP details', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -4593,11 +5209,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('completed context').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mapni ko‘rish'));
-    await tester.pumpAndSettle();
 
-    expect(find.text('Tugagan'), findsOneWidget);
-    expect(find.text('Jarayonda'), findsOneWidget);
+    expect(find.text('WIP tafsilotlari'), findsOneWidget);
+    expect(find.byKey(const ValueKey('worker-wip-count')), findsOneWidget);
+    expect(find.textContaining('WIP yaratilgan'), findsOneWidget);
+    expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
   });
 
   testWidgets('later stage detail keeps previous progress QR scan visible', (
@@ -4916,6 +5532,138 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(deleteButton, findsNothing);
+  });
+
+  testWidgets('started apparatus node and its incoming edge stay disabled', (
+    tester,
+  ) async {
+    await TestModeController.instance.setEnabled(true);
+    await _usePhoneViewport(tester);
+    const map = ProductionMapDefinition(
+      id: 'zakaz-locked-editor-node',
+      productCode: 'LOCKED-EDITOR',
+      title: 'Locked editor order',
+      orderNumber: '4321',
+      customerName: 'Locked customer',
+      orderKg: 125,
+      baseLength: 840,
+      nodes: [
+        ProductionMapNode(
+          id: 'start',
+          kind: 'start',
+          title: 'Start',
+          x: 420,
+          y: 32,
+        ),
+        ProductionMapNode(
+          id: 'locked-apparatus',
+          kind: 'apparatus',
+          title: 'Locked apparatus',
+          x: 420,
+          y: 164,
+        ),
+        ProductionMapNode(
+          id: 'future-apparatus',
+          kind: 'apparatus',
+          title: 'Future apparatus',
+          x: 420,
+          y: 296,
+        ),
+        ProductionMapNode(
+          id: 'end',
+          kind: 'end',
+          title: 'End',
+          x: 420,
+          y: 428,
+        ),
+      ],
+      edges: [
+        ProductionMapEdge(from: 'start', to: 'locked-apparatus'),
+        ProductionMapEdge(
+          from: 'locked-apparatus',
+          to: 'future-apparatus',
+        ),
+        ProductionMapEdge(from: 'future-apparatus', to: 'end'),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AdminProductionMapTestScreen(
+          savedMap: map,
+          lockedNodeIds: {'locked-apparatus'},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey('production-map-node-connect-locked-apparatus'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('production-map-node-connect-future-apparatus'),
+      ),
+      findsOneWidget,
+    );
+    final incomingEdge = find.byKey(
+      const ValueKey(
+        'production-map-edge-delete-start-locked-apparatus-',
+      ),
+    );
+    final outgoingEdge = find.byKey(
+      const ValueKey(
+        'production-map-edge-delete-locked-apparatus-future-apparatus-',
+      ),
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(of: incomingEdge, matching: find.byType(InkWell)),
+          )
+          .onTap,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(of: outgoingEdge, matching: find.byType(InkWell)),
+          )
+          .onTap,
+      isNotNull,
+    );
+
+    await tester.drag(find.text('Locked apparatus'), const Offset(90, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('production-map-save')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    final saved = await MobileApi.instance.adminProductionMap(map.id);
+    expect(
+      saved.map.nodes.singleWhere((node) => node.id == 'locked-apparatus').x,
+      420,
+    );
+    expect(saved.map.customerName, 'Locked customer');
+    expect(saved.map.orderKg, 125);
+    expect(saved.map.baseLength, 840);
+
+    await tester.tap(find.text('Locked apparatus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aparat tanlang'), findsNothing);
+    await tester.tap(find.text('Future apparatus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aparat tanlang'), findsOneWidget);
   });
 
   testWidgets('production map branch adds condition with open branch handles', (
@@ -5342,6 +6090,37 @@ Future<void> _dragOrderHandleForKeyToTopDropZone(
   final headerBottom = tester.getBottomLeft(topHeader).dy;
   final boundaryTop = tester.getTopLeft(boundary).dy;
   final target = Offset(headerCenter.dx, (headerBottom + boundaryTop) / 2);
+  final handle = find.descendant(
+    of: order,
+    matching: find.byIcon(Icons.drag_handle_rounded),
+  );
+  final start = tester.getCenter(handle);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 260));
+  await gesture.moveBy(const Offset(0, -24));
+  await tester.pump();
+  await gesture.moveTo(target);
+  await tester.pump(const Duration(milliseconds: 240));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dragOrderHandleForKeyToBottomZone(
+  WidgetTester tester, {
+  required ValueKey<String> key,
+}) async {
+  final order = find.byKey(key);
+  await tester.ensureVisible(order);
+  await tester.pumpAndSettle();
+  final boundary = find.byKey(
+    const ValueKey('move-boundary-apparatus-picker'),
+  );
+  final boundaryRect = tester.getRect(boundary);
+  final viewport = tester.getSize(find.byType(MaterialApp));
+  final target = Offset(
+    boundaryRect.center.dx,
+    boundaryRect.bottom + (viewport.height - boundaryRect.bottom) * 0.42,
+  );
   final handle = find.descendant(
     of: order,
     matching: find.byIcon(Icons.drag_handle_rounded),

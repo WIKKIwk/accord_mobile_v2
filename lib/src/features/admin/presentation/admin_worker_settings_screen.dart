@@ -149,6 +149,33 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     }
   }
 
+  Future<void> _openWorkerNameEditor(AdminWorker worker) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _WorkerNameEditDialogCard(
+            worker: worker,
+            onSaved: () async {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _future = _load();
+                _workersVersion++;
+              });
+              showAdminTopNotice(context, 'Ishchi ismi saqlandi');
+            },
+            onClose: () => Navigator.of(dialogContext).pop(),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _openWorkerLevelPicker(AdminWorker worker) async {
     final currentLevel = adminWorkerLevels.contains(worker.level)
         ? worker.level
@@ -520,6 +547,8 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
                         },
                         onEditLevel: () =>
                             unawaited(_openWorkerLevelPicker(workers[index])),
+                        onEditName: () =>
+                            unawaited(_openWorkerNameEditor(workers[index])),
                         deleting: _deactivatingWorkerId == workers[index].id,
                         onDelete: () => unawaited(
                           _deactivateWorker(workers[index], workers),
@@ -677,6 +706,130 @@ class _WorkerCreateDialogCardState extends State<_WorkerCreateDialogCard> {
                       )
                     : const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Ishchi qo‘shish'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerNameEditDialogCard extends StatefulWidget {
+  const _WorkerNameEditDialogCard({
+    required this.worker,
+    required this.onSaved,
+    required this.onClose,
+  });
+
+  final AdminWorker worker;
+  final Future<void> Function() onSaved;
+  final VoidCallback onClose;
+
+  @override
+  State<_WorkerNameEditDialogCard> createState() =>
+      _WorkerNameEditDialogCardState();
+}
+
+class _WorkerNameEditDialogCardState extends State<_WorkerNameEditDialogCard> {
+  late final TextEditingController _nameController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.worker.name);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty || _saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await MobileApi.instance.adminUpdateWorkerName(
+        id: widget.worker.id,
+        name: name,
+      );
+      await widget.onSaved();
+      if (mounted) {
+        widget.onClose();
+      }
+    } catch (_) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Ishchi ismi saqlanmadi',
+            icon: Icons.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ishchi ismini o‘zgartirish',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _saving ? null : widget.onClose,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Yopish',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('worker-name-field'),
+                controller: _nameController,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _save(),
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Ishchi ismi',
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Saqlash'),
               ),
             ],
           ),
@@ -991,8 +1144,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
   void _setGroup(AdminWorkerGroup group) {
     final currentCode = _editingGroupCode ?? _selectedGroupCode;
     final code = _groupKey(group.groupCode);
-    final editingExistingGroup = _editingOriginalGroup != null &&
-        currentCode != null;
+    final editingExistingGroup =
+        _editingOriginalGroup != null && currentCode != null;
     final mapKey = editingExistingGroup
         ? currentCode!
         : code.isEmpty
@@ -1054,9 +1207,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
       return;
     }
     final original = _editingOriginalGroup;
-    final previousGroupCode = original == null
-        ? null
-        : _groupKey(original.groupCode);
+    final previousGroupCode =
+        original == null ? null : _groupKey(original.groupCode);
     final previousApparatus = original?.apparatus.trim();
     setState(() => _savingCodes.add(code));
     try {
@@ -1117,8 +1269,8 @@ class _WorkerGroupsTabState extends State<_WorkerGroupsTab>
 
   List<MapEntry<String, AdminWorkerGroup>> _sortedGroupEntries() {
     final groups = _groupsByCode.entries.toList();
-    groups.sort((left, right) =>
-        left.value.groupCode.compareTo(right.value.groupCode));
+    groups.sort(
+        (left, right) => left.value.groupCode.compareTo(right.value.groupCode));
     return groups;
   }
 
@@ -1856,6 +2008,7 @@ class _WorkerSettingsCard extends StatelessWidget {
     required this.worker,
     required this.expanded,
     required this.onExpandedChanged,
+    required this.onEditName,
     required this.onEditLevel,
     required this.deleting,
     required this.onDelete,
@@ -1865,6 +2018,7 @@ class _WorkerSettingsCard extends StatelessWidget {
   final AdminWorker worker;
   final bool expanded;
   final ValueChanged<bool> onExpandedChanged;
+  final VoidCallback onEditName;
   final VoidCallback onEditLevel;
   final bool deleting;
   final VoidCallback onDelete;
@@ -1987,9 +2141,15 @@ class _WorkerSettingsCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             IconButton.filledTonal(
+                              tooltip: 'Ismni o‘zgartirish',
+                              onPressed: deleting ? null : onEditName,
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
                               tooltip: 'Darajani o‘zgartirish',
                               onPressed: deleting ? null : onEditLevel,
-                              icon: const Icon(Icons.edit_outlined),
+                              icon: const Icon(Icons.stars_outlined),
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(

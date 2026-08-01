@@ -79,6 +79,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   bool _summaryExpanded = false;
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
+  String _unlinkingMaterialBarcode = '';
+
+  bool get _allowMaterialUnlink =>
+      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
   @override
   void initState() {
@@ -161,6 +165,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       _inputProgressLoading = false;
       _returnedPaintDraft = null;
       _returnedPaintDraftScope = '';
+      _unlinkingMaterialBarcode = '';
       _materialStartRequirements = null;
       _intakeCandidateAssignments = const [];
       _materialsError = '';
@@ -203,7 +208,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (apparatus.isEmpty || isMaterialTaminotchi) {
         assignments = await MobileApi.instance.adminRawMaterialAssignments(
           orderId: orderId,
-          apparatus: apparatus,
+          apparatus: isMaterialTaminotchi ? '' : apparatus,
         );
       } else {
         final queueState = apparatusQueueOrderStateFromRaw(
@@ -216,8 +221,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
             apparatus: apparatus,
             materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
           );
-          assignments = requirements.assignments;
-          startAssignments = requirements.startAssignments;
+          assignments = requirements.assignments
+              .where(
+                (assignment) => productionMapWarehouseTitlesMatch(
+                  assignment.apparatus,
+                  apparatus,
+                ),
+              )
+              .toList(growable: false);
+          startAssignments = requirements.startAssignments
+              .where(
+                (assignment) => productionMapWarehouseTitlesMatch(
+                  assignment.apparatus,
+                  apparatus,
+                ),
+              )
+              .toList(growable: false);
         } else {
           assignments = await MobileApi.instance.adminRawMaterialAssignments(
             orderId: orderId,
@@ -238,9 +257,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           (widget.apparatus?.name.trim() ?? '') != apparatus) {
         return false;
       }
-      final eligibleBarcodes = requirements?.startAssignments
-          .map((assignment) => _materialBarcodeKey(assignment.barcode))
-          .toSet();
+      final eligibleBarcodes = requirements == null
+          ? null
+          : startAssignments
+              .map((assignment) => _materialBarcodeKey(assignment.barcode))
+              .toSet();
       setState(() {
         _materialAssignments = assignments;
         _startAssignments = startAssignments;
@@ -276,6 +297,55 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   List<AdminRawMaterialAssignment> _startMaterialAssignments() {
     if (_materialStartRequirements == null) return const [];
     return _startAssignments;
+  }
+
+  Future<void> _unlinkMaterialAssignment(
+    AdminRawMaterialAssignment assignment,
+  ) async {
+    if (!_allowMaterialUnlink ||
+        !_rawMaterialAssignmentCanBeUnlinked(assignment) ||
+        _unlinkingMaterialBarcode.isNotEmpty) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Homashyoni uzish',
+          message: 'Bu homashyoni zakazdan uzasizmi?',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'Uzish',
+          destructive: true,
+          verticalActions: true,
+          confirmButtonKey:
+              const ValueKey('production-material-confirm-unlink'),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final barcode = _materialBarcodeKey(assignment.barcode);
+    setState(() => _unlinkingMaterialBarcode = barcode);
+    try {
+      await MobileApi.instance.adminUnlinkRawMaterialAssignment(
+        orderId: assignment.orderId,
+        barcode: assignment.barcode,
+      );
+      await _loadMaterialAssignments(showLoading: false);
+      if (mounted) {
+        _showSheetNotice('Homashyo zakazdan uzildi');
+      }
+    } on MobileApiException catch (error) {
+      if (mounted) {
+        _showSheetNotice(error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSheetNotice('Homashyoni zakazdan uzib bo‘lmaydi');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _unlinkingMaterialBarcode = '');
+      }
+    }
   }
 
   Future<void> _loadQolipRequirements() async {
@@ -341,6 +411,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         scannedQolipCodes: _scannedQolipCodes.values,
       );
 
+  bool get _laminatsiyaWipMaterialScanCanBeSkipped {
+    final station = widget.apparatus?.name.trim() ?? '';
+    final previousStage = station.isEmpty
+        ? null
+        : productionMapPreviousWorkStageStation(
+            map: widget.order.map,
+            station: station,
+          );
+    return _laminatsiyaMaterialScanCanBeSkippedForWip(
+      station: station,
+      previousStage: previousStage,
+      inputProgressBatches: _availableInputProgressBatches,
+    );
+  }
+
+  bool get _bypassStartMaterialScan => _laminatsiyaMaterialGateBypassed(
+        station: widget.apparatus?.name.trim() ?? '',
+        materialRequirements: _materialStartRequirements,
+        skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
+      );
+
   String get _qolipRequirementsStatusText {
     if (_qolipRequirementsLoading) {
       return 'Mahsulot qoliplari yuklanmoqda';
@@ -378,6 +469,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return false;
     }
     if (action == 'start' &&
+        !_bypassStartMaterialScan &&
         !await _loadMaterialAssignments(showLoading: false)) {
       if (mounted) {
         _showSheetNotice(
@@ -401,6 +493,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
       qolipScanned: _allRequiredQolipsScanned,
+      skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
     );
     if (prepared == null) {
       return false;
@@ -657,7 +750,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         map: widget.order.map,
         station: station,
       );
-      if (previousStage != null && _startInputProgressBatch == null) {
+      if (previousStage != null) {
         try {
           final batch = await MobileApi.instance.adminProgressQrLookup(
             normalized,
@@ -1024,6 +1117,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       visibleOrderIds: widget.visibleOrderIds,
       queuePolicy: widget.queuePolicy,
       startInputProgressBatch: _startInputProgressBatch,
+      skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
       orderControlState: _orderControlState,
       orderControlsByOrderId: _orderControls,
     );
@@ -1097,6 +1191,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),
       orderControlState: _orderControlState,
+      allowMaterialUnlink: _allowMaterialUnlink,
+      onUnlinkMaterial: _unlinkMaterialAssignment,
+      unlinkingMaterialBarcode: _unlinkingMaterialBarcode,
     );
   }
 

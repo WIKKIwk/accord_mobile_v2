@@ -369,6 +369,39 @@ bool productionMapAlternativeAssignedGroupContainsTarget({
   );
 }
 
+bool productionMapUnassignedAlternativeGroupContainsTarget({
+  required List<ProductionMapNode> nodes,
+  required String fromApparatus,
+  required String toApparatus,
+}) {
+  final candidateGroups = <String>{};
+  for (final node in nodes) {
+    final groupId = node.alternativeGroupId.trim();
+    if (node.kind == 'apparatus' &&
+        groupId.isNotEmpty &&
+        node.alternativeAssignedTitle.trim().isEmpty &&
+        productionMapWarehouseTitlesMatch(node.title, fromApparatus)) {
+      candidateGroups.add(groupId);
+    }
+  }
+  return candidateGroups.any((groupId) {
+    final groupNodes = nodes.where(
+      (node) =>
+          node.kind == 'apparatus' && node.alternativeGroupId.trim() == groupId,
+    );
+    return groupNodes.isNotEmpty &&
+        groupNodes.every(
+          (node) => node.alternativeAssignedTitle.trim().isEmpty,
+        ) &&
+        groupNodes.any(
+          (node) => productionMapWarehouseTitlesMatch(
+            node.title,
+            toApparatus,
+          ),
+        );
+  });
+}
+
 bool productionMapCanMoveOrderToApparatus({
   required List<ProductionMapNode> nodes,
   required String fromApparatus,
@@ -382,11 +415,31 @@ bool productionMapCanMoveOrderToApparatus({
   if (fromIsLaminatsiya || toIsLaminatsiya) {
     return fromIsLaminatsiya &&
         toIsLaminatsiya &&
-        productionMapAlternativeAssignedGroupContainsTarget(
-          nodes: nodes,
-          fromApparatus: fromApparatus,
-          toApparatus: toApparatus,
-        );
+        (productionMapAlternativeAssignedGroupContainsTarget(
+              nodes: nodes,
+              fromApparatus: fromApparatus,
+              toApparatus: toApparatus,
+            ) ||
+            productionMapUnassignedAlternativeGroupContainsTarget(
+              nodes: nodes,
+              fromApparatus: fromApparatus,
+              toApparatus: toApparatus,
+            ));
+  }
+  final hasUnassignedAlternativeSource = nodes.any(
+    (node) =>
+        node.kind == 'apparatus' &&
+        node.alternativeGroupId.trim().isNotEmpty &&
+        node.alternativeAssignedTitle.trim().isEmpty &&
+        productionMapWarehouseTitlesMatch(node.title, fromApparatus),
+  );
+  if (hasUnassignedAlternativeSource &&
+      !productionMapUnassignedAlternativeGroupContainsTarget(
+        nodes: nodes,
+        fromApparatus: fromApparatus,
+        toApparatus: toApparatus,
+      )) {
+    return false;
   }
   final fromFamily = _productionMapKnownApparatusFamily(fromApparatus);
   final toFamily = _productionMapKnownApparatusFamily(toApparatus);
@@ -440,7 +493,8 @@ bool productionMapApparatusNodeMatchesFrom({
 }
 
 /// Reassigns the chosen apparatus for alternative-group maps.
-/// Returns null when the order is not currently assigned to [fromApparatus].
+/// Also claims an entirely unassigned alternative group for [toApparatus].
+/// Returns null when no matching source assignment or candidate is found.
 List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
   required List<ProductionMapNode> nodes,
   required String fromApparatus,
@@ -460,6 +514,33 @@ List<ProductionMapNode>? productionMapReassignAlternativeApparatusAssignment({
           fromApparatus,
         )) {
       candidateGroups.add(groupId);
+    }
+  }
+  if (candidateGroups.isEmpty) {
+    for (final node in nodes) {
+      final groupId = node.alternativeGroupId.trim();
+      if (node.kind != 'apparatus' ||
+          groupId.isEmpty ||
+          node.alternativeAssignedTitle.trim().isNotEmpty ||
+          !productionMapWarehouseTitlesMatch(node.title, fromApparatus)) {
+        continue;
+      }
+      final groupNodes = nodes.where(
+        (candidate) =>
+            candidate.kind == 'apparatus' &&
+            candidate.alternativeGroupId.trim() == groupId,
+      );
+      if (groupNodes.every(
+            (candidate) => candidate.alternativeAssignedTitle.trim().isEmpty,
+          ) &&
+          groupNodes.any(
+            (candidate) => productionMapWarehouseTitlesMatch(
+              candidate.title,
+              toApparatus,
+            ),
+          )) {
+        candidateGroups.add(groupId);
+      }
     }
   }
   if (candidateGroups.isEmpty) {

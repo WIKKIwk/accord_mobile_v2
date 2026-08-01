@@ -32,6 +32,8 @@ import 'widgets/qolip_navigation_drawer.dart';
 Future<void> showQolipProductSpecSheet(
   BuildContext context, {
   QolipProduct? initialProduct,
+  bool closeAfterSave = false,
+  bool lockProduct = false,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
@@ -43,6 +45,8 @@ Future<void> showQolipProductSpecSheet(
       mode: _QolipAttachMode.productSpec,
       blocks: const <QolipBlock>[],
       initialProduct: initialProduct,
+      closeAfterSave: closeAfterSave,
+      lockProduct: lockProduct,
     ),
   );
 }
@@ -3473,6 +3477,8 @@ class _QolipAttachSheet extends StatefulWidget {
     this.initialProduct,
     this.initialRowLetter,
     this.initialColumnNumber,
+    this.closeAfterSave = false,
+    this.lockProduct = false,
   });
 
   final _QolipAttachMode mode;
@@ -3481,6 +3487,8 @@ class _QolipAttachSheet extends StatefulWidget {
   final QolipProduct? initialProduct;
   final String? initialRowLetter;
   final int? initialColumnNumber;
+  final bool closeAfterSave;
+  final bool lockProduct;
 
   @override
   State<_QolipAttachSheet> createState() => _QolipAttachSheetState();
@@ -3747,6 +3755,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ? null
               : saved.qolipColor;
         });
+        if (widget.closeAfterSave) {
+          Navigator.of(context).pop();
+        }
       }
     } finally {
       if (mounted) {
@@ -4010,14 +4021,18 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
               ],
               InkWell(
-                onTap: productSpecSaved ? null : _pickProduct,
+                onTap: productSpecSaved || widget.lockProduct
+                    ? null
+                    : _pickProduct,
                 borderRadius: BorderRadius.circular(12),
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: widget.mode == _QolipAttachMode.cellPlacement
                         ? 'Qolip code / mahsulot'
                         : 'Tayyor mahsulot',
-                    suffixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: widget.lockProduct
+                        ? const Icon(Icons.lock_outline_rounded)
+                        : const Icon(Icons.search_rounded),
                   ),
                   child: Text(
                     _selectedProducts.length > 1

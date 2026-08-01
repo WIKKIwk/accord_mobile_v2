@@ -1,0 +1,529 @@
+part of 'admin_production_map_orders_screen.dart';
+
+class _WorkerWipHistorySheet extends StatefulWidget {
+  const _WorkerWipHistorySheet({
+    required this.order,
+    required this.apparatus,
+  });
+
+  final ProductionMapSaved order;
+  final AdminApparatus? apparatus;
+
+  @override
+  State<_WorkerWipHistorySheet> createState() => _WorkerWipHistorySheetState();
+}
+
+class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
+  late Future<List<AdminProgressBatch>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<AdminProgressBatch>> _load() async {
+    final orderId = widget.order.map.id.trim();
+    final batches = await MobileApi.instance.adminProgressQrHistory(limit: 200);
+    return batches
+        .where((batch) => batch.orderId.trim() == orderId)
+        .toList(growable: false);
+  }
+
+  void _retry() {
+    setState(() => _future = _load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final map = widget.order.map;
+    final title = _workerWipFirstNotEmpty([
+      map.orderNumber,
+      map.code,
+      map.title,
+      map.id,
+    ]);
+    final product = _workerWipFirstNotEmpty([map.title, map.productCode]);
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.86;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'WIP tafsilotlari',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  if (title.isNotEmpty) title,
+                  if (product.isNotEmpty && product != title) product,
+                  if (widget.apparatus?.name.trim().isNotEmpty == true)
+                    widget.apparatus!.name.trim(),
+                ].join(' • '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: FutureBuilder<List<AdminProgressBatch>>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: AppLoadingIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return _WorkerWipHistoryError(onRetry: _retry);
+                    }
+                    final batches =
+                        snapshot.data ?? const <AdminProgressBatch>[];
+                    if (batches.isEmpty) {
+                      return const _WorkerWipHistoryEmpty();
+                    }
+                    return _WorkerWipHistoryList(batches: batches);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerWipHistoryList extends StatelessWidget {
+  const _WorkerWipHistoryList({required this.batches});
+
+  final List<AdminProgressBatch> batches;
+
+  @override
+  Widget build(BuildContext context) {
+    final waitingCount = batches
+        .where((batch) => _workerWipKind(batch) == _WorkerWipKind.waiting)
+        .length;
+    final inUseCount = batches
+        .where((batch) => _workerWipKind(batch) == _WorkerWipKind.inUse)
+        .length;
+    final processedCount = batches
+        .where((batch) => _workerWipKind(batch) == _WorkerWipKind.processed)
+        .length;
+
+    return ListView(
+      key: const ValueKey('worker-wip-history-sheet'),
+      padding: const EdgeInsets.only(bottom: 8),
+      children: [
+        _WorkerWipHistorySummary(
+          count: batches.length,
+          waitingCount: waitingCount,
+          inUseCount: inUseCount,
+          processedCount: processedCount,
+        ),
+        const SizedBox(height: 12),
+        for (var index = 0; index < batches.length; index++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _WorkerWipHistoryCard(
+              key: ValueKey('worker-wip-item-$index'),
+              batch: batches[index],
+              index: index,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WorkerWipHistorySummary extends StatelessWidget {
+  const _WorkerWipHistorySummary({
+    required this.count,
+    required this.waitingCount,
+    required this.inUseCount,
+    required this.processedCount,
+  });
+
+  final int count;
+  final int waitingCount;
+  final int inUseCount;
+  final int processedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card.filled(
+      key: const ValueKey('worker-wip-count'),
+      color: scheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$count ta WIP yaratilgan',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Bu order bo‘yicha hosil bo‘lgan yarim tayyor mahsulotlar:',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _WorkerWipCountChip(label: 'Kutmoqda', value: waitingCount),
+                _WorkerWipCountChip(label: 'Ishda', value: inUseCount),
+                _WorkerWipCountChip(
+                  label: 'Ishlatilgan',
+                  value: processedCount,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerWipCountChip extends StatelessWidget {
+  const _WorkerWipCountChip({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.onTertiaryContainer.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          '$label: $value',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: scheme.onTertiaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerWipHistoryCard extends StatelessWidget {
+  const _WorkerWipHistoryCard({
+    super.key,
+    required this.batch,
+    required this.index,
+  });
+
+  final AdminProgressBatch batch;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final kind = _workerWipKind(batch);
+    final statusLabel = _workerWipStatusLabel(batch);
+    final product = _workerWipFirstNotEmpty([
+      batch.labelItemName,
+      batch.labelItemCode,
+      'WIP ${index + 1}',
+    ]);
+    final current = _workerWipFirstNotEmpty([
+      batch.currentLocation,
+      batch.currentApparatus,
+      batch.apparatus,
+    ]);
+    final worker = _workerWipFirstNotEmpty([
+      batch.workerDisplayName,
+      batch.executorName,
+      batch.workerRef,
+    ]);
+    final next = batch.nextApparatus.trim();
+    final action = _workerWipActionLabel(batch.action);
+
+    return Card.filled(
+      color: scheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: scheme.secondaryContainer,
+                  foregroundColor: scheme.onSecondaryContainer,
+                  child: Text('${index + 1}'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    product,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _WorkerWipStatusChip(label: statusLabel, kind: kind),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _WorkerWipInfoRow(
+              label: 'Miqdor',
+              value: formatQuantityWithUnit(
+                batch.producedQty,
+                batch.uom,
+                trimTrailingZeros: true,
+              ),
+            ),
+            if (batch.startedAtUnix > 0)
+              _WorkerWipInfoRow(
+                label: 'Boshlangan',
+                value: formatUnixSecondsLocalDateTime(batch.startedAtUnix),
+              ),
+            if (batch.completedAtUnix > 0)
+              _WorkerWipInfoRow(
+                label: 'Tugagan',
+                value: formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+              ),
+            _WorkerWipInfoRow(
+              label: 'Qayerdan chiqdi',
+              value: _workerWipValue(batch.apparatus),
+            ),
+            if (action.isNotEmpty)
+              _WorkerWipInfoRow(label: 'Amal', value: action),
+            _WorkerWipInfoRow(label: 'Hozirgi joyi', value: current),
+            _WorkerWipInfoRow(
+              label: 'Keyingi aparat',
+              value: _workerWipValue(next),
+            ),
+            _WorkerWipInfoRow(label: 'Ishchi', value: worker),
+            if (batch.batchId.trim().isNotEmpty)
+              _WorkerWipInfoRow(label: 'WIP ID', value: batch.batchId),
+            if (batch.qrPayload.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'QR: ${batch.qrPayload.trim()}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (batch.description.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Izoh: ${batch.description.trim()}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerWipInfoRow extends StatelessWidget {
+  const _WorkerWipInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 108,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkerWipStatusChip extends StatelessWidget {
+  const _WorkerWipStatusChip({required this.label, required this.kind});
+
+  final String label;
+  final _WorkerWipKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = switch (kind) {
+      _WorkerWipKind.waiting => scheme.tertiaryContainer,
+      _WorkerWipKind.inUse => scheme.primaryContainer,
+      _WorkerWipKind.processed => scheme.secondaryContainer,
+    };
+    final foreground = switch (kind) {
+      _WorkerWipKind.waiting => scheme.onTertiaryContainer,
+      _WorkerWipKind.inUse => scheme.onPrimaryContainer,
+      _WorkerWipKind.processed => scheme.onSecondaryContainer,
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkerWipHistoryError extends StatelessWidget {
+  const _WorkerWipHistoryError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('WIP ma’lumotlari yuklanmadi'),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: const Text('Qayta urinish')),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkerWipHistoryEmpty extends StatelessWidget {
+  const _WorkerWipHistoryEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Bu order bo‘yicha WIP topilmadi'),
+    );
+  }
+}
+
+enum _WorkerWipKind { waiting, inUse, processed }
+
+_WorkerWipKind _workerWipKind(AdminProgressBatch batch) {
+  final flow = batch.statusDetail.flowStatus.trim();
+  final wipStatus = batch.wipStatus.trim();
+  if (flow == 'in_progress' || wipStatus == 'in_use') {
+    return _WorkerWipKind.inUse;
+  }
+  if (flow == 'consumed_by_next_stage' ||
+      flow == 'accepted_to_stock' ||
+      wipStatus == 'processed') {
+    return _WorkerWipKind.processed;
+  }
+  return _WorkerWipKind.waiting;
+}
+
+String _workerWipStatusLabel(AdminProgressBatch batch) {
+  final flow = batch.statusDetail.flowStatus.trim();
+  if (flow == 'free_wip') return 'Erkin WIP';
+  if (flow == 'accepted_to_stock') return 'Omborga qabul qilingan';
+  if (flow == 'waiting_next_stage') return 'Keyingi bosqichni kutmoqda';
+  if (flow == 'consumed_by_next_stage') {
+    return 'Keyingi bosqichda ishlatilgan';
+  }
+  if (flow == 'in_progress') return 'Ish jarayonida';
+  return switch (batch.wipStatus.trim()) {
+    'waiting' => 'Kutmoqda',
+    'in_use' => 'Ish jarayonida',
+    'processed' => 'Ishlatilgan',
+    _ => switch (batch.statusDetail.workStatus.trim().isNotEmpty
+          ? batch.statusDetail.workStatus.trim()
+          : batch.status.trim()) {
+        'paused' => 'Pauzada',
+        'resumed' || 'in_progress' => 'Ish jarayonida',
+        'completed' || 'complete' => 'Tugagan',
+        _ => 'WIP',
+      },
+  };
+}
+
+String _workerWipFirstNotEmpty(Iterable<String> values) {
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+  }
+  return '';
+}
+
+String _workerWipValue(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? '—' : trimmed;
+}
+
+String _workerWipActionLabel(String value) {
+  return switch (value.trim().toLowerCase()) {
+    'pause' => 'Pauza qilib chiqarilgan',
+    'complete' => 'Tugatib chiqarilgan',
+    'resume' => 'Davom ettirilgan',
+    _ => value.trim(),
+  };
+}

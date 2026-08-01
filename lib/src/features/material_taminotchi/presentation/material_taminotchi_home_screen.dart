@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
@@ -6,6 +8,7 @@ import '../../../core/widgets/display/motion_widgets.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/admin_raw_material_assignment_screen.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'widgets/material_taminotchi_dock.dart';
@@ -125,6 +128,8 @@ class MaterialTaminotchiHomeScreen extends StatefulWidget {
 
 class _MaterialTaminotchiHomeScreenState
     extends State<MaterialTaminotchiHomeScreen> {
+  bool _materialFabOpen = false;
+
   Future<void> _refreshProfile() async {
     try {
       await MobileApi.instance.profile();
@@ -154,6 +159,75 @@ class _MaterialTaminotchiHomeScreenState
     Navigator.of(context).pushNamed(route);
   }
 
+  void _setMaterialFabOpen(bool open) {
+    if (!mounted || _materialFabOpen == open) {
+      return;
+    }
+    setState(() => _materialFabOpen = open);
+  }
+
+  List<AdminFabMenuAction> _materialFabActions(
+    bool hasMaterialGroupScope,
+  ) {
+    final actions = <AdminFabMenuAction>[];
+    if (AppRouter.canOpenRoute(AppRoutes.gscaleMode)) {
+      actions.add(
+        AdminFabMenuAction(
+          title: 'Kirim',
+          icon: Icons.scale_outlined,
+          onTap: () {
+            _setMaterialFabOpen(false);
+            _openRoute(AppRoutes.gscaleMode);
+          },
+        ),
+      );
+    }
+    if (AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments)) {
+      actions.add(
+        AdminFabMenuAction(
+          title: 'QR skanerlash',
+          icon: Icons.qr_code_scanner_rounded,
+          onTap: () {
+            _setMaterialFabOpen(false);
+            unawaited(_scanRawMaterial(hasMaterialGroupScope));
+          },
+        ),
+      );
+      actions.add(
+        AdminFabMenuAction(
+          title: 'Homashyo biriktirish',
+          icon: Icons.inventory_2_outlined,
+          onTap: () {
+            _setMaterialFabOpen(false);
+            if (!hasMaterialGroupScope) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content:
+                      Text('Avval material guruhlari biriktirilishi kerak'),
+                ),
+              );
+              return;
+            }
+            _openRoute(AppRoutes.adminRawMaterialAssignments);
+          },
+        ),
+      );
+    }
+    if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements)) {
+      actions.add(
+        AdminFabMenuAction(
+          title: 'Joylashtirish va transfer',
+          icon: Icons.swap_horiz_rounded,
+          onTap: () {
+            _setMaterialFabOpen(false);
+            _openRoute(AppRoutes.inventoryMovements);
+          },
+        ),
+      );
+    }
+    return actions;
+  }
+
   Future<void> _scanRawMaterial(bool hasMaterialGroupScope) async {
     if (!hasMaterialGroupScope) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +255,7 @@ class _MaterialTaminotchiHomeScreenState
     final groups = profile?.assignedItemGroups ?? const <String>[];
     final hasMaterialGroupScope = groups.isNotEmpty;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
+    final fabActions = _materialFabActions(hasMaterialGroupScope);
 
     return AppShell(
       title: 'Material ta’minotchisi',
@@ -222,16 +297,19 @@ class _MaterialTaminotchiHomeScreenState
               ],
             ),
           ),
-          if (AppRouter.canOpenRoute(AppRoutes.adminRawMaterialAssignments))
+          if (fabActions.isNotEmpty)
             PositionedDirectional(
               end: 16,
               bottom: 16,
-              child: FloatingActionButton(
+              child: AdminFabActionMenu(
                 key: const ValueKey('material-raw-material-scan-fab'),
-                heroTag: 'material-raw-material-scan',
-                tooltip: 'Homashyo QR scan',
-                onPressed: () => _scanRawMaterial(hasMaterialGroupScope),
-                child: const Icon(Icons.qr_code_scanner_rounded),
+                open: _materialFabOpen,
+                actions: fabActions,
+                onToggle: () => _setMaterialFabOpen(!_materialFabOpen),
+                closedLabel: 'Amallar',
+                openLabel: 'Yopish',
+                closedIcon: Icons.add_rounded,
+                openIcon: Icons.close_rounded,
               ),
             ),
         ],
@@ -651,7 +729,7 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
   final candidates = [
     const _MaterialHomeAction(
       icon: Icons.scale_outlined,
-      title: 'Tarozilar rejimi',
+      title: 'Kirim',
       routeName: AppRoutes.gscaleMode,
     ),
     _MaterialHomeAction(

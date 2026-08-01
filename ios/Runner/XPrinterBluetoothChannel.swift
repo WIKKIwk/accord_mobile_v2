@@ -9,6 +9,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let scanTimeout: TimeInterval = 6
   private static let writeCharacteristicTimeout: TimeInterval = 8
   private static let writeCharacteristicPollInterval: TimeInterval = 0.1
+  private static let labelWidthMm = 56.0
+  private static let labelHeightMm = 60.0
+  private static let packEpcY = 410
+  private static let labelCodePage = "73"
 
   private let channel: FlutterMethodChannel
   private let discoveryChannel: FlutterEventChannel
@@ -405,11 +409,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
   private func buildLabelCommand(_ label: BluetoothLabelRequest) throws -> Data {
     var command: XTSPLCommand? = XTSPLCommand()
-    command = command?.sizeMm(58, height: 60)
+    command = command?.setCharEncoding(String.Encoding.windowsCP1251.rawValue)
+    command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
     command = command?.speed(4)
     command = command?.density(10)
     command = command?.referenceAt(x: 80, y: 0)
     command = command?.cls()
+    command = command?.codePage(Self.labelCodePage)
 
     switch label.labelKind {
     case "qolip_cell", "qr_center":
@@ -502,21 +508,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       value: "BRUTTO: \(formatLabelQty(label.grossQty)) \(grossUnit)"
     )
     result = qr(result, x: 218, y: 166, value: payload, cellWidth: 5)
-    result = result?.barcodeAt(
-      x: Int32(8),
-      y: Int32(252),
-      codeType: kBarcodeTypeCode128,
-      height: Int32(50),
-      readable: .left,
-      andRotation: .rotation0,
-      narrow: Int32(2),
-      wide: Int32(2),
-      content: payload
-    )
     result = text(
       result,
       x: 8,
-      y: 314,
+      y: Self.packEpcY,
       font: kFNT_8_12,
       value: fitLabelText("EPC: \(payload)", maxLength: 46)
     )
@@ -596,10 +591,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .uppercased(with: Locale(identifier: "en_US_POSIX"))
 
-    let ascii = replacements.unicodeScalars.map { scalar -> String in
-      scalar.value >= 32 && scalar.value <= 126 ? String(scalar) : "?"
-    }.joined()
-    return ascii.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    return replacements.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
   }
 
   private func fitLabelText(_ value: String, maxLength: Int) -> String {

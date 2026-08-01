@@ -64,6 +64,9 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
+  bool get _adminScoped =>
+      AppSession.instance.profile?.role == UserRole.admin;
+
   Future<List<String>> _loadMaterialAssignedWarehouses() async {
     final profile = AppSession.instance.profile;
     final profileWarehouses = profile?.assignedWarehouses ?? const <String>[];
@@ -120,12 +123,28 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   }
 
   Future<_WarehouseSummaryData> _load() async {
-    final summaries = await MobileApi.instance.adminWarehouseSummaries(
+    final summariesFuture = MobileApi.instance.adminWarehouseSummaries(
       limit: 500,
     );
-    final allowedWarehouses =
-        _materialScoped ? await _loadMaterialAssignedWarehouses() : null;
+    final allowedWarehousesFuture = _materialScoped
+        ? _loadMaterialAssignedWarehouses()
+        : Future<List<String>?>.value(null);
+    final qolipAssignmentsFuture = _adminScoped
+        ? MobileApi.instance.adminWarehouseAssignments()
+        : Future<List<AdminWarehouseAssignment>>.value(
+            const <AdminWarehouseAssignment>[],
+          );
+    final summaries = await summariesFuture;
+    final allowedWarehouses = await allowedWarehousesFuture;
+    final qolipAssignments = await qolipAssignmentsFuture;
     return _WarehouseSummaryData(
+      qolipWarehouseNames: _uniqueWarehouseNames(
+        qolipAssignments
+            .where(
+              (assignment) => assignment.principalRole == UserRole.qolipchi,
+            )
+            .map((assignment) => assignment.warehouse),
+      ),
       sections: summaries
           .where((item) => _warehouseAllowed(item.warehouse, allowedWarehouses))
           .map(
@@ -418,6 +437,8 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
             detailFuture: _detailFuture,
             bottomPadding: bottomPadding,
             filterExpanded: _warehouseFilterExpanded,
+            showQolipWarehouseProducts: _adminScoped,
+            qolipWarehouseNames: data.qolipWarehouseNames,
             searchController: _materialItemsSearchController,
             onFilterToggle: () {
               setState(() {
@@ -494,11 +515,15 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
 }
 
 class _WarehouseSummaryData {
-  const _WarehouseSummaryData({required this.sections});
+  const _WarehouseSummaryData({
+    required this.sections,
+    this.qolipWarehouseNames = const <String>[],
+  });
 
   static const empty = _WarehouseSummaryData(sections: []);
 
   final List<_WarehouseSummarySection> sections;
+  final List<String> qolipWarehouseNames;
 }
 
 class _WarehouseSummarySection {
@@ -870,6 +895,8 @@ class _WarehouseDetailsTab extends StatefulWidget {
     required this.detailFuture,
     required this.bottomPadding,
     required this.filterExpanded,
+    required this.showQolipWarehouseProducts,
+    required this.qolipWarehouseNames,
     this.searchController,
     required this.onFilterToggle,
     required this.onWarehouseChanged,
@@ -882,6 +909,8 @@ class _WarehouseDetailsTab extends StatefulWidget {
   final Future<_WarehouseInventorySection?>? detailFuture;
   final double bottomPadding;
   final bool filterExpanded;
+  final bool showQolipWarehouseProducts;
+  final List<String> qolipWarehouseNames;
   final TextEditingController? searchController;
   final VoidCallback onFilterToggle;
   final ValueChanged<String> onWarehouseChanged;
@@ -901,6 +930,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   late final bool _ownsItemsSearchController;
   Timer? _itemsSearchDebounce;
   List<AdminWarehouseStockItem> _items = const <AdminWarehouseStockItem>[];
+  List<QolipProduct> _qolipProducts = const <QolipProduct>[];
   String _itemsQuery = '';
   bool _initialItemsLoading = false;
   bool _loadingMoreItems = false;
@@ -908,6 +938,11 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   Object? _itemsError;
   int _itemsRequestGeneration = 0;
   String? _editingStockBarcode;
+
+  bool get _isQolipWarehouse =>
+      widget.showQolipWarehouseProducts &&
+      (_isQolipWarehouseName(widget.warehouse) ||
+          _warehouseNameMatches(widget.qolipWarehouseNames, widget.warehouse));
 
   @override
   void initState() {
@@ -921,7 +956,15 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   @override
   void didUpdateWidget(covariant _WarehouseDetailsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.warehouse != widget.warehouse) {
+    final oldIsQolipWarehouse = oldWidget.showQolipWarehouseProducts &&
+        (_isQolipWarehouseName(oldWidget.warehouse) ||
+            _warehouseNameMatches(
+              oldWidget.qolipWarehouseNames,
+              oldWidget.warehouse,
+            ));
+    final isQolipWarehouse = _isQolipWarehouse;
+    if (oldWidget.warehouse != widget.warehouse ||
+        oldIsQolipWarehouse != isQolipWarehouse) {
       _itemsSearchDebounce?.cancel();
       final queryToClear = _itemsSearchController.text;
       if (queryToClear.isNotEmpty) {
@@ -1046,6 +1089,7 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
     if (mounted) {
       setState(() {
         _items = const <AdminWarehouseStockItem>[];
+        _qolipProducts = const <QolipProduct>[];
         _initialItemsLoading = warehouse.isNotEmpty;
         _loadingMoreItems = false;
         _hasMoreItems = false;
@@ -1053,6 +1097,10 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
       });
     }
     if (warehouse.isEmpty) {
+      return;
+    }
+    if (_isQolipWarehouse) {
+      await _fetchQolipProducts(generation: generation);
       return;
     }
     await _fetchItemsPage(
@@ -1123,6 +1171,41 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
     }
   }
 
+  Future<void> _fetchQolipProducts({required int generation}) async {
+    final query = _itemsQuery;
+    try {
+      final products = await MobileApi.instance.qolipProducts(
+        query: query,
+        limit: 20000,
+        withQolipOnly: true,
+      );
+      if (!mounted ||
+          generation != _itemsRequestGeneration ||
+          query != _itemsQuery ||
+          !_isQolipWarehouse) {
+        return;
+      }
+      setState(() {
+        _qolipProducts = products;
+        _initialItemsLoading = false;
+        _loadingMoreItems = false;
+        _hasMoreItems = false;
+        _itemsError = null;
+      });
+    } catch (error) {
+      if (!mounted || generation != _itemsRequestGeneration) {
+        return;
+      }
+      setState(() {
+        _qolipProducts = const <QolipProduct>[];
+        _initialItemsLoading = false;
+        _loadingMoreItems = false;
+        _hasMoreItems = false;
+        _itemsError = error;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final future = widget.detailFuture;
@@ -1185,8 +1268,14 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             break;
           }
         }
-        final availableCount = selectedSummary?.productCount ??
-            (_items.length + availableRawStock.length);
+        final isQolipWarehouse = _isQolipWarehouse;
+        final qolipProductGroups = isQolipWarehouse
+            ? _groupAdminQolipProducts(_qolipProducts)
+            : const <_AdminQolipProductGroup>[];
+        final availableCount = isQolipWarehouse
+            ? qolipProductGroups.length
+            : selectedSummary?.productCount ??
+                (_items.length + availableRawStock.length);
         final reservedCount = _bandTabEntryCount(
           reservedRawStock,
           current.reservations,
@@ -1223,9 +1312,16 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
                 ),
               ),
             )
-          else if (_items.isNotEmpty)
+          else if (isQolipWarehouse && qolipProductGroups.isNotEmpty)
+            _AdminQolipProductListModule(groups: qolipProductGroups)
+          else if (!isQolipWarehouse && _items.isNotEmpty)
             _WarehouseItemListModule(
               items: _items,
+            )
+          else if (isQolipWarehouse)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: Center(child: Text('Qolipli mahsulot topilmadi')),
             )
           else if (availableRawStock.isEmpty)
             const Padding(
@@ -1974,6 +2070,164 @@ class _WarehouseFilterBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
     );
   }
+}
+
+class _AdminQolipProductGroup {
+  const _AdminQolipProductGroup({
+    required this.code,
+    required this.name,
+    required this.itemGroup,
+    required this.qolips,
+  });
+
+  final String code;
+  final String name;
+  final String itemGroup;
+  final List<QolipProduct> qolips;
+}
+
+class _AdminQolipProductGroupBuilder {
+  _AdminQolipProductGroupBuilder({
+    required this.code,
+    required this.name,
+    required this.itemGroup,
+  });
+
+  final String code;
+  final String name;
+  final String itemGroup;
+  final List<QolipProduct> qolips = [];
+}
+
+List<_AdminQolipProductGroup> _groupAdminQolipProducts(
+  Iterable<QolipProduct> products,
+) {
+  final grouped = <String, _AdminQolipProductGroupBuilder>{};
+  for (final product in products) {
+    final code = product.code.trim();
+    final name = product.name.trim();
+    final key = code.isEmpty ? name.toLowerCase() : code.toLowerCase();
+    if (key.isEmpty || product.qolipCode.trim().isEmpty) {
+      continue;
+    }
+    final group = grouped.putIfAbsent(
+      key,
+      () => _AdminQolipProductGroupBuilder(
+        code: code,
+        name: name,
+        itemGroup: product.itemGroup.trim(),
+      ),
+    );
+    final qolipKey = product.qolipCode.trim().toLowerCase();
+    if (!group.qolips.any(
+      (item) => item.qolipCode.trim().toLowerCase() == qolipKey,
+    )) {
+      group.qolips.add(product);
+    }
+  }
+  final groups = grouped.values
+      .map(
+        (group) => _AdminQolipProductGroup(
+          code: group.code,
+          name: group.name,
+          itemGroup: group.itemGroup,
+          qolips: List<QolipProduct>.unmodifiable(group.qolips),
+        ),
+      )
+      .toList(growable: false)
+    ..sort(
+      (left, right) => (left.name.isEmpty ? left.code : left.name)
+          .toLowerCase()
+          .compareTo(
+            (right.name.isEmpty ? right.code : right.name).toLowerCase(),
+          ),
+    );
+  return groups;
+}
+
+class _AdminQolipProductListModule extends StatelessWidget {
+  const _AdminQolipProductListModule({required this.groups});
+
+  final List<_AdminQolipProductGroup> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    return M3SegmentSpacedColumn(
+      padding: EdgeInsets.zero,
+      children: [
+        for (var index = 0; index < groups.length; index++)
+          _AdminQolipProductRow(
+            slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+              index,
+              groups.length,
+            ),
+            group: groups[index],
+          ),
+      ],
+    );
+  }
+}
+
+class _AdminQolipProductRow extends StatelessWidget {
+  const _AdminQolipProductRow({required this.slot, required this.group});
+
+  final M3SegmentVerticalSlot slot;
+  final _AdminQolipProductGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = group.name.isEmpty ? group.code : group.name;
+    final subtitle = <String>[
+      if (group.code.isNotEmpty && group.code != title) group.code,
+      '${group.qolips.length} ta qolip',
+      if (group.itemGroup.isNotEmpty) group.itemGroup,
+    ].join(' • ');
+    final details = <_WarehouseDetailEntry>[
+      if (group.code.isNotEmpty)
+        _WarehouseDetailEntry('Mahsulot kodi', group.code),
+      if (group.itemGroup.isNotEmpty)
+        _WarehouseDetailEntry('Guruh', group.itemGroup),
+      for (var index = 0; index < group.qolips.length; index++)
+        _WarehouseDetailEntry(
+          'Qolip ${index + 1}',
+          _adminQolipDetail(group.qolips[index]),
+        ),
+    ];
+    return _WarehouseExpandableSummaryCard(
+      slot: slot,
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.grid_view_rounded,
+            size: 16,
+            color: scheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+      title: title,
+      subtitle: subtitle,
+      details: details,
+    );
+  }
+}
+
+String _adminQolipDetail(QolipProduct product) {
+  final code = product.qolipCode.trim().isEmpty
+      ? product.firstQolipCode.trim()
+      : product.qolipCode.trim();
+  return [
+    if (code.isNotEmpty) code,
+    if (product.qolipSize > 0) 'Razmer: ${product.qolipSize}',
+    if (product.qolipColor.trim().isNotEmpty)
+      'Rang: ${product.qolipColor.trim()}',
+    product.isInUse ? 'Holati: Ishlatilmoqda' : 'Holati: Mavjud',
+  ].join(' • ');
 }
 
 class _WarehouseItemListModule extends StatelessWidget {
@@ -2769,6 +3023,17 @@ List<String> _uniqueWarehouseNames(Iterable<String> warehouses) {
     out.add(warehouse);
   }
   return out;
+}
+
+bool _warehouseNameMatches(Iterable<String> warehouses, String? warehouse) {
+  final normalized = warehouse?.trim().toLowerCase() ?? '';
+  return normalized.isNotEmpty &&
+      warehouses.any((item) => item.trim().toLowerCase() == normalized);
+}
+
+bool _isQolipWarehouseName(String? warehouse) {
+  final normalized = warehouse?.trim().toLowerCase() ?? '';
+  return normalized == 'qolip ombor' || normalized == 'qolip ombori';
 }
 
 bool _isReservedRawStock(AdminRawMaterialStockEntry stock) {

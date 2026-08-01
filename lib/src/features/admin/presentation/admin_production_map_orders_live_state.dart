@@ -213,6 +213,7 @@ extension _AdminProductionMapOrdersLiveState
         orderControlsByOrderId: _orderControlsByOrderId,
         orderCustomersByOrderId: _customerByMapId,
         orderStatusesByOrderId: _orderStatusesByOrderId,
+        qolipOrderNotesByOrderId: _qolipOrderNotesByOrderId,
       )) {
         return;
       }
@@ -225,6 +226,7 @@ extension _AdminProductionMapOrdersLiveState
           orderControls: queueSnapshot.orderControls,
           orderCustomers: queueSnapshot.orderCustomers,
           orderStatuses: queueSnapshot.orderStatuses,
+          qolipOrderNotes: queueSnapshot.qolipOrderNotes,
         );
       });
     } catch (error) {
@@ -250,6 +252,7 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, AdminOrderControlState> orderControls,
     required Map<String, String> orderCustomers,
     required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
+    Map<String, AdminQolipOrderNote>? qolipOrderNotes,
   }) {
     _sequenceByApparatus
       ..clear()
@@ -273,6 +276,11 @@ extension _AdminProductionMapOrdersLiveState
     _orderStatusesByOrderId
       ..clear()
       ..addAll(orderStatuses);
+    if (qolipOrderNotes != null) {
+      _qolipOrderNotesByOrderId
+        ..clear()
+        ..addAll(qolipOrderNotes);
+    }
   }
 
   Future<void> _refreshWorkerCompletedOrders() async {
@@ -387,7 +395,7 @@ extension _AdminProductionMapOrdersLiveState
       _updateScreenState(() {
         _workflowAuditError = error is MobileApiException
             ? error.message
-            : 'Workflow audit yuklanmadi';
+            : 'Ish jarayoni tekshiruvi yuklanmadi';
       });
     } finally {
       _workflowAuditLoading = false;

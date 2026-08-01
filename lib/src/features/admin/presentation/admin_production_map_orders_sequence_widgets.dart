@@ -12,6 +12,8 @@ class _SequenceModulePage extends StatefulWidget {
     required this.queueStates,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.qolipOrderNotesByOrderId,
+    this.interactionHint,
     required this.onSelectApparatus,
     required this.onReorder,
     required this.onInfoOrder,
@@ -28,6 +30,8 @@ class _SequenceModulePage extends StatefulWidget {
   final Map<String, String> queueStates;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId;
+  final String? interactionHint;
   final ValueChanged<AdminApparatus> onSelectApparatus;
   final ReorderCallback onReorder;
   final ValueChanged<ProductionMapSaved>? onInfoOrder;
@@ -86,6 +90,10 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             widget.queueStates[order.map.id.trim()],
           ),
         ),
+        backgroundColor: _qolipOrderCardBackgroundColor(
+          context,
+          widget.qolipOrderNotesByOrderId[order.map.id.trim()],
+        ),
         onTap: widget.onInfoOrder == null
             ? null
             : () => widget.onInfoOrder!(order),
@@ -119,6 +127,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                     apparatus: selected,
                     orderCount: orders.length,
                     readOnly: widget.readOnly,
+                    interactionHint: widget.interactionHint,
                     showInteractionHint: widget.onInfoOrder != null,
                     expanded: _apparatusFilterExpanded,
                     onToggleExpanded: () {
@@ -195,6 +204,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
             apparatus: selected,
             orderCount: orders.length,
             readOnly: widget.readOnly,
+            interactionHint: widget.interactionHint,
             showInteractionHint: widget.onInfoOrder != null,
             expanded: _apparatusFilterExpanded,
             onToggleExpanded: () {
@@ -242,6 +252,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
     required this.apparatus,
     required this.orderCount,
     required this.readOnly,
+    this.interactionHint,
     required this.showInteractionHint,
     required this.expanded,
     required this.onToggleExpanded,
@@ -252,6 +263,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   final AdminApparatus? apparatus;
   final int orderCount;
   final bool readOnly;
+  final String? interactionHint;
   final bool showInteractionHint;
   final bool expanded;
   final VoidCallback onToggleExpanded;
@@ -316,7 +328,8 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              'Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.',
+              interactionHint ??
+                  'Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -338,6 +351,11 @@ class _SequenceOrderRow extends StatelessWidget {
     this.customerName = '',
     this.tone = _OrderCardTone.neutral,
     this.backgroundColor,
+    this.titleColor,
+    this.secondaryColor,
+    this.statusLabel,
+    this.statusBackgroundColor,
+    this.statusForegroundColor,
     this.onTap,
     this.onInfo,
     this.onLongPress,
@@ -350,6 +368,11 @@ class _SequenceOrderRow extends StatelessWidget {
   final String customerName;
   final _OrderCardTone tone;
   final Color? backgroundColor;
+  final Color? titleColor;
+  final Color? secondaryColor;
+  final String? statusLabel;
+  final Color? statusBackgroundColor;
+  final Color? statusForegroundColor;
   final VoidCallback? onTap;
   final VoidCallback? onInfo;
   final VoidCallback? onLongPress;
@@ -364,6 +387,7 @@ class _SequenceOrderRow extends StatelessWidget {
       customerName: customerName,
       includeApparatusCount: true,
     );
+    final resolvedStatusLabel = statusLabel?.trim();
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -398,6 +422,8 @@ class _SequenceOrderRow extends StatelessWidget {
                         map: map,
                         theme: theme,
                         scheme: scheme,
+                        titleColor: titleColor,
+                        secondaryColor: secondaryColor,
                       ),
                       if (subtitle.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -406,7 +432,7 @@ class _SequenceOrderRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                            color: secondaryColor ?? scheme.onSurfaceVariant,
                             height: 1.05,
                           ),
                         ),
@@ -414,6 +440,34 @@ class _SequenceOrderRow extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (resolvedStatusLabel != null &&
+                    resolvedStatusLabel.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: statusBackgroundColor ??
+                            scheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        child: Text(
+                          resolvedStatusLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: statusForegroundColor ??
+                                scheme.onSecondaryContainer,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (!readOnly)
                   ReorderableDragStartListener(
                     index: index,

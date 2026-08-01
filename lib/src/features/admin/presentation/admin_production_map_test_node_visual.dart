@@ -5,6 +5,7 @@ class _MapNodeVisual extends StatefulWidget {
     required this.node,
     required this.borderRadius,
     required this.readOnly,
+    required this.locked,
     required this.onTap,
     required this.canDrag,
     required this.onDragStart,
@@ -22,6 +23,7 @@ class _MapNodeVisual extends StatefulWidget {
   final ProductionMapNode node;
   final BorderRadius borderRadius;
   final bool readOnly;
+  final bool locked;
   final VoidCallback onTap;
   final bool Function() canDrag;
   final VoidCallback onDragStart;
@@ -99,11 +101,18 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final background = _backgroundFor(widget.node, scheme);
+    final nodeBackground = _backgroundFor(widget.node, scheme);
+    final background = widget.locked
+        ? Color.alphaBlend(
+            scheme.surface.withValues(alpha: 0.46),
+            nodeBackground,
+          )
+        : nodeBackground;
     final foreground = _foregroundFor(background);
     final mutedForeground = foreground.withValues(alpha: 0.72);
     return Semantics(
       button: true,
+      enabled: !widget.locked,
       label: '${widget.node.title} node',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -186,7 +195,17 @@ class _MapNodeVisualState extends State<_MapNodeVisual> {
                     ),
                   ),
                 ),
-                if (!widget.readOnly) ...[
+                if (widget.locked) ...[
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                      color: mutedForeground,
+                    ),
+                  ),
+                ] else if (!widget.readOnly) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     key: ValueKey(

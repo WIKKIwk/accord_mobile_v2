@@ -17,6 +17,21 @@ AdminRoleAssignment? adminAssignmentForCustomerRef(
   return null;
 }
 
+AdminRoleAssignment? adminAssignmentForPrincipalRole(
+  List<AdminRoleAssignment> assignments,
+  String ref,
+  UserRole role,
+) {
+  final trimmed = ref.trim();
+  for (final assignment in assignments) {
+    if (assignment.principalRef.trim() == trimmed &&
+        assignment.principalRole == role) {
+      return assignment;
+    }
+  }
+  return null;
+}
+
 bool adminIsAparatchiAssignment(AdminRoleAssignment? assignment) {
   return assignment?.roleId.trim().toLowerCase() == 'aparatchi';
 }
@@ -41,5 +56,20 @@ AdminRoleAssignment adminAparatchiAssignmentUpsert({
     principalRef: principalRef.trim(),
     roleId: 'aparatchi',
     assignedApparatus: assignedApparatus,
+  );
+}
+
+AdminRoleAssignment adminMaterialTaminotchiAssignmentUpsert({
+  required AdminRoleAssignment assignment,
+  required List<String> assignedApparatus,
+}) {
+  return AdminRoleAssignment(
+    principalRole: UserRole.materialTaminotchi,
+    principalRef: assignment.principalRef.trim(),
+    roleId: assignment.roleId.trim().isEmpty
+        ? 'material_taminotchi'
+        : assignment.roleId.trim(),
+    assignedApparatus: assignedApparatus,
+    assignedItemGroups: assignment.assignedItemGroups,
   );
 }

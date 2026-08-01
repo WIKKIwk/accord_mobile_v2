@@ -36,6 +36,28 @@ void main() {
             codeLocked: false,
             codeRetryAfterSec: 0,
           ),
+          profileDetailLoader: (_) async => const AdminWorkerProfileDetail(
+            worker: AdminWorkerDetail(
+              id: 'WORKER-001',
+              name: 'Aparatchi',
+              phone: '+998901234567',
+              avatarUrl: '',
+              level: 'Aparatchi',
+              code: '',
+              codeLocked: false,
+              codeRetryAfterSec: 0,
+            ),
+            assignedGroups: [
+              AdminWorkerGroup(
+                apparatus: '7 ta rangli pechat',
+                groupCode: 'A',
+                shift: 'kunduz',
+              ),
+            ],
+            activeSessions: [],
+            recentBatches: [],
+            recentLogs: [],
+          ),
         ),
       ),
     );
@@ -49,6 +71,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Xabar yozish'), findsOneWidget);
+    expect(find.text('Ish faoliyati'), findsOneWidget);
+    expect(find.text('7 ta rangli pechat'), findsOneWidget);
+    expect(find.text('Joriy ish'), findsNothing);
+    expect(find.text('Hozir aktiv zakaz yo‘q'), findsNothing);
   });
 
   testWidgets('admin manages warehouses from a qolipchi profile', (

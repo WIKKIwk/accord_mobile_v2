@@ -92,6 +92,7 @@ class _MoveDropZone extends StatelessWidget {
     required this.draggingOrders,
     required this.draggingSource,
     required this.canMoveTo,
+    required this.allowUnassignedAlternativeMove,
     required this.onToggleSelect,
     required this.buildDragPayload,
     required this.onDragStarted,
@@ -109,6 +110,7 @@ class _MoveDropZone extends StatelessWidget {
     AdminApparatus target,
     AdminApparatus source,
   ) canMoveTo;
+  final bool allowUnassignedAlternativeMove;
   final ValueChanged<String> onToggleSelect;
   final _MoveDragPayload Function({
     required ProductionMapSaved order,
@@ -181,11 +183,11 @@ class _MoveDropZone extends StatelessWidget {
                     source: apparatus,
                     zoneOrders: orders,
                   );
-                  final disabled =
+                  final disabled = !allowUnassignedAlternativeMove &&
                       _isUnassignedAlternativeCandidateForApparatus(
-                    order: order,
-                    apparatus: apparatus,
-                  );
+                        order: order,
+                        apparatus: apparatus,
+                      );
                   return Padding(
                     key: ValueKey(
                       '${disabled ? 'move-order-disabled' : 'move-order'}-'

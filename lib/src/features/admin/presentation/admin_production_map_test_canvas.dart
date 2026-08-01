@@ -3,6 +3,7 @@ part of 'admin_production_map_test_screen.dart';
 class _ProductionMapCanvas extends StatefulWidget {
   const _ProductionMapCanvas({
     required this.readOnly,
+    required this.lockedNodeIds,
     required this.nodes,
     required this.edges,
     required this.connectingFromNodeID,
@@ -22,6 +23,7 @@ class _ProductionMapCanvas extends StatefulWidget {
   static const _nodeSize = Size(260, 60);
 
   final bool readOnly;
+  final Set<String> lockedNodeIds;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
   final String? connectingFromNodeID;
@@ -133,6 +135,10 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                                   top: position.dy - 13,
                                   child: _EdgeDeleteButton(
                                     edge: edge,
+                                    enabled: !productionMapIncomingEdgeIsLocked(
+                                      edge,
+                                      widget.lockedNodeIds,
+                                    ),
                                     onTap: () => widget.onEdgeDelete(edge),
                                   ),
                                 ),
@@ -145,10 +151,13 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                                 node: node,
                                 borderRadius: _nodeBorderRadius(node),
                                 readOnly: widget.readOnly,
-                                onTap: widget.readOnly
+                                locked: widget.lockedNodeIds.contains(node.id),
+                                onTap: widget.readOnly ||
+                                        widget.lockedNodeIds.contains(node.id)
                                     ? () {}
                                     : () => widget.onNodeTap(node),
-                                canDrag: widget.readOnly
+                                canDrag: widget.readOnly ||
+                                        widget.lockedNodeIds.contains(node.id)
                                     ? () => false
                                     : _canDragNode,
                                 onDragStart: () {
@@ -170,6 +179,8 @@ class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
                                   }
                                 },
                                 onDelete: widget.readOnly ||
+                                        widget.lockedNodeIds
+                                            .contains(node.id) ||
                                         node.kind == 'start' ||
                                         node.kind == 'end'
                                     ? null

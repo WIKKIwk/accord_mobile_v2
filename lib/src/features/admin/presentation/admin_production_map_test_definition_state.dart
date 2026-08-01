@@ -238,9 +238,12 @@ extension _AdminProductionMapTestDefinitionState
               : _firstNonEmpty(
                   [context?.orderCode ?? '', savedMap?.code ?? '']),
       orderNumber: widget.templateOnly ? '' : normalizedOrderNumber,
+      customerName: savedMap?.customerName ?? '',
       // Re-saving an opened zakaz must keep its pechat constraints.
       rollCount: context?.rollCount ?? savedMap?.rollCount,
       widthMm: context?.widthMm ?? savedMap?.widthMm,
+      orderKg: savedMap?.orderKg,
+      baseLength: savedMap?.baseLength,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );

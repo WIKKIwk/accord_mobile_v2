@@ -254,6 +254,9 @@ extension _AdminProductionMapTestGraphState
   }
 
   void _moveNode(String nodeID, Offset delta) {
+    if (_isNodeLocked(nodeID)) {
+      return;
+    }
     final index = nodes.indexWhere((node) => node.id == nodeID);
     if (index < 0) {
       return;
@@ -267,6 +270,9 @@ extension _AdminProductionMapTestGraphState
   }
 
   void _startConnection(String nodeID, [String branch = '']) {
+    if (_isNodeLocked(nodeID)) {
+      return;
+    }
     _updateScreenState(() {
       _connectingFromNodeID = nodeID;
       _connectingFromBranch = branch.trim().toLowerCase();
@@ -299,6 +305,9 @@ extension _AdminProductionMapTestGraphState
         (node) => node.id == fromID,
         orElse: () => target,
       );
+      if (_isNodeLocked(source.id) || _isNodeLocked(target.id)) {
+        return;
+      }
       if (!_canCreateEdge(source, target)) {
         return;
       }
@@ -336,6 +345,9 @@ extension _AdminProductionMapTestGraphState
   }
 
   void _removeEdge(ProductionMapEdge edge) {
+    if (productionMapIncomingEdgeIsLocked(edge, _lockedNodeIds)) {
+      return;
+    }
     _updateScreenState(() {
       edges.removeWhere(
         (item) =>
@@ -420,8 +432,17 @@ extension _AdminProductionMapTestGraphState
           if (separation == Offset.zero) {
             continue;
           }
+          final aLocked = _isNodeLocked(nodes[a].id);
+          final bLocked = _isNodeLocked(nodes[b].id);
+          if (aLocked && bLocked) {
+            continue;
+          }
           moved = true;
-          if (nodes[a].id == anchorID) {
+          if (aLocked) {
+            _moveNodeByIndex(b, separation);
+          } else if (bLocked) {
+            _moveNodeByIndex(a, -separation);
+          } else if (nodes[a].id == anchorID) {
             _moveNodeByIndex(b, separation);
           } else if (nodes[b].id == anchorID) {
             _moveNodeByIndex(a, -separation);
@@ -466,6 +487,9 @@ extension _AdminProductionMapTestGraphState
 
   void _moveNodeByIndex(int index, Offset delta) {
     final node = nodes[index];
+    if (_isNodeLocked(node.id)) {
+      return;
+    }
     final position = _clampNodePosition(Offset(node.x, node.y) + delta);
     nodes[index] = node.copyWith(x: position.dx, y: position.dy);
   }
@@ -475,7 +499,9 @@ extension _AdminProductionMapTestGraphState
       var changed = false;
       for (var i = 0; i < nodes.length; i++) {
         final node = nodes[i];
-        if (node.id == anchorID || !_nodeOverlapsAny(node)) {
+        if (node.id == anchorID ||
+            _isNodeLocked(node.id) ||
+            !_nodeOverlapsAny(node)) {
           continue;
         }
         final position = _firstFreePosition(
@@ -596,6 +622,9 @@ extension _AdminProductionMapTestGraphState
       return;
     }
     final node = nodes[index];
+    if (_isNodeLocked(node.id)) {
+      return;
+    }
     if (_isRezkaProductionNode(node)) {
       final edited = await _showRezkaEditSheet(node);
       if (edited == null || !mounted) {
@@ -691,7 +720,7 @@ extension _AdminProductionMapTestGraphState
 
   void _deleteNode(int index) {
     final node = nodes[index];
-    if (node.kind == 'start' || node.kind == 'end') {
+    if (_isNodeLocked(node.id) || node.kind == 'start' || node.kind == 'end') {
       return;
     }
     _updateScreenState(() {

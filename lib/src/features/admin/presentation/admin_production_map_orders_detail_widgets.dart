@@ -50,6 +50,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onComplete,
     required this.onResume,
     required this.orderControlState,
+    required this.allowMaterialUnlink,
+    required this.onUnlinkMaterial,
+    required this.unlinkingMaterialBarcode,
   });
 
   final GlobalKey noticeAnchorKey;
@@ -100,6 +103,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onComplete;
   final VoidCallback onResume;
   final AdminOrderControlState orderControlState;
+  final bool allowMaterialUnlink;
+  final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
+  final String unlinkingMaterialBarcode;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +191,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onComplete: onComplete,
                 onResume: onResume,
                 orderControlState: orderControlState,
+                allowMaterialUnlink: allowMaterialUnlink,
+                onUnlinkMaterial: onUnlinkMaterial,
+                unlinkingMaterialBarcode: unlinkingMaterialBarcode,
               ),
               const SizedBox(height: 10),
               _OrderSummaryCard(
@@ -398,7 +407,7 @@ class _SequenceStepTile extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: _MapStatusChip(
-                      label: 'Joriy bosqich',
+                      label: 'Joriy apparat',
                       foreground: scheme.onPrimaryContainer,
                       background: scheme.primaryContainer,
                     ),
@@ -496,7 +505,7 @@ class _SequenceStepTile extends StatelessWidget {
       ApparatusQueueOrderState.inProgress => 'Jarayonda',
       ApparatusQueueOrderState.paused => 'Pauzada',
       ApparatusQueueOrderState.completed => 'Tugagan',
-      ApparatusQueueOrderState.pending => 'Kutmoqda',
+      ApparatusQueueOrderState.pending => 'Navbatda',
     };
   }
 
@@ -681,6 +690,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onComplete,
     required this.onResume,
     required this.orderControlState,
+    required this.allowMaterialUnlink,
+    required this.onUnlinkMaterial,
+    required this.unlinkingMaterialBarcode,
   });
 
   final String orderCode;
@@ -737,6 +749,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onComplete;
   final VoidCallback onResume;
   final AdminOrderControlState orderControlState;
+  final bool allowMaterialUnlink;
+  final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
+  final String unlinkingMaterialBarcode;
 
   @override
   Widget build(BuildContext context) {
@@ -875,6 +890,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 error: materialsError,
                 emptyText: 'Ish boshlash uchun homashyo topilmadi',
                 scannedBarcodes: scannedBarcodes,
+                allowUnlink: allowMaterialUnlink,
+                onUnlink: onUnlinkMaterial,
+                unlinkingBarcode: unlinkingMaterialBarcode,
               ),
             ],
             Divider(
@@ -900,6 +918,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 error: materialsError,
                 emptyText: 'Hali qabul qilinmagan homashyo yo‘q',
                 scannedBarcodes: const {},
+                allowUnlink: allowMaterialUnlink,
+                onUnlink: onUnlinkMaterial,
+                unlinkingBarcode: unlinkingMaterialBarcode,
               ),
             ],
             Divider(
@@ -924,6 +945,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               error: materialsError,
               emptyText: 'Homashyo biriktirilmagan',
               scannedBarcodes: scannedBarcodes,
+              allowUnlink: allowMaterialUnlink,
+              onUnlink: onUnlinkMaterial,
+              unlinkingBarcode: unlinkingMaterialBarcode,
             ),
           ],
           if (showStart && requiresQolipScan) ...[
@@ -1176,6 +1200,9 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
     required this.error,
     required this.emptyText,
     required this.scannedBarcodes,
+    required this.allowUnlink,
+    required this.onUnlink,
+    required this.unlinkingBarcode,
   });
 
   final List<AdminRawMaterialAssignment> assignments;
@@ -1183,6 +1210,9 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
   final String error;
   final String emptyText;
   final Set<String> scannedBarcodes;
+  final bool allowUnlink;
+  final void Function(AdminRawMaterialAssignment assignment)? onUnlink;
+  final String unlinkingBarcode;
 
   @override
   Widget build(BuildContext context) {
@@ -1228,22 +1258,171 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
       );
     }
     final balances = _rawMaterialBalances(assignments);
+    final role = AppSession.instance.profile?.role;
+    final groupedAssignments =
+        role == UserRole.admin || role == UserRole.materialTaminotchi
+            ? _adminRawMaterialAssignmentGroups(assignments)
+            : [
+                _AdminRawMaterialAssignmentGroup(
+                  label: '',
+                  assignments: assignments,
+                ),
+              ];
     return Column(
       children: [
         if (balances.isNotEmpty) ...[
           _RawMaterialBalanceSummary(balances: balances),
           const SizedBox(height: 10),
         ],
-        for (var index = 0; index < assignments.length; index++) ...[
-          if (index > 0) const SizedBox(height: 8),
-          _AssignedMaterialTile(
-            assignment: assignments[index],
-            scanned: scannedBarcodes.contains(
-              assignments[index].barcode.trim().toUpperCase(),
+        for (var groupIndex = 0;
+            groupIndex < groupedAssignments.length;
+            groupIndex++) ...[
+          if (groupIndex > 0) const SizedBox(height: 14),
+          if (groupedAssignments[groupIndex].label.isNotEmpty) ...[
+            _AdminRawMaterialAssignmentGroupHeader(
+              label: groupedAssignments[groupIndex].label,
+              count: groupedAssignments[groupIndex].assignments.length,
+            ),
+            const SizedBox(height: 8),
+          ],
+          for (var index = 0;
+              index < groupedAssignments[groupIndex].assignments.length;
+              index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _AssignedMaterialTile(
+              assignment: groupedAssignments[groupIndex].assignments[index],
+              scanned: scannedBarcodes.contains(
+                groupedAssignments[groupIndex]
+                    .assignments[index]
+                    .barcode
+                    .trim()
+                    .toUpperCase(),
+              ),
+              allowUnlink: allowUnlink,
+              onUnlink: onUnlink == null
+                  ? null
+                  : () => onUnlink!(
+                        groupedAssignments[groupIndex].assignments[index],
+                      ),
+              unlinking: unlinkingBarcode ==
+                  groupedAssignments[groupIndex]
+                      .assignments[index]
+                      .barcode
+                      .trim()
+                      .toUpperCase(),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _AdminRawMaterialAssignmentGroup {
+  const _AdminRawMaterialAssignmentGroup({
+    required this.label,
+    required this.assignments,
+  });
+
+  final String label;
+  final List<AdminRawMaterialAssignment> assignments;
+}
+
+List<_AdminRawMaterialAssignmentGroup> _adminRawMaterialAssignmentGroups(
+  List<AdminRawMaterialAssignment> assignments,
+) {
+  final grouped = <String, List<AdminRawMaterialAssignment>>{};
+  for (final assignment in assignments) {
+    final label = _adminRawMaterialAssignmentGroupLabel(assignment.apparatus);
+    grouped.putIfAbsent(label, () => []).add(assignment);
+  }
+  final entries = grouped.entries.toList()
+    ..sort(
+      (left, right) => _adminRawMaterialAssignmentGroupRank(left.key)
+          .compareTo(_adminRawMaterialAssignmentGroupRank(right.key)),
+    );
+  return [
+    for (final entry in entries)
+      _AdminRawMaterialAssignmentGroup(
+        label: entry.key,
+        assignments: List<AdminRawMaterialAssignment>.unmodifiable(
+          entry.value,
+        ),
+      ),
+  ];
+}
+
+String _adminRawMaterialAssignmentGroupLabel(String apparatus) {
+  final normalized = apparatus.trim();
+  if (productionMapIsPechatApparatus(normalized)) {
+    return 'Bosma uchun biriktirilgan';
+  }
+  if (productionMapIsLaminatsiyaApparatus(normalized)) {
+    return 'Laminatsiya uchun biriktirilgan';
+  }
+  if (productionMapIsRezkaApparatus(normalized)) {
+    return 'Rezka uchun biriktirilgan';
+  }
+  return normalized.isEmpty
+      ? 'Bosqichi ko‘rsatilmagan homashyolar'
+      : '$normalized uchun biriktirilgan';
+}
+
+int _adminRawMaterialAssignmentGroupRank(String label) {
+  return switch (label) {
+    'Bosma uchun biriktirilgan' => 0,
+    'Laminatsiya uchun biriktirilgan' => 1,
+    'Rezka uchun biriktirilgan' => 2,
+    _ => 3,
+  };
+}
+
+class _AdminRawMaterialAssignmentGroupHeader extends StatelessWidget {
+  const _AdminRawMaterialAssignmentGroupHeader({
+    required this.label,
+    required this.count,
+  });
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.layers_outlined,
+            size: 20,
+            color: scheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Text(
+            '$count ta',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }

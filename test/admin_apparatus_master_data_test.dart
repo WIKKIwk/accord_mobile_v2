@@ -18,6 +18,18 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
+  test('apparatus master options expose canonical picker values', () async {
+    await TestModeController.instance.setEnabled(true);
+
+    final options = await MobileApi.instance.adminApparatusMasterOptions();
+
+    expect(options.families, contains('pechat'));
+    expect(options.kindsForFamily('pechat'), contains('color_pechat'));
+    expect(options.capabilities, contains('print'));
+    expect(options.colorStationsMin, 1);
+    expect(options.colorStationsMax, 24);
+  });
+
   test('custom apparatus keeps its stable id while being renamed', () async {
     await TestModeController.instance.setEnabled(true);
 

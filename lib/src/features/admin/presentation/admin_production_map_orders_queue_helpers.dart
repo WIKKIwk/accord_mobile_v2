@@ -9,13 +9,15 @@ bool _queueSnapshotChanged({
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
   required Map<String, String> orderCustomersByOrderId,
   required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
+  required Map<String, AdminQolipOrderNote> qolipOrderNotesByOrderId,
 }) {
   if (sequenceByApparatus.length != snapshot.sequences.length ||
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
       queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
       orderControlsByOrderId.length != snapshot.orderControls.length ||
-      orderStatusesByOrderId.length != snapshot.orderStatuses.length) {
+      orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
+      qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length) {
     return true;
   }
   for (final entry in snapshot.sequences.entries) {
@@ -64,6 +66,16 @@ bool _queueSnapshotChanged({
         current.orderStatus != entry.value.orderStatus ||
         current.completedWithIssueCount !=
             entry.value.completedWithIssueCount) {
+      return true;
+    }
+  }
+  for (final entry in snapshot.qolipOrderNotes.entries) {
+    final current = qolipOrderNotesByOrderId[entry.key];
+    if (current == null ||
+        current.status != entry.value.status ||
+        current.itemCode != entry.value.itemCode ||
+        current.itemName != entry.value.itemName ||
+        !_stringListsEqual(current.qolipCodes, entry.value.qolipCodes)) {
       return true;
     }
   }

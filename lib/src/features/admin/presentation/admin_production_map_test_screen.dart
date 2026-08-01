@@ -12,6 +12,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/production_map_pechat_rules.dart';
+import '../logic/production_map_edit_policy.dart';
 import '../models/production_map_models.dart';
 import '../state/calculate_order_store.dart';
 import 'widgets/admin_create_hub_sheet.dart';
@@ -40,12 +41,14 @@ class AdminProductionMapTestScreen extends StatefulWidget {
     this.savedMap,
     this.readOnly = false,
     this.templateOnly = false,
+    this.lockedNodeIds = const {},
   });
 
   final ProductionMapOrderContext? orderContext;
   final ProductionMapDefinition? savedMap;
   final bool readOnly;
   final bool templateOnly;
+  final Set<String> lockedNodeIds;
 
   @override
   State<AdminProductionMapTestScreen> createState() =>
@@ -65,6 +68,7 @@ class _AdminProductionMapTestScreenState
   late final bool _orderMode;
   late final List<ProductionMapNode> nodes;
   late final List<ProductionMapEdge> edges;
+  late final Set<String> _lockedNodeIds;
 
   int _nextNodeIndex = 1;
   String? _connectingFromNodeID;
@@ -80,6 +84,11 @@ class _AdminProductionMapTestScreenState
   void initState() {
     super.initState();
     final savedMap = widget.savedMap;
+    _lockedNodeIds = Set<String>.unmodifiable(
+      widget.lockedNodeIds
+          .map((nodeId) => nodeId.trim())
+          .where((nodeId) => nodeId.isNotEmpty),
+    );
     _orderMode = !widget.templateOnly &&
         (widget.orderContext != null ||
             (savedMap?.id.trim().startsWith('zakaz-') ?? false));
@@ -178,6 +187,7 @@ class _AdminProductionMapTestScreenState
             Positioned.fill(
               child: _ProductionMapCanvas(
                 readOnly: widget.readOnly,
+                lockedNodeIds: _lockedNodeIds,
                 nodes: nodes,
                 edges: edges,
                 connectingFromNodeID: _connectingFromNodeID,
@@ -210,5 +220,9 @@ class _AdminProductionMapTestScreenState
         ),
       ),
     );
+  }
+
+  bool _isNodeLocked(String nodeId) {
+    return _lockedNodeIds.contains(nodeId.trim());
   }
 }

@@ -10,12 +10,14 @@ class ProductionMapTestArgs {
     this.savedMap,
     this.readOnly = false,
     this.templateOnly = false,
+    this.lockedNodeIds = const {},
   });
 
   final ProductionMapOrderContext? orderContext;
   final ProductionMapDefinition? savedMap;
   final bool readOnly;
   final bool templateOnly;
+  final Set<String> lockedNodeIds;
 }
 
 class ProductionMapOrderContext {

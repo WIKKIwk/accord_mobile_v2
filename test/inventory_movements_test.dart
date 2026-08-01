@@ -609,6 +609,83 @@ void main() {
     );
   });
 
+  testWidgets('selected linked warehouse raw materials can be unlinked in bulk',
+      (tester) async {
+    seedMobileApiInventoryMovementTestData(
+      locations: const [source, destination, factoryState],
+      assets: const [asset, secondAsset],
+      transfers: const [transfer],
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      const ProductionMapDefinition(
+        id: 'zakaz-bulk-unlink',
+        productCode: 'P-BULK',
+        title: 'Bulk unlink zakaz',
+        code: 'Z-BULK',
+        nodes: [],
+        edges: [],
+      ),
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: 'zakaz-bulk-unlink',
+      barcode: '30AA',
+      apparatus: 'Pechat',
+    );
+    await MobileApi.instance.adminAssignRawMaterialToOrder(
+      orderId: 'zakaz-bulk-unlink',
+      barcode: '30BB',
+      apparatus: 'Pechat',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(
+      find.byKey(const ValueKey('inventory-asset-raw:1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('inventory-asset-raw:2')),
+    );
+    await tester.pumpAndSettle();
+
+    final unlinkButton = find.byKey(
+      const ValueKey('inventory-selection-unlink'),
+    );
+    expect(unlinkButton, findsOneWidget);
+    await tester.tap(unlinkButton);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('2 ta ulangan homashyo orderdan uzilsinmi?'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey('inventory-selection-unlink-confirm'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 ta homashyo orderdan uzildi'), findsOneWidget);
+    expect(
+      await MobileApi.instance.adminRawMaterialAssignments(),
+      isEmpty,
+    );
+    expect(find.text('2 ta tanlandi'), findsNothing);
+  });
+
   testWidgets('selected state assets return to their own warehouses', (
     tester,
   ) async {

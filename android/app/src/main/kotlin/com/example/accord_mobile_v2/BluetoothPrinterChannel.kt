@@ -29,6 +29,11 @@ class BluetoothPrinterChannel(
         private const val TAG = "BluetoothPrinter"
         private const val PERMISSION_REQUEST_CODE = 4917
         private const val PRINT_TIMEOUT_MS = 25_000L
+        private const val LABEL_WIDTH_MM = 56.0
+        private const val LABEL_HEIGHT_MM = 60.0
+        private const val PACK_EPC_Y = 410
+        private const val LABEL_CHARSET = "windows-1251"
+        private const val LABEL_CODE_PAGE = "73"
     }
 
     private val channel = MethodChannel(messenger, "accord/bluetooth_printer")
@@ -278,13 +283,15 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
+        printer.setCharSet(LABEL_CHARSET)
         printer
-            .sizeMm(58.0, 60.0)
+            .sizeMm(LABEL_WIDTH_MM, LABEL_HEIGHT_MM)
             .speed(4.0)
             .density(10)
             .direction(TSPLConst.DIRECTION_FORWARD)
             .reference(80, 0)
             .cls()
+            .codePage(LABEL_CODE_PAGE)
 
         when {
             label.isQolipCell -> printQolipCell(printer, label)
@@ -384,21 +391,10 @@ class BluetoothPrinterChannel(
             "BRUTTO: ${formatLabelQty(label.grossQty)} $grossUnit",
         )
         sdkQr(printer, 218, 166, payload, cellSize = 5)
-        printer.barcode(
-            8,
-            252,
-            TSPLConst.CODE_TYPE_128,
-            50,
-            TSPLConst.READABLE_LEFT,
-            TSPLConst.ROTATION_0,
-            2,
-            2,
-            payload,
-        )
         sdkText(
             printer,
             8,
-            314,
+            PACK_EPC_Y,
             TSPLConst.FNT_8_12,
             fitLabelText("EPC: $payload", 46),
         )
@@ -481,10 +477,6 @@ class BluetoothPrinterChannel(
             .replace(Regex("[\\r\\n\\t]+"), " ")
             .trim()
             .uppercase(Locale.US)
-            .map { character ->
-                if (character.code in 32..126) character else '?'
-            }
-            .joinToString("")
             .replace(Regex("\\s+"), " ")
     }
 

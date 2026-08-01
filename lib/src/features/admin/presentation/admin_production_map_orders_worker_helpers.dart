@@ -23,6 +23,7 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
             completed: completed,
             apparatus: apparatus,
           ),
+          status: completed.status,
         ),
       );
     }

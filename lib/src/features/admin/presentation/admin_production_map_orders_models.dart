@@ -81,10 +81,14 @@ class _WorkerCompletedOrderEntry {
   const _WorkerCompletedOrderEntry({
     required this.order,
     required this.apparatus,
+    required this.status,
   });
 
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
+  final String status;
+
+  bool get isInProgress => status.trim().toLowerCase() == 'in_progress';
 }
 
 class _MoveApparatusDefaults {
@@ -180,6 +184,7 @@ class _PreparedReadOnlyQueueAction {
     required this.materialAssignments,
     required this.scannedMaterialBarcodes,
     required this.startInputProgressBatch,
+    required this.bypassStartMaterialScan,
     this.blockReason,
   });
 
@@ -188,6 +193,7 @@ class _PreparedReadOnlyQueueAction {
   final List<AdminRawMaterialAssignment> materialAssignments;
   final Set<String> scannedMaterialBarcodes;
   final AdminProgressBatch? startInputProgressBatch;
+  final bool bypassStartMaterialScan;
   final String? blockReason;
 }
 
@@ -252,6 +258,23 @@ Color? _orderCardBackgroundColor(
     _OrderCardTone.issue => const Color(0xFFC62828),
     _OrderCardTone.neutral => Colors.transparent,
   };
+  final opacity = theme.brightness == Brightness.dark ? 0.30 : 0.16;
+  return Color.alphaBlend(
+    accent.withValues(alpha: opacity),
+    theme.colorScheme.surfaceContainerLowest,
+  );
+}
+
+Color? _qolipOrderCardBackgroundColor(
+  BuildContext context,
+  AdminQolipOrderNote? note,
+) {
+  if (note == null || (!note.isGiven && !note.isReturned)) {
+    return null;
+  }
+  final theme = Theme.of(context);
+  final accent =
+      note.isGiven ? const Color(0xFF2E7D32) : const Color(0xFFF9A825);
   final opacity = theme.brightness == Brightness.dark ? 0.30 : 0.16;
   return Color.alphaBlend(
     accent.withValues(alpha: opacity),

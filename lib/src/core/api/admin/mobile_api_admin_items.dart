@@ -369,6 +369,24 @@ extension MobileApiAdminItems on MobileApi {
         .toList(growable: false);
   }
 
+  Future<AdminApparatusMasterOptions> adminApparatusMasterOptions() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return AdminApparatusMasterOptions.fallback();
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/apparatus/options'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Admin apparatus options failed');
+    }
+    return AdminApparatusMasterOptions.fromJson(
+      await decodeJsonMapPayload(response.body),
+    );
+  }
+
   Future<List<AdminWarehouseSummary>> adminWarehouseSummaries({
     String query = '',
     int limit = 50,

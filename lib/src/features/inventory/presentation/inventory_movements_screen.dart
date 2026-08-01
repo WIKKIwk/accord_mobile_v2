@@ -106,6 +106,20 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       .where((asset) => _selectedAssetKeys.contains(_selectionKey(asset)))
       .toList(growable: false);
 
+  List<InventoryAsset> get _selectedLinkedRawMaterialAssets => _selectedAssets
+      .where(
+        (asset) =>
+            asset.kind == InventoryAssetKind.rawMaterial &&
+            _rawMaterialOrderAssignments.containsKey(
+              rawMaterialAssetBarcode(asset),
+            ),
+      )
+      .toList(growable: false);
+
+  bool get _selectionActionBusy =>
+      _busyKeys.contains('relocate-batch') ||
+      _busyKeys.contains('unlink-raw-material-batch');
+
   Future<void> _loadAll() async {
     if (mounted) {
       setState(() {
@@ -298,6 +312,50 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       return;
     }
     await _relocateSelectedAssets();
+  }
+
+  Future<void> _unlinkSelectedRawMaterials() async {
+    final assets = _selectedLinkedRawMaterialAssets;
+    if (!_materialScoped || _stateSelectionMode || assets.isEmpty) {
+      return;
+    }
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Ulangan homashyolarni uzish',
+          message: '${assets.length} ta ulangan homashyo orderdan uzilsinmi?',
+          cancelLabel: 'Bekor qilish',
+          confirmLabel: 'Uzish',
+          destructive: true,
+          verticalActions: true,
+          confirmButtonKey: const ValueKey(
+            'inventory-selection-unlink-confirm',
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _runBusy('unlink-raw-material-batch', () async {
+      var unlinkedCount = 0;
+      for (final asset in assets) {
+        final barcode = rawMaterialAssetBarcode(asset);
+        final assignment = _rawMaterialOrderAssignments[barcode];
+        if (assignment == null) {
+          continue;
+        }
+        await MobileApi.instance.adminUnlinkRawMaterialAssignment(
+          orderId: assignment.orderId,
+          barcode: barcode,
+        );
+        unlinkedCount += 1;
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(_selectedAssetKeys.clear);
+      _showMessage('$unlinkedCount ta homashyo orderdan uzildi');
+      await _loadAll();
+    });
   }
 
   Future<void> _relocateSelectedAssets() async {
@@ -650,6 +708,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedLinkedRawMaterials = _selectedLinkedRawMaterialAssets;
+    final selectionActionBusy = _selectionActionBusy;
     final tabs = <Tab>[
       const Tab(text: 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
@@ -699,6 +759,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         showProfileActionResolver: () => !_searchFocusNode.hasFocus,
         actions: _selectionMode
             ? [
+                if (selectedLinkedRawMaterials.isNotEmpty)
+                  IconButton(
+                    key: const ValueKey('inventory-selection-unlink'),
+                    tooltip: 'Ulangan homashyolarni uzish '
+                        '(${selectedLinkedRawMaterials.length} ta)',
+                    onPressed: selectionActionBusy
+                        ? null
+                        : _unlinkSelectedRawMaterials,
+                    icon: _busyKeys.contains('unlink-raw-material-batch')
+                        ? const AppLoadingIndicator(size: 24, glyphSize: 16)
+                        : const Icon(Icons.link_off_rounded),
+                  ),
                 IconButton(
                   key: ValueKey(
                     _stateSelectionMode
@@ -708,9 +780,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                   tooltip: _stateSelectionMode
                       ? 'Omborga qaytarish'
                       : 'State’ga ko‘chirish',
-                  onPressed: _busyKeys.contains('relocate-batch')
-                      ? null
-                      : _runSelectionAction,
+                  onPressed: selectionActionBusy ? null : _runSelectionAction,
                   icon: _busyKeys.contains('relocate-batch')
                       ? const AppLoadingIndicator(size: 24, glyphSize: 16)
                       : Icon(
