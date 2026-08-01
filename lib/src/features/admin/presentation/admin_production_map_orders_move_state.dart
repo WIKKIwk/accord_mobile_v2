@@ -472,6 +472,7 @@ class _ApparatusTransferReasonDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       title: const Text('Avariya sababini kiriting'),
       content: SingleChildScrollView(
         child: Column(
@@ -499,23 +500,33 @@ class _ApparatusTransferReasonDialogState
           ],
         ),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Bekor qilish'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final reason = _controller.text.trim();
-            if (reason.isEmpty) {
-              setState(() {
-                _validationMessage = 'Sabab majburiy';
-              });
-              return;
-            }
-            Navigator.of(context).pop(reason);
-          },
-          child: const Text('Ko‘chirish'),
+        SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: () {
+                  final reason = _controller.text.trim();
+                  if (reason.isEmpty) {
+                    setState(() {
+                      _validationMessage = 'Sabab majburiy';
+                    });
+                    return;
+                  }
+                  Navigator.of(context).pop(reason);
+                },
+                child: const Text('Ko‘chirish'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Bekor qilish'),
+              ),
+            ],
+          ),
         ),
       ],
     );
