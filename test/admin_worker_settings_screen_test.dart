@@ -207,7 +207,14 @@ void main() {
     expect(find.text('Haftalik ish kuni'), findsOneWidget);
     expect(find.text('Schot hisoblanadi'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(CheckboxListTile, 'Vali guruhchi'));
+    await tester.tap(
+      find.byKey(const Key('worker-group-worker-picker')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Vali guruhchi'), findsOneWidget);
+    await tester.tap(find.text('Vali guruhchi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Ishchilarni tasdiqlash'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Saqlash').last);
     await tester.pumpAndSettle();
@@ -230,12 +237,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
 
-    expect(
-        find.widgetWithText(CheckboxListTile, 'Vali guruhchi'), findsNothing);
-    expect(
-        find.widgetWithText(CheckboxListTile, 'Soli guruhchi'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(CheckboxListTile, 'Soli guruhchi'));
+    await tester.tap(
+      find.byKey(const Key('worker-group-worker-picker')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Vali guruhchi'), findsNothing);
+    expect(find.text('Soli guruhchi'), findsOneWidget);
+    await tester.tap(find.text('Soli guruhchi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Ishchilarni tasdiqlash'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Saqlash').last);
     await tester.pumpAndSettle();
@@ -254,10 +264,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
 
-    expect(
-        find.widgetWithText(CheckboxListTile, 'Vali guruhchi'), findsNothing);
-    expect(
-        find.widgetWithText(CheckboxListTile, 'Soli guruhchi'), findsNothing);
+    expect(find.byKey(const Key('worker-group-worker-picker')), findsOneWidget);
+    expect(find.text('Vali guruhchi'), findsNothing);
+    expect(find.text('Soli guruhchi'), findsNothing);
     expect(find.text('ishchilar guruhlarga taqsimlanib bo‘lingan'),
         findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
@@ -318,8 +327,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined).last);
     await tester.pumpAndSettle();
 
-    expect(
-        find.widgetWithText(CheckboxListTile, 'Yangi ishchi'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('worker-group-worker-picker')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Yangi ishchi'), findsOneWidget);
   });
 
   testWidgets('worker without dependencies is deactivated after confirmation', (

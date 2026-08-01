@@ -1311,12 +1311,16 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = group.workerIds.toSet();
-    final visibleWorkers = [
+    final visibleWorkers = _visibleWorkers();
+    final selectedWorkerNames = [
       for (final worker in workers)
-        if (selected.contains(worker.id) ||
-            !assignedWorkerGroups.containsKey(worker.id))
-          worker,
+        if (selected.contains(worker.id)) worker.name,
     ];
+    final workerFieldValue = selectedWorkerNames.isEmpty
+        ? selected.isEmpty
+            ? 'Biriktirilmagan'
+            : '${selected.length} ta ishchi'
+        : selectedWorkerNames.join(', ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1340,42 +1344,21 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Center(child: Text('Ishchi topilmadi')),
             )
-          else if (visibleWorkers.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Text('ishchilar guruhlarga taqsimlanib bo‘lingan'),
-              ),
-            )
-          else
-            for (final worker in visibleWorkers)
-              Material(
-                type: MaterialType.transparency,
-                child: CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  value: selected.contains(worker.id),
-                  title: Text(worker.name),
-                  subtitle: Text(
-                    assignedWorkerGroups[worker.id] == null
-                        ? worker.level
-                        : '${assignedWorkerGroups[worker.id]} guruhga ulangan',
-                  ),
-                  onChanged: (checked) {
-                    final next = selected.toSet();
-                    if (checked == true) {
-                      next.add(worker.id);
-                    } else {
-                      next.remove(worker.id);
-                    }
-                    onChanged(
-                      group.copyWith(
-                        workerIds: next.toList(growable: false),
-                      ),
-                    );
-                  },
+          else ...[
+            _WorkerGroupWorkerPickerField(
+              value: workerFieldValue,
+              onTap: visibleWorkers.isEmpty
+                  ? null
+                  : () => unawaited(_openWorkerPicker(context)),
+            ),
+            if (visibleWorkers.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text('ishchilar guruhlarga taqsimlanib bo‘lingan'),
                 ),
               ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1414,6 +1397,106 @@ class _WorkerGroupExpandedControls extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  List<AdminWorker> _visibleWorkers() {
+    final selected = group.workerIds.toSet();
+    return [
+      for (final worker in workers)
+        if (selected.contains(worker.id) ||
+            !assignedWorkerGroups.containsKey(worker.id))
+          worker,
+    ];
+  }
+
+  Future<void> _openWorkerPicker(BuildContext context) async {
+    final visibleWorkers = _visibleWorkers();
+    if (visibleWorkers.isEmpty) {
+      return;
+    }
+    final selected = group.workerIds.toSet();
+    final picked = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (sheetContext) {
+        return M3AsyncPickerSheet<AdminWorker>(
+          title: 'Ishchi qo‘shish',
+          supportingText: 'Boshqa guruhlarga biriktirilmagan ishchilar',
+          hintText: 'Ishchi qidiring',
+          pageSize: visibleWorkers.isEmpty ? 1 : visibleWorkers.length,
+          loadPage: (query, offset, limit) async {
+            final needle = query.trim().toLowerCase();
+            final filtered = visibleWorkers.where((worker) {
+              return needle.isEmpty ||
+                  worker.name.toLowerCase().contains(needle) ||
+                  worker.level.toLowerCase().contains(needle);
+            }).toList(growable: false);
+            return filtered.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (worker) => worker.name,
+          itemSubtitle: (worker) => worker.level,
+          itemKey: (worker) => worker.id,
+          itemSelected: (worker) => selected.contains(worker.id),
+          initialSelectedKeys: selected.map<Object>((id) => id).toSet(),
+          multiSelectOnTap: true,
+          onSelected: (worker) => Navigator.of(sheetContext).pop({worker.id}),
+          onMultiSelected: (items) => Navigator.of(sheetContext).pop(
+            items.map((worker) => worker.id).toSet(),
+          ),
+          selectedCountLabel: (count) => '$count ta ishchi tanlandi',
+          confirmSelectionTooltip: 'Ishchilarni tasdiqlash',
+        );
+      },
+    );
+    if (picked == null) {
+      return;
+    }
+    onChanged(group.copyWith(workerIds: picked.toList(growable: false)));
+  }
+}
+
+class _WorkerGroupWorkerPickerField extends StatelessWidget {
+  const _WorkerGroupWorkerPickerField({
+    required this.value,
+    required this.onTap,
+  });
+
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      key: const Key('worker-group-worker-picker'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: appSurfaceInputDecoration(
+          context,
+          labelText: 'Ishchi qo‘shish',
+          prefixIcon: const Icon(Icons.person_add_alt_1_rounded),
+          suffixIcon: const Icon(Icons.expand_more_rounded),
+        ).copyWith(enabled: onTap != null),
+        child: Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color:
+                    onTap == null ? scheme.onSurfaceVariant : scheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
     );
   }
 }

@@ -411,6 +411,8 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.itemSelected,
     this.selectedCountLabel,
     this.confirmSelectionTooltip,
+    this.multiSelectOnTap = false,
+    this.initialSelectedKeys = const <Object>{},
   });
 
   static final Map<String, _AsyncPickerMemoryCache<dynamic>> _memoryCache =
@@ -437,6 +439,8 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final bool Function(T item)? itemSelected;
   final String Function(int count)? selectedCountLabel;
   final String? confirmSelectionTooltip;
+  final bool multiSelectOnTap;
+  final Set<Object> initialSelectedKeys;
 
   @override
   State<M3AsyncPickerSheet<T>> createState() => _M3AsyncPickerSheetState<T>();
@@ -453,6 +457,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
+  bool _initialSelectionHydrated = false;
   Object? _error;
   List<T> _items = <T>[];
   Map<String, int> _queryRankByItem = <String, int>{};
@@ -529,6 +534,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
       }
       setState(() {
         _items = reset ? result.items : [..._items, ...result.items];
+        _hydrateInitialSelection(_items);
         _queryRankByItem = reset
             ? result.queryRankByItem
             : {..._queryRankByItem, ...result.queryRankByItem};
@@ -590,6 +596,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     _loading = false;
     _loadingMore = false;
     _error = null;
+    _hydrateInitialSelection(_items);
     return true;
   }
 
@@ -780,6 +787,19 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
     return widget.itemKey?.call(item) ?? _itemIdentity(item);
   }
 
+  void _hydrateInitialSelection(Iterable<T> items) {
+    if (_initialSelectionHydrated) {
+      return;
+    }
+    for (final item in items) {
+      final key = _selectionKey(item);
+      if (widget.initialSelectedKeys.contains(key)) {
+        _selectedItems[key] = item;
+      }
+    }
+    _initialSelectionHydrated = true;
+  }
+
   void _toggleSelection(T item) {
     if (widget.onMultiSelected == null) {
       return;
@@ -795,7 +815,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   }
 
   void _handleItemTap(T item) {
-    if (_selectedItems.isNotEmpty) {
+    if (widget.onMultiSelected != null &&
+        (widget.multiSelectOnTap || _selectedItems.isNotEmpty)) {
       _toggleSelection(item);
       return;
     }
@@ -804,7 +825,8 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
 
   void _confirmMultiSelection() {
     final callback = widget.onMultiSelected;
-    if (callback == null || _selectedItems.isEmpty) {
+    if (callback == null ||
+        (_selectedItems.isEmpty && !widget.multiSelectOnTap)) {
       return;
     }
     callback(List<T>.unmodifiable(_selectedItems.values));
@@ -1100,7 +1122,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                       ],
                     ),
                   ),
-                  if (_selectedItems.isNotEmpty) ...[
+                  if (widget.onMultiSelected != null &&
+                      (_selectedItems.isNotEmpty ||
+                          widget.multiSelectOnTap)) ...[
                     const SizedBox(width: 12),
                     Checkbox(
                       value: selected,
@@ -1158,7 +1182,9 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                             style: theme.textTheme.titleLarge,
                           ),
                         ),
-                        if (_selectedItems.isNotEmpty)
+                        if (widget.onMultiSelected != null &&
+                            (_selectedItems.isNotEmpty ||
+                                widget.multiSelectOnTap))
                           IconButton.filled(
                             onPressed: _confirmMultiSelection,
                             tooltip: widget.confirmSelectionTooltip,
