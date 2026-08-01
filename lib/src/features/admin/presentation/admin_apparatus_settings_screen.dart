@@ -79,9 +79,8 @@ class _AdminApparatusSettingsScreenState
   String? _editingApparatusId;
   List<AdminApparatusCapabilityProfile> _editingCapabilityProfiles = const [];
   String? _expandedGroupName;
-  StateSetter? _createEditorSheetSetState;
-  VoidCallback? _closeCreateEditorSheet;
-  bool _createEditorSheetOpen = false;
+  AdminApparatus? _expandedApparatusSettings;
+  bool _createEditorVisible = false;
   bool _focusEditorOpened = false;
 
   @override
@@ -260,13 +259,15 @@ class _AdminApparatusSettingsScreenState
           .toSet();
       _editingCapabilityProfiles = apparatus.capabilityProfiles;
       _apparatusColorStations.text = apparatus.colorStations?.toString() ?? '';
+      _expandedApparatusSettings = null;
+      _createEditorVisible = true;
     });
     if (_tabController.index != 0) {
       _tabController.animateTo(0);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(_showApparatusEditor());
+        _apparatusNameFocus.requestFocus();
       }
     });
   }
@@ -275,7 +276,6 @@ class _AdminApparatusSettingsScreenState
     if (mounted) {
       setState(update);
     }
-    _createEditorSheetSetState?.call(() {});
   }
 
   void _maybeOpenFocusedEditor() {
@@ -285,7 +285,7 @@ class _AdminApparatusSettingsScreenState
     _focusEditorOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(_showApparatusEditor());
+        _showApparatusEditor();
       }
     });
   }
@@ -302,75 +302,29 @@ class _AdminApparatusSettingsScreenState
     });
   }
 
-  Future<void> _showApparatusEditor() async {
-    if (_createEditorSheetOpen) {
-      return;
-    }
-    _createEditorSheetOpen = true;
-    var focusRequested = false;
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (sheetContext) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              _createEditorSheetSetState = setSheetState;
-              _closeCreateEditorSheet = () => Navigator.of(sheetContext).pop();
-              if (!focusRequested) {
-                focusRequested = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    _apparatusNameFocus.requestFocus();
-                  }
-                });
-              }
-              final height = MediaQuery.sizeOf(context).height;
-              final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-              return Padding(
-                padding: EdgeInsets.only(bottom: keyboardInset),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: height * 0.9),
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _editingApparatusId == null
-                                  ? 'Aparat qo\'shish'
-                                  : 'Aparatni tahrirlash',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Yopish',
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
-                      ),
-                      _buildCreateEditor(context),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      _createEditorSheetSetState = null;
-      _closeCreateEditorSheet = null;
-      _createEditorSheetOpen = false;
-    }
+  void _showApparatusEditor() {
+    _updateCreateEditorState(() {
+      _expandedApparatusSettings = null;
+      _createEditorVisible = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _apparatusNameFocus.requestFocus();
+      }
+    });
+  }
+
+  void _closeCreateEditor() {
+    _updateCreateEditorState(() {
+      _createEditorVisible = false;
+      _editingApparatusId = null;
+      _apparatusName.clear();
+      _apparatusColorStations.clear();
+      _selectedApparatusFamily = null;
+      _selectedApparatusKind = null;
+      _selectedApparatusCapabilities = {};
+      _editingCapabilityProfiles = const [];
+    });
   }
 
   Future<void> _pickApparatusFamily() async {
@@ -529,20 +483,12 @@ class _AdminApparatusSettingsScreenState
     }
   }
 
-  Future<void> _showApparatusSettings(AdminApparatus apparatus) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => _ApparatusSettingsSheet(
-        apparatus: apparatus,
-        groups: _groups,
-        currentGroupName: _groupOwningApparatus(apparatus.name),
-        onAssignGroup: (groupName) =>
-            _assignApparatusToGroup(apparatus, groupName),
-      ),
-    );
+  void _toggleApparatusSettings(AdminApparatus apparatus) {
+    _updateCreateEditorState(() {
+      _createEditorVisible = false;
+      _expandedApparatusSettings =
+          _expandedApparatusSettings?.id == apparatus.id ? null : apparatus;
+    });
   }
 
   Future<void> _save() async {
@@ -688,12 +634,10 @@ class _AdminApparatusSettingsScreenState
         _selectedApparatusKind = null;
         _selectedApparatusCapabilities = {};
         _editingCapabilityProfiles = const [];
+        _createEditorVisible = false;
+        _expandedApparatusSettings = null;
       });
       _saveCache();
-      final closeEditor = _closeCreateEditorSheet;
-      _createEditorSheetSetState = null;
-      _closeCreateEditorSheet = null;
-      closeEditor?.call();
       showAdminTopNotice(
         context,
         previousId == null
@@ -713,6 +657,7 @@ class _AdminApparatusSettingsScreenState
 
   Widget _buildCreateTab(BuildContext context, double bottomPadding) {
     final scheme = Theme.of(context).colorScheme;
+    final selectedApparatus = _expandedApparatusSettings;
     return ColoredBox(
       color: AppTheme.shellStart(context),
       child: ListView(
@@ -729,11 +674,31 @@ class _AdminApparatusSettingsScreenState
                 ? null
                 : () {
                     _clearApparatusEditor();
-                    unawaited(_showApparatusEditor());
+                    _showApparatusEditor();
                   },
             icon: const Icon(Icons.add_circle_outline_rounded),
             label: const Text('Aparat qo\'shish'),
           ),
+          if (_createEditorVisible) ...[
+            const SizedBox(height: 10),
+            _buildCreateEditorCard(context),
+          ],
+          if (selectedApparatus != null) ...[
+            const SizedBox(height: 10),
+            _ApparatusSettingsCard(
+              key: ValueKey(selectedApparatus.id),
+              apparatus: selectedApparatus,
+              groups: _groups,
+              currentGroupName: _groupOwningApparatus(selectedApparatus.name),
+              onClose: () => _updateCreateEditorState(
+                () => _expandedApparatusSettings = null,
+              ),
+              onAssignGroup: (groupName) => _assignApparatusToGroup(
+                selectedApparatus,
+                groupName,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             'Mavjud aparatlar',
@@ -764,7 +729,7 @@ class _AdminApparatusSettingsScreenState
                       _apparatus.length,
                     ),
                     apparatus: _apparatus[index],
-                    onTap: () => _showApparatusSettings(_apparatus[index]),
+                    onTap: () => _toggleApparatusSettings(_apparatus[index]),
                     onEdit: _apparatus[index].isDefault
                         ? null
                         : () => _editApparatus(_apparatus[index]),
@@ -772,6 +737,41 @@ class _AdminApparatusSettingsScreenState
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreateEditorCard(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _editingApparatusId == null
+                        ? 'Aparat qo\'shish'
+                        : 'Aparatni tahrirlash',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Yopish',
+                  onPressed: _closeCreateEditor,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            _buildCreateEditor(context),
+          ],
+        ),
       ),
     );
   }
@@ -803,8 +803,7 @@ class _AdminApparatusSettingsScreenState
                   ),
                   TextButton(
                     onPressed: () {
-                      _clearApparatusEditor();
-                      _closeCreateEditorSheet?.call();
+                      _closeCreateEditor();
                     },
                     child: const Text('Bekor qilish'),
                   ),
@@ -1522,25 +1521,28 @@ class _ApparatusSelectRow extends StatelessWidget {
   }
 }
 
-class _ApparatusSettingsSheet extends StatefulWidget {
-  const _ApparatusSettingsSheet({
+class _ApparatusSettingsCard extends StatefulWidget {
+  const _ApparatusSettingsCard({
+    super.key,
     required this.apparatus,
     required this.groups,
     required this.currentGroupName,
+    required this.onClose,
     required this.onAssignGroup,
   });
 
   final AdminApparatus apparatus;
   final List<AdminApparatusGroup> groups;
   final String? currentGroupName;
+  final VoidCallback onClose;
   final Future<void> Function(String? groupName) onAssignGroup;
 
   @override
-  State<_ApparatusSettingsSheet> createState() =>
-      _ApparatusSettingsSheetState();
+  State<_ApparatusSettingsCard> createState() =>
+      _ApparatusSettingsCardState();
 }
 
-class _ApparatusSettingsSheetState extends State<_ApparatusSettingsSheet> {
+class _ApparatusSettingsCardState extends State<_ApparatusSettingsCard> {
   late String _selectedGroupName;
   bool _savingGroup = false;
 
@@ -1649,21 +1651,21 @@ class _ApparatusSettingsSheetState extends State<_ApparatusSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 24;
-    return DefaultTabController(
-      length: 3,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-        ),
+    final cardHeight =
+        (MediaQuery.sizeOf(context).height * 0.68).clamp(420.0, 640.0);
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 16;
+    return SizedBox(
+      height: cardHeight.toDouble(),
+      child: DefaultTabController(
+        length: 3,
         child: Material(
           color: scheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
                 child: Row(
                   children: [
                     _apparatusLeading(context, widget.apparatus.name),
@@ -1688,6 +1690,11 @@ class _ApparatusSettingsSheetState extends State<_ApparatusSettingsSheet> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Yopish',
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
