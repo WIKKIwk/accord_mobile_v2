@@ -59,7 +59,7 @@ void main() {
       const UsbRpsPrintRequest(
         epc: '303132333435363738394142',
         itemCode: 'ITEM-1',
-        itemName: 'Green Tea',
+        itemName: 'Қизил Ғишт',
         warehouse: 'Stores - A',
         printer: 'xp-p323b',
         printMode: 'label',
@@ -78,7 +78,16 @@ void main() {
       captured?.arguments,
       containsPair('epc', '303132333435363738394142'),
     );
+    expect(captured?.arguments, containsPair('item_name', "QIZIL G'ISHT"));
     expect(captured?.arguments, isNot(contains('bytes')));
+  });
+
+  test('transliterates Cyrillic text for XP-P323B built-in fonts', () {
+    expect(
+      bluetoothPrinterText('Қизил Ғишт Ўзбекистон Ҳисоб Чоп Шакли'),
+      "QIZIL G'ISHT O'ZBEKISTON HISOB CHOP SHAKLI",
+    );
+    expect(bluetoothPrinterText('Щ Ә Ӯ І Ї'), 'SHCH A U I I');
   });
 
   test('receives iOS printers incrementally and then receives scan completion',

@@ -17,12 +17,14 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../logic/production_map_chain.dart';
 import '../models/production_map_models.dart';
 import 'raw_material_scan_dialog.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_summary_card.dart';
 import 'widgets/admin_drawer_navigation.dart';
+import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_top_notice.dart';
 import 'package:flutter/material.dart';
 
@@ -122,10 +124,17 @@ class _AdminRawMaterialAssignmentPanelState
   String? _expandedAssignmentKey;
   String _unlinkingAssignmentKey = '';
   String _manualCandidatesOrderId = '';
+  String _manualCandidatesApparatus = '';
   String _manualAssigningBarcode = '';
   Object? _manualCandidatesError;
   bool _manualCandidatesLoading = false;
   bool _initialBarcodeHandled = false;
+  List<String> _apparatusOptions = const [];
+  String _selectedApparatus = '';
+  bool _apparatusFilterExpanded = false;
+
+  bool get _apparatusFilterEnabled =>
+      AppSession.instance.profile?.role == UserRole.materialTaminotchi;
 
   @override
   void initState() {
@@ -194,6 +203,7 @@ class _AdminRawMaterialAssignmentPanelState
     if (_selectedOrderId.isEmpty && orders.isNotEmpty) {
       _selectedOrderId = orders.first.map.id.trim();
     }
+    _syncApparatusFilter(orders);
     final data = _RawMaterialAssignmentData(
       orders: orders,
       assignments: assignments,
@@ -210,23 +220,33 @@ class _AdminRawMaterialAssignmentPanelState
 
   Future<void> _loadManualCandidates({bool force = false}) async {
     final orderId = _selectedOrderId.trim();
+    final apparatus = _selectedApparatus.trim();
     if (orderId.isEmpty ||
-        (_manualCandidatesLoading && _manualCandidatesOrderId == orderId) ||
+        (_manualCandidatesLoading &&
+            _manualCandidatesOrderId == orderId &&
+            _sameApparatus(_manualCandidatesApparatus, apparatus)) ||
         (!force &&
             _manualCandidatesOrderId == orderId &&
+            _sameApparatus(_manualCandidatesApparatus, apparatus) &&
             _manualCandidatesError == null)) {
       return;
     }
     setState(() {
       _manualCandidatesOrderId = orderId;
+      _manualCandidatesApparatus = apparatus;
       _manualCandidatesLoading = true;
       _manualCandidatesError = null;
       _manualCandidates = const [];
     });
     try {
-      final candidates = await MobileApi.instance
-          .adminRawMaterialAssignmentCandidates(orderId: orderId);
-      if (!mounted || _selectedOrderId.trim() != orderId) {
+      final candidates =
+          await MobileApi.instance.adminRawMaterialAssignmentCandidates(
+        orderId: orderId,
+        apparatus: apparatus,
+      );
+      if (!mounted ||
+          _selectedOrderId.trim() != orderId ||
+          !_sameApparatus(_selectedApparatus, apparatus)) {
         return;
       }
       setState(() {
@@ -234,15 +254,88 @@ class _AdminRawMaterialAssignmentPanelState
         _manualCandidatesError = null;
       });
     } catch (error) {
-      if (!mounted || _selectedOrderId.trim() != orderId) {
+      if (!mounted ||
+          _selectedOrderId.trim() != orderId ||
+          !_sameApparatus(_selectedApparatus, apparatus)) {
         return;
       }
       setState(() => _manualCandidatesError = error);
     } finally {
-      if (mounted && _selectedOrderId.trim() == orderId) {
+      if (mounted &&
+          _selectedOrderId.trim() == orderId &&
+          _sameApparatus(_selectedApparatus, apparatus)) {
         setState(() => _manualCandidatesLoading = false);
       }
     }
+  }
+
+  void _syncApparatusFilter(List<ProductionMapSaved> orders) {
+    if (!_apparatusFilterEnabled) {
+      _apparatusOptions = const [];
+      _selectedApparatus = '';
+      _apparatusFilterExpanded = false;
+      return;
+    }
+    ProductionMapSaved? selectedOrder;
+    for (final order in orders) {
+      if (order.map.id.trim() == _selectedOrderId.trim()) {
+        selectedOrder = order;
+        break;
+      }
+    }
+    final options = selectedOrder == null
+        ? const <String>[]
+        : productionMapAuthorizedOrderApparatus(
+            map: selectedOrder.map,
+            assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
+                const <String>[],
+          );
+    _apparatusOptions = options;
+    if (options.isEmpty || !_apparatusMatchesAny(options, _selectedApparatus)) {
+      _selectedApparatus = options.isEmpty ? '' : options.first;
+    }
+    if (_apparatusOptions.isEmpty) {
+      _apparatusFilterExpanded = false;
+    }
+  }
+
+  void _selectApparatus(String apparatus) {
+    if (_saving ||
+        _manualAssigningBarcode.isNotEmpty ||
+        _manualCandidatesLoading) {
+      return;
+    }
+    final normalized = apparatus.trim();
+    if (!_apparatusMatchesAny(_apparatusOptions, normalized)) {
+      return;
+    }
+    if (_sameApparatus(_selectedApparatus, normalized)) {
+      setState(() => _apparatusFilterExpanded = false);
+      return;
+    }
+    setState(() {
+      _selectedApparatus = normalized;
+      _apparatusFilterExpanded = false;
+      _manualCandidatesOrderId = '';
+      _manualCandidatesApparatus = '';
+      _manualCandidates = const [];
+      _manualCandidatesError = null;
+    });
+    unawaited(_loadManualCandidates(force: true));
+  }
+
+  bool _apparatusMatchesAny(Iterable<String> options, String apparatus) {
+    return apparatus.trim().isNotEmpty &&
+        options.any((option) => _sameApparatus(option, apparatus));
+  }
+
+  bool _sameApparatus(String left, String right) {
+    final normalizedLeft = left.trim();
+    final normalizedRight = right.trim();
+    if (normalizedLeft.isEmpty || normalizedRight.isEmpty) {
+      return normalizedLeft.isEmpty && normalizedRight.isEmpty;
+    }
+    return productionMapStationTitlesMatch(normalizedLeft, normalizedRight);
   }
 
   String _selectedOrderLabel(List<ProductionMapSaved> orders) {
@@ -300,7 +393,9 @@ class _AdminRawMaterialAssignmentPanelState
     }
     setState(() {
       _selectedOrderId = picked.map.id.trim();
+      _syncApparatusFilter(orders);
       _manualCandidatesOrderId = '';
+      _manualCandidatesApparatus = '';
       _manualCandidates = const [];
       _manualCandidatesError = null;
     });
@@ -722,7 +817,13 @@ class _AdminRawMaterialAssignmentPanelState
   Widget _buildManualTab(_RawMaterialAssignmentData data) {
     final linked = _assignments
         .where(
-          (assignment) => assignment.orderId.trim() == _selectedOrderId.trim(),
+          (assignment) =>
+              assignment.orderId.trim() == _selectedOrderId.trim() &&
+              (_selectedApparatus.trim().isEmpty ||
+                  productionMapStationTitlesMatch(
+                    assignment.apparatus,
+                    _selectedApparatus,
+                  )),
         )
         .toList(growable: false);
     return ListView(
@@ -734,11 +835,58 @@ class _AdminRawMaterialAssignmentPanelState
       ),
       children: [
         AppSegmentSurfaceCard(
-          child: _AssignmentOrderPicker(
-            orders: data.orders,
-            selectedOrderLabel: _selectedOrderLabel(data.orders),
-            disabled: _saving || _manualAssigningBarcode.isNotEmpty,
-            onPickOrder: () => _openOrderPicker(data.orders),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AssignmentOrderPicker(
+                orders: data.orders,
+                selectedOrderLabel: _selectedOrderLabel(data.orders),
+                disabled: _saving || _manualAssigningBarcode.isNotEmpty,
+                onPickOrder: () => _openOrderPicker(data.orders),
+              ),
+              if (_apparatusOptions.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                IgnorePointer(
+                  ignoring: _saving ||
+                      _manualAssigningBarcode.isNotEmpty ||
+                      _manualCandidatesLoading,
+                  child: AdminExpandableFilterChip<String>(
+                    label: 'Aparat',
+                    emptyLabel: 'Tanlang',
+                    icon: Icons.precision_manufacturing_outlined,
+                    selectedValue: _selectedApparatus.trim().isEmpty
+                        ? null
+                        : _selectedApparatus,
+                    options: [
+                      for (final apparatus in _apparatusOptions)
+                        AdminFilterChipOption<String>(
+                          value: apparatus,
+                          label: apparatus,
+                          key: ValueKey(
+                            'raw-material-apparatus-option-$apparatus',
+                          ),
+                        ),
+                    ],
+                    expanded: _apparatusFilterExpanded,
+                    onToggle: () {
+                      if (_saving ||
+                          _manualAssigningBarcode.isNotEmpty ||
+                          _manualCandidatesLoading) {
+                        return;
+                      }
+                      setState(
+                        () => _apparatusFilterExpanded =
+                            !_apparatusFilterExpanded,
+                      );
+                    },
+                    onSelect: _selectApparatus,
+                    padding: EdgeInsets.zero,
+                    chipKey: const ValueKey('raw-material-apparatus-filter'),
+                    optionKeyPrefix: 'raw-material-apparatus-option',
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         const _ManualListSectionTitle(title: 'Ulanmagan'),

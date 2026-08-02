@@ -40,12 +40,102 @@ class NativeBluetoothPrinter {
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printLabel',
       {
-        ...request.toJson(),
+        ..._bluetoothLabelPayload(request),
         'mac_address': printer.address,
       },
     );
     return raw ?? const {};
   }
+}
+
+Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
+  final payload = request.toJson();
+  for (final key in const <String>[
+    'item_code',
+    'item_name',
+    'warehouse',
+    'unit',
+    'executor_name',
+    'progress_unit',
+  ]) {
+    final value = payload[key];
+    if (value is String) {
+      payload[key] = bluetoothPrinterText(value);
+    }
+  }
+  return payload;
+}
+
+/// XP-P323B's built-in TSPL fonts are ASCII-oriented. Keep the Bluetooth
+/// payload printable even when the source item name is Uzbek Cyrillic.
+String bluetoothPrinterText(String value) {
+  final normalized = value
+      .replaceAll('‘', "'")
+      .replaceAll('’', "'")
+      .replaceAll('ʼ', "'")
+      .replaceAll('ʻ', "'")
+      .replaceAll('`', "'")
+      .replaceAll('"', "'")
+      .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+      .trim()
+      .toUpperCase();
+  final out = StringBuffer();
+  for (final rune in normalized.runes) {
+    final character = String.fromCharCode(rune);
+    out.write(switch (character) {
+      'А' => 'A',
+      'Б' => 'B',
+      'В' => 'V',
+      'Г' => 'G',
+      'Ғ' => "G'",
+      'Д' => 'D',
+      'Е' => 'E',
+      'Ё' => 'YO',
+      'Ж' => 'J',
+      'З' => 'Z',
+      'И' => 'I',
+      'Й' => 'Y',
+      'К' => 'K',
+      'Қ' => 'Q',
+      'Л' => 'L',
+      'М' => 'M',
+      'Н' => 'N',
+      'О' => 'O',
+      'П' => 'P',
+      'Р' => 'R',
+      'С' => 'S',
+      'Т' => 'T',
+      'У' => 'U',
+      'Ў' => "O'",
+      'Ф' => 'F',
+      'Х' => 'X',
+      'Ҳ' => 'H',
+      'Ц' => 'TS',
+      'Ч' => 'CH',
+      'Ш' => 'SH',
+      'Щ' => 'SHCH',
+      'Ъ' || 'Ь' => '',
+      'Ы' => 'Y',
+      'Э' => 'E',
+      'Ю' => 'YU',
+      'Я' => 'YA',
+      'Ә' => 'A',
+      'Ҷ' => 'J',
+      'Җ' => 'J',
+      'Ҡ' => 'Q',
+      'Ң' => 'N',
+      'Ө' => 'O',
+      'Ү' || 'Ұ' => 'U',
+      'Һ' => 'H',
+      'І' || 'Ї' => 'I',
+      'Є' => 'E',
+      'Ґ' => 'G',
+      'Ӣ' => 'I',
+      'Ӯ' => 'U',
+      _ => rune >= 0x20 && rune <= 0x7e ? character : '?',
+    });
+  }
+  return out.toString().replaceAll(RegExp(r'\s+'), ' ');
 }
 
 class BluetoothPrinterScanEvent {

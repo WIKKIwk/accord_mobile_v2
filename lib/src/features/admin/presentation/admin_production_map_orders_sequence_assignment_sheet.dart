@@ -23,18 +23,22 @@ class _SequenceRawMaterialAssignmentSheetState
   String _loadError = '';
   String _actionMessage = '';
   String _assigningBarcode = '';
+  String _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+  String _lastQrScanValue = '';
+  DateTime? _lastQrScanAt;
   final Set<String> _selectedCandidateBarcodes = <String>{};
   late final List<String> _apparatusOptions;
   String _selectedApparatus = '';
   bool _apparatusFilterExpanded = false;
+  bool _qrScannerVisible = false;
   bool _bulkAssigning = false;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _apparatusOptions = _sequenceAuthorizedOrderApparatus(
-      order: widget.order,
+    _apparatusOptions = productionMapAuthorizedOrderApparatus(
+      map: widget.order.map,
       assignedApparatus: widget.assignedApparatus,
     );
     _selectedApparatus = _apparatusOptions.firstWhere(
@@ -220,6 +224,80 @@ class _SequenceRawMaterialAssignmentSheetState
     });
   }
 
+  void _toggleQrScanner() {
+    if (_bulkAssigning || _assigningBarcode.isNotEmpty) {
+      return;
+    }
+    setState(() {
+      _qrScannerVisible = !_qrScannerVisible;
+      if (_qrScannerVisible) {
+        _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+        _lastQrScanValue = '';
+        _lastQrScanAt = null;
+      }
+    });
+  }
+
+  Future<void> _handleQrScan(String rawValue) async {
+    if (_loading || _bulkAssigning || _assigningBarcode.isNotEmpty) {
+      return;
+    }
+    final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
+    final key = _barcodeKey(normalized);
+    if (key.isEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastQrScanValue == key &&
+        _lastQrScanAt != null &&
+        now.difference(_lastQrScanAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastQrScanValue = key;
+    _lastQrScanAt = now;
+
+    AdminRawMaterialAssignmentCandidate? matchedCandidate;
+    for (final candidate in _candidates) {
+      if (_candidateKey(candidate) == key) {
+        matchedCandidate = candidate;
+        break;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    if (matchedCandidate == null) {
+      setState(
+        () => _qrScannerStatus = 'Bu QR mos homashyolar ro‘yxatida topilmadi',
+      );
+      return;
+    }
+    final apparatus = _selectedApparatus.trim();
+    if (apparatus.isEmpty ||
+        !_candidateApparatusOptions(matchedCandidate).any(
+          (option) => productionMapStationTitlesMatch(option, apparatus),
+        )) {
+      setState(
+        () => _qrScannerStatus = 'Bu homashyo tanlangan aparatga mos emas',
+      );
+      return;
+    }
+
+    final alreadySelected = _selectedCandidateBarcodes.contains(key);
+    final title = matchedCandidate.itemName.trim().isEmpty
+        ? matchedCandidate.itemCode.trim()
+        : matchedCandidate.itemName.trim();
+    setState(() {
+      _selectedCandidateBarcodes.add(key);
+      _actionMessage = '';
+      _qrScannerStatus = alreadySelected
+          ? 'Bu homashyo allaqachon tanlangan '
+              '(${_selectedCandidateBarcodes.length} ta)'
+          : '${title.isEmpty ? 'Homashyo' : title} tanlandi '
+              '(${_selectedCandidateBarcodes.length} ta)';
+    });
+  }
+
   void _selectApparatus(String apparatus) {
     if (_bulkAssigning || _assigningBarcode.isNotEmpty) {
       return;
@@ -237,6 +315,9 @@ class _SequenceRawMaterialAssignmentSheetState
       _candidates = const [];
       _assignments = const [];
       _actionMessage = '';
+      _qrScannerStatus = 'Mos homashyo QR kodini tirqishga olib keling';
+      _lastQrScanValue = '';
+      _lastQrScanAt = null;
     });
     unawaited(_load());
   }
@@ -326,6 +407,10 @@ class _SequenceRawMaterialAssignmentSheetState
         if (issue == null) {
           _selectedCandidateBarcodes.clear();
           _actionMessage = '$linkedCount ta homashyo orderga ulandi';
+          if (_qrScannerVisible) {
+            _qrScannerStatus =
+                '$linkedCount ta homashyo orderga ulandi. Yana QR scan qiling';
+          }
         } else {
           _actionMessage = linkedCount > 0
               ? '$linkedCount ta homashyo ulandi. $issue'
@@ -355,8 +440,22 @@ class _SequenceRawMaterialAssignmentSheetState
               children: [
                 _SequenceAssignmentSheetHeader(
                   order: widget.order,
+                  scannerVisible: _qrScannerVisible,
+                  onToggleScanner: _toggleQrScanner,
                   onClose: () => Navigator.of(context).pop(),
                 ),
+                if (_qrScannerVisible)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: ProductionQuickScannerPanel(
+                      key: const ValueKey('sequence-assignment-qr-scanner'),
+                      statusText: _qrScannerStatus,
+                      busy: _loading ||
+                          _bulkAssigning ||
+                          _assigningBarcode.isNotEmpty,
+                      onCodeDetected: _handleQrScan,
+                    ),
+                  ),
                 _SequenceAssignmentApparatusFilter(
                   options: _apparatusOptions,
                   selectedApparatus: _selectedApparatus,
@@ -546,10 +645,14 @@ class _SequenceRawMaterialAssignmentSheetState
 class _SequenceAssignmentSheetHeader extends StatelessWidget {
   const _SequenceAssignmentSheetHeader({
     required this.order,
+    required this.scannerVisible,
+    required this.onToggleScanner,
     required this.onClose,
   });
 
   final ProductionMapSaved order;
+  final bool scannerVisible;
+  final VoidCallback onToggleScanner;
   final VoidCallback onClose;
 
   @override
@@ -578,6 +681,14 @@ class _SequenceAssignmentSheetHeader extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            key: const ValueKey('sequence-assignment-qr-scan'),
+            tooltip:
+                scannerVisible ? 'QR tirqishini yopish' : 'Homashyo QR scan',
+            onPressed: onToggleScanner,
+            color: scannerVisible ? theme.colorScheme.primary : null,
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+          ),
           IconButton(
             tooltip: 'Yopish',
             onPressed: onClose,
@@ -699,7 +810,7 @@ class _SequenceAssignmentIntro extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Bir nechta ulash uchun cardni bosib turing.',
+                    'Bir nechta ulash uchun cardni bosib turing yoki yuqoridagi QR icon orqali scan qiling.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.25,
@@ -1252,27 +1363,6 @@ double? _sequenceMaximumAcceptedRollWidthMm(
     return minimumAcceptedRollWidthMm + 30;
   }
   return null;
-}
-
-List<String> _sequenceAuthorizedOrderApparatus({
-  required ProductionMapSaved order,
-  required List<String> assignedApparatus,
-}) {
-  final result = <String>[];
-  for (final stage in productionMapLinearWorkStages(order.map)) {
-    final apparatus = stage.stationTitle.trim();
-    if (apparatus.isEmpty ||
-        !assignedApparatus.any(
-          (assigned) => productionMapStationTitlesMatch(apparatus, assigned),
-        ) ||
-        result.any(
-          (existing) => productionMapStationTitlesMatch(existing, apparatus),
-        )) {
-      continue;
-    }
-    result.add(apparatus);
-  }
-  return List<String>.unmodifiable(result);
 }
 
 String _sequenceOrderLabel(ProductionMapSaved order) {

@@ -70,6 +70,27 @@ List<ProductionMapChainStage> productionMapLinearWorkStages(
   return stages;
 }
 
+List<String> productionMapAuthorizedOrderApparatus({
+  required ProductionMapDefinition map,
+  required Iterable<String> assignedApparatus,
+}) {
+  final result = <String>[];
+  for (final stage in productionMapLinearWorkStages(map)) {
+    final apparatus = stage.stationTitle.trim();
+    if (apparatus.isEmpty ||
+        !assignedApparatus.any(
+          (assigned) => productionMapStationTitlesMatch(apparatus, assigned),
+        ) ||
+        result.any(
+          (existing) => productionMapStationTitlesMatch(existing, apparatus),
+        )) {
+      continue;
+    }
+    result.add(apparatus);
+  }
+  return List<String>.unmodifiable(result);
+}
+
 String? productionMapPreviousWorkStageStation({
   required ProductionMapDefinition map,
   required String station,

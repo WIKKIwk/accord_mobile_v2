@@ -63,6 +63,7 @@ part 'admin_production_map_orders_detail_material_widgets.dart';
 part 'admin_production_map_orders_detail_map_widgets.dart';
 part 'admin_production_map_orders_move_widgets.dart';
 part 'admin_production_map_orders_closed_widgets.dart';
+part 'admin_production_map_orders_closed_log_sheet.dart';
 part 'admin_production_map_orders_apparatus_picker.dart';
 part 'admin_production_map_orders_opened_widgets.dart';
 part 'admin_production_map_orders_completion_widgets.dart';

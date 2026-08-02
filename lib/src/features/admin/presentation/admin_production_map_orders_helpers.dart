@@ -137,6 +137,12 @@ String _closedLogActionLabel(String action) {
 }
 
 String _closedLogTitle(AdminProductionOrderLogEntry log) {
+  if (log.freeze != null) {
+    return _closedLogFreezeStatusLabel(log.freeze!.status);
+  }
+  if (log.transfer != null) {
+    return 'Apparat almashtirildi';
+  }
   if (log.completedWithIssue) {
     final note = log.issueNote.trim();
     return note.isNotEmpty ? note : 'Muammo bilan yopildi';
@@ -144,7 +150,39 @@ String _closedLogTitle(AdminProductionOrderLogEntry log) {
   return _closedLogActionLabel(log.action);
 }
 
+String _closedLogApparatusLabel(AdminProductionOrderLogEntry log) {
+  final freeze = log.freeze;
+  if (freeze != null) {
+    final apparatus = freeze.targetApparatus.trim();
+    if (apparatus.isNotEmpty) {
+      return apparatus;
+    }
+  }
+  final transfer = log.transfer;
+  if (transfer != null) {
+    final from = transfer.fromApparatus.trim();
+    final to = transfer.toApparatus.trim();
+    if (from.isNotEmpty && to.isNotEmpty) {
+      return '$from → $to';
+    }
+    return to.isNotEmpty ? to : from;
+  }
+  return log.apparatus.trim();
+}
+
 String _closedLogStateLabel(AdminProductionOrderLogEntry log) {
+  final freeze = log.freeze;
+  if (freeze != null) {
+    return _closedLogFreezeStatusLabel(freeze.status);
+  }
+  final transfer = log.transfer;
+  if (transfer != null) {
+    final from = transfer.fromApparatus.trim();
+    final to = transfer.toApparatus.trim();
+    if (from.isNotEmpty && to.isNotEmpty) {
+      return '$from → $to';
+    }
+  }
   final from = log.fromState.trim();
   final to = log.toState.trim();
   if (from.isNotEmpty && to.isNotEmpty) {
@@ -154,6 +192,17 @@ String _closedLogStateLabel(AdminProductionOrderLogEntry log) {
     return to;
   }
   return from;
+}
+
+String _closedLogFreezeStatusLabel(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'pending' => 'Muzlatish so‘raldi',
+    'frozen' => 'Muzlatildi',
+    'cancelled' => 'Muzlatish bekor qilindi',
+    'unfrozen' => 'Muzlatishdan chiqarildi',
+    final value when value.isNotEmpty => 'Muzlatish: $value',
+    _ => 'Muzlatish hodisasi',
+  };
 }
 
 String _closedLogTimeLabel(int unixSeconds) {

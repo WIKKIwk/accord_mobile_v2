@@ -122,7 +122,7 @@ class _ClosedOrderTile extends StatelessWidget {
                 ),
               )
             else
-              _ClosedOrderLogList(logs: order.logs),
+              _ClosedOrderLogList(order: order, logs: order.logs),
           ],
         ),
       ),
@@ -131,8 +131,9 @@ class _ClosedOrderTile extends StatelessWidget {
 }
 
 class _ClosedOrderLogList extends StatelessWidget {
-  const _ClosedOrderLogList({required this.logs});
+  const _ClosedOrderLogList({required this.order, required this.logs});
 
+  final AdminClosedProductionOrder order;
   final List<AdminProductionOrderLogEntry> logs;
 
   @override
@@ -141,7 +142,7 @@ class _ClosedOrderLogList extends StatelessWidget {
       children: [
         for (var index = 0; index < logs.length; index++) ...[
           if (index > 0) const Divider(height: 16),
-          _ClosedOrderLogRow(log: logs[index]),
+          _ClosedOrderLogRow(order: order, log: logs[index]),
         ],
       ],
     );
@@ -149,11 +150,18 @@ class _ClosedOrderLogList extends StatelessWidget {
 }
 
 class _ClosedOrderLogRow extends StatelessWidget {
-  const _ClosedOrderLogRow({required this.log});
+  const _ClosedOrderLogRow({required this.order, required this.log});
 
+  final AdminClosedProductionOrder order;
   final AdminProductionOrderLogEntry log;
 
   IconData get _icon {
+    if (log.freeze != null) {
+      return Icons.lock_clock_rounded;
+    }
+    if (log.transfer != null) {
+      return Icons.swap_horiz_rounded;
+    }
     return switch (log.action.trim()) {
       'start' => Icons.play_arrow_rounded,
       'pause' => Icons.pause_rounded,
@@ -174,52 +182,78 @@ class _ClosedOrderLogRow extends StatelessWidget {
     );
     final state = _closedLogStateLabel(log);
     final time = _closedLogTimeLabel(log.createdAtUnix);
-    final apparatus = log.apparatus.trim();
+    final apparatus = _closedLogApparatusLabel(log);
+    final transferReason = log.transfer?.reason.trim() ?? '';
     final subtitle = [
       actor,
       if (state.isNotEmpty) state,
       if (time.isNotEmpty) time,
+      if (transferReason.isNotEmpty) 'Sabab: $transferReason',
     ].join(' • ');
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox.square(
-          dimension: 34,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.secondaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(_icon, size: 18, color: scheme.onSecondaryContainer),
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showClosedOrderLogDetails(
+          context,
+          order: order,
+          log: log,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                [
-                  _closedLogTitle(log),
-                  if (apparatus.isNotEmpty) apparatus,
-                ].join(' • '),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              SizedBox.square(
+                dimension: 34,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _icon,
+                    size: 18,
+                    color: scheme.onSecondaryContainer,
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.15,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      [
+                        _closedLogTitle(log),
+                        if (apparatus.isNotEmpty) apparatus,
+                      ].join(' • '),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: scheme.onSurfaceVariant,
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

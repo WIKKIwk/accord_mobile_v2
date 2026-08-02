@@ -1360,6 +1360,8 @@ class AdminProductionOrderLogEntry {
     required this.createdAtUnix,
     this.completedWithIssue = false,
     this.issueNote = '',
+    this.transfer,
+    this.freeze,
   });
 
   final String eventId;
@@ -1374,6 +1376,8 @@ class AdminProductionOrderLogEntry {
   final int createdAtUnix;
   final bool completedWithIssue;
   final String issueNote;
+  final AdminProductionOrderTransferDetails? transfer;
+  final AdminProductionOrderFreezeDetails? freeze;
 
   factory AdminProductionOrderLogEntry.fromJson(Map<String, dynamic> json) {
     return AdminProductionOrderLogEntry(
@@ -1389,6 +1393,94 @@ class AdminProductionOrderLogEntry {
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       completedWithIssue: json['completed_with_issue'] == true,
       issueNote: json['issue_note']?.toString() ?? '',
+      transfer: json['transfer'] is Map
+          ? AdminProductionOrderTransferDetails.fromJson(
+              (json['transfer'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+      freeze: json['freeze'] is Map
+          ? AdminProductionOrderFreezeDetails.fromJson(
+              (json['freeze'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+    );
+  }
+}
+
+class AdminProductionOrderTransferDetails {
+  const AdminProductionOrderTransferDetails({
+    required this.transferId,
+    required this.fromApparatus,
+    required this.toApparatus,
+    required this.reason,
+    required this.sessionId,
+    required this.progressBatchId,
+    required this.materialBarcodes,
+  });
+
+  final String transferId;
+  final String fromApparatus;
+  final String toApparatus;
+  final String reason;
+  final String sessionId;
+  final String progressBatchId;
+  final List<String> materialBarcodes;
+
+  factory AdminProductionOrderTransferDetails.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminProductionOrderTransferDetails(
+      transferId: json['transfer_id']?.toString() ?? '',
+      fromApparatus: json['from_apparatus']?.toString() ?? '',
+      toApparatus: json['to_apparatus']?.toString() ?? '',
+      reason: json['reason']?.toString() ?? '',
+      sessionId: json['session_id']?.toString() ?? '',
+      progressBatchId: json['progress_batch_id']?.toString() ?? '',
+      materialBarcodes: [
+        for (final item in json['material_barcodes'] as List? ?? const [])
+          item.toString(),
+      ],
+    );
+  }
+}
+
+class AdminProductionOrderFreezeDetails {
+  const AdminProductionOrderFreezeDetails({
+    required this.requestId,
+    required this.status,
+    required this.targetSessionId,
+    required this.targetApparatus,
+    required this.targetWorkerRole,
+    required this.targetWorkerRef,
+    required this.targetWorkerDisplayName,
+    required this.requestedAtUnix,
+    required this.transitionedAtUnix,
+  });
+
+  final String requestId;
+  final String status;
+  final String targetSessionId;
+  final String targetApparatus;
+  final String targetWorkerRole;
+  final String targetWorkerRef;
+  final String targetWorkerDisplayName;
+  final int requestedAtUnix;
+  final int transitionedAtUnix;
+
+  factory AdminProductionOrderFreezeDetails.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return AdminProductionOrderFreezeDetails(
+      requestId: json['request_id']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      targetSessionId: json['target_session_id']?.toString() ?? '',
+      targetApparatus: json['target_apparatus']?.toString() ?? '',
+      targetWorkerRole: json['target_worker_role']?.toString() ?? '',
+      targetWorkerRef: json['target_worker_ref']?.toString() ?? '',
+      targetWorkerDisplayName:
+          json['target_worker_display_name']?.toString() ?? '',
+      requestedAtUnix: (json['requested_at_unix'] as num?)?.toInt() ?? 0,
+      transitionedAtUnix: (json['transitioned_at_unix'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -1404,6 +1496,7 @@ class AdminClosedProductionOrder {
     required this.closedByRef,
     required this.closedByDisplayName,
     required this.logs,
+    this.progressBatches = const [],
   });
 
   final String orderId;
@@ -1415,6 +1508,7 @@ class AdminClosedProductionOrder {
   final String closedByRef;
   final String closedByDisplayName;
   final List<AdminProductionOrderLogEntry> logs;
+  final List<AdminProgressBatch> progressBatches;
 
   factory AdminClosedProductionOrder.fromJson(Map<String, dynamic> json) {
     final logsRaw = json['logs'];
@@ -1427,6 +1521,11 @@ class AdminClosedProductionOrder {
       closedByRole: json['closed_by_role']?.toString() ?? '',
       closedByRef: json['closed_by_ref']?.toString() ?? '',
       closedByDisplayName: json['closed_by_display_name']?.toString() ?? '',
+      progressBatches: [
+        for (final item in json['progress_batches'] as List? ?? const [])
+          if (item is Map)
+            AdminProgressBatch.fromJson(item.cast<String, dynamic>()),
+      ],
       logs: [
         if (logsRaw is List)
           for (final item in logsRaw)
@@ -1488,6 +1587,7 @@ class AdminProgressBatch {
     this.processedByApparatus = '',
     this.startedAtUnix = 0,
     this.completedAtUnix = 0,
+    this.payloadJson = const {},
   });
 
   final String batchId;
@@ -1528,6 +1628,7 @@ class AdminProgressBatch {
   final String processedByApparatus;
   final int startedAtUnix;
   final int completedAtUnix;
+  final Map<String, dynamic> payloadJson;
 
   factory AdminProgressBatch.fromJson(Map<String, dynamic> json) {
     return AdminProgressBatch(
@@ -1572,6 +1673,7 @@ class AdminProgressBatch {
       processedByApparatus: json['processed_by_apparatus']?.toString() ?? '',
       startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
       completedAtUnix: (json['completed_at_unix'] as num?)?.toInt() ?? 0,
+      payloadJson: _jsonObject(json['payload_json']),
     );
   }
 
@@ -1625,6 +1727,7 @@ class AdminProgressBatch {
       processedByApparatus: processedByApparatus ?? this.processedByApparatus,
       startedAtUnix: startedAtUnix,
       completedAtUnix: completedAtUnix,
+      payloadJson: payloadJson,
     );
   }
 }
@@ -1785,6 +1888,7 @@ class AdminWorkerRunSession {
     required this.workerDisplayName,
     required this.startedAtUnix,
     required this.updatedAtUnix,
+    this.payloadJson = const {},
   });
 
   final String sessionId;
@@ -1796,6 +1900,7 @@ class AdminWorkerRunSession {
   final String workerDisplayName;
   final int startedAtUnix;
   final int updatedAtUnix;
+  final Map<String, dynamic> payloadJson;
 
   factory AdminWorkerRunSession.fromJson(Map<String, dynamic> json) {
     return AdminWorkerRunSession(
@@ -1808,6 +1913,7 @@ class AdminWorkerRunSession {
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
       startedAtUnix: (json['started_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
+      payloadJson: _jsonObject(json['payload_json']),
     );
   }
 }
@@ -1927,6 +2033,15 @@ Map<String, Map<String, String>> _stringMapOfStringMaps(Object? raw) {
           for (final child in (entry.value as Map).entries)
             child.key.toString(): child.value.toString(),
       },
+  };
+}
+
+Map<String, dynamic> _jsonObject(Object? raw) {
+  if (raw is! Map) {
+    return const {};
+  }
+  return {
+    for (final entry in raw.entries) entry.key.toString(): entry.value,
   };
 }
 

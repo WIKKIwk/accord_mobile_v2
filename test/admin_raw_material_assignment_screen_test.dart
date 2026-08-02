@@ -186,6 +186,101 @@ void main() {
     }, createHttpClient: (_) => _RawMaterialAssignmentHttpClient(seenRequests));
   });
 
+  testWidgets('material assignment reuses the apparatus filter',
+      (tester) async {
+    final seenRequests = <String>[];
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.materialTaminotchi,
+      displayName: 'Materialchi',
+      legalName: '',
+      ref: 'MAT-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['raw_material.assign'],
+      assignedItemGroups: ['Kraska'],
+      assignedApparatus: ['Pechat', 'Laminatsiya'],
+    );
+
+    await HttpOverrides.runZoned(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(AppThemeVariant.kalmar),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminRawMaterialAssignmentScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('raw-material-apparatus-filter')),
+          findsOneWidget);
+      expect(find.text('Aparat: Pechat'), findsOneWidget);
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/candidates?'
+          'order_id=zakaz-1&apparatus=Pechat',
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('raw-material-apparatus-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const ValueKey('raw-material-apparatus-option-Laminatsiya'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        seenRequests,
+        contains(
+          'GET /v1/mobile/admin/raw-material-assignments/candidates?'
+          'order_id=zakaz-1&apparatus=Laminatsiya',
+        ),
+      );
+      expect(find.text('Lamination ink'), findsOneWidget);
+    },
+        createHttpClient: (_) => _RawMaterialAssignmentHttpClient(
+              seenRequests,
+              orderNodes: const [
+                {
+                  'id': 'start',
+                  'kind': 'start',
+                  'title': 'Start',
+                },
+                {
+                  'id': 'order',
+                  'kind': 'task',
+                  'title': 'Order',
+                },
+                {
+                  'id': 'pechat',
+                  'kind': 'apparatus',
+                  'title': 'Pechat',
+                },
+                {
+                  'id': 'laminatsiya',
+                  'kind': 'apparatus',
+                  'title': 'Laminatsiya',
+                },
+                {
+                  'id': 'end',
+                  'kind': 'end',
+                  'title': 'End',
+                },
+              ],
+            ));
+  });
+
   testWidgets('assignment screen shows scanned raw material details', (
     tester,
   ) async {
@@ -484,10 +579,12 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
   _RawMaterialAssignmentHttpClient(
     this.seenRequests, {
     this.initialAssignments = const [],
+    this.orderNodes = const [],
   });
 
   final List<String> seenRequests;
   final List<Map<String, Object?>> initialAssignments;
+  final List<Map<String, Object?>> orderNodes;
   bool _deleted = false;
 
   @override
@@ -499,15 +596,20 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
     Object body;
     switch (key) {
       case 'GET /v1/mobile/admin/raw-material-assignments/orders':
-        body = const [
+        body = [
           {
             'map': {
               'id': 'zakaz-1',
               'product_code': 'PR-1',
               'title': 'Zakaz 1',
               'code': 'Z-1',
-              'nodes': [],
-              'edges': [],
+              'nodes': orderNodes,
+              'edges': const [
+                {'from': 'start', 'to': 'order'},
+                {'from': 'order', 'to': 'pechat'},
+                {'from': 'pechat', 'to': 'laminatsiya'},
+                {'from': 'laminatsiya', 'to': 'end'},
+              ],
             },
             'program': {
               'map_id': 'zakaz-1',
@@ -529,6 +631,32 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
             'qty': 12,
             'uom': 'Kg',
             'apparatus_options': ['Pechat'],
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Pechat':
+        body = const [
+          {
+            'barcode': '30AA',
+            'warehouse': 'Kalidor',
+            'item_code': 'INK-BLACK',
+            'item_name': 'Black ink',
+            'item_group': 'Kraska',
+            'qty': 12,
+            'uom': 'Kg',
+            'apparatus_options': ['Pechat'],
+          },
+        ];
+      case 'GET /v1/mobile/admin/raw-material-assignments/candidates?order_id=zakaz-1&apparatus=Laminatsiya':
+        body = const [
+          {
+            'barcode': '30BB',
+            'warehouse': 'Kalidor',
+            'item_code': 'INK-WHITE',
+            'item_name': 'Lamination ink',
+            'item_group': 'Kraska',
+            'qty': 10,
+            'uom': 'Kg',
+            'apparatus_options': ['Laminatsiya'],
           },
         ];
       case 'GET /v1/mobile/admin/raw-material-assignments/candidate-orders?barcode=30AA':

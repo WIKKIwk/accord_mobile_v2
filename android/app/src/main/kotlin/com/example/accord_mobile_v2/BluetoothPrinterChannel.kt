@@ -31,9 +31,20 @@ class BluetoothPrinterChannel(
         private const val PRINT_TIMEOUT_MS = 25_000L
         private const val LABEL_WIDTH_MM = 56.0
         private const val LABEL_HEIGHT_MM = 60.0
-        private const val PACK_EPC_Y = 410
-        private const val LABEL_CHARSET = "windows-1251"
-        private const val LABEL_CODE_PAGE = "73"
+        // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
+        // 448 x 480 dots. Keep a real margin on both edges instead of
+        // relying on the printer's REFERENCE offset.
+        private const val LABEL_WIDTH_DOTS = 448
+        private const val LABEL_LEFT_MARGIN_DOTS = 24
+        private const val LABEL_RIGHT_MARGIN_DOTS = 24
+        private const val PACK_QR_X = 278
+        private const val PACK_QR_Y = 166
+        private const val PACK_EPC_Y = 328
+        private const val LARGE_QR_X = 192
+        private const val LARGE_QR_Y = 66
+        private const val LARGE_QR_FOOTER_Y = 322
+        private const val LABEL_CHARSET = "US-ASCII"
+        private const val LABEL_CODE_PAGE = "0"
     }
 
     private val channel = MethodChannel(messenger, "accord/bluetooth_printer")
@@ -289,7 +300,7 @@ class BluetoothPrinterChannel(
             .speed(4.0)
             .density(10)
             .direction(TSPLConst.DIRECTION_FORWARD)
-            .reference(80, 0)
+            .reference(0, 0)
             .cls()
             .codePage(LABEL_CODE_PAGE)
 
@@ -328,19 +339,33 @@ class BluetoothPrinterChannel(
         titleLines.forEachIndexed { index, line ->
             sdkText(
                 printer,
-                8,
+                LABEL_LEFT_MARGIN_DOTS,
                 6 + index * 26,
                 TSPLConst.FNT_12_20,
                 line,
             )
         }
-        sdkQr(printer, 68, 66, payload, cellSize = 8)
+        sdkQr(printer, LARGE_QR_X, LARGE_QR_Y, payload, cellSize = 8)
+        val footer = fitLabelText(
+            largeQrFooter(label, payload),
+            if (label.isMaterialProduct) 32 else 46,
+        )
+        val footerFont = if (label.isMaterialProduct && footer.length <= 32) {
+            TSPLConst.FNT_12_20
+        } else {
+            TSPLConst.FNT_8_12
+        }
+        val footerX = if (label.isMaterialProduct) {
+            centeredLabelX(footer, if (footerFont == TSPLConst.FNT_12_20) 12 else 8)
+        } else {
+            LABEL_LEFT_MARGIN_DOTS
+        }
         sdkText(
             printer,
-            8,
-            362,
-            TSPLConst.FNT_8_12,
-            fitLabelText(largeQrFooter(label, payload), 38),
+            footerX,
+            LARGE_QR_FOOTER_Y,
+            footerFont,
+            footer,
         )
     }
 
@@ -366,11 +391,17 @@ class BluetoothPrinterChannel(
             label.netQty
         }
 
-        sdkText(printer, 8, 4, TSPLConst.FNT_16_24, "ACCORD")
+        sdkText(
+            printer,
+            LABEL_LEFT_MARGIN_DOTS,
+            4,
+            TSPLConst.FNT_16_24,
+            "ACCORD",
+        )
         productLines.forEachIndexed { index, line ->
             sdkText(
                 printer,
-                8,
+                LABEL_LEFT_MARGIN_DOTS,
                 34 + index * 24,
                 TSPLConst.FNT_12_20,
                 line,
@@ -378,25 +409,31 @@ class BluetoothPrinterChannel(
         }
         sdkText(
             printer,
-            8,
+            LABEL_LEFT_MARGIN_DOTS,
             112,
             TSPLConst.FNT_12_20,
             "$quantityLabel: ${formatLabelQty(quantity)} $quantityUnit",
         )
         sdkText(
             printer,
-            8,
+            LABEL_LEFT_MARGIN_DOTS,
             138,
             TSPLConst.FNT_12_20,
             "BRUTTO: ${formatLabelQty(label.grossQty)} $grossUnit",
         )
-        sdkQr(printer, 218, 166, payload, cellSize = 5)
+        sdkQr(printer, PACK_QR_X, PACK_QR_Y, payload, cellSize = 5)
+        val epcFont = if (payload.length <= 32) {
+            TSPLConst.FNT_12_20
+        } else {
+            TSPLConst.FNT_8_12
+        }
+        val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
         sdkText(
             printer,
-            8,
+            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
             PACK_EPC_Y,
-            TSPLConst.FNT_8_12,
-            fitLabelText("EPC: $payload", 46),
+            epcFont,
+            epcText,
         )
     }
 
@@ -459,13 +496,22 @@ class BluetoothPrinterChannel(
         payload: String,
     ): String {
         val value = when {
-            label.isMaterialProduct -> "EPC: $payload"
+            label.isMaterialProduct -> payload
             label.isQolipCode && payload.startsWith("RPS-BATCH:") ->
                 "BATCH ID: ${payload.removePrefix("RPS-BATCH:")}"
             label.itemCode.isNotBlank() -> label.itemCode
             else -> payload
         }
         return cleanLabelText(value)
+    }
+
+    private fun centeredLabelX(value: String, charWidth: Int): Int {
+        val availableWidth = LABEL_WIDTH_DOTS -
+            LABEL_LEFT_MARGIN_DOTS - LABEL_RIGHT_MARGIN_DOTS
+        val textWidth = (value.length * charWidth).coerceAtMost(availableWidth)
+        val maxX = LABEL_WIDTH_DOTS - LABEL_RIGHT_MARGIN_DOTS - textWidth
+        return ((LABEL_WIDTH_DOTS - textWidth) / 2)
+            .coerceIn(LABEL_LEFT_MARGIN_DOTS, maxX)
     }
 
     private fun cleanLabelText(value: String): String {

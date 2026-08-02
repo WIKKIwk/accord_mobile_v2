@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_po
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter/gestures.dart';
@@ -2343,6 +2344,30 @@ void main() {
       tester.widget<Card>(candidateCardFinder).color,
       candidateColorScheme.surfaceContainerLow,
     );
+
+    await tester.tap(
+      find.byKey(const ValueKey('sequence-assignment-qr-scan')),
+    );
+    await tester.pumpAndSettle();
+    final scannerFinder = find.byKey(
+      const ValueKey('sequence-assignment-qr-scanner'),
+    );
+    expect(scannerFinder, findsOneWidget);
+    await tester
+        .widget<ProductionQuickScannerPanel>(scannerFinder)
+        .onCodeDetected('https://example.test/material?epc=30AA');
+    await tester.pump();
+    expect(find.text('Demo kraska tanlandi (1 ta)'), findsOneWidget);
+    expect(find.text('Ulash · 1'), findsOneWidget);
+    await tester
+        .widget<ProductionQuickScannerPanel>(scannerFinder)
+        .onCodeDetected('30AA');
+    await tester.pump();
+    expect(find.text('Ulash · 1'), findsOneWidget);
+
+    await tester.tap(find.text('Demo kraska').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Ulash · 1'), findsNothing);
     await tester.longPress(find.text('Demo kraska'));
     await tester.pumpAndSettle();
     expect(

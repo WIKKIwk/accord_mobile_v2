@@ -56,6 +56,21 @@ ProductionMapDefinition _pechatOnlyMap() {
 }
 
 void main() {
+  test('authorized order apparatus reuses the linear production stages', () {
+    final map = _hotlunchMap();
+
+    expect(
+      productionMapAuthorizedOrderApparatus(
+        map: map,
+        assignedApparatus: const [
+          'Rezka aparat - A',
+          '9 ta rangli pechat - A',
+        ],
+      ),
+      ['9 ta rangli pechat - A', 'Rezka aparat - A'],
+    );
+  });
+
   test('queue activity state scans every apparatus stage', () {
     expect(
       queueActivityStateForOrder(

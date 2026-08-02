@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../models/production_map_models.dart';
+import 'admin_progress_qr_scan_pdf.dart';
 
 class AdminProgressQrScanScreen extends StatefulWidget {
   const AdminProgressQrScanScreen({super.key});
@@ -26,6 +30,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   AdminProgressQrReport? _report;
   AdminRawMaterialLookup? _rawMaterialReport;
   String? _errorText;
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -216,6 +221,61 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     unawaited(_startScanner());
   }
 
+  Future<void> _shareCurrentReport() async {
+    if (_sharing) {
+      return;
+    }
+    final report = _report;
+    final rawMaterialReport = _rawMaterialReport;
+    if (report == null && rawMaterialReport == null) {
+      return;
+    }
+    setState(() => _sharing = true);
+    try {
+      final bytes = report != null
+          ? AdminProgressQrScanPdf.buildProgress(report)
+          : AdminProgressQrScanPdf.buildRawMaterial(rawMaterialReport!);
+      final filename = report != null
+          ? _qrPdfFilename(
+              'admin-qr-report',
+              report.order?.orderNumber.isNotEmpty == true
+                  ? report.order!.orderNumber
+                  : report.scannedBatch.batchId,
+            )
+          : _qrPdfFilename(
+              'admin-material-report',
+              rawMaterialReport!.barcode,
+            );
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: filename,
+          subject: filename,
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(bytes),
+              mimeType: 'application/pdf',
+            ),
+          ],
+          fileNameOverrides: [filename],
+          sharePositionOrigin:
+              box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('PDF tayyorlash yoki ulashishda xatolik')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sharing = false);
+      }
+    }
+  }
+
   bool _shouldTryRawMaterialLookup(Object error) {
     if (error is! MobileApiException) {
       return false;
@@ -297,11 +357,18 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         backgroundColor: backgroundColor,
         contentPadding: EdgeInsets.zero,
         child: report != null
-            ? _QrReportView(report: report, onScanAgain: _scanAgain)
+            ? _QrReportView(
+                report: report,
+                onScanAgain: _scanAgain,
+                onShare: _shareCurrentReport,
+                sharing: _sharing,
+              )
             : rawMaterialReport != null
                 ? _RawMaterialReportView(
                     report: rawMaterialReport,
                     onScanAgain: _scanAgain,
+                    onShare: _shareCurrentReport,
+                    sharing: _sharing,
                   )
                 : scannerMode
                     ? _ScannerView(
@@ -445,10 +512,17 @@ class _ScannerView extends StatelessWidget {
 }
 
 class _QrReportView extends StatelessWidget {
-  const _QrReportView({required this.report, required this.onScanAgain});
+  const _QrReportView({
+    required this.report,
+    required this.onScanAgain,
+    required this.onShare,
+    required this.sharing,
+  });
 
   final AdminProgressQrReport report;
   final VoidCallback onScanAgain;
+  final VoidCallback onShare;
+  final bool sharing;
 
   @override
   Widget build(BuildContext context) {
@@ -531,6 +605,14 @@ class _QrReportView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        _ReportShareButton(onPressed: onShare, isBusy: sharing),
+        const SizedBox(height: 12),
+        _OrderDetailsSection(order: order),
+        _OrderStatusSection(status: report.orderStatus),
+        if (report.openedBy != null)
+          _OpenedBySection(openedBy: report.openedBy!),
+        if (report.queueStates.isNotEmpty)
+          _QueueStatesSection(queueStates: report.queueStates),
         _SummarySection(
           report: report,
           current: current,
@@ -541,6 +623,11 @@ class _QrReportView extends StatelessWidget {
           _ActiveWorkSection(sessions: report.activeSessions),
         if (report.runSessions.isNotEmpty)
           _ParticipantsSection(sessions: report.runSessions),
+        if (report.progressBatches.isNotEmpty)
+          _ProgressBatchesSection(
+            batches: report.progressBatches,
+            currentBatchId: current.batchId,
+          ),
         _TimelineSection(logs: report.logs),
         _TechnicalQrSection(report: report, current: current),
         const SizedBox(height: 8),
@@ -558,10 +645,14 @@ class _RawMaterialReportView extends StatelessWidget {
   const _RawMaterialReportView({
     required this.report,
     required this.onScanAgain,
+    required this.onShare,
+    required this.sharing,
   });
 
   final AdminRawMaterialLookup report;
   final VoidCallback onScanAgain;
+  final VoidCallback onShare;
+  final bool sharing;
 
   @override
   Widget build(BuildContext context) {
@@ -626,6 +717,11 @@ class _RawMaterialReportView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        _ReportShareButton(onPressed: onShare, isBusy: sharing),
+        const SizedBox(height: 12),
+        _OrderDetailsSection(order: order),
+        if (report.queueStates.isNotEmpty)
+          _QueueStatesSection(queueStates: report.queueStates),
         _InfoSection(
           title: 'Homashyo haqida',
           children: [
@@ -654,6 +750,365 @@ class _RawMaterialReportView extends StatelessWidget {
           label: const Text('Yana scan qilish'),
         ),
       ],
+    );
+  }
+}
+
+class _ReportShareButton extends StatelessWidget {
+  const _ReportShareButton({required this.onPressed, required this.isBusy});
+
+  final VoidCallback onPressed;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: FilledButton.tonalIcon(
+        onPressed: isBusy ? null : onPressed,
+        icon: isBusy
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.ios_share_rounded),
+        label: Text(isBusy ? 'PDF tayyorlanmoqda...' : 'PDF ulashish'),
+      ),
+    );
+  }
+}
+
+class _OrderDetailsSection extends StatelessWidget {
+  const _OrderDetailsSection({required this.order});
+
+  final ProductionMapDefinition? order;
+
+  @override
+  Widget build(BuildContext context) {
+    final order = this.order;
+    if (order == null) {
+      return const SizedBox.shrink();
+    }
+    final nodes = order.nodes
+        .map(
+          (node) => [
+            node.title,
+            if (node.kind.trim().isNotEmpty) node.kind,
+            if (node.roleCode.trim().isNotEmpty) node.roleCode,
+            if (node.itemCode.trim().isNotEmpty) 'item=${node.itemCode}',
+            if (node.qtyFormula.trim().isNotEmpty) 'qty=${node.qtyFormula}',
+            if (node.fromLocation.trim().isNotEmpty)
+              'from=${node.fromLocation}',
+            if (node.toLocation.trim().isNotEmpty) 'to=${node.toLocation}',
+            if (node.alternativeGroupLabel.trim().isNotEmpty)
+              'alternative=${node.alternativeGroupLabel}',
+            if (node.formula != null &&
+                node.formula!.expression.trim().isNotEmpty)
+              'formula=${node.formula!.expression}',
+          ].where((value) => value.trim().isNotEmpty).join(' • '),
+        )
+        .where((value) => value.trim().isNotEmpty)
+        .join('\n');
+    final edges = order.edges
+        .map(
+          (edge) => [
+            '${edge.from} -> ${edge.to}',
+            if (edge.branch.trim().isNotEmpty) 'branch=${edge.branch}',
+          ].join(' • '),
+        )
+        .where((value) => value.trim().isNotEmpty)
+        .join('\n');
+    return _InfoSection(
+      title: 'Buyurtma tafsilotlari',
+      children: [
+        _InfoRow(label: 'Order ID', value: order.id),
+        _InfoRow(label: 'Order raqami', value: order.orderNumber),
+        _InfoRow(label: 'Order code', value: order.code),
+        _InfoRow(label: 'Product code', value: order.productCode),
+        _InfoRow(label: 'Mahsulot', value: order.title),
+        _InfoRow(label: 'Mijoz', value: order.customerName),
+        _InfoRow(
+          label: 'Rulon soni',
+          value:
+              order.rollCount == null ? '' : _displayNumber(order.rollCount!),
+        ),
+        _InfoRow(
+          label: 'Eni, mm',
+          value: order.widthMm == null ? '' : _displayNumber(order.widthMm!),
+        ),
+        _InfoRow(
+          label: 'Order og‘irligi, kg',
+          value: order.orderKg == null ? '' : _displayNumber(order.orderKg!),
+        ),
+        _InfoRow(
+          label: 'Asosiy uzunlik',
+          value:
+              order.baseLength == null ? '' : _displayNumber(order.baseLength!),
+        ),
+        _InfoRow(label: 'Map node soni', value: '${order.nodes.length}'),
+        _InfoRow(label: 'Map edge soni', value: '${order.edges.length}'),
+        if (nodes.isNotEmpty) _InfoRow(label: 'Map node’lari', value: nodes),
+        if (edges.isNotEmpty)
+          _InfoRow(label: 'Map bog‘lanishlari', value: edges),
+      ],
+    );
+  }
+}
+
+class _OpenedBySection extends StatelessWidget {
+  const _OpenedBySection({required this.openedBy});
+
+  final AdminProgressQrOpenedBy openedBy;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoSection(
+      title: 'QR kim tomonidan ochilgan',
+      children: [
+        _InfoRow(label: 'Actor role', value: openedBy.actorRole),
+        _InfoRow(label: 'Actor ref', value: openedBy.actorRef),
+        _InfoRow(label: 'Actor name', value: openedBy.actorDisplayName),
+        _InfoRow(
+          label: 'Ochilgan vaqt',
+          value: openedBy.openedAtUnix > 0
+              ? formatUnixSecondsLocalDateTime(openedBy.openedAtUnix)
+              : '',
+        ),
+      ],
+    );
+  }
+}
+
+class _QueueStatesSection extends StatelessWidget {
+  const _QueueStatesSection({required this.queueStates});
+
+  final Map<String, Map<String, String>> queueStates;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoSection(
+      title: 'Aparat navbatlarining holati',
+      children: [
+        for (final apparatus in queueStates.entries)
+          for (final order in apparatus.value.entries)
+            _InfoRow(
+              label: '${apparatus.key} • ${order.key}',
+              value: order.value,
+            ),
+      ],
+    );
+  }
+}
+
+class _OrderStatusSection extends StatelessWidget {
+  const _OrderStatusSection({required this.status});
+
+  final AdminProductionOrderStatusDetail status;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoSection(
+      title: 'Buyurtmaning to‘liq holati',
+      children: [
+        _InfoRow(label: 'Order holati', value: status.orderStatus),
+        _InfoRow(label: 'Ish holati', value: status.workStatus),
+        _InfoRow(label: 'Flow holati', value: status.flowStatus),
+        _InfoRow(label: 'Stock holati', value: status.stockStatus),
+        _InfoRow(label: 'Jami WIP', value: '${status.totalWipCount}'),
+        _InfoRow(label: 'Waiting WIP', value: '${status.waitingWipCount}'),
+        _InfoRow(label: 'In-use WIP', value: '${status.inUseWipCount}'),
+        _InfoRow(label: 'Processed WIP', value: '${status.processedWipCount}'),
+        _InfoRow(
+          label: 'Keyingi bosqichni kutayotgan WIP',
+          value: '${status.waitingNextStageCount}',
+        ),
+        _InfoRow(
+          label: 'Keyingi bosqich ishlatgan WIP',
+          value: '${status.consumedByNextStageCount}',
+        ),
+        _InfoRow(label: 'Erkin WIP', value: '${status.freeWipCount}'),
+        _InfoRow(
+          label: 'Omborga qabul qilingan WIP',
+          value: '${status.acceptedWipCount}',
+        ),
+        _InfoRow(
+          label: 'Faol sessiyalar',
+          value: '${status.activeSessionCount}',
+        ),
+        _InfoRow(
+          label: 'Pauzadagi sessiyalar',
+          value: '${status.pausedSessionCount}',
+        ),
+        _InfoRow(
+          label: 'Tugagan navbat ishlari',
+          value: '${status.completedQueueCount}',
+        ),
+        _InfoRow(
+          label: 'Muammo bilan tugagan ishlar',
+          value: '${status.completedWithIssueCount}',
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressBatchesSection extends StatelessWidget {
+  const _ProgressBatchesSection({
+    required this.batches,
+    required this.currentBatchId,
+  });
+
+  final List<AdminProgressBatch> batches;
+  final String currentBatchId;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoSection(
+      title: 'Barcha progress batchlari (${batches.length})',
+      children: [
+        for (var index = 0; index < batches.length; index++)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 12),
+            title: Text(
+              '${index + 1}. ${batches[index].apparatus.trim().isEmpty ? 'Aparat ko‘rsatilmagan' : batches[index].apparatus}',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text(
+              [
+                if (batches[index].batchId.trim().isNotEmpty)
+                  batches[index].batchId,
+                if (batches[index].status.trim().isNotEmpty)
+                  batches[index].status,
+                if (batches[index].batchId.trim() == currentBatchId.trim())
+                  'joriy',
+              ].join(' • '),
+            ),
+            children: _progressBatchDetailWidgets(batches[index]),
+          ),
+      ],
+    );
+  }
+}
+
+List<Widget> _progressBatchDetailWidgets(AdminProgressBatch batch) {
+  return [
+    _InfoRow(label: 'Batch ID', value: batch.batchId),
+    _InfoRow(label: 'Session ID', value: batch.sessionId),
+    _InfoRow(label: 'QR payload', value: batch.qrPayload),
+    _InfoRow(label: 'Order ID', value: batch.orderId),
+    _InfoRow(label: 'Aparat', value: batch.apparatus),
+    _InfoRow(label: 'Current apparatus', value: batch.currentApparatus),
+    _InfoRow(label: 'Current apparatus key', value: batch.currentApparatusKey),
+    _InfoRow(label: 'Current location', value: batch.currentLocation),
+    _InfoRow(label: 'Next apparatus', value: batch.nextApparatus),
+    _InfoRow(label: 'Action', value: batch.action),
+    _InfoRow(label: 'Batch status', value: batch.status),
+    _InfoRow(label: 'Work status', value: batch.statusDetail.workStatus),
+    _InfoRow(label: 'WIP status', value: batch.wipStatus),
+    _InfoRow(label: 'Flow status', value: batch.statusDetail.flowStatus),
+    _InfoRow(label: 'Stock status', value: batch.statusDetail.stockStatus),
+    _InfoRow(
+        label: 'Produced quantity', value: _displayNumber(batch.producedQty)),
+    _InfoRow(label: 'UOM', value: batch.uom),
+    _InfoRow(label: 'Label item code', value: batch.labelItemCode),
+    _InfoRow(label: 'Label item name', value: batch.labelItemName),
+    _InfoRow(label: 'Executor', value: batch.executorName),
+    _InfoRow(label: 'Worker role', value: batch.workerRole),
+    _InfoRow(label: 'Worker ref', value: batch.workerRef),
+    _InfoRow(label: 'Worker name', value: batch.workerDisplayName),
+    _InfoRow(
+      label: 'Started at',
+      value: batch.startedAtUnix > 0
+          ? formatUnixSecondsLocalDateTime(batch.startedAtUnix)
+          : '',
+    ),
+    _InfoRow(
+      label: 'Completed at',
+      value: batch.completedAtUnix > 0
+          ? formatUnixSecondsLocalDateTime(batch.completedAtUnix)
+          : '',
+    ),
+    _InfoRow(label: 'Parent batch ID', value: batch.parentBatchId),
+    _InfoRow(label: 'Used by session', value: batch.usedBySessionId),
+    _InfoRow(label: 'Used by apparatus', value: batch.usedByApparatus),
+    _InfoRow(label: 'Processed by session', value: batch.processedBySessionId),
+    _InfoRow(
+      label: 'Processed by apparatus',
+      value: batch.processedByApparatus,
+    ),
+    _InfoRow(
+        label: 'Return ink, kg',
+        value: _optionalDisplayNumber(batch.returnInkKg)),
+    _InfoRow(
+      label: 'Lamination print leftover, rolls',
+      value: _optionalDisplayNumber(batch.laminationPrintLeftoverRolls),
+    ),
+    _InfoRow(
+      label: 'Lamination film leftover, rolls',
+      value: _optionalDisplayNumber(batch.laminationFilmLeftoverRolls),
+    ),
+    _InfoRow(
+      label: 'Rezka bosma waste, kg',
+      value: _optionalDisplayNumber(batch.rezkaBosmaWaste),
+    ),
+    _InfoRow(
+      label: 'Rezka lamination waste, kg',
+      value: _optionalDisplayNumber(batch.rezkaLaminationWaste),
+    ),
+    _InfoRow(
+      label: 'Rezka edge waste, kg',
+      value: _optionalDisplayNumber(batch.rezkaEdgeWaste),
+    ),
+    _InfoRow(
+        label: 'Total waste, kg',
+        value: _optionalDisplayNumber(batch.totalWaste)),
+    _InfoRow(
+      label: 'Finished goods, kg',
+      value: _optionalDisplayNumber(batch.finishedGoodsKg),
+    ),
+    _InfoRow(
+      label: 'Finished goods, meter',
+      value: _optionalDisplayNumber(batch.finishedGoodsMeter),
+    ),
+    _InfoRow(label: 'Description', value: batch.description),
+    if (batch.payloadJson.isNotEmpty)
+      _JsonPayloadBlock(title: 'Payload JSON', value: batch.payloadJson),
+  ];
+}
+
+class _JsonPayloadBlock extends StatelessWidget {
+  const _JsonPayloadBlock({required this.title, required this.value});
+
+  final String title;
+  final Map<String, dynamic> value;
+
+  @override
+  Widget build(BuildContext context) {
+    final pretty = const JsonEncoder.withIndent('  ').convert(value);
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            pretty,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -874,17 +1329,55 @@ class _ParticipantsSection extends StatelessWidget {
     return _InfoSection(
       title: 'Kimlar ishlagan',
       children: [
-        for (final session in sessions)
-          _SentenceLine(
-            text: [
-              if (session.workerDisplayName.trim().isNotEmpty)
-                '${session.workerDisplayName.trim()} ${session.apparatus} aparatida ishlagan.',
-              if (session.workerDisplayName.trim().isEmpty)
-                '${session.apparatus} aparatida ish bajarilgan.',
-              '${_workerSessionStatusSentence(session.status)}.',
-              if (session.startedAtUnix > 0)
-                'Ish vaqti: ${formatUnixSecondsLocalDateTime(session.startedAtUnix)}.',
-            ].where((item) => item.trim().isNotEmpty).join(' '),
+        for (var index = 0; index < sessions.length; index++)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 12),
+            title: Text(
+              sessions[index].workerDisplayName.trim().isNotEmpty
+                  ? sessions[index].workerDisplayName
+                  : 'Ijrochi ko‘rsatilmagan',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text(
+              [
+                sessions[index].apparatus,
+                _workerSessionStatusSentence(sessions[index].status),
+              ].where((item) => item.trim().isNotEmpty).join(' • '),
+            ),
+            children: [
+              _InfoRow(label: 'Session ID', value: sessions[index].sessionId),
+              _InfoRow(label: 'Order ID', value: sessions[index].orderId),
+              _InfoRow(label: 'Aparat', value: sessions[index].apparatus),
+              _InfoRow(label: 'Status', value: sessions[index].status),
+              _InfoRow(label: 'Worker role', value: sessions[index].workerRole),
+              _InfoRow(label: 'Worker ref', value: sessions[index].workerRef),
+              _InfoRow(
+                label: 'Worker name',
+                value: sessions[index].workerDisplayName,
+              ),
+              _InfoRow(
+                label: 'Started at',
+                value: sessions[index].startedAtUnix > 0
+                    ? formatUnixSecondsLocalDateTime(
+                        sessions[index].startedAtUnix,
+                      )
+                    : '',
+              ),
+              _InfoRow(
+                label: 'Updated at',
+                value: sessions[index].updatedAtUnix > 0
+                    ? formatUnixSecondsLocalDateTime(
+                        sessions[index].updatedAtUnix,
+                      )
+                    : '',
+              ),
+              if (sessions[index].payloadJson.isNotEmpty)
+                _JsonPayloadBlock(
+                  title: 'Payload JSON',
+                  value: sessions[index].payloadJson,
+                ),
+            ],
           ),
       ],
     );
@@ -959,6 +1452,7 @@ class _TimelineStep extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                _LogDetails(log: log),
                 if (log.completedWithIssue &&
                     log.issueNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -972,6 +1466,90 @@ class _TimelineStep extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogDetails extends StatelessWidget {
+  const _LogDetails({required this.log});
+
+  final AdminProductionOrderLogEntry log;
+
+  @override
+  Widget build(BuildContext context) {
+    final transfer = log.transfer;
+    final freeze = log.freeze;
+    final hasDetails = log.eventId.trim().isNotEmpty ||
+        log.fromState.trim().isNotEmpty ||
+        log.toState.trim().isNotEmpty ||
+        log.actorRole.trim().isNotEmpty ||
+        log.actorRef.trim().isNotEmpty ||
+        transfer != null ||
+        freeze != null;
+    if (!hasDetails) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InfoRow(
+            label: 'Hodisa tafsiloti',
+            value: [
+              if (log.fromState.trim().isNotEmpty ||
+                  log.toState.trim().isNotEmpty)
+                'Holat: ${log.fromState} -> ${log.toState}',
+              if (log.eventId.trim().isNotEmpty) 'Event ID: ${log.eventId}',
+              if (log.actorRole.trim().isNotEmpty)
+                'Actor role: ${log.actorRole}',
+              if (log.actorRef.trim().isNotEmpty) 'Actor ref: ${log.actorRef}',
+              if (log.actorDisplayName.trim().isNotEmpty)
+                'Actor name: ${log.actorDisplayName}',
+            ].join('\n'),
+          ),
+          if (transfer != null)
+            _InfoRow(
+              label: 'Apparat almashishi',
+              value: [
+                if (transfer.transferId.trim().isNotEmpty)
+                  'Transfer ID: ${transfer.transferId}',
+                '${transfer.fromApparatus} -> ${transfer.toApparatus}',
+                if (transfer.reason.trim().isNotEmpty)
+                  'Sabab: ${transfer.reason}',
+                if (transfer.sessionId.trim().isNotEmpty)
+                  'Session ID: ${transfer.sessionId}',
+                if (transfer.progressBatchId.trim().isNotEmpty)
+                  'Progress batch: ${transfer.progressBatchId}',
+                if (transfer.materialBarcodes.isNotEmpty)
+                  'Material barcode’lari: ${transfer.materialBarcodes.join(', ')}',
+              ].where((line) => line.trim().isNotEmpty).join('\n'),
+            ),
+          if (freeze != null)
+            _InfoRow(
+              label: 'Muzlatish hodisasi',
+              value: [
+                if (freeze.requestId.trim().isNotEmpty)
+                  'Request ID: ${freeze.requestId}',
+                if (freeze.status.trim().isNotEmpty) 'Status: ${freeze.status}',
+                if (freeze.targetSessionId.trim().isNotEmpty)
+                  'Target session: ${freeze.targetSessionId}',
+                if (freeze.targetApparatus.trim().isNotEmpty)
+                  'Target apparatus: ${freeze.targetApparatus}',
+                if (freeze.targetWorkerRole.trim().isNotEmpty)
+                  'Target worker role: ${freeze.targetWorkerRole}',
+                if (freeze.targetWorkerRef.trim().isNotEmpty)
+                  'Target worker ref: ${freeze.targetWorkerRef}',
+                if (freeze.targetWorkerDisplayName.trim().isNotEmpty)
+                  'Target worker name: ${freeze.targetWorkerDisplayName}',
+                if (freeze.requestedAtUnix > 0)
+                  'Requested at: ${formatUnixSecondsLocalDateTime(freeze.requestedAtUnix)}',
+                if (freeze.transitionedAtUnix > 0)
+                  'Transitioned at: ${formatUnixSecondsLocalDateTime(freeze.transitionedAtUnix)}',
+              ].join('\n'),
+            ),
         ],
       ),
     );
@@ -996,10 +1574,27 @@ class _TechnicalQrSection extends StatelessWidget {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           _InfoRow(
-              label: 'Scan qilingan QR', value: report.scannedBatch.qrPayload),
+            label: 'Scan qilingan QR',
+            value: report.scannedBatch.qrPayload,
+          ),
           _InfoRow(label: 'Hozirgi QR', value: current.qrPayload),
           _InfoRow(label: 'Scan batch', value: report.scannedBatch.batchId),
           _InfoRow(label: 'Hozirgi batch', value: current.batchId),
+          _InfoRow(
+            label: 'Scan session',
+            value: report.scannedBatch.sessionId,
+          ),
+          _InfoRow(label: 'Hozirgi session', value: current.sessionId),
+          _InfoRow(
+            label: 'Scan apparatus',
+            value: report.scannedBatch.apparatus,
+          ),
+          _InfoRow(label: 'Hozirgi apparatus', value: current.apparatus),
+          _InfoRow(
+            label: 'Scan WIP status',
+            value: report.scannedBatch.wipStatus,
+          ),
+          _InfoRow(label: 'Hozirgi WIP status', value: current.wipStatus),
           _InfoRow(
             label: 'Mahsulot holati',
             value: progressQrTechnicalProductStatusLabel(
@@ -1008,6 +1603,17 @@ class _TechnicalQrSection extends StatelessWidget {
               wipStatus: report.scannedBatch.wipStatus,
             ),
           ),
+          if (report.scannedBatch.payloadJson.isNotEmpty)
+            _JsonPayloadBlock(
+              title: 'Scan batch payload JSON',
+              value: report.scannedBatch.payloadJson,
+            ),
+          if (current.payloadJson.isNotEmpty &&
+              current.batchId.trim() != report.scannedBatch.batchId.trim())
+            _JsonPayloadBlock(
+              title: 'Hozirgi batch payload JSON',
+              value: current.payloadJson,
+            ),
         ],
       ),
     );
@@ -1031,8 +1637,63 @@ class _TechnicalRawMaterialSection extends StatelessWidget {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           _InfoRow(label: 'QR / barcode', value: report.barcode),
+          _InfoRow(label: 'Ombor', value: report.warehouse),
+          _InfoRow(label: 'Item code', value: report.itemCode),
+          _InfoRow(label: 'Item nomi', value: report.itemName),
+          _InfoRow(label: 'Item group', value: report.itemGroup),
+          _InfoRow(
+            label: 'Miqdor',
+            value: _quantityTextFromParts(report.qty, report.uom),
+          ),
+          _InfoRow(label: 'Holat', value: report.status),
           _InfoRow(label: 'Receipt', value: report.sourceReceiptId),
           _InfoRow(label: 'Reserved order', value: report.reservedOrderId),
+          if (report.assignment != null) ...[
+            _InfoRow(
+              label: 'Assigned order',
+              value: report.assignment!.orderId,
+            ),
+            _InfoRow(
+              label: 'Assigned apparatus',
+              value: report.assignment!.apparatus,
+            ),
+            _InfoRow(
+              label: 'Assigned by ref',
+              value: report.assignment!.assignedByRef,
+            ),
+            _InfoRow(
+              label: 'Assigned by name',
+              value: report.assignment!.assignedByName,
+            ),
+            _InfoRow(
+              label: 'Assigned at',
+              value: report.assignment!.assignedAt,
+            ),
+            _InfoRow(
+              label: 'Stock status',
+              value: report.assignment!.stockStatus,
+            ),
+            _InfoRow(
+              label: 'Stock warehouse',
+              value: report.assignment!.stockWarehouse,
+            ),
+            _InfoRow(
+              label: 'Stock quantity',
+              value: _displayNumber(report.assignment!.stockQty),
+            ),
+            _InfoRow(
+              label: 'Received quantity',
+              value: _displayNumber(report.assignment!.receivedQty),
+            ),
+            _InfoRow(
+              label: 'Consumed quantity',
+              value: _displayNumber(report.assignment!.consumedQty),
+            ),
+            _InfoRow(
+              label: 'Remaining quantity',
+              value: _displayNumber(report.assignment!.remainingQty),
+            ),
+          ],
         ],
       ),
     );
@@ -1147,6 +1808,15 @@ class _InfoRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _qrPdfFilename(String prefix, String identifier) {
+  final normalized = identifier
+      .trim()
+      .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
+      .replaceAll(RegExp(r'-+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  return '${normalized.isEmpty ? prefix : '$prefix-$normalized'}.pdf';
 }
 
 class _TorchButton extends StatelessWidget {
@@ -1593,6 +2263,18 @@ String _quantityTextFromParts(double qty, String uom) {
     uom,
     trimTrailingZeros: true,
   );
+}
+
+String _displayNumber(num value) {
+  final asDouble = value.toDouble();
+  if (asDouble == asDouble.roundToDouble()) {
+    return asDouble.toInt().toString();
+  }
+  return asDouble.toString();
+}
+
+String _optionalDisplayNumber(num? value) {
+  return value == null ? '' : _displayNumber(value);
 }
 
 String _rawMaterialStatusLabel(String value) {

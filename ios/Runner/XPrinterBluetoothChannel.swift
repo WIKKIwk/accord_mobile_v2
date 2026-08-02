@@ -11,8 +11,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let writeCharacteristicPollInterval: TimeInterval = 0.1
   private static let labelWidthMm = 56.0
   private static let labelHeightMm = 60.0
-  private static let packEpcY = 410
-  private static let labelCodePage = "73"
+  // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
+  // 448 x 480 dots. Keep a real margin on both edges instead of
+  // relying on the printer's REFERENCE offset.
+  private static let labelWidthDots = 448
+  private static let labelLeftMarginDots = 24
+  private static let labelRightMarginDots = 24
+  private static let packQrX = 278
+  private static let packQrY = 166
+  private static let packEpcY = 328
+  private static let largeQrX = 192
+  private static let largeQrY = 66
+  private static let largeQrFooterY = 322
+  private static let labelCodePage = "0"
 
   private let channel: FlutterMethodChannel
   private let discoveryChannel: FlutterEventChannel
@@ -409,11 +420,11 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
   private func buildLabelCommand(_ label: BluetoothLabelRequest) throws -> Data {
     var command: XTSPLCommand? = XTSPLCommand()
-    command = command?.setCharEncoding(String.Encoding.windowsCP1251.rawValue)
+    command = command?.setCharEncoding(String.Encoding.ascii.rawValue)
     command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
     command = command?.speed(4)
     command = command?.density(10)
-    command = command?.referenceAt(x: 80, y: 0)
+    command = command?.referenceAt(x: 0, y: 0)
     command = command?.cls()
     command = command?.codePage(Self.labelCodePage)
 
@@ -460,15 +471,31 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
     var result = command
     for (index, line) in titleLines.enumerated() {
-      result = text(result, x: 8, y: 6 + index * 26, font: kFNT_12_20, value: line)
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: 6 + index * 26,
+        font: kFNT_12_20,
+        value: line
+      )
     }
-    result = qr(result, x: 68, y: 66, value: payload, cellWidth: 8)
+    result = qr(result, x: Self.largeQrX, y: Self.largeQrY, value: payload, cellWidth: 8)
+    let footerLimit = label.labelKind == "material_product" ? 32 : 46
+    let footer = fitLabelText(
+      largeQrFooter(label, payload: payload),
+      maxLength: footerLimit
+    )
+    let footerIsLarge = label.labelKind == "material_product" && footer.count <= 32
+    let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
+    let footerX = footerIsLarge
+      ? centeredLabelX(footer, charWidth: 12)
+      : Self.labelLeftMarginDots
     result = text(
       result,
-      x: 8,
-      y: 362,
-      font: kFNT_8_12,
-      value: fitLabelText(largeQrFooter(label, payload: payload), maxLength: 38)
+      x: footerX,
+      y: Self.largeQrFooterY,
+      font: footerFont,
+      value: footer
     )
     return result
   }
@@ -489,31 +516,55 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let quantityLabel = label.isProgress ? "METRAJ" : "NETTO"
     let quantity = label.isProgress ? (label.progressQty ?? label.netQty) : label.netQty
 
-    var result = text(command, x: 8, y: 4, font: kFNT_16_24, value: "ACCORD")
+    var result = text(
+      command,
+      x: Self.labelLeftMarginDots,
+      y: 4,
+      font: kFNT_16_24,
+      value: "ACCORD"
+    )
     for (index, line) in productLines.enumerated() {
-      result = text(result, x: 8, y: 34 + index * 24, font: kFNT_12_20, value: line)
+      result = text(
+        result,
+        x: Self.labelLeftMarginDots,
+        y: 34 + index * 24,
+        font: kFNT_12_20,
+        value: line
+      )
     }
     result = text(
       result,
-      x: 8,
+      x: Self.labelLeftMarginDots,
       y: 112,
       font: kFNT_12_20,
       value: "\(quantityLabel): \(formatLabelQty(quantity)) \(quantityUnit)"
     )
     result = text(
       result,
-      x: 8,
+      x: Self.labelLeftMarginDots,
       y: 138,
       font: kFNT_12_20,
       value: "BRUTTO: \(formatLabelQty(label.grossQty)) \(grossUnit)"
     )
-    result = qr(result, x: 218, y: 166, value: payload, cellWidth: 5)
+    result = qr(
+      result,
+      x: Self.packQrX,
+      y: Self.packQrY,
+      value: payload,
+      cellWidth: 5
+    )
+    let epcIsLarge = payload.count <= 32
+    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
+    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
     result = text(
       result,
-      x: 8,
+      x: centeredLabelX(
+        epcText,
+        charWidth: epcIsLarge ? 12 : 8
+      ),
       y: Self.packEpcY,
-      font: kFNT_8_12,
-      value: fitLabelText("EPC: \(payload)", maxLength: 46)
+      font: epcFont,
+      value: epcText
     )
     return result
   }
@@ -571,12 +622,23 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
   private func largeQrFooter(_ label: BluetoothLabelRequest, payload: String) -> String {
     if label.labelKind == "material_product" {
-      return "EPC: \(payload)"
+      return payload
     }
     if label.labelKind == "qolip_code", payload.hasPrefix("RPS-BATCH:") {
       return "BATCH ID: \(payload.dropFirst("RPS-BATCH:".count))"
     }
     return label.itemCode.isEmpty ? payload : label.itemCode
+  }
+
+  private func centeredLabelX(_ value: String, charWidth: Int) -> Int {
+    let availableWidth = Self.labelWidthDots -
+      Self.labelLeftMarginDots - Self.labelRightMarginDots
+    let textWidth = min(value.count * charWidth, availableWidth)
+    let maxX = Self.labelWidthDots - Self.labelRightMarginDots - textWidth
+    return max(
+      Self.labelLeftMarginDots,
+      min((Self.labelWidthDots - textWidth) / 2, maxX)
+    )
   }
 
   private func cleanLabelText(_ value: String) -> String {
