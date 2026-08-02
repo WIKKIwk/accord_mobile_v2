@@ -579,7 +579,9 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         _importingBackup = false;
         _importProgress = 0;
       });
-      _showNotice('Backup qabul qilindi, server restore jarayoni boshlandi');
+      _showNotice(
+        'Backup qabul qilindi: avto backup, restore va schema migration boshlandi',
+      );
       unawaited(_loadSnapshot());
     } catch (error) {
       if (mounted) {
@@ -2308,6 +2310,7 @@ String _backupSourceLabel(String source) {
     'manual' => 'Qo‘lda',
     'legacy' => 'Avvalgi',
     'imported' => 'Import qilingan',
+    'pre_restore' => 'Restore oldidan',
     _ => 'Backup Doctor',
   };
 }
