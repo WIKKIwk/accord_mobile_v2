@@ -522,6 +522,7 @@ String _workerWipValue(String value) {
 String _workerWipActionLabel(String value) {
   return switch (value.trim().toLowerCase()) {
     'pause' => 'Pauza qilib chiqarilgan',
+    'roll_complete' => 'Rulonni tugatib chiqarilgan',
     'complete' => 'Tugatib chiqarilgan',
     'resume' => 'Davom ettirilgan',
     _ => value.trim(),

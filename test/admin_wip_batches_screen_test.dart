@@ -59,6 +59,18 @@ void main() {
     expect(batch.wipStatus, 'waiting');
     expect(batch.nextApparatus, isEmpty);
   });
+
+  test('roll-completed final output with no next apparatus stays free WIP', () {
+    final batch = _batch(
+      'roll-final',
+      'Rezka chiqim',
+      action: 'roll_complete',
+      status: 'completed',
+      flowStatus: '',
+    );
+
+    expect(isFinalFreeWip(batch), isTrue);
+  });
 }
 
 AdminProgressBatch _batch(

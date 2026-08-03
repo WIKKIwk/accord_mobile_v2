@@ -600,7 +600,8 @@ bool isFinalFreeWip(AdminProgressBatch batch) {
   if (flowStatus == 'free_wip' || flowStatus == 'finished_pending_acceptance') {
     return true;
   }
-  return batch.action.trim() == 'complete' &&
+  return (batch.action.trim() == 'roll_complete' ||
+          batch.action.trim() == 'complete') &&
       batch.status.trim() == 'completed' &&
       batch.wipStatus.trim() == _WipBatchStatus.waiting.apiValue &&
       batch.nextApparatus.trim().isEmpty;

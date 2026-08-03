@@ -36,6 +36,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   double _downloadProgress = 0;
   bool _importingBackup = false;
   double _importProgress = 0;
+  String? _pendingImportJobId;
   final TextEditingController _serverEndpointController =
       TextEditingController(text: MobileApi.baseUrl);
   bool _switchingServer = false;
@@ -527,21 +528,35 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           icon: const Icon(Icons.restore_rounded),
           title: const Text('Backupni import qilish'),
           content: Text(
             '$filename serverga yuboriladi va serverdagi PostgreSQL '
             'ma’lumotlari shu backup holatiga qaytariladi. Davom etilsinmi?',
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              key: const ValueKey('server-backup-import-confirm'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Import qilish'),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    key: const ValueKey('server-backup-import-confirm'),
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: const Text('Import qilish'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('Bekor qilish'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -556,7 +571,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
     });
     _showNotice('Backup serverga yuborilmoqda…');
     try {
-      await MobileApi.instance.adminImportBackup(
+      final importJob = await MobileApi.instance.adminImportBackup(
         filename: filename,
         contentLength: contentLength,
         openStream: source.openRead,
@@ -572,6 +587,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
       if (!mounted) {
         return;
       }
+      _pendingImportJobId = importJob.id;
       // The API returns after the upload is durably staged and the restore job
       // is queued. Do not keep the import button blocked while a monitor
       // refresh waits on a slow network or database response.
@@ -583,6 +599,7 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
         'Backup qabul qilindi: avto backup, restore va schema migration boshlandi',
       );
       unawaited(_loadSnapshot());
+      unawaited(_watchImportCompletion(importJob.id));
     } catch (error) {
       if (mounted) {
         _showNotice(_backupActionError(error));
@@ -737,6 +754,73 @@ class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
   void _applyReport(AdminServerMonitorReport report) {
     _report = report;
     _lastUpdated = DateTime.now();
+    final message = _pendingImportCompletionMessage(report);
+    if (message != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showNotice(message);
+        }
+      });
+    }
+  }
+
+  String? _pendingImportCompletionMessage(AdminServerMonitorReport report) {
+    final jobId = _pendingImportJobId;
+    if (jobId == null || jobId.trim().isEmpty) {
+      return null;
+    }
+    AdminServerMonitorBackupSnapshot? snapshot;
+    for (final item in report.backups.snapshots) {
+      if (item.id == jobId) {
+        snapshot = item;
+        break;
+      }
+    }
+    if (snapshot == null) {
+      return null;
+    }
+    if (snapshot.ready) {
+      _pendingImportJobId = null;
+      return 'Import qilindi — ma’lumotlar serverda muvaffaqiyatli tiklandi';
+    }
+    if (snapshot.status == 'failed') {
+      _pendingImportJobId = null;
+      final error = snapshot.error.trim();
+      if (error.isEmpty) {
+        return 'Import amalga oshmadi';
+      }
+      final shortError = error.length > 180
+          ? '${error.substring(0, 180)}…'
+          : error;
+      return 'Import amalga oshmadi: $shortError';
+    }
+    return null;
+  }
+
+  Future<void> _watchImportCompletion(String jobId) async {
+    final deadline = DateTime.now().add(const Duration(hours: 3));
+    while (mounted &&
+        _pendingImportJobId == jobId &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted || _pendingImportJobId != jobId) {
+        return;
+      }
+      try {
+        final report = await MobileApi.instance.adminServerMonitor();
+        if (!mounted || _pendingImportJobId != jobId) {
+          return;
+        }
+        setState(() {
+          _applyReport(report);
+          _loading = false;
+          _error = null;
+        });
+      } catch (_) {
+        // The live stream and the next poll can still recover the final job
+        // state; an intermittent monitor error must not show a false failure.
+      }
+    }
   }
 
   void _applyLatency(int latencyMs) {

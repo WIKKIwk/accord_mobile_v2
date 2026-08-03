@@ -142,6 +142,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.previousProgressReady,
     required this.showStart,
     required this.showPause,
+    required this.showRollComplete,
     required this.showComplete,
     required this.showResume,
     required this.showWaitingForPrevious,
@@ -170,6 +171,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool previousProgressReady;
   final bool showStart;
   final bool showPause;
+  final bool showRollComplete;
   final bool showComplete;
   final bool showResume;
   final bool showWaitingForPrevious;

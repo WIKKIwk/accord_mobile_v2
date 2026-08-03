@@ -47,6 +47,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onQolipScan,
     required this.onStart,
     required this.onPause,
+    required this.onRollComplete,
     required this.onComplete,
     required this.onResume,
     required this.orderControlState,
@@ -100,6 +101,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
+  final VoidCallback onRollComplete;
   final VoidCallback onComplete;
   final VoidCallback onResume;
   final AdminOrderControlState orderControlState;
@@ -159,6 +161,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onToggleIntakeCandidatesExpanded:
                     onToggleIntakeCandidatesExpanded,
                 showPause: uiState.showPause,
+                showRollComplete: uiState.showRollComplete,
                 showComplete: uiState.showComplete,
                 showResume: uiState.showResume,
                 showWaitingForPrevious: uiState.showWaitingForPrevious,
@@ -188,6 +191,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 onQolipScan: onQolipScan,
                 onStart: onStart,
                 onPause: onPause,
+                onRollComplete: onRollComplete,
                 onComplete: onComplete,
                 onResume: onResume,
                 orderControlState: orderControlState,
@@ -658,6 +662,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.intakeCandidatesExpanded,
     required this.onToggleIntakeCandidatesExpanded,
     required this.showPause,
+    required this.showRollComplete,
     required this.showComplete,
     required this.showResume,
     required this.showWaitingForPrevious,
@@ -687,6 +692,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onQolipScan,
     required this.onStart,
     required this.onPause,
+    required this.onRollComplete,
     required this.onComplete,
     required this.onResume,
     required this.orderControlState,
@@ -717,6 +723,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final bool intakeCandidatesExpanded;
   final VoidCallback onToggleIntakeCandidatesExpanded;
   final bool showPause;
+  final bool showRollComplete;
   final bool showComplete;
   final bool showResume;
   final bool showWaitingForPrevious;
@@ -746,6 +753,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback onQolipScan;
   final VoidCallback onStart;
   final VoidCallback onPause;
+  final VoidCallback onRollComplete;
   final VoidCallback onComplete;
   final VoidCallback onResume;
   final AdminOrderControlState orderControlState;
@@ -769,9 +777,14 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final orderFrozen = orderControlState == AdminOrderControlState.frozen;
     final hasActions = showStart ||
         showPause ||
+        showRollComplete ||
         showComplete ||
         showResume ||
         showWaitingForPrevious;
+    final showRezkaInputProgressScan = previousProgressRequired &&
+        (showStart ||
+            (rezkaInstructionLines.isNotEmpty &&
+                (showPause || showRollComplete || showComplete)));
     final showMaterialIntake = showPause || showResume;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();
@@ -1045,7 +1058,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
-            if (showStart && previousProgressRequired) ...[
+            if (showRezkaInputProgressScan) ...[
               _PreviousProgressQrTile(
                 previousStage: previousStage ?? '',
                 ready: previousProgressReady,
@@ -1146,6 +1159,23 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+            if (showRollComplete) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: actionInFlight ||
+                        orderControlState != AdminOrderControlState.active
+                    ? null
+                    : onRollComplete,
+                icon: const Icon(Icons.call_made_rounded),
+                label: const Text('Rulonni tugatish'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ],
             if (showResume) ...[

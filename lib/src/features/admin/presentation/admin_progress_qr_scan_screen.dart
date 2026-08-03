@@ -2196,6 +2196,7 @@ String progressQrTimelineTitle(String action) {
     'start' => 'Bosqichdagi ish boshlandi',
     'pause' => 'Bosqichdagi ish vaqtincha to‘xtatildi',
     'resume' => 'Bosqichdagi ish davom ettirildi',
+    'roll_complete' => 'Bitta rulon yakunlandi',
     'complete' => 'Bosqichdagi ish yakunlandi',
     _ => _stateLabel(action),
   };
@@ -2210,6 +2211,8 @@ String _logSentence(AdminProductionOrderLogEntry log, String time) {
     'start' => '$actor $apparatus bosqichida ishni boshladi.',
     'pause' => '$actor $apparatus bosqichidagi ishni vaqtincha to‘xtatdi.',
     'resume' => '$actor $apparatus bosqichidagi ishni davom ettirdi.',
+    'roll_complete' =>
+      '$actor $apparatus bosqichidagi bitta rulonni yakunladi.',
     'complete' => '$actor $apparatus bosqichidagi ishni yakunladi.',
     _ => '$actor $apparatus bosqichida amal bajardi.',
   };

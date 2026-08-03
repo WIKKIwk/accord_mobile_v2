@@ -166,6 +166,7 @@ class _ClosedOrderLogRow extends StatelessWidget {
       'start' => Icons.play_arrow_rounded,
       'pause' => Icons.pause_rounded,
       'resume' => Icons.replay_rounded,
+      'roll_complete' => Icons.done_all_rounded,
       'complete' => Icons.check_rounded,
       _ => Icons.history_rounded,
     };

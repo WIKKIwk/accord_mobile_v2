@@ -45,6 +45,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _rollCount = TextEditingController();
   final List<_LayerControllers> _layers = [_LayerControllers()];
   final _note = TextEditingController();
+  List<CalculateMaterial> _materialCatalog = const <CalculateMaterial>[];
+  bool _loadingMaterialCatalog = false;
 
   String _customerRef = '';
   String _itemCode = '';
@@ -78,6 +80,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     }
     _calculationListenersAttached = true;
     unawaited(_warmQuickOrderTemplates());
+    unawaited(_loadMaterialCatalog());
   }
 
   @override
@@ -117,6 +120,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   List<CalculateLayerInput> get _layerInputs => _layers
       .map(
         (layer) => CalculateLayerInput(
+          materialId: layer.materialId,
           material: layer.material.text.trim(),
           micron: layer.micron.text.trim(),
         ),
@@ -125,6 +129,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   CalculateLayerInput _legacyLayer(int index) => index < _layers.length
       ? CalculateLayerInput(
+          materialId: _layers[index].materialId,
           material: _layers[index].material.text.trim(),
           micron: _layers[index].micron.text.trim(),
         )
@@ -224,6 +229,204 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     } catch (_) {
       return;
     }
+  }
+
+  Future<void> _loadMaterialCatalog({bool force = false}) async {
+    if (_loadingMaterialCatalog || (!force && _materialCatalog.isNotEmpty)) {
+      return;
+    }
+    _loadingMaterialCatalog = true;
+    try {
+      final materials = await MobileApi.instance.calculateMaterials();
+      if (mounted) {
+        setState(() => _materialCatalog = materials);
+      }
+    } catch (_) {
+      // The existing text values remain usable for legacy templates.
+    } finally {
+      _loadingMaterialCatalog = false;
+    }
+  }
+
+  Future<bool> _ensureMaterialCatalog() async {
+    if (_materialCatalog.isNotEmpty) {
+      return true;
+    }
+    await _loadMaterialCatalog(force: true);
+    if (_materialCatalog.isNotEmpty) {
+      return true;
+    }
+    if (mounted) {
+      showAdminTopNotice(context, 'Qavat materiallari yuklanmadi');
+    }
+    return false;
+  }
+
+  Future<List<CalculateMaterial>> _loadMaterialPickerPage(
+    String query,
+    int offset,
+    int limit,
+  ) async {
+    if (!await _ensureMaterialCatalog()) {
+      return const <CalculateMaterial>[];
+    }
+    final normalizedQuery = _normalizeMaterialKey(query);
+    final filtered = _materialCatalog.where((material) {
+      if (!material.active) {
+        return false;
+      }
+      if (normalizedQuery.isEmpty) {
+        return true;
+      }
+      return _normalizeMaterialKey(material.name).contains(normalizedQuery) ||
+          material.aliases.any(
+            (alias) => _normalizeMaterialKey(alias).contains(normalizedQuery),
+          );
+    }).toList(growable: false);
+    if (offset >= filtered.length) {
+      return const <CalculateMaterial>[];
+    }
+    return filtered.skip(offset).take(limit).toList(growable: false);
+  }
+
+  CalculateMaterial? _materialForLayer(_LayerControllers layer) {
+    final id = layer.materialId.trim();
+    if (id.isNotEmpty) {
+      for (final material in _materialCatalog) {
+        if (material.id == id) {
+          return material;
+        }
+      }
+    }
+    final key = _normalizeMaterialKey(layer.material.text);
+    if (key.isEmpty) {
+      return null;
+    }
+    for (final material in _materialCatalog) {
+      if (_normalizeMaterialKey(material.name) == key ||
+          material.aliases.any((alias) => _normalizeMaterialKey(alias) == key)) {
+        return material;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openLayerMaterialPicker(int index) async {
+    if (index < 0 || index >= _layers.length ||
+        !await _ensureMaterialCatalog()) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final picked = await showModalBottomSheet<CalculateMaterial>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<CalculateMaterial>(
+          title: 'Qavat materiali',
+          hintText: 'Material qidiring',
+          pageSize: 50,
+          cacheKey: 'calculate:materials',
+          loadPage: _loadMaterialPickerPage,
+          itemTitle: (item) => item.name,
+          itemSubtitle: (item) =>
+              '${item.variants.length} ta mikron • ${item.aliases.join(', ')}',
+          itemKey: (item) => item.id,
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted || index >= _layers.length) {
+      return;
+    }
+    final layer = _layers[index];
+    final currentMicron = layer.micron.text.trim();
+    final micronStillValid = picked.variants.any(
+      (variant) => variant.micron.toString() == currentMicron,
+    );
+    setState(() {
+      layer.materialId = picked.id;
+      layer.material.text = picked.name;
+      if (!micronStillValid) {
+        layer.micron.clear();
+      }
+    });
+  }
+
+  Future<void> _openLayerMicronPicker(int index) async {
+    if (index < 0 || index >= _layers.length ||
+        !await _ensureMaterialCatalog()) {
+      return;
+    }
+    final material = _materialForLayer(_layers[index]);
+    if (material == null) {
+      if (mounted) {
+        showAdminTopNotice(context, 'Avval qavat materialini tanlang');
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final picked = await showModalBottomSheet<CalculateMaterialVariant>(
+      context: context,
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) {
+        return M3AsyncPickerSheet<CalculateMaterialVariant>(
+          title: '${material.name} mikroni',
+          hintText: 'Mikron qidiring',
+          pageSize: 50,
+          cacheKey: 'calculate:material:${material.id}:microns',
+          loadPage: (query, offset, limit) async {
+            final normalized = query.trim();
+            final variants = material.variants.where((variant) {
+              return normalized.isEmpty ||
+                  variant.micron.toString().contains(normalized);
+            }).toList(growable: false);
+            return variants.skip(offset).take(limit).toList(growable: false);
+          },
+          itemTitle: (item) => '${item.micron} mikron',
+          itemSubtitle: (item) => 'Koifisent: ${_fmtInput(item.coefficient)}',
+          itemKey: (item) => '${material.id}:${item.micron}',
+          onSelected: (item) => Navigator.of(context).pop(item),
+        );
+      },
+    );
+    if (picked == null || !mounted || index >= _layers.length) {
+      return;
+    }
+    setState(() => _layers[index].micron.text = picked.micron.toString());
+  }
+
+  Future<void> _openMaterialCatalogManager() async {
+    await _ensureMaterialCatalog();
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) => _CalculateMaterialManager(
+        materials: _materialCatalog,
+      ),
+    );
+    M3AsyncPickerSheet.clearMemoryCache();
+    await _loadMaterialCatalog(force: true);
   }
 
   void _openDrawerRoute(String routeName) {
@@ -886,12 +1089,24 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
         suffixText: 'ta',
       ),
       const SizedBox(height: 18),
-      const _SectionHeader(title: 'Qavatlar'),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const _SectionHeader(title: 'Qavatlar'),
+          TextButton.icon(
+            onPressed: _openMaterialCatalogManager,
+            icon: const Icon(Icons.tune_rounded, size: 18),
+            label: const Text('Materiallar'),
+          ),
+        ],
+      ),
       for (var index = 0; index < _layers.length; index++)
         _LayerInputs(
           material: _layers[index].material,
           micron: _layers[index].micron,
           materialLabel: '${index + 1}-qavat',
+          onMaterialTap: () => _openLayerMaterialPicker(index),
+          onMicronTap: () => _openLayerMicronPicker(index),
           onRemove: index == 0 ? null : () => _removeLayer(index),
         ),
       OutlinedButton.icon(
@@ -1789,7 +2004,7 @@ class _PickerInput extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      empty ? '$label tanlang' : displayValue,
+                      empty ? label : displayValue,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -1992,12 +2207,16 @@ class _LayerInputs extends StatelessWidget {
     required this.material,
     required this.micron,
     required this.materialLabel,
+    required this.onMaterialTap,
+    required this.onMicronTap,
     this.onRemove,
   });
 
   final TextEditingController material;
   final TextEditingController micron;
   final String materialLabel;
+  final VoidCallback onMaterialTap;
+  final VoidCallback onMicronTap;
   final VoidCallback? onRemove;
 
   @override
@@ -2007,20 +2226,21 @@ class _LayerInputs extends StatelessWidget {
       children: [
         Expanded(
           flex: 3,
-          child: _TextInput(
-            controller: material,
+          child: _PickerInput(
             label: materialLabel,
-            validator: _requiredText,
+            value: material.text,
+            required: true,
+            onTap: onMaterialTap,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           flex: 2,
-          child: _NumberInput(
-            controller: micron,
+          child: _PickerInput(
             label: 'Mikron',
-            suffixText: 'mkr',
-            validator: _requiredPositiveNumber,
+            value: micron.text,
+            required: true,
+            onTap: onMicronTap,
           ),
         ),
         if (onRemove != null) ...[
@@ -2040,14 +2260,23 @@ class _LayerInputs extends StatelessWidget {
 }
 
 class _LayerControllers {
-  _LayerControllers({String material = '', String micron = ''})
-      : material = TextEditingController(text: material),
+  _LayerControllers({
+    String materialId = '',
+    String material = '',
+    String micron = '',
+  })  : materialId = materialId,
+        material = TextEditingController(text: material),
         micron = TextEditingController(text: micron);
 
   factory _LayerControllers.fromInput(CalculateLayerInput input) {
-    return _LayerControllers(material: input.material, micron: input.micron);
+    return _LayerControllers(
+      materialId: input.materialId,
+      material: input.material,
+      micron: input.micron,
+    );
   }
 
+  String materialId;
   final TextEditingController material;
   final TextEditingController micron;
 
@@ -2065,6 +2294,424 @@ class _LayerControllers {
     material.dispose();
     micron.dispose();
   }
+}
+
+class _CalculateMaterialManager extends StatefulWidget {
+  const _CalculateMaterialManager({required this.materials});
+
+  final List<CalculateMaterial> materials;
+
+  @override
+  State<_CalculateMaterialManager> createState() =>
+      _CalculateMaterialManagerState();
+}
+
+class _CalculateMaterialManagerState extends State<_CalculateMaterialManager> {
+  late List<CalculateMaterial> _materials;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _materials = List<CalculateMaterial>.of(widget.materials);
+  }
+
+  Future<void> _edit([CalculateMaterial? material]) async {
+    final draft = await showModalBottomSheet<CalculateMaterial>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) => _CalculateMaterialEditor(material: material),
+    );
+    if (draft == null || !mounted) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final saved = await MobileApi.instance.upsertCalculateMaterial(draft);
+      final index = _materials.indexWhere((item) => item.id == saved.id);
+      setState(() {
+        if (index >= 0) {
+          _materials[index] = saved;
+        } else {
+          _materials.add(saved);
+        }
+        _materials.sort((left, right) => left.name.compareTo(right.name));
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_materialSaveError(error))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.82,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Qavat materiallari',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Har bir materialga mikron va koifisent bering.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _saving ? null : () => _edit(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Material qo‘shish'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _materials.isEmpty
+                  ? const Center(child: Text('Material yo‘q'))
+                  : ListView.separated(
+                      itemCount: _materials.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final material = _materials[index];
+                        final micronText = material.variants
+                            .map((variant) => '${variant.micron}')
+                            .join(', ');
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          enabled: !_saving,
+                          onTap: () => _edit(material),
+                          title: Text(
+                            material.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            '$micronText mkr${material.active ? '' : ' • o‘chirilgan'}',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalculateMaterialEditor extends StatefulWidget {
+  const _CalculateMaterialEditor({this.material});
+
+  final CalculateMaterial? material;
+
+  @override
+  State<_CalculateMaterialEditor> createState() =>
+      _CalculateMaterialEditorState();
+}
+
+class _CalculateMaterialEditorState extends State<_CalculateMaterialEditor> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _aliases;
+  late bool _active;
+  late List<_CalculateMaterialVariantControllers> _variants;
+  String _variantError = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final material = widget.material;
+    _name = TextEditingController(text: material?.name ?? '');
+    _aliases = TextEditingController(text: material?.aliases.join(', ') ?? '');
+    _active = material?.active ?? true;
+    _variants = material?.variants
+            .map(_CalculateMaterialVariantControllers.fromVariant)
+            .toList() ??
+        [_CalculateMaterialVariantControllers()];
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _aliases.dispose();
+    for (final variant in _variants) {
+      variant.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addVariant() {
+    setState(() => _variants.add(_CalculateMaterialVariantControllers()));
+  }
+
+  void _removeVariant(int index) {
+    if (_variants.length == 1) {
+      return;
+    }
+    setState(() {
+      final variant = _variants.removeAt(index);
+      variant.dispose();
+    });
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    final variants = <CalculateMaterialVariant>[];
+    final seenMicrons = <int>{};
+    for (final variant in _variants) {
+      final micron = int.tryParse(variant.micron.text.trim());
+      final coefficient = double.tryParse(
+        variant.coefficient.text.trim().replaceAll(',', '.'),
+      );
+      if (micron == null || coefficient == null || !seenMicrons.add(micron)) {
+        setState(() => _variantError = 'Mikronlar takrorlanmasin');
+        return;
+      }
+      variants.add(
+        CalculateMaterialVariant(
+          micron: micron,
+          coefficient: coefficient,
+          firstLayerCoefficient: variant.firstLayerCoefficient,
+        ),
+      );
+    }
+    final aliases = _aliases.text
+        .split(',')
+        .map((alias) => alias.trim())
+        .where((alias) => alias.isNotEmpty)
+        .toList(growable: false);
+    Navigator.of(context).pop(
+      CalculateMaterial(
+        id: widget.material?.id ?? '',
+        name: _name.text.trim(),
+        aliases: aliases,
+        active: _active,
+        variants: variants,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.material == null
+                          ? 'Material qo‘shish'
+                          : 'Materialni tahrirlash',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              TextFormField(
+                controller: _name,
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Material nomi',
+                ),
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? 'Majburiy' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _aliases,
+                decoration: appSurfaceInputDecoration(
+                  context,
+                  labelText: 'Aliaslar',
+                  hintText: 'masalan: bopp metall, boppmetal',
+                ),
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _active,
+                onChanged: (value) => setState(() => _active = value),
+                title: const Text('Tanlashda ko‘rsatilsin'),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Mikron va koifisent',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (var index = 0; index < _variants.length; index++) ...[
+                if (index > 0) const SizedBox(height: 10),
+                _MaterialVariantEditorRow(
+                  variant: _variants[index],
+                  onRemove: _variants.length == 1
+                      ? null
+                      : () => _removeVariant(index),
+                ),
+              ],
+              if (_variantError.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _variantError,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: _addVariant,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Mikron qo‘shish'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _save,
+                child: const Text('Saqlash'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialVariantEditorRow extends StatelessWidget {
+  const _MaterialVariantEditorRow({required this.variant, this.onRemove});
+
+  final _CalculateMaterialVariantControllers variant;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: variant.micron,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: appSurfaceInputDecoration(context, labelText: 'Mikron'),
+            validator: (value) {
+              final micron = int.tryParse(value?.trim() ?? '');
+              return micron == null || micron <= 0 ? 'Noto‘g‘ri' : null;
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            controller: variant.coefficient,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: appSurfaceInputDecoration(
+              context,
+              labelText: 'Koifisent',
+            ),
+            validator: (value) {
+              final coefficient = double.tryParse(
+                value?.trim().replaceAll(',', '.') ?? '',
+              );
+              return coefficient == null || coefficient <= 0
+                  ? 'Noto‘g‘ri'
+                  : null;
+            },
+          ),
+        ),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.remove_circle_outline_rounded),
+          ),
+      ],
+    );
+  }
+}
+
+class _CalculateMaterialVariantControllers {
+  _CalculateMaterialVariantControllers({
+    String micron = '',
+    String coefficient = '',
+    this.firstLayerCoefficient,
+  })  : micron = TextEditingController(text: micron),
+        coefficient = TextEditingController(text: coefficient);
+
+  factory _CalculateMaterialVariantControllers.fromVariant(
+    CalculateMaterialVariant variant,
+  ) {
+    return _CalculateMaterialVariantControllers(
+      micron: variant.micron.toString(),
+      coefficient: _fmtInput(variant.coefficient),
+      firstLayerCoefficient: variant.firstLayerCoefficient,
+    );
+  }
+
+  final TextEditingController micron;
+  final TextEditingController coefficient;
+  final double? firstLayerCoefficient;
+
+  void dispose() {
+    micron.dispose();
+    coefficient.dispose();
+  }
+}
+
+String _materialSaveError(Object error) {
+  if (error is MobileApiException) {
+    return error.message;
+  }
+  return 'Material saqlanmadi';
 }
 
 class _TextInput extends StatelessWidget {
@@ -2263,4 +2910,11 @@ String _fmtInput(double value) => formatRawQuantity(value);
 
 String _normalizeProductMapKey(String value) {
   return value.trim().toLowerCase();
+}
+
+String _normalizeMaterialKey(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '');
 }

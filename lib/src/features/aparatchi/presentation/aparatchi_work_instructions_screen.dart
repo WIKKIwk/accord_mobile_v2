@@ -280,11 +280,11 @@ class _ApparatusGuide {
         ],
         pauseSteps: const [
           'Pauza tugmasini bosing. Pauza miqdori oynasi ochiladi.',
-          'Jami chiqindi (kg), Metraj (metr) va Og‘irlik (kg) maydonlarining uchalasiga hozirgi real miqdorni kiriting. 0 qabul qilinmaydi.',
+          'Rulon almashganda Metraj (metr) va Og‘irlik (kg) maydonlarini hozirgi real qiymat bilan to‘ldiring. Pauzada Jami chiqindi va kraska astatkasi kiritilmaydi. 0 qabul qilinmaydi.',
           'Tasdiqlashni bosing, keyin chiqadigan printer tanlash oynasidan ishchi printerni tanlang. Printer tanlanmasa pauza yuborilmaydi.',
         ],
         completionFields: const [
-          'Tugatish tugmasini bosing. Tugatish miqdori oynasida Tayyor mahsulot uchun Metraj va Og‘irlik, Qaytim va chiqindi uchun Jami chiqindi maydonlarini real qiymat bilan to‘ldiring.',
+          'Barcha rulonlar tugagach, oxirgi rulonda Tugatish tugmasini bosing. Order bo‘yicha jami chiqindini (Jami chiqindi), Metraj va Og‘irlikni bir marta kiriting.',
           'Qaytarilgan bo‘yoq tugmasini bosing. Rasxot va Astatka tablarining har birida kamida 3 ta qiymat kiriting yoki qaytarilgan bo‘yoq rasmini yuklang.',
           'Tasdiqlashdan keyin printer tanlang. To‘liq hisobot va printer tanlovi tasdiqlangach zakaz tugatiladi.',
         ],
@@ -301,11 +301,11 @@ class _ApparatusGuide {
         ],
         pauseSteps: const [
           'Pauza tugmasini bosing. Pauza miqdori oynasi ochiladi.',
-          'Plyonkadan ortgan rulon, Jami chiqindi (kg), Metraj (metr) va Og‘irlik (kg) maydonlarini hozirgi real qiymat bilan to‘ldiring. 0 qabul qilinmaydi.',
+          'Metraj (metr) va Og‘irlik (kg) maydonlarini hozirgi real qiymat bilan to‘ldiring. Pauzada Plyonkadan ortgan rulon ham, Jami chiqindi (atxot) ham kiritilmaydi. 0 qabul qilinmaydi.',
           'Tasdiqlashdan keyin ishchi printerni tanlang. Printer tanlanmasa pauza yuborilmaydi.',
         ],
         completionFields: const [
-          'Tugatish miqdorida Bosmadan ortgan rulon va Plyonkadan ortgan rulon maydonlaridan kamida bittasini, shuningdek Jami chiqindi, Metraj va Og‘irlikni kiriting.',
+          'Barcha rulonlar tugagach, oxirgi rulonda Tugatish tugmasini bosing. Bosmadan ortgan rulon va Plyonkadan ortgan rulon maydonlaridan kamida bittasini, shuningdek order bo‘yicha jami atxot miqdorini (Jami chiqindi), Metraj va Og‘irlikni bir marta kiriting.',
           'Barcha qiymatlar haqiqiy va 0 dan katta bo‘lsa Tasdiqlashni bosing, keyin ishchi printerni tanlang.',
           'Bosma yoki plyonka qoldig‘i yo‘q bo‘lsa, to‘liq tugatish o‘tmaydi; sababli tugatish so‘rovini yuboring.',
         ],

@@ -130,6 +130,7 @@ String _closedLogActionLabel(String action) {
     'start' => 'Boshladi',
     'pause' => 'Pauza qildi',
     'resume' => 'Davom ettirdi',
+    'roll_complete' => 'Rulonni tugatdi',
     'complete' => 'Tugatdi',
     final value when value.isNotEmpty => value,
     _ => 'Harakat',

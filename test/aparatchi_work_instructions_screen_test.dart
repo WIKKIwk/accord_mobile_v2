@@ -60,10 +60,34 @@ void main() {
     );
     expect(find.textContaining('Pauza miqdori oynasi'), findsOneWidget);
     expect(find.textContaining('Rasxot va Astatka'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Pauzada Jami chiqindi va kraska astatkasi kiritilmaydi',
+      ),
+      findsOneWidget,
+    );
 
     await tester.scrollUntilVisible(find.text('Laminatsiya 1'), 300);
     expect(find.text('Laminatsiya 1'), findsOneWidget);
     expect(find.textContaining('Plyonkadan ortgan rulon'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.textContaining(
+        'Pauzada Plyonkadan ortgan rulon ham, Jami chiqindi (atxot) ham kiritilmaydi',
+      ),
+      300,
+    );
+    expect(
+      find.textContaining(
+        'Pauzada Plyonkadan ortgan rulon ham, Jami chiqindi (atxot) ham kiritilmaydi',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('order bo‘yicha jami atxot miqdorini'),
+      300,
+    );
+    expect(find.textContaining('order bo‘yicha jami atxot miqdorini'),
+        findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Rezka 1'), 300);
     expect(find.text('Rezka 1'), findsOneWidget);

@@ -331,6 +331,7 @@ String _inputProgressBatchTitle(AdminProgressBatch batch) {
   final actionText = switch (action) {
     'complete' => 'tugatib chiqargan',
     'pause' => 'pauzada chiqargan',
+    'roll_complete' => 'rulonni tugatib chiqargan',
     _ => 'chiqargan',
   };
   final base = itemName.isEmpty ? batch.orderId.trim() : itemName;

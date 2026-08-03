@@ -560,14 +560,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (states != null) {
         unawaited(_loadInputProgressBatches());
       }
-      if (states != null && printTransport.isLocal && states.printJob != null) {
+      final printJobs = states == null
+          ? const <UsbRpsPrintRequest>[]
+          : states.printJobs.isNotEmpty
+              ? states.printJobs
+              : states.printJob == null
+                  ? const <UsbRpsPrintRequest>[]
+                  : [states.printJob!];
+      if (states != null && printTransport.isLocal && printJobs.isNotEmpty) {
         try {
-          await PrintService.printRps(
-            states.printJob!,
-            printerProfile: offlinePrinter,
-            bluetoothPrinter: bluetoothPrinter,
-            transport: printTransport,
-          );
+          for (final printJob in printJobs) {
+            await PrintService.printRps(
+              printJob,
+              printerProfile: offlinePrinter,
+              bluetoothPrinter: bluetoothPrinter,
+              transport: printTransport,
+            );
+          }
         } catch (_) {
           if (mounted) {
             _showSheetNotice('Amal bajarildi, local printer chop etmadi');
@@ -1117,6 +1126,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       visibleOrderIds: widget.visibleOrderIds,
       queuePolicy: widget.queuePolicy,
       startInputProgressBatch: _startInputProgressBatch,
+      inputProgressBatches: _availableInputProgressBatches,
+      inputProgressLoading: _inputProgressLoading,
+      inputProgressError: _inputProgressError,
       skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
       orderControlState: _orderControlState,
       orderControlsByOrderId: _orderControls,
@@ -1188,6 +1200,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       onQolipScan: () => unawaited(_scanQolip()),
       onStart: () => unawaited(_runQueueAction('start')),
       onPause: () => unawaited(_runProgressAction('pause')),
+      onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
       onComplete: () => unawaited(_runProgressAction('complete')),
       onResume: () => unawaited(_runQueueAction('resume')),
       orderControlState: _orderControlState,

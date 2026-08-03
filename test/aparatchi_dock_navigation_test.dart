@@ -2,6 +2,7 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/aparatchi_dock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -67,5 +68,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(observer.routeNames, contains(AppRoutes.apparatusQueue));
+  });
+
+  testWidgets('aparatchi primary fab exposes only worker actions',
+      (tester) async {
+    final observer = _RecordingNavigatorObserver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        navigatorObservers: [observer],
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        home: const Scaffold(
+          bottomNavigationBar: AparatchiDock(activeTab: null),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('QR scan qilish'), findsOneWidget);
+    expect(find.text('Kunlik ish'), findsOneWidget);
+    expect(find.text('Foydalanuvchi qo‘shish'), findsNothing);
+    expect(find.text('Buyurtma yaratish'), findsNothing);
+
+    await tester.tap(find.text('QR scan qilish'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(observer.routeNames, contains(AppRoutes.adminProgressQrScan));
   });
 }

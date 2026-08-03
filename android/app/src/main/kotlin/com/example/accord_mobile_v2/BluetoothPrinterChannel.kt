@@ -40,6 +40,9 @@ class BluetoothPrinterChannel(
         private const val LABEL_REFERENCE_X_DOTS = 72
         private const val LABEL_LEFT_MARGIN_DOTS = 24
         private const val LABEL_RIGHT_MARGIN_DOTS = 24
+        private const val DEFAULT_PRINT_DENSITY = 10
+        private const val MATERIAL_PRINT_DENSITY = 12
+        private const val MATERIAL_TEXT_BOLD_OFFSET_DOTS = 1
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
@@ -302,7 +305,13 @@ class BluetoothPrinterChannel(
         printer
             .sizeMm(LABEL_WIDTH_MM, LABEL_HEIGHT_MM)
             .speed(4.0)
-            .density(10)
+            .density(
+                if (label.isMaterialProduct) {
+                    MATERIAL_PRINT_DENSITY
+                } else {
+                    DEFAULT_PRINT_DENSITY
+                },
+            )
             .direction(TSPLConst.DIRECTION_FORWARD)
             .reference(LABEL_REFERENCE_X_DOTS, 0)
             .cls()
@@ -348,18 +357,29 @@ class BluetoothPrinterChannel(
         } else {
             TSPLConst.FNT_12_20
         }
-        val cellSize = largeQrCellSize(payload)
+        val cellSize = if (label.isMaterialProduct) {
+            materialQrCellSize(payload)
+        } else {
+            largeQrCellSize(payload)
+        }
         val qrX = centeredQrX(payload, cellSize)
         val qrY = centeredQrY(payload, cellSize)
         val qrSize = qrSymbolSizeDots(payload, cellSize)
         titleLines.forEachIndexed { index, line ->
-            sdkText(
-                printer,
-                LABEL_LEFT_MARGIN_DOTS,
-                6 + index * 26,
-                titleFont,
-                line,
-            )
+            val titleX = LABEL_LEFT_MARGIN_DOTS
+            val titleY = 6 + index * 26
+            if (label.isMaterialProduct) {
+                sdkText(printer, titleX, titleY, titleFont, line)
+                sdkText(
+                    printer,
+                    titleX + MATERIAL_TEXT_BOLD_OFFSET_DOTS,
+                    titleY,
+                    titleFont,
+                    line,
+                )
+            } else {
+                sdkText(printer, titleX, titleY, titleFont, line)
+            }
         }
         sdkQr(
             printer,
@@ -518,6 +538,10 @@ class BluetoothPrinterChannel(
             value.length <= 46 -> 7
             else -> 6
         }
+    }
+
+    private fun materialQrCellSize(value: String): Int {
+        return (largeQrCellSize(value) + 1).coerceAtMost(9)
     }
 
     private fun centeredQrX(value: String, cellSize: Int): Int {

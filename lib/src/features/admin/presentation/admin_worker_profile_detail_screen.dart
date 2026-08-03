@@ -315,6 +315,7 @@ String _actionLabel(String action) {
     'start' => 'Boshladi',
     'pause' => 'Pauza',
     'resume' => 'Davom etdi',
+    'roll_complete' => 'Rulonni tugatdi',
     'complete' => 'Tugatdi',
     final value when value.isNotEmpty => value,
     _ => 'Harakat',

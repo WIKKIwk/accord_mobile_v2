@@ -156,6 +156,7 @@ void main() {
     );
 
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusDailyWork), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.adminProgressQrScan), isTrue);
   });
 
   test('inventory movement route is capability scoped', () {

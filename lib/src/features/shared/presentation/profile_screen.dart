@@ -595,6 +595,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             _ProfileShellKind.aparatchi => const AparatchiDock(
                 activeTab: AparatchiDockTab.profile,
+                showPrimaryFab: false,
               ),
             _ProfileShellKind.qolip => const QolipDock(
                 activeTab: QolipDockTab.profile,

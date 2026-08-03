@@ -20,6 +20,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let labelReferenceXDots: Int32 = 72
   private static let labelLeftMarginDots = 24
   private static let labelRightMarginDots = 24
+  private static let defaultPrintDensity: Int32 = 10
+  private static let materialPrintDensity: Int32 = 12
+  private static let materialTextBoldOffsetDots = 1
   private static let packQrX = 278
   private static let packQrY = 166
   private static let packEpcY = 328
@@ -427,7 +430,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     command = command?.setCharEncoding(String.Encoding.ascii.rawValue)
     command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
     command = command?.speed(4.0)
-    let printDensity: Int32 = 10
+    let printDensity = label.labelKind == "material_product"
+      ? Self.materialPrintDensity
+      : Self.defaultPrintDensity
     command = command?.density(printDensity)
     command = command?.referenceAt(x: Self.labelReferenceXDots, y: Int32(0))
     command = command?.cls()
@@ -480,20 +485,33 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let rawTitle = label.itemName.isEmpty ? label.itemCode : label.itemName
     let titleLines = largeQrTitleLines(label, rawTitle: rawTitle)
     let titleFont = label.labelKind == "material_product" ? kFNT_14_19 : kFNT_12_20
-    let cellWidth = largeQrCellWidth(payload)
+    let cellWidth = label.labelKind == "material_product"
+      ? materialQrCellWidth(payload)
+      : largeQrCellWidth(payload)
     let qrX = centeredQrX(payload, cellWidth: cellWidth)
     let qrY = centeredQrY(payload, cellWidth: cellWidth)
     let qrSize = qrSymbolSizeDots(payload, cellWidth: cellWidth)
 
     var result = command
     for (index, line) in titleLines.enumerated() {
+      let titleX = Self.labelLeftMarginDots
+      let titleY = 6 + index * 26
       result = text(
         result,
-        x: Self.labelLeftMarginDots,
-        y: 6 + index * 26,
+        x: titleX,
+        y: titleY,
         font: titleFont,
         value: line
       )
+      if label.labelKind == "material_product" {
+        result = text(
+          result,
+          x: titleX + Self.materialTextBoldOffsetDots,
+          y: titleY,
+          font: titleFont,
+          value: line
+        )
+      }
     }
     result = qr(
       result,
@@ -646,6 +664,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       return 7
     }
     return 6
+  }
+
+  private func materialQrCellWidth(_ value: String) -> Int {
+    min(largeQrCellWidth(value) + 1, 9)
   }
 
   private func centeredQrX(_ value: String, cellWidth: Int) -> Int {

@@ -296,18 +296,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
-    final bosmaMetricsReady =
-        hasWaste && hasMeter && hasKg && (!_isComplete || returnedPaintValid);
+    final bosmaMetricsReady = _isComplete
+        ? hasWaste && hasMeter && hasKg && returnedPaintValid
+        : hasMeter && hasKg;
     final laminatsiyaMetricsReady = _isComplete
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
-        : hasFilmLeftover && hasWaste && hasMeter && hasKg;
+        : hasMeter && hasKg;
     final hasRezkaWaste = hasWaste ||
         hasRezkaBosmaWaste ||
         hasRezkaLaminationWaste ||
         hasRezkaEdgeWaste;
-    final rezkaMetricsReady = hasRezkaWaste &&
-        hasMeter &&
-        hasKg;
+    final rezkaMetricsReady =
+        hasMeter && hasKg && (!_isComplete || hasRezkaWaste);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&
@@ -327,7 +327,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
           returnInkKg: _isComplete ? returnInkKg : null,
-          totalWaste: totalWaste,
+          totalWaste: _isComplete ? totalWaste : null,
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
         ),
@@ -355,8 +355,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           finishedGoodsMeter: meterQty,
           finishedGoodsKg: kgQty,
           laminationPrintLeftoverRolls: _isComplete ? printLeftoverRolls : null,
-          laminationFilmLeftoverRolls: filmLeftoverRolls,
-          totalWaste: totalWaste,
+          laminationFilmLeftoverRolls: _isComplete ? filmLeftoverRolls : null,
+          totalWaste: _isComplete ? totalWaste : null,
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
         ),
@@ -460,8 +460,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final isLaminatsiya = widget.isLaminatsiya;
     final isRezka = widget.isRezka;
     final hasDetailedMetrics = isBosma || isLaminatsiya;
-    final title =
-        widget.action == 'pause' ? 'Pauza miqdori' : 'Tugatish miqdori';
+    final showTotalWaste = hasDetailedMetrics && _isComplete && !isBosma;
+    final title = switch (widget.action) {
+      'pause' => 'Pauza miqdori',
+      'roll_complete' => 'Rulonni tugatish',
+      _ => 'Tugatish miqdori',
+    };
     final subtitle = _isComplete
         ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
         : 'Joriy miqdorni kiriting';
@@ -491,7 +495,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Padding(
                       padding: const EdgeInsets.all(10),
                       child: Icon(
-                        _isComplete
+                        _isComplete || widget.action == 'roll_complete'
                             ? Icons.check_circle_outline_rounded
                             : Icons.pause_circle_outline_rounded,
                         color: scheme.onPrimaryContainer,
@@ -541,12 +545,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (isLaminatsiya) ...[
-                          if (!_isComplete)
-                            _progressQtySectionLabel(
-                              context,
-                              'Ortiqcha rulonlar',
-                            ),
+                        if (_isComplete && isLaminatsiya) ...[
                           _qtyField(
                             controller: _filmLeftoverController,
                             label: 'Plyonkadan ortgan rulon',
@@ -554,7 +553,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (isRezka) ...[
+                        if (isRezka && _isComplete) ...[
                           _progressQtySectionLabel(context, 'Chiqindilar'),
                           _qtyField(
                             controller: _wasteController,
@@ -622,8 +621,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             },
                           ),
                         ],
-                        if (hasDetailedMetrics &&
-                            !(isBosma && _isComplete)) ...[
+                        if (showTotalWaste) ...[
                           _progressQtySectionLabel(context, 'Chiqindi'),
                           _qtyField(
                             controller: _wasteController,

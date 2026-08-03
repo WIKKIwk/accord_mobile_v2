@@ -165,7 +165,9 @@ bool _progressBatchMatchesPreviousStage({
     batch.apparatus,
     previousStage,
   );
-  final usableAction = action == 'pause' || action == 'complete';
+  final usableAction = action == 'pause' ||
+      action == 'roll_complete' ||
+      action == 'complete';
   final usableStatus =
       status == 'paused' || status == 'completed' || status == 'resumed';
   return matchesOrder && matchesStage && usableAction && usableStatus;
@@ -181,7 +183,8 @@ bool _progressBatchCanFeedStation({
 }
 
 bool _progressBatchCanBeScanned(AdminProgressBatch batch) {
-  return batch.wipStatus.trim().toLowerCase() != 'processed';
+  final wipStatus = batch.wipStatus.trim().toLowerCase();
+  return wipStatus.isEmpty || wipStatus == 'waiting';
 }
 
 bool _laminatsiyaMaterialScanCanBeSkippedForWip({
@@ -298,7 +301,8 @@ bool _queueActionShouldClearStartInputProgress({
   required String action,
   required AdminApparatusQueueActionResult? result,
 }) {
-  return action == 'start' && result != null;
+  return result != null &&
+      const {'start', 'pause', 'roll_complete', 'complete'}.contains(action);
 }
 
 bool _queueActionShouldReloadMaterials({
@@ -476,7 +480,7 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       (materialRequirements == null || bypassMaterialGate)
       ? const <AdminRawMaterialAssignment>[]
       : materialAssignments;
-  final inputProgressBatch = action == 'start' ? startInputProgressBatch : null;
+  final inputProgressBatch = startInputProgressBatch;
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
     onQueueAction: onQueueAction,
@@ -516,6 +520,9 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required List<String> visibleOrderIds,
   required ApparatusQueuePolicy queuePolicy,
   required AdminProgressBatch? startInputProgressBatch,
+  required List<AdminProgressBatch> inputProgressBatches,
+  required bool inputProgressLoading,
+  required String inputProgressError,
   required bool skipStartMaterialScan,
   required AdminOrderControlState orderControlState,
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
@@ -593,6 +600,26 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
           ? activeOrderId == null || activeOrderId == orderId
           : actionableId == orderId || canStartWithPreviousProgress);
   final previousProgressRequired = previousStage != null;
+  final hasOtherWaitingPreviousWip = previousProgressRequired &&
+      inputProgressBatches.any((batch) {
+        if (!_progressBatchCanBeScanned(batch)) {
+          return false;
+        }
+        final selected = startInputProgressBatch;
+        if (selected == null) {
+          return true;
+        }
+        final sameBatch = selected.batchId.trim().isNotEmpty &&
+            selected.batchId.trim() == batch.batchId.trim();
+        final sameQr = selected.qrPayload.trim().isNotEmpty &&
+            selected.qrPayload.trim().toLowerCase() ==
+                batch.qrPayload.trim().toLowerCase();
+        return !sameBatch && !sameQr;
+      });
+  final rezkaFinalRollReady = !previousProgressRequired ||
+      (!inputProgressLoading &&
+          inputProgressError.trim().isEmpty &&
+          !hasOtherWaitingPreviousWip);
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
@@ -623,9 +650,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showPause: isActionable &&
         queueState == ApparatusQueueOrderState.inProgress &&
         orderControlState != AdminOrderControlState.frozen,
+    showRollComplete: productionMapIsRezkaApparatus(station) &&
+        isActionable &&
+        queueState == ApparatusQueueOrderState.inProgress &&
+        orderControlState == AdminOrderControlState.active &&
+        (!previousProgressRequired || !rezkaFinalRollReady),
     showComplete: isActionable &&
         queueState == ApparatusQueueOrderState.inProgress &&
-        orderControlState == AdminOrderControlState.active,
+        orderControlState == AdminOrderControlState.active &&
+        (!productionMapIsRezkaApparatus(station) || rezkaFinalRollReady),
     showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
     showWaitingForPrevious: canManageQueue &&
         previousStage != null &&
@@ -647,15 +680,25 @@ ProductionMapNode? _rezkaNodeForStation({
       .where(
         (node) =>
             node.kind == 'apparatus' &&
-            productionMapIsRezkaApparatus(node.title),
+            (productionMapIsRezkaApparatus(node.title) ||
+                productionMapIsRezkaApparatus(node.alternativeAssignedTitle)),
       )
       .toList(growable: false);
   for (final node in rezkaNodes) {
-    if (productionMapWarehouseTitlesMatch(node.title, trimmedStation)) {
+    if (_rezkaNodeMatchesStation(node, trimmedStation)) {
       return node;
     }
   }
   return rezkaNodes.isEmpty ? null : rezkaNodes.first;
+}
+
+bool _rezkaNodeMatchesStation(ProductionMapNode node, String station) {
+  return productionMapWarehouseTitlesMatch(node.title, station) ||
+      (node.alternativeAssignedTitle.trim().isNotEmpty &&
+          productionMapWarehouseTitlesMatch(
+            node.alternativeAssignedTitle,
+            station,
+          ));
 }
 
 List<String> _rezkaWipSplitInstructionLines({
@@ -665,6 +708,19 @@ List<String> _rezkaWipSplitInstructionLines({
   final node = _rezkaNodeForStation(map: map, station: station);
   if (node == null) {
     return const [];
+  }
+  final kadrCount = node.rezkaKadrCount;
+  if (kadrCount != null && kadrCount > 0) {
+    final lines = <String>[
+      'Rulon $kadrCount ta alohida WIP ga bo‘linadi',
+      'Har bir WIP uchun alohida QR chiqadi',
+      'Har bir WIPning metraj va kg miqdori bir xil bo‘ladi',
+    ];
+    final labelLength = node.rezkaLabelLength;
+    if (labelLength != null && labelLength > 0) {
+      lines.add('Etiketka uzunligi: ${formatRawQuantity(labelLength)} mm');
+    }
+    return lines;
   }
   final groups =
       node.rezkaFrameGroups.where((group) => group > 0).toList(growable: false);
@@ -678,10 +734,6 @@ List<String> _rezkaWipSplitInstructionLines({
     ];
   }
   final lines = <String>[];
-  final kadrCount = node.rezkaKadrCount;
-  if (kadrCount != null && kadrCount > 0) {
-    lines.add('${formatRawQuantity(kadrCount.toDouble())} kadr bo‘yicha');
-  }
   final labelLength = node.rezkaLabelLength;
   if (labelLength != null && labelLength > 0) {
     lines.add('Etiketka uzunligi: ${formatRawQuantity(labelLength)} mm');

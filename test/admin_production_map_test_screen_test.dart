@@ -4908,7 +4908,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("Qaytarilgan bo'yoq"), findsOneWidget);
-    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text('Jami chiqindi'), findsNothing);
     expect(find.text("Og'irlik"), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
 
@@ -4995,8 +4995,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bosmadan ortgan rulon'), findsNothing);
-    expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
-    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.text('Plyonkadan ortgan rulon'), findsNothing);
+    expect(find.text('Jami chiqindi'), findsNothing);
     expect(find.text("Og'irlik"), findsOneWidget);
     expect(find.text('Metraj'), findsOneWidget);
   });
@@ -5059,6 +5059,8 @@ void main() {
     await tester.tap(find.text('Boshlash'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Rulonni tugatish'), findsOneWidget);
+
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
@@ -5074,12 +5076,15 @@ void main() {
     await tester.tap(find.text('Pauza'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bosmachining chiqindisi'), findsOneWidget);
-    expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
+    expect(find.text('Chiqindilar'), findsNothing);
+    expect(find.text('Bosmachining chiqindisi'), findsNothing);
+    expect(find.text('Laminatsiya chiqindisi'), findsNothing);
     expect(
       find.text('Tayyor mahsulot chetidan chiqqan chiqindi'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.text('Metraj'), findsOneWidget);
+    expect(find.text("Og'irlik"), findsOneWidget);
   });
 
   testWidgets('rezka worker detail explains WIP split from map', (
@@ -5151,9 +5156,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Map bo‘yicha rezka'), findsOneWidget);
-    expect(find.textContaining('2 bo‘lak'), findsOneWidget);
-    expect(find.textContaining('1-bo‘lak: 3 kadr'), findsOneWidget);
-    expect(find.textContaining('2-bo‘lak: 1 kadr'), findsOneWidget);
+    expect(
+      find.textContaining('Rulon 4 ta alohida WIP ga bo‘linadi'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Har bir WIP uchun alohida QR chiqadi'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+          'Har bir WIPning metraj va kg miqdori bir xil bo‘ladi'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('worker in-progress history opens WIP details', (

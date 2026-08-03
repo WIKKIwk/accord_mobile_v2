@@ -1,11 +1,16 @@
 part of '../mobile_api.dart';
 
 final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
+final List<CalculateMaterial> _testModeCalculateMaterials =
+    _defaultCalculateMaterials();
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
 
 void resetMobileApiCalculateTestModeData() {
   _testModeCalculateOrderTemplates.clear();
+  _testModeCalculateMaterials
+    ..clear()
+    ..addAll(_defaultCalculateMaterials());
 }
 
 extension MobileApiCalculate on MobileApi {
@@ -36,6 +41,80 @@ extension MobileApiCalculate on MobileApi {
       );
     }
     return CalculateResponse.fromJson(payload);
+  }
+
+  Future<List<CalculateMaterial>> calculateMaterials() async {
+    if (await TestModeController.instance.isEnabled()) {
+      return List<CalculateMaterial>.unmodifiable(_testModeCalculateMaterials);
+    }
+    final response = await _sendAuthorized(
+      () => _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/calculate-materials'),
+        headers: _headers(requireToken()),
+      ),
+    );
+    final payload = await _calculateDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code: _calculateText(payload['error'], fallback: 'calculate_materials'),
+        message: _calculateText(
+          payload['detail'],
+          fallback: _calculateText(
+            payload['error'],
+            fallback: 'Calculate materials failed',
+          ),
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    return (payload['materials'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => CalculateMaterial.fromJson(item.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  Future<CalculateMaterial> upsertCalculateMaterial(
+    CalculateMaterial material,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final saved = material.id.trim().isEmpty
+          ? material.copyWith(
+              id: 'test-material-${DateTime.now().millisecondsSinceEpoch}',
+            )
+          : material;
+      _testModeCalculateMaterials.removeWhere((item) => item.id == saved.id);
+      _testModeCalculateMaterials.add(saved);
+      return saved;
+    }
+    final response = await _sendAuthorized(
+      () => _put(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/calculate-materials'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode(material.toJson()),
+      ),
+    );
+    final payload = await _calculateDecodeObject(response.body);
+    if (response.statusCode != 200) {
+      throw MobileApiException(
+        code: _calculateText(
+          payload['error'],
+          fallback: 'calculate_material_save',
+        ),
+        message: _calculateText(
+          payload['detail'],
+          fallback: _calculateText(
+            payload['error'],
+            fallback: 'Calculate material save failed',
+          ),
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+    final raw = payload['material'];
+    return CalculateMaterial.fromJson(
+      raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{},
+    );
   }
 
   Future<List<CalculateOrderTemplate>> calculateOrderTemplates() async {
@@ -201,6 +280,7 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     layers: request.effectiveLayers
         .map(
           (layer) => CalculateLayer(
+            materialId: layer.materialId,
             material: layer.material,
             micron: layer.micron,
           ),
@@ -304,15 +384,122 @@ class CalculateRequest {
 }
 
 class CalculateLayerInput {
-  const CalculateLayerInput({this.material = '', this.micron = ''});
+  const CalculateLayerInput({
+    this.materialId = '',
+    this.material = '',
+    this.micron = '',
+  });
 
+  final String materialId;
   final String material;
   final String micron;
 
   bool get isEmpty => material.trim().isEmpty && micron.trim().isEmpty;
 
   Map<String, dynamic> toJson() {
-    return {'material': material.trim(), 'micron': micron.trim()};
+    return {
+      if (materialId.trim().isNotEmpty) 'material_id': materialId.trim(),
+      'material': material.trim(),
+      'micron': micron.trim(),
+    };
+  }
+}
+
+class CalculateMaterialVariant {
+  const CalculateMaterialVariant({
+    required this.micron,
+    required this.coefficient,
+    this.firstLayerCoefficient,
+  });
+
+  factory CalculateMaterialVariant.fromJson(Map<String, dynamic> json) {
+    return CalculateMaterialVariant(
+      micron: _calculateInt(json['micron']),
+      coefficient: _calculateNumber(json['coefficient']),
+      firstLayerCoefficient: _calculateOptionalNumber(
+        json['first_layer_coefficient'],
+      ),
+    );
+  }
+
+  final int micron;
+  final double coefficient;
+  final double? firstLayerCoefficient;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'micron': micron,
+      'coefficient': coefficient,
+      if (firstLayerCoefficient != null)
+        'first_layer_coefficient': firstLayerCoefficient,
+    };
+  }
+}
+
+class CalculateMaterial {
+  const CalculateMaterial({
+    required this.id,
+    required this.name,
+    required this.aliases,
+    required this.active,
+    required this.variants,
+  });
+
+  factory CalculateMaterial.fromJson(Map<String, dynamic> json) {
+    final variants = (json['variants'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (item) => CalculateMaterialVariant.fromJson(
+            item.cast<String, dynamic>(),
+          ),
+        )
+        .where((variant) => variant.micron > 0)
+        .toList(growable: false);
+    return CalculateMaterial(
+      id: _calculateText(json['id']),
+      name: _calculateText(json['name']),
+      aliases: (json['aliases'] as List? ?? const [])
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+      active: json['active'] != false,
+      variants: variants,
+    );
+  }
+
+  final String id;
+  final String name;
+  final List<String> aliases;
+  final bool active;
+  final List<CalculateMaterialVariant> variants;
+
+  CalculateMaterial copyWith({
+    String? id,
+    String? name,
+    List<String>? aliases,
+    bool? active,
+    List<CalculateMaterialVariant>? variants,
+  }) {
+    return CalculateMaterial(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      aliases: aliases ?? this.aliases,
+      active: active ?? this.active,
+      variants: variants ?? this.variants,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id.trim().isNotEmpty) 'id': id.trim(),
+      'name': name.trim(),
+      'aliases': aliases
+          .map((alias) => alias.trim())
+          .where((alias) => alias.isNotEmpty)
+          .toList(growable: false),
+      'active': active,
+      'variants': variants.map((variant) => variant.toJson()).toList(),
+    };
   }
 }
 
@@ -386,15 +573,21 @@ class CalculateResponse {
 }
 
 class CalculateLayer {
-  const CalculateLayer({required this.material, required this.micron});
+  const CalculateLayer({
+    required this.materialId,
+    required this.material,
+    required this.micron,
+  });
 
   factory CalculateLayer.fromJson(Map<String, dynamic> json) {
     return CalculateLayer(
+      materialId: _calculateText(json['material_id']),
       material: _calculateText(json['material']),
       micron: _calculateText(json['micron']),
     );
   }
 
+  final String materialId;
   final String material;
   final String micron;
 }
@@ -473,6 +666,7 @@ class CalculateOrderTemplate {
         .whereType<Map>()
         .map(
           (item) => CalculateLayerInput(
+            materialId: _calculateText(item['material_id']),
             material: _calculateText(item['material']),
             micron: _calculateText(item['micron']),
           ),
@@ -781,6 +975,93 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
   );
   _testModeCalculateOrderTemplates.insert(0, saved);
   return saved;
+}
+
+List<CalculateMaterial> _defaultCalculateMaterials() {
+  const mcpCpp = <CalculateMaterialVariant>[
+    CalculateMaterialVariant(
+      micron: 20,
+      coefficient: 1.07,
+      firstLayerCoefficient: 1,
+    ),
+    CalculateMaterialVariant(micron: 25, coefficient: 1.3),
+    CalculateMaterialVariant(micron: 30, coefficient: 1.6),
+    CalculateMaterialVariant(micron: 35, coefficient: 2),
+    CalculateMaterialVariant(micron: 40, coefficient: 2.15),
+    CalculateMaterialVariant(micron: 45, coefficient: 2.7),
+    CalculateMaterialVariant(micron: 50, coefficient: 2.8),
+    CalculateMaterialVariant(micron: 60, coefficient: 3.2),
+  ];
+  const pe = <CalculateMaterialVariant>[
+    CalculateMaterialVariant(micron: 30, coefficient: 2),
+    CalculateMaterialVariant(micron: 35, coefficient: 2.3),
+    CalculateMaterialVariant(micron: 40, coefficient: 2.6),
+    CalculateMaterialVariant(micron: 45, coefficient: 3),
+    CalculateMaterialVariant(micron: 50, coefficient: 3.3),
+    CalculateMaterialVariant(micron: 55, coefficient: 3.6),
+    CalculateMaterialVariant(micron: 60, coefficient: 4),
+    CalculateMaterialVariant(micron: 65, coefficient: 4.3),
+    CalculateMaterialVariant(micron: 70, coefficient: 4.6),
+    CalculateMaterialVariant(micron: 75, coefficient: 5),
+    CalculateMaterialVariant(micron: 80, coefficient: 5.3),
+    CalculateMaterialVariant(micron: 85, coefficient: 5.6),
+    CalculateMaterialVariant(micron: 90, coefficient: 6),
+  ];
+  const jem = <CalculateMaterialVariant>[
+    CalculateMaterialVariant(micron: 25, coefficient: 1),
+    CalculateMaterialVariant(micron: 30, coefficient: 1.5),
+  ];
+  return const [
+    CalculateMaterial(
+      id: 'builtin-pet',
+      name: 'PET',
+      aliases: ['pet'],
+      active: true,
+      variants: mcpCpp,
+    ),
+    CalculateMaterial(
+      id: 'builtin-opp',
+      name: 'OPP',
+      aliases: ['opp', 'bopp'],
+      active: true,
+      variants: mcpCpp,
+    ),
+    CalculateMaterial(
+      id: 'builtin-bopp-metal',
+      name: 'BOPP metal',
+      aliases: ['bopp metall', 'boppmetal'],
+      active: true,
+      variants: mcpCpp,
+    ),
+    CalculateMaterial(
+      id: 'builtin-mcp',
+      name: 'MCP',
+      aliases: ['mcp', 'mcpp'],
+      active: true,
+      variants: mcpCpp,
+    ),
+    CalculateMaterial(
+      id: 'builtin-cpp',
+      name: 'CPP',
+      aliases: ['cpp'],
+      active: true,
+      variants: mcpCpp,
+    ),
+    CalculateMaterial(
+      id: 'builtin-pe',
+      name: 'PE',
+      aliases: ['pe', 'pe oq', 'pe pr'],
+      active: true,
+      variants: pe,
+    ),
+    CalculateMaterial(
+      id: 'builtin-jem',
+      name: 'JEM',
+      aliases: ['jem'],
+      active: true,
+      variants: jem,
+    ),
+  ];
 }
 
 Future<Map<String, dynamic>> _calculateDecodeObject(String body) async {

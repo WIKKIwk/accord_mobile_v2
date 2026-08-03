@@ -910,6 +910,8 @@ class AppRouter {
     AppRoutes.adminProgressQrScan: {
       'admin.access',
       'production.map.manage',
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
     },
     AppRoutes.adminServerMonitor: {'admin.access'},
     AppRoutes.adminFactoryMap: {'admin.access'},
