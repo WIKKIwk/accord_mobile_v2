@@ -2,7 +2,8 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
-import 'package:accord_mobile_v2/src/features/qolip/qolip_code_suggestion.dart';
+import 'package:accord_mobile_v2/src/features/qolip/qolip_batch.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_color_picker.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -73,13 +74,16 @@ void main() {
     )) {
       await MobileApi.instance.qolipReturnCheckout(checkout.id);
     }
-    await MobileApi.instance.qolipDeleteProductSpecs(const [
+    await MobileApi.instance.qolipDeleteProductSpecs([
       'Q-LOCKED',
       'Q-FREE',
       'Q-PRODUCT',
       'Q-COLOR',
       'Z-TEMPLATE-7',
       'A-TEMPLATE-2',
+      ...[
+        for (var index = 1; index <= 8; index++) 'BATCH-TEST-$index',
+      ],
     ]);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
@@ -180,7 +184,7 @@ void main() {
     expect(products.every((product) => product.name == 'Hotlunch'), isTrue);
   });
 
-  testWidgets('plus suggests the remembered first qolip code prefix', (
+  testWidgets('qolip FAB opens qolip actions and manual batch code entry', (
     tester,
   ) async {
     const product = QolipProduct(
@@ -215,6 +219,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Qolip qo‘shish'), findsOneWidget);
+    expect(find.text('Qarz daftari'), findsOneWidget);
+    await tester.tap(find.text('Qolip qo‘shish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mahsulot nomi bilan qidirish'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Qolipni omborga biriktirish')))
+        .pop();
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Prefix mahsulot'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Qolip qo‘shish'));
@@ -226,17 +243,53 @@ void main() {
             widget is TextField && widget.decoration?.labelText == 'Qolip code',
       ),
     );
-    expect(codeField.controller?.text, 'Z-TEMPLATE-');
-    expect(codeField.controller?.selection.baseOffset, 'Z-TEMPLATE-'.length);
+    expect(codeField.controller?.text, isEmpty);
     Navigator.of(tester.element(find.text('Qolipni omborga biriktirish')))
         .pop();
     await tester.pumpAndSettle();
   });
 
-  test('qolip code suggestion removes only one trailing digit', () {
-    expect(qolipCodePrefixSuggestion('ABC-1234'), 'ABC-123');
-    expect(qolipCodePrefixSuggestion('ABC-X'), isEmpty);
-    expect(qolipCodePrefixSuggestion('7'), isEmpty);
+  test('qolip batch code uses the final number as the count', () {
+    final draft = parseQolipBatchCode('58907-543-453-8');
+
+    expect(draft, isNotNull);
+    expect(draft!.count, 8);
+    expect(draft.codes, [
+      '58907-543-453-1',
+      '58907-543-453-2',
+      '58907-543-453-3',
+      '58907-543-453-4',
+      '58907-543-453-5',
+      '58907-543-453-6',
+      '58907-543-453-7',
+      '58907-543-453-8',
+    ]);
+    expect(parseQolipBatchCode('ABC-X')!.codes, ['ABC-X']);
+    expect(parseQolipBatchCode('ABC-0'), isNull);
+  });
+
+  test('qolip batch save returns every generated qolip', () async {
+    const product = QolipProduct(
+      code: 'DEMO-BATCH',
+      name: 'Batch mahsulot',
+      itemGroup: 'Demo tayyor mahsulotlar',
+    );
+    final saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
+      product: product,
+      specs: [
+        for (var index = 1; index <= 8; index++)
+          QolipProductSpecBatchItem(
+            qolipCode: 'BATCH-TEST-$index',
+            size: 42,
+            qolipColor: qolipDefaultColors[index - 1].value,
+          ),
+      ],
+    );
+
+    expect(saved, hasLength(8));
+    expect(saved.map((item) => item.qolipCode), [
+      for (var index = 1; index <= 8; index++) 'BATCH-TEST-$index',
+    ]);
   });
 
   test('qolip color is saved and returned with the product', () async {

@@ -9,20 +9,24 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let scanTimeout: TimeInterval = 6
   private static let writeCharacteristicTimeout: TimeInterval = 8
   private static let writeCharacteristicPollInterval: TimeInterval = 0.1
-  private static let labelWidthMm = 56.0
-  private static let labelHeightMm = 60.0
+  private static let labelWidthMm: Double = 56.0
+  private static let labelHeightMm: Double = 60.0
   // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
-  // 448 x 480 dots. Keep a real margin on both edges instead of
-  // relying on the printer's REFERENCE offset.
+  // 448 x 480 dots. The printer's physical label origin is a few
+  // dots left of the adhesive label, so compensate it at the TSPL
+  // origin rather than moving individual objects independently.
   private static let labelWidthDots = 448
+  private static let labelHeightDots = 480
+  private static let labelReferenceXDots: Int32 = 72
   private static let labelLeftMarginDots = 24
   private static let labelRightMarginDots = 24
   private static let packQrX = 278
   private static let packQrY = 166
   private static let packEpcY = 328
-  private static let largeQrX = 192
-  private static let largeQrY = 66
-  private static let largeQrFooterY = 322
+  private static let largeQrFooterGapDots = 28
+  private static let largeQrFooterLeftShiftDots = 16
+  private static let largeQrFooterHeightDots = 24
+  private static let qrAlphanumeric = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
   private static let labelCodePage = "0"
 
   private let channel: FlutterMethodChannel
@@ -422,9 +426,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     var command: XTSPLCommand? = XTSPLCommand()
     command = command?.setCharEncoding(String.Encoding.ascii.rawValue)
     command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
-    command = command?.speed(4)
-    command = command?.density(10)
-    command = command?.referenceAt(x: 0, y: 0)
+    command = command?.speed(4.0)
+    let printDensity: Int32 = 10
+    command = command?.density(printDensity)
+    command = command?.referenceAt(x: Self.labelReferenceXDots, y: Int32(0))
     command = command?.cls()
     command = command?.codePage(Self.labelCodePage)
 
@@ -448,14 +453,22 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
   ) -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
     let title = fitLabelText(
       cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName),
-      maxLength: 18
+      maxLength: 16
     )
-    let titleX = max(8, min(392, (400 - title.count * 24) / 2))
+    let titleX = centeredLabelX(title, charWidth: 24)
+    let cellWidth = largeQrCellWidth(payload)
     var result = command
     result = text(result, x: titleX, y: 12, font: kFNT_16_24, value: title)
-    result = qr(result, x: 68, y: 82, value: requiredPayload(label.epc), cellWidth: 8)
+    result = qr(
+      result,
+      x: centeredQrX(payload, cellWidth: cellWidth),
+      y: centeredQrY(payload, cellWidth: cellWidth),
+      value: payload,
+      cellWidth: cellWidth
+    )
     return result
   }
 
@@ -464,10 +477,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     label: BluetoothLabelRequest
   ) -> XTSPLCommand? {
     let payload = requiredPayload(label.epc)
-    let rawTitle = label.labelKind == "material_product"
-      ? materialProductTitle(label)
-      : (label.itemName.isEmpty ? label.itemCode : label.itemName)
-    let titleLines = wrapLabelText(cleanLabelText(rawTitle), width: 25).prefix(2)
+    let rawTitle = label.itemName.isEmpty ? label.itemCode : label.itemName
+    let titleLines = largeQrTitleLines(label, rawTitle: rawTitle)
+    let titleFont = label.labelKind == "material_product" ? kFNT_14_19 : kFNT_12_20
+    let cellWidth = largeQrCellWidth(payload)
+    let qrX = centeredQrX(payload, cellWidth: cellWidth)
+    let qrY = centeredQrY(payload, cellWidth: cellWidth)
+    let qrSize = qrSymbolSizeDots(payload, cellWidth: cellWidth)
 
     var result = command
     for (index, line) in titleLines.enumerated() {
@@ -475,25 +491,37 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         result,
         x: Self.labelLeftMarginDots,
         y: 6 + index * 26,
-        font: kFNT_12_20,
+        font: titleFont,
         value: line
       )
     }
-    result = qr(result, x: Self.largeQrX, y: Self.largeQrY, value: payload, cellWidth: 8)
+    result = qr(
+      result,
+      x: qrX,
+      y: qrY,
+      value: payload,
+      cellWidth: cellWidth
+    )
     let footerLimit = label.labelKind == "material_product" ? 32 : 46
     let footer = fitLabelText(
       largeQrFooter(label, payload: payload),
       maxLength: footerLimit
     )
-    let footerIsLarge = label.labelKind == "material_product" && footer.count <= 32
+    let footerIsLarge =
+      (label.labelKind == "material_product" || label.labelKind == "qolip_code") &&
+      footer.count <= 32
     let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
-    let footerX = footerIsLarge
-      ? centeredLabelX(footer, charWidth: 12)
+    let footerX = label.labelKind == "material_product" || label.labelKind == "qolip_code"
+      ? max(
+          Self.labelLeftMarginDots,
+          centeredLabelX(footer, charWidth: footerIsLarge ? 12 : 8) -
+            Self.largeQrFooterLeftShiftDots
+        )
       : Self.labelLeftMarginDots
     result = text(
       result,
       x: footerX,
-      y: Self.largeQrFooterY,
+      y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
       font: footerFont,
       value: footer
     )
@@ -551,7 +579,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       x: Self.packQrX,
       y: Self.packQrY,
       value: payload,
-      cellWidth: 5
+      cellWidth: packQrCellWidth(payload)
     )
     let epcIsLarge = payload.count <= 32
     let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
@@ -610,14 +638,83 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     return payload.isEmpty ? "?" : payload
   }
 
-  private func materialProductTitle(_ label: BluetoothLabelRequest) -> String {
-    let name = label.itemName.isEmpty ? label.itemCode : label.itemName
-    let unit = label.unit.isEmpty ? "kg" : label.unit
-    let net = compactLabelQty(label.netQty)
-    if label.tareEnabled && label.tareKg > 0 {
-      return "\(name)  B:\(compactLabelQty(label.grossQty)) \(unit) N:\(net) \(unit)"
+  private func largeQrCellWidth(_ value: String) -> Int {
+    if value.count <= 32 {
+      return 8
     }
-    return "\(name)  \(net) \(unit)"
+    if value.count <= 46 {
+      return 7
+    }
+    return 6
+  }
+
+  private func centeredQrX(_ value: String, cellWidth: Int) -> Int {
+    let qrSize = qrSymbolSizeDots(value, cellWidth: cellWidth)
+    return max(0, (Self.labelWidthDots - qrSize) / 2)
+  }
+
+  private func centeredQrY(_ value: String, cellWidth: Int) -> Int {
+    let qrSize = qrSymbolSizeDots(value, cellWidth: cellWidth)
+    return max(0, (Self.labelHeightDots - qrSize) / 2)
+  }
+
+  private func qrSymbolSizeDots(_ value: String, cellWidth: Int) -> Int {
+    qrModuleCount(value) * cellWidth
+  }
+
+  private func qrModuleCount(_ value: String) -> Int {
+    let normalized = value.uppercased()
+    let dataLength = normalized.utf8.count
+    let isNumeric = normalized.unicodeScalars.allSatisfy { scalar in
+      scalar.value >= 48 && scalar.value <= 57
+    }
+    let isAlphanumeric = normalized.allSatisfy {
+      Self.qrAlphanumeric.contains($0)
+    }
+    let capacities: [Int]
+    if isNumeric {
+      capacities = [17, 34, 58, 82, 106, 139, 154, 202, 235, 288]
+    } else if isAlphanumeric {
+      capacities = [10, 20, 35, 50, 64, 84, 93, 122, 143, 174]
+    } else {
+      capacities = [7, 14, 24, 34, 44, 58, 64, 84, 98, 119]
+    }
+    let versionIndex = capacities.firstIndex(where: { dataLength <= $0 }) ??
+      (capacities.count - 1)
+    return 21 + versionIndex * 4
+  }
+
+  private func centeredQrFooterY(qrY: Int, qrSize: Int) -> Int {
+    min(
+      qrY + qrSize + Self.largeQrFooterGapDots,
+      Self.labelHeightDots - Self.largeQrFooterHeightDots
+    )
+  }
+
+  private func packQrCellWidth(_ value: String) -> Int {
+    value.count <= 32 ? 5 : 4
+  }
+
+  private func largeQrTitleLines(
+    _ label: BluetoothLabelRequest,
+    rawTitle: String
+  ) -> [String] {
+    if label.labelKind == "material_product" {
+      let productName = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
+      let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+      let netWeight = compactLabelQty(label.netQty)
+      return [
+        fitLabelText("MAHSULOT: \(productName)", maxLength: 20),
+        fitLabelText("NET VAZNI: \(netWeight) \(unit)", maxLength: 20)
+      ]
+    }
+    if label.labelKind == "qolip_code" && !label.customerName.isEmpty {
+      return [
+        fitLabelText(cleanLabelText(label.customerName), maxLength: 25),
+        fitLabelText(cleanLabelText(rawTitle), maxLength: 25)
+      ].filter { !$0.isEmpty }
+    }
+    return Array(wrapLabelText(cleanLabelText(rawTitle), width: 25).prefix(2))
   }
 
   private func largeQrFooter(_ label: BluetoothLabelRequest, payload: String) -> String {
@@ -866,6 +963,7 @@ private struct BluetoothLabelRequest {
   let epc: String
   let itemCode: String
   let itemName: String
+  let customerName: String
   let grossQty: Double
   let unit: String
   let tareEnabled: Bool
@@ -887,6 +985,7 @@ private struct BluetoothLabelRequest {
     self.epc = epc
     itemCode = (arguments["item_code"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     itemName = (arguments["item_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    customerName = (arguments["customer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     self.grossQty = max(0, grossQty)
     unit = (arguments["unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
       ? (arguments["unit"] as? String)!.trimmingCharacters(in: .whitespacesAndNewlines)

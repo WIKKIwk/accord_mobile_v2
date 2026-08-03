@@ -160,6 +160,7 @@ class UsbRpsPrintRequest {
     this.printCount = 1,
     this.labelKind = '',
     this.executorName = '',
+    this.customerName = '',
     this.progressQty,
     this.progressUnit = '',
   });
@@ -196,6 +197,7 @@ class UsbRpsPrintRequest {
       printCount: (json['print_count'] as num?)?.toInt() ?? 1,
       labelKind: json['label_kind']?.toString() ?? '',
       executorName: executorName,
+      customerName: json['customer_name']?.toString() ?? '',
       progressQty: (json['progress_qty'] as num?)?.toDouble() ??
           (json['qty'] as num?)?.toDouble(),
       progressUnit: json['progress_unit']?.toString() ?? '',
@@ -215,6 +217,7 @@ class UsbRpsPrintRequest {
   final int printCount;
   final String labelKind;
   final String executorName;
+  final String customerName;
   final double? progressQty;
   final String progressUnit;
 
@@ -271,6 +274,7 @@ class UsbRpsPrintRequest {
       printCount: printCount,
       labelKind: labelKind,
       executorName: executorName,
+      customerName: customerName,
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -291,6 +295,7 @@ class UsbRpsPrintRequest {
       printCount: printCount,
       labelKind: 'qolip_cell',
       executorName: executorName,
+      customerName: customerName,
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -300,6 +305,7 @@ class UsbRpsPrintRequest {
     required String name,
     required String code,
     required String payload,
+    String customerName = '',
   }) {
     return UsbRpsPrintRequest(
       epc: payload.trim(),
@@ -315,6 +321,8 @@ class UsbRpsPrintRequest {
       printCount: printCount,
       labelKind: 'qolip_code',
       executorName: executorName,
+      customerName:
+          customerName.trim().isEmpty ? this.customerName : customerName.trim(),
       progressQty: progressQty,
       progressUnit: progressUnit,
     );
@@ -336,6 +344,8 @@ class UsbRpsPrintRequest {
       if (labelKind.trim().isNotEmpty)
         'label_kind': labelKind.trim().toLowerCase(),
       if (executorName.trim().isNotEmpty) 'executor_name': executorName.trim(),
+      if (customerName.trim().isNotEmpty)
+        'customer_name': _cleanText(customerName, fallback: ''),
       if (progressQty != null) 'progress_qty': progressQty!,
       if (progressUnit.trim().isNotEmpty) 'progress_unit': progressUnit.trim(),
     };

@@ -47,6 +47,7 @@ class PrintService {
         printCount: request.printCount,
         labelKind: request.labelKind,
         executorName: request.executorName,
+        customerName: request.customerName,
         progressQty: request.progressQty,
         progressUnit: request.progressUnit,
       );

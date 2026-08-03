@@ -32,17 +32,21 @@ class BluetoothPrinterChannel(
         private const val LABEL_WIDTH_MM = 56.0
         private const val LABEL_HEIGHT_MM = 60.0
         // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
-        // 448 x 480 dots. Keep a real margin on both edges instead of
-        // relying on the printer's REFERENCE offset.
+        // 448 x 480 dots. The printer's physical label origin is a few
+        // dots left of the adhesive label, so compensate it at the TSPL
+        // origin rather than moving individual objects independently.
         private const val LABEL_WIDTH_DOTS = 448
+        private const val LABEL_HEIGHT_DOTS = 480
+        private const val LABEL_REFERENCE_X_DOTS = 72
         private const val LABEL_LEFT_MARGIN_DOTS = 24
         private const val LABEL_RIGHT_MARGIN_DOTS = 24
         private const val PACK_QR_X = 278
         private const val PACK_QR_Y = 166
         private const val PACK_EPC_Y = 328
-        private const val LARGE_QR_X = 192
-        private const val LARGE_QR_Y = 66
-        private const val LARGE_QR_FOOTER_Y = 322
+        private const val LARGE_QR_FOOTER_GAP_DOTS = 28
+        private const val LARGE_QR_FOOTER_LEFT_SHIFT_DOTS = 16
+        private const val LARGE_QR_FOOTER_HEIGHT_DOTS = 24
+        private const val QR_ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
         private const val LABEL_CHARSET = "US-ASCII"
         private const val LABEL_CODE_PAGE = "0"
     }
@@ -300,7 +304,7 @@ class BluetoothPrinterChannel(
             .speed(4.0)
             .density(10)
             .direction(TSPLConst.DIRECTION_FORWARD)
-            .reference(0, 0)
+            .reference(LABEL_REFERENCE_X_DOTS, 0)
             .cls()
             .codePage(LABEL_CODE_PAGE)
 
@@ -319,10 +323,17 @@ class BluetoothPrinterChannel(
             label.itemName.ifBlank { label.itemCode },
         )
         val payload = requiredPayload(label.epc)
-        val title = fitLabelText(name, 18)
-        val titleX = ((400 - title.length * 24) / 2).coerceIn(8, 392)
+        val title = fitLabelText(name, 16)
+        val titleX = centeredLabelX(title, charWidth = 24)
         sdkText(printer, titleX, 12, TSPLConst.FNT_16_24, title)
-        sdkQr(printer, 68, 82, payload, cellSize = 8)
+        val cellSize = largeQrCellSize(payload)
+        sdkQr(
+            printer,
+            centeredQrX(payload, cellSize),
+            centeredQrY(payload, cellSize),
+            payload,
+            cellSize = cellSize,
+        )
     }
 
     private fun printLargeQr(
@@ -330,40 +341,55 @@ class BluetoothPrinterChannel(
         label: BluetoothLabelRequest,
     ) {
         val payload = requiredPayload(label.epc)
-        val rawTitle = if (label.isMaterialProduct) {
-            materialProductTitle(label)
+        val rawTitle = label.itemName.ifBlank { label.itemCode }
+        val titleLines = largeQrTitleLines(label, rawTitle)
+        val titleFont = if (label.isMaterialProduct) {
+            TSPLConst.FNT_14_19
         } else {
-            label.itemName.ifBlank { label.itemCode }
+            TSPLConst.FNT_12_20
         }
-        val titleLines = wrapLabelText(cleanLabelText(rawTitle), 25).take(2)
+        val cellSize = largeQrCellSize(payload)
+        val qrX = centeredQrX(payload, cellSize)
+        val qrY = centeredQrY(payload, cellSize)
+        val qrSize = qrSymbolSizeDots(payload, cellSize)
         titleLines.forEachIndexed { index, line ->
             sdkText(
                 printer,
                 LABEL_LEFT_MARGIN_DOTS,
                 6 + index * 26,
-                TSPLConst.FNT_12_20,
+                titleFont,
                 line,
             )
         }
-        sdkQr(printer, LARGE_QR_X, LARGE_QR_Y, payload, cellSize = 8)
+        sdkQr(
+            printer,
+            qrX,
+            qrY,
+            payload,
+            cellSize = cellSize,
+        )
         val footer = fitLabelText(
             largeQrFooter(label, payload),
             if (label.isMaterialProduct) 32 else 46,
         )
-        val footerFont = if (label.isMaterialProduct && footer.length <= 32) {
+        val footerIsLarge =
+            (label.isMaterialProduct || label.isQolipCode) && footer.length <= 32
+        val footerFont = if (footerIsLarge) {
             TSPLConst.FNT_12_20
         } else {
             TSPLConst.FNT_8_12
         }
-        val footerX = if (label.isMaterialProduct) {
-            centeredLabelX(footer, if (footerFont == TSPLConst.FNT_12_20) 12 else 8)
+        val footerX = if (label.isMaterialProduct || label.isQolipCode) {
+            (centeredLabelX(footer, if (footerIsLarge) 12 else 8) -
+                LARGE_QR_FOOTER_LEFT_SHIFT_DOTS)
+                .coerceAtLeast(LABEL_LEFT_MARGIN_DOTS)
         } else {
             LABEL_LEFT_MARGIN_DOTS
         }
         sdkText(
             printer,
             footerX,
-            LARGE_QR_FOOTER_Y,
+            centeredQrFooterY(qrY, qrSize),
             footerFont,
             footer,
         )
@@ -421,7 +447,13 @@ class BluetoothPrinterChannel(
             TSPLConst.FNT_12_20,
             "BRUTTO: ${formatLabelQty(label.grossQty)} $grossUnit",
         )
-        sdkQr(printer, PACK_QR_X, PACK_QR_Y, payload, cellSize = 5)
+        sdkQr(
+            printer,
+            PACK_QR_X,
+            PACK_QR_Y,
+            payload,
+            cellSize = packQrCellSize(payload),
+        )
         val epcFont = if (payload.length <= 32) {
             TSPLConst.FNT_12_20
         } else {
@@ -480,15 +512,76 @@ class BluetoothPrinterChannel(
             ?: throw IllegalArgumentException("XP-P323B QR payload is empty")
     }
 
-    private fun materialProductTitle(label: BluetoothLabelRequest): String {
-        val name = label.itemName.ifBlank { label.itemCode }
-        val unit = label.unit.ifBlank { "kg" }
-        val net = compactLabelQty(label.netQty)
-        return if (label.tareEnabled && label.tareKg > 0) {
-            "$name  B:${compactLabelQty(label.grossQty)} $unit N:$net $unit"
-        } else {
-            "$name  $net $unit"
+    private fun largeQrCellSize(value: String): Int {
+        return when {
+            value.length <= 32 -> 8
+            value.length <= 46 -> 7
+            else -> 6
         }
+    }
+
+    private fun centeredQrX(value: String, cellSize: Int): Int {
+        val qrSize = qrSymbolSizeDots(value, cellSize)
+        return ((LABEL_WIDTH_DOTS - qrSize) / 2).coerceAtLeast(0)
+    }
+
+    private fun centeredQrY(value: String, cellSize: Int): Int {
+        val qrSize = qrSymbolSizeDots(value, cellSize)
+        return ((LABEL_HEIGHT_DOTS - qrSize) / 2).coerceAtLeast(0)
+    }
+
+    private fun qrSymbolSizeDots(value: String, cellSize: Int): Int {
+        return qrModuleCount(value) * cellSize
+    }
+
+    private fun qrModuleCount(value: String): Int {
+        val normalized = value.uppercase(Locale.US)
+        val dataLength = normalized.toByteArray(Charsets.US_ASCII).size
+        val capacities = when {
+            normalized.all { it.isDigit() } ->
+                intArrayOf(17, 34, 58, 82, 106, 139, 154, 202, 235, 288)
+            normalized.all { QR_ALPHANUMERIC.contains(it) } ->
+                intArrayOf(10, 20, 35, 50, 64, 84, 93, 122, 143, 174)
+            else ->
+                intArrayOf(7, 14, 24, 34, 44, 58, 64, 84, 98, 119)
+        }
+        val version = capacities.indexOfFirst { dataLength <= it }
+            .let { if (it >= 0) it + 1 else capacities.size }
+        return 17 + version * 4
+    }
+
+    private fun centeredQrFooterY(qrY: Int, qrSize: Int): Int {
+        return (qrY + qrSize + LARGE_QR_FOOTER_GAP_DOTS).coerceAtMost(
+            LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS,
+        )
+    }
+
+    private fun packQrCellSize(value: String): Int {
+        return if (value.length <= 32) 5 else 4
+    }
+
+    private fun largeQrTitleLines(
+        label: BluetoothLabelRequest,
+        rawTitle: String,
+    ): List<String> {
+        if (label.isMaterialProduct) {
+            val productName = cleanLabelText(
+                label.itemName.ifBlank { label.itemCode },
+            )
+            val unit = cleanLabelText(label.unit.ifBlank { "kg" })
+            val netWeight = compactLabelQty(label.netQty)
+            return listOf(
+                fitLabelText("MAHSULOT: $productName", 20),
+                fitLabelText("NET VAZNI: $netWeight $unit", 20),
+            )
+        }
+        if (label.isQolipCode && label.customerName.isNotBlank()) {
+            return listOf(
+                fitLabelText(cleanLabelText(label.customerName), 25),
+                fitLabelText(cleanLabelText(rawTitle), 25),
+            ).filter { it.isNotBlank() }
+        }
+        return wrapLabelText(cleanLabelText(rawTitle), 25).take(2)
     }
 
     private fun largeQrFooter(
@@ -695,6 +788,7 @@ private data class BluetoothLabelRequest(
     val epc: String,
     val itemCode: String,
     val itemName: String,
+    val customerName: String,
     val grossQty: Double,
     val unit: String,
     val tareEnabled: Boolean,
@@ -734,6 +828,7 @@ private data class BluetoothLabelRequest(
                 epc = epc,
                 itemCode = call.argument<String>("item_code").orEmpty().trim(),
                 itemName = call.argument<String>("item_name").orEmpty().trim(),
+                customerName = call.argument<String>("customer_name").orEmpty().trim(),
                 grossQty = grossQty.coerceAtLeast(0.0),
                 unit = call.argument<String>("unit").orEmpty().trim().ifBlank { "kg" },
                 tareEnabled = call.argument<Boolean>("tare_enabled") == true || tareKg > 0,

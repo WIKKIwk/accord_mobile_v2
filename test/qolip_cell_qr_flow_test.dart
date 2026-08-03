@@ -58,10 +58,12 @@ void main() {
         driverUrl: 'http://127.0.0.1:39117',
         printer: 'zebra',
         printMode: 'rfid',
+        customerName: 'Customer One',
       );
 
       expect(qr.qolipCode, 'QOLIP-0007');
       expect(qr.qrPayload, 'QOLIP-0007');
+      expect(qr.printJob.customerName, 'Customer One');
       expect(
         seenRequests,
         contains('POST /v1/mobile/qolip/code-qr/print?'),

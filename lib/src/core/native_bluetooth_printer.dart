@@ -56,6 +56,7 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
     'warehouse',
     'unit',
     'executor_name',
+    'customer_name',
     'progress_unit',
   ]) {
     final value = payload[key];

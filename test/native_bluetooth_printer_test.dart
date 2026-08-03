@@ -64,6 +64,7 @@ void main() {
         printer: 'xp-p323b',
         printMode: 'label',
         grossQty: 2.5,
+        customerName: 'CUSTOMER ONE',
       ),
       bluetoothPrinter: printer,
       transport: PrintTransport.bluetooth,
@@ -79,6 +80,7 @@ void main() {
       containsPair('epc', '303132333435363738394142'),
     );
     expect(captured?.arguments, containsPair('item_name', "QIZIL G'ISHT"));
+    expect(captured?.arguments, containsPair('customer_name', 'CUSTOMER ONE'));
     expect(captured?.arguments, isNot(contains('bytes')));
   });
 

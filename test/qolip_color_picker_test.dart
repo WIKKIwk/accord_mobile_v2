@@ -57,4 +57,31 @@ void main() {
 
     expect(selected, '#FFFFFF');
   });
+
+  testWidgets('qolip color picker supports a limited multi-selection',
+      (tester) async {
+    var selected = <String>{};
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => QolipColorPicker(
+              selectedColors: selected,
+              maxSelectedColors: 2,
+              onColorsChanged: (value) => setState(() => selected = value),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Qizil'));
+    await tester.pump();
+    await tester.tap(find.text('To‘q sariq'));
+    await tester.pump();
+    await tester.tap(find.text('Sariq'));
+    await tester.pump();
+
+    expect(selected, {'#E53935', '#FB8C00'});
+  });
 }

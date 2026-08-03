@@ -20,7 +20,7 @@ import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
-import '../qolip_code_suggestion.dart';
+import '../qolip_batch.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
@@ -3502,8 +3502,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   QolipBlock? _block;
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
-  QolipProduct? _savedProductSpec;
-  String? _selectedColor;
+  List<QolipProduct> _savedProductSpecs = const <QolipProduct>[];
+  final Set<String> _selectedColors = <String>{};
   String? _rowLetter;
   int? _columnNumber;
   bool _saving = false;
@@ -3517,9 +3517,6 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     _selectedProducts = widget.initialProduct == null
         ? const <QolipProduct>[]
         : <QolipProduct>[widget.initialProduct!];
-    if (widget.mode == _QolipAttachMode.productSpec && _product != null) {
-      _applyQolipCodeSuggestion(_product!);
-    }
     _rowLetter = widget.initialRowLetter;
     _columnNumber = widget.initialColumnNumber;
     _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
@@ -3577,17 +3574,6 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     return _productsFuture ??= MobileApi.instance.qolipProducts(
       limit: 20000,
       withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
-    );
-  }
-
-  void _applyQolipCodeSuggestion(QolipProduct product) {
-    final rememberedCode = product.firstQolipCode.trim().isEmpty
-        ? product.qolipCode
-        : product.firstQolipCode;
-    final suggestion = qolipCodePrefixSuggestion(rememberedCode);
-    _qolipCode.value = TextEditingValue(
-      text: suggestion,
-      selection: TextSelection.collapsed(offset: suggestion.length),
     );
   }
 
@@ -3682,11 +3668,14 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         _product = picked.products.isEmpty ? null : picked.products.first;
         _selectedProducts = picked.products;
         if (widget.mode == _QolipAttachMode.productSpec && _product != null) {
-          _applyQolipCodeSuggestion(_product!);
           _size.text = _product!.qolipSize > 0 ? '${_product!.qolipSize}' : '';
-          _selectedColor = _product!.qolipColor.trim().isEmpty
-              ? null
-              : _product!.qolipColor;
+          _selectedColors
+            ..clear()
+            ..addAll(
+              _product!.qolipColor.trim().isEmpty
+                  ? const <String>[]
+                  : <String>[_product!.qolipColor.trim().toUpperCase()],
+            );
         }
       });
     }
@@ -3709,9 +3698,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       setState(() {
         _product = product;
         _selectedProducts = <QolipProduct>[product];
-        _selectedColor = product.qolipColor.trim().isEmpty
-            ? null
-            : product.qolipColor;
+        _selectedColors
+          ..clear()
+          ..addAll(
+            product.qolipColor.trim().isEmpty
+                ? const <String>[]
+                : <String>[product.qolipColor.trim().toUpperCase()],
+          );
       });
     } catch (_) {
       if (!mounted) {
@@ -3723,6 +3716,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     }
   }
 
+  QolipBatchCodeDraft? get _batchDraft => parseQolipBatchCode(_qolipCode.text);
+
   Future<void> _save() async {
     final product = _product;
     final size = int.tryParse(_size.text.trim());
@@ -3733,31 +3728,85 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       await _saveCellProducts(_selectedProducts);
       return;
     }
+    if (size == null || size <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Razmerni to‘g‘ri kiriting')),
+      );
+      return;
+    }
+    final draft = _batchDraft;
+    if (draft == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Qolip code oxirgi qismi 1–100 oralig‘ida bo‘lishi kerak',
+          ),
+        ),
+      );
+      return;
+    }
+    if (draft.count > 1 && _selectedColors.length != draft.count) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${draft.count} ta qolip uchun ${draft.count} ta rang tanlang',
+          ),
+        ),
+      );
+      return;
+    }
+    if (draft.count == 1 && _selectedColors.length > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitta qolip uchun bitta rang tanlang')),
+      );
+      return;
+    }
+    final colors = _selectedColors.toList()..shuffle();
+    final batchItems = [
+      for (var index = 0; index < draft.codes.length; index++)
+        QolipProductSpecBatchItem(
+          qolipCode: draft.codes[index],
+          size: size,
+          qolipColor: colors.isEmpty ? '' : colors[index],
+        ),
+    ];
     setState(() => _saving = true);
     try {
-      if (_qolipCode.text.trim().isEmpty || size == null || size <= 0) {
-        return;
-      }
-      final saved = await MobileApi.instance.qolipSaveProductSpec(
+      final saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
         product: product,
-        qolipCode: _qolipCode.text,
-        size: size,
-        qolipColor: _selectedColor ?? '',
+        specs: batchItems,
       );
+      if (saved.length != batchItems.length) {
+        throw StateError('Qolip batch javobi to‘liq emas');
+      }
       if (mounted) {
         setState(() {
-          _product = saved;
-          _selectedProducts = <QolipProduct>[saved];
-          _savedProductSpec = saved;
-          _qolipCode.text = saved.qolipCode;
-          _size.text = saved.qolipSize > 0 ? '${saved.qolipSize}' : '';
-          _selectedColor = saved.qolipColor.trim().isEmpty
-              ? null
-              : saved.qolipColor;
+          _product = saved.first;
+          _selectedProducts = <QolipProduct>[saved.first];
+          _savedProductSpecs = saved;
+          _qolipCode.text = draft.input;
+          _size.text = '${saved.first.qolipSize}';
+          _selectedColors
+            ..clear()
+            ..addAll(
+              saved
+                  .map((item) => item.qolipColor.trim().toUpperCase())
+                  .where((color) => color.isNotEmpty),
+            );
         });
         if (widget.closeAfterSave) {
           Navigator.of(context).pop();
         }
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              qolipErrorMessage(error, fallback: 'Qoliplar saqlanmadi'),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -3870,8 +3919,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   Future<void> _printSavedCodeQr() async {
-    final saved = _savedProductSpec;
-    if (_printingQr || saved == null) {
+    final saved = _savedProductSpecs;
+    if (_printingQr || saved.isEmpty) {
       return;
     }
     final option = await showQolipPrinterPicker(context);
@@ -3888,42 +3937,48 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               kind: option.printerKind,
               label: option.printerLabel,
             );
-      final result = await MobileApi.instance.qolipPrintCodeQr(
-        qolipCode: saved.qolipCode,
-        driverUrl: option.driverUrl,
-        printer: printer,
-        printMode: option.transport.isLocal
-            ? option.transport.isBluetooth
-                ? option.bluetoothPrinter!.printMode
-                : option.offlinePrinter!.printMode
-            : printer == 'godex'
-                ? 'label'
-                : 'rfid',
-        printTransport: option.transport,
-      );
-      if (option.transport.isLocal) {
-        await PrintService.printRps(
-          result.printJob,
-          printerProfile: option.offlinePrinter,
-          bluetoothPrinter: option.bluetoothPrinter,
-          transport: option.transport,
+      for (final item in saved) {
+        final result = await MobileApi.instance.qolipPrintCodeQr(
+          qolipCode: item.qolipCode,
+          driverUrl: option.driverUrl,
+          printer: printer,
+          printMode: option.transport.isLocal
+              ? option.transport.isBluetooth
+                  ? option.bluetoothPrinter!.printMode
+                  : option.offlinePrinter!.printMode
+              : printer == 'godex'
+                  ? 'label'
+                  : 'rfid',
+          customerName: item.customerNames.join(', '),
+          printTransport: option.transport,
         );
+        if (option.transport.isLocal) {
+          await PrintService.printRps(
+            result.printJob,
+            printerProfile: option.offlinePrinter,
+            bluetoothPrinter: option.bluetoothPrinter,
+            transport: option.transport,
+          );
+        }
       }
-      final qr = result.qolipQr;
       if (!mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       messenger.showSnackBar(
-        SnackBar(content: Text('${qr.qolipCode} QR chop etildi')),
+        SnackBar(content: Text('${saved.length} ta qolip QR chop etildi')),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Qolip QR chop etilmadi')),
+        SnackBar(
+          content: Text(
+            qolipErrorMessage(error, fallback: 'Qolip QR chop etilmadi'),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -3935,9 +3990,15 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   bool get _canSave {
     final size = int.tryParse(_size.text.trim()) ?? 0;
     if (widget.mode == _QolipAttachMode.productSpec) {
-      return _savedProductSpec == null &&
+      final draft = _batchDraft;
+      final colorsValid = draft != null &&
+          (draft.count == 1
+              ? _selectedColors.length <= 1
+              : _selectedColors.length == draft.count);
+      return _savedProductSpecs.isEmpty &&
           _product != null &&
-          _qolipCode.text.trim().isNotEmpty &&
+          draft != null &&
+          colorsValid &&
           size > 0;
     }
     return _block != null &&
@@ -3966,7 +4027,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final productSpecSaved = _savedProductSpec != null;
+    final productSpecSaved = _savedProductSpecs.isNotEmpty;
+    final batchDraft = _batchDraft;
     return Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
       child: DecoratedBox(
@@ -4056,6 +4118,41 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {}),
                 ),
+                if (batchDraft != null) ...[
+                  const SizedBox(height: 10),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest.withValues(
+                        alpha: 0.45,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${batchDraft.count} ta qolip yaratiladi',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          for (final code in batchDraft.codes)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(code),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 TextField(
                   controller: _size,
@@ -4068,13 +4165,19 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Qolip rangi',
+                  'Qolip rangi (${_selectedColors.length}/${batchDraft?.count ?? 1})',
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 8),
                 QolipColorPicker(
-                  selectedColor: _selectedColor,
-                  onChanged: (color) => setState(() => _selectedColor = color),
+                  selectedColors: _selectedColors,
+                  maxSelectedColors: batchDraft?.count ?? 1,
+                  enabled: !productSpecSaved,
+                  onColorsChanged: (colors) => setState(() {
+                    _selectedColors
+                      ..clear()
+                      ..addAll(colors);
+                  }),
                 ),
               ] else ...[
                 if (_selectedProducts.isNotEmpty &&

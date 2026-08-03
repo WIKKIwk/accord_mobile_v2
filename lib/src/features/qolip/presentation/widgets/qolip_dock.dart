@@ -14,12 +14,16 @@ class QolipDock extends StatelessWidget {
     this.onTabSelected,
     this.compact = true,
     this.tightToEdges = true,
+    this.showPrimaryFab = false,
+    this.onPrimaryFabTap,
   });
 
   final QolipDockTab? activeTab;
   final ValueChanged<QolipDockTab>? onTabSelected;
   final bool compact;
   final bool tightToEdges;
+  final bool showPrimaryFab;
+  final VoidCallback? onPrimaryFabTap;
 
   @override
   Widget build(BuildContext context) {
@@ -28,88 +32,72 @@ class QolipDock extends StatelessWidget {
       builder: (context, _) {
         final l10n = context.l10n;
         final bool selectionVisible = activeTab != null;
-        final int selectedIndex = switch (activeTab) {
-          QolipDockTab.home => 0,
-          QolipDockTab.products => 1,
-          QolipDockTab.profile => 2,
-          null => 0,
-        };
 
-        void handleSelection(int index) {
-          if (index == 0) {
-            if (activeTab == QolipDockTab.home) {
-              return;
-            }
-            if (onTabSelected != null) {
-              onTabSelected!(QolipDockTab.home);
-            } else {
-              AppRootNavigation.replaceRootRoute(context, AppRoutes.qolipHome);
-            }
+        void selectTab(QolipDockTab tab, String route) {
+          if (activeTab == tab) {
             return;
           }
-          if (index == 1) {
-            if (activeTab == QolipDockTab.products) {
-              return;
-            }
-            if (onTabSelected != null) {
-              onTabSelected!(QolipDockTab.products);
-            } else {
-              AppRootNavigation.replaceRootRoute(
-                context,
-                AppRoutes.qolipProducts,
-              );
-            }
-            return;
-          }
-          if (index == 2) {
-            if (activeTab == QolipDockTab.profile) {
-              return;
-            }
-            if (onTabSelected != null) {
-              onTabSelected!(QolipDockTab.profile);
-            } else {
-              AppRootNavigation.replaceRootRoute(context, AppRoutes.profile);
-            }
+          if (onTabSelected != null) {
+            onTabSelected!(tab);
+          } else {
+            AppRootNavigation.replaceRootRoute(context, route);
           }
         }
+
+        final destinations = <RoleDockDestination>[
+          RoleDockDestination(
+            id: 'qolip-home',
+            label: l10n.homeNavTitle,
+            icon: Icons.home_outlined,
+            selectedIcon: Icons.home_filled,
+            active: activeTab == QolipDockTab.home,
+            routeName: onTabSelected == null ? AppRoutes.qolipHome : null,
+            replaceStack: onTabSelected == null,
+            onTap: () => selectTab(QolipDockTab.home, AppRoutes.qolipHome),
+          ),
+          RoleDockDestination(
+            id: 'qolip-products',
+            label: 'Qoliplar',
+            icon: Icons.inventory_2_outlined,
+            selectedIcon: Icons.inventory_2_rounded,
+            active: activeTab == QolipDockTab.products,
+            routeName: onTabSelected == null ? AppRoutes.qolipProducts : null,
+            replaceStack: onTabSelected == null,
+            onTap: () =>
+                selectTab(QolipDockTab.products, AppRoutes.qolipProducts),
+          ),
+          if (showPrimaryFab && onPrimaryFabTap != null)
+            RoleDockDestination(
+              id: 'qolip-create',
+              label: 'Qo‘shish',
+              icon: Icons.add_rounded,
+              selectedIcon: Icons.add_rounded,
+              active: false,
+              primary: true,
+              onTap: onPrimaryFabTap!,
+            ),
+          RoleDockDestination(
+            id: 'qolip-profile',
+            label: l10n.profileTitle,
+            icon: Icons.person_outline_rounded,
+            selectedIcon: Icons.person_rounded,
+            active: activeTab == QolipDockTab.profile,
+            routeName: onTabSelected == null ? AppRoutes.profile : null,
+            replaceStack: onTabSelected == null,
+            onTap: () => selectTab(QolipDockTab.profile, AppRoutes.profile),
+          ),
+        ];
+        final selectedIndex = activeTab == null
+            ? 0
+            : destinations.indexWhere((destination) => destination.active);
 
         return RoleDock(
           compact: compact,
           tightToEdges: tightToEdges,
           selectionVisible: selectionVisible,
-          selectedIndex: selectedIndex,
-          destinations: [
-            RoleDockDestination(
-              id: 'qolip-home',
-              label: l10n.homeNavTitle,
-              icon: Icons.home_outlined,
-              selectedIcon: Icons.home_filled,
-              active: activeTab == QolipDockTab.home,
-              routeName: onTabSelected == null ? AppRoutes.qolipHome : null,
-              replaceStack: onTabSelected == null,
-              onTap: () => handleSelection(0),
-            ),
-            RoleDockDestination(
-              id: 'qolip-products',
-              label: 'Qoliplar',
-              icon: Icons.inventory_2_outlined,
-              selectedIcon: Icons.inventory_2_rounded,
-              active: activeTab == QolipDockTab.products,
-              routeName: onTabSelected == null ? AppRoutes.qolipProducts : null,
-              replaceStack: onTabSelected == null,
-              onTap: () => handleSelection(1),
-            ),
-            RoleDockDestination(
-              id: 'qolip-profile',
-              label: l10n.profileTitle,
-              icon: Icons.person_outline_rounded,
-              selectedIcon: Icons.person_rounded,
-              active: activeTab == QolipDockTab.profile,
-              routeName: onTabSelected == null ? AppRoutes.profile : null,
-              replaceStack: onTabSelected == null,
-              onTap: () => handleSelection(2),
-            ),
-          ],
+          selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+          primaryVisible: showPrimaryFab && onPrimaryFabTap != null,
+          destinations: destinations,
         );
       },
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../shared/models/app_models.dart';
 import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
@@ -92,13 +94,38 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     });
   }
 
-  Future<void> _addQolip(QolipProduct product) async {
-    await showQolipProductSpecSheet(context, initialProduct: product);
+  Future<void> _openQolipSpecSheet({QolipProduct? initialProduct}) async {
+    await showQolipProductSpecSheet(
+      context,
+      initialProduct: initialProduct,
+    );
     if (!mounted) {
       return;
     }
     QolipDataRevision.notifyLocationsChanged();
     await _reload(preserveExpandedContainerKey: _expandedContainerKey);
+  }
+
+  Future<void> _addQolip(QolipProduct product) {
+    return _openQolipSpecSheet(initialProduct: product);
+  }
+
+  void _openFabAction() {
+    showAdminCreateHubSheet(
+      context,
+      actions: [
+        AdminFabMenuAction(
+          title: 'Qolip qo‘shish',
+          icon: Icons.inventory_2_rounded,
+          onTap: () => unawaited(_openQolipSpecSheet()),
+        ),
+        AdminFabMenuAction(
+          title: 'Qarz daftari',
+          icon: Icons.menu_book_rounded,
+          onTap: () => _openDrawerRoute(AppRoutes.qolipCheckouts),
+        ),
+      ],
+    );
   }
 
   void _searchChanged(String _) {
@@ -347,9 +374,8 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     }
     final code = TextEditingController(text: product.qolipCode);
     final size = TextEditingController(text: '${product.qolipSize}');
-    String? selectedColor = product.qolipColor.trim().isEmpty
-        ? null
-        : product.qolipColor;
+    String? selectedColor =
+        product.qolipColor.trim().isEmpty ? null : product.qolipColor;
     final draft = await showDialog<_QolipEditDraft>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -520,6 +546,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
           : printer == 'godex'
               ? 'label'
               : 'rfid',
+      customerName: product.customerNames.join(', '),
       printTransport: option.transport,
     );
     if (option.transport.isLocal) {
@@ -564,7 +591,14 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         selectedIndex: 2,
         onNavigate: _openDrawerRoute,
       ),
-      bottom: const QolipDock(activeTab: QolipDockTab.products),
+      bottom: ValueListenableBuilder<bool>(
+        valueListenable: adminCreateHubMenuOpen,
+        builder: (context, menuOpen, _) => QolipDock(
+          activeTab: QolipDockTab.products,
+          showPrimaryFab: !menuOpen,
+          onPrimaryFabTap: _openFabAction,
+        ),
+      ),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),

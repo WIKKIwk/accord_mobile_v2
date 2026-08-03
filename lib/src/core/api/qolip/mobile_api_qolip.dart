@@ -61,6 +61,18 @@ String qolipErrorMessage(
   };
 }
 
+class QolipProductSpecBatchItem {
+  const QolipProductSpecBatchItem({
+    required this.qolipCode,
+    required this.size,
+    this.qolipColor = '',
+  });
+
+  final String qolipCode;
+  final int size;
+  final String qolipColor;
+}
+
 String _testModeQolipLocationId({
   required String block,
   required String itemCode,
@@ -732,6 +744,80 @@ extension MobileApiQolip on MobileApi {
     );
   }
 
+  Future<List<QolipProduct>> qolipSaveProductSpecsBatch({
+    required QolipProduct product,
+    required List<QolipProductSpecBatchItem> specs,
+  }) async {
+    if (specs.isEmpty) {
+      throw const MobileApiException(
+        code: 'qolip_code_required',
+        message: 'qolip_code_required',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final specsSnapshot = Map<String, QolipProduct>.from(_testModeQolipSpecs);
+      final firstCodesSnapshot = Map<String, String>.from(
+        _testModeFirstQolipCodes,
+      );
+      try {
+        final saved = <QolipProduct>[];
+        for (final item in specs) {
+          saved.add(
+            await qolipSaveProductSpec(
+              product: product,
+              qolipCode: item.qolipCode,
+              size: item.size,
+              qolipColor: item.qolipColor,
+            ),
+          );
+        }
+        return saved;
+      } catch (_) {
+        _testModeQolipSpecs
+          ..clear()
+          ..addAll(specsSnapshot);
+        _testModeFirstQolipCodes
+          ..clear()
+          ..addAll(firstCodesSnapshot);
+        rethrow;
+      }
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/product-specs/batch'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'specs': [
+            for (final item in specs)
+              {
+                'item_code': product.code.trim(),
+                'item_name': product.name.trim(),
+                'item_group': product.itemGroup.trim(),
+                'qolip_code': item.qolipCode.trim(),
+                'color': item.qolipColor.trim(),
+                'size': item.size,
+              },
+          ],
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _qolipApiException(
+        response,
+        fallbackCode: 'qolip_product_specs_batch_save_failed',
+        fallbackMessage: 'Qoliplar saqlanmadi',
+      );
+    }
+    final data = await decodeJsonMapPayload(response.body);
+    final raw = data['products'];
+    return [
+      if (raw is List)
+        for (final item in raw)
+          QolipProduct.fromJson((item as Map).cast<String, dynamic>()),
+    ];
+  }
+
   Future<int> qolipDeleteProductSpecs(List<String> qolipCodes) async {
     final normalized = qolipCodes
         .map((code) => code.trim())
@@ -1272,6 +1358,7 @@ extension MobileApiQolip on MobileApi {
     required String driverUrl,
     String printer = '',
     String printMode = '',
+    String customerName = '',
     PrintTransport printTransport = PrintTransport.wifi,
   }) async {
     final code = qolipCode.trim();
@@ -1294,7 +1381,12 @@ extension MobileApiQolip on MobileApi {
       );
       return QolipCodeQrPrintResult(
         qolipQr: qolipQr,
-        printJob: _qolipCodeUsbPrintJob(qolipQr),
+        printJob: _qolipCodeUsbPrintJob(qolipQr).forQolipCode(
+          name: qolipQr.itemName,
+          code: qolipQr.qolipCode,
+          payload: qolipQr.qrPayload,
+          customerName: customerName,
+        ),
       );
     }
     final response = await _sendAuthorized(
@@ -1329,6 +1421,7 @@ extension MobileApiQolip on MobileApi {
         name: qolipQr.itemName,
         code: qolipQr.qolipCode,
         payload: qolipQr.qrPayload,
+        customerName: customerName,
       ),
     );
   }
