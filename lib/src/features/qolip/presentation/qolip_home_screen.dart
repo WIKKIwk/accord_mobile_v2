@@ -16,6 +16,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../gscale/gscale_mobile_app.dart'
     show DiscoveredServer, driverUrlForRs, showPrintDevicePicker;
 import '../../shared/models/app_models.dart';
@@ -913,6 +914,42 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     );
   }
 
+  Future<void> _openHomeFabHub() async {
+    QolipBlocksResult data;
+    try {
+      data = await _blocksFuture;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final actions = <AdminFabMenuAction>[
+      if (data.blocks.isNotEmpty)
+        AdminFabMenuAction(
+          title: 'Qolip berish',
+          icon: Icons.person_add_alt_1_rounded,
+          onTap: () => unawaited(_openIssueQolips(data.blocks)),
+        ),
+      if (data.blocks.isNotEmpty)
+        AdminFabMenuAction(
+          title: 'QR Scan',
+          icon: Icons.qr_code_scanner_rounded,
+          onTap: () => unawaited(_scanQolipOrCell(data.blocks)),
+        ),
+      if (data.warehouses.isNotEmpty)
+        AdminFabMenuAction(
+          title: 'Biriktirish',
+          icon: Icons.add_location_alt_rounded,
+          onTap: () => unawaited(_openFabAction(data)),
+        ),
+    ];
+    if (actions.isEmpty) {
+      return;
+    }
+    showAdminCreateHubSheet(context, actions: actions);
+  }
+
   Future<void> _openAttachSheet(
     List<QolipBlock> blocks, {
     required _QolipAttachMode mode,
@@ -1423,7 +1460,14 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
         selectedIndex: 0,
         onNavigate: _openDrawerRoute,
       ),
-      bottom: const QolipDock(activeTab: QolipDockTab.home),
+      bottom: ValueListenableBuilder<bool>(
+        valueListenable: adminCreateHubMenuOpen,
+        builder: (context, menuOpen, _) => QolipDock(
+          activeTab: QolipDockTab.home,
+          showPrimaryFab: !menuOpen,
+          onPrimaryFabTap: () => unawaited(_openHomeFabHub()),
+        ),
+      ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<QolipBlocksResult>(
         future: _blocksFuture,
@@ -1441,26 +1485,12 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
               ? data.blocks
               : _orderedBlocks;
           if (blocks.isEmpty) {
-            return Stack(
-              children: [
-                Center(
-                  child: Text(
-                    data.warehouses.isEmpty
-                        ? 'Block biriktirilmagan'
-                        : 'Blok qo‘shilmagan',
-                  ),
-                ),
-                if (data.warehouses.isNotEmpty)
-                  Positioned(
-                    right: 16,
-                    bottom: MediaQuery.viewPaddingOf(context).bottom + 112,
-                    child: FloatingActionButton.extended(
-                      onPressed: () => _openFabAction(data),
-                      icon: const Icon(Icons.view_module_rounded),
-                      label: const Text('Blok'),
-                    ),
-                  ),
-              ],
+            return Center(
+              child: Text(
+                data.warehouses.isEmpty
+                    ? 'Block biriktirilmagan'
+                    : 'Blok qo‘shilmagan',
+              ),
             );
           }
           final tabController = _ensureBlockTabController(blocks.length + 1);
@@ -1546,38 +1576,6 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                   ),
                 ],
               ),
-              Positioned(
-                right: 16,
-                bottom: MediaQuery.viewPaddingOf(context).bottom + 112,
-                child: FloatingActionButton.extended(
-                  heroTag: 'qolip-attach-fab',
-                  onPressed: () => _openFabAction(data),
-                  icon: const Icon(Icons.add_location_alt_rounded),
-                  label: const Text('Biriktirish'),
-                ),
-              ),
-              if (data.blocks.isNotEmpty)
-                Positioned(
-                  right: 16,
-                  bottom: MediaQuery.viewPaddingOf(context).bottom + 176,
-                  child: FloatingActionButton.extended(
-                    heroTag: 'qolip-scan-cell-fab',
-                    onPressed: () => _scanQolipOrCell(data.blocks),
-                    icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('QR Scan'),
-                  ),
-                ),
-              if (data.blocks.isNotEmpty)
-                Positioned(
-                  right: 16,
-                  bottom: MediaQuery.viewPaddingOf(context).bottom + 240,
-                  child: FloatingActionButton.extended(
-                    heroTag: 'qolip-issue-fab',
-                    onPressed: () => _openIssueQolips(data.blocks),
-                    icon: const Icon(Icons.person_add_alt_1_rounded),
-                    label: const Text('Qolip berish'),
-                  ),
-                ),
             ],
           );
         },
@@ -3504,6 +3502,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   List<QolipProduct> _savedProductSpecs = const <QolipProduct>[];
   final Set<String> _selectedColors = <String>{};
+  bool _batchCodesExpanded = false;
   String? _rowLetter;
   int? _columnNumber;
   bool _saving = false;
@@ -4120,35 +4119,59 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 ),
                 if (batchDraft != null) ...[
                   const SizedBox(height: 10),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest.withValues(
-                        alpha: 0.45,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.7),
-                      ),
+                  Material(
+                    key: const ValueKey('qolip-batch-preview'),
+                    color: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.45,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${batchDraft.count} ta qolip yaratiladi',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 6),
-                          for (final code in batchDraft.codes)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(code),
+                    borderRadius: BorderRadius.circular(14),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => setState(
+                        () => _batchCodesExpanded = !_batchCodesExpanded,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${batchDraft.count} ta qolip',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ),
+                                Icon(
+                                  _batchCodesExpanded
+                                      ? Icons.keyboard_arrow_up_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                ),
+                              ],
                             ),
-                        ],
+                            if (_batchCodesExpanded) ...[
+                              const SizedBox(height: 6),
+                              Column(
+                                key:
+                                    const ValueKey('qolip-batch-preview-codes'),
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (final code in batchDraft.codes)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Text(code),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

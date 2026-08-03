@@ -61,6 +61,45 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
+  testWidgets('home qolip actions live inside the primary FAB hub', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const QolipHomeScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+      findsOneWidget,
+    );
+    expect(find.text('Qolip berish'), findsNothing);
+    expect(find.text('QR Scan'), findsNothing);
+    expect(find.text('Biriktirish'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('app-primary-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Qolip berish'), findsOneWidget);
+    expect(find.text('QR Scan'), findsOneWidget);
+    expect(find.text('Biriktirish'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('admin-hub-toggle-button')));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('search marks an unopened matching block tab green', (
     tester,
   ) async {

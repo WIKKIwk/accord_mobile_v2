@@ -228,6 +228,26 @@ void main() {
     await tester.tap(find.text('Qolip qo‘shish'));
     await tester.pumpAndSettle();
     expect(find.text('Mahsulot nomi bilan qidirish'), findsOneWidget);
+    await tester.tap(find.text('Mahsulot nomi bilan qidirish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hotlunch').last);
+    await tester.pumpAndSettle();
+    final batchCodeField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.labelText == 'Qolip code',
+    );
+    await tester.enterText(batchCodeField, '23-34-24-6');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('qolip-batch-preview')), findsOneWidget);
+    expect(find.text('6 ta qolip'), findsOneWidget);
+    expect(find.text('23-34-24-1'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('qolip-batch-preview')));
+    await tester.pump();
+    expect(find.text('23-34-24-1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('qolip-batch-preview-codes')),
+      findsOneWidget,
+    );
     Navigator.of(tester.element(find.text('Qolipni omborga biriktirish')))
         .pop();
     await tester.pumpAndSettle();
