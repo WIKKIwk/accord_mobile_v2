@@ -824,14 +824,14 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Ishni tugatish',
+              'Ishimni tugatish',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Siz bu orderdagi ishni yakunlaysiz, lekin ishlab chiqarish tugamaydi. Joriy rulon apparatda qoladi va boshqa laminatsiyachi davom ettira oladi.',
+              'Bu amal faqat order astatkasini qayd qiladi. Pauza ham, Tugatish ham bosilmaydi; queue va WIP holati o‘zgarmaydi.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.35,
@@ -886,7 +886,7 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.continueRoll,
               ),
               icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Davom etish'),
+              label: const Text('Davom ettirish'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -894,7 +894,7 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.removeRoll,
               ),
               icon: const Icon(Icons.unarchive_rounded),
-              label: const Text('Yechib tashlash'),
+              label: const Text('Rulonni yechish'),
             ),
           ],
         ),

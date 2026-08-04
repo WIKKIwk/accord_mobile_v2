@@ -330,6 +330,15 @@ bool productionMapNextStageTitleMatchesApparatus(
       suffix.codeUnits.every((unit) => unit >= 48 && unit <= 57);
 }
 
+/// Matches a logical queue stage with a numbered physical apparatus instance.
+/// For example, `Laminatsiya` matches `Laminatsiya 1`, while
+/// `Laminatsiya 1` does not match `Laminatsiya 2`.
+bool productionMapQueueApparatusTitlesMatch(String left, String right) {
+  return productionMapWarehouseTitlesMatch(left, right) ||
+      productionMapNextStageTitleMatchesApparatus(left, right) ||
+      productionMapNextStageTitleMatchesApparatus(right, left);
+}
+
 String _productionMapNormalizedWarehouseKey(String title) {
   return productionMapWarehouseBaseTitle(
     title,

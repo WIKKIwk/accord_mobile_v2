@@ -4303,6 +4303,118 @@ void main() {
     expect(find.text('Boshlash'), findsNothing);
   });
 
+  testWidgets(
+    'worker laminatsiya long press records astatka without changing queue state',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const logicalApparatus = 'Laminatsiya';
+      const physicalApparatus = 'Laminatsiya 1';
+      const orderId = 'zakaz-worker-laminatsiya-handoff-card';
+      await AppSession.instance.setSession(
+        token: 'worker-laminatsiya-handoff-card-token',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Laminatsiya operatori',
+          legalName: '',
+          ref: 'worker-laminatsiya-handoff-card',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [logicalApparatus],
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Worker laminatsiya handoff card',
+          productCode: 'WLHC',
+          apparatus: logicalApparatus,
+          product: 'worker laminatsiya mahsuloti',
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: logicalApparatus,
+        orderIds: const [orderId],
+      );
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: logicalApparatus,
+        orderId: orderId,
+        action: 'start',
+      );
+      final beforeAstatka =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
+
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(physicalApparatus), findsOneWidget);
+      final orderFinder = find.byKey(ValueKey('worker-order-$orderId'));
+      expect(orderFinder, findsOneWidget);
+      await tester.longPress(orderFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ishimni tugatish'), findsNWidgets(2));
+      expect(find.text('Metraj'), findsNothing);
+      expect(find.text("Og'irlik"), findsNothing);
+
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Ishimni tugatish'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
+      expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
+      expect(find.text('Jami chiqindi'), findsOneWidget);
+      expect(find.text('Metraj'), findsNothing);
+      expect(find.text("Og'irlik"), findsNothing);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
+        '0',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
+        '0',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Jami chiqindi'),
+        '0',
+      );
+      await tester.tap(find.text('Tasdiqlash'));
+      await tester.pumpAndSettle();
+
+      final afterAstatka =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
+      expect(
+        beforeAstatka.queueStates.values.any(
+          (states) => states[orderId] == 'in_progress',
+        ),
+        isTrue,
+      );
+      expect(
+        afterAstatka.queueStates.values.any(
+          (states) => states[orderId] == 'in_progress',
+        ),
+        isTrue,
+      );
+    },
+  );
+
   testWidgets('worker intake shows and expands only pending assigned material',
       (
     tester,

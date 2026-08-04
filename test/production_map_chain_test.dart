@@ -231,6 +231,21 @@ void main() {
     );
   });
 
+  test('queue titles match logical and numbered apparatus names', () {
+    expect(
+      productionMapQueueApparatusTitlesMatch('Laminatsiya', 'Laminatsiya 1'),
+      isTrue,
+    );
+    expect(
+      productionMapQueueApparatusTitlesMatch('Laminatsiya 1', 'Laminatsiya'),
+      isTrue,
+    );
+    expect(
+      productionMapQueueApparatusTitlesMatch('Laminatsiya 1', 'Laminatsiya 2'),
+      isFalse,
+    );
+  });
+
   test('linear work stages skip product task before first apparatus', () {
     final stages = productionMapLinearWorkStages(_hotlunchMap());
     expect(stages.map((stage) => stage.stationTitle).toList(), [

@@ -390,13 +390,14 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
     bool startWorkerHandoffOnOpen = false,
+    bool startAstatkaOnOpen = false,
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
     AdminProgressBatch? initialOrderSwitchBatch,
     String initialOrderSwitchPreviousStage = '',
   }) {
     final mapId = order.map.id.trim();
-    showModalBottomSheet<void>(
+    final sheetFuture = showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -434,9 +435,17 @@ class _AdminProductionMapOrdersScreenState
         initialOrderSwitchBatch: initialOrderSwitchBatch,
         initialOrderSwitchPreviousStage: initialOrderSwitchPreviousStage,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
+        startAstatkaOnOpen: startAstatkaOnOpen,
         startRollRemovalOnOpen: startRollRemovalOnOpen,
         startResumeOnOpen: startResumeOnOpen,
       ),
+    );
+    unawaited(
+      sheetFuture.then((result) {
+        if (mounted && result == true) {
+          unawaited(_refreshLive());
+        }
+      }),
     );
   }
 
@@ -473,7 +482,10 @@ class _AdminProductionMapOrdersScreenState
       }
       AdminApparatus? station;
       for (final candidate in _apparatus) {
-        if (productionMapWarehouseTitlesMatch(candidate.name, stationName)) {
+        if (productionMapQueueApparatusTitlesMatch(
+          candidate.name,
+          stationName,
+        )) {
           station = candidate;
           break;
         }
@@ -510,16 +522,21 @@ class _AdminProductionMapOrdersScreenState
         station,
         queueStatesByApparatus: _queueStatesByApparatus,
       );
-      ProductionMapSaved? currentOrder;
-      for (final order in _orders) {
-        if (apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
-            ApparatusQueueOrderState.inProgress) {
-          currentOrder = order;
-          break;
-        }
+      final hasInProgressOrder = _orders.any(
+        (order) =>
+            apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
+            ApparatusQueueOrderState.inProgress,
+      );
+      if (!hasInProgressOrder) {
+        await _refreshWorkerCompletedOrders();
+        if (!mounted) return;
       }
+      final currentOrder = _workerCurrentOrderForApparatus(
+        apparatus: station,
+        states: states,
+      );
       if (currentOrder == null) {
-        showAdminTopNotice(context, 'Avval shu apparatda ishni boshlang');
+        showAdminTopNotice(context, 'Shu apparatdagi joriy order aniqlanmadi');
         return;
       }
       if (currentOrder.map.id.trim() == targetOrderId) {
@@ -543,6 +560,56 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
+  ProductionMapSaved? _workerCurrentOrderForApparatus({
+    required AdminApparatus apparatus,
+    required Map<String, String> states,
+  }) {
+    ProductionMapSaved? firstOrderInState(ApparatusQueueOrderState expected) {
+      for (final order in _orders) {
+        if (apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
+            expected) {
+          return order;
+        }
+      }
+      return null;
+    }
+
+    final activeOrder = firstOrderInState(ApparatusQueueOrderState.inProgress);
+    if (activeOrder != null) {
+      return activeOrder;
+    }
+
+    final ordersById = <String, ProductionMapSaved>{
+      for (final order in _orders) order.map.id.trim(): order,
+    };
+    final history = _completedWorkerOrders
+        .where(
+          (entry) => productionMapQueueApparatusTitlesMatch(
+            entry.apparatus,
+            apparatus.name,
+          ),
+        )
+        .toList()
+      ..sort(
+        (left, right) =>
+            right.completedAtUnix.compareTo(left.completedAtUnix),
+      );
+    for (final entry in history) {
+      final order = ordersById[entry.orderId.trim()];
+      if (order == null) {
+        continue;
+      }
+      final state = apparatusQueueOrderStateFromRaw(
+        states[order.map.id.trim()],
+      );
+      if (state == ApparatusQueueOrderState.paused ||
+          state == ApparatusQueueOrderState.completed) {
+        return order;
+      }
+    }
+    return null;
+  }
+
   Future<AdminProgressBatch?> _laminatsiyaWorkerHandoffBatch({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
@@ -561,7 +628,7 @@ class _AdminProductionMapOrdersScreenState
             : batch.usedByApparatus;
         if (batch.orderId.trim() == order.map.id.trim() &&
             batch.wipStatus.trim().toLowerCase() == 'in_use' &&
-            productionMapWarehouseTitlesMatch(usedBy, station) &&
+            productionMapQueueApparatusTitlesMatch(usedBy, station) &&
             batch.payloadJson['worker_handoff'] == true) {
           return batch;
         }
@@ -600,7 +667,44 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
-    if (state == ApparatusQueueOrderState.inProgress) {
+    if (state == ApparatusQueueOrderState.paused) {
+      final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
+        apparatus: apparatus,
+        order: order,
+      );
+      if (!mounted) return;
+      if (handoffBatch != null) {
+        final choice = await showModalBottomSheet<
+            _LaminatsiyaWorkerLongPressChoice>(
+          context: context,
+          useSafeArea: true,
+          showDragHandle: true,
+          builder: (_) => const _LaminatsiyaWorkerHandoffSheet(),
+        );
+        if (!mounted) return;
+        switch (choice) {
+          case _LaminatsiyaWorkerLongPressChoice.continueRoll:
+            _showWatchOrderDetail(
+              apparatus: apparatus,
+              order: order,
+              startResumeOnOpen: true,
+            );
+          case _LaminatsiyaWorkerLongPressChoice.removeRoll:
+            _showWatchOrderDetail(
+              apparatus: apparatus,
+              order: order,
+              startRollRemovalOnOpen: true,
+            );
+          case _LaminatsiyaWorkerLongPressChoice.finishWork:
+          case null:
+            break;
+        }
+        return;
+      }
+    }
+    if (state == ApparatusQueueOrderState.inProgress ||
+        state == ApparatusQueueOrderState.paused ||
+        state == ApparatusQueueOrderState.completed) {
       final choice = await showModalBottomSheet<
           _LaminatsiyaWorkerLongPressChoice>(
         context: context,
@@ -615,44 +719,9 @@ class _AdminProductionMapOrdersScreenState
       _showWatchOrderDetail(
         apparatus: apparatus,
         order: order,
-        startWorkerHandoffOnOpen: true,
+        startAstatkaOnOpen: true,
       );
       return;
-    }
-    if (state != ApparatusQueueOrderState.paused) {
-      return;
-    }
-    final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
-      apparatus: apparatus,
-      order: order,
-    );
-    if (!mounted || handoffBatch == null) {
-      return;
-    }
-    final choice = await showModalBottomSheet<
-        _LaminatsiyaWorkerLongPressChoice>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => const _LaminatsiyaWorkerHandoffSheet(),
-    );
-    if (!mounted) return;
-    switch (choice) {
-      case _LaminatsiyaWorkerLongPressChoice.continueRoll:
-        _showWatchOrderDetail(
-          apparatus: apparatus,
-          order: order,
-          startResumeOnOpen: true,
-        );
-      case _LaminatsiyaWorkerLongPressChoice.removeRoll:
-        _showWatchOrderDetail(
-          apparatus: apparatus,
-          order: order,
-          startRollRemovalOnOpen: true,
-        );
-      case _LaminatsiyaWorkerLongPressChoice.finishWork:
-      case null:
-        break;
     }
   }
 

@@ -21,6 +21,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
+    this.startAstatkaOnOpen = false,
     this.startRollRemovalOnOpen = false,
     this.startResumeOnOpen = false,
   });
@@ -44,6 +45,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
+  final bool startAstatkaOnOpen;
   final bool startRollRemovalOnOpen;
   final bool startResumeOnOpen;
 
@@ -115,6 +117,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
+      });
+    } else if (widget.startAstatkaOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialAstatkaFlow());
       });
     } else if (widget.startWorkerHandoffOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -947,13 +953,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final currentState = apparatusQueueOrderStateFromRaw(
       _queueStates[currentOrderId],
     );
+    final isLaminatsiya = productionMapIsLaminatsiyaApparatus(
+      widget.apparatus?.name ?? '',
+    );
     final confirmed = await showM3ConfirmDialog(
           context: context,
           title: 'Boshqa order aniqlandi',
           message: currentState == ApparatusQueueOrderState.inProgress
-              ? 'Bu QR boshqa orderga tegishli. Hozirgi orderni to‘liq tugatib, '
+              ? 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘liq tugatib, '
                   'yangi orderni boshlaysizmi?'
-              : 'Bu QR boshqa orderga tegishli. Yangi orderni boshlaysizmi?',
+              : isLaminatsiya
+                  ? 'Bu QR boshqa orderga tegishli. Hozirgi ish uchun astatka '
+                      'qayd qilib, yangi orderni boshlaysizmi?'
+                  : 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘xtatib, '
+                      'yangi orderni boshlaysizmi?',
           cancelLabel: 'Yo‘q',
           confirmLabel: 'Ha, boshlash',
           confirmButtonKey: const ValueKey('production-switch-order-confirm'),
@@ -967,6 +980,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         'complete',
         fullCompletionReportRequired: true,
       );
+      if (outcome != _ProgressActionOutcome.completed || !mounted) {
+        return false;
+      }
+    } else if (isLaminatsiya &&
+        (currentState == ApparatusQueueOrderState.paused ||
+            currentState == ApparatusQueueOrderState.completed)) {
+      final outcome = await _runAstatkaReport();
       if (outcome != _ProgressActionOutcome.completed || !mounted) {
         return false;
       }
@@ -1012,6 +1032,51 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       Navigator.of(context).pop(true);
     } else if (outcome == _ProgressActionOutcome.cancelled) {
       Navigator.of(context).pop(false);
+    }
+  }
+
+  Future<void> _runInitialAstatkaFlow() async {
+    final outcome = await _runAstatkaReport();
+    if (!mounted) return;
+    if (outcome == _ProgressActionOutcome.completed ||
+        outcome == _ProgressActionOutcome.cancelled) {
+      Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
+    }
+  }
+
+  Future<_ProgressActionOutcome> _runAstatkaReport() async {
+    if (!mounted) return _ProgressActionOutcome.cancelled;
+    final input = await _showProgressQtyDialogForApparatus(
+      context,
+      action: 'astatka',
+      apparatus: widget.apparatus,
+      order: widget.order,
+      astatkaReport: true,
+    );
+    if (!mounted || input == null) {
+      return _ProgressActionOutcome.cancelled;
+    }
+    setState(() => _actionInFlight = true);
+    try {
+      await MobileApi.instance.adminLaminatsiyaAstatkaReport(
+        apparatus: widget.apparatus?.name ?? '',
+        orderId: widget.order.map.id,
+        laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
+        totalWaste: input.totalWaste,
+        description: input.description,
+      );
+      if (mounted) {
+        setState(() => _actionInFlight = false);
+        _showSheetNotice('Order astatkasi qayd qilindi');
+      }
+      return _ProgressActionOutcome.completed;
+    } catch (error) {
+      if (mounted) {
+        setState(() => _actionInFlight = false);
+        _showSheetNotice(_readOnlyQueueActionErrorText(error));
+      }
+      return _ProgressActionOutcome.failed;
     }
   }
 

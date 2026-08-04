@@ -50,6 +50,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   bool fullCompletionReportRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
+  bool astatkaReport = false,
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
@@ -74,6 +75,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       fullCompletionReportRequired: fullCompletionReportRequired,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
+      astatkaReport: astatkaReport,
     ),
   );
 }
@@ -87,6 +89,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool fullCompletionReportRequired = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
+  bool astatkaReport = false,
 }) {
   final title = apparatus?.name ?? '';
   return _showProgressQtyDialog(
@@ -101,6 +104,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     fullCompletionReportRequired: fullCompletionReportRequired,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
+    astatkaReport: astatkaReport,
   );
 }
 
@@ -131,6 +135,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.fullCompletionReportRequired,
     required this.workerHandoff,
     required this.removeRollFromApparatus,
+    required this.astatkaReport,
   });
 
   final String action;
@@ -143,6 +148,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool fullCompletionReportRequired;
   final bool workerHandoff;
   final bool removeRollFromApparatus;
+  final bool astatkaReport;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -174,6 +180,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       _isComplete && widget.fullCompletionReportRequired;
 
   bool get _isWorkerHandoff => widget.workerHandoff;
+
+  bool get _isAstatkaReport => widget.astatkaReport;
 
   bool get _isRollRemoval => widget.removeRollFromApparatus;
 
@@ -333,6 +341,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
+    if (_isAstatkaReport) {
+      if (!formValid) return;
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          laminationPrintLeftoverRolls: printLeftoverRolls,
+          laminationFilmLeftoverRolls: filmLeftoverRolls,
+          totalWaste: totalWaste,
+          description: _descriptionController.text.trim(),
+        ),
+      );
+      return;
+    }
     if (_isWorkerHandoff) {
       if (!formValid) return;
       Navigator.of(context).pop(
@@ -530,9 +550,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasDetailedMetrics = isBosma || isLaminatsiya;
     final showTotalWaste =
         hasDetailedMetrics &&
-        (_requiresFullCompletionReport || _isWorkerHandoff) &&
+        (_requiresFullCompletionReport ||
+            _isWorkerHandoff ||
+            _isAstatkaReport) &&
         !isBosma;
-    final title = _isWorkerHandoff
+    final title = _isAstatkaReport
+        ? 'Ishimni tugatish'
+        : _isWorkerHandoff
         ? 'Ishimni tugatish'
         : _isRollRemoval
             ? 'Rulonni yechib tashlash'
@@ -541,7 +565,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       'roll_complete' => 'Rulonni tugatish',
       _ => 'Tugatish miqdori',
     };
-    final subtitle = _isWorkerHandoff
+    final subtitle = _isAstatkaReport
+        ? 'Bu faqat order astatkasini qayd qiladi. Pauza va Tugatish holati o‘zgarmaydi.'
+        : _isWorkerHandoff
         ? 'Rulon apparatda qoladi. Astatka va chiqindini kiriting.'
         : _isRollRemoval
             ? 'Rulon apparatdan olinadi. Metraj va og‘irlikni kiriting.'
@@ -614,7 +640,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if ((_requiresFullCompletionReport || _isWorkerHandoff) &&
+                        if ((_requiresFullCompletionReport ||
+                                _isWorkerHandoff ||
+                                _isAstatkaReport) &&
                             isLaminatsiya &&
                             !_isRollRemoval) ...[
                           _progressQtySectionLabel(
@@ -623,20 +651,28 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             controller: _printLeftoverController,
                             label: 'Bosmadan ortgan rulon',
                             error: 'Bosmadan ortgan rulonni kiriting',
-                            requiredField: _isWorkerHandoff ? true : null,
-                            allowZero: _isWorkerHandoff,
+                            requiredField:
+                                (_isWorkerHandoff || _isAstatkaReport)
+                                    ? true
+                                    : null,
+                            allowZero: _isWorkerHandoff || _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if ((_requiresFullCompletionReport || _isWorkerHandoff) &&
+                        if ((_requiresFullCompletionReport ||
+                                _isWorkerHandoff ||
+                                _isAstatkaReport) &&
                             isLaminatsiya &&
                             !_isRollRemoval) ...[
                           _qtyField(
                             controller: _filmLeftoverController,
                             label: 'Plyonkadan ortgan rulon',
                             error: 'Plyonkadan ortgan rulonni kiriting',
-                            requiredField: _isWorkerHandoff ? true : null,
-                            allowZero: _isWorkerHandoff,
+                            requiredField:
+                                (_isWorkerHandoff || _isAstatkaReport)
+                                    ? true
+                                    : null,
+                            allowZero: _isWorkerHandoff || _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                         ],
@@ -715,12 +751,15 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             label: 'Jami chiqindi',
                             error: 'Jami chiqindi kg kiriting',
                             suffix: 'kg',
-                            requiredField: _isWorkerHandoff ? true : null,
-                            allowZero: _isWorkerHandoff,
+                            requiredField:
+                                (_isWorkerHandoff || _isAstatkaReport)
+                                    ? true
+                                    : null,
+                            allowZero: _isWorkerHandoff || _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (!_isWorkerHandoff) ...[
+                        if (!_isWorkerHandoff && !_isAstatkaReport) ...[
                           _progressQtySectionLabel(
                             context,
                             hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
@@ -789,7 +828,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_requiresFullCompletionReport) ...[
+                        if (_requiresFullCompletionReport || _isAstatkaReport) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(context, 'Izoh'),
                           TextFormField(
@@ -798,7 +837,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             maxLines: 4,
                             decoration: appSurfaceInputDecoration(
                               context,
-                              labelText: '0 yoki noodatiy tugatish sababi',
+                              labelText: _isAstatkaReport
+                                  ? 'Izoh (ixtiyoriy)'
+                                  : '0 yoki noodatiy tugatish sababi',
                               alignLabelWithHint: true,
                             ),
                             onChanged: (_) {

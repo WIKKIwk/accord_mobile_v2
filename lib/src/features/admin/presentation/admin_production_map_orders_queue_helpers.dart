@@ -141,7 +141,7 @@ int _ordersRevision(List<ProductionMapSaved> orders) {
 }
 
 bool _apparatusTitlesMatch(String left, String right) {
-  return productionMapWarehouseTitlesMatch(left, right);
+  return productionMapQueueApparatusTitlesMatch(left, right);
 }
 
 Map<String, String> _queueStatesForApparatus(
@@ -159,6 +159,11 @@ Map<String, String> _queueStatesForApparatus(
       if (productionMapPechatColorCount(entry.key) == color) {
         return entry.value;
       }
+    }
+  }
+  for (final entry in queueStatesByApparatus.entries) {
+    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
+      return entry.value;
     }
   }
   return const {};
@@ -181,6 +186,11 @@ List<String> _sequenceOrderIdsForApparatus(
       }
     }
   }
+  for (final entry in sequenceByApparatus.entries) {
+    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
+      return entry.value;
+    }
+  }
   return const [];
 }
 
@@ -197,7 +207,7 @@ ApparatusQueuePolicy _queuePolicyForApparatus(
     return direct.policy;
   }
   for (final entry in queuePoliciesByApparatus.entries) {
-    if (productionMapWarehouseTitlesMatch(entry.key, title)) {
+    if (productionMapQueueApparatusTitlesMatch(entry.key, title)) {
       return entry.value.policy;
     }
   }

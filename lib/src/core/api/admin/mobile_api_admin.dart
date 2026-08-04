@@ -28,6 +28,9 @@ final List<AdminCompletionRequestDecisionNotification>
     _testModeCompletionRequestDecisions = [];
 final Map<String, AdminProgressBatch> _testModeProgressBatchesByQr = {};
 final Map<String, String> _testModeActiveProgressInputByQueue = {};
+final Map<String, int> _testModeOrderStartedAtUnix = {};
+final List<AdminLaminatsiyaAstatkaReport> _testModeLaminatsiyaAstatkaReports =
+    [];
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final Map<String, AdminQolipOrderNote> _testModeQolipOrderNotes = {};
@@ -143,6 +146,8 @@ void resetMobileApiTestModeData() {
   _testModeCompletionRequestDecisions.clear();
   _testModeProgressBatchesByQr.clear();
   _testModeActiveProgressInputByQueue.clear();
+  _testModeOrderStartedAtUnix.clear();
+  _testModeLaminatsiyaAstatkaReports.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
   _testModeQolipOrderNotes.clear();
@@ -1547,6 +1552,58 @@ class _TestModeCompletedQueueOrder {
 
   final String actorRef;
   final AdminCompletedQueueOrder order;
+}
+
+class AdminLaminatsiyaAstatkaReport {
+  const AdminLaminatsiyaAstatkaReport({
+    required this.reportId,
+    required this.orderId,
+    required this.apparatus,
+    required this.fromAtUnix,
+    required this.toAtUnix,
+    required this.laminationPrintLeftoverRolls,
+    required this.laminationFilmLeftoverRolls,
+    required this.totalWaste,
+    required this.workerRole,
+    required this.workerRef,
+    required this.workerDisplayName,
+    this.description = '',
+    required this.createdAtUnix,
+  });
+
+  final String reportId;
+  final String orderId;
+  final String apparatus;
+  final int fromAtUnix;
+  final int toAtUnix;
+  final double laminationPrintLeftoverRolls;
+  final double laminationFilmLeftoverRolls;
+  final double totalWaste;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final String description;
+  final int createdAtUnix;
+
+  factory AdminLaminatsiyaAstatkaReport.fromJson(Map<String, dynamic> json) {
+    return AdminLaminatsiyaAstatkaReport(
+      reportId: json['report_id']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      fromAtUnix: (json['from_at_unix'] as num?)?.toInt() ?? 0,
+      toAtUnix: (json['to_at_unix'] as num?)?.toInt() ?? 0,
+      laminationPrintLeftoverRolls:
+          (json['lamination_print_leftover_rolls'] as num?)?.toDouble() ?? 0,
+      laminationFilmLeftoverRolls:
+          (json['lamination_film_leftover_rolls'] as num?)?.toDouble() ?? 0,
+      totalWaste: (json['total_waste'] as num?)?.toDouble() ?? 0,
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class AdminProgressBatch {
@@ -3373,6 +3430,8 @@ MobileApiException _adminProductionMapException(
         'Bosma tugatish uchun barcha majburiy fieldlarni kiriting',
       'laminatsiya_completion_metrics_required' =>
         'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
+      'laminatsiya_astatka_metrics_required' =>
+        'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
       'laminatsiya_rubber_too_large' =>
         'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
       'rezka_progress_metrics_required' =>
@@ -7223,6 +7282,101 @@ extension MobileApiAdmin on MobileApi {
     return AdminQolipOrderNote.fromJson(rawNote.cast<String, dynamic>());
   }
 
+  Future<AdminLaminatsiyaAstatkaReport> adminLaminatsiyaAstatkaReport({
+    required String apparatus,
+    required String orderId,
+    double? laminationPrintLeftoverRolls,
+    double? laminationFilmLeftoverRolls,
+    double? totalWaste,
+    String description = '',
+  }) async {
+    final normalizedApparatus = apparatus.trim();
+    final normalizedOrderId = orderId.trim();
+    bool isNonNegative(double? value) =>
+        value != null && value.isFinite && value >= 0;
+    if (!productionMapIsLaminatsiyaApparatus(normalizedApparatus) ||
+        normalizedOrderId.isEmpty ||
+        !isNonNegative(laminationPrintLeftoverRolls) ||
+        !isNonNegative(laminationFilmLeftoverRolls) ||
+        !isNonNegative(totalWaste)) {
+      throw const MobileApiException(
+        code: 'laminatsiya_astatka_metrics_required',
+        message: 'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final previous = _testModeLaminatsiyaAstatkaReports
+          .where((report) => report.orderId.trim() == normalizedOrderId)
+          .fold<AdminLaminatsiyaAstatkaReport?>(null, (current, report) {
+        if (current == null || report.toAtUnix > current.toAtUnix) {
+          return report;
+        }
+        return current;
+      });
+      final fromAtUnix =
+          previous?.toAtUnix ?? _testModeOrderStartedAtUnix[normalizedOrderId];
+      if (fromAtUnix == null) {
+        throw const MobileApiException(
+          code: 'order_not_started',
+          message: 'Order hali boshlanmagan',
+        );
+      }
+      final now = _testModeUnixSeconds();
+      final report = AdminLaminatsiyaAstatkaReport(
+        reportId:
+            'test-laminatsiya-astatka-${DateTime.now().microsecondsSinceEpoch}-$normalizedOrderId',
+        orderId: normalizedOrderId,
+        apparatus: normalizedApparatus,
+        fromAtUnix: fromAtUnix,
+        toAtUnix: now,
+        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls!,
+        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls!,
+        totalWaste: totalWaste!,
+        workerRole: AppSession.instance.profile?.role.name ?? '',
+        workerRef: AppSession.instance.profile?.ref.trim() ?? '',
+        workerDisplayName: AppSession.instance.profile?.displayName.trim() ?? '',
+        description: description.trim(),
+        createdAtUnix: now,
+      );
+      _testModeLaminatsiyaAstatkaReports.add(report);
+      return report;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/laminatsiya-astatka',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': normalizedApparatus,
+          'order_id': normalizedOrderId,
+          'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
+          'lamination_film_leftover_rolls': laminationFilmLeftoverRolls,
+          'total_waste': totalWaste,
+          if (description.trim().isNotEmpty) 'description': description.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'laminatsiya_astatka_report_failed',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final rawReport = payload['report'];
+    if (rawReport is! Map) {
+      throw const MobileApiException(
+        code: 'laminatsiya_astatka_invalid_response',
+        message: 'Astatka qaydi javobi noto‘g‘ri',
+      );
+    }
+    return AdminLaminatsiyaAstatkaReport.fromJson(
+      rawReport.cast<String, dynamic>(),
+    );
+  }
+
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
@@ -7454,6 +7608,15 @@ extension MobileApiAdmin on MobileApi {
           message: 'Rezka uchun keyingi laminatsiya ruloni QR sini scan qiling',
         );
       }
+      if (isLaminatsiya &&
+          hasPreviousStage &&
+          (action == 'pause' || action == 'complete') &&
+          activeInputBatch == null) {
+        throw const MobileApiException(
+          code: 'progress_qr_required',
+          message: 'Laminatsiya uchun oldingi bosqich QR sini scan qiling',
+        );
+      }
       if (activeInputBatch != null &&
           (activeInputBatch.orderId.trim() != orderId.trim() ||
               activeInputBatch.wipStatus.trim().toLowerCase() == 'processed')) {
@@ -7654,6 +7817,10 @@ extension MobileApiAdmin on MobileApi {
           orderId: orderId,
         );
         states[orderId.trim()] = 'in_progress';
+        _testModeOrderStartedAtUnix.putIfAbsent(
+          orderId.trim(),
+          _testModeUnixSeconds,
+        );
         for (var index = 0;
             index < _testModeRawMaterialAssignments.length;
             index += 1) {

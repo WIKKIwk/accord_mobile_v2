@@ -9,7 +9,7 @@ Map<String, String> _queueStatesForStation(
     return direct;
   }
   for (final entry in queueStatesByApparatus.entries) {
-    if (productionMapWarehouseTitlesMatch(entry.key, station)) {
+    if (productionMapQueueApparatusTitlesMatch(entry.key, station)) {
       return entry.value;
     }
   }
@@ -625,10 +625,14 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       previousStageStartReady &&
       queueState == ApparatusQueueOrderState.pending &&
       (activeOrderId == null || activeOrderId == orderId);
+  final currentWipActionable = canManageQueue &&
+      (queueState == ApparatusQueueOrderState.inProgress ||
+          queueState == ApparatusQueueOrderState.paused);
   final isActionable = canManageQueue &&
-      (freePick
-          ? activeOrderId == null || activeOrderId == orderId
-          : actionableId == orderId || canStartWithPreviousProgress);
+      (currentWipActionable ||
+          (freePick
+              ? activeOrderId == null || activeOrderId == orderId
+              : actionableId == orderId || canStartWithPreviousProgress));
   final hasOtherWaitingPreviousWip = previousProgressRequired &&
       inputProgressBatches.any((batch) {
         if (!_progressBatchCanBeScanned(batch)) {

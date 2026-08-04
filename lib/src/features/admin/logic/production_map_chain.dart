@@ -146,7 +146,7 @@ bool productionMapNodeMatchesStation({
 }
 
 bool productionMapStationTitlesMatch(String left, String right) {
-  return productionMapWarehouseTitlesMatch(left, right);
+  return productionMapQueueApparatusTitlesMatch(left, right);
 }
 
 List<String>? productionMapVisibleOrderIdsForStation({
