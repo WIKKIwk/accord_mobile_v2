@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
@@ -16,6 +18,7 @@ class AparatchiDock extends StatelessWidget {
     this.compact = true,
     this.tightToEdges = true,
     this.showPrimaryFab = true,
+    this.onQrScanRequested,
   });
 
   final AparatchiDockTab? activeTab;
@@ -23,6 +26,7 @@ class AparatchiDock extends StatelessWidget {
   final bool compact;
   final bool tightToEdges;
   final bool showPrimaryFab;
+  final Future<void> Function()? onQrScanRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -59,10 +63,17 @@ class AparatchiDock extends StatelessWidget {
                 AdminFabMenuAction(
                   title: 'QR scan qilish',
                   icon: Icons.qr_code_scanner_rounded,
-                  onTap: () => AppRootNavigation.replaceRootRoute(
-                    context,
-                    AppRoutes.adminProgressQrScan,
-                  ),
+                  onTap: () {
+                    final callback = onQrScanRequested;
+                    if (callback != null) {
+                      unawaited(callback());
+                      return;
+                    }
+                    AppRootNavigation.replaceRootRoute(
+                      context,
+                      AppRoutes.adminProgressQrScan,
+                    );
+                  },
                 ),
                 AdminFabMenuAction(
                   title: 'Kunlik ish',

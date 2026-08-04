@@ -781,11 +781,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         showComplete ||
         showResume ||
         showWaitingForPrevious;
-    final hasAvailableInputProgress = inputProgressBatches.any(
-      _progressBatchCanBeScanned,
-    );
-    final showInputProgressScan = previousProgressRequired &&
-        (showStart || (!previousProgressReady && hasAvailableInputProgress) ||
+    final showRezkaInputProgressScan = previousProgressRequired &&
+        (showStart ||
             (rezkaInstructionLines.isNotEmpty &&
                 (showPause || showRollComplete || showComplete)));
     final showMaterialIntake = showPause || showResume;
@@ -1061,7 +1058,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
-            if (showInputProgressScan) ...[
+            if (showRezkaInputProgressScan) ...[
               _PreviousProgressQrTile(
                 previousStage: previousStage ?? '',
                 ready: previousProgressReady,

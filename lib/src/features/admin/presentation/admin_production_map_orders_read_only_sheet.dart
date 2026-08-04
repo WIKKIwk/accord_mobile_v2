@@ -16,7 +16,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.onQueueAction,
     this.progressDriverUrlPicker,
     this.initialOrderControls = const {},
-    this.showQuickScannerOverride,
+    this.initialOrderSwitchBatch,
+    this.initialOrderSwitchPreviousStage = '',
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
@@ -38,7 +39,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final Map<String, AdminOrderControlState> initialOrderControls;
-  final bool? showQuickScannerOverride;
+  final AdminProgressBatch? initialOrderSwitchBatch;
+  final String initialOrderSwitchPreviousStage;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
@@ -125,6 +127,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     } else if (widget.startResumeOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialResumeFlow());
+      });
+    } else if (widget.initialOrderSwitchBatch != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialOrderSwitchFlow());
       });
     }
   }
@@ -837,33 +843,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           final batch = await MobileApi.instance.adminProgressQrLookup(
             normalized,
           );
-          if (batch.orderId.trim() != orderId) {
-            await _confirmAndSwitchToScannedOrder(
-              batch: batch,
-              previousStage: previousStage,
-              station: station,
-            );
-            return;
-          }
-          final currentState = apparatusQueueOrderStateFromRaw(
-            _queueStates[orderId],
-          );
-          final sameOrder = batch.orderId.trim() == orderId;
-          final sameOrderWipCannotReplaceCurrentSession = sameOrder &&
-              (currentState == ApparatusQueueOrderState.paused ||
-                  (currentState == ApparatusQueueOrderState.inProgress &&
-                      !productionMapIsRezkaApparatus(station)));
-          if (sameOrderWipCannotReplaceCurrentSession) {
-            if (mounted) {
-              setState(() {
-                _quickScanStatus = currentState ==
-                        ApparatusQueueOrderState.paused
-                    ? 'Joriy order pauzada. Avval shu WIPni davom ettiring'
-                    : 'Avval joriy WIPni tugating';
-              });
-            }
-            return;
-          }
           final accepted = await _acceptProgressBatch(batch, previousStage);
           if (accepted) {
             return;
@@ -1063,6 +1042,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   Future<void> _runInitialResumeFlow() async {
     final completed = await _runQueueAction('resume');
     if (mounted) Navigator.of(context).pop(completed);
+  }
+
+  Future<void> _runInitialOrderSwitchFlow() async {
+    final batch = widget.initialOrderSwitchBatch;
+    final previousStage = widget.initialOrderSwitchPreviousStage.trim();
+    final station = widget.apparatus?.name.trim() ?? '';
+    if (batch == null || previousStage.isEmpty || station.isEmpty) {
+      return;
+    }
+    final switched = await _confirmAndSwitchToScannedOrder(
+      batch: batch,
+      previousStage: previousStage,
+      station: station,
+    );
+    if (switched && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<_ProgressActionOutcome> _runProgressAction(
@@ -1387,16 +1383,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
-    final showQuickScanner = widget.showQuickScannerOverride ??
-        (uiState.showStart ||
-            (uiState.showWaitingForPrevious &&
-                _availableInputProgressBatches.any(_progressBatchCanBeScanned)) ||
-            uiState.showPause ||
-            uiState.showRollComplete ||
-            uiState.showComplete ||
-            uiState.showResume ||
-            (_materialIntakeMode && (uiState.showPause || uiState.showResume)));
-
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
       map: map,
@@ -1424,7 +1410,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       inputProgressError: _inputProgressError,
       quickScanStatus: _quickScanStatus,
       quickScanInFlight: _quickScanInFlight,
-      showQuickScanner: showQuickScanner,
+      showQuickScanner: uiState.showStart ||
+          (_materialIntakeMode && (uiState.showPause || uiState.showResume)),
       onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,

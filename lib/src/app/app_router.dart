@@ -532,7 +532,13 @@ class AppRouter {
           ),
         );
       case AppRoutes.adminProgressQrScan:
-        return _buildRoute(settings, const AdminProgressQrScanScreen());
+        final args = settings.arguments;
+        return _buildRoute(
+          settings,
+          AdminProgressQrScanScreen(
+            scanOnly: args is AdminProgressQrScanArgs && args.scanOnly,
+          ),
+        );
       case AppRoutes.adminServerMonitor:
         return _buildRoute(settings, const AdminServerMonitorScreen());
       case AppRoutes.adminFactoryMap:

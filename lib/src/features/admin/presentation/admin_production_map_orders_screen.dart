@@ -48,6 +48,7 @@ import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
 import 'widgets/admin_top_notice.dart';
 import 'progress_printer_picker.dart';
+import 'admin_progress_qr_scan_screen.dart';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
@@ -388,11 +389,11 @@ class _AdminProductionMapOrdersScreenState
   void _showWatchOrderDetail({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
-    bool? canManageQueueOverride,
-    bool? showQuickScannerOverride,
     bool startWorkerHandoffOnOpen = false,
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
+    AdminProgressBatch? initialOrderSwitchBatch,
+    String initialOrderSwitchPreviousStage = '',
   }) {
     final mapId = order.map.id.trim();
     showModalBottomSheet<void>(
@@ -404,14 +405,13 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         apparatus: apparatus,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
-        canManageQueue: canManageQueueOverride ??
-            (widget.workerMode &&
-                _isAssignedWatchApparatus(
-                  apparatus,
-                  assignedApparatus:
-                      AppSession.instance.profile?.assignedApparatus ??
-                          const <String>[],
-                )),
+        canManageQueue: widget.workerMode &&
+            _isAssignedWatchApparatus(
+              apparatus,
+              assignedApparatus:
+                  AppSession.instance.profile?.assignedApparatus ??
+                      const <String>[],
+            ),
         initialQueueStates: _queueStatesForApparatus(
           apparatus,
           queueStatesByApparatus: _queueStatesByApparatus,
@@ -431,7 +431,8 @@ class _AdminProductionMapOrdersScreenState
         onQueueAction: _handleQueueAction,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
-        showQuickScannerOverride: showQuickScannerOverride,
+        initialOrderSwitchBatch: initialOrderSwitchBatch,
+        initialOrderSwitchPreviousStage: initialOrderSwitchPreviousStage,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
         startRollRemovalOnOpen: startRollRemovalOnOpen,
         startResumeOnOpen: startResumeOnOpen,
@@ -446,9 +447,99 @@ class _AdminProductionMapOrdersScreenState
     _showWatchOrderDetail(
       apparatus: apparatus,
       order: order,
-      canManageQueueOverride: true,
-      showQuickScannerOverride: false,
     );
+  }
+
+  Future<void> _openWorkerQrScanner() async {
+    final result = await Navigator.of(context).pushNamed<String>(
+      AppRoutes.adminProgressQrScan,
+      arguments: const AdminProgressQrScanArgs(scanOnly: true),
+    );
+    if (!mounted || result == null || result.trim().isEmpty) {
+      return;
+    }
+    await _handleWorkerFabQr(result.trim());
+  }
+
+  Future<void> _handleWorkerFabQr(String qrPayload) async {
+    try {
+      final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
+      final targetOrderId = batch.orderId.trim();
+      final stationName = batch.nextApparatus.trim();
+      if (targetOrderId.isEmpty || stationName.isEmpty) {
+        showAdminTopNotice(context, 'Bu QR boshqa orderni boshlash uchun mos emas');
+        return;
+      }
+      AdminApparatus? station;
+      for (final candidate in _apparatus) {
+        if (productionMapWarehouseTitlesMatch(candidate.name, stationName)) {
+          station = candidate;
+          break;
+        }
+      }
+      if (station == null ||
+          !_isAssignedWatchApparatus(
+            station,
+            assignedApparatus:
+                AppSession.instance.profile?.assignedApparatus ??
+                    const <String>[],
+          )) {
+        showAdminTopNotice(context, 'Bu QR siz biriktirilgan apparatga mos emas');
+        return;
+      }
+      ProductionMapSaved? targetOrder;
+      for (final order in _orders) {
+        if (order.map.id.trim() == targetOrderId) {
+          targetOrder = order;
+          break;
+        }
+      }
+      final target = targetOrder ??
+          await MobileApi.instance.adminProductionMap(targetOrderId);
+      if (!mounted) return;
+      final previousStage = productionMapPreviousWorkStageStation(
+        map: target.map,
+        station: station.name,
+      );
+      if (previousStage == null) {
+        showAdminTopNotice(context, 'Bu QR ushbu apparat oqimiga mos emas');
+        return;
+      }
+      final states = _queueStatesForApparatus(
+        station,
+        queueStatesByApparatus: _queueStatesByApparatus,
+      );
+      ProductionMapSaved? currentOrder;
+      for (final order in _orders) {
+        if (apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]) ==
+            ApparatusQueueOrderState.inProgress) {
+          currentOrder = order;
+          break;
+        }
+      }
+      if (currentOrder == null) {
+        showAdminTopNotice(context, 'Avval shu apparatda ishni boshlang');
+        return;
+      }
+      if (currentOrder.map.id.trim() == targetOrderId) {
+        showAdminTopNotice(context, 'Bu QR hozirgi orderga tegishli');
+        return;
+      }
+      _showWatchOrderDetail(
+        apparatus: station,
+        order: currentOrder,
+        initialOrderSwitchBatch: batch,
+        initialOrderSwitchPreviousStage: previousStage,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      showAdminTopNotice(
+        context,
+        error is MobileApiException
+            ? error.message
+            : 'QR orqali boshqa order aniqlanmadi',
+      );
+    }
   }
 
   Future<AdminProgressBatch?> _laminatsiyaWorkerHandoffBatch({
@@ -977,7 +1068,10 @@ class _AdminProductionMapOrdersScreenState
       bottom: widget.supplyViewerMode
           ? supplyDock
           : widget.workerMode
-              ? const AparatchiDock(activeTab: AparatchiDockTab.home)
+              ? AparatchiDock(
+                  activeTab: AparatchiDockTab.home,
+                  onQrScanRequested: _openWorkerQrScanner,
+                )
               : AdminDock(
                   activeTab: AdminDockTab.home,
                   showPrimaryFab: _module != _OpenedOrderModule.sequence &&

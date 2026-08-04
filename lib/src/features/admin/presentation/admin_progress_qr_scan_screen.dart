@@ -13,8 +13,19 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_scan_pdf.dart';
 
+class AdminProgressQrScanArgs {
+  const AdminProgressQrScanArgs({this.scanOnly = false});
+
+  final bool scanOnly;
+}
+
 class AdminProgressQrScanScreen extends StatefulWidget {
-  const AdminProgressQrScanScreen({super.key});
+  const AdminProgressQrScanScreen({
+    super.key,
+    this.scanOnly = false,
+  });
+
+  final bool scanOnly;
 
   @override
   State<AdminProgressQrScanScreen> createState() =>
@@ -115,7 +126,28 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
       setState(() => _statusText = 'QR bo‘sh yoki noto‘g‘ri');
       return;
     }
-    await _lookupQrPayload(qrPayload);
+    await _handleQrPayload(qrPayload);
+  }
+
+  Future<void> _handleQrPayload(String qrPayload) async {
+    final normalized = qrPayload.trim();
+    if (normalized.isEmpty) {
+      if (mounted) {
+        setState(() => _statusText = 'QR bo‘sh yoki noto‘g‘ri');
+      }
+      return;
+    }
+    if (widget.scanOnly) {
+      if (mounted) {
+        setState(() => _processing = true);
+      }
+      await _stopScanner();
+      if (mounted) {
+        Navigator.of(context).pop(normalized);
+      }
+      return;
+    }
+    await _lookupQrPayload(normalized);
   }
 
   Future<void> _lookupQrPayload(String qrPayload) async {
@@ -208,7 +240,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     if (value == null || !mounted) {
       return;
     }
-    await _lookupQrPayload(_extractQrPayload(value));
+    await _handleQrPayload(_extractQrPayload(value));
   }
 
   void _scanAgain() {
