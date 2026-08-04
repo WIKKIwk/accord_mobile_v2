@@ -2,7 +2,7 @@ part of '../mobile_api.dart';
 
 final List<CalculateOrderTemplate> _testModeCalculateOrderTemplates = [];
 final List<CalculateMaterial> _testModeCalculateMaterials =
-    _defaultCalculateMaterials();
+    List<CalculateMaterial>.from(_defaultCalculateMaterials());
 const double kCalculateEdgeAllowanceMm = 15;
 const double kCalculateMinMoldExtraMm = 50;
 

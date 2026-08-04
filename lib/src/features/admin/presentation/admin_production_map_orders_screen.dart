@@ -464,6 +464,7 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _handleWorkerFabQr(String qrPayload) async {
     try {
       final batch = await MobileApi.instance.adminProgressQrLookup(qrPayload);
+      if (!mounted) return;
       final targetOrderId = batch.orderId.trim();
       final stationName = batch.nextApparatus.trim();
       if (targetOrderId.isEmpty || stationName.isEmpty) {
