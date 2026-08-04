@@ -596,6 +596,7 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.tabController,
     required this.onTapCompletedOrder,
     required this.onTapWatchOrder,
+    required this.onLongPressWatchOrder,
   });
 
   final List<AdminApparatus> apparatus;
@@ -615,6 +616,10 @@ class _WorkerWatchBody extends StatelessWidget {
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) onTapWatchOrder;
+  final Future<void> Function({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) onLongPressWatchOrder;
 
   String _tabLabel(_WorkerWatchTab tab) {
     if (tab.isCompleted) {
@@ -696,6 +701,12 @@ class _WorkerWatchBody extends StatelessWidget {
                       apparatus: tab.apparatus!,
                       order: order,
                     ),
+                    onLongPressOrder: (order) => unawaited(
+                      onLongPressWatchOrder(
+                        apparatus: tab.apparatus!,
+                        order: order,
+                      ),
+                    ),
                   ),
             ],
           ),
@@ -715,6 +726,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
     required this.onTapOrder,
+    required this.onLongPressOrder,
   });
 
   final AdminApparatus apparatus;
@@ -725,6 +737,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final ValueChanged<ProductionMapSaved> onTapOrder;
+  final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -770,6 +783,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                     index: index,
                     readOnly: true,
                     onTap: () => onTapOrder(orders[index]),
+                    onLongPress: () => onLongPressOrder(orders[index]),
                     tone: _resolveOrderCardTone(
                       orderStatus:
                           orderStatusesByOrderId[orders[index].map.id.trim()],
@@ -784,6 +798,106 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+enum _LaminatsiyaWorkerLongPressChoice {
+  finishWork,
+  continueRoll,
+  removeRoll,
+}
+
+class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
+  const _LaminatsiyaWorkerFinishSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Ishni tugatish',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Siz bu orderdagi ishni yakunlaysiz, lekin ishlab chiqarish tugamaydi. Joriy rulon apparatda qoladi va boshqa laminatsiyachi davom ettira oladi.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(
+                _LaminatsiyaWorkerLongPressChoice.finishWork,
+              ),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Ishimni tugatish'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
+  const _LaminatsiyaWorkerHandoffSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Apparatdagi rulon',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Hozir apparatda rulon bor, u oxirigacha urilmagan. Uni davom ettirish yoki apparatdan yechib, metraj va kg bilan qayd qilish mumkin.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(
+                _LaminatsiyaWorkerLongPressChoice.continueRoll,
+              ),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Davom etish'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(
+                _LaminatsiyaWorkerLongPressChoice.removeRoll,
+              ),
+              icon: const Icon(Icons.unarchive_rounded),
+              label: const Text('Yechib tashlash'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -17,6 +17,7 @@ class _ProgressQtyInput {
     this.returnedPaintImageId = '',
     this.description = '',
     this.isCompletionRequest = false,
+    this.fullCompletionReportRequired = false,
   });
 
   final double? meterQty;
@@ -34,6 +35,7 @@ class _ProgressQtyInput {
   final String returnedPaintImageId;
   final String description;
   final bool isCompletionRequest;
+  final bool fullCompletionReportRequired;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
@@ -45,6 +47,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isLaminatsiya,
   required bool isRezka,
   ReturnedPaintDraft? returnedPaintDraft,
+  bool fullCompletionReportRequired = false,
+  bool workerHandoff = false,
+  bool removeRollFromApparatus = false,
 }) async {
   final draft = returnedPaintDraft ??
       await ReturnedPaintDraftStore.instance.load(
@@ -66,6 +71,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
       returnedPaintDraft: draft,
+      fullCompletionReportRequired: fullCompletionReportRequired,
+      workerHandoff: workerHandoff,
+      removeRollFromApparatus: removeRollFromApparatus,
     ),
   );
 }
@@ -76,6 +84,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required AdminApparatus? apparatus,
   required ProductionMapSaved order,
   ReturnedPaintDraft? returnedPaintDraft,
+  bool fullCompletionReportRequired = false,
+  bool workerHandoff = false,
+  bool removeRollFromApparatus = false,
 }) {
   final title = apparatus?.name ?? '';
   return _showProgressQtyDialog(
@@ -87,6 +98,9 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isLaminatsiya: productionMapIsLaminatsiyaApparatus(title),
     isRezka: productionMapIsRezkaApparatus(title),
     returnedPaintDraft: returnedPaintDraft,
+    fullCompletionReportRequired: fullCompletionReportRequired,
+    workerHandoff: workerHandoff,
+    removeRollFromApparatus: removeRollFromApparatus,
   );
 }
 
@@ -114,6 +128,9 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isLaminatsiya,
     required this.isRezka,
     required this.returnedPaintDraft,
+    required this.fullCompletionReportRequired,
+    required this.workerHandoff,
+    required this.removeRollFromApparatus,
   });
 
   final String action;
@@ -123,6 +140,9 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isLaminatsiya;
   final bool isRezka;
   final ReturnedPaintDraft returnedPaintDraft;
+  final bool fullCompletionReportRequired;
+  final bool workerHandoff;
+  final bool removeRollFromApparatus;
 
   @override
   State<_ProgressQtyDialog> createState() => _ProgressQtyDialogState();
@@ -144,9 +164,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   ReturnedPaintDraft get _returnedPaintDraft => widget.returnedPaintDraft;
 
   List<ReturnedPaintItemInput> get _returnedPaintItems =>
-      _isComplete ? returnedPaintItemsFromDraft(_returnedPaintDraft) : const [];
+      _requiresFullCompletionReport
+          ? returnedPaintItemsFromDraft(_returnedPaintDraft)
+          : const [];
 
   bool get _isComplete => widget.action == 'complete';
+
+  bool get _requiresFullCompletionReport =>
+      _isComplete && widget.fullCompletionReportRequired;
+
+  bool get _isWorkerHandoff => widget.workerHandoff;
+
+  bool get _isRollRemoval => widget.removeRollFromApparatus;
 
   @override
   void dispose() {
@@ -187,6 +216,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     String suffix = '',
     bool? requiredField,
     bool positive = false,
+    bool allowZero = false,
   }) {
     return TextFormField(
       controller: controller,
@@ -201,7 +231,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       ),
       validator: (value) {
         final trimmed = (value ?? '').trim();
-        final fieldMustBeFilled = requiredField ?? !_isComplete;
+        final fieldMustBeFilled =
+            requiredField ?? (!_isComplete || !_requiresFullCompletionReport);
         if (trimmed.isEmpty) {
           return fieldMustBeFilled ? error : null;
         }
@@ -209,7 +240,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         if (qty == null || !qty.isFinite || qty < 0) {
           return 'To‘g‘ri raqam kiriting';
         }
-        if ((positive || !_isComplete) && qty == 0) {
+        if (!allowZero &&
+            (positive || !_isComplete || !_requiresFullCompletionReport) &&
+            qty == 0) {
           return '0 dan katta raqam kiriting';
         }
         return null;
@@ -228,7 +261,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
     final meterQty = _parseQty(_meterController.text);
     final kgQty = _parseQty(_kgController.text);
-    if (_isComplete &&
+    if (_requiresFullCompletionReport &&
         widget.isBosma &&
         returnedPaintDraftHasInvalidValues(_returnedPaintDraft)) {
       setState(() {
@@ -239,13 +272,17 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     }
     final returnedPaintItems = _returnedPaintItems;
     final rawReturnInkKg =
-        _isComplete ? returnedPaintAstatkaTotal(returnedPaintItems) : null;
+        _requiresFullCompletionReport
+            ? returnedPaintAstatkaTotal(returnedPaintItems)
+            : null;
     final returnInkKg =
         rawReturnInkKg != null && rawReturnInkKg.isFinite && rawReturnInkKg > 0
             ? rawReturnInkKg
             : null;
     final returnedPaintImageId =
-        _isComplete ? (_returnedPaintDraft.image?.imageId.trim() ?? '') : '';
+        _requiresFullCompletionReport
+            ? (_returnedPaintDraft.image?.imageId.trim() ?? '')
+            : '';
     final returnedPaintFieldCount =
         returnedPaintFilledFieldCount(returnedPaintItems);
     final rasxotFieldCount = returnedPaintFilledFieldCountForUsage(
@@ -260,7 +297,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       items: returnedPaintItems,
       imageId: returnedPaintImageId,
     );
-    if (_isComplete && widget.isBosma && !returnedPaintValid) {
+    if (_requiresFullCompletionReport && widget.isBosma && !returnedPaintValid) {
       setState(() {
         _completionError = returnedPaintFieldCount > 0
             ? 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
@@ -296,18 +333,40 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
-    final bosmaMetricsReady = _isComplete
+    if (_isWorkerHandoff) {
+      if (!formValid) return;
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          laminationPrintLeftoverRolls: printLeftoverRolls,
+          laminationFilmLeftoverRolls: filmLeftoverRolls,
+          totalWaste: totalWaste,
+          description: _descriptionController.text.trim(),
+        ),
+      );
+      return;
+    }
+    if (_isRollRemoval) {
+      if (!formValid || !hasMeter || !hasKg) return;
+      Navigator.of(context).pop(
+        _ProgressQtyInput(
+          finishedGoodsMeter: meterQty,
+          finishedGoodsKg: kgQty,
+        ),
+      );
+      return;
+    }
+    final bosmaMetricsReady = _requiresFullCompletionReport
         ? hasWaste && hasMeter && hasKg && returnedPaintValid
         : hasMeter && hasKg;
-    final laminatsiyaMetricsReady = _isComplete
+    final laminatsiyaMetricsReady = _requiresFullCompletionReport
         ? (hasPrintLeftover || hasFilmLeftover) && hasWaste && hasMeter && hasKg
         : hasMeter && hasKg;
     final hasRezkaWaste = hasWaste ||
         hasRezkaBosmaWaste ||
         hasRezkaLaminationWaste ||
         hasRezkaEdgeWaste;
-    final rezkaMetricsReady =
-        hasMeter && hasKg && (!_isComplete || hasRezkaWaste);
+    final rezkaMetricsReady = hasMeter && hasKg &&
+        (!_requiresFullCompletionReport || hasRezkaWaste);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&
@@ -330,6 +389,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           totalWaste: _isComplete ? totalWaste : null,
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
+          fullCompletionReportRequired: _requiresFullCompletionReport,
         ),
       );
       return;
@@ -345,6 +405,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           rezkaEdgeWaste: rezkaEdgeWaste,
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
+          fullCompletionReportRequired: _requiresFullCompletionReport,
         ),
       );
       return;
@@ -359,8 +420,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           totalWaste: _isComplete ? totalWaste : null,
           returnedPaintItems: returnedPaintItems,
           returnedPaintImageId: returnedPaintImageId,
+          fullCompletionReportRequired: _requiresFullCompletionReport,
         ),
       );
+      return;
+    }
+    if (_isComplete && !_requiresFullCompletionReport) {
       return;
     }
     if (_isComplete) {
@@ -426,6 +491,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         returnedPaintItems: _returnedPaintItems,
         returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
         isCompletionRequest: true,
+        fullCompletionReportRequired: true,
       );
     }
     if (widget.isRezka) {
@@ -440,6 +506,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         returnedPaintItems: _returnedPaintItems,
         returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
         isCompletionRequest: true,
+        fullCompletionReportRequired: true,
       );
     }
     return _ProgressQtyInput(
@@ -449,6 +516,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       returnedPaintItems: _returnedPaintItems,
       returnedPaintImageId: _returnedPaintDraft.image?.imageId.trim() ?? '',
       isCompletionRequest: true,
+      fullCompletionReportRequired: true,
     );
   }
 
@@ -460,15 +528,26 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final isLaminatsiya = widget.isLaminatsiya;
     final isRezka = widget.isRezka;
     final hasDetailedMetrics = isBosma || isLaminatsiya;
-    final showTotalWaste = hasDetailedMetrics && _isComplete && !isBosma;
-    final title = switch (widget.action) {
+    final showTotalWaste =
+        hasDetailedMetrics &&
+        (_requiresFullCompletionReport || _isWorkerHandoff) &&
+        !isBosma;
+    final title = _isWorkerHandoff
+        ? 'Ishimni tugatish'
+        : _isRollRemoval
+            ? 'Rulonni yechib tashlash'
+            : switch (widget.action) {
       'pause' => 'Pauza miqdori',
       'roll_complete' => 'Rulonni tugatish',
       _ => 'Tugatish miqdori',
     };
-    final subtitle = _isComplete
-        ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
-        : 'Joriy miqdorni kiriting';
+    final subtitle = _isWorkerHandoff
+        ? 'Rulon apparatda qoladi. Astatka va chiqindini kiriting.'
+        : _isRollRemoval
+            ? 'Rulon apparatdan olinadi. Metraj va og‘irlikni kiriting.'
+            : _requiresFullCompletionReport
+                ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
+                : 'Joriy miqdorni kiriting';
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -535,25 +614,33 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (_isComplete && isLaminatsiya) ...[
+                        if ((_requiresFullCompletionReport || _isWorkerHandoff) &&
+                            isLaminatsiya &&
+                            !_isRollRemoval) ...[
                           _progressQtySectionLabel(
                               context, 'Ortiqcha rulonlar'),
                           _qtyField(
                             controller: _printLeftoverController,
                             label: 'Bosmadan ortgan rulon',
                             error: 'Bosmadan ortgan rulonni kiriting',
+                            requiredField: _isWorkerHandoff ? true : null,
+                            allowZero: _isWorkerHandoff,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (_isComplete && isLaminatsiya) ...[
+                        if ((_requiresFullCompletionReport || _isWorkerHandoff) &&
+                            isLaminatsiya &&
+                            !_isRollRemoval) ...[
                           _qtyField(
                             controller: _filmLeftoverController,
                             label: 'Plyonkadan ortgan rulon',
                             error: 'Plyonkadan ortgan rulonni kiriting',
+                            requiredField: _isWorkerHandoff ? true : null,
+                            allowZero: _isWorkerHandoff,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (isRezka && _isComplete) ...[
+                        if (isRezka && _requiresFullCompletionReport) ...[
                           _progressQtySectionLabel(context, 'Chiqindilar'),
                           _qtyField(
                             controller: _wasteController,
@@ -628,35 +715,43 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             label: 'Jami chiqindi',
                             error: 'Jami chiqindi kg kiriting',
                             suffix: 'kg',
+                            requiredField: _isWorkerHandoff ? true : null,
+                            allowZero: _isWorkerHandoff,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        _progressQtySectionLabel(
-                          context,
-                          hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
-                        ),
-                        _qtyField(
-                          controller: _meterController,
-                          label: 'Metraj',
-                          error: hasDetailedMetrics
-                              ? 'Tayyor mahsulot metr kiriting'
-                              : 'Metraj kiriting',
-                          suffix: 'metr',
-                          requiredField: isRezka ? true : null,
-                          positive: isRezka,
-                        ),
-                        const SizedBox(height: 10),
-                        _qtyField(
-                          controller: _kgController,
-                          label: 'Og\'irlik',
-                          error: hasDetailedMetrics
-                              ? 'Tayyor mahsulot kg kiriting'
-                              : 'Kg kiriting',
-                          suffix: 'kg',
-                          requiredField: isRezka ? true : null,
-                          positive: isRezka,
-                        ),
-                        if (_isComplete && isBosma) ...[
+                        if (!_isWorkerHandoff) ...[
+                          _progressQtySectionLabel(
+                            context,
+                            hasDetailedMetrics ? 'Tayyor mahsulot' : 'Miqdor',
+                          ),
+                          _qtyField(
+                            controller: _meterController,
+                            label: 'Metraj',
+                            error: hasDetailedMetrics
+                                ? 'Tayyor mahsulot metr kiriting'
+                                : 'Metraj kiriting',
+                            suffix: 'metr',
+                            requiredField: isRezka || _isRollRemoval
+                                ? true
+                                : null,
+                            positive: isRezka || _isRollRemoval,
+                          ),
+                          const SizedBox(height: 10),
+                          _qtyField(
+                            controller: _kgController,
+                            label: 'Og\'irlik',
+                            error: hasDetailedMetrics
+                                ? 'Tayyor mahsulot kg kiriting'
+                                : 'Kg kiriting',
+                            suffix: 'kg',
+                            requiredField: isRezka || _isRollRemoval
+                                ? true
+                                : null,
+                            positive: isRezka || _isRollRemoval,
+                          ),
+                        ],
+                        if (_requiresFullCompletionReport && isBosma) ...[
                           const SizedBox(height: 10),
                           _progressQtySectionLabel(
                             context,
@@ -694,7 +789,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_isComplete) ...[
+                        if (_requiresFullCompletionReport) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(context, 'Izoh'),
                           TextFormField(

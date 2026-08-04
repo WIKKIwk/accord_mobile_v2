@@ -198,14 +198,22 @@ bool _laminatsiyaMaterialScanCanBeSkippedForWip({
   }
   return inputProgressBatches.any((batch) {
     final nextApparatus = batch.nextApparatus.trim();
-    if (batch.wipStatus.trim().toLowerCase() != 'processed' ||
-        !productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) ||
+    final wipStatus = batch.wipStatus.trim().toLowerCase();
+    if (wipStatus != 'waiting' &&
+        wipStatus != 'in_use' &&
+        wipStatus != 'processed') {
+      return false;
+    }
+    if (!productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) ||
         (nextApparatus.isNotEmpty &&
             !productionMapNextStageTitleMatchesApparatus(
               nextApparatus,
               station,
             ))) {
       return false;
+    }
+    if (wipStatus == 'waiting') {
+      return true;
     }
     final processedBy = batch.processedByApparatus.trim().isEmpty
         ? batch.currentApparatus
@@ -327,6 +335,8 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
   required String completionRequestNote,
   required List<String> qolipCodes,
   String freezeRequestId = '',
+  bool workerHandoff = false,
+  bool removeRollFromApparatus = false,
 }) {
   return _ReadOnlyQueueActionRequest(
     apparatus: prepared.apparatus,
@@ -367,6 +377,10 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     completionRequestNote: completionRequestNote,
     returnedPaintItems: progressInput?.returnedPaintItems ?? const [],
     returnedPaintImageId: progressInput?.returnedPaintImageId ?? '',
+    fullCompletionReportRequired:
+        progressInput?.fullCompletionReportRequired ?? false,
+    workerHandoff: workerHandoff,
+    removeRollFromApparatus: removeRollFromApparatus,
     freezeRequestId: freezeRequestId,
   );
 }
@@ -568,6 +582,22 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     station: station,
     queueStatesByApparatus: queueStatesByApparatus,
   );
+  final previousProgressRequired = previousStage != null;
+  final acceptedPreviousWip = previousProgressRequired &&
+      startInputProgressBatch != null &&
+      _progressBatchCanBeScanned(startInputProgressBatch) &&
+      _progressBatchMatchesPreviousStage(
+        batch: startInputProgressBatch,
+        orderId: orderId,
+        previousStage: previousStage!,
+      ) &&
+      _progressBatchCanFeedStation(
+        batch: startInputProgressBatch,
+        station: station,
+      );
+  final previousStageStartReady = !previousProgressRequired ||
+      previousStageReady ||
+      acceptedPreviousWip;
   final sequence = effectiveQueueSequence(
     sequence: sequenceOrderIds,
     visibleOrderIds: visibleOrderIds,
@@ -592,14 +622,13 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       : null;
   final freePick = queuePolicy == ApparatusQueuePolicy.freePick;
   final canStartWithPreviousProgress = previousStage != null &&
-      previousStageReady &&
+      previousStageStartReady &&
       queueState == ApparatusQueueOrderState.pending &&
       (activeOrderId == null || activeOrderId == orderId);
   final isActionable = canManageQueue &&
       (freePick
           ? activeOrderId == null || activeOrderId == orderId
           : actionableId == orderId || canStartWithPreviousProgress);
-  final previousProgressRequired = previousStage != null;
   final hasOtherWaitingPreviousWip = previousProgressRequired &&
       inputProgressBatches.any((batch) {
         if (!_progressBatchCanBeScanned(batch)) {
@@ -617,7 +646,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
         return !sameBatch && !sameQr;
       });
   final rezkaFinalRollReady = !previousProgressRequired ||
-      (!inputProgressLoading &&
+      (previousStageReady &&
+          !inputProgressLoading &&
           inputProgressError.trim().isEmpty &&
           !hasOtherWaitingPreviousWip);
   return _ReadOnlyOrderDetailUiState(
@@ -642,10 +672,9 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
         queueState == ApparatusQueueOrderState.paused,
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
-    previousProgressReady:
-        !previousProgressRequired || startInputProgressBatch != null,
+    previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
     showStart: isActionable &&
-        previousStageReady &&
+        previousStageStartReady &&
         queueState == ApparatusQueueOrderState.pending,
     showPause: isActionable &&
         queueState == ApparatusQueueOrderState.inProgress &&
@@ -662,7 +691,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
     showWaitingForPrevious: canManageQueue &&
         previousStage != null &&
-        !previousStageReady &&
+        !previousStageStartReady &&
         queueState == ApparatusQueueOrderState.pending,
   );
 }

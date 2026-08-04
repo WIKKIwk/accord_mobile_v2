@@ -16,8 +16,12 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.onQueueAction,
     this.progressDriverUrlPicker,
     this.initialOrderControls = const {},
+    this.showQuickScannerOverride,
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
+    this.startWorkerHandoffOnOpen = false,
+    this.startRollRemovalOnOpen = false,
+    this.startResumeOnOpen = false,
   });
 
   final ProductionMapSaved order;
@@ -34,8 +38,12 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final Map<String, AdminOrderControlState> initialOrderControls;
+  final bool? showQuickScannerOverride;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
+  final bool startWorkerHandoffOnOpen;
+  final bool startRollRemovalOnOpen;
+  final bool startResumeOnOpen;
 
   @override
   State<_ReadOnlyOrderDetailSheet> createState() =>
@@ -105,6 +113,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
+      });
+    } else if (widget.startWorkerHandoffOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialWorkerHandoffFlow());
+      });
+    } else if (widget.startRollRemovalOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialRollRemovalFlow());
+      });
+    } else if (widget.startResumeOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_runInitialResumeFlow());
       });
     }
   }
@@ -432,6 +452,52 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
       );
 
+  bool _hasAnotherWaitingInputProgressBatch() {
+    final selected = _startInputProgressBatch;
+    return _availableInputProgressBatches.any((batch) {
+      if (!_progressBatchCanBeScanned(batch)) {
+        return false;
+      }
+      if (selected == null) {
+        return true;
+      }
+      final sameBatch = selected.batchId.trim().isNotEmpty &&
+          selected.batchId.trim() == batch.batchId.trim();
+      final sameQr = selected.qrPayload.trim().isNotEmpty &&
+          selected.qrPayload.trim().toLowerCase() ==
+              batch.qrPayload.trim().toLowerCase();
+      return !sameBatch && !sameQr;
+    });
+  }
+
+  bool _completionNeedsFullReport(String action) {
+    if (action != 'complete') {
+      return false;
+    }
+    final station = widget.apparatus?.name.trim() ?? '';
+    if (!productionMapIsLaminatsiyaApparatus(station)) {
+      return true;
+    }
+    final previousStage = productionMapPreviousWorkStageStation(
+      map: widget.order.map,
+      station: station,
+    );
+    if (previousStage == null ||
+        _inputProgressLoading ||
+        _inputProgressError.trim().isNotEmpty) {
+      return previousStage == null;
+    }
+    final orderId = widget.order.map.id.trim();
+    final previousStageCompleted = widget.queueStatesByApparatus.entries.any(
+      (entry) =>
+          productionMapWarehouseTitlesMatch(entry.key, previousStage) &&
+          apparatusQueueOrderStateFromRaw(entry.value[orderId]) ==
+              ApparatusQueueOrderState.completed,
+    );
+    return previousStageCompleted &&
+        !_hasAnotherWaitingInputProgressBatch();
+  }
+
   String get _qolipRequirementsStatusText {
     if (_qolipRequirementsLoading) {
       return 'Mahsulot qoliplari yuklanmoqda';
@@ -458,6 +524,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     UsbPrinterProfile? offlinePrinter,
     BluetoothPrinterProfile? bluetoothPrinter,
     String completionRequestNote = '',
+    bool workerHandoff = false,
+    bool removeRollFromApparatus = false,
   }) async {
     if (_orderControlState == AdminOrderControlState.frozen) {
       _showSheetNotice('Buyurtma muzlatilgan');
@@ -523,6 +591,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           printMode: printMode,
           completionRequestNote: completionRequestNote,
           qolipCodes: qolipCodes,
+          workerHandoff: workerHandoff,
+          removeRollFromApparatus: removeRollFromApparatus,
           freezeRequestId:
               action == 'pause' ? widget.initialPauseRequestId : '',
         ),
@@ -559,6 +629,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       }
       if (states != null) {
         unawaited(_loadInputProgressBatches());
+      }
+      if (states?.completionRequest != null) {
+        return false;
       }
       final printJobs = states == null
           ? const <UsbRpsPrintRequest>[]
@@ -764,6 +837,33 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           final batch = await MobileApi.instance.adminProgressQrLookup(
             normalized,
           );
+          if (batch.orderId.trim() != orderId) {
+            await _confirmAndSwitchToScannedOrder(
+              batch: batch,
+              previousStage: previousStage,
+              station: station,
+            );
+            return;
+          }
+          final currentState = apparatusQueueOrderStateFromRaw(
+            _queueStates[orderId],
+          );
+          final sameOrder = batch.orderId.trim() == orderId;
+          final sameOrderWipCannotReplaceCurrentSession = sameOrder &&
+              (currentState == ApparatusQueueOrderState.paused ||
+                  (currentState == ApparatusQueueOrderState.inProgress &&
+                      !productionMapIsRezkaApparatus(station)));
+          if (sameOrderWipCannotReplaceCurrentSession) {
+            if (mounted) {
+              setState(() {
+                _quickScanStatus = currentState ==
+                        ApparatusQueueOrderState.paused
+                    ? 'Joriy order pauzada. Avval shu WIPni davom ettiring'
+                    : 'Avval joriy WIPni tugating';
+              });
+            }
+            return;
+          }
           final accepted = await _acceptProgressBatch(batch, previousStage);
           if (accepted) {
             return;
@@ -827,6 +927,105 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     return true;
   }
 
+  bool _progressBatchCanStartForStation({
+    required AdminProgressBatch batch,
+    required String previousStage,
+    required String station,
+  }) {
+    final action = batch.action.trim().toLowerCase();
+    final status = batch.status.trim().toLowerCase();
+    return batch.orderId.trim().isNotEmpty &&
+        batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+        productionMapWarehouseTitlesMatch(batch.apparatus, previousStage) &&
+        (batch.nextApparatus.trim().isEmpty ||
+            productionMapNextStageTitleMatchesApparatus(
+              batch.nextApparatus,
+              station,
+            )) &&
+        (action == 'pause' ||
+            action == 'roll_complete' ||
+            action == 'complete') &&
+        (status == 'paused' || status == 'completed' || status == 'resumed');
+  }
+
+  Future<bool> _confirmAndSwitchToScannedOrder({
+    required AdminProgressBatch batch,
+    required String previousStage,
+    required String station,
+  }) async {
+    if (!_progressBatchCanStartForStation(
+      batch: batch,
+      previousStage: previousStage,
+      station: station,
+    )) {
+      if (mounted) {
+        setState(() => _quickScanStatus = 'Bu WIP QR ushbu aparatga mos emas');
+      }
+      return false;
+    }
+    final currentOrderId = widget.order.map.id.trim();
+    final targetOrderId = batch.orderId.trim();
+    final currentState = apparatusQueueOrderStateFromRaw(
+      _queueStates[currentOrderId],
+    );
+    final confirmed = await showM3ConfirmDialog(
+          context: context,
+          title: 'Boshqa order aniqlandi',
+          message: currentState == ApparatusQueueOrderState.inProgress
+              ? 'Bu QR boshqa orderga tegishli. Hozirgi orderni to‘liq tugatib, '
+                  'yangi orderni boshlaysizmi?'
+              : 'Bu QR boshqa orderga tegishli. Yangi orderni boshlaysizmi?',
+          cancelLabel: 'Yo‘q',
+          confirmLabel: 'Ha, boshlash',
+          confirmButtonKey: const ValueKey('production-switch-order-confirm'),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return false;
+    }
+    if (currentState == ApparatusQueueOrderState.inProgress) {
+      final outcome = await _runProgressAction(
+        'complete',
+        fullCompletionReportRequired: true,
+      );
+      if (outcome != _ProgressActionOutcome.completed || !mounted) {
+        return false;
+      }
+    }
+    setState(() {
+      _quickScanInFlight = true;
+      _quickScanStatus = 'Yangi order boshlanmoqda...';
+    });
+    try {
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: station,
+        orderId: targetOrderId,
+        action: 'start',
+        qrPayload: batch.qrPayload,
+        progressBatchId: batch.batchId,
+        uom: batch.uom.trim().isEmpty ? 'm' : batch.uom.trim(),
+      );
+      if (mounted) {
+        setState(() {
+          _quickScanStatus = 'Yangi order boshlandi: $targetOrderId';
+          _startInputProgressBatch = null;
+        });
+        _showSheetNotice('Yangi order boshlandi');
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        setState(() => _quickScanStatus = _readOnlyQueueActionErrorText(error));
+        _showSheetNotice(_readOnlyQueueActionErrorText(error));
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _quickScanInFlight = false);
+      }
+    }
+  }
+
   Future<void> _runInitialPauseFlow() async {
     final outcome = await _runProgressAction('pause');
     if (!mounted) return;
@@ -837,7 +1036,41 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
   }
 
-  Future<_ProgressActionOutcome> _runProgressAction(String action) async {
+  Future<void> _runInitialWorkerHandoffFlow() async {
+    final outcome = await _runProgressAction(
+      'pause',
+      workerHandoff: true,
+    );
+    if (!mounted) return;
+    if (outcome == _ProgressActionOutcome.completed ||
+        outcome == _ProgressActionOutcome.cancelled) {
+      Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
+    }
+  }
+
+  Future<void> _runInitialRollRemovalFlow() async {
+    final outcome = await _runProgressAction(
+      'pause',
+      removeRollFromApparatus: true,
+    );
+    if (!mounted) return;
+    if (outcome == _ProgressActionOutcome.completed ||
+        outcome == _ProgressActionOutcome.cancelled) {
+      Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
+    }
+  }
+
+  Future<void> _runInitialResumeFlow() async {
+    final completed = await _runQueueAction('resume');
+    if (mounted) Navigator.of(context).pop(completed);
+  }
+
+  Future<_ProgressActionOutcome> _runProgressAction(
+    String action, {
+    bool? fullCompletionReportRequired,
+    bool workerHandoff = false,
+    bool removeRollFromApparatus = false,
+  }) async {
     final scope = returnedPaintWorkerDraftScope(
       actorRef: AppSession.instance.profile?.ref ?? '',
       orderId: widget.order.map.id,
@@ -856,6 +1089,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       apparatus: widget.apparatus,
       order: widget.order,
       returnedPaintDraft: _returnedPaintDraft,
+      fullCompletionReportRequired:
+          fullCompletionReportRequired ?? _completionNeedsFullReport(action),
+      workerHandoff: workerHandoff,
+      removeRollFromApparatus: removeRollFromApparatus,
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
@@ -866,6 +1103,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         progressInput: input,
         uom: 'm',
         completionRequestNote: input.description,
+        workerHandoff: workerHandoff,
+        removeRollFromApparatus: removeRollFromApparatus,
+      );
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
+    }
+    if (workerHandoff || removeRollFromApparatus) {
+      final completed = await _runQueueAction(
+        action,
+        progressInput: input,
+        uom: 'm',
+        workerHandoff: workerHandoff,
+        removeRollFromApparatus: removeRollFromApparatus,
       );
       return completed
           ? _ProgressActionOutcome.completed
@@ -1136,6 +1387,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
+    final showQuickScanner = widget.showQuickScannerOverride ??
+        (uiState.showStart ||
+            (uiState.showWaitingForPrevious &&
+                _availableInputProgressBatches.any(_progressBatchCanBeScanned)) ||
+            uiState.showPause ||
+            uiState.showRollComplete ||
+            uiState.showComplete ||
+            uiState.showResume ||
+            (_materialIntakeMode && (uiState.showPause || uiState.showResume)));
 
     return _ReadOnlyOrderDetailContent(
       noticeAnchorKey: _noticeAnchorKey,
@@ -1164,8 +1424,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       inputProgressError: _inputProgressError,
       quickScanStatus: _quickScanStatus,
       quickScanInFlight: _quickScanInFlight,
-      showQuickScanner: uiState.showStart ||
-          (_materialIntakeMode && (uiState.showPause || uiState.showResume)),
+      showQuickScanner: showQuickScanner,
       onQuickScan: _handleQuickScan,
       requiresQolipScan: requiresQolipScan,
       qolipScanned: qolipScanAllowsStart,

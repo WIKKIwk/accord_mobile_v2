@@ -1689,6 +1689,7 @@ class AdminProgressBatch {
     String? usedByApparatus,
     String? processedBySessionId,
     String? processedByApparatus,
+    Map<String, dynamic>? payloadJson,
   }) {
     return AdminProgressBatch(
       batchId: batchId,
@@ -1729,7 +1730,7 @@ class AdminProgressBatch {
       processedByApparatus: processedByApparatus ?? this.processedByApparatus,
       startedAtUnix: startedAtUnix,
       completedAtUnix: completedAtUnix,
-      payloadJson: payloadJson,
+      payloadJson: payloadJson ?? this.payloadJson,
     );
   }
 }
@@ -6840,6 +6841,7 @@ extension MobileApiAdmin on MobileApi {
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
+    bool fullCompletionReportRequired = false,
   }) async {
     final result = await adminApparatusQueueActionResult(
       apparatus: apparatus,
@@ -6870,6 +6872,7 @@ extension MobileApiAdmin on MobileApi {
       completionRequestNote: completionRequestNote,
       returnedPaintItems: returnedPaintItems,
       returnedPaintImageId: returnedPaintImageId,
+      fullCompletionReportRequired: fullCompletionReportRequired,
     );
     return result.states;
   }
@@ -7249,6 +7252,9 @@ extension MobileApiAdmin on MobileApi {
     String completionRequestNote = '',
     List<ReturnedPaintItemInput> returnedPaintItems = const [],
     String returnedPaintImageId = '',
+    bool fullCompletionReportRequired = false,
+    bool workerHandoff = false,
+    bool removeRollFromApparatus = false,
     String freezeRequestId = '',
   }) async {
     if (await TestModeController.instance.isEnabled()) {
@@ -7307,14 +7313,12 @@ extension MobileApiAdmin on MobileApi {
       final isLaminatsiya = productionMapIsLaminatsiyaApparatus(apparatus);
       final laminatsiyaWipCanReuseMaterial = isLaminatsiya &&
           startInputBatch != null &&
-          _testModeProgressBatchesByQr.values.any((batch) {
-            final processedBy = batch.processedByApparatus.trim().isEmpty
-                ? batch.currentApparatus
-                : batch.processedByApparatus;
-            return batch.orderId.trim() == orderId.trim() &&
-                batch.wipStatus.trim().toLowerCase() == 'processed' &&
-                productionMapWarehouseTitlesMatch(processedBy, apparatus);
-          });
+          startInputBatch.wipStatus.trim().toLowerCase() == 'waiting' &&
+          (startInputBatch.nextApparatus.trim().isEmpty ||
+              productionMapNextStageTitleMatchesApparatus(
+                startInputBatch.nextApparatus,
+                apparatus,
+              ));
       if (!sequence.map((id) => id.trim()).contains(orderId.trim())) {
         throw const MobileApiException(
           code: 'queue_action_not_allowed',
@@ -7379,6 +7383,68 @@ extension MobileApiAdmin on MobileApi {
               station: apparatus,
             );
       final hasPreviousStage = previousStage != null;
+      final previousStageCompleted = hasPreviousStage &&
+          _testModeApparatusQueueStates.entries.any(
+            (entry) {
+              final state = apparatusQueueOrderStateFromRaw(
+                entry.value[orderId.trim()],
+              );
+              return productionMapWarehouseTitlesMatch(
+                    entry.key,
+                    previousStage!,
+                  ) &&
+                  state == ApparatusQueueOrderState.completed;
+            },
+          );
+      bool isPreviousStageBatch(AdminProgressBatch batch) {
+        if (!hasPreviousStage ||
+            batch.orderId.trim() != orderId.trim() ||
+            !productionMapWarehouseTitlesMatch(
+              batch.apparatus,
+              previousStage!,
+            ) ||
+            (batch.nextApparatus.trim().isNotEmpty &&
+                !productionMapNextStageTitleMatchesApparatus(
+                  batch.nextApparatus,
+                  apparatus,
+                ))) {
+          return false;
+        }
+        final actionName = batch.action.trim().toLowerCase();
+        if (actionName != 'pause' &&
+            actionName != 'roll_complete' &&
+            actionName != 'complete') {
+          return false;
+        }
+        final wipStatus = batch.wipStatus.trim().toLowerCase();
+        return wipStatus == 'waiting' ||
+            (wipStatus == 'in_use' &&
+                productionMapWarehouseTitlesMatch(
+                  batch.usedByApparatus.trim().isEmpty
+                      ? batch.currentApparatus
+                      : batch.usedByApparatus,
+                  apparatus,
+                ));
+      }
+      final hasUnprocessedPreviousLaminatsiyaWip = isLaminatsiya &&
+          hasPreviousStage &&
+          (!previousStageCompleted ||
+              _testModeProgressBatchesByQr.values.any((batch) {
+                if (!isPreviousStageBatch(batch)) {
+                  return false;
+                }
+                if (activeInputBatch != null &&
+                    (batch.batchId.trim() == activeInputBatch.batchId.trim() ||
+                        batch.qrPayload.trim().toLowerCase() ==
+                            activeInputBatch.qrPayload.trim().toLowerCase())) {
+                  return false;
+                }
+                return true;
+              }));
+      final allowPartialLaminatsiyaCompletion = isLaminatsiya &&
+          action == 'complete' &&
+          !fullCompletionReportRequired &&
+          hasUnprocessedPreviousLaminatsiyaWip;
       if (isRezka &&
           (action == 'pause' || action == 'roll_complete' || action == 'complete') &&
           hasPreviousStage &&
@@ -7570,25 +7636,17 @@ extension MobileApiAdmin on MobileApi {
           }
         }
         if (startInputBatch != null) {
-          final inputForStation = isLaminatsiya
-              ? _testModeMarkProgressInputProcessed(
-                  batch: startInputBatch,
-                  apparatus: apparatus,
-                  orderId: orderId,
-                )
-              : startInputBatch.copyWith(
-                  wipStatus: 'in_use',
-                  currentApparatus: apparatus,
-                  currentLocation: apparatus,
-                  usedBySessionId: 'test-session-${orderId.trim()}',
-                  usedByApparatus: apparatus,
-                );
+          final inputForStation = startInputBatch.copyWith(
+            wipStatus: 'in_use',
+            currentApparatus: apparatus,
+            currentLocation: apparatus,
+            usedBySessionId: 'test-session-${orderId.trim()}',
+            usedByApparatus: apparatus,
+          );
           _testModeProgressBatchesByQr[inputForStation.qrPayload] =
               inputForStation;
-          if (!isLaminatsiya) {
-            _testModeActiveProgressInputByQueue[queueInputKey] =
-                inputForStation.qrPayload;
-          }
+          _testModeActiveProgressInputByQueue[queueInputKey] =
+              inputForStation.qrPayload;
         }
         _testModeEnsureApparatusExecutionCapacity(
           apparatusId: '',
@@ -7613,6 +7671,109 @@ extension MobileApiAdmin on MobileApi {
             );
           }
         }
+      } else if (action == 'pause' && (workerHandoff || removeRollFromApparatus)) {
+        if (!isLaminatsiya ||
+            (workerHandoff && removeRollFromApparatus) ||
+            (workerHandoff && current != ApparatusQueueOrderState.inProgress) ||
+            (removeRollFromApparatus && current != ApparatusQueueOrderState.paused)) {
+          throw const MobileApiException(
+            code: 'queue_action_not_allowed',
+            message: 'Bu laminatsiya worker handoff amali hozir mumkin emas',
+          );
+        }
+        bool isNonNegative(double? value) =>
+            value != null && value.isFinite && value >= 0;
+        final handoffMetricsReady = isNonNegative(laminationPrintLeftoverRolls) &&
+            isNonNegative(laminationFilmLeftoverRolls) &&
+            isNonNegative(totalWaste);
+        if (workerHandoff && !handoffMetricsReady) {
+          throw const MobileApiException(
+            code: 'laminatsiya_completion_metrics_required',
+            message: 'Bosmadan, plyonkadan ortgan rulon va chiqindini kiriting',
+          );
+        }
+        final handoffInput = activeInputBatch;
+        if (handoffInput == null ||
+            handoffInput.wipStatus.trim().toLowerCase() != 'in_use') {
+          throw const MobileApiException(
+            code: 'progress_batch_not_accepted',
+            message: 'Apparatdagi joriy laminatsiya ruloni topilmadi',
+          );
+        }
+        final isHandoff = handoffInput.payloadJson['worker_handoff'] == true;
+        if (removeRollFromApparatus && !isHandoff) {
+          throw const MobileApiException(
+            code: 'progress_batch_not_accepted',
+            message: 'Bu rulon worker handoff holatida emas',
+          );
+        }
+        if (removeRollFromApparatus &&
+            (!isPositive(finishedGoodsMeter ?? producedQty) ||
+                !isPositive(finishedGoodsKg ?? grossQty))) {
+          throw const MobileApiException(
+            code: 'laminatsiya_completion_metrics_required',
+            message: 'Rulonni yechish uchun metraj va og‘irlikni kiriting',
+          );
+        }
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final updatedInput = removeRollFromApparatus
+            ? handoffInput.copyWith(
+                wipStatus: 'waiting',
+                currentApparatus: storageKey,
+                currentLocation: '$storageKey olib tashlandi',
+                usedBySessionId: '',
+                usedByApparatus: '',
+                payloadJson: {
+                  ...handoffInput.payloadJson,
+                  'worker_handoff': false,
+                  'roll_removed_from_apparatus': true,
+                  'roll_removed_at_unix': now,
+                  'roll_removed_finished_goods_meter':
+                      finishedGoodsMeter ?? producedQty,
+                  'roll_removed_finished_goods_kg': finishedGoodsKg ?? grossQty,
+                },
+              )
+            : handoffInput.copyWith(
+                wipStatus: 'in_use',
+                currentApparatus: storageKey,
+                currentLocation: storageKey,
+                usedBySessionId: 'test-session-${orderId.trim()}',
+                usedByApparatus: storageKey,
+                payloadJson: {
+                  ...handoffInput.payloadJson,
+                  'worker_handoff': true,
+                  'roll_removed_from_apparatus': false,
+                  'worker_handoff_at_unix': now,
+                  'lamination_print_leftover_rolls':
+                      laminationPrintLeftoverRolls,
+                  'lamination_film_leftover_rolls':
+                      laminationFilmLeftoverRolls,
+                  'total_waste': totalWaste,
+                },
+              );
+        _testModeProgressBatchesByQr[updatedInput.qrPayload] = updatedInput;
+        _testModeActiveProgressInputByQueue[queueInputKey] =
+            updatedInput.qrPayload;
+        states[orderId.trim()] = 'paused';
+        _testModeRecordCompletedQueueOrder(
+          actorRef: AppSession.instance.profile?.ref.trim() ?? '',
+          apparatus: storageKey,
+          orderId: orderId.trim(),
+          status: 'in_progress',
+        );
+        _testModeSyncScheduleReservationStatus(
+          orderId: orderId,
+          apparatus: storageKey,
+          status: 'paused',
+        );
+        if (control == AdminOrderControlState.freezeRequested) {
+          _testModeOrderControls[orderId.trim()] =
+              AdminOrderControlState.frozen;
+        }
+        _testModeApparatusQueueStates[storageKey] = states;
+        return AdminApparatusQueueActionResult(
+          states: Map<String, String>.unmodifiable(states),
+        );
       } else if (action == 'pause') {
         if (current != ApparatusQueueOrderState.inProgress) {
           throw const MobileApiException(
@@ -7786,6 +7947,26 @@ extension MobileApiAdmin on MobileApi {
           }
           resumed = batch.copyWith(status: 'resumed');
           _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
+        } else if (activeInputBatch != null &&
+            (activeInputBatch.payloadJson['worker_handoff'] == true ||
+                activeInputBatch.payloadJson['roll_removed_from_apparatus'] ==
+                    true)) {
+          resumed = activeInputBatch.copyWith(
+            wipStatus: 'in_use',
+            currentApparatus: storageKey,
+            currentLocation: storageKey,
+            usedBySessionId: 'test-session-${orderId.trim()}',
+            usedByApparatus: storageKey,
+            payloadJson: {
+              ...activeInputBatch.payloadJson,
+              'worker_handoff': false,
+              'roll_removed_from_apparatus': false,
+              'roll_claimed_after_handoff_at_unix':
+                  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            },
+          );
+          _testModeProgressBatchesByQr[resumed.qrPayload] = resumed;
+          _testModeActiveProgressInputByQueue[queueInputKey] = resumed.qrPayload;
         }
         _testModeEnsureApparatusExecutionCapacity(
           apparatusId: '',
@@ -7812,39 +7993,43 @@ extension MobileApiAdmin on MobileApi {
         }
         final hasPendingRezkaSourceRoll = isRezka &&
             hasPreviousStage &&
-            _testModeProgressBatchesByQr.values.any((batch) {
-              if (batch.orderId.trim() != orderId.trim() ||
-                  !productionMapWarehouseTitlesMatch(
-                    batch.apparatus,
-                    previousStage!,
-                  ) ||
-                  (batch.nextApparatus.trim().isNotEmpty &&
-                      !productionMapNextStageTitleMatchesApparatus(
-                        batch.nextApparatus,
-                        apparatus,
-                      )) ||
-                  (activeInputBatch != null &&
-                      (batch.batchId.trim() == activeInputBatch.batchId.trim() ||
-                          batch.qrPayload.trim().toLowerCase() ==
-                              activeInputBatch.qrPayload.trim().toLowerCase()))) {
-                return false;
-              }
-              final actionName = batch.action.trim().toLowerCase();
-              if (actionName != 'pause' &&
-                  actionName != 'roll_complete' &&
-                  actionName != 'complete') {
-                return false;
-              }
-              final wipStatus = batch.wipStatus.trim().toLowerCase();
-              return wipStatus == 'waiting' ||
-                  (wipStatus == 'in_use' &&
-                      productionMapWarehouseTitlesMatch(
-                        batch.usedByApparatus.trim().isEmpty
-                            ? batch.currentApparatus
-                            : batch.usedByApparatus,
-                        apparatus,
-                      ));
-            });
+            (!previousStageCompleted ||
+                _testModeProgressBatchesByQr.values.any((batch) {
+                  if (batch.orderId.trim() != orderId.trim() ||
+                      !productionMapWarehouseTitlesMatch(
+                        batch.apparatus,
+                        previousStage!,
+                      ) ||
+                      (batch.nextApparatus.trim().isNotEmpty &&
+                          !productionMapNextStageTitleMatchesApparatus(
+                            batch.nextApparatus,
+                            apparatus,
+                          )) ||
+                      (activeInputBatch != null &&
+                          (batch.batchId.trim() ==
+                                  activeInputBatch.batchId.trim() ||
+                              batch.qrPayload.trim().toLowerCase() ==
+                                  activeInputBatch.qrPayload
+                                      .trim()
+                                      .toLowerCase()))) {
+                    return false;
+                  }
+                  final actionName = batch.action.trim().toLowerCase();
+                  if (actionName != 'pause' &&
+                      actionName != 'roll_complete' &&
+                      actionName != 'complete') {
+                    return false;
+                  }
+                  final wipStatus = batch.wipStatus.trim().toLowerCase();
+                  return wipStatus == 'waiting' ||
+                      (wipStatus == 'in_use' &&
+                          productionMapWarehouseTitlesMatch(
+                            batch.usedByApparatus.trim().isEmpty
+                                ? batch.currentApparatus
+                                : batch.usedByApparatus,
+                            apparatus,
+                          ));
+                }));
         if (hasPendingRezkaSourceRoll) {
           throw const MobileApiException(
             code: 'rezka_final_roll_required',
@@ -7861,11 +8046,13 @@ extension MobileApiAdmin on MobileApi {
                 finishedGoodsKg != null &&
                 finishedGoodsMeter != null;
         final hasLaminatsiyaCompleteMetrics =
-            (laminationPrintLeftoverRolls != null ||
-                    laminationFilmLeftoverRolls != null) &&
-                totalWaste != null &&
-                finishedGoodsKg != null &&
-                finishedGoodsMeter != null;
+            allowPartialLaminatsiyaCompletion
+                ? isPositive(finishedGoodsKg) && isPositive(finishedGoodsMeter)
+                : (laminationPrintLeftoverRolls != null ||
+                        laminationFilmLeftoverRolls != null) &&
+                    isPositive(totalWaste) &&
+                    isPositive(finishedGoodsKg) &&
+                    isPositive(finishedGoodsMeter);
         final zeroMetricCodes = <String>[
           if (producedQty == 0) 'produced_qty',
           if (grossQty == 0) 'gross_qty',
@@ -7885,6 +8072,14 @@ extension MobileApiAdmin on MobileApi {
           throw const MobileApiException(
             code: 'zero_metric_explanation_required',
             message: '0 qiymat kiritilganda sababini yozing',
+          );
+        }
+        if (isLaminatsiya &&
+            !hasLaminatsiyaCompleteMetrics &&
+            note.isEmpty) {
+          throw const MobileApiException(
+            code: 'laminatsiya_completion_metrics_required',
+            message: 'Laminatsiya uchun metraj va og‘irlikni kiriting',
           );
         }
         final missingOutputWithReason = note.isNotEmpty &&
@@ -7982,7 +8177,9 @@ extension MobileApiAdmin on MobileApi {
         }
         _testModeActiveProgressInputByQueue.remove(queueInputKey);
         final batch = outputBatches.first;
-        states[orderId.trim()] = 'completed';
+        states[orderId.trim()] = hasUnprocessedPreviousLaminatsiyaWip
+            ? 'pending'
+            : 'completed';
         _testModeApparatusQueueStates[storageKey] = states;
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
@@ -8149,6 +8346,10 @@ extension MobileApiAdmin on MobileApi {
           if (printMode.trim().isNotEmpty) 'print_mode': printMode.trim(),
           if (trimmedCompletionRequestNote.isNotEmpty)
             'completion_request_note': trimmedCompletionRequestNote,
+          if (fullCompletionReportRequired)
+            'full_completion_report_required': true,
+          if (workerHandoff) 'worker_handoff': true,
+          if (removeRollFromApparatus) 'remove_roll_from_apparatus': true,
           if (returnedPaintItems.isNotEmpty)
             'returned_paint_items': returnedPaintItems
                 .map((item) => item.toJson())

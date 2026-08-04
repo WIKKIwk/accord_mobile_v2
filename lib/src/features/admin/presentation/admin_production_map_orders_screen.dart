@@ -388,6 +388,11 @@ class _AdminProductionMapOrdersScreenState
   void _showWatchOrderDetail({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
+    bool? canManageQueueOverride,
+    bool? showQuickScannerOverride,
+    bool startWorkerHandoffOnOpen = false,
+    bool startRollRemovalOnOpen = false,
+    bool startResumeOnOpen = false,
   }) {
     final mapId = order.map.id.trim();
     showModalBottomSheet<void>(
@@ -399,13 +404,14 @@ class _AdminProductionMapOrdersScreenState
         order: order,
         apparatus: apparatus,
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
-        canManageQueue: widget.workerMode &&
-            _isAssignedWatchApparatus(
-              apparatus,
-              assignedApparatus:
-                  AppSession.instance.profile?.assignedApparatus ??
-                      const <String>[],
-            ),
+        canManageQueue: canManageQueueOverride ??
+            (widget.workerMode &&
+                _isAssignedWatchApparatus(
+                  apparatus,
+                  assignedApparatus:
+                      AppSession.instance.profile?.assignedApparatus ??
+                          const <String>[],
+                )),
         initialQueueStates: _queueStatesForApparatus(
           apparatus,
           queueStatesByApparatus: _queueStatesByApparatus,
@@ -425,8 +431,137 @@ class _AdminProductionMapOrdersScreenState
         onQueueAction: _handleQueueAction,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
+        showQuickScannerOverride: showQuickScannerOverride,
+        startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
+        startRollRemovalOnOpen: startRollRemovalOnOpen,
+        startResumeOnOpen: startResumeOnOpen,
       ),
     );
+  }
+
+  void _showWatchOrderInfo({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) {
+    _showWatchOrderDetail(
+      apparatus: apparatus,
+      order: order,
+      canManageQueueOverride: true,
+      showQuickScannerOverride: false,
+    );
+  }
+
+  Future<AdminProgressBatch?> _laminatsiyaWorkerHandoffBatch({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) async {
+    final station = apparatus.name.trim();
+    try {
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        apparatus: station,
+        orderId: order.map.id.trim(),
+        limit: 250,
+      );
+      for (final batch in batches) {
+        final usedBy = batch.usedByApparatus.trim().isEmpty
+            ? batch.currentApparatus
+            : batch.usedByApparatus;
+        if (batch.orderId.trim() == order.map.id.trim() &&
+            batch.wipStatus.trim().toLowerCase() == 'in_use' &&
+            productionMapWarehouseTitlesMatch(usedBy, station) &&
+            batch.payloadJson['worker_handoff'] == true) {
+          return batch;
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : 'Apparatdagi rulon holati olinmadi',
+        );
+      }
+    }
+    return null;
+  }
+
+  Future<void> _showWatchOrderLongPress({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) async {
+    if (!widget.workerMode ||
+        !_isAssignedWatchApparatus(
+          apparatus,
+          assignedApparatus:
+              AppSession.instance.profile?.assignedApparatus ??
+                  const <String>[],
+        ) ||
+        !productionMapIsLaminatsiyaApparatus(apparatus.name)) {
+      return;
+    }
+    final queueStates = _queueStatesForApparatus(
+      apparatus,
+      queueStatesByApparatus: _queueStatesByApparatus,
+    );
+    final state = apparatusQueueOrderStateFromRaw(
+      queueStates[order.map.id.trim()],
+    );
+    if (state == ApparatusQueueOrderState.inProgress) {
+      final choice = await showModalBottomSheet<
+          _LaminatsiyaWorkerLongPressChoice>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => const _LaminatsiyaWorkerFinishSheet(),
+      );
+      if (!mounted ||
+          choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
+        return;
+      }
+      _showWatchOrderDetail(
+        apparatus: apparatus,
+        order: order,
+        startWorkerHandoffOnOpen: true,
+      );
+      return;
+    }
+    if (state != ApparatusQueueOrderState.paused) {
+      return;
+    }
+    final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
+      apparatus: apparatus,
+      order: order,
+    );
+    if (!mounted || handoffBatch == null) {
+      return;
+    }
+    final choice = await showModalBottomSheet<
+        _LaminatsiyaWorkerLongPressChoice>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => const _LaminatsiyaWorkerHandoffSheet(),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case _LaminatsiyaWorkerLongPressChoice.continueRoll:
+        _showWatchOrderDetail(
+          apparatus: apparatus,
+          order: order,
+          startResumeOnOpen: true,
+        );
+      case _LaminatsiyaWorkerLongPressChoice.removeRoll:
+        _showWatchOrderDetail(
+          apparatus: apparatus,
+          order: order,
+          startRollRemovalOnOpen: true,
+        );
+      case _LaminatsiyaWorkerLongPressChoice.finishWork:
+      case null:
+        break;
+    }
   }
 
   Future<void> _showSupplyRawMaterialAssignment(
@@ -875,7 +1010,8 @@ class _AdminProductionMapOrdersScreenState
                       bottomPadding: bottomPadding,
                       tabController: _tabController,
                       onTapCompletedOrder: _showCompletedOrderDetail,
-                      onTapWatchOrder: _showWatchOrderDetail,
+                      onTapWatchOrder: _showWatchOrderInfo,
+                      onLongPressWatchOrder: _showWatchOrderLongPress,
                     )
                   : _AdminModulesBody(
                       modules: _modules,

@@ -243,6 +243,9 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     completionRequestNote: request.completionRequestNote,
     returnedPaintItems: request.returnedPaintItems,
     returnedPaintImageId: request.returnedPaintImageId,
+    fullCompletionReportRequired: request.fullCompletionReportRequired,
+    workerHandoff: request.workerHandoff,
+    removeRollFromApparatus: request.removeRollFromApparatus,
     freezeRequestId: request.freezeRequestId,
   );
 }
