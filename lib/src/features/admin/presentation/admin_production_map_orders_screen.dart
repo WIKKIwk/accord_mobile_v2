@@ -451,11 +451,11 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _openWorkerQrScanner() async {
-    final result = await Navigator.of(context).pushNamed<String>(
+    final result = await Navigator.of(context).pushNamed(
       AppRoutes.adminProgressQrScan,
       arguments: const AdminProgressQrScanArgs(scanOnly: true),
     );
-    if (!mounted || result == null || result.trim().isEmpty) {
+    if (!mounted || result is! String || result.trim().isEmpty) {
       return;
     }
     await _handleWorkerFabQr(result.trim());
