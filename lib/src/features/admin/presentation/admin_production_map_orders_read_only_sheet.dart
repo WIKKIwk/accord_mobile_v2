@@ -59,7 +59,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   late Map<String, String> _queueStates;
   late AdminOrderControlState _orderControlState;
   late Map<String, AdminOrderControlState> _orderControls;
-  StreamSubscription<AdminProductionMapLiveSnapshot>? _controlLiveSubscription;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminRawMaterialAssignment> _startAssignments = const [];
   List<AdminRawMaterialAssignment> _intakeCandidateAssignments = const [];
@@ -104,13 +103,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
     _orderControlState = _orderControls[widget.order.map.id.trim()] ??
         AdminOrderControlState.active;
-    if (widget.canManageQueue) {
-      _controlLiveSubscription =
-          MobileApi.instance.adminProductionMapLiveEvents().listen(
-                _applyOrderControlLiveSnapshot,
-                onError: (_, __) {},
-              );
-    }
     unawaited(_loadMaterialAssignments());
     unawaited(_loadInputProgressBatches());
     unawaited(_loadQolipRequirements());
@@ -143,32 +135,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   @override
   void dispose() {
-    unawaited(_controlLiveSubscription?.cancel());
     super.dispose();
-  }
-
-  void _applyOrderControlLiveSnapshot(
-    AdminProductionMapLiveSnapshot snapshot,
-  ) {
-    if (!mounted) return;
-    final orderId = widget.order.map.id.trim();
-    final station = widget.apparatus?.name.trim() ?? '';
-    final nextControls =
-        Map<String, AdminOrderControlState>.from(snapshot.orderControls);
-    final nextControl = nextControls[orderId] ?? AdminOrderControlState.active;
-    final nextStates = _queueStatesForStation(
-      station,
-      snapshot.queueStates,
-    );
-    if (nextControl == _orderControlState &&
-        mapEquals(nextStates, _queueStates)) {
-      return;
-    }
-    setState(() {
-      _orderControlState = nextControl;
-      _orderControls = nextControls;
-      _queueStates = Map<String, String>.from(nextStates);
-    });
   }
 
   @override
