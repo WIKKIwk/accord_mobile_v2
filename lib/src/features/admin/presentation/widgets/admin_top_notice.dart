@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 _AdminTopNoticeHandle? _currentAdminTopNotice;
@@ -6,6 +8,7 @@ class _AdminTopNoticeHandle {
   _AdminTopNoticeHandle(this._close);
 
   final VoidCallback _close;
+  Timer? _timer;
   bool _closed = false;
 
   void close() {
@@ -13,7 +16,19 @@ class _AdminTopNoticeHandle {
       return;
     }
     _closed = true;
+    _timer?.cancel();
+    _timer = null;
     _close();
+  }
+
+  void autoCloseAfter(Duration duration) {
+    _timer?.cancel();
+    _timer = Timer(duration, () {
+      if (_currentAdminTopNotice == this) {
+        _currentAdminTopNotice = null;
+        close();
+      }
+    });
   }
 }
 
@@ -40,19 +55,20 @@ void showAdminTopNotice(
   }
   messenger.hideCurrentMaterialBanner();
 
-  final controller = messenger.showMaterialBanner(
+  messenger.showMaterialBanner(
     _adminNoticeBanner(context, message, icon: icon),
   );
   final handle = _AdminTopNoticeHandle(
     messenger.hideCurrentMaterialBanner,
   );
   _currentAdminTopNotice = handle;
-  Future<void>.delayed(const Duration(milliseconds: 1850), () {
-    if (_currentAdminTopNotice == handle) {
-      controller.close();
-      _currentAdminTopNotice = null;
-    }
-  });
+  handle.autoCloseAfter(const Duration(milliseconds: 1850));
+}
+
+void dismissAdminTopNotice() {
+  final handle = _currentAdminTopNotice;
+  _currentAdminTopNotice = null;
+  handle?.close();
 }
 
 bool _showAnchoredAdminTopNotice(
@@ -96,12 +112,7 @@ bool _showAnchoredAdminTopNotice(
   overlay.insert(entry);
   final handle = _AdminTopNoticeHandle(entry.remove);
   _currentAdminTopNotice = handle;
-  Future<void>.delayed(const Duration(milliseconds: 1850), () {
-    if (_currentAdminTopNotice == handle) {
-      handle.close();
-      _currentAdminTopNotice = null;
-    }
-  });
+  handle.autoCloseAfter(const Duration(milliseconds: 1850));
   return true;
 }
 

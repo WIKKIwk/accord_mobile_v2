@@ -165,9 +165,8 @@ bool _progressBatchMatchesPreviousStage({
     batch.apparatus,
     previousStage,
   );
-  final usableAction = action == 'pause' ||
-      action == 'roll_complete' ||
-      action == 'complete';
+  final usableAction =
+      action == 'pause' || action == 'roll_complete' || action == 'complete';
   final usableStatus =
       status == 'paused' || status == 'completed' || status == 'resumed';
   return matchesOrder && matchesStage && usableAction && usableStatus;
@@ -192,8 +191,7 @@ bool _laminatsiyaMaterialScanCanBeSkippedForWip({
   required String? previousStage,
   required List<AdminProgressBatch> inputProgressBatches,
 }) {
-  if (!productionMapIsLaminatsiyaApparatus(station) ||
-      previousStage == null) {
+  if (!productionMapIsLaminatsiyaApparatus(station) || previousStage == null) {
     return false;
   }
   return inputProgressBatches.any((batch) {
@@ -492,8 +490,8 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
   );
   final stationMaterialAssignments =
       (materialRequirements == null || bypassMaterialGate)
-      ? const <AdminRawMaterialAssignment>[]
-      : materialAssignments;
+          ? const <AdminRawMaterialAssignment>[]
+          : materialAssignments;
   final inputProgressBatch = startInputProgressBatch;
   return _PreparedReadOnlyQueueAction(
     apparatus: apparatus,
@@ -522,32 +520,24 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
 _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   required ProductionMapSaved order,
   required AdminApparatus? apparatus,
-  required Map<String, String> queueStates,
-  required Map<String, Map<String, String>> queueStatesByApparatus,
   required List<AdminRawMaterialAssignment> materialAssignments,
   required List<AdminRawMaterialAssignment> startMaterialAssignments,
   required List<AdminRawMaterialAssignment> intakeCandidateAssignments,
   required AdminRawMaterialStartRequirements? materialRequirements,
   required Set<String> scannedMaterialBarcodes,
   required bool canManageQueue,
-  required List<String> sequenceOrderIds,
-  required List<String> visibleOrderIds,
-  required ApparatusQueuePolicy queuePolicy,
+  required AdminApparatusQueueOrderActionControl? queueActionControl,
   required AdminProgressBatch? startInputProgressBatch,
-  required List<AdminProgressBatch> inputProgressBatches,
-  required bool inputProgressLoading,
-  required String inputProgressError,
   required bool skipStartMaterialScan,
-  required AdminOrderControlState orderControlState,
-  required Map<String, AdminOrderControlState> orderControlsByOrderId,
 }) {
   final map = order.map;
   final orderId = map.id.trim();
   final station = apparatus?.name.trim() ?? '';
-  final queueState = apparatusQueueOrderStateFromRaw(queueStates[orderId]);
-  final previousStage = station.isEmpty
-      ? null
-      : productionMapPreviousWorkStageStation(map: map, station: station);
+  final queueState = apparatusQueueOrderStateFromRaw(
+    queueActionControl?.state,
+  );
+  final previousStageValue = queueActionControl?.previousStage.trim() ?? '';
+  final previousStage = previousStageValue.isEmpty ? null : previousStageValue;
   final bypassMaterialGate = _laminatsiyaMaterialGateBypassed(
     station: station,
     materialRequirements: materialRequirements,
@@ -561,9 +551,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     scannedBarcodes: scannedMaterialBarcodes,
     orderId: orderId,
   );
-  final allMaterialsScanned = bypassMaterialGate
-      ? true
-      : materialRequirements?.scanSatisfied ?? true;
+  final allMaterialsScanned =
+      bypassMaterialGate ? true : materialRequirements?.scanSatisfied ?? true;
   final materialRequiredCount = materialRequirements == null
       ? 0
       : bypassMaterialGate
@@ -576,12 +565,7 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       materialRequirements == null || bypassMaterialGate
           ? 0
           : materialRequirements.matchedScanCount;
-  final previousStageReady = productionMapOrderReadyForStation(
-    map: map,
-    orderId: orderId,
-    station: station,
-    queueStatesByApparatus: queueStatesByApparatus,
-  );
+  final previousStageReady = queueActionControl?.previousStageReady ?? false;
   final previousProgressRequired = previousStage != null;
   final acceptedPreviousWip = previousProgressRequired &&
       startInputProgressBatch != null &&
@@ -589,71 +573,30 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       _progressBatchMatchesPreviousStage(
         batch: startInputProgressBatch,
         orderId: orderId,
-        previousStage: previousStage!,
+        previousStage: previousStage,
       ) &&
       _progressBatchCanFeedStation(
         batch: startInputProgressBatch,
         station: station,
       );
-  final previousStageStartReady = !previousProgressRequired ||
-      previousStageReady ||
-      acceptedPreviousWip;
-  final sequence = effectiveQueueSequence(
-    sequence: sequenceOrderIds,
-    visibleOrderIds: visibleOrderIds,
-  );
-  final effectiveQueueStates = Map<String, String>.from(queueStates)
-    ..removeWhere(
-      (id, _) => orderControlsByOrderId[id] == AdminOrderControlState.frozen,
-    );
-  final actionableId = canManageQueue
-      ? firstActionableQueueOrderId(
-          sequence: sequence,
-          states: effectiveQueueStates,
-          visibleOrderIds: visibleOrderIds,
-        )
-      : null;
-  final activeOrderId = canManageQueue
-      ? firstInProgressQueueOrderId(
-          sequence: sequence,
-          states: effectiveQueueStates,
-          visibleOrderIds: visibleOrderIds,
-        )
-      : null;
-  final freePick = queuePolicy == ApparatusQueuePolicy.freePick;
-  final canStartWithPreviousProgress = previousStage != null &&
-      previousStageStartReady &&
+  final previousStageStartReady =
+      !previousProgressRequired || previousStageReady || acceptedPreviousWip;
+  final showStart = canManageQueue &&
+      queueActionControl?.allows('start') == true &&
       queueState == ApparatusQueueOrderState.pending &&
-      (activeOrderId == null || activeOrderId == orderId);
-  final currentWipActionable = canManageQueue &&
-      (queueState == ApparatusQueueOrderState.inProgress ||
-          queueState == ApparatusQueueOrderState.paused);
-  final isActionable = canManageQueue &&
-      (currentWipActionable ||
-          (freePick
-              ? activeOrderId == null || activeOrderId == orderId
-              : actionableId == orderId || canStartWithPreviousProgress));
-  final hasOtherWaitingPreviousWip = previousProgressRequired &&
-      inputProgressBatches.any((batch) {
-        if (!_progressBatchCanBeScanned(batch)) {
-          return false;
-        }
-        final selected = startInputProgressBatch;
-        if (selected == null) {
-          return true;
-        }
-        final sameBatch = selected.batchId.trim().isNotEmpty &&
-            selected.batchId.trim() == batch.batchId.trim();
-        final sameQr = selected.qrPayload.trim().isNotEmpty &&
-            selected.qrPayload.trim().toLowerCase() ==
-                batch.qrPayload.trim().toLowerCase();
-        return !sameBatch && !sameQr;
-      });
-  final rezkaFinalRollReady = !previousProgressRequired ||
-      (previousStageReady &&
-          !inputProgressLoading &&
-          inputProgressError.trim().isEmpty &&
-          !hasOtherWaitingPreviousWip);
+      previousStageStartReady;
+  final showPause = canManageQueue &&
+      queueActionControl?.allows('pause') == true &&
+      queueState == ApparatusQueueOrderState.inProgress;
+  final showRollComplete = canManageQueue &&
+      queueActionControl?.allows('roll_complete') == true &&
+      queueState == ApparatusQueueOrderState.inProgress;
+  final showComplete = canManageQueue &&
+      queueActionControl?.allows('complete') == true &&
+      queueState == ApparatusQueueOrderState.inProgress;
+  final showResume = canManageQueue &&
+      queueActionControl?.allows('resume') == true &&
+      queueState == ApparatusQueueOrderState.paused;
   return _ReadOnlyOrderDetailUiState(
     orderId: orderId,
     station: station,
@@ -677,22 +620,11 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     previousStage: previousStage,
     previousProgressRequired: previousProgressRequired,
     previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
-    showStart: isActionable &&
-        previousStageStartReady &&
-        queueState == ApparatusQueueOrderState.pending,
-    showPause: isActionable &&
-        queueState == ApparatusQueueOrderState.inProgress &&
-        orderControlState != AdminOrderControlState.frozen,
-    showRollComplete: productionMapIsRezkaApparatus(station) &&
-        isActionable &&
-        queueState == ApparatusQueueOrderState.inProgress &&
-        orderControlState == AdminOrderControlState.active &&
-        (!previousProgressRequired || !rezkaFinalRollReady),
-    showComplete: isActionable &&
-        queueState == ApparatusQueueOrderState.inProgress &&
-        orderControlState == AdminOrderControlState.active &&
-        (!productionMapIsRezkaApparatus(station) || rezkaFinalRollReady),
-    showResume: isActionable && queueState == ApparatusQueueOrderState.paused,
+    showStart: showStart,
+    showPause: showPause,
+    showRollComplete: showRollComplete,
+    showComplete: showComplete,
+    showResume: showResume,
     showWaitingForPrevious: canManageQueue &&
         previousStage != null &&
         !previousStageStartReady &&

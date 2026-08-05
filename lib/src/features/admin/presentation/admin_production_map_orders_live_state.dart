@@ -116,6 +116,7 @@ extension _AdminProductionMapOrdersLiveState
         visibleOrderIds: snapshot.visibleOrderIds,
         queueStates: snapshot.queueStates,
         queuePolicies: snapshot.queuePolicies,
+        queueActionControls: snapshot.queueActionControls,
         orderControls: snapshot.orderControls,
         orderCustomers: snapshot.orderCustomers,
         orderStatuses: snapshot.orderStatuses,
@@ -210,6 +211,7 @@ extension _AdminProductionMapOrdersLiveState
         visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
         queueStatesByApparatus: _queueStatesByApparatus,
         queuePoliciesByApparatus: _queuePoliciesByApparatus,
+        queueActionControlsByApparatus: _queueActionControlsByApparatus,
         orderControlsByOrderId: _orderControlsByOrderId,
         orderCustomersByOrderId: _customerByMapId,
         orderStatusesByOrderId: _orderStatusesByOrderId,
@@ -223,6 +225,7 @@ extension _AdminProductionMapOrdersLiveState
           visibleOrderIds: queueSnapshot.visibleOrderIds,
           queueStates: queueSnapshot.queueStates,
           queuePolicies: queueSnapshot.queuePolicies,
+          queueActionControls: queueSnapshot.queueActionControls,
           orderControls: queueSnapshot.orderControls,
           orderCustomers: queueSnapshot.orderCustomers,
           orderStatuses: queueSnapshot.orderStatuses,
@@ -249,6 +252,8 @@ extension _AdminProductionMapOrdersLiveState
     required Map<String, List<String>> visibleOrderIds,
     required Map<String, Map<String, String>> queueStates,
     required Map<String, AdminApparatusQueuePolicy> queuePolicies,
+    required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+        queueActionControls,
     required Map<String, AdminOrderControlState> orderControls,
     required Map<String, String> orderCustomers,
     required Map<String, AdminProductionOrderStatusDetail> orderStatuses,
@@ -266,6 +271,9 @@ extension _AdminProductionMapOrdersLiveState
     _queuePoliciesByApparatus
       ..clear()
       ..addAll(queuePolicies);
+    _queueActionControlsByApparatus
+      ..clear()
+      ..addAll(queueActionControls);
     _orderControlsByOrderId
       ..clear()
       ..addAll(orderControls);

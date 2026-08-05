@@ -214,6 +214,8 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, List<String>> _visibleOrderIdsByApparatus = {};
   final Map<String, Map<String, String>> _queueStatesByApparatus = {};
   final Map<String, AdminApparatusQueuePolicy> _queuePoliciesByApparatus = {};
+  final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      _queueActionControlsByApparatus = {};
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
@@ -418,6 +420,10 @@ class _AdminProductionMapOrdersScreenState
           queueStatesByApparatus: _queueStatesByApparatus,
         ),
         queueStatesByApparatus: _queueStatesByApparatus,
+        queueActionControl: _queueActionControlForApparatus(
+          apparatus: apparatus,
+          orderId: mapId,
+        ),
         queuePolicy: _queuePolicyForApparatus(
           apparatus,
           queuePoliciesByApparatus: _queuePoliciesByApparatus,
@@ -449,6 +455,18 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
+  AdminApparatusQueueOrderActionControl? _queueActionControlForApparatus({
+    required AdminApparatus apparatus,
+    required String orderId,
+  }) {
+    for (final entry in _queueActionControlsByApparatus.entries) {
+      if (productionMapQueueApparatusTitlesMatch(entry.key, apparatus.name)) {
+        return entry.value[orderId.trim()];
+      }
+    }
+    return null;
+  }
+
   void _showWatchOrderInfo({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
@@ -477,7 +495,8 @@ class _AdminProductionMapOrdersScreenState
       final targetOrderId = batch.orderId.trim();
       final stationName = batch.nextApparatus.trim();
       if (targetOrderId.isEmpty || stationName.isEmpty) {
-        showAdminTopNotice(context, 'Bu QR boshqa orderni boshlash uchun mos emas');
+        showAdminTopNotice(
+            context, 'Bu QR boshqa orderni boshlash uchun mos emas');
         return;
       }
       AdminApparatus? station;
@@ -493,11 +512,11 @@ class _AdminProductionMapOrdersScreenState
       if (station == null ||
           !_isAssignedWatchApparatus(
             station,
-            assignedApparatus:
-                AppSession.instance.profile?.assignedApparatus ??
-                    const <String>[],
+            assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
+                const <String>[],
           )) {
-        showAdminTopNotice(context, 'Bu QR siz biriktirilgan apparatga mos emas');
+        showAdminTopNotice(
+            context, 'Bu QR siz biriktirilgan apparatga mos emas');
         return;
       }
       ProductionMapSaved? targetOrder;
@@ -591,8 +610,7 @@ class _AdminProductionMapOrdersScreenState
         )
         .toList()
       ..sort(
-        (left, right) =>
-            right.completedAtUnix.compareTo(left.completedAtUnix),
+        (left, right) => right.completedAtUnix.compareTo(left.completedAtUnix),
       );
     for (final entry in history) {
       final order = ordersById[entry.orderId.trim()];
@@ -653,9 +671,8 @@ class _AdminProductionMapOrdersScreenState
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
-          assignedApparatus:
-              AppSession.instance.profile?.assignedApparatus ??
-                  const <String>[],
+          assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
+              const <String>[],
         ) ||
         !productionMapIsLaminatsiyaApparatus(apparatus.name)) {
       return;
@@ -674,8 +691,8 @@ class _AdminProductionMapOrdersScreenState
       );
       if (!mounted) return;
       if (handoffBatch != null) {
-        final choice = await showModalBottomSheet<
-            _LaminatsiyaWorkerLongPressChoice>(
+        final choice =
+            await showModalBottomSheet<_LaminatsiyaWorkerLongPressChoice>(
           context: context,
           useSafeArea: true,
           showDragHandle: true,
@@ -705,15 +722,14 @@ class _AdminProductionMapOrdersScreenState
     if (state == ApparatusQueueOrderState.inProgress ||
         state == ApparatusQueueOrderState.paused ||
         state == ApparatusQueueOrderState.completed) {
-      final choice = await showModalBottomSheet<
-          _LaminatsiyaWorkerLongPressChoice>(
+      final choice =
+          await showModalBottomSheet<_LaminatsiyaWorkerLongPressChoice>(
         context: context,
         useSafeArea: true,
         showDragHandle: true,
         builder: (_) => const _LaminatsiyaWorkerFinishSheet(),
       );
-      if (!mounted ||
-          choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
+      if (!mounted || choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
         return;
       }
       _showWatchOrderDetail(

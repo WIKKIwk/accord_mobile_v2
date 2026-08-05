@@ -10,6 +10,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.canManageQueue = false,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
+    this.queueActionControl,
     this.queuePolicy = ApparatusQueuePolicy.strictSequence,
     this.sequenceOrderIds = const [],
     this.visibleOrderIds = const [],
@@ -34,6 +35,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool canManageQueue;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
+  final AdminApparatusQueueOrderActionControl? queueActionControl;
   final ApparatusQueuePolicy queuePolicy;
   final List<String> sequenceOrderIds;
   final List<String> visibleOrderIds;
@@ -57,6 +59,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   final GlobalKey _noticeAnchorKey = GlobalKey();
   late Map<String, String> _queueStates;
+  AdminApparatusQueueOrderActionControl? _queueActionControl;
   late AdminOrderControlState _orderControlState;
   late Map<String, AdminOrderControlState> _orderControls;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
@@ -99,6 +102,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
   void initState() {
     super.initState();
     _queueStates = Map<String, String>.from(widget.initialQueueStates);
+    _queueActionControl = widget.queueActionControl;
     _orderControls =
         Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
     _orderControlState = _orderControls[widget.order.map.id.trim()] ??
@@ -135,6 +139,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   @override
   void dispose() {
+    dismissAdminTopNotice();
     super.dispose();
   }
 
@@ -176,6 +181,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (_actionInFlight) {
       return;
     }
+    _queueActionControl = widget.queueActionControl;
     if (station.isEmpty) {
       return;
     }
@@ -412,15 +418,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
 
   bool get _laminatsiyaWipMaterialScanCanBeSkipped {
     final station = widget.apparatus?.name.trim() ?? '';
-    final previousStage = station.isEmpty
-        ? null
-        : productionMapPreviousWorkStageStation(
-            map: widget.order.map,
-            station: station,
-          );
+    final previousStage = _queueActionControl?.previousStage.trim();
     return _laminatsiyaMaterialScanCanBeSkippedForWip(
       station: station,
-      previousStage: previousStage,
+      previousStage:
+          previousStage == null || previousStage.isEmpty ? null : previousStage,
       inputProgressBatches: _availableInputProgressBatches,
     );
   }
@@ -431,50 +433,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
       );
 
-  bool _hasAnotherWaitingInputProgressBatch() {
-    final selected = _startInputProgressBatch;
-    return _availableInputProgressBatches.any((batch) {
-      if (!_progressBatchCanBeScanned(batch)) {
-        return false;
-      }
-      if (selected == null) {
-        return true;
-      }
-      final sameBatch = selected.batchId.trim().isNotEmpty &&
-          selected.batchId.trim() == batch.batchId.trim();
-      final sameQr = selected.qrPayload.trim().isNotEmpty &&
-          selected.qrPayload.trim().toLowerCase() ==
-              batch.qrPayload.trim().toLowerCase();
-      return !sameBatch && !sameQr;
-    });
-  }
-
   bool _completionNeedsFullReport(String action) {
-    if (action != 'complete') {
-      return false;
-    }
-    final station = widget.apparatus?.name.trim() ?? '';
-    if (!productionMapIsLaminatsiyaApparatus(station)) {
-      return true;
-    }
-    final previousStage = productionMapPreviousWorkStageStation(
-      map: widget.order.map,
-      station: station,
-    );
-    if (previousStage == null ||
-        _inputProgressLoading ||
-        _inputProgressError.trim().isNotEmpty) {
-      return previousStage == null;
-    }
-    final orderId = widget.order.map.id.trim();
-    final previousStageCompleted = widget.queueStatesByApparatus.entries.any(
-      (entry) =>
-          productionMapWarehouseTitlesMatch(entry.key, previousStage) &&
-          apparatusQueueOrderStateFromRaw(entry.value[orderId]) ==
-              ApparatusQueueOrderState.completed,
-    );
-    return previousStageCompleted &&
-        !_hasAnotherWaitingInputProgressBatch();
+    return action == 'complete' &&
+        (_queueActionControl?.completeRequiresFullReport ?? true);
   }
 
   String get _qolipRequirementsStatusText {
@@ -488,6 +449,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       return 'Mahsulotga qolip biriktirilmagan';
     }
     return '';
+  }
+
+  Future<AdminApparatusQueueOrderActionControl?>
+      _loadCurrentQueueActionControl() async {
+    final apparatus = widget.apparatus?.name.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    if (apparatus.isEmpty || orderId.isEmpty) {
+      return null;
+    }
+    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    for (final entry in snapshot.queueActionControls.entries) {
+      if (productionMapQueueApparatusTitlesMatch(entry.key, apparatus)) {
+        return entry.value[orderId];
+      }
+    }
+    return null;
   }
 
   Future<bool> _runQueueAction(
@@ -506,15 +483,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
-    if (_orderControlState == AdminOrderControlState.frozen) {
-      _showSheetNotice('Buyurtma muzlatilgan');
-      return false;
-    }
-    if (_orderControlState == AdminOrderControlState.freezeRequested &&
-        action != 'pause') {
-      _showSheetNotice('Buyurtmani muzlatish uchun pauza qiling');
-      return false;
-    }
     if (action == 'start' &&
         !_bypassStartMaterialScan &&
         !await _loadMaterialAssignments(showLoading: false)) {
@@ -576,6 +544,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
               action == 'pause' ? widget.initialPauseRequestId : '',
         ),
       );
+      AdminApparatusQueueOrderActionControl? nextActionControl;
+      if (states != null) {
+        try {
+          nextActionControl = await _loadCurrentQueueActionControl();
+        } catch (_) {
+          nextActionControl = null;
+        }
+      }
       if (!mounted) {
         return false;
       }
@@ -583,6 +559,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         _actionInFlight = false;
         if (states != null) {
           _queueStates = states.states;
+          if (nextActionControl != null) {
+            _queueActionControl = nextActionControl;
+          }
         }
         if (_queueActionShouldClearStartInputProgress(
           action: action,
@@ -807,11 +786,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
         }
       }
 
-      final previousStage = productionMapPreviousWorkStageStation(
-        map: widget.order.map,
-        station: station,
-      );
-      if (previousStage != null) {
+      final previousStage = _queueActionControl?.previousStage.trim();
+      if (previousStage != null && previousStage.isNotEmpty) {
         try {
           final batch = await MobileApi.instance.adminProgressQrLookup(
             normalized,
@@ -1324,9 +1300,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (station.isEmpty) {
       return;
     }
-    final previousStage = productionMapPreviousWorkStageStation(
-        map: widget.order.map, station: station);
-    if (previousStage == null) {
+    final previousStage = _queueActionControl?.previousStage.trim();
+    if (previousStage == null || previousStage.isEmpty) {
       return;
     }
     setState(() {
@@ -1393,24 +1368,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final uiState = _readOnlyOrderDetailUiState(
       order: widget.order,
       apparatus: widget.apparatus,
-      queueStates: _queueStates,
-      queueStatesByApparatus: widget.queueStatesByApparatus,
+      queueActionControl: _queueActionControl,
       materialAssignments: _materialAssignments,
       startMaterialAssignments: _startAssignments,
       intakeCandidateAssignments: _intakeCandidateAssignments,
       materialRequirements: _materialStartRequirements,
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       canManageQueue: widget.canManageQueue,
-      sequenceOrderIds: widget.sequenceOrderIds,
-      visibleOrderIds: widget.visibleOrderIds,
-      queuePolicy: widget.queuePolicy,
       startInputProgressBatch: _startInputProgressBatch,
-      inputProgressBatches: _availableInputProgressBatches,
-      inputProgressLoading: _inputProgressLoading,
-      inputProgressError: _inputProgressError,
       skipStartMaterialScan: _laminatsiyaWipMaterialScanCanBeSkipped,
-      orderControlState: _orderControlState,
-      orderControlsByOrderId: _orderControls,
     );
     final requiresQolipScan = _apparatusRequiresQolipScan(uiState.station);
     final qolipScanAllowsStart =

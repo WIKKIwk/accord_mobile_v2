@@ -6,6 +6,8 @@ bool _queueSnapshotChanged({
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
+  required Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
+      queueActionControlsByApparatus,
   required Map<String, AdminOrderControlState> orderControlsByOrderId,
   required Map<String, String> orderCustomersByOrderId,
   required Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId,
@@ -15,6 +17,8 @@ bool _queueSnapshotChanged({
       visibleOrderIdsByApparatus.length != snapshot.visibleOrderIds.length ||
       queueStatesByApparatus.length != snapshot.queueStates.length ||
       queuePoliciesByApparatus.length != snapshot.queuePolicies.length ||
+      queueActionControlsByApparatus.length !=
+          snapshot.queueActionControls.length ||
       orderControlsByOrderId.length != snapshot.orderControls.length ||
       orderStatusesByOrderId.length != snapshot.orderStatuses.length ||
       qolipOrderNotesByOrderId.length != snapshot.qolipOrderNotes.length) {
@@ -50,6 +54,12 @@ bool _queueSnapshotChanged({
       return true;
     }
   }
+  for (final entry in snapshot.queueActionControls.entries) {
+    final current = queueActionControlsByApparatus[entry.key];
+    if (current == null || !_queueActionControlsEqual(current, entry.value)) {
+      return true;
+    }
+  }
   for (final entry in snapshot.orderControls.entries) {
     if (orderControlsByOrderId[entry.key] != entry.value) {
       return true;
@@ -80,6 +90,30 @@ bool _queueSnapshotChanged({
     }
   }
   return false;
+}
+
+bool _queueActionControlsEqual(
+  Map<String, AdminApparatusQueueOrderActionControl> left,
+  Map<String, AdminApparatusQueueOrderActionControl> right,
+) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (final entry in left.entries) {
+    final other = right[entry.key];
+    final control = entry.value;
+    if (other == null ||
+        control.state != other.state ||
+        control.previousStage != other.previousStage ||
+        control.previousStageReady != other.previousStageReady ||
+        control.completeRequiresFullReport !=
+            other.completeRequiresFullReport ||
+        control.allowedActions.length != other.allowedActions.length ||
+        !control.allowedActions.containsAll(other.allowedActions)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool _stringListsEqual(List<String> left, List<String> right) {
