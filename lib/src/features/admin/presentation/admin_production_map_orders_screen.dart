@@ -668,13 +668,16 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) async {
+    final isLaminatsiya = productionMapIsLaminatsiyaApparatus(apparatus.name);
+    final supportsAstatka =
+        productionMapApparatusUsesTimelineAstatka(apparatus.name);
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
           assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
               const <String>[],
         ) ||
-        !productionMapIsLaminatsiyaApparatus(apparatus.name)) {
+        !supportsAstatka) {
       return;
     }
     final queueStates = _queueStatesForApparatus(
@@ -684,7 +687,7 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
-    if (state == ApparatusQueueOrderState.paused) {
+    if (isLaminatsiya && state == ApparatusQueueOrderState.paused) {
       final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
         apparatus: apparatus,
         order: order,

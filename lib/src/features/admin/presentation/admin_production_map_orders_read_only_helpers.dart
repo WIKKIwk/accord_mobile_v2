@@ -286,21 +286,27 @@ List<String> _queueActionMaterialBarcodes({
 }
 
 String _queueActionQrPayload({
+  required String action,
   required String qrPayload,
   required AdminProgressBatch? startInputProgressBatch,
 }) {
-  return qrPayload.trim().isEmpty
-      ? (startInputProgressBatch?.qrPayload ?? '')
-      : qrPayload;
+  final explicitQrPayload = qrPayload.trim();
+  if (explicitQrPayload.isNotEmpty) {
+    return explicitQrPayload;
+  }
+  return action == 'start' ? (startInputProgressBatch?.qrPayload ?? '') : '';
 }
 
 String _queueActionProgressBatchId({
+  required String action,
   required String progressBatchId,
   required AdminProgressBatch? startInputProgressBatch,
 }) {
-  return progressBatchId.trim().isEmpty
-      ? (startInputProgressBatch?.batchId ?? '')
-      : progressBatchId;
+  final explicitProgressBatchId = progressBatchId.trim();
+  if (explicitProgressBatchId.isNotEmpty) {
+    return explicitProgressBatchId;
+  }
+  return action == 'start' ? (startInputProgressBatch?.batchId ?? '') : '';
 }
 
 bool _queueActionShouldClearStartInputProgress({
@@ -308,7 +314,7 @@ bool _queueActionShouldClearStartInputProgress({
   required AdminApparatusQueueActionResult? result,
 }) {
   return result != null &&
-      const {'start', 'pause', 'roll_complete', 'complete'}.contains(action);
+      const {'start', 'roll_complete', 'complete'}.contains(action);
 }
 
 bool _queueActionShouldReloadMaterials({
@@ -361,10 +367,12 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     finishedGoodsMeter: progressInput?.finishedGoodsMeter,
     uom: uom,
     qrPayload: _queueActionQrPayload(
+      action: action,
       qrPayload: qrPayload,
       startInputProgressBatch: prepared.startInputProgressBatch,
     ),
     progressBatchId: _queueActionProgressBatchId(
+      action: action,
       progressBatchId: progressBatchId,
       startInputProgressBatch: prepared.startInputProgressBatch,
     ),

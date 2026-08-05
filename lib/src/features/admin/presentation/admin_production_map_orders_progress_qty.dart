@@ -279,18 +279,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     final returnedPaintItems = _returnedPaintItems;
-    final rawReturnInkKg =
-        _requiresFullCompletionReport
-            ? returnedPaintAstatkaTotal(returnedPaintItems)
-            : null;
+    final rawReturnInkKg = _requiresFullCompletionReport
+        ? returnedPaintAstatkaTotal(returnedPaintItems)
+        : null;
     final returnInkKg =
         rawReturnInkKg != null && rawReturnInkKg.isFinite && rawReturnInkKg > 0
             ? rawReturnInkKg
             : null;
-    final returnedPaintImageId =
-        _requiresFullCompletionReport
-            ? (_returnedPaintDraft.image?.imageId.trim() ?? '')
-            : '';
+    final returnedPaintImageId = _requiresFullCompletionReport
+        ? (_returnedPaintDraft.image?.imageId.trim() ?? '')
+        : '';
     final returnedPaintFieldCount =
         returnedPaintFilledFieldCount(returnedPaintItems);
     final rasxotFieldCount = returnedPaintFilledFieldCountForUsage(
@@ -305,7 +303,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       items: returnedPaintItems,
       imageId: returnedPaintImageId,
     );
-    if (_requiresFullCompletionReport && widget.isBosma && !returnedPaintValid) {
+    if (_requiresFullCompletionReport &&
+        widget.isBosma &&
+        !returnedPaintValid) {
       setState(() {
         _completionError = returnedPaintFieldCount > 0
             ? 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
@@ -343,6 +343,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         totalWaste != null && totalWaste.isFinite && totalWaste > 0;
     if (_isAstatkaReport) {
       if (!formValid) return;
+      if (widget.isRezka) {
+        Navigator.of(context).pop(
+          _ProgressQtyInput(
+            totalWaste: totalWaste,
+            rezkaBosmaWaste: rezkaBosmaWaste,
+            rezkaLaminationWaste: rezkaLaminationWaste,
+            rezkaEdgeWaste: rezkaEdgeWaste,
+            description: _descriptionController.text.trim(),
+          ),
+        );
+        return;
+      }
       Navigator.of(context).pop(
         _ProgressQtyInput(
           laminationPrintLeftoverRolls: printLeftoverRolls,
@@ -385,8 +397,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         hasRezkaBosmaWaste ||
         hasRezkaLaminationWaste ||
         hasRezkaEdgeWaste;
-    final rezkaMetricsReady = hasMeter && hasKg &&
-        (!_requiresFullCompletionReport || hasRezkaWaste);
+    final rezkaMetricsReady =
+        hasMeter && hasKg && (!_requiresFullCompletionReport || hasRezkaWaste);
     if (!widget.isBosma &&
         !widget.isLaminatsiya &&
         !widget.isRezka &&
@@ -548,8 +560,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final isLaminatsiya = widget.isLaminatsiya;
     final isRezka = widget.isRezka;
     final hasDetailedMetrics = isBosma || isLaminatsiya;
-    final showTotalWaste =
-        hasDetailedMetrics &&
+    final showTotalWaste = hasDetailedMetrics &&
         (_requiresFullCompletionReport ||
             _isWorkerHandoff ||
             _isAstatkaReport) &&
@@ -557,23 +568,23 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final title = _isAstatkaReport
         ? 'Ishimni tugatish'
         : _isWorkerHandoff
-        ? 'Ishimni tugatish'
-        : _isRollRemoval
-            ? 'Rulonni yechib tashlash'
-            : switch (widget.action) {
-      'pause' => 'Pauza miqdori',
-      'roll_complete' => 'Rulonni tugatish',
-      _ => 'Tugatish miqdori',
-    };
+            ? 'Ishimni tugatish'
+            : _isRollRemoval
+                ? 'Rulonni yechib tashlash'
+                : switch (widget.action) {
+                    'pause' => 'Pauza miqdori',
+                    'roll_complete' => 'Rulonni tugatish',
+                    _ => 'Tugatish miqdori',
+                  };
     final subtitle = _isAstatkaReport
         ? 'Bu faqat order astatkasini qayd qiladi. Pauza va Tugatish holati o‘zgarmaydi.'
         : _isWorkerHandoff
-        ? 'Rulon apparatda qoladi. Astatka va chiqindini kiriting.'
-        : _isRollRemoval
-            ? 'Rulon apparatdan olinadi. Metraj va og‘irlikni kiriting.'
-            : _requiresFullCompletionReport
-                ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
-                : 'Joriy miqdorni kiriting';
+            ? 'Rulon apparatda qoladi. Astatka va chiqindini kiriting.'
+            : _isRollRemoval
+                ? 'Rulon apparatdan olinadi. Metraj va og‘irlikni kiriting.'
+                : _requiresFullCompletionReport
+                    ? '0 yoki to‘liq bo‘lmagan hisobot uchun izoh yozing'
+                    : 'Joriy miqdorni kiriting';
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -676,15 +687,18 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (isRezka && _requiresFullCompletionReport) ...[
+                        if (isRezka &&
+                            (_requiresFullCompletionReport ||
+                                _isAstatkaReport)) ...[
                           _progressQtySectionLabel(context, 'Chiqindilar'),
                           _qtyField(
                             controller: _wasteController,
-                            label: 'Chiqindi',
+                            label: 'Jami chiqindi',
                             error: 'Chiqindi miqdorini kiriting',
                             suffix: 'kg',
-                            requiredField: false,
-                            positive: true,
+                            requiredField: _isAstatkaReport ? true : false,
+                            positive: !_isAstatkaReport,
+                            allowZero: _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -692,8 +706,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             label: 'Bosmachining chiqindisi',
                             error: 'Bosmachining chiqindisini kiriting',
                             suffix: 'kg',
-                            requiredField: false,
-                            positive: true,
+                            requiredField: _isAstatkaReport ? true : false,
+                            positive: !_isAstatkaReport,
+                            allowZero: _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -701,8 +716,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             label: 'Laminatsiya chiqindisi',
                             error: 'Laminatsiya chiqindisini kiriting',
                             suffix: 'kg',
-                            requiredField: false,
-                            positive: true,
+                            requiredField: _isAstatkaReport ? true : false,
+                            positive: !_isAstatkaReport,
+                            allowZero: _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
                           _qtyField(
@@ -711,38 +727,40 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             error:
                                 'Tayyor mahsulot chetidan chiqqan chiqindini kiriting',
                             suffix: 'kg',
-                            requiredField: false,
-                            positive: true,
+                            requiredField: _isAstatkaReport ? true : false,
+                            positive: !_isAstatkaReport,
+                            allowZero: _isAstatkaReport,
                           ),
                           const SizedBox(height: 10),
-                          FormField<void>(
-                            validator: (_) {
-                              final hasWaste = [
-                                _wasteController,
-                                _rezkaBosmaWasteController,
-                                _rezkaLaminationWasteController,
-                                _rezkaEdgeWasteController,
-                              ].any(_hasPositiveQty);
-                              return hasWaste
-                                  ? null
-                                  : 'Kamida bitta chiqindi maydonini to‘ldiring';
-                            },
-                            builder: (field) {
-                              if (!field.hasError) {
-                                return const SizedBox.shrink();
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  field.errorText!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.error,
-                                    fontWeight: FontWeight.w600,
+                          if (!_isAstatkaReport)
+                            FormField<void>(
+                              validator: (_) {
+                                final hasWaste = [
+                                  _wasteController,
+                                  _rezkaBosmaWasteController,
+                                  _rezkaLaminationWasteController,
+                                  _rezkaEdgeWasteController,
+                                ].any(_hasPositiveQty);
+                                return hasWaste
+                                    ? null
+                                    : 'Kamida bitta chiqindi maydonini to‘ldiring';
+                              },
+                              builder: (field) {
+                                if (!field.hasError) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    field.errorText!,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.error,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                                );
+                              },
+                            ),
                         ],
                         if (showTotalWaste) ...[
                           _progressQtySectionLabel(context, 'Chiqindi'),
@@ -771,9 +789,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 ? 'Tayyor mahsulot metr kiriting'
                                 : 'Metraj kiriting',
                             suffix: 'metr',
-                            requiredField: isRezka || _isRollRemoval
-                                ? true
-                                : null,
+                            requiredField:
+                                isRezka || _isRollRemoval ? true : null,
                             positive: isRezka || _isRollRemoval,
                           ),
                           const SizedBox(height: 10),
@@ -784,9 +801,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 ? 'Tayyor mahsulot kg kiriting'
                                 : 'Kg kiriting',
                             suffix: 'kg',
-                            requiredField: isRezka || _isRollRemoval
-                                ? true
-                                : null,
+                            requiredField:
+                                isRezka || _isRollRemoval ? true : null,
                             positive: isRezka || _isRollRemoval,
                           ),
                         ],
@@ -828,7 +844,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_requiresFullCompletionReport || _isAstatkaReport) ...[
+                        if (_requiresFullCompletionReport ||
+                            _isAstatkaReport) ...[
                           const SizedBox(height: 6),
                           _progressQtySectionLabel(context, 'Izoh'),
                           TextFormField(

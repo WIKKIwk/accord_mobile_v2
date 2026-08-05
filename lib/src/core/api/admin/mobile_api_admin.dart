@@ -31,6 +31,7 @@ final Map<String, String> _testModeActiveProgressInputByQueue = {};
 final Map<String, int> _testModeOrderStartedAtUnix = {};
 final List<AdminLaminatsiyaAstatkaReport> _testModeLaminatsiyaAstatkaReports =
     [];
+final List<AdminRezkaAstatkaReport> _testModeRezkaAstatkaReports = [];
 final Map<String, AdminRawMaterialRule> _testModeRawMaterialRules = {};
 final List<AdminRawMaterialAssignment> _testModeRawMaterialAssignments = [];
 final Map<String, AdminQolipOrderNote> _testModeQolipOrderNotes = {};
@@ -148,6 +149,7 @@ void resetMobileApiTestModeData() {
   _testModeActiveProgressInputByQueue.clear();
   _testModeOrderStartedAtUnix.clear();
   _testModeLaminatsiyaAstatkaReports.clear();
+  _testModeRezkaAstatkaReports.clear();
   _testModeRawMaterialRules.clear();
   _testModeRawMaterialAssignments.clear();
   _testModeQolipOrderNotes.clear();
@@ -923,14 +925,10 @@ Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
                                 )) &&
                             batch.wipStatus.trim().toLowerCase() == 'waiting',
                       ));
-              if (productionMapIsRezkaApparatus(storageKey) &&
-                  hasUnprocessedPreviousWip) {
-                allowedActions.add('roll_complete');
-              } else {
-                allowedActions.add('complete');
-              }
+              allowedActions.add('complete');
               completeRequiresFullReport =
-                  !productionMapIsLaminatsiyaApparatus(storageKey) ||
+                  !(productionMapIsLaminatsiyaApparatus(storageKey) ||
+                          productionMapIsRezkaApparatus(storageKey)) ||
                       !hasUnprocessedPreviousWip;
             }
             break;
@@ -1810,6 +1808,60 @@ class AdminLaminatsiyaAstatkaReport {
       laminationFilmLeftoverRolls:
           (json['lamination_film_leftover_rolls'] as num?)?.toDouble() ?? 0,
       totalWaste: (json['total_waste'] as num?)?.toDouble() ?? 0,
+      workerRole: json['worker_role']?.toString() ?? '',
+      workerRef: json['worker_ref']?.toString() ?? '',
+      workerDisplayName: json['worker_display_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AdminRezkaAstatkaReport {
+  const AdminRezkaAstatkaReport({
+    required this.reportId,
+    required this.orderId,
+    required this.apparatus,
+    required this.fromAtUnix,
+    required this.toAtUnix,
+    required this.totalWaste,
+    required this.rezkaBosmaWaste,
+    required this.rezkaLaminationWaste,
+    required this.rezkaEdgeWaste,
+    required this.workerRole,
+    required this.workerRef,
+    required this.workerDisplayName,
+    this.description = '',
+    required this.createdAtUnix,
+  });
+
+  final String reportId;
+  final String orderId;
+  final String apparatus;
+  final int fromAtUnix;
+  final int toAtUnix;
+  final double totalWaste;
+  final double rezkaBosmaWaste;
+  final double rezkaLaminationWaste;
+  final double rezkaEdgeWaste;
+  final String workerRole;
+  final String workerRef;
+  final String workerDisplayName;
+  final String description;
+  final int createdAtUnix;
+
+  factory AdminRezkaAstatkaReport.fromJson(Map<String, dynamic> json) {
+    return AdminRezkaAstatkaReport(
+      reportId: json['report_id']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
+      apparatus: json['apparatus']?.toString() ?? '',
+      fromAtUnix: (json['from_at_unix'] as num?)?.toInt() ?? 0,
+      toAtUnix: (json['to_at_unix'] as num?)?.toInt() ?? 0,
+      totalWaste: (json['total_waste'] as num?)?.toDouble() ?? 0,
+      rezkaBosmaWaste: (json['rezka_bosma_waste'] as num?)?.toDouble() ?? 0,
+      rezkaLaminationWaste:
+          (json['rezka_lamination_waste'] as num?)?.toDouble() ?? 0,
+      rezkaEdgeWaste: (json['rezka_edge_waste'] as num?)?.toDouble() ?? 0,
       workerRole: json['worker_role']?.toString() ?? '',
       workerRef: json['worker_ref']?.toString() ?? '',
       workerDisplayName: json['worker_display_name']?.toString() ?? '',
@@ -4966,7 +5018,10 @@ extension MobileApiAdmin on MobileApi {
       }
       try {
         final templateMap = _templateMapCopyForSave(map, template);
-        final savedMap = await adminSaveProductionMap(map);
+        final orderMap = previousIndex < 0
+            ? _orderMapWithTemplateRezkaKadrCount(map, template)
+            : map;
+        final savedMap = await adminSaveProductionMap(orderMap);
         final savedTemplateMap = templateMap == null
             ? null
             : await adminSaveProductionMap(templateMap);
@@ -7600,6 +7655,106 @@ extension MobileApiAdmin on MobileApi {
     );
   }
 
+  Future<AdminRezkaAstatkaReport> adminRezkaAstatkaReport({
+    required String apparatus,
+    required String orderId,
+    double? totalWaste,
+    double? rezkaBosmaWaste,
+    double? rezkaLaminationWaste,
+    double? rezkaEdgeWaste,
+    String description = '',
+  }) async {
+    final normalizedApparatus = apparatus.trim();
+    final normalizedOrderId = orderId.trim();
+    bool isNonNegative(double? value) =>
+        value != null && value.isFinite && value >= 0;
+    if (!productionMapIsRezkaApparatus(normalizedApparatus) ||
+        normalizedOrderId.isEmpty ||
+        !isNonNegative(totalWaste) ||
+        !isNonNegative(rezkaBosmaWaste) ||
+        !isNonNegative(rezkaLaminationWaste) ||
+        !isNonNegative(rezkaEdgeWaste)) {
+      throw const MobileApiException(
+        code: 'rezka_astatka_metrics_required',
+        message: 'Rezka chiqindi astatkasini to‘liq kiriting',
+      );
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final previous = _testModeRezkaAstatkaReports
+          .where((report) => report.orderId.trim() == normalizedOrderId)
+          .fold<AdminRezkaAstatkaReport?>(null, (current, report) {
+        if (current == null || report.toAtUnix > current.toAtUnix) {
+          return report;
+        }
+        return current;
+      });
+      final fromAtUnix =
+          previous?.toAtUnix ?? _testModeOrderStartedAtUnix[normalizedOrderId];
+      if (fromAtUnix == null) {
+        throw const MobileApiException(
+          code: 'order_not_started',
+          message: 'Order hali boshlanmagan',
+        );
+      }
+      final now = _testModeUnixSeconds();
+      final report = AdminRezkaAstatkaReport(
+        reportId:
+            'test-rezka-astatka-${DateTime.now().microsecondsSinceEpoch}-$normalizedOrderId',
+        orderId: normalizedOrderId,
+        apparatus: normalizedApparatus,
+        fromAtUnix: fromAtUnix,
+        toAtUnix: now,
+        totalWaste: totalWaste!,
+        rezkaBosmaWaste: rezkaBosmaWaste!,
+        rezkaLaminationWaste: rezkaLaminationWaste!,
+        rezkaEdgeWaste: rezkaEdgeWaste!,
+        workerRole: AppSession.instance.profile?.role.name ?? '',
+        workerRef: AppSession.instance.profile?.ref.trim() ?? '',
+        workerDisplayName:
+            AppSession.instance.profile?.displayName.trim() ?? '',
+        description: description.trim(),
+        createdAtUnix: now,
+      );
+      _testModeRezkaAstatkaReports.add(report);
+      return report;
+    }
+    final response = await _sendAuthorized(
+      () => _post(
+        Uri.parse(
+          '$baseUrl/v1/mobile/admin/production-maps/rezka-astatka',
+        ),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'apparatus': normalizedApparatus,
+          'order_id': normalizedOrderId,
+          'total_waste': totalWaste,
+          'rezka_bosma_waste': rezkaBosmaWaste,
+          'rezka_lamination_waste': rezkaLaminationWaste,
+          'rezka_edge_waste': rezkaEdgeWaste,
+          if (description.trim().isNotEmpty) 'description': description.trim(),
+        }),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+        response,
+        'rezka_astatka_report_failed',
+      );
+    }
+    final payload = await decodeJsonMapPayload(response.body);
+    final rawReport = payload['report'];
+    if (rawReport is! Map) {
+      throw const MobileApiException(
+        code: 'rezka_astatka_invalid_response',
+        message: 'Rezka astatka javobi noto‘g‘ri',
+      );
+    }
+    return AdminRezkaAstatkaReport.fromJson(
+      rawReport.cast<String, dynamic>(),
+    );
+  }
+
   Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
@@ -7728,17 +7883,14 @@ extension MobileApiAdmin on MobileApi {
         rezkaLaminationWaste,
         rezkaEdgeWaste,
       ].any(isPositive);
-      final hasRezkaProgressMetrics =
-          hasRezkaQuantityMetrics && (action != 'complete' || hasRezkaWaste);
       if (isRezka &&
           (action == 'pause' ||
               action == 'roll_complete' ||
               action == 'complete') &&
-          !hasRezkaProgressMetrics) {
+          !hasRezkaQuantityMetrics) {
         throw const MobileApiException(
           code: 'rezka_progress_metrics_required',
-          message:
-              'Rezka uchun metraj va og‘irlikni kiriting; yakuniy rulonda chiqindi ham shart',
+          message: 'Rezka uchun metraj va og‘irlikni kiriting',
         );
       }
       if (isRezka &&
@@ -7759,7 +7911,7 @@ extension MobileApiAdmin on MobileApi {
       final previousStage = testModeOrderMap == null
           ? null
           : productionMapPreviousWorkStageStation(
-              map: testModeOrderMap!,
+              map: testModeOrderMap,
               station: apparatus,
             );
       final hasPreviousStage = previousStage != null;
@@ -7771,7 +7923,7 @@ extension MobileApiAdmin on MobileApi {
               );
               return productionMapWarehouseTitlesMatch(
                     entry.key,
-                    previousStage!,
+                    previousStage,
                   ) &&
                   state == ApparatusQueueOrderState.completed;
             },
@@ -7781,7 +7933,7 @@ extension MobileApiAdmin on MobileApi {
             batch.orderId.trim() != orderId.trim() ||
             !productionMapWarehouseTitlesMatch(
               batch.apparatus,
-              previousStage!,
+              previousStage,
             ) ||
             (batch.nextApparatus.trim().isNotEmpty &&
                 !productionMapNextStageTitleMatchesApparatus(
@@ -7807,7 +7959,7 @@ extension MobileApiAdmin on MobileApi {
                 ));
       }
 
-      final hasUnprocessedPreviousLaminatsiyaWip = isLaminatsiya &&
+      final hasUnprocessedPreviousWip = (isLaminatsiya || isRezka) &&
           hasPreviousStage &&
           (!previousStageCompleted ||
               _testModeProgressBatchesByQr.values.any((batch) {
@@ -7822,10 +7974,19 @@ extension MobileApiAdmin on MobileApi {
                 }
                 return true;
               }));
-      final allowPartialLaminatsiyaCompletion = isLaminatsiya &&
+      final allowPartialStationCompletion = (isLaminatsiya || isRezka) &&
           action == 'complete' &&
           !fullCompletionReportRequired &&
-          hasUnprocessedPreviousLaminatsiyaWip;
+          hasUnprocessedPreviousWip;
+      if (isRezka &&
+          action == 'complete' &&
+          !allowPartialStationCompletion &&
+          !hasRezkaWaste) {
+        throw const MobileApiException(
+          code: 'rezka_progress_metrics_required',
+          message: 'Yakuniy Rezka tugatishida chiqindi hisoboti shart',
+        );
+      }
       if (isRezka &&
           (action == 'pause' ||
               action == 'roll_complete' ||
@@ -7887,7 +8048,7 @@ extension MobileApiAdmin on MobileApi {
                 ));
         if (!inputWipIsUsable ||
             !productionMapWarehouseTitlesMatch(
-                input.apparatus, previousStage!) ||
+                input.apparatus, previousStage) ||
             (inputNextApparatus.isNotEmpty &&
                 !productionMapNextStageTitleMatchesApparatus(
                   inputNextApparatus,
@@ -7931,7 +8092,7 @@ extension MobileApiAdmin on MobileApi {
                   ((batchWipStatus.isNotEmpty && batchWipStatus != 'waiting') ||
                       !productionMapWarehouseTitlesMatch(
                         batch.apparatus,
-                        previousStage!,
+                        previousStage,
                       ) ||
                       (batchNextApparatus.isNotEmpty &&
                           !productionMapNextStageTitleMatchesApparatus(
@@ -8193,10 +8354,10 @@ extension MobileApiAdmin on MobileApi {
                 inputBatch: activeInputBatch,
                 laminationPrintLeftoverRolls: null,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                rezkaBosmaWaste: rezkaBosmaWaste,
-                rezkaLaminationWaste: rezkaLaminationWaste,
-                rezkaEdgeWaste: rezkaEdgeWaste,
-                totalWaste: totalWaste,
+                rezkaBosmaWaste: null,
+                rezkaLaminationWaste: null,
+                rezkaEdgeWaste: null,
+                totalWaste: null,
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
               )
@@ -8223,16 +8384,6 @@ extension MobileApiAdmin on MobileApi {
         for (final batch in outputBatches) {
           _testModeProgressBatchesByQr[batch.qrPayload] = batch;
         }
-        if (activeInputBatch != null) {
-          final processedInput = _testModeMarkProgressInputProcessed(
-            batch: activeInputBatch,
-            apparatus: storageKey,
-            orderId: orderId,
-          );
-          _testModeProgressBatchesByQr[processedInput.qrPayload] =
-              processedInput;
-        }
-        _testModeActiveProgressInputByQueue.remove(queueInputKey);
         states[orderId.trim()] = 'paused';
         _testModeRecordCompletedQueueOrder(
           actorRef: AppSession.instance.profile?.ref.trim() ?? '',
@@ -8332,6 +8483,7 @@ extension MobileApiAdmin on MobileApi {
           );
         }
         AdminProgressBatch? resumed;
+        final resumedBatches = <AdminProgressBatch>[];
         if (progressKey.isNotEmpty) {
           final batch = _testModeProgressBatchForKey(progressKey);
           if (batch == null ||
@@ -8343,8 +8495,33 @@ extension MobileApiAdmin on MobileApi {
               message: 'Bu progress QR davom ettirishga yaramaydi',
             );
           }
-          resumed = batch.copyWith(status: 'resumed');
-          _testModeProgressBatchesByQr[batch.qrPayload] = resumed;
+          final siblings = _testModeProgressBatchesByQr.values
+              .where(
+                (candidate) =>
+                    candidate.orderId.trim() == orderId.trim() &&
+                    productionMapWarehouseTitlesMatch(
+                      candidate.apparatus,
+                      storageKey,
+                    ) &&
+                    candidate.action.trim().toLowerCase() == 'pause' &&
+                    candidate.status.trim().toLowerCase() == 'paused' &&
+                    candidate.sessionId.trim() == batch.sessionId.trim() &&
+                    candidate.parentBatchId.trim() ==
+                        batch.parentBatchId.trim(),
+              )
+              .toList(growable: false);
+          for (final sibling in siblings) {
+            final updated = sibling.copyWith(status: 'resumed');
+            _testModeProgressBatchesByQr[updated.qrPayload] = updated;
+            resumedBatches.add(updated);
+          }
+          resumed = resumedBatches.isEmpty
+              ? batch.copyWith(status: 'resumed')
+              : resumedBatches.first;
+          if (resumedBatches.isEmpty) {
+            _testModeProgressBatchesByQr[resumed.qrPayload] = resumed;
+            resumedBatches.add(resumed);
+          }
         } else if (activeInputBatch != null &&
             (activeInputBatch.payloadJson['worker_handoff'] == true ||
                 activeInputBatch.payloadJson['roll_removed_from_apparatus'] ==
@@ -8366,6 +8543,27 @@ extension MobileApiAdmin on MobileApi {
           _testModeProgressBatchesByQr[resumed.qrPayload] = resumed;
           _testModeActiveProgressInputByQueue[queueInputKey] =
               resumed.qrPayload;
+        } else if (activeInputBatch != null) {
+          final pausedOutputs = _testModeProgressBatchesByQr.values
+              .where(
+                (batch) =>
+                    batch.orderId.trim() == orderId.trim() &&
+                    productionMapWarehouseTitlesMatch(
+                        batch.apparatus, storageKey) &&
+                    batch.action.trim().toLowerCase() == 'pause' &&
+                    batch.status.trim().toLowerCase() == 'paused' &&
+                    batch.parentBatchId.trim() ==
+                        activeInputBatch.batchId.trim(),
+              )
+              .toList(growable: false);
+          for (final batch in pausedOutputs) {
+            final updated = batch.copyWith(status: 'resumed');
+            _testModeProgressBatchesByQr[updated.qrPayload] = updated;
+            resumedBatches.add(updated);
+          }
+          if (resumedBatches.isNotEmpty) {
+            resumed = resumedBatches.first;
+          }
         }
         _testModeEnsureApparatusExecutionCapacity(
           apparatusId: '',
@@ -8382,58 +8580,14 @@ extension MobileApiAdmin on MobileApi {
         return AdminApparatusQueueActionResult(
           states: Map<String, String>.unmodifiable(states),
           progressBatch: resumed,
+          progressBatches:
+              List<AdminProgressBatch>.unmodifiable(resumedBatches),
         );
       } else if (action == 'complete') {
         if (current != ApparatusQueueOrderState.inProgress) {
           throw const MobileApiException(
             code: 'queue_action_not_allowed',
             message: 'Faqat navbatdagi zakazni boshlash yoki tugatish mumkin',
-          );
-        }
-        final hasPendingRezkaSourceRoll = isRezka &&
-            hasPreviousStage &&
-            (!previousStageCompleted ||
-                _testModeProgressBatchesByQr.values.any((batch) {
-                  if (batch.orderId.trim() != orderId.trim() ||
-                      !productionMapWarehouseTitlesMatch(
-                        batch.apparatus,
-                        previousStage!,
-                      ) ||
-                      (batch.nextApparatus.trim().isNotEmpty &&
-                          !productionMapNextStageTitleMatchesApparatus(
-                            batch.nextApparatus,
-                            apparatus,
-                          )) ||
-                      (activeInputBatch != null &&
-                          (batch.batchId.trim() ==
-                                  activeInputBatch.batchId.trim() ||
-                              batch.qrPayload.trim().toLowerCase() ==
-                                  activeInputBatch.qrPayload
-                                      .trim()
-                                      .toLowerCase()))) {
-                    return false;
-                  }
-                  final actionName = batch.action.trim().toLowerCase();
-                  if (actionName != 'pause' &&
-                      actionName != 'roll_complete' &&
-                      actionName != 'complete') {
-                    return false;
-                  }
-                  final wipStatus = batch.wipStatus.trim().toLowerCase();
-                  return wipStatus == 'waiting' ||
-                      (wipStatus == 'in_use' &&
-                          productionMapWarehouseTitlesMatch(
-                            batch.usedByApparatus.trim().isEmpty
-                                ? batch.currentApparatus
-                                : batch.usedByApparatus,
-                            apparatus,
-                          ));
-                }));
-        if (hasPendingRezkaSourceRoll) {
-          throw const MobileApiException(
-            code: 'rezka_final_roll_required',
-            message:
-                'Avval qolgan laminatsiya rulonlarini tugating; to‘liq tugatish faqat oxirgi rulonda mumkin',
           );
         }
         final note = completionRequestNote.trim();
@@ -8444,7 +8598,7 @@ extension MobileApiAdmin on MobileApi {
                 totalWaste != null &&
                 finishedGoodsKg != null &&
                 finishedGoodsMeter != null;
-        final hasLaminatsiyaCompleteMetrics = allowPartialLaminatsiyaCompletion
+        final hasLaminatsiyaCompleteMetrics = allowPartialStationCompletion
             ? isPositive(finishedGoodsKg) && isPositive(finishedGoodsMeter)
             : (laminationPrintLeftoverRolls != null ||
                     laminationFilmLeftoverRolls != null) &&
@@ -8481,7 +8635,7 @@ extension MobileApiAdmin on MobileApi {
         final missingOutputWithReason = note.isNotEmpty &&
             !hasCompleteMetrics &&
             !hasLaminatsiyaCompleteMetrics &&
-            !hasRezkaProgressMetrics &&
+            !hasRezkaQuantityMetrics &&
             grossQty == null;
         if (zeroMetricCodes.isNotEmpty || missingOutputWithReason) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -8530,10 +8684,13 @@ extension MobileApiAdmin on MobileApi {
                 returnInkKg: returnInkKg,
                 laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-                rezkaBosmaWaste: rezkaBosmaWaste,
-                rezkaLaminationWaste: rezkaLaminationWaste,
-                rezkaEdgeWaste: rezkaEdgeWaste,
-                totalWaste: totalWaste,
+                rezkaBosmaWaste:
+                    allowPartialStationCompletion ? null : rezkaBosmaWaste,
+                rezkaLaminationWaste:
+                    allowPartialStationCompletion ? null : rezkaLaminationWaste,
+                rezkaEdgeWaste:
+                    allowPartialStationCompletion ? null : rezkaEdgeWaste,
+                totalWaste: allowPartialStationCompletion ? null : totalWaste,
                 finishedGoodsKg: finishedGoodsKg ?? grossQty,
                 finishedGoodsMeter: finishedGoodsMeter ?? producedQty,
               )
@@ -8574,7 +8731,7 @@ extension MobileApiAdmin on MobileApi {
         _testModeActiveProgressInputByQueue.remove(queueInputKey);
         final batch = outputBatches.first;
         states[orderId.trim()] =
-            hasUnprocessedPreviousLaminatsiyaWip ? 'pending' : 'completed';
+            hasUnprocessedPreviousWip ? 'pending' : 'completed';
         _testModeApparatusQueueStates[storageKey] = states;
         final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
         final completedOrderId = orderId.trim();
@@ -10554,6 +10711,35 @@ bool _isSheetOrderMap(ProductionMapDefinition map) {
   final id = map.id.trim();
   final orderNumber = map.orderNumber.trim();
   return id.startsWith('zakaz-') && RegExp(r'^\d{4}$').hasMatch(orderNumber);
+}
+
+ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(
+  ProductionMapDefinition map,
+  CalculateOrderTemplate template,
+) {
+  if (!_isSheetOrderMap(map) ||
+      !template.frameCount.isFinite ||
+      template.frameCount <= 0) {
+    return map;
+  }
+  final frameCount = template.frameCount.round();
+  if (frameCount <= 0) {
+    return map;
+  }
+  var changed = false;
+  final nodes = map.nodes.map((node) {
+    if (node.kind == 'apparatus' &&
+        (productionMapIsRezkaApparatus(node.title) ||
+            productionMapIsRezkaApparatus(node.alternativeAssignedTitle))) {
+      if (node.rezkaKadrCount == frameCount) {
+        return node;
+      }
+      changed = true;
+      return node.copyWith(rezkaKadrCount: frameCount);
+    }
+    return node;
+  }).toList(growable: false);
+  return changed ? map.copyWith(nodes: nodes) : map;
 }
 
 String _templateSourceMapIdForSave(

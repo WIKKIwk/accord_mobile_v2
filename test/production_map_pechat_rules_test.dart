@@ -21,6 +21,21 @@ void main() {
     expect(productionMapApparatusRequiresQolipScan('Laminatsiya 1'), isFalse);
   });
 
+  test('laminatsiya and rezka use timeline astatka when switching orders', () {
+    expect(
+      productionMapApparatusUsesTimelineAstatka('Laminatsiya 1'),
+      isTrue,
+    );
+    expect(
+      productionMapApparatusUsesTimelineAstatka('Rezka - A'),
+      isTrue,
+    );
+    expect(
+      productionMapApparatusUsesTimelineAstatka('7 ta rangli bosma aparat'),
+      isFalse,
+    );
+  });
+
   test('flexo belongs to the bosma family without a color count', () {
     expect(productionMapPechatColorCount('Flexo pechat - A'), isNull);
     expect(productionMapIsFlexoApparatus('Flexo pechat - A'), isTrue);

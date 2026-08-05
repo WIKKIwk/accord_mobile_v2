@@ -235,6 +235,11 @@ bool productionMapIsRezkaApparatus(String title) {
   return productionMapWarehouseBaseTitle(title).toLowerCase().contains('rezka');
 }
 
+bool productionMapApparatusUsesTimelineAstatka(String title) {
+  return productionMapIsLaminatsiyaApparatus(title) ||
+      productionMapIsRezkaApparatus(title);
+}
+
 bool productionMapTextIsFlexoOrder(Iterable<String> values) {
   final haystack = values.join(' ').toLowerCase();
   return const [

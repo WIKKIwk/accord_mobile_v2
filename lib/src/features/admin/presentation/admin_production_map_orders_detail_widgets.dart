@@ -781,10 +781,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         showComplete ||
         showResume ||
         showWaitingForPrevious;
-    final showRezkaInputProgressScan = previousProgressRequired &&
-        (showStart ||
-            (rezkaInstructionLines.isNotEmpty &&
-                (showPause || showRollComplete || showComplete)));
+    final showRezkaInputProgressScan = previousProgressRequired && showStart;
     final showMaterialIntake = showPause || showResume;
     final customer = customerName?.trim() ?? '';
     final product = productTitle.trim();

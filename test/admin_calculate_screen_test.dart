@@ -54,6 +54,51 @@ void main() {
     expect(templateMap.map.orderNumber, isEmpty);
   });
 
+  test(
+    'test mode snapshots the template frame count on a new rezka order',
+    () async {
+      await TestModeController.instance.setEnabled(true);
+      resetMobileApiTestModeData();
+      final source = _map(
+        id: 'zakaz-5556',
+        code: '5556',
+        orderNumber: '5556',
+      );
+      final map = source.copyWith(
+        nodes: [
+          source.nodes.first,
+          const ProductionMapNode(
+            id: 'rezka',
+            kind: 'apparatus',
+            title: 'Rezka',
+            rezkaKadrCount: 4,
+          ),
+          ...source.nodes.skip(1),
+        ],
+      );
+
+      final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
+        map: map,
+        template: _template(itemCode: 'ITEM-1').copyWith(frameCount: 7),
+      );
+      final rezka = result.saved.map.nodes.firstWhere(
+        (node) => node.title == 'Rezka',
+      );
+      expect(rezka.rezkaKadrCount, 7);
+
+      final edited = await MobileApi.instance.adminSaveProductionMapWithOrder(
+        map: result.saved.map,
+        template: _template(itemCode: 'ITEM-1').copyWith(frameCount: 8),
+      );
+      expect(
+        edited.saved.map.nodes
+            .firstWhere((node) => node.title == 'Rezka')
+            .rezkaKadrCount,
+        7,
+      );
+    },
+  );
+
   testWidgets(
       'saved quick order edit hides production map link after calculation', (
     tester,

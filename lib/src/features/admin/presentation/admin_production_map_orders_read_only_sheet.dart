@@ -1,5 +1,8 @@
 part of 'admin_production_map_orders_screen.dart';
 
+const _queueActionUiTimeout = Duration(seconds: 20);
+const _queueActionControlRefreshTimeout = Duration(seconds: 5);
+
 class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     required this.order,
@@ -458,7 +461,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     if (apparatus.isEmpty || orderId.isEmpty) {
       return null;
     }
-    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    final snapshot = await MobileApi.instance
+        .adminProductionMapQueueSnapshot()
+        .timeout(_queueActionControlRefreshTimeout);
     for (final entry in snapshot.queueActionControls.entries) {
       if (productionMapQueueApparatusTitlesMatch(entry.key, apparatus)) {
         return entry.value[orderId];
@@ -523,27 +528,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     setState(() => _actionInFlight = true);
     try {
-      final states = await prepared.onQueueAction(
-        _readOnlyQueueActionRequest(
-          prepared: prepared,
-          order: widget.order,
-          action: action,
-          progressInput: progressInput,
-          uom: uom,
-          qrPayload: qrPayload,
-          progressBatchId: progressBatchId,
-          driverUrl: driverUrl,
-          printTransport: printTransport,
-          printer: printer,
-          printMode: printMode,
-          completionRequestNote: completionRequestNote,
-          qolipCodes: qolipCodes,
-          workerHandoff: workerHandoff,
-          removeRollFromApparatus: removeRollFromApparatus,
-          freezeRequestId:
-              action == 'pause' ? widget.initialPauseRequestId : '',
-        ),
-      );
+      final states = await prepared
+          .onQueueAction(
+            _readOnlyQueueActionRequest(
+              prepared: prepared,
+              order: widget.order,
+              action: action,
+              progressInput: progressInput,
+              uom: uom,
+              qrPayload: qrPayload,
+              progressBatchId: progressBatchId,
+              driverUrl: driverUrl,
+              printTransport: printTransport,
+              printer: printer,
+              printMode: printMode,
+              completionRequestNote: completionRequestNote,
+              qolipCodes: qolipCodes,
+              workerHandoff: workerHandoff,
+              removeRollFromApparatus: removeRollFromApparatus,
+              freezeRequestId:
+                  action == 'pause' ? widget.initialPauseRequestId : '',
+            ),
+          )
+          .timeout(_queueActionUiTimeout);
       AdminApparatusQueueOrderActionControl? nextActionControl;
       if (states != null) {
         try {
@@ -634,8 +641,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (requirementsChanged) {
         unawaited(_loadQolipRequirements());
       }
-      _showSheetNotice(_readOnlyQueueActionErrorText(error));
+      _showSheetNotice(
+        error is TimeoutException
+            ? 'Amal serverga yuborildi. Holat avtomatik yangilanadi'
+            : _readOnlyQueueActionErrorText(error),
+      );
       return false;
+    } finally {
+      if (mounted && _actionInFlight) {
+        setState(() => _actionInFlight = false);
+      }
     }
   }
 
@@ -896,7 +911,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     final currentState = apparatusQueueOrderStateFromRaw(
       _queueStates[currentOrderId],
     );
-    final isLaminatsiya = productionMapIsLaminatsiyaApparatus(
+    final usesTimelineAstatka = productionMapApparatusUsesTimelineAstatka(
       widget.apparatus?.name ?? '',
     );
     final confirmed = await showM3ConfirmDialog(
@@ -905,7 +920,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
           message: currentState == ApparatusQueueOrderState.inProgress
               ? 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘liq tugatib, '
                   'yangi orderni boshlaysizmi?'
-              : isLaminatsiya
+              : usesTimelineAstatka
                   ? 'Bu QR boshqa orderga tegishli. Hozirgi ish uchun astatka '
                       'qayd qilib, yangi orderni boshlaysizmi?'
                   : 'Bu QR boshqa orderga tegishli. Hozirgi ishni to‘xtatib, '
@@ -926,7 +941,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
       if (outcome != _ProgressActionOutcome.completed || !mounted) {
         return false;
       }
-    } else if (isLaminatsiya &&
+    } else if (usesTimelineAstatka &&
         (currentState == ApparatusQueueOrderState.paused ||
             currentState == ApparatusQueueOrderState.completed)) {
       final outcome = await _runAstatkaReport();
@@ -1001,14 +1016,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet> {
     }
     setState(() => _actionInFlight = true);
     try {
-      await MobileApi.instance.adminLaminatsiyaAstatkaReport(
-        apparatus: widget.apparatus?.name ?? '',
-        orderId: widget.order.map.id,
-        laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
-        laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
-        totalWaste: input.totalWaste,
-        description: input.description,
-      );
+      final apparatus = widget.apparatus?.name ?? '';
+      if (productionMapIsRezkaApparatus(apparatus)) {
+        await MobileApi.instance.adminRezkaAstatkaReport(
+          apparatus: apparatus,
+          orderId: widget.order.map.id,
+          totalWaste: input.totalWaste,
+          rezkaBosmaWaste: input.rezkaBosmaWaste,
+          rezkaLaminationWaste: input.rezkaLaminationWaste,
+          rezkaEdgeWaste: input.rezkaEdgeWaste,
+          description: input.description,
+        );
+      } else {
+        await MobileApi.instance.adminLaminatsiyaAstatkaReport(
+          apparatus: apparatus,
+          orderId: widget.order.map.id,
+          laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
+          laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
+          totalWaste: input.totalWaste,
+          description: input.description,
+        );
+      }
       if (mounted) {
         setState(() => _actionInFlight = false);
         _showSheetNotice('Order astatkasi qayd qilindi');

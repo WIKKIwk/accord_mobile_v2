@@ -83,6 +83,182 @@ void main() {
     expect(bosma.apparatus, contains('Flexo pechat'));
   });
 
+  test(
+    'test mode rezka keeps its source through pause and only final complete needs waste',
+    () async {
+      await TestModeController.instance.setEnabled(true);
+      const orderId = 'zakaz-rezka-smart-flow';
+      const laminatsiya = 'Laminatsiya 1';
+      const rezka = 'Rezka';
+      await MobileApi.instance.adminSaveProductionMap(
+        const ProductionMapDefinition(
+          id: orderId,
+          productCode: 'REZKA-SMART',
+          title: 'Rezka smart flow',
+          nodes: [
+            ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+            ProductionMapNode(
+              id: 'laminatsiya',
+              kind: 'apparatus',
+              title: laminatsiya,
+            ),
+            ProductionMapNode(
+              id: 'rezka',
+              kind: 'apparatus',
+              title: rezka,
+              rezkaKadrCount: 4,
+            ),
+            ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+          ],
+          edges: [
+            ProductionMapEdge(from: 'start', to: 'laminatsiya'),
+            ProductionMapEdge(from: 'laminatsiya', to: 'rezka'),
+            ProductionMapEdge(from: 'rezka', to: 'end'),
+          ],
+        ),
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: laminatsiya,
+        orderIds: const [orderId],
+      );
+      await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: rezka,
+        orderIds: const [orderId],
+      );
+
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: laminatsiya,
+        orderId: orderId,
+        action: 'start',
+      );
+      final firstSource = await MobileApi.instance
+          .adminApparatusQueueActionResult(
+            apparatus: laminatsiya,
+            orderId: orderId,
+            action: 'pause',
+            producedQty: 90,
+            uom: 'm',
+          )
+          .then((result) => result.progressBatch!);
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: laminatsiya,
+        orderId: orderId,
+        action: 'resume',
+      );
+      final secondSource = await MobileApi.instance
+          .adminApparatusQueueActionResult(
+            apparatus: laminatsiya,
+            orderId: orderId,
+            action: 'complete',
+            finishedGoodsMeter: 80,
+            finishedGoodsKg: 10,
+            laminationFilmLeftoverRolls: 1,
+            totalWaste: 1,
+            uom: 'm',
+          )
+          .then((result) => result.progressBatch!);
+
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'start',
+        qrPayload: firstSource.qrPayload,
+      );
+      final astatka = await MobileApi.instance.adminRezkaAstatkaReport(
+        apparatus: rezka,
+        orderId: orderId,
+        totalWaste: 0,
+        rezkaBosmaWaste: 0,
+        rezkaLaminationWaste: 0,
+        rezkaEdgeWaste: 0,
+      );
+      expect(astatka.totalWaste, 0);
+      expect(
+        (await MobileApi.instance.adminProductionMapQueueSnapshot())
+            .queueStates[rezka]?[orderId],
+        'in_progress',
+      );
+
+      final paused = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'pause',
+        producedQty: 45,
+        grossQty: 6,
+        uom: 'm',
+      );
+      expect(paused.progressBatches, hasLength(4));
+      expect(paused.progressBatches.every((batch) => batch.status == 'paused'),
+          isTrue);
+      final sourceDuringPause = (await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: orderId,
+      ))
+          .singleWhere((batch) => batch.batchId == firstSource.batchId);
+      expect(sourceDuringPause.wipStatus, 'in_use');
+
+      final resumed = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'resume',
+      );
+      expect(resumed.progressBatches, hasLength(4));
+      expect(
+        resumed.progressBatches.every((batch) => batch.status == 'resumed'),
+        isTrue,
+      );
+
+      final partial = await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'complete',
+        producedQty: 45,
+        grossQty: 6,
+        uom: 'm',
+      );
+      expect(partial.states[orderId], 'pending');
+      expect(partial.progressBatches, hasLength(4));
+      expect(partial.progressBatches.first.rezkaEdgeWaste, isNull);
+
+      await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'start',
+        qrPayload: secondSource.qrPayload,
+      );
+      await expectLater(
+        MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: rezka,
+          orderId: orderId,
+          action: 'complete',
+          producedQty: 40,
+          grossQty: 5,
+          uom: 'm',
+        ),
+        throwsA(
+          isA<MobileApiException>().having(
+            (error) => error.code,
+            'code',
+            'rezka_progress_metrics_required',
+          ),
+        ),
+      );
+      final completed =
+          await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: rezka,
+        orderId: orderId,
+        action: 'complete',
+        producedQty: 40,
+        grossQty: 5,
+        rezkaEdgeWaste: 1,
+        uom: 'm',
+      );
+      expect(completed.states[orderId], 'completed');
+      expect(completed.progressBatches, hasLength(4));
+      expect(completed.progressBatches.first.rezkaEdgeWaste, 1);
+    },
+  );
+
   test('started alternative apparatus locks the whole alternative group', () {
     const map = ProductionMapDefinition(
       id: 'zakaz-edit-policy-group',
@@ -5171,7 +5347,7 @@ void main() {
     await tester.tap(find.text('Boshlash'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Rulonni tugatish'), findsOneWidget);
+    expect(find.text('Rulonni tugatish'), findsNothing);
 
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
