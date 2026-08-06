@@ -21,7 +21,9 @@ const qolipDefaultColors = <QolipColorOption>[
   QolipColorOption(name: 'Binafsha', value: '#8E24AA'),
   QolipColorOption(name: 'Pushti', value: '#D81B60'),
   QolipColorOption(name: 'Jigarrang', value: '#6D4C41'),
+  QolipColorOption(name: 'Tilla', value: '#D4A72C'),
   QolipColorOption(name: 'Kulrang', value: '#757575'),
+  QolipColorOption(name: 'Matlak', value: '#B7BCC2'),
   QolipColorOption(name: 'Qora', value: '#212121'),
   QolipColorOption(name: 'Oq', value: '#FFFFFF'),
 ];
@@ -56,8 +58,8 @@ class QolipColorPicker extends StatelessWidget {
 
   final String? selectedColor;
   final ValueChanged<String>? onChanged;
-  final Set<String>? selectedColors;
-  final ValueChanged<Set<String>>? onColorsChanged;
+  final List<String>? selectedColors;
+  final ValueChanged<List<String>>? onColorsChanged;
   final int? maxSelectedColors;
   final bool enabled;
   final int? availablePantonNumber;
@@ -74,14 +76,25 @@ class QolipColorPicker extends StatelessWidget {
         onChanged?.call(value);
         return;
       }
-      final next = {...selectedColors!};
-      if (!next.add(value)) {
-        next.remove(value);
+      final next = [...selectedColors!];
+      final selectedIndex = next.indexOf(value);
+      if (selectedIndex >= 0) {
+        next.removeAt(selectedIndex);
       } else if (maxSelectedColors != null &&
-          next.length > maxSelectedColors!) {
+          next.length >= maxSelectedColors!) {
         return;
+      } else {
+        next.add(value);
       }
       onColorsChanged!(next);
+    }
+
+    int? selectionNumberFor(String value) {
+      if (!multiSelect) {
+        return null;
+      }
+      final index = selectedColors!.indexOf(value);
+      return index < 0 ? null : index + 1;
     }
 
     bool isSelected(String value) {
@@ -100,6 +113,7 @@ class QolipColorPicker extends StatelessWidget {
             option: option,
             selected: isSelected(option.value),
             isPanton: false,
+            selectionNumber: selectionNumberFor(option.value),
             onTap: enabled ? () => selectColor(option.value) : null,
           ),
         if (pantonNumber != null)
@@ -112,6 +126,9 @@ class QolipColorPicker extends StatelessWidget {
                 ? selectedColors!.contains(qolipPantonColorValue(pantonNumber))
                 : selectedPantonNumber == pantonNumber,
             isPanton: true,
+            selectionNumber: selectionNumberFor(
+              qolipPantonColorValue(pantonNumber),
+            ),
             onTap: enabled
                 ? () => selectColor(qolipPantonColorValue(pantonNumber))
                 : null,
@@ -126,12 +143,14 @@ class _QolipColorTile extends StatelessWidget {
     required this.option,
     required this.selected,
     required this.isPanton,
+    this.selectionNumber,
     this.onTap,
   });
 
   final QolipColorOption option;
   final bool selected;
   final bool isPanton;
+  final int? selectionNumber;
   final VoidCallback? onTap;
 
   @override
@@ -175,15 +194,30 @@ class _QolipColorTile extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 25,
-                        color:
-                            qolipColorValue(option.value).computeLuminance() >
+                    ? selectionNumber == null
+                        ? Icon(
+                            Icons.check_rounded,
+                            size: 25,
+                            color: qolipColorValue(option.value)
+                                        .computeLuminance() >
                                     0.65
                                 ? scheme.onSurface
                                 : Colors.white,
-                      )
+                          )
+                        : Center(
+                            child: Text(
+                              '$selectionNumber',
+                              style: TextStyle(
+                                color: qolipColorValue(option.value)
+                                            .computeLuminance() >
+                                        0.65
+                                    ? scheme.onSurface
+                                    : Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          )
                     : null,
               ),
               const SizedBox(height: 3),

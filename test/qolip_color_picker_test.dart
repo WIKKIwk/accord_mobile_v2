@@ -3,13 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('qolip has thirteen default color options including white', () {
-    expect(qolipDefaultColors, hasLength(13));
+  test('qolip has fifteen default color options including new colors', () {
+    expect(qolipDefaultColors, hasLength(15));
     expect(qolipDefaultColors.map((option) => option.value).toSet(),
-        hasLength(13));
+        hasLength(15));
     expect(
       qolipDefaultColors,
       contains(const QolipColorOption(name: 'Oq', value: '#FFFFFF')),
+    );
+    expect(
+      qolipDefaultColors,
+      contains(const QolipColorOption(name: 'Tilla', value: '#D4A72C')),
+    );
+    expect(
+      qolipDefaultColors,
+      contains(const QolipColorOption(name: 'Matlak', value: '#B7BCC2')),
     );
   });
 
@@ -58,9 +66,28 @@ void main() {
     expect(selected, '#FFFFFF');
   });
 
+  testWidgets('qolip color picker returns the added colors', (tester) async {
+    String? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QolipColorPicker(
+            selectedColor: selected,
+            onChanged: (value) => selected = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Tilla'));
+    expect(selected, '#D4A72C');
+    await tester.tap(find.text('Matlak'));
+    expect(selected, '#B7BCC2');
+  });
+
   testWidgets('qolip color picker supports a limited multi-selection',
       (tester) async {
-    var selected = <String>{};
+    var selected = <String>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -82,6 +109,9 @@ void main() {
     await tester.tap(find.text('Sariq'));
     await tester.pump();
 
-    expect(selected, {'#E53935', '#FB8C00'});
+    expect(selected, ['#E53935', '#FB8C00']);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
   });
 }

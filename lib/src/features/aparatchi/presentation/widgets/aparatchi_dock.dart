@@ -83,6 +83,14 @@ class AparatchiDock extends StatelessWidget {
                     AppRoutes.apparatusDailyWork,
                   ),
                 ),
+                AdminFabMenuAction(
+                  title: 'Paddonlar',
+                  icon: Icons.inventory_2_rounded,
+                  onTap: () => AppRootNavigation.replaceRootRoute(
+                    context,
+                    AppRoutes.apparatusPaddons,
+                  ),
+                ),
               ],
             );
             return;

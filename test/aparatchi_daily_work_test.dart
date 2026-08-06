@@ -53,6 +53,96 @@ void main() {
     expect(adminProgressBatchOrderCount(daily), 1);
   });
 
+  testWidgets('daily work groups WIPs under their order', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.aparatchi,
+      displayName: 'Rezka operatori',
+      legalName: '',
+      ref: 'rezka-group-test',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['Rezka 1'],
+    );
+    final day = DateTime(2026, 8, 1);
+    final batches = [
+      _batch(
+        batchId: 'order-group-wip-1',
+        orderId: 'order-group',
+        apparatus: 'Rezka 1',
+        startedAt: day.add(const Duration(hours: 8)),
+      ),
+      _batch(
+        batchId: 'order-group-wip-2',
+        orderId: 'order-group',
+        apparatus: 'Rezka 1',
+        startedAt: day.add(const Duration(hours: 10)),
+      ),
+      _batch(
+        batchId: 'other-order-wip-1',
+        orderId: 'other-order',
+        apparatus: 'Rezka 1',
+        startedAt: day.add(const Duration(hours: 11)),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AparatchiDailyWorkScreen(
+          initialDate: day,
+          historyLoader: () async => batches,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('daily-work-order-group-order-group')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('daily-work-order-group-other-order')),
+      findsOneWidget,
+    );
+    expect(find.text('order-group'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-card-order-group-wip-1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-card-order-group-wip-2')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-order-header-order-group')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-card-order-group-wip-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('daily-work-wip-card-order-group-wip-2')),
+      findsOneWidget,
+    );
+
+    AppSession.instance.token = null;
+    AppSession.instance.profile = null;
+  });
+
   test('daily WIP history is not restricted by apparatus name', () {
     final day = DateTime(2026, 8, 1);
     final daily = adminProgressBatchesForLocalDay(
@@ -149,6 +239,10 @@ void main() {
       find.text('Pechatchi tomonidan chiqarilgan WIP va orderlar'),
       findsOneWidget,
     );
+    await tester.tap(
+      find.byKey(const ValueKey('daily-work-order-header-gesture-order')),
+    );
+    await tester.pumpAndSettle();
     final card = find.byKey(const ValueKey('daily-work-wip-card-gesture-wip'));
     expect(card, findsOneWidget);
     expect(find.text('WIP ID'), findsNothing);

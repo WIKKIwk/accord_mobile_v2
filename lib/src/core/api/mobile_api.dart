@@ -33,6 +33,7 @@ import 'json_payload_decoder.dart';
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
+part 'admin/mobile_api_paddons.dart';
 part 'admin/mobile_api_factory_locations.dart';
 part 'admin/mobile_api_inventory_movements.dart';
 part 'auth/mobile_api_auth_profile.dart';

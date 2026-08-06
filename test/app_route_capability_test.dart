@@ -156,6 +156,8 @@ void main() {
     );
 
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusDailyWork), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusPaddons), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.apparatusPaddonDetail), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminProgressQrScan), isTrue);
   });
 

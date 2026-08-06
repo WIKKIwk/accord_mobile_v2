@@ -79,6 +79,34 @@ int adminProgressBatchOrderCount(Iterable<AdminProgressBatch> batches) {
   }.length;
 }
 
+List<_DailyWorkOrderGroup> _dailyWorkOrderGroups(
+  Iterable<AdminProgressBatch> batches,
+) {
+  final groups = <String, _DailyWorkOrderGroup>{};
+  for (final batch in batches) {
+    final orderId = batch.orderId.trim();
+    final groupKey =
+        orderId.isEmpty ? 'batch:${batch.batchId.trim()}' : orderId;
+    final group = groups.putIfAbsent(
+      groupKey,
+      () => _DailyWorkOrderGroup(
+        key: groupKey,
+        orderId: orderId.isEmpty ? '—' : orderId,
+      ),
+    );
+    group.batches.add(batch);
+  }
+  return groups.values.toList(growable: false);
+}
+
+class _DailyWorkOrderGroup {
+  _DailyWorkOrderGroup({required this.key, required this.orderId});
+
+  final String key;
+  final String orderId;
+  final List<AdminProgressBatch> batches = [];
+}
+
 int _dailyWorkActivityUnix(AdminProgressBatch batch) {
   if (batch.completedAtUnix > 0) {
     return batch.completedAtUnix;
@@ -332,22 +360,160 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
               if (batches.isEmpty)
                 const _DailyWorkEmpty()
               else
-                for (var index = 0; index < batches.length; index++)
+                for (final group in _dailyWorkOrderGroups(batches))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _DailyWorkWipCard(
-                      key: ValueKey(
-                        'daily-work-wip-card-${batches[index].batchId}',
-                      ),
-                      batch: batches[index],
-                      index: index,
-                      onLongPress: () => _showWip(batches[index]),
+                    child: _DailyWorkOrderGroupCard(
+                      key: ValueKey('daily-work-order-group-${group.key}'),
+                      group: group,
+                      onLongPress: _showWip,
                     ),
                   ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _DailyWorkOrderGroupCard extends StatefulWidget {
+  const _DailyWorkOrderGroupCard({
+    super.key,
+    required this.group,
+    required this.onLongPress,
+  });
+
+  final _DailyWorkOrderGroup group;
+  final ValueChanged<AdminProgressBatch> onLongPress;
+
+  @override
+  State<_DailyWorkOrderGroupCard> createState() =>
+      _DailyWorkOrderGroupCardState();
+}
+
+class _DailyWorkOrderGroupCardState extends State<_DailyWorkOrderGroupCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final group = widget.group;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: ValueKey('daily-work-order-header-${group.key}'),
+                onTap: () => setState(() => _expanded = !_expanded),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 4, 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.receipt_long_rounded,
+                        size: 20,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Order',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              group.orderId,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          child: Text(
+                            '${group.batches.length} ta WIP',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        _expanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Column(
+                        children: [
+                          for (var index = 0;
+                              index < group.batches.length;
+                              index++)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _DailyWorkWipCard(
+                                key: ValueKey(
+                                  'daily-work-wip-card-${group.batches[index].batchId}',
+                                ),
+                                batch: group.batches[index],
+                                index: index,
+                                onLongPress: () =>
+                                    widget.onLongPress(group.batches[index]),
+                              ),
+                            ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -544,10 +710,6 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                         key: const ValueKey('daily-work-expanded-details'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _DailyWorkInfoRow(
-                            label: 'Order',
-                            value: _dailyWorkValue(widget.batch.orderId),
-                          ),
                           if (widget.batch.batchId.trim().isNotEmpty)
                             _DailyWorkInfoRow(
                               label: 'WIP ID',
@@ -625,8 +787,8 @@ class _DailyWorkCompactDetails extends StatelessWidget {
       children: [
         Expanded(
           child: _DailyWorkCompactValue(
-            label: 'Order',
-            value: _dailyWorkValue(batch.orderId),
+            label: 'WIP',
+            value: _dailyWorkValue(batch.batchId),
           ),
         ),
         const SizedBox(width: 12),

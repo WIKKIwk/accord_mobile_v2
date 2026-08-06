@@ -48,6 +48,13 @@ class AparatchiNavigationDrawer extends StatelessWidget {
             label: 'Kunlik ish',
             routeName: AppRoutes.apparatusDailyWork,
           ),
+        if (showDailyWork)
+          const RoleNavigationDrawerDestination(
+            icon: Icons.inventory_2_outlined,
+            selectedIcon: Icons.inventory_2_rounded,
+            label: 'Paddonlar',
+            routeName: AppRoutes.apparatusPaddons,
+          ),
         const RoleNavigationDrawerDestination(
           icon: Icons.menu_book_outlined,
           selectedIcon: Icons.menu_book_rounded,

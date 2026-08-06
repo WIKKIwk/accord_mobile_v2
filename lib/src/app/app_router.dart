@@ -1,6 +1,8 @@
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/app_entry_screen.dart';
 import '../features/aparatchi/presentation/aparatchi_daily_work_screen.dart';
+import '../features/aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
+import '../features/aparatchi/presentation/aparatchi_paddons_screen.dart';
 import '../features/aparatchi/presentation/aparatchi_work_instructions_screen.dart';
 import '../features/customer/presentation/customer_delivery_detail_screen.dart';
 import '../features/customer/presentation/customer_home_screen.dart';
@@ -181,6 +183,8 @@ class AppRoutes {
   static const String apparatusWorkInstructions =
       '/apparatus-work-instructions';
   static const String apparatusDailyWork = '/apparatus-daily-work';
+  static const String apparatusPaddons = '/apparatus-paddons';
+  static const String apparatusPaddonDetail = '/apparatus-paddon-detail';
   static const String adminSuppliers = '/admin-suppliers';
   static const String adminWorkerSettings = '/admin-worker-settings';
   static const String adminWarehouses = '/admin-warehouses';
@@ -247,6 +251,8 @@ class AppRouter {
     AppRoutes.apparatusQueue,
     AppRoutes.apparatusWorkInstructions,
     AppRoutes.apparatusDailyWork,
+    AppRoutes.apparatusPaddons,
+    AppRoutes.apparatusPaddonDetail,
     AppRoutes.adminSuppliers,
     AppRoutes.adminWorkerSettings,
     AppRoutes.adminUserCreate,
@@ -604,6 +610,22 @@ class AppRouter {
           settings,
           const AparatchiDailyWorkScreen(),
         );
+      case AppRoutes.apparatusPaddons:
+        return _buildRoute(settings, const AparatchiPaddonsScreen());
+      case AppRoutes.apparatusPaddonDetail:
+        final args = settings.arguments;
+        final code = args is AparatchiPaddonDetailArgs
+            ? args.code
+            : args is String
+                ? args
+                : '';
+        if (code.trim().isEmpty) {
+          return _buildRoute(settings, const AparatchiPaddonsScreen());
+        }
+        return _buildRoute(
+          settings,
+          AparatchiPaddonDetailScreen(code: code),
+        );
       case AppRoutes.adminSuppliers:
         return _buildRoute(settings, const AdminSuppliersScreen());
       case AppRoutes.adminWorkerSettings:
@@ -955,6 +977,14 @@ class AppRouter {
       'apparatus.queue.manage',
     },
     AppRoutes.apparatusDailyWork: {
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
+    },
+    AppRoutes.apparatusPaddons: {
+      'apparatus.queue.read',
+      'apparatus.queue.manage',
+    },
+    AppRoutes.apparatusPaddonDetail: {
       'apparatus.queue.read',
       'apparatus.queue.manage',
     },

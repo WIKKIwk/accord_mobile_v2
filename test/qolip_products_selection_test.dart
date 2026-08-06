@@ -79,6 +79,8 @@ void main() {
       'Q-FREE',
       'Q-PRODUCT',
       'Q-COLOR',
+      'Q-TILLA',
+      'Q-MATLAK',
       'Z-TEMPLATE-7',
       'A-TEMPLATE-2',
       ...[
@@ -331,6 +333,50 @@ void main() {
       withQolipOnly: true,
     );
     expect(products.single.qolipColor, '#E53935');
+  });
+
+  test('qolip added palette colors are saved and returned in a batch',
+      () async {
+    const product = QolipProduct(
+      code: 'DEMO-EXTENDED-COLORS',
+      name: 'Qo‘shimcha rangli qolip',
+      itemGroup: 'Demo tayyor mahsulotlar',
+    );
+    final tilla = qolipDefaultColors
+        .singleWhere((option) => option.name == 'Tilla')
+        .value;
+    final matlak = qolipDefaultColors
+        .singleWhere((option) => option.name == 'Matlak')
+        .value;
+
+    final saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
+      product: product,
+      specs: [
+        QolipProductSpecBatchItem(
+          qolipCode: 'Q-TILLA',
+          size: 42,
+          qolipColor: tilla,
+        ),
+        QolipProductSpecBatchItem(
+          qolipCode: 'Q-MATLAK',
+          size: 42,
+          qolipColor: matlak,
+        ),
+      ],
+    );
+
+    expect(saved.map((item) => item.qolipColor), [tilla, matlak]);
+    final products = await MobileApi.instance.qolipProducts(
+      query: 'Q-',
+      withQolipOnly: true,
+    );
+    expect(
+      products
+          .where((item) =>
+              item.qolipCode == 'Q-TILLA' || item.qolipCode == 'Q-MATLAK')
+          .map((item) => item.qolipColor),
+      [tilla, matlak],
+    );
   });
 
   test('duplicate qolip code create is rejected without overwriting', () async {

@@ -3501,7 +3501,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   QolipProduct? _product;
   List<QolipProduct> _selectedProducts = const <QolipProduct>[];
   List<QolipProduct> _savedProductSpecs = const <QolipProduct>[];
-  final Set<String> _selectedColors = <String>{};
+  final List<String> _selectedColors = <String>[];
   bool _batchCodesExpanded = false;
   String? _rowLetter;
   int? _columnNumber;
@@ -3760,7 +3760,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       );
       return;
     }
-    final colors = _selectedColors.toList()..shuffle();
+    final colors = _selectedColors.toList(growable: false);
     final batchItems = [
       for (var index = 0; index < draft.codes.length; index++)
         QolipProductSpecBatchItem(

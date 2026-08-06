@@ -48,14 +48,11 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     super.initState();
     if (_scannerSupported) {
       _controller = MobileScannerController(
-        autoStart: false,
+        autoStart: true,
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
         formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_startScanner());
-      });
     }
   }
 
