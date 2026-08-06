@@ -29,6 +29,11 @@ class BluetoothPrinterChannel(
         private const val TAG = "BluetoothPrinter"
         private const val PERMISSION_REQUEST_CODE = 4917
         private const val PRINT_TIMEOUT_MS = 25_000L
+        // The SDK callback confirms that the TSPL bytes reached Bluetooth,
+        // not that XP-P323B finished feeding the label. Keep the channel
+        // busy for one label's mechanical print time before allowing the
+        // next batch item to start.
+        private const val PRINT_SETTLE_MS_PER_LABEL = 1_200L
         private const val LABEL_WIDTH_MM = 56.0
         private const val LABEL_HEIGHT_MM = 60.0
         // XP-P323B is 203 dpi, so a 56 x 60 mm label is approximately
@@ -727,20 +732,25 @@ class BluetoothPrinterChannel(
         if (activeConnection === connection) {
             activePrintFailure = null
         }
-        printBusy.set(false)
-        activity.runOnUiThread {
-            result.success(
-                mapOf(
-                    "ok" to true,
-                    "status" to "done",
-                    "bytes" to bytes,
-                    "deviceName" to "XP-P323B",
-                    "address" to address,
-                    "label_count" to labelCount,
-                    "printer_status" to "Bluetooth OK",
-                ),
-            )
-        }
+        val response = mapOf(
+            "ok" to true,
+            "status" to "done",
+            "bytes" to bytes,
+            "deviceName" to "XP-P323B",
+            "address" to address,
+            "label_count" to labelCount,
+            "printer_status" to "Bluetooth OK",
+        )
+        mainHandler.postDelayed({
+            printBusy.set(false)
+            activity.runOnUiThread {
+                result.success(response)
+            }
+        }, printSettleDelayMs(labelCount))
+    }
+
+    private fun printSettleDelayMs(labelCount: Int): Long {
+        return PRINT_SETTLE_MS_PER_LABEL * labelCount.coerceIn(1, 100).toLong()
     }
 
     private fun finishError(

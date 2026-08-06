@@ -6,6 +6,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let channelName = "accord/bluetooth_printer"
   private static let discoveryChannelName = "accord/bluetooth_printer/discovery"
   private static let printTimeout: TimeInterval = 25
+  // BLE completion confirms that TSPL bytes were transferred, not that the
+  // XP-P323B finished feeding the label. Hold the channel busy for one
+  // label's mechanical print time before the next batch item starts.
+  private static let printSettlePerLabel: TimeInterval = 1.2
   private static let scanTimeout: TimeInterval = 6
   private static let writeCharacteristicTimeout: TimeInterval = 8
   private static let writeCharacteristicPollInterval: TimeInterval = 0.1
@@ -393,9 +397,8 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     writeReadyWorkItem = nil
     writeReadyDeadline = nil
     printJob = nil
-    printBusy = false
     sendStarted = false
-    job.result([
+    let response: [String: Any] = [
       "ok": true,
       "status": "done",
       "bytes": bytes,
@@ -403,7 +406,12 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       "address": peripheral.identifier.uuidString,
       "label_count": job.label.printCount,
       "printer_status": "Bluetooth OK",
-    ])
+    ]
+    let settleDelay = Self.printSettlePerLabel * Double(max(1, job.label.printCount))
+    DispatchQueue.main.asyncAfter(deadline: .now() + settleDelay) { [weak self] in
+      self?.printBusy = false
+      job.result(response)
+    }
   }
 
   private func finishPrintError(code: String, message: String) {
