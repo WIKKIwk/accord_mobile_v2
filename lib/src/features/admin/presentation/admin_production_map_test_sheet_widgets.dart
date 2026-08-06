@@ -119,16 +119,6 @@ class _DismissibleBottomSheetFrame extends StatelessWidget {
   }
 }
 
-class _ProductionMapOrderNumberDialog extends StatefulWidget {
-  const _ProductionMapOrderNumberDialog({required this.initialValue});
-
-  final String initialValue;
-
-  @override
-  State<_ProductionMapOrderNumberDialog> createState() =>
-      _ProductionMapOrderNumberDialogState();
-}
-
 class _ApparatusGroupPickResult {
   const _ApparatusGroupPickResult({this.apparatus, this.skip = false});
 
@@ -201,119 +191,89 @@ class _ApparatusGroupPickerSheet extends StatelessWidget {
   }
 }
 
-class _ProductionMapOrderNumberDialogState
-    extends State<_ProductionMapOrderNumberDialog> {
-  late final TextEditingController _controller;
-  String? _errorText;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final value = _controller.text.trim();
-    if (!RegExp(r'^\d{4}$').hasMatch(value)) {
-      setState(() => _errorText = '4 xonali raqam kiriting');
-      return;
-    }
-    Navigator.of(context).pop(value);
-  }
+class _ProductionMapOrderConfirmationDialog extends StatelessWidget {
+  const _ProductionMapOrderConfirmationDialog();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final viewInsets = MediaQuery.viewInsetsOf(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: viewInsets.bottom),
-      child: SafeArea(
-        top: false,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Zakaz raqami',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
+    return SafeArea(
+      top: false,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Zakaz ochish',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        IconButton(
+                      ),
+                      IconButton(
+                        key: const ValueKey(
+                          'production-map-order-confirm-close',
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
                           key: const ValueKey(
-                            'production-map-order-number-close',
+                            'production-map-order-cancel',
                           ),
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const ValueKey('production-map-order-number-field'),
-                      controller: _controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      maxLength: 4,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(4),
-                      ],
-                      decoration: InputDecoration(
-                        labelText: '4 xonali zakaz raqami',
-                        counterText: '',
-                        errorText: _errorText,
-                      ),
-                      onChanged: (_) {
-                        if (_errorText != null) {
-                          setState(() => _errorText = null);
-                        }
-                      },
-                      onSubmitted: (_) => _save(),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      key: const ValueKey('production-map-confirm-save'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: scheme.primary,
-                        foregroundColor: scheme.onPrimary,
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Bekor qilish'),
                         ),
                       ),
-                      onPressed: _save,
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text('Saqlash'),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          key: const ValueKey('production-map-order-confirm'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: scheme.primary,
+                            foregroundColor: scheme.onPrimary,
+                            minimumSize: const Size.fromHeight(52),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(true),
+                          icon: const Icon(Icons.check_rounded),
+                          label: const Text('Tasdiqlash'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

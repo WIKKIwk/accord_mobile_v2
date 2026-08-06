@@ -66,6 +66,7 @@ class _AdminProductionMapTestScreenState
   static const _maxNodeY = 6000.0;
 
   late final bool _orderMode;
+  late final String _newOrderDraftId;
   late final List<ProductionMapNode> nodes;
   late final List<ProductionMapEdge> edges;
   late final Set<String> _lockedNodeIds;
@@ -76,6 +77,7 @@ class _AdminProductionMapTestScreenState
   Offset? _connectionPreviewEnd;
   bool _savingMap = false;
   late String _orderNumber;
+  late String _savedOrderMapId;
   CalculateOrderTemplate? _templateDraft;
   CalculateOrderTemplate? _lastSavedTemplate;
   List<AdminApparatusGroup> _apparatusGroups = const [];
@@ -92,6 +94,9 @@ class _AdminProductionMapTestScreenState
     _orderMode = !widget.templateOnly &&
         (widget.orderContext != null ||
             (savedMap?.id.trim().startsWith('zakaz-') ?? false));
+    _newOrderDraftId = savedMap == null && _orderMode
+        ? 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}'
+        : '';
     nodes = savedMap != null
         ? List<ProductionMapNode>.from(savedMap.nodes)
         : _orderMode
@@ -104,6 +109,7 @@ class _AdminProductionMapTestScreenState
             : _defaultTestEdges();
     _syncNextNodeIndexFromExistingNodes();
     _orderNumber = savedMap?.orderNumber.trim() ?? '';
+    _savedOrderMapId = savedMap?.id.trim() ?? '';
     _templateDraft = widget.orderContext?.templateDraft;
     unawaited(_loadApparatusGroups());
   }

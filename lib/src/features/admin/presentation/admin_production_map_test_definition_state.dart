@@ -122,10 +122,15 @@ extension _AdminProductionMapTestDefinitionState
     if (_savingMap) {
       return;
     }
-    final orderNumber = _orderMode ? await _resolveOrderNumberForSave() : null;
-    if (_orderMode && orderNumber == null) {
-      return;
+    if (_orderMode && !_orderNumberLocked) {
+      final confirmed = await _requestOrderConfirmation();
+      if (!mounted || !confirmed) {
+        return;
+      }
     }
+    final orderNumber = _orderMode && _orderNumberLocked
+        ? _orderNumber.trim()
+        : null;
     _updateScreenState(() => _savingMap = true);
     try {
       final definition = _currentMapDefinition(orderNumber: orderNumber);
@@ -146,17 +151,21 @@ extension _AdminProductionMapTestDefinitionState
         if (savedTemplate != null) {
           CalculateOrderTemplateStore.instance.remember(savedTemplate);
         }
-        if (orderNumber != null) {
-          _orderNumber = orderNumber;
+        if (_orderMode) {
+          _savedOrderMapId = result.saved.map.id.trim();
+          _orderNumber = result.saved.map.orderNumber.trim();
         }
         showAdminTopNotice(context, 'Production map va zakaz saqlandi');
       } else {
-        await MobileApi.instance.adminSaveProductionMap(definition);
+        final saved = await MobileApi.instance.adminSaveProductionMap(
+          definition,
+        );
         if (!mounted) {
           return;
         }
-        if (orderNumber != null) {
-          _orderNumber = orderNumber;
+        if (_orderMode) {
+          _savedOrderMapId = saved.map.id.trim();
+          _orderNumber = saved.map.orderNumber.trim();
         }
         showAdminTopNotice(context, 'Production map saqlandi');
       }
@@ -180,20 +189,8 @@ extension _AdminProductionMapTestDefinitionState
   bool get _orderNumberLocked =>
       RegExp(r'^\d{4}$').hasMatch(_orderNumber.trim());
 
-  Future<String?> _resolveOrderNumberForSave() async {
-    if (_orderNumberLocked) {
-      return _orderNumber.trim();
-    }
-    return _requestOrderNumber();
-  }
-
-  Future<String?> _requestOrderNumber() {
-    // Uniqueness is enforced server-side on save (duplicate_order_number);
-    // the dialog only checks the 4-digit format.
-    return showProductionMapOrderNumberSheet(
-      context,
-      initialValue: _orderNumber,
-    );
+  Future<bool> _requestOrderConfirmation() {
+    return showProductionMapOrderConfirmationSheet(context);
   }
 
   ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
@@ -221,9 +218,9 @@ extension _AdminProductionMapTestDefinitionState
       id: widget.templateOnly
           ? _templateMapId(context, savedMap)
           : _orderMode
-              ? ((savedMap?.id.trim().isNotEmpty ?? false)
-                  ? savedMap!.id.trim()
-                  : _zakazMapId(normalizedOrderNumber, context: context))
+              ? (_savedOrderMapId.trim().isNotEmpty
+                  ? _savedOrderMapId.trim()
+                  : _newOrderDraftId)
               : (context == null
                   ? (savedMap?.id.trim().isNotEmpty ?? false)
                       ? savedMap!.id.trim()
@@ -247,16 +244,6 @@ extension _AdminProductionMapTestDefinitionState
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );
-  }
-
-  String _zakazMapId(String orderNumber, {ProductionMapOrderContext? context}) {
-    if (RegExp(r'^\d{4}$').hasMatch(orderNumber)) {
-      return 'zakaz-$orderNumber';
-    }
-    if (context != null) {
-      return _orderMapId(context, orderNumber);
-    }
-    return 'production-map-test';
   }
 
   String _templateMapId(

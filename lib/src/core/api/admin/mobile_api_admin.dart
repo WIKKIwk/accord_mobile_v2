@@ -3656,6 +3656,7 @@ MobileApiException _adminProductionMapException(
     message: switch (code.trim().toLowerCase()) {
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
+      'order_number_exhausted' => 'Zakaz raqamlari limiti tugagan',
       'move_not_allowed' => 'Zakaz bu aparatga tushmaydi',
       'started_order_move_requires_transfer' =>
         'Ish boshlangan orderni avval pause qilib avariyaviy ko‘chiring',
@@ -4950,11 +4951,13 @@ extension MobileApiAdmin on MobileApi {
     ProductionMapDefinition map,
   ) async {
     if (await TestModeController.instance.isEnabled()) {
+      final originalMapId = map.id.trim();
+      final normalizedMap = _testModeAssignOrderNumberIfMissing(map);
       final duplicate = _testModeProductionMaps.any(
         (item) =>
             item.map.orderNumber.trim().isNotEmpty &&
-            item.map.orderNumber.trim() == map.orderNumber.trim() &&
-            !_isSameProductionMapOrder(item.map, map),
+            item.map.orderNumber.trim() == normalizedMap.orderNumber.trim() &&
+            !_isSameProductionMapOrder(item.map, normalizedMap),
       );
       if (duplicate) {
         throw const MobileApiException(
@@ -4963,22 +4966,25 @@ extension MobileApiAdmin on MobileApi {
         );
       }
       final saved = ProductionMapSaved(
-        map: map,
+        map: normalizedMap,
         program: ProductionMapProgram(
-          mapId: map.id,
-          productCode: map.productCode,
+          mapId: normalizedMap.id,
+          productCode: normalizedMap.productCode,
           operations: [
-            for (var i = 0; i < map.nodes.length; i++)
+            for (var i = 0; i < normalizedMap.nodes.length; i++)
               ProductionMapOperation(
                 order: i + 1,
-                nodeId: map.nodes[i].id,
-                opCode: map.nodes[i].kind,
-                args: {'title': map.nodes[i].title},
+                nodeId: normalizedMap.nodes[i].id,
+                opCode: normalizedMap.nodes[i].kind,
+                args: {'title': normalizedMap.nodes[i].title},
               ),
           ],
         ),
       );
-      _testModeProductionMaps.removeWhere((item) => item.map.id == map.id);
+      _testModeProductionMaps.removeWhere(
+        (item) =>
+            item.map.id == originalMapId || item.map.id == normalizedMap.id,
+      );
       _testModeProductionMaps.insert(0, saved);
       return saved;
     }
@@ -5016,12 +5022,19 @@ extension MobileApiAdmin on MobileApi {
           message: 'Calculate order validation failed',
         );
       }
+      ProductionMapSaved? savedMapForRollback;
       try {
-        final templateMap = _templateMapCopyForSave(map, template);
-        final orderMap = previousIndex < 0
-            ? _orderMapWithTemplateRezkaKadrCount(map, template)
+        var orderMap = previousIndex < 0
+            ? _testModeAssignOrderNumberIfMissing(map)
             : map;
+        if (previousIndex < 0) {
+          orderMap = _orderMapWithTemplateRezkaKadrCount(orderMap, template);
+        }
+        final orderNumberWasGenerated =
+            previousIndex < 0 && orderMap.id.trim() != map.id.trim();
         final savedMap = await adminSaveProductionMap(orderMap);
+        savedMapForRollback = savedMap;
+        final templateMap = _templateMapCopyForSave(savedMap.map, template);
         final savedTemplateMap = templateMap == null
             ? null
             : await adminSaveProductionMap(templateMap);
@@ -5029,10 +5042,13 @@ extension MobileApiAdmin on MobileApi {
             template.sourceMapId.trim().isNotEmpty &&
                 template.sourceMapId.trim() != savedMap.map.id.trim() &&
                 _isSheetOrderMap(savedMap.map);
+        final templateToSave = orderNumberWasGenerated
+            ? template.copyWith(orderNumber: savedMap.map.orderNumber)
+            : template;
         final savedTemplate = opensQuickTemplateAsOrder
             ? null
             : _testModeUpsertCalculateOrderTemplate(
-                template.copyWith(
+                templateToSave.copyWith(
                   sourceMapId: savedTemplateMap?.map.id ??
                       _templateSourceMapIdForSave(
                         savedMap.map,
@@ -5050,9 +5066,12 @@ extension MobileApiAdmin on MobileApi {
             _testModeProductionMaps[previousIndex] = previousMap;
           }
         } else {
-          _testModeProductionMaps.removeWhere(
-            (item) => item.map.id.trim() == map.id.trim(),
-          );
+          _testModeProductionMaps.removeWhere((item) {
+            final itemId = item.map.id.trim();
+            return itemId == map.id.trim() ||
+                (savedMapForRollback != null &&
+                    itemId == savedMapForRollback!.map.id.trim());
+          });
         }
         rethrow;
       }
@@ -10711,6 +10730,39 @@ bool _isSheetOrderMap(ProductionMapDefinition map) {
   final id = map.id.trim();
   final orderNumber = map.orderNumber.trim();
   return id.startsWith('zakaz-') && RegExp(r'^\d{4}$').hasMatch(orderNumber);
+}
+
+ProductionMapDefinition _testModeAssignOrderNumberIfMissing(
+  ProductionMapDefinition map,
+) {
+  if (map.orderNumber.trim().isNotEmpty ||
+      !map.id.trim().toLowerCase().startsWith('zakaz-draft-')) {
+    return map;
+  }
+  var maxOrderNumber = 0;
+  for (final saved in _testModeProductionMaps) {
+    final value = saved.map.orderNumber.trim();
+    if (!RegExp(r'^\d{1,4}$').hasMatch(value)) {
+      continue;
+    }
+    final parsed = int.tryParse(value);
+    if (parsed != null && parsed > maxOrderNumber) {
+      maxOrderNumber = parsed;
+    }
+  }
+  final nextOrderNumber = maxOrderNumber + 1;
+  if (nextOrderNumber > 9999) {
+    throw const MobileApiException(
+      code: 'order_number_exhausted',
+      message: 'Zakaz raqamlari limiti tugagan',
+    );
+  }
+  final orderNumber = nextOrderNumber.toString().padLeft(4, '0');
+  return map.copyWith(
+    id: 'zakaz-$orderNumber',
+    code: orderNumber,
+    orderNumber: orderNumber,
+  );
 }
 
 ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(

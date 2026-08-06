@@ -237,17 +237,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Zakaz ochish'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('production-map-order-number-field')),
-      '5555',
+    expect(
+      find.text('Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.'),
+      findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
+    await tester.tap(
+      find.byKey(const ValueKey('production-map-order-confirm')),
+    );
     await tester.pumpAndSettle();
 
     final maps = await MobileApi.instance.adminProductionMaps();
-    final opened = maps.firstWhere((item) => item.map.id == 'zakaz-5555');
-    expect(opened.map.code, '5555');
-    expect(opened.map.orderNumber, '5555');
+    final opened = maps.firstWhere((item) => item.map.id != sourceMapId);
+    expect(opened.map.code, opened.map.orderNumber);
+    expect(opened.map.orderNumber, '4445');
     expect(opened.map.nodes.map((node) => node.id), ['start', 'order', 'end']);
     expect(
       opened.map.nodes.every(
@@ -289,11 +291,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Zakaz ochish'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('production-map-order-number-field')),
-      '5555',
+    await tester.tap(
+      find.byKey(const ValueKey('production-map-order-confirm')),
     );
-    await tester.tap(find.byKey(const ValueKey('production-map-confirm-save')));
     await tester.pumpAndSettle();
 
     expect(find.text('Zakaz topilmadi'), findsNothing);

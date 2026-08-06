@@ -561,15 +561,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       showAdminTopNotice(context, error);
       return;
     }
-    final orderNumber = await showProductionMapOrderNumberSheet(context);
-    if (!mounted || orderNumber == null) {
+    final confirmed = await showProductionMapOrderConfirmationSheet(context);
+    if (!mounted || !confirmed) {
       return;
     }
     setState(() => _openingSavedOrder = true);
     try {
       final source = await MobileApi.instance.adminProductionMap(sourceMapId);
       final sourceMap = source.map.withoutAlternativeAssignments();
-      final normalizedOrder = orderNumber.trim();
       final kg = _parseRequiredDouble(_kg.text);
       final savedQuickTemplate = await CalculateOrderTemplateStore.instance
           .upsert(_buildTemplateDraft().copyWith(kg: 0, orderNumber: ''));
@@ -577,10 +576,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
           ? _result!.results.first.baseLength
           : null;
       final clonedMap = sourceMap.copyWith(
-        id: 'zakaz-$normalizedOrder',
+        id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
         title: _resolvedOrderName(),
-        code: normalizedOrder,
-        orderNumber: normalizedOrder,
+        code: '',
+        orderNumber: '',
         productCode: _itemCode.trim().isNotEmpty
             ? _itemCode.trim()
             : sourceMap.productCode,
@@ -591,8 +590,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       );
       final draft = savedQuickTemplate.copyWith(
         id: '',
-        code: normalizedOrder,
-        orderNumber: normalizedOrder,
+        code: '',
+        orderNumber: '',
         kg: kg,
         sourceMapId: sourceMapId,
       );
@@ -607,6 +606,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       if (savedTemplate != null) {
         CalculateOrderTemplateStore.instance.remember(savedTemplate);
       }
+      final normalizedOrder = result.saved.map.orderNumber.trim();
       _templateId = savedQuickTemplate.id;
       _orderCode = savedQuickTemplate.code;
       _sourceMapId = savedQuickTemplate.sourceMapId;

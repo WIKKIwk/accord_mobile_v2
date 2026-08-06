@@ -49,19 +49,18 @@ bool _isRezkaProductionNode(ProductionMapNode node) {
 
 String _formatRezkaNumber(double value) => formatRawQuantity(value);
 
-Future<String?> showProductionMapOrderNumberSheet(
-  BuildContext context, {
-  String initialValue = '',
-}) {
-  return showModalBottomSheet<String>(
+Future<bool> showProductionMapOrderConfirmationSheet(
+  BuildContext context,
+) async {
+  final confirmed = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.32),
-    builder: (context) =>
-        _ProductionMapOrderNumberDialog(initialValue: initialValue),
+    builder: (context) => const _ProductionMapOrderConfirmationDialog(),
   );
+  return confirmed ?? false;
 }
 
 String productionMapBranchDisplayLabel(String branch) {
