@@ -16,6 +16,7 @@ class _ReadOnlyQueueActionRequest {
     this.qolipCodes = const [],
     this.producedQty,
     this.grossQty,
+    this.diameter,
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
     this.laminationFilmLeftoverRolls,
@@ -48,6 +49,7 @@ class _ReadOnlyQueueActionRequest {
   final List<String> qolipCodes;
   final double? producedQty;
   final double? grossQty;
+  final double? diameter;
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
   final double? laminationFilmLeftoverRolls;

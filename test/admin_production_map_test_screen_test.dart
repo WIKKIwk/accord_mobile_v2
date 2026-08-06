@@ -5350,6 +5350,7 @@ void main() {
     await tester.tap(find.text('Tugatish'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Diametr'), findsOneWidget);
     expect(find.text('Bosmachining chiqindisi'), findsOneWidget);
     expect(find.text('Laminatsiya chiqindisi'), findsOneWidget);
     expect(
@@ -5371,6 +5372,7 @@ void main() {
     );
     expect(find.text('Metraj'), findsOneWidget);
     expect(find.text("Og'irlik"), findsOneWidget);
+    expect(find.text('Diametr'), findsOneWidget);
   });
 
   testWidgets('rezka worker detail explains WIP split from map', (

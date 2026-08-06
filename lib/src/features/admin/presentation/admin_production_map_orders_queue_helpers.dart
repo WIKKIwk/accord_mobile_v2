@@ -268,6 +268,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     qolipCodes: request.qolipCodes,
     producedQty: request.producedQty,
     grossQty: request.grossQty,
+    diameter: request.diameter,
     returnInkKg: request.returnInkKg,
     laminationPrintLeftoverRolls: request.laminationPrintLeftoverRolls,
     laminationFilmLeftoverRolls: request.laminationFilmLeftoverRolls,

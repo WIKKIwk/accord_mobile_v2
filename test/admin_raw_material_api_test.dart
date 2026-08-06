@@ -518,6 +518,7 @@ void main() {
         action: 'complete',
         producedQty: 32,
         grossQty: 32,
+        diameter: 45.5,
         rezkaBosmaWaste: 1.25,
         rezkaLaminationWaste: 2.5,
         rezkaEdgeWaste: 0.75,
@@ -526,6 +527,7 @@ void main() {
       );
 
       expect(result.states, {'zakaz-1': 'completed'});
+      expect(result.progressBatch?.diameter, 45.5);
       expect(result.progressBatch?.rezkaBosmaWaste, 1.25);
       expect(result.progressBatch?.rezkaLaminationWaste, 2.5);
       expect(result.progressBatch?.rezkaEdgeWaste, 0.75);
@@ -535,7 +537,7 @@ void main() {
           'BODY POST /v1/mobile/admin/production-maps/queue-action '
           '{"apparatus":"Rezka","order_id":"zakaz-1",'
           '"action":"complete","produced_qty":32.0,"gross_qty":32.0,'
-          '"rezka_bosma_waste":1.25,"rezka_lamination_waste":2.5,'
+          '"diameter":45.5,"rezka_bosma_waste":1.25,"rezka_lamination_waste":2.5,'
           '"rezka_edge_waste":0.75,"uom":"kg",'
           '"driver_url":"http://127.0.0.1:39117"}',
         ),
@@ -1626,6 +1628,7 @@ class _RawMaterialApiHttpClient implements HttpClient {
                   'label_item_code': 'zakaz-1',
                   'label_item_name': 'Zakaz tayyor',
                   'executor_name': 'Rezka operatori',
+                  'diameter': 45.5,
                   'rezka_bosma_waste': 1.25,
                   'rezka_lamination_waste': 2.5,
                   'rezka_edge_waste': 0.75,

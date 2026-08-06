@@ -1885,6 +1885,7 @@ class AdminProgressBatch {
     required this.labelItemCode,
     required this.labelItemName,
     required this.executorName,
+    this.diameter,
     this.returnInkKg,
     this.laminationPrintLeftoverRolls,
     this.laminationFilmLeftoverRolls,
@@ -1926,6 +1927,7 @@ class AdminProgressBatch {
   final String labelItemCode;
   final String labelItemName;
   final String executorName;
+  final double? diameter;
   final double? returnInkKg;
   final double? laminationPrintLeftoverRolls;
   final double? laminationFilmLeftoverRolls;
@@ -1968,6 +1970,7 @@ class AdminProgressBatch {
       labelItemCode: json['label_item_code']?.toString() ?? '',
       labelItemName: json['label_item_name']?.toString() ?? '',
       executorName: json['executor_name']?.toString() ?? '',
+      diameter: (json['diameter'] as num?)?.toDouble(),
       returnInkKg: (json['return_ink_kg'] as num?)?.toDouble(),
       laminationPrintLeftoverRolls:
           (json['lamination_print_leftover_rolls'] as num?)?.toDouble(),
@@ -2026,6 +2029,7 @@ class AdminProgressBatch {
       labelItemCode: labelItemCode,
       labelItemName: labelItemName,
       executorName: executorName,
+      diameter: diameter,
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
@@ -7177,6 +7181,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
+    double? diameter,
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
@@ -7208,6 +7213,7 @@ extension MobileApiAdmin on MobileApi {
       qolipCodes: qolipCodes,
       producedQty: producedQty,
       grossQty: grossQty,
+      diameter: diameter,
       returnInkKg: returnInkKg,
       laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
       laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
@@ -7784,6 +7790,7 @@ extension MobileApiAdmin on MobileApi {
     List<String> qolipCodes = const [],
     double? producedQty,
     double? grossQty,
+    double? diameter,
     double? returnInkKg,
     double? laminationPrintLeftoverRolls,
     double? laminationFilmLeftoverRolls,
@@ -7896,6 +7903,7 @@ extension MobileApiAdmin on MobileApi {
             producedQty ?? finishedGoodsMeter,
           ) &&
           isPositive(grossQty ?? finishedGoodsKg);
+      final hasRezkaDiameter = isPositive(diameter);
       final hasRezkaWaste = [
         totalWaste,
         rezkaBosmaWaste,
@@ -7906,10 +7914,10 @@ extension MobileApiAdmin on MobileApi {
           (action == 'pause' ||
               action == 'roll_complete' ||
               action == 'complete') &&
-          !hasRezkaQuantityMetrics) {
+          (!hasRezkaQuantityMetrics || !hasRezkaDiameter)) {
         throw const MobileApiException(
           code: 'rezka_progress_metrics_required',
-          message: 'Rezka uchun metraj va og‘irlikni kiriting',
+          message: 'Rezka uchun metraj, og‘irlik va diametrni kiriting',
         );
       }
       if (isRezka &&
@@ -8371,6 +8379,7 @@ extension MobileApiAdmin on MobileApi {
                   apparatus: apparatus,
                 )!,
                 inputBatch: activeInputBatch,
+                diameter: diameter,
                 laminationPrintLeftoverRolls: null,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
                 rezkaBosmaWaste: null,
@@ -8451,6 +8460,7 @@ extension MobileApiAdmin on MobileApi {
             apparatus: apparatus,
           )!,
           inputBatch: activeInputBatch,
+          diameter: diameter,
           rezkaBosmaWaste: rezkaBosmaWaste,
           rezkaLaminationWaste: rezkaLaminationWaste,
           rezkaEdgeWaste: rezkaEdgeWaste,
@@ -8700,6 +8710,7 @@ extension MobileApiAdmin on MobileApi {
                   apparatus: apparatus,
                 )!,
                 inputBatch: activeInputBatch,
+                diameter: diameter,
                 returnInkKg: returnInkKg,
                 laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
                 laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
@@ -8893,6 +8904,7 @@ extension MobileApiAdmin on MobileApi {
             'qolip_code': trimmedQolipCode,
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
+          if (diameter != null) 'diameter': diameter,
           if (returnInkKg != null) 'return_ink_kg': returnInkKg,
           if (laminationPrintLeftoverRolls != null)
             'lamination_print_leftover_rolls': laminationPrintLeftoverRolls,
@@ -10950,6 +10962,7 @@ AdminProgressBatch _testModeProgressBatch({
   String? qrPayloadOverride,
   String parentBatchId = '',
   Map<String, dynamic> payloadJson = const {},
+  double? diameter,
   double? returnInkKg,
   double? laminationPrintLeftoverRolls,
   double? laminationFilmLeftoverRolls,
@@ -10988,6 +11001,7 @@ AdminProgressBatch _testModeProgressBatch({
     labelItemCode: orderId,
     labelItemName: '$orderId yarim tayyor, $apparatus holatda, $status',
     executorName: executor,
+    diameter: diameter,
     returnInkKg: returnInkKg,
     laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
     laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
@@ -11085,6 +11099,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   required String uom,
   required int frameCount,
   required AdminProgressBatch? inputBatch,
+  double? diameter,
   double? returnInkKg,
   double? laminationPrintLeftoverRolls,
   double? laminationFilmLeftoverRolls,
@@ -11125,6 +11140,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
         batchIdOverride:
             'test-progress-$baseStamp-$orderId-$action:frame:${index + 1}',
         parentBatchId: parentBatchId,
+        diameter: index == 0 ? diameter : null,
         returnInkKg: index == 0 ? returnInkKg : null,
         laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
         laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,

@@ -356,6 +356,7 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     qolipCodes: qolipCodes,
     producedQty: progressInput?.meterQty,
     grossQty: progressInput?.kgQty,
+    diameter: progressInput?.diameter,
     returnInkKg: progressInput?.returnInkKg,
     laminationPrintLeftoverRolls: progressInput?.laminationPrintLeftoverRolls,
     laminationFilmLeftoverRolls: progressInput?.laminationFilmLeftoverRolls,
