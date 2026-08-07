@@ -39,10 +39,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let progressFieldGapDots = 4
   private static let progressBoldOffsetDots = 1
   private static let progressFieldWidthChars = 24
-  private static let qolipFieldCharWidthDots = 12
+  // FNT_12_20 is rendered slightly wider by XP-P323B than its name
+  // suggests. Use a conservative advance so the value never touches
+  // the field label or its colon on the physical sticker.
+  private static let qolipFieldCharWidthDots = 16
   private static let qolipFieldLineHeightDots = 24
   private static let qolipFieldTopY = 4
-  private static let qolipFieldValueGapDots = 12
+  private static let qolipFieldValueGapDots = 8
   private static let largeQrFooterGapDots = 28
   private static let largeQrFooterLeftShiftDots = 16
   private static let largeQrFooterHeightDots = 24
@@ -839,7 +842,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     fieldLabel: String,
     value: String
   ) -> (command: XTSPLCommand?, nextY: Int) {
-    let labelPart = "\(fieldLabel):"
+    let labelPart = "\(fieldLabel): "
     let valueX = Self.labelLeftMarginDots +
       labelPart.count * Self.qolipFieldCharWidthDots +
       Self.qolipFieldValueGapDots

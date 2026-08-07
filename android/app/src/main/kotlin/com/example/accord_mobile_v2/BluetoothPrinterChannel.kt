@@ -56,10 +56,13 @@ class BluetoothPrinterChannel(
         private const val PROGRESS_FIELD_GAP_DOTS = 4
         private const val PROGRESS_BOLD_OFFSET_DOTS = 1
         private const val PROGRESS_FIELD_WIDTH_CHARS = 24
-        private const val QOLIP_FIELD_CHAR_WIDTH_DOTS = 12
+        // FNT_12_20 is rendered slightly wider by XP-P323B than its name
+        // suggests. Use a conservative advance so the value never touches
+        // the field label or its colon on the physical sticker.
+        private const val QOLIP_FIELD_CHAR_WIDTH_DOTS = 16
         private const val QOLIP_FIELD_LINE_HEIGHT_DOTS = 24
         private const val QOLIP_FIELD_TOP_Y = 4
-        private const val QOLIP_FIELD_VALUE_GAP_DOTS = 12
+        private const val QOLIP_FIELD_VALUE_GAP_DOTS = 8
         private const val LARGE_QR_FOOTER_GAP_DOTS = 28
         private const val LARGE_QR_FOOTER_LEFT_SHIFT_DOTS = 16
         private const val LARGE_QR_FOOTER_HEIGHT_DOTS = 24
@@ -699,7 +702,7 @@ class BluetoothPrinterChannel(
         fieldLabel: String,
         value: String,
     ): Int {
-        val labelPart = "$fieldLabel:"
+        val labelPart = "$fieldLabel: "
         val valueX = LABEL_LEFT_MARGIN_DOTS +
             labelPart.length * QOLIP_FIELD_CHAR_WIDTH_DOTS +
             QOLIP_FIELD_VALUE_GAP_DOTS
