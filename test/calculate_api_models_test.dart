@@ -64,15 +64,11 @@ void main() {
     expect(material.toJson(), isNot(contains('aliases')));
   });
 
-  test('PE oq is saved and calculated as a separate material', () async {
-    final saved = await MobileApi.instance.upsertCalculateMaterial(
-      const CalculateMaterial(
-        id: '',
-        name: 'PE oq',
-        active: true,
-        densityGCm3: 0.93,
-        variants: [CalculateMaterialVariant(micron: 30)],
-      ),
+  test('PE oq and PE qora are separate default materials', () async {
+    final materials = await MobileApi.instance.calculateMaterials();
+    final peOq = materials.firstWhere((item) => item.id == 'builtin-pe-oq');
+    final peQora = materials.firstWhere(
+      (item) => item.id == 'builtin-pe-qora',
     );
 
     final response = await MobileApi.instance.calculate(
@@ -83,17 +79,19 @@ void main() {
         wastePercent: 0,
         layers: [
           CalculateLayerInput(
-            materialId: saved.id,
-            material: saved.name,
+            materialId: peOq.id,
+            material: peOq.name,
             micron: '30',
           ),
         ],
       ),
     );
 
-    expect(saved.name, 'PE oq');
+    expect(peOq.name, 'PE oq');
+    expect(peQora.name, 'PE qora');
+    expect(peQora.id, isNot(peOq.id));
     expect(response.layers.single.material, 'PE oq');
-    expect(response.results.single.totalGsm, closeTo(27.9, 0.001));
+    expect(response.results.single.totalGsm, closeTo(27.6, 0.001));
   });
 
   test('1000 kg PET 12 + PET 12 uses physical GSM formula', () async {

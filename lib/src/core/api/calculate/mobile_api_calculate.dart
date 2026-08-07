@@ -1066,6 +1066,16 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
       ),
     ),
     CalculateMaterial(
+      id: 'builtin-bopp',
+      name: 'BOPP',
+      active: true,
+      densityGCm3: 0.91,
+      variants: _densityCalculateVariants(
+        const [18, ...commonMicrons],
+        0.91,
+      ),
+    ),
+    CalculateMaterial(
       id: 'builtin-bopp-metal',
       name: 'BOPP metal',
       active: true,
@@ -1083,6 +1093,13 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
       variants: _densityCalculateVariants(commonMicrons, 0.90),
     ),
     CalculateMaterial(
+      id: 'builtin-mcpp',
+      name: 'MCPP',
+      active: true,
+      densityGCm3: 0.90,
+      variants: _densityCalculateVariants(commonMicrons, 0.90),
+    ),
+    CalculateMaterial(
       id: 'builtin-cpp',
       name: 'CPP',
       active: true,
@@ -1092,6 +1109,36 @@ List<CalculateMaterial> _defaultCalculateMaterials() {
     CalculateMaterial(
       id: 'builtin-pe',
       name: 'PE',
+      active: true,
+      densityGCm3: 0.92,
+      variants: _densityCalculateVariants(
+        const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+        0.92,
+      ),
+    ),
+    CalculateMaterial(
+      id: 'builtin-pe-oq',
+      name: 'PE oq',
+      active: true,
+      densityGCm3: 0.92,
+      variants: _densityCalculateVariants(
+        const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+        0.92,
+      ),
+    ),
+    CalculateMaterial(
+      id: 'builtin-pe-qora',
+      name: 'PE qora',
+      active: true,
+      densityGCm3: 0.92,
+      variants: _densityCalculateVariants(
+        const [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+        0.92,
+      ),
+    ),
+    CalculateMaterial(
+      id: 'builtin-pe-pr',
+      name: 'PE PR',
       active: true,
       densityGCm3: 0.92,
       variants: _densityCalculateVariants(
